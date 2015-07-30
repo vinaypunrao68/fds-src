@@ -2622,15 +2622,16 @@ OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
  * will deactivate all services on the specified Node
  */
 static Error
-om_deactivate_services(fds_bool_t deactivate_sm,
-                       fds_bool_t deactivate_dm,
-                       fds_bool_t deactivate_am,
-                       NodeAgent::pointer node)
+om_prepare_services_stop(fds_bool_t stop_sm,
+                         fds_bool_t stop_dm,
+                         fds_bool_t stop_am,
+                         NodeAgent::pointer node)
 {
-    LOGDEBUG << "deactivate_sm " << deactivate_sm << ", deactivate_dm "
-             << deactivate_dm << ", deactivate_am " << deactivate_am;
+    LOGDEBUG << "stop_sm " << stop_sm << ", stop_dm "
+             << stop_dm << ", stop_am " <<stop_am;
 
-    if (!deactivate_sm && !deactivate_dm && !deactivate_am) {
+    std::vector<fpi::SvcInfo> svcInfoList;
+    if (!stop_sm && !stop_dm && !stop_am) {
         /**
          * We are being asked to deactivate all defined Services from the given Node.
          * Which services are defined for this Node?
@@ -2639,33 +2640,63 @@ om_deactivate_services(fds_bool_t deactivate_sm,
         kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
 
         if (configDB->getNodeServices(node->get_uuid(), services)) {
+            fpi::SvcInfo svcInfo;
+            fpi::SvcUuid svcUuid;
             if (services.am.uuid_get_val() != 0) {
-                deactivate_am = true;
+                stop_am = true;
+                svcUuid.svc_uuid = services.am.uuid_get_val();
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                if (ret) {
+                    svcInfoList.push_back(svcInfo);
+                }
+                else
+                {
+                    LOGDEBUG <<"AM svcinfo could not be found!";
+                }
             }
             if (services.sm.uuid_get_val() != 0) {
-                deactivate_sm = true;
+                stop_sm = true;
+                svcUuid.svc_uuid = services.sm.uuid_get_val();
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                if (ret) {
+                    svcInfoList.push_back(svcInfo);
+                }
+                else
+                {
+                    LOGDEBUG <<"SM svcinfo could not be found!";
+                }
             }
             if (services.dm.uuid_get_val() != 0) {
-                deactivate_dm = true;
+                stop_dm = true;
+                svcUuid.svc_uuid = services.dm.uuid_get_val();
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                if (ret) {
+                    svcInfoList.push_back(svcInfo);
+                }
+                else
+                {
+                    LOGDEBUG <<"DM svcinfo could not be found!";
+                }
             }
         } else {
             /**
-            * Nothing defined, so nothing to deactivate.
+            * Nothing defined, so nothing to stop.
             * However, we will still send a deactivate services msg to
             * PM so it can choose to check/deactivate unregistered/unknown
             * services
             */
             LOGNOTIFY << "No services defined for node" << std::hex
                       << node->get_uuid().uuid_get_val() << std::dec
-                      << ", but we will send deactivate services msg to PM"
+                      << ", but we will send stop services msg to PM"
                       << " anyway so it can check if there are any uknown"
                       << " or unregistered services";
         }
     }
 
-    Error err = OM_PmAgent::agt_cast_ptr(node)->send_deactivate_services(deactivate_sm,
-                                                                         deactivate_dm,
-                                                                         deactivate_am);
+    fpi::SvcUuid pmSvcUuid;
+    pmSvcUuid.svc_uuid = node->get_uuid().uuid_get_val();
+    Error err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_stop_service(pmSvcUuid, svcInfoList, stop_sm, stop_dm, stop_am);
+
     return err;
 }
 
@@ -2677,13 +2708,13 @@ om_deactivate_services(fds_bool_t deactivate_sm,
  * to PM to kill the corresponding processes
  */
 fds_uint32_t
-OM_NodeContainer::om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                    fds_bool_t deactivate_dm,
-                                                    fds_bool_t deactivate_am)
+OM_NodeContainer::om_cond_bcast_stop_services(fds_bool_t stop_sm,
+                                              fds_bool_t stop_dm,
+                                              fds_bool_t stop_am)
 {
     TRACEFUNC;
-    fds_uint32_t errok_count = dc_pm_nodes->agent_ret_foreach(deactivate_sm, deactivate_dm, deactivate_am,
-                                                              om_deactivate_services);
+    fds_uint32_t errok_count = dc_pm_nodes->agent_ret_foreach(stop_sm, stop_dm, stop_am,
+                                                              om_prepare_services_stop);
     return errok_count;
 }
 

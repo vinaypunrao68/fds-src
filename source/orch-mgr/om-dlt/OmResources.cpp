@@ -1101,7 +1101,7 @@ NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 
         // broadcast deactivate services to all PMs
         // all "false" params mean deactive all services that are running on node
-        fds_uint32_t count = dom_ctrl->om_cond_bcast_deactivate_services(false, false, false);
+        fds_uint32_t count = dom_ctrl->om_cond_bcast_stop_services(false, false, false);
         if (count < 1) {
             // ok if we don't have any PMs, just finish shutdown process
             dst.acks_to_wait = 1;

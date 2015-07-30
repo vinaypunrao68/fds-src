@@ -664,9 +664,9 @@ class OM_NodeContainer : public DomainContainer
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
 
     // broadcast "deactivate services" message to all PMs in the domain
-    virtual fds_uint32_t om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                           fds_bool_t deactivate_dm,
-                                                           fds_bool_t deactivate_am);
+    virtual fds_uint32_t om_cond_bcast_stop_services(fds_bool_t stop_sm,
+                                                     fds_bool_t stop_dm,
+                                                     fds_bool_t stop_am);
 
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
