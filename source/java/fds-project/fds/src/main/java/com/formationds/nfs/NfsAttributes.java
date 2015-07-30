@@ -68,6 +68,10 @@ public class NfsAttributes {
         return new NfsAttributes(metadata);
     }
 
+    public boolean isDirectory() {
+        return getType().equals(Stat.Type.DIRECTORY);
+    }
+
     public Stat asStat() {
         Stat stat = new Stat();
         Stat.Type type = getType();
