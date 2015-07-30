@@ -6,7 +6,6 @@ import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.om.events.EventManagerTest;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -379,12 +378,12 @@ public class FirebreakHelperTest {
         Arrays.asList( rawdata ).forEach( (( r ) -> all.addAll( Arrays.asList( r ) )) );
 
         FirebreakHelper fbh = new FirebreakHelper();
-        Map<String, EnumMap<FirebreakType, FirebreakHelper.VolumeDatapointPair>> m = fbh.findFirebreakEvents( all );
+        Map<Long, EnumMap<FirebreakType, FirebreakHelper.VolumeDatapointPair>> m = fbh.findFirebreakEvents( all );
 
         //
         Assert.assertEquals( 2, m.size() );
-        String v1 = "3";
-        String v2 = "5";
+        Long v1 = 3L;
+        Long v2 = 5L;
         Assert.assertNotNull( m.get( v1 ) );
         Assert.assertNotNull( m.get( v2 ) );
 
