@@ -454,7 +454,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
         return;
     }
 
-    if (inErrorState()) {
+    if (inErrorState() || filterRespAndStateMismatch()) {
         LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
                  << std::hex << executorId << std::dec << " DLT token " << dltToken
                  << " " << error << " since Migration Executor is in " << getState()
