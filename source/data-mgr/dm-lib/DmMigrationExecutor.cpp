@@ -347,10 +347,12 @@ DmMigrationExecutor::notifyStaticMigrationComplete() {
 }
 
 Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+    /* Callback from QOS */
     req->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
             // TODO: Abort migration
             fds_panic("Not handled");
+            delete  fwdCatReq;
             return;
         }
         auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
