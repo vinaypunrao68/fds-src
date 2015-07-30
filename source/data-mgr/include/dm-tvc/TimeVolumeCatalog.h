@@ -120,7 +120,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                 const BlobObjList::const_ptr&,
                                 const MetaDataList::const_ptr&,
                                 const fds_uint64_t)> CommitCb;
-    typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
@@ -130,6 +129,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * will be rejected
      */
     void setUnavailable();
+    fds_bool_t isUnavailable();
 
     /**
      * Notification about new volume managed by this DM.
@@ -322,8 +322,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                  blob_version_t blobVersion,
                                  const fpi::FDSP_BlobObjectList &objList,
                                  const fpi::FDSP_MetaDataList &metaList,
-                                 const sequence_id_t seq_id,
-                                 const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
+                                 const sequence_id_t seq_id);
 
     /**
      * Returns true if there are any pending transactions that started
@@ -342,13 +341,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
             sequence_id_t seq_id, CommitLogTx::ptr commit_data);
 
-    void updateFwdBlobWork(fds_volid_t volId,
-                           const std::string &blobName,
-                           blob_version_t blobVersion,
-                           const fpi::FDSP_BlobObjectList &objList,
-                           const fpi::FDSP_MetaDataList &metaList,
-                           const sequence_id_t seq_id,
-                           const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
     Error getCommitlog(fds_volid_t volId,  DmCommitLog::ptr &commitLog);
 
     /**
@@ -377,6 +369,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     inline VolumeCatalogQueryIface::ptr queryIface() {
         return volcat;
     }
+
+    /**
+     * Method to get % of utilized space for the DM's partition
+     */
+    float_t getUsedCapacityAsPct();
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

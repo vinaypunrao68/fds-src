@@ -11,7 +11,9 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.om.repository.query.QueryCriteria;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 public interface EventRepository extends CRUDRepository<Event, Long> {
 
@@ -29,7 +31,20 @@ public interface EventRepository extends CRUDRepository<Event, Long> {
      * @param v the volume
      * @param type the type of firebreak
      *
-     * @return the latest firebreak for the specified volume.s
+     * @return the latest active firebreak for the specified volume.s
      */
     FirebreakEvent findLatestFirebreak( Volume v, FirebreakType type );
+
+    /**
+     * @param v the volume
+     *
+     * @return the latest active firebreaks for the specified volume ordered by firebreak type
+     */
+    EnumMap<FirebreakType, FirebreakEvent> findLatestFirebreaks( Volume v );
+
+    /**
+     * @return the latest active firebreaks in the last 24 hours for all volumes
+     */
+    Map<Long, EnumMap<FirebreakType, FirebreakEvent>> findLatestFirebreaks();
+
 }

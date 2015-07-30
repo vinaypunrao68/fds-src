@@ -100,6 +100,7 @@ std::string FdsCountersMgr::export_as_graphite()
                         << " " << ts << std::endl;
             }
         }
+	counters->reset();
     }
     return oss.str();
 }
@@ -127,6 +128,7 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
                         dynamic_cast<LatencyCounter*>(c)->count() << std::endl;
             }
         }
+	counters->reset();
     }
 }
 
@@ -152,6 +154,7 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
                         dynamic_cast<LatencyCounter*>(c)->count());
             }
         }
+	counters->reset();
     }
 }
 

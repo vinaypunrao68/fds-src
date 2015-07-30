@@ -246,6 +246,21 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     return err;
 }
 
+Error
+DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
+    auto fwdCatMsg = fwdCatReq->fwdCatMsg;
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(fwdCatMsg->volume_id));
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << fwdCatMsg->volume_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_panic("Unhandled case");
+    	return ERR_NOT_FOUND;
+    }
+    executor->processForwardedCommits(fwdCatReq);
+    return ERR_OK;
+}
 
 void
 DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)

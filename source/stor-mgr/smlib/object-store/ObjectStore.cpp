@@ -112,7 +112,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        DiskCapacityUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
