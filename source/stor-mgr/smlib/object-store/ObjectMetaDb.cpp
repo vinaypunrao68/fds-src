@@ -253,9 +253,10 @@ ObjectMetadataDb::get(fds_volid_t volId,
     PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId);
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
-    fiu_do_on("sm.persist.meta_readfail",
+    fiu_do_on("sm.persist.meta_readfail", err = ERR_NO_BYTES_READ;);
+    fiu_do_on("sm.objectstore.fail.metadata.disk",
               DiskId diskId = smDiskMap->getDiskId(objId, metaTier);\
-              LOGDEBUG << "sm.persist.meta_readfail fault point hit for disk id="
+              LOGDEBUG << "sm.objectstore.fail.metadata.disk fault point hit for disk id="
                        << diskId;
               if (diskId == 12)
               {    err = ERR_NO_BYTES_READ;    } );
@@ -288,9 +289,10 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     ObjectBuf buf;
     objMeta->serializeTo(buf);
     err = odb->Put(objId, buf);
-    fiu_do_on("sm.persist.meta_writefail",\
+    fiu_do_on("sm.persist.meta_writefail", err = ERR_DISK_WRITE_FAILED;);
+    fiu_do_on("sm.objectstore.fail.metadata.disk",\
               DiskId diskId = smDiskMap->getDiskId(objId, metaTier);\
-              LOGDEBUG << "sm.persist.meta_writefail fault point hit for disk id="
+              LOGDEBUG << "sm.objectstore.fail.metadata.disk fault point hit for disk id="
                        << diskId;
               if (diskId == 12)
               {    err = ERR_DISK_WRITE_FAILED;    } );
