@@ -3,9 +3,9 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;
@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
+import static org.apache.hadoop.fs.FileSystem.LOG;
 
 public class FdsInputStream extends InputStream implements Seekable, PositionedReadable {
     private final int objectSize;
@@ -72,6 +73,21 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
         int readLength = read(position, b, off, len);
         position += readLength;
         return readLength;
+    }
+
+    public long length() throws Exception {
+        long byteCount = 0;
+        try {
+            byteCount = unwindExceptions(() -> asyncAm.statBlob(domain, volume, blobName).get()).getByteCount();
+        } catch (ApiException e) {
+            if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                byteCount = 0;
+            } else {
+                LOG.error("Error getting length of " + blobName, e);
+                throw e;
+            }
+        }
+        return Math.max(position, byteCount);
     }
 
     @Override
@@ -132,5 +148,9 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     @Override
     public void readFully(long position, byte[] buffer) throws IOException {
         readFully(position, buffer, 0, buffer.length);
+    }
+
+    public String getBlobName() {
+        return blobName;
     }
 }

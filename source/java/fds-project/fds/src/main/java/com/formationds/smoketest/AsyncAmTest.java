@@ -3,6 +3,12 @@ package com.formationds.smoketest;
 import com.formationds.apis.*;
 import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
+import com.formationds.hadoop.FdsInputStream;
+import com.formationds.hadoop.FdsOutputStream;
+import com.formationds.hadoop.OwnerGroupInfo;
+import com.formationds.index.FdsLuceneDirectory;
+import com.formationds.nfs.InodeIndex;
+import com.formationds.nfs.InodeMetadata;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -12,13 +18,20 @@ import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.Lock;
+import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import javax.security.auth.Subject;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -31,6 +44,81 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+    @Test
+    public void testFdsIndexLock() throws Exception {
+        FdsLuceneDirectory directory = new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE);
+        Lock lock = directory.makeLock("myLock");
+        assertTrue(lock.obtain());
+        assertFalse(lock.obtain());
+        assertTrue(lock.isLocked());
+        lock.close();
+        assertFalse(lock.isLocked());
+        assertEquals(0, directory.listAll().length);
+        IndexOutput output = directory.createOutput("foo", new IOContext());
+        output.writeInt(42);
+        output.writeInt(42);
+        output.writeInt(43);
+        output.getChecksum();
+        output.writeInt(44);
+        output.close();
+        directory.renameFile("foo", "bar");
+        assertEquals("bar", Joiner.on(", ").join(directory.listAll()));
+        IndexInput input = directory.openInput("bar", IOContext.READ);
+        assertEquals(42, input.readInt());
+        directory.deleteFile("bar");
+        assertEquals(0, directory.listAll().length);
+    }
+
+    @Test
+    public void testLuceneDirectorySlice() throws Exception {
+        FdsLuceneDirectory directory = new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE);
+        IndexOutput output = directory.createOutput("foo", IOContext.DEFAULT);
+        output.writeByte((byte) 1);
+        output.writeByte((byte) 2);
+        output.writeByte((byte) 3);
+        output.writeByte((byte) 4);
+        output.close();
+        IndexInput input = directory.openInput("foo", IOContext.DEFAULT);
+        assertEquals(1, input.readByte());
+        assertEquals(2, input.readByte());
+        assertEquals(3, input.readByte());
+        IndexInput slice = input.slice("mySlice", 1, 2);
+        assertEquals(2, slice.readByte());
+        assertEquals(3, slice.readByte());
+        slice.seek(0);
+        assertEquals(2, slice.readByte());
+        assertEquals(3, slice.readByte());
+    }
+
+    @Test
+    public void testReopen() throws Exception {
+        InodeIndex inodeIndex = new InodeIndex((id) -> new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE), null);
+        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, 42, 0);
+        InodeMetadata file = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0755, 43, 0);
+        inodeIndex.index(0, parent, file.withLink(42, "panda"));
+//        inodeIndex.index(0, file.withLink(42, "panda"));
+        Optional<InodeMetadata> metadata = inodeIndex.lookup(parent.asInode(), "panda");
+        assertTrue(metadata.isPresent());
+    }
+
+    @Test
+    public void testFdsOutputStream() throws Exception {
+        FdsOutputStream out = FdsOutputStream.openNew(asyncAm, domainName, volumeName, blobName, OBJECT_SIZE, new OwnerGroupInfo("foo", "bar"));
+        out.write(1);
+        out.write(2);
+        out.flush();
+        out.write(3);
+        out.flush();
+        FdsInputStream in = new FdsInputStream(asyncAm, domainName, volumeName, blobName, OBJECT_SIZE);
+        assertEquals(1, in.read());
+        assertEquals(2, in.read());
+        assertEquals(3, in.read());
+        in.seek(0);
+        assertEquals(1, in.read());
+        assertEquals(2, in.read());
+        assertEquals(3, in.read());
+    }
+
     @Test
     @Ignore
     public void testParallelCreate() throws Exception {
@@ -185,7 +273,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testTransactions() throws Exception {
-    	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
+        // Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         asyncAm.startBlobTx(domainName, volumeName, blobName, 1)
                 .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, tx, bigObject, OBJECT_SIZE, new ObjectOffset(0), false).thenApply(x -> tx))
                 .thenCompose(tx -> asyncAm.updateBlob(domainName, volumeName, blobName, (TxDescriptor) tx, smallObject, smallObjectLength, new ObjectOffset(1), true).thenApply(x -> tx))
@@ -201,13 +289,13 @@ public class AsyncAmTest extends BaseAmTest {
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 1).get();
-        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
-        assertEquals("world",bd1.getMetadata().get("hello"));
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+        assertEquals("world", bd1.getMetadata().get("hello"));
 
         metadata.put("animal", "panda");
         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
         asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
-        BlobDescriptor  bd2= asyncAm.statBlob(domainName, volumeName, blobName).get();
+        BlobDescriptor bd2 = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals(2, bd2.getMetadataSize());
         assertEquals("panda", bd2.getMetadata().get("animal"));
         assertEquals(smallObjectLength, bd2.getByteCount());
@@ -256,18 +344,18 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(OBJECT_SIZE + smallObjectLength, blobDescriptor.getByteCount());
 
         byte[] result = new byte[OBJECT_SIZE];
-        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,OBJECT_SIZE,new ObjectOffset(0)).get();
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, OBJECT_SIZE, new ObjectOffset(0)).get();
         byteBuffer.get(result);
         byte[] bigObjectByteArray = new byte[OBJECT_SIZE];
         bigObject.get(bigObjectByteArray);
         assertArrayEquals(result, bigObjectByteArray);
 
         byte[] result1 = new byte[smallObjectLength];
-        ByteBuffer bb1 = asyncAm.getBlob(FdsFileSystem.DOMAIN,volumeName,blobName,smallObjectLength,new ObjectOffset(1)).get();
+        ByteBuffer bb1 = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, smallObjectLength, new ObjectOffset(1)).get();
         bb1.get(result1);
         byte[] smallObjectByteArray = new byte[smallObjectLength];
         smallObject.get(smallObjectByteArray);
-        assertArrayEquals(smallObjectByteArray,result1);
+        assertArrayEquals(smallObjectByteArray, result1);
 
     }
 
@@ -300,7 +388,7 @@ public class AsyncAmTest extends BaseAmTest {
         buf = new byte[42];
         new Random().nextBytes(buf);
         TxDescriptor tx = asyncAm.startBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, 1).get();
-        asyncAm.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0),false).get();
+        asyncAm.updateBlob(FdsFileSystem.DOMAIN, volumeName, blobName, tx, ByteBuffer.wrap(buf), buf.length, new ObjectOffset(0), false).get();
         asyncAm.commitBlobTx(FdsFileSystem.DOMAIN, volumeName, blobName, tx).get();
 
         bb = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName, Integer.MAX_VALUE, new ObjectOffset(0)).get();
@@ -313,7 +401,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
-                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,"nonExistingVolume",Integer.MAX_VALUE,0,"",BlobListOrder.LEXICOGRAPHIC,false).get());
+                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN, "nonExistingVolume", Integer.MAX_VALUE, 0, "", BlobListOrder.LEXICOGRAPHIC, false).get());
     }
 
     private static ConfigurationService.Iface configService;
