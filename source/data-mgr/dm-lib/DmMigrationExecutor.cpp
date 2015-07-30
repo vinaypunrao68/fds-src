@@ -336,7 +336,7 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 	// TODO - part of error handling (FS-2619)
 }
 
-DmMigrationExecutor::notifyStaticMigrationComplete() {
+void DmMigrationExecutor::notifyStaticMigrationComplete() {
     fds_scoped_lock lock(progressLock);
     fds_assert(migrationProgress == STATICMIGRATION_IN_PROGRESS);
     migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
@@ -348,7 +348,7 @@ DmMigrationExecutor::notifyStaticMigrationComplete() {
 
 Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
-    req->cb = [this](const Error &e, DmRequest *dmReq) {
+    fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
             // TODO: Abort migration
             fds_panic("Not handled");
@@ -363,21 +363,22 @@ Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
              */
             migrationProgress = MIGRATION_COMPLETE;
             LOGNOTIFY << "Applying forwards for volume: "
-                << std::hex << volumeUuid << std::dec << " is complete"
+                << std::hex << volumeUuid << std::dec << " is complete";
             // TODO: Lift up the quiesce
         }
-        delete  fwdCatReq;
-    }
+        delete dmReq;
+    };
     
     fds_scoped_lock lock(progressLock);
     if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
-        forwardedMsgs.push_back(req);
+        forwardedMsgs.push_back(fwdCatReq);
     } else if (migrationProgress  == APPLYING_FORWARDS_IN_PROGRESS) {
         fds_assert(forwardedMsgs.size() == 0);
         msgHandler.addToQueue(fwdCatReq);
     } else {
         fds_panic("Unexpected state encountered");
     }
+    return ERR_OK;
 }
 
 Error

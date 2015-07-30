@@ -69,6 +69,11 @@ class DmMigrationExecutor {
     Error processIncomingDeltaSetCb();
 
     /**
+     * Notification that all the static migration operations have been applied
+     */
+    void notifyStaticMigrationComplete();
+
+    /**
     * @brief Processes forward commit messages.  If the static migration is in progress
     * these messages are buffered.  Otherwise they are sent to QOS controller immediatel
     *
