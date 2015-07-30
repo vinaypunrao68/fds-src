@@ -94,7 +94,7 @@ public class SimpleInodeIndex implements InodeIndex {
             throw new IOException(e);
         }
         cache.invalidate(new CacheKey(volume, fileId));
-        cache.cleanUp();
+        cache.getIfPresent(new CacheKey(volume, fileId));
     }
 
     @Override
