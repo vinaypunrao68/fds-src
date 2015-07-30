@@ -349,8 +349,12 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
 }
 
 void
-SmSuperblockMgr::recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds) {
+SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
+                                            DiskIdSet& hddIds,
+                                            DiskIdSet& ssdIds) {
     SCOPEDWRITE(sbLock);
+    diskMap.erase(failedDiskId);
+    diskDevMap.erase(failedDiskId);
     checkDiskTopology(hddIds, ssdIds);
 }
 
