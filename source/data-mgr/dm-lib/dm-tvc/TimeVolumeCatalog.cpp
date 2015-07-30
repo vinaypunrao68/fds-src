@@ -102,8 +102,8 @@ DmTimeVolCatalog::mod_init(SysParams const *const p) {
 void
 DmTimeVolCatalog::mod_startup() {
     // check if mount point for volume catalog exists
-    fds_bool_t diskTestFailure = DiskUtils::diskFileTest(
-        g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm());
+    std::string path = g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm() + "/.tempFlush";
+    fds_bool_t diskTestFailure = DiskUtils::diskFileTest(path);
     if (!diskTestFailure) {
         // check if we have enough disk space
         float_t pct_used = getUsedCapacityAsPct();
