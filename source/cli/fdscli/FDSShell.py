@@ -9,7 +9,6 @@ from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
 from services.fds_auth_error import FdsAuthError
 from requests.exceptions import ConnectionError
-from services.print_writer import PrintWriter
 
 class FDSShell( cmd.Cmd ):
     '''
