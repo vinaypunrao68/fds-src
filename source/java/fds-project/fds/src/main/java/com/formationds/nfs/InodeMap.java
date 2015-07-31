@@ -5,7 +5,6 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -62,7 +61,7 @@ public class InodeMap {
     }
 
     public static String blobName(Inode inode) {
-        return "inode-" + Hex.encodeHexString(inode.getFileId());
+        return "inode-" + InodeMetadata.fileId(inode);
     }
 
     public Inode create(InodeMetadata metadata) throws IOException {
@@ -80,7 +79,7 @@ public class InodeMap {
                 return tx;
             });
         } catch (Exception e) {
-            LOG.debug("error creating " + blobName + " in volume " + volume, e);
+            LOG.error("error creating " + blobName + " in volume " + volume, e);
             throw new IOException(e);
         }
         return metadata.asInode();
