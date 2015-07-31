@@ -270,6 +270,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                         std::string const& oldBlobName,
                         std::string const& newBlobName,
                         const sequence_id_t seq_id,
+                        DmCommitLog::ptr commitLog,
                         const DmTimeVolCatalog::RenameCb &cb);
 
 

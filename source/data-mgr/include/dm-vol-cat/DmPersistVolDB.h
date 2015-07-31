@@ -124,6 +124,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
             CatWriteBatch & wb) override;
 
+    // namespace operations
+    virtual Error renameBlob(const std::string & oldBlobName,
+                             const std::string & newBlobName) override;
+
     // deletes
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t offset) override;
 

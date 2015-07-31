@@ -546,6 +546,11 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     return rc;
 }
 
+Error DmPersistVolDB::renameBlob(const std::string & oldBlobName,
+                 const std::string & newBlobName) {
+    return ERR_NOT_IMPLEMENTED;
+}
+
 Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t startOffset,
         fds_uint64_t endOffset) {
     // commenting this out to support snapshot delete

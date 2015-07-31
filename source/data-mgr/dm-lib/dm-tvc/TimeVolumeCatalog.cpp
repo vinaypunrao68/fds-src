@@ -415,14 +415,16 @@ DmTimeVolCatalog::renameBlob(fds_volid_t volId,
                              const sequence_id_t seq_id,
                              const DmTimeVolCatalog::RenameCb &cb) {
     TVC_CHECK_AVAILABILITY();
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+
     LOGDEBUG << "Will rename blob '" << oldBlobName << "' volume: '"
             << std::hex << volId << std::dec << "' to '" << newBlobName << "'";
 
     opSynchronizer_.scheduleOnHashKeys(DmPersistVolCat::getBlobIdFromName(oldBlobName),
                                        DmPersistVolCat::getBlobIdFromName(newBlobName),
                                        std::bind(&DmTimeVolCatalog::renameBlobWork,
-                                                 this, volId, oldBlobName, newBlobName, seq_id, cb));
-
+                                                 this, volId, oldBlobName, newBlobName, seq_id, commitLog, cb));
     return ERR_OK;
 }
 
@@ -431,13 +433,28 @@ DmTimeVolCatalog::renameBlobWork(fds_volid_t const volId,
                                  std::string const& oldBlobName,
                                  std::string const& newBlobName,
                                  const sequence_id_t seq_id,
+                                 DmCommitLog::ptr commitLog,
                                  const DmTimeVolCatalog::RenameCb &cb) {
+    // We need to lock the commitLog from snapshots during our rename
     blob_version_t blob_version = blob_version_invalid;
-    cb(ERR_NOT_IMPLEMENTED,
-       blob_version,
-       nullptr,
-       nullptr,
-       0);
+    Error e {ERR_OK};
+    {
+        auto auto_lock = commitLog->getCommitLock();
+
+        // Determine if we are going to have a collision with the new blob name
+        BlobMetaDesc desc;
+        e = volcat->getBlobMetaDesc(volId, newBlobName, desc);
+        if (e.ok() && desc.desc.blob_name != newBlobName) {
+            LOGERROR << "Blob Id collision for new blob " << newBlobName << " on volume "
+                << std::hex << volId << std::dec << " with existing blob "
+                << desc.desc.blob_name;
+            e = Error(ERR_HASH_COLLISION);
+        }
+
+        e = volcat->renameBlob(volId, oldBlobName, newBlobName);
+    }
+
+    cb(e, blob_version, nullptr, nullptr, 0);
 }
 
 
