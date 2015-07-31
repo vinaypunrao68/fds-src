@@ -151,7 +151,7 @@ class TestResponseWriterPrep(BaseCliTest):
         assert sm["Service ID"] == 4
         assert sm["Node Name"] == node.name
         assert sm["Node ID"] == node.id
-        assert sm["State"] == "UNKNOWN"        
+        assert sm["State"] == "RUNNING"        
         
     def test_prep_snapshot(self):
         '''
