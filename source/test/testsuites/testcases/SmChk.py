@@ -66,12 +66,15 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
         current_dlt = dlt.transpose_dlt(dlt.load_dlt(dlt_file))
 
         for node_uuid, tokens in current_dlt.items():
+            self.log.info("Node: {} => Tokens: {}".format(hex(node_uuid), tokens))
+
+        for node_uuid, tokens in current_dlt.items():
             # Setup stuff we'll want to check against
             num_checked_tokens = len(tokens)
 
             tokens_str = str(tokens)[1:-1]
             tokens_str = ''.join(tokens_str.split())
-
+            self.log.info("Starting sm check for node {} with num_tokens = {}".format(hex(node_uuid), num_checked_tokens))
             call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), '--targetTokens', tokens_str])
             res = om_node.nd_agent.exec_wait(call, fds_tools=True)
             if res != 0:
@@ -89,6 +92,7 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
                 # Remember to subtract 1 from node_uuid because it's actually an SM svc uuid
                 if node.nd_uuid is not None and (int(node.nd_uuid, 0) == node_uuid - 1):
                     latest_log = self._get_latest_sm_log(node)
+                    self.log.info("Searching in log file {} for node {}".format(latest_log, node.nd_uuid))
                     fh = open(latest_log, 'r')
                     # Just keep looking until we find the log message
                     result = []
@@ -109,5 +113,8 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
                                                  result[-1][3] == 0 and
                                                  result[-1][4] == 0):
                         return False
-
+                    else:
+                        self.log.info("Completed SM Integrity Check for node {}: totalNumTokens={} totalNumTokensVerified={} "
+                                      "numCorrupted={} numOwnershipMismatches={}"
+                                      .format(node.nd_uuid, result[-1][1], result[-1][2], result[-1][3], result[-1][4]))
         return True
