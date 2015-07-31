@@ -120,6 +120,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                 const BlobObjList::const_ptr&,
                                 const MetaDataList::const_ptr&,
                                 const fds_uint64_t)> CommitCb;
+    using RenameCb = CommitCb;
     typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
@@ -259,11 +260,17 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @param[out] metaList list of metadata key-value pairs of final blob
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      */
-    Error renameBlob(fds_volid_t volId,
+    Error renameBlob(fds_volid_t const volId,
                      const std::string & oldBlobName,
                      const std::string & newBlobName,
-                     fds_uint64_t* blob_size,
-                     fpi::FDSP_MetaDataList * metaList);
+                     const sequence_id_t seq_id,
+                     const DmTimeVolCatalog::RenameCb &cb);
+
+    void renameBlobWork(fds_volid_t const volId,
+                        std::string const& oldBlobName,
+                        std::string const& newBlobName,
+                        const sequence_id_t seq_id,
+                        const DmTimeVolCatalog::RenameCb &cb);
 
 
     /**

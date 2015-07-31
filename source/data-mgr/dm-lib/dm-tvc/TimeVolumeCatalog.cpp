@@ -412,13 +412,32 @@ Error
 DmTimeVolCatalog::renameBlob(fds_volid_t volId,
                              const std::string & oldBlobName,
                              const std::string & newBlobName,
-                             fds_uint64_t* blob_size,
-                             fpi::FDSP_MetaDataList * metaList) {
+                             const sequence_id_t seq_id,
+                             const DmTimeVolCatalog::RenameCb &cb) {
+    TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Will rename blob '" << oldBlobName << "' volume: '"
             << std::hex << volId << std::dec << "' to '" << newBlobName << "'";
-    // TODO(bszmyd): Tue 28 Jul 2015 02:33:30 PM MDT
-    // Implement :P
-    return ERR_NOT_IMPLEMENTED;
+
+    opSynchronizer_.scheduleOnHashKeys(DmPersistVolCat::getBlobIdFromName(oldBlobName),
+                                       DmPersistVolCat::getBlobIdFromName(newBlobName),
+                                       std::bind(&DmTimeVolCatalog::renameBlobWork,
+                                                 this, volId, oldBlobName, newBlobName, seq_id, cb));
+
+    return ERR_OK;
+}
+
+void
+DmTimeVolCatalog::renameBlobWork(fds_volid_t const volId,
+                                 std::string const& oldBlobName,
+                                 std::string const& newBlobName,
+                                 const sequence_id_t seq_id,
+                                 const DmTimeVolCatalog::RenameCb &cb) {
+    blob_version_t blob_version = blob_version_invalid;
+    cb(ERR_NOT_IMPLEMENTED,
+       blob_version,
+       nullptr,
+       nullptr,
+       0);
 }
 
 

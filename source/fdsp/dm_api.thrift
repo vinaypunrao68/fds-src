@@ -310,9 +310,14 @@ struct UpdateCatalogOnceRspMsg {
  * Renames an existing blob with a new name.
  */
 struct RenameBlobMsg {
-  1: i64                        volume_id;
-  2: string                     source_blob;
-  3: string                     destination_blob;
+  /** The ID of the volume */
+  1: i64        volume_id;
+  /** The old blob name */
+  2: string     source_blob;
+  /** The new blob name */
+  3: string     destination_blob;
+  /** Volume update sequencing */
+  4: i64        sequence_id;
 }
 
 /**

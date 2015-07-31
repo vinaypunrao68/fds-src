@@ -1075,6 +1075,7 @@ AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
     message->volume_id = amReq->io_vol_id.get();
     message->source_blob = amReq->getBlobName();
     message->destination_blob = blobReq->new_blob_name;
+    message->sequence_id  = blobReq->vol_sequence;
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, amReq));
     auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,

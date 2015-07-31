@@ -32,6 +32,7 @@ class RenameBlobReq : public AmRequest {
     }
 
     std::string const new_blob_name;
+    fds_uint64_t vol_sequence {0};
 };
 
 }  // namespace fds

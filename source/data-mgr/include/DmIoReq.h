@@ -536,9 +536,11 @@ class DmIoRenameBlob : public DmRequest {
     DmIoRenameBlob(const fds_volid_t& _volId,
                    const std::string& _oldName,
                    const std::string& _newName,
+                   const fds_uint64_t _seqId,
                    boost::shared_ptr<fpi::RenameBlobRespMsg> _message)
         : message(_message), DmRequest(_volId, _oldName, "", blob_version_invalid, FDS_RENAME_BLOB),
-          new_blob_name(_newName)
+          new_blob_name(_newName),
+          seq_id(_seqId)
     {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
@@ -558,6 +560,7 @@ class DmIoRenameBlob : public DmRequest {
     }
     boost::shared_ptr<fpi::RenameBlobRespMsg> message;
     std::string const new_blob_name;
+    fds_uint64_t const seq_id;
     /* response callback */
     CbType dmio_getmd_resp_cb;
 };

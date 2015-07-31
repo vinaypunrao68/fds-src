@@ -1033,6 +1033,7 @@ AmProcessor_impl::renameBlob(AmRequest *amReq) {
         return;
     }
 
+    static_cast<RenameBlobReq*>(amReq)->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::renameBlobCb, amReq);
     amDispatcher->dispatchRenameBlob(amReq);
 }
