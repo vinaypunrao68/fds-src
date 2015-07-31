@@ -1,6 +1,7 @@
 package com.formationds.om.webkit.rest.v07.metrics;
 
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
@@ -50,19 +51,19 @@ public class SystemHealthStatus implements RequestHandler {
     private final Authorizer authorizer;
     private final AuthenticationToken token;
 
-    private final String SERVICES_GOOD = "l_services_good";
-    private final String SERVICES_OKAY = "l_services_not_good";
-    private final String SERVICES_BAD = "l_services_bad";
+    private static final String SERVICES_GOOD = "l_services_good";
+    private static final String SERVICES_OKAY = "l_services_not_good";
+    private static final String SERVICES_BAD  = "l_services_bad";
 
-    private final String CAPACITY_GOOD = "l_capacity_good";
-    private final String CAPACITY_OKAY_THRESHOLD = "l_capacity_not_good_threshold";
-    private final String CAPACITY_OKAY_RATE = "l_capacity_not_good_rate";
-    private final String CAPACITY_BAD_THRESHOLD = "l_capacity_bad_threshold";
-    private final String CAPACITY_BAD_RATE = "l_capacity_bad_rate";
+    private static final String CAPACITY_GOOD           = "l_capacity_good";
+    private static final String CAPACITY_OKAY_THRESHOLD = "l_capacity_not_good_threshold";
+    private static final String CAPACITY_OKAY_RATE      = "l_capacity_not_good_rate";
+    private static final String CAPACITY_BAD_THRESHOLD  = "l_capacity_bad_threshold";
+    private static final String CAPACITY_BAD_RATE       = "l_capacity_bad_rate";
 
-    private final String FIREBREAK_GOOD = "l_firebreak_good";
-    private final String FIREBREAK_OKAY = "l_firebreak_not_good";
-    private final String FIREBREAK_BAD = "l_firebreak_bad";
+    private static final String FIREBREAK_GOOD = "l_firebreak_good";
+    private static final String FIREBREAK_OKAY = "l_firebreak_not_good";
+    private static final String FIREBREAK_BAD  = "l_firebreak_bad";
 
     public SystemHealthStatus(ConfigurationApi configApi,
                               Authorizer authorizer, AuthenticationToken token) {
@@ -78,10 +79,12 @@ public class SystemHealthStatus implements RequestHandler {
 
         List<FDSP_Node_Info_Type> services = configApi.ListServices(0);
 
-        List<VolumeDescriptor> allVolumes = configApi.listVolumes( "" );
-        List<VolumeDescriptor> filteredVolumes = allVolumes.stream()
+        List<VolumeDescriptor> allVolumeDescriptors = configApi.listVolumes( "" );
+        List<Volume> allVolumes = ExternalModelConverter.convertToExternalVolumes( allVolumeDescriptors );
+        List<Volume> filteredVolumes = allVolumes.stream()
                                                            .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
                                                            .collect( Collectors.toList() );
+
 
         SystemHealth serviceHealth = getServiceStatus(services);
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
@@ -141,8 +144,8 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Utility to get the points associated with a particular state
      *
-     * @param state
-     * @return
+     * @param state the state
+     * @return the points for the state
      */
     private int getPointsForState(final HealthState state) {
 
@@ -165,16 +168,13 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to rollup firebreak status for filtered volumes
      *
-     * @param volDescs
-     * @return
+     * @param volumes the list of volumes
+     * @return the firebreak status
      */
-    private SystemHealth getFirebreakStatus(List<VolumeDescriptor> volDescs) {
+    private SystemHealth getFirebreakStatus( List<Volume> volumes ) {
 
         SystemHealth status = new SystemHealth();
         status.setCategory(SystemHealth.CATEGORY.FIREBREAK);
-
-        // convert descriptors into volume objects
-        List<Volume> volumes = convertVolDescriptors(volDescs);
 
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
@@ -248,12 +248,9 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to rollup system capacity status
      */
-    private SystemHealth getCapacityStatus(List<VolumeDescriptor> volDescs) {
+    private SystemHealth getCapacityStatus( List<Volume> volumes ) {
         SystemHealth status = new SystemHealth();
         status.setCategory(SystemHealth.CATEGORY.CAPACITY);
-
-        // convert descriptors into volume objects
-        List<Volume> volumes = convertVolDescriptors(volDescs);
 
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
@@ -265,6 +262,7 @@ public class SystemHealthStatus implements RequestHandler {
                 .withRange(range)
                 .build();
 
+        @SuppressWarnings("unchecked")
         final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>)SingletonRepositoryManager.instance()
                                                                                         .getMetricsRepository()
                                                                                         .query( query );
@@ -281,7 +279,10 @@ public class SystemHealthStatus implements RequestHandler {
                 .getMetricsRepository()
                 .sumPhysicalBytes());
 
-        List<Series> series = new SeriesHelper().getRollupSeries(queryResults, query, StatOperation.SUM);
+        List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
+                                                                  query.getRange(),
+                                                                  query.getSeriesType(),
+                                                                  StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
         CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacity);

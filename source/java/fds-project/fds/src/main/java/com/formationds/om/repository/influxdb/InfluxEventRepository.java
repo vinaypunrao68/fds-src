@@ -19,8 +19,6 @@ import com.formationds.om.repository.query.QueryCriteria;
 import com.google.common.collect.Lists;
 import org.influxdb.dto.Serie;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -278,9 +276,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     public Map<Long, EnumMap<FirebreakType, FirebreakEvent>> findLatestFirebreaks() {
 
         // create base query (select * from EVENT_SERIES_NAME where
-        Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
-        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
-
         QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
         String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         String queryString = new StringBuilder( queryBase )

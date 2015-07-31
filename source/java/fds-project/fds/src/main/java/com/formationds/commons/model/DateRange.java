@@ -86,7 +86,7 @@ public class DateRange extends ModelBase {
      */
     protected DateRange( Long start, Long end, TimeUnit unit ) {
         this.start = start;
-      this.end = end;
+        this.end = end;
         this.unit = unit;
     }
 
@@ -111,8 +111,14 @@ public class DateRange extends ModelBase {
      * @return a new DateRange in the specified unit.
      */
     public DateRange convert( TimeUnit toUnit ) {
+
+        if ( this.unit.equals( toUnit ) ) {
+            return this;
+        }
+
         return new DateRange( toUnit.convert( getStart(), getUnit() ),
-                              toUnit.convert( getEnd(), getUnit() ), toUnit );
+                              toUnit.convert( getEnd(), getUnit() ),
+                              toUnit );
     }
 
     /**
