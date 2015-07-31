@@ -1,8 +1,6 @@
 package com.formationds.om.webkit.rest.v07.metrics;
 
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
@@ -26,6 +24,8 @@ import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
+import com.formationds.protocol.FDSP_NodeState;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
@@ -33,7 +33,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
@@ -79,14 +78,10 @@ public class SystemHealthStatus implements RequestHandler {
 
         List<FDSP_Node_Info_Type> services = configApi.ListServices(0);
 
-        List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
-                .stream()
-                .collect(Collectors.toList());
-
-        List<VolumeDescriptor> filteredVolumes = configApi.listVolumes("")
-                .stream()
-                .filter(v -> authorizer.ownsVolume(token, v.getName()))
-                .collect(Collectors.toList());
+        List<VolumeDescriptor> allVolumes = configApi.listVolumes( "" );
+        List<VolumeDescriptor> filteredVolumes = allVolumes.stream()
+                                                           .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
+                                                           .collect( Collectors.toList() );
 
         SystemHealth serviceHealth = getServiceStatus(services);
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
@@ -189,9 +184,7 @@ public class SystemHealthStatus implements RequestHandler {
                 Metrics.STP_SIGMA,
                 Metrics.LTP_SIGMA);
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+        DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesTypes(metrics)
@@ -205,7 +198,7 @@ public class SystemHealthStatus implements RequestHandler {
         try {
 
             FirebreakHelper fbh = new FirebreakHelper();
-            List<Series> series = fbh.processFirebreak(queryResults);
+            List<Series> series = fbh.processFirebreak( queryResults );
             final Date now = new Date();
 
             long volumesWithRecentFirebreak = series.stream()
@@ -265,9 +258,7 @@ public class SystemHealthStatus implements RequestHandler {
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+        DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesType(Metrics.PBYTES)
@@ -340,12 +331,12 @@ public class SystemHealthStatus implements RequestHandler {
          */
         final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
         	.filter( (s) -> {
-	        	
-	        	if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
+
+                if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
 	        		return false;
 	        	}
-	        	
-	        	return true;
+
+                return true;
 	        })
 	        .collect( Collectors.toList() );
         

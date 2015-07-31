@@ -141,7 +141,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     @Override
 	public List<? extends Event> query(QueryCriteria queryCriteria) {
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
@@ -169,7 +169,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 			List<Long> tenantUsers) {
 
         QueryCriteria criteria = new QueryCriteria( );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         StringBuilder queryString = new StringBuilder( queryBase );
 
         if ( ! queryBase.contains( WHERE )) {
@@ -218,18 +218,14 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     public EnumMap<FirebreakType, FirebreakEvent> findLatestFirebreaks( Volume v ) {
 
         // create base query (select * from EVENT_SERIES_NAME where
-        Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
-        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
-
-        QueryCriteria criteria = new QueryCriteria( new DateRange( tsOneDayAgo ) );
+        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
 
         // criteria is still using old model classes.
         criteria.addContext( new com.formationds.client.v08.model.Volume( Long.valueOf( v.getId() ),
                                                                           v.getName() ) );
 
         String queryBase = formulateQueryString( criteria,
-                                                 FBEVENT_VOL_ID_COLUMN_NAME,
-                                                 TimeUnit.MILLISECONDS );
+                                                 FBEVENT_VOL_ID_COLUMN_NAME );
 
         StringBuilder queryString = new StringBuilder( queryBase )
                                         .append( " " )
@@ -285,8 +281,8 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
         Long tsOneDayAgo = oneDayAgo.toEpochMilli();
 
-        QueryCriteria criteria = new QueryCriteria( new DateRange( tsOneDayAgo ) );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         String queryString = new StringBuilder( queryBase )
                                  .append( " " )
                                  .append( AND )

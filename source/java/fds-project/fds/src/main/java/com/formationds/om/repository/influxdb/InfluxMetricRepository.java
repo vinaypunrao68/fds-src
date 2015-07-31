@@ -321,7 +321,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
@@ -436,7 +436,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
         // execute the query limiting it to the most recent row for the volume
         List<Serie> series = getConnection().getDBReader().query( queryString + " limit 1", TimeUnit.SECONDS );

@@ -29,16 +29,13 @@ public class TestInfluxRepository {
         contexts.add( v1 );
         contexts.add( v2 );
 
-        DateRange range = new DateRange();
-        range.setStart( 0L );
-        range.setEnd( 123456789L );
+        DateRange range = DateRange.between( 0L, 123456789L, TimeUnit.SECONDS );
 
         criteria.setContexts( contexts );
         criteria.setRange( range );
 
         String result = influxRepo.formulateQueryString( criteria,
-                                                         influxRepo.getVolumeIdColumnName().get(),
-                                                         TimeUnit.SECONDS );
+                                                         influxRepo.getVolumeIdColumnName().get() );
 
         String expectation = "select * from volume_metrics where ( time > 0s and time < 123456789s ) " +
                              "and ( volume_id = 123456 or volume_id = 7890 )";
@@ -62,8 +59,7 @@ public class TestInfluxRepository {
         System.out.println( "Testing the query used for the findAll method." );
 
         String result = influxRepo.formulateQueryString( criteria,
-                                                         influxRepo.getVolumeIdColumnName().get(),
-                                                         TimeUnit.SECONDS );
+                                                         influxRepo.getVolumeIdColumnName().get() );
 
         String expectation = "select * from volume_metrics";
 
@@ -89,12 +85,11 @@ public class TestInfluxRepository {
 // For this test, use a fixed time
         Long tsOneDayAgo = 12345678901L;
 
-        QueryCriteria criteria = new QueryCriteria( new DateRange( tsOneDayAgo ) );
+        QueryCriteria criteria = new QueryCriteria( DateRange.since( tsOneDayAgo, TimeUnit.MILLISECONDS ) );
         criteria.setContexts( contexts );
 
         String result = influxEventRepository.formulateQueryString( criteria,
-                                                                    InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME,
-                                                                    TimeUnit.MILLISECONDS );
+                                                                    InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME );
         String expectation = "select * from events where time > " + tsOneDayAgo + "ms" +
                              " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 123456" +
                              " or " +

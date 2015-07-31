@@ -86,15 +86,11 @@ public class SystemHealthStatus implements RequestHandler {
             throws Exception {
 
     	logger.debug( "Retrieving the system health." );
-    	
-        List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
-                .stream()
-                .collect(Collectors.toList());
 
-        List<VolumeDescriptor> filteredVolumes = configApi.listVolumes("")
-                .stream()
-                .filter(v -> authorizer.ownsVolume(token, v.getName()))
-                .collect(Collectors.toList());
+        List<VolumeDescriptor> allVolumes = configApi.listVolumes( "" );
+        List<VolumeDescriptor> filteredVolumes = allVolumes.stream()
+                                                           .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
+                                                           .collect( Collectors.toList() );
 
         SystemHealth serviceHealth = getServiceStatus();
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
@@ -186,7 +182,7 @@ public class SystemHealthStatus implements RequestHandler {
     private SystemHealth getFirebreakStatus(List<VolumeDescriptor> volDescs) {
 
     	logger.debug( "Retrieving firebreak system status." );
-    	
+
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.FIREBREAK.name());
 
@@ -201,9 +197,7 @@ public class SystemHealthStatus implements RequestHandler {
                 Metrics.STP_SIGMA,
                 Metrics.LTP_SIGMA);
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+        DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesTypes(metrics)
@@ -217,7 +211,7 @@ public class SystemHealthStatus implements RequestHandler {
         try {
 
             FirebreakHelper fbh = new FirebreakHelper();
-            List<Series> series = fbh.processFirebreak(queryResults);
+            List<Series> series = fbh.processFirebreak( queryResults );
             final Date now = new Date();
 
             long volumesWithRecentFirebreak = series.stream()
@@ -281,9 +275,7 @@ public class SystemHealthStatus implements RequestHandler {
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+        DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesType(Metrics.PBYTES)

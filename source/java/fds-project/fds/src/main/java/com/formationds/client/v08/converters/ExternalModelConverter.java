@@ -6,16 +6,10 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
-import com.formationds.client.v08.model.Domain;
 import com.formationds.client.v08.model.Domain.DomainState;
-import com.formationds.client.v08.model.Snapshot;
-import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
-import com.formationds.client.v08.model.Tenant;
-import com.formationds.client.v08.model.User;
-import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.*;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -46,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
@@ -716,9 +709,7 @@ public class ExternalModelConverter {
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
         MetricQueryCriteria query = new MetricQueryCriteria();
-        DateRange range = new DateRange();
-        range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
-        range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+        DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
         query.setRange( range );
