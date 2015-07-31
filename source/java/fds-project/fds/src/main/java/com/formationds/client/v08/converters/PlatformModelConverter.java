@@ -132,16 +132,19 @@ public class PlatformModelConverter
     int extControlPort = nodeInfoType.getControl_port( );
     Optional<ServiceType> optType
             = convertToExternalServiceType( nodeInfoType.getNode_type( ) );
-    Optional<ServiceState> state
-            = convertToExternalServiceState( nodeInfoType.getNode_state( ) );
-
+    
     ServiceType extType = null;
-    ServiceStatus extStatus;
-
+    
     if( optType.isPresent( ) )
     {
       extType = optType.get( );
     }
+    
+    Optional<ServiceState> state
+            = convertToExternalServiceState( nodeInfoType.getNode_state( ), extType);
+
+
+    ServiceStatus extStatus;
 
     if( state.isPresent( ) )
     {
@@ -203,7 +206,7 @@ public class PlatformModelConverter
 	
 	switch(externalServiceState){
 		case DEGRADED:
-		case LIMITED:
+        case LIMITED:
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
@@ -212,6 +215,9 @@ public class PlatformModelConverter
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
 	        break;
+		case STANDBY:
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_STANDBY;
+			break;
 		default: //Running,Initializing,Shutting Down
 	        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
 	        break;
@@ -308,7 +314,7 @@ public class PlatformModelConverter
     return internalType;
   }
 
-  public static Optional<ServiceState> convertToExternalServiceState( FDSP_NodeState internalState )
+  public static Optional<ServiceState> convertToExternalServiceState( FDSP_NodeState internalState , ServiceType type )
   {
 
     Optional<ServiceState> externalState;
@@ -316,7 +322,10 @@ public class PlatformModelConverter
     switch( internalState )
     {
       case FDS_Node_Down:
-        externalState = Optional.of( ServiceState.NOT_RUNNING );
+    	if(type != ServiceType.PM)
+            externalState = Optional.of( ServiceState.NOT_RUNNING );
+    	else
+    		externalState = Optional.of(ServiceState.STANDBY);  
         break;
       case FDS_Node_Discovered:
       case FDS_Node_Up:
