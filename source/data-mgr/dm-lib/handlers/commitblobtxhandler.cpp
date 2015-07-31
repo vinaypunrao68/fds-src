@@ -149,7 +149,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         } else {
         	if (justOff) {
         		// Forwarding was just turned off. Send end forward message.
-        		dataManager.dmMigrationMgr->sendNotifyFinishVolResync(volId);
+        		dataManager.dmMigrationMgr->sendFinishFwdMsg(volId);
         	}
 
             // DMT mismatch must not happen if volume is in 'not forwarding' state

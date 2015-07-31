@@ -26,6 +26,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
     seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
+    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -392,9 +393,15 @@ DmMigrationClient::processBlobFilterSet()
     }
 
     // Turn on forwarding
+    // TODO : this is not atomic??
     std::atomic_store(&forwardingIO, true);
 
-    // process blob diff
+    /**
+     * This is the main entrance for migrationClient (source) work.
+     * It will take care of generating the blobs diff, blobs descriptors, and send
+     * them over to the destination side. By the time this method returns, we have already
+     * fired and forgotten.
+     */
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
     fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
@@ -404,8 +411,16 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
-    // Turn off forwarding JUST before the callback
-    std::atomic_store(&forwardingIO, false);
+    /**
+     * This is to make sure that in cases of static migration, we still send a "last"
+     * forward message to ensure that state machine keeps going.
+     * TODO - this is a potential for race condition. Need clean up after the shouldForwardIO
+     * method cleanup.
+     */
+    err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
+    if (!(commitLog->checkOutstandingTx(dmtVersion))) {
+    	sendFinishFwdMsg();
+    }
 
     // if completion handler is registered call it.
     if (migrDoneHandler) {
@@ -540,16 +555,18 @@ DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
 
 
 Error
-DmMigrationClient::sendNotifyFinishVolResync()
+DmMigrationClient::sendFinishFwdMsg()
 {
 	Error err(ERR_OK);
-	fpi::CtrlNotifyFinishVolResyncMsgPtr finMsg(new fpi::CtrlNotifyFinishVolResyncMsg());
+	fpi::ForwardCatalogMsgPtr finMsg(new fpi::ForwardCatalogMsg());
+
+	LOGMIGRATE << "Sending an empty finish forwarding message for volume: " << volId;
+
 	finMsg->volume_id = volId.v;
-	finMsg->forward_complete = true;
-	// Do we need anything else?
+	finMsg->lastForward = true;
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyFinishVolResyncMsg), finMsg);
+	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
 	thriftMsg->setTimeoutMs(5000);
 	thriftMsg->setTaskExecutorId(volId.v);
 	thriftMsg->invoke();

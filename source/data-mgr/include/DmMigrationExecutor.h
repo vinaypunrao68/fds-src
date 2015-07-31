@@ -94,6 +94,11 @@ class DmMigrationExecutor {
      */
     Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
 
+    /**
+     * Change the state machine to forward IO state
+     */
+    void notifyStaticMigrationComplete();
+
     inline fds_bool_t shouldAutoExecuteNext()
     {
     	return autoIncrement;

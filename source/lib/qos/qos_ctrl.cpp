@@ -94,6 +94,10 @@ void FDS_QoSControl::quieseceIOs(fds_volid_t volUUID) {
     dispatcher->quiesceIOs(volUUID.get());
 }
 
+void FDS_QoSControl::resumeIOs(fds_volid_t volUUID) {
+    dispatcher->resumeQueue(volUUID.get());
+}
+
 Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
     Error err(ERR_OK);
 

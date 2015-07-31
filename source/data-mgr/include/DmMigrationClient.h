@@ -52,7 +52,7 @@ class DmMigrationClient {
     /**
      * Sends a msg to say that we're done with forwarding.
      */
-    Error sendNotifyFinishVolResync();
+    Error sendFinishFwdMsg();
 
     /**
      * Forward the committed blob to the destination side.
@@ -109,6 +109,11 @@ class DmMigrationClient {
      * Number of blob descriptors before sending to destination DM.
      */
     uint64_t maxNumBlobs;
+
+    /**
+     * Local copy of the dmtVersion undergoing migration
+     */
+    fds_uint64_t dmtVersion;
 
     /**
      * Maintain the sequence number for the delta set of blob offset set to

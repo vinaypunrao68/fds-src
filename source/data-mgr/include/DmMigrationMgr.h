@@ -124,7 +124,7 @@ class DmMigrationMgr {
      * Sends the finishVolResync msg to show that there's no more forwarding.
      * We want it done ASAP because volume I/O is quiesced on the dest side.
      */
-    Error sendNotifyFinishVolResync(fds_volid_t volId);
+    Error sendFinishFwdMsg(fds_volid_t volId);
 
     Error forwardCatalogUpdate(fds_volid_t volId,
     						   DmIoCommitBlobTx *commitBlobReq,
@@ -218,7 +218,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void waitThenAckMigrationComplete(const Error &status);
+    void ackStaticMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
