@@ -2617,9 +2617,9 @@ OM_NodeContainer::om_cond_bcast_remove_services(fds_bool_t remove_sm,
 }
 
 /**
- * Deactivate all defined Services on the specified Node.
- * if all deactivate_sm && deactivate_dm && deactivate_am are false, then
- * will deactivate all services on the specified Node
+ * Prepare to stop all defined Services on the specified Node.
+ * if all stop_sm && stop_dm && stop_am are false, then
+ * will stop all services on the specified Node
  */
 static Error
 om_prepare_services_stop(fds_bool_t stop_sm,
@@ -2696,9 +2696,9 @@ om_prepare_services_stop(fds_bool_t stop_sm,
 
 
 /**
- * Deactivate specified Services on all Nodes defined in the Local Domain.
+ * Stop specified Services on all Nodes defined in the Local Domain.
  * This is different from remove services -- remove a service will deregister
- * the service and remove it from cluster map, deactivate is just a message
+ * the service and remove it from cluster map, stop is just a message
  * to PM to kill the corresponding processes
  */
 fds_uint32_t
