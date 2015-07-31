@@ -1188,7 +1188,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
-	isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
+	isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
