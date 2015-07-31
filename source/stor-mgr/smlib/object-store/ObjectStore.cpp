@@ -1188,8 +1188,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
+	isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
+
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
+            isDataPhysicallyExist &&
             (conf_verify_data == true)) {
             // verify data -- read object from object data store
             // data in this msg
@@ -1212,8 +1215,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // create new object metadata for update from source SM
         updatedMeta.reset(new ObjMetaData(objMeta));
-
-        isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
 
         // we temporary assign error duplicate to indicate that we already have metadata
         // and data for this object, to differentiate from the case when this is the
