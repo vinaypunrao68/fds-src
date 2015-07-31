@@ -85,20 +85,19 @@ public class SeriesHelper {
         long diff = 0L;
         long epochSeconds = 0L;
         if ( dateRange != null ) {
-            final DateRange dateRangeSeconds = dateRange.convert( TimeUnit.SECONDS );
-            if ( dateRangeSeconds.getStart() != null && dateRangeSeconds.getEnd() != null ) {
+            if ( dateRange.getStart() != null && dateRange.getEnd() != null ) {
 
-                diff = dateRangeSeconds.getEnd() - dateRangeSeconds.getStart();
-                epochSeconds = dateRangeSeconds.getStart();
-            } else if ( dateRangeSeconds.getStart() != null ) {
+                diff = dateRange.getEnd() - dateRange.getStart();
+                epochSeconds = dateRange.getStart();
+            } else if ( dateRange.getStart() != null ) {
 
                 diff = DateTimeUtil.toUnixEpoch( LocalDateTime.now() ) -
-                       dateRangeSeconds.getStart();
-                epochSeconds = dateRangeSeconds.getStart();
-            } else if ( dateRangeSeconds.getEnd() != null ) {
+                       dateRange.getStart();
+                epochSeconds = dateRange.getStart();
+            } else if ( dateRange.getEnd() != null ) {
 
                 epochSeconds = DateTimeUtil.toUnixEpoch( LocalDateTime.now() );
-                diff = dateRangeSeconds.getEnd() - epochSeconds;
+                diff = dateRange.getEnd() - epochSeconds;
             }
         }
 

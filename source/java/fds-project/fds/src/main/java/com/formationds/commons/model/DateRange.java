@@ -12,54 +12,62 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author ptinius
  */
+// TODO: for the use-case of determining a time range for queries, I think it might be better
+// for this to represent a Duration of time rather than a fixed range of instants.  As it is, the
+// range is only valid at the time it is created,  When created with a start time and no end time,
+// it represents an ever-expanding range of time.  It is not an issue when used right away, but
+// would be if ever persisted.
 public class DateRange extends ModelBase {
     private static final long serialVersionUID = -7728219218469818163L;
 
     /**
-     * @return a date range for the last 24 hours in milliseconds
+     * @return a date range for the last 24 hours in seconds
      */
     public static DateRange last24Hours() {
-        return last24Hours( TimeUnit.MILLISECONDS );
-    }
-
-    /**
-     * @param unit the time unit for the date range
-     *
-     * @return a date range representing the last 24 hours in the specified unit
-     */
-    public static DateRange last24Hours( TimeUnit unit ) {
 
         Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
-        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
+        Long tsOneDayAgo = oneDayAgo.getEpochSecond();
 
-        return new DateRange( unit.convert( tsOneDayAgo, TimeUnit.MILLISECONDS ), unit );
+        return new DateRange( tsOneDayAgo );
     }
 
     /**
-     * @param start time since the epoch in the specified unit
-     * @param unit  the unit for the times
+     * @param start amount of time before now
+     * @param unit the unit for the times
      *
      * @return the date range starting from the specified time in the unit
      */
-    public static DateRange since( Long start, TimeUnit unit ) {
-        return new DateRange( start, unit );
+    public static DateRange last( Long start, TimeUnit unit ) {
+
+        Instant startInstant = Instant.now().minus( Duration.of( start,
+                                                                 com.formationds.client.v08.model.TimeUnit.from( unit )
+                                                                                                          .get() ) );
+        return new DateRange( startInstant.getEpochSecond() );
     }
 
     /**
-     * @param start time since the epoch in the specified unit
-     * @param end   time since the epoch in the specified unit
-     * @param unit  the unit for the times
+     * @param start time since the epoch in seconds since the epoch
+     *
+     * @return the date range starting from the specified time
+     */
+    public static DateRange since( Long start ) {
+        return new DateRange( start );
+    }
+
+    /**
+     * @param start time since the epoch in seconds
+     * @param end   time since the epoch in seconds
      *
      * @return the data range between the specified times in unit
      */
-    public static DateRange between( Long start, Long end, TimeUnit unit ) {
-        return new DateRange( start, end, unit );
+    public static DateRange between( Long start, Long end ) {
+        return new DateRange( start, end );
     }
 
     // Times are in SECONDS when marshalled from the JavaScript (and Python?) UI for stats/event queries.
     // This is because the JavaScript UI expects times in seconds (due to potential marshalling problems
     // with a long that is > 52 bits)
-    private TimeUnit unit = TimeUnit.SECONDS;
+    private final TimeUnit unit = TimeUnit.SECONDS;
 
     private Long start;
     private Long end;
@@ -70,59 +78,38 @@ public class DateRange extends ModelBase {
     private DateRange() {}
 
     /**
-     * @param start time since the epoch in the specified unit
-     * @param unit the unit for the time
+     * @param start time since the epoch in seconds
      */
-    protected DateRange( Long start, TimeUnit unit ) {
+    protected DateRange( Long start ) {
         this.start = start;
-        this.unit = unit;
     }
 
     /**
      *
-     * @param start time since the epoch in the specified unit
-     * @param end time since the epoch in the specified unit
-     * @param unit the unit for the times
+     * @param start time since the epoch in seconds
+     * @param end time since the epoch in seconds.  May be null indicating now
      */
-    protected DateRange( Long start, Long end, TimeUnit unit ) {
+    protected DateRange( Long start, Long end ) {
         this.start = start;
         this.end = end;
-        this.unit = unit;
     }
 
     /**
-     * @return the {@link Long} representing the starting timestamp
+     * @return the {@link Long} representing the starting timestamp in seconds from the epoch
      */
     public Long getStart() {
         return start;
   }
 
     /**
-     * @return the {@link Long} representing the ending timestamp
+     * @return the {@link Long} representing the ending timestamp in seconds from the epoch
      */
     public Long getEnd() {
       return end;
     }
 
     /**
-     * Creates a new DateRange representing this date range in the specified unit.
-     *
-     * @param toUnit the unit to convert to
-     * @return a new DateRange in the specified unit.
-     */
-    public DateRange convert( TimeUnit toUnit ) {
-
-        if ( this.unit.equals( toUnit ) ) {
-            return this;
-        }
-
-        return new DateRange( toUnit.convert( getStart(), getUnit() ),
-                              toUnit.convert( getEnd(), getUnit() ),
-                              toUnit );
-    }
-
-    /**
-     * @return the time unit the range was created in
+     * @return the time unit the range was created in (Currently always defined in SECONDS)
      */
     public TimeUnit getUnit() {
         return unit;

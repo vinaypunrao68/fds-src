@@ -7,7 +7,6 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 
@@ -29,7 +28,7 @@ public class TestInfluxRepository {
         contexts.add( v1 );
         contexts.add( v2 );
 
-        DateRange range = DateRange.between( 0L, 123456789L, TimeUnit.SECONDS );
+        DateRange range = DateRange.between( 0L, 123456789L );
 
         criteria.setContexts( contexts );
         criteria.setRange( range );
@@ -81,16 +80,16 @@ public class TestInfluxRepository {
         contexts.add( v2 );
 
 //        Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
-//        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
+//        Long tsOneDayAgo = oneDayAgo.getEpochSeconds();
 // For this test, use a fixed time
         Long tsOneDayAgo = 12345678901L;
 
-        QueryCriteria criteria = new QueryCriteria( DateRange.since( tsOneDayAgo, TimeUnit.MILLISECONDS ) );
+        QueryCriteria criteria = new QueryCriteria( DateRange.since( tsOneDayAgo ) );
         criteria.setContexts( contexts );
 
         String result = influxEventRepository.formulateQueryString( criteria,
                                                                     InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME );
-        String expectation = "select * from events where time > " + tsOneDayAgo + "ms" +
+        String expectation = "select * from events where time > " + tsOneDayAgo + "s" +
                              " and ( " + InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 123456" +
                              " or " +
                              InfluxEventRepository.FBEVENT_VOL_ID_COLUMN_NAME + " = 7890 )";
