@@ -101,7 +101,7 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
-                    print "Connected to: {}\n".format(self.get_hostname()) 
+                    print "Connected to: {}\n".format(self.__session.get_hostname()) 
         
                 except FdsAuthError as f:
                     print str(f.error_code) + ":" + f.message
