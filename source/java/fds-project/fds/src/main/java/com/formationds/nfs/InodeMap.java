@@ -5,6 +5,8 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.xdi.AsyncAm;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.log4j.Logger;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -23,6 +25,7 @@ public class InodeMap {
     private final ExportResolver exportResolver;
     public static final Inode ROOT;
     public static final InodeMetadata ROOT_METADATA;
+    private final Cache<CacheKey, InodeMetadata> cache;
 
     static {
         byte[] bytes = new byte[8];
@@ -35,6 +38,9 @@ public class InodeMap {
     public InodeMap(AsyncAm asyncAm, ExportResolver exportResolver) {
         this.asyncAm = asyncAm;
         this.exportResolver = exportResolver;
+        cache = CacheBuilder.newBuilder()
+                .maximumSize(100)
+                .build();
     }
 
 
@@ -46,16 +52,25 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
+        CacheKey key = new CacheKey(volumeName, blobName);
         try {
+            InodeMetadata result = cache.getIfPresent(key);
+            if (result != null) {
+                return Optional.of(result);
+            }
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(BlockyVfs.DOMAIN, volumeName, blobName).get());
-            return Optional.of(new InodeMetadata(blobDescriptor));
+            InodeMetadata metadata = new InodeMetadata(blobDescriptor);
+            cache.put(key, metadata);
+            return Optional.of(metadata);
         } catch (ApiException e) {
+            cache.invalidate(key);
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 return Optional.empty();
             } else {
                 throw new IOException(e);
             }
         } catch (Exception e) {
+            cache.invalidate(key);
             throw new IOException(e);
         }
     }
@@ -71,6 +86,7 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, int mode) throws IOException {
         String volume = exportResolver.volumeName((int) metadata.getVolumeId());
         String blobName = blobName(metadata.asInode());
+        CacheKey key = new CacheKey(volume, blobName);
         try {
             TxDescriptor desc = unwindExceptions(() -> {
                 TxDescriptor tx = asyncAm.startBlobTx(BlockyVfs.DOMAIN, volume, blobName, mode).get();
@@ -78,7 +94,9 @@ public class InodeMap {
                 asyncAm.commitBlobTx(BlockyVfs.DOMAIN, volume, blobName, tx).get();
                 return tx;
             });
+            cache.put(key, metadata);
         } catch (Exception e) {
+            cache.invalidate(key);
             LOG.error("error creating " + blobName + " in volume " + volume, e);
             throw new IOException(e);
         }
@@ -106,16 +124,49 @@ public class InodeMap {
     public void remove(Inode inode) throws IOException {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
+        CacheKey key = new CacheKey(volumeName, blobName);
 
         try {
             unwindExceptions(() -> asyncAm.deleteBlob(BlockyVfs.DOMAIN, volumeName, blobName).get());
         } catch (Exception e) {
             LOG.debug("error creating " + blobName + " in volume " + volumeName, e);
             throw new IOException(e);
+        } finally {
+            cache.invalidate(key);
         }
     }
 
     public static boolean isRoot(Inode inode) {
         return InodeMetadata.fileId(inode) == Long.MAX_VALUE;
+    }
+
+    private static class CacheKey {
+        private String volume;
+        private String blobName;
+
+        public CacheKey(String volume, String blobName) {
+            this.volume = volume;
+            this.blobName = blobName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            CacheKey cacheKey = (CacheKey) o;
+
+            if (!blobName.equals(cacheKey.blobName)) return false;
+            if (!volume.equals(cacheKey.volume)) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = volume.hashCode();
+            result = 31 * result + blobName.hashCode();
+            return result;
+        }
     }
 }

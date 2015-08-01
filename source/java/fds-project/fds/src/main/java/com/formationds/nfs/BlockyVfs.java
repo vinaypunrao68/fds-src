@@ -339,6 +339,7 @@ public class BlockyVfs implements VirtualFileSystem {
                     .withUpdatedSize(byteCount);
             int objectSize = exportResolver.objectSize(volumeName);
             chunker.write(DOMAIN, volumeName, blobName, objectSize, data, offset, count, byteCount, im.asMap());
+            inodeMap.update(im);
             inodeIndex.index(im);
             return new WriteResult(stabilityLevel, length);
         } catch (Exception e) {
