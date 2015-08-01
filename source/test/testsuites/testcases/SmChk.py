@@ -114,7 +114,7 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
                                                  result[-1][4] == 0):
                         return False
                     else:
-                        self.log.info("Completed SM Integrity Check for node {}: totalNumTokens={} totalNumTokensVerified={} "
-                                      "numCorrupted={} numOwnershipMismatches={}"
+                        self.log.info("Completed SM Integrity Check for node {}: totalNumTokens={}"
+                                      "totalNumTokensVerified={} numCorrupted={} numOwnershipMismatches={}"
                                       .format(node.nd_uuid, result[-1][1], result[-1][2], result[-1][3], result[-1][4]))
         return True
