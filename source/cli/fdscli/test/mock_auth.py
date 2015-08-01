@@ -46,6 +46,13 @@ class MockFdsAuth(FdsAuth):
         
         return False
     
+    def is_authenticated(self):
+        
+        if ( self.__token is not None ):
+            return True
+        
+        return False    
+    
     def logout(self):
         self.__token = None
     
