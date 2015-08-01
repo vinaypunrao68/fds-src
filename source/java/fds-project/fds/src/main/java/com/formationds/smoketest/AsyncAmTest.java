@@ -3,12 +3,10 @@ package com.formationds.smoketest;
 import com.formationds.apis.*;
 import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
-import com.formationds.hadoop.FdsInputStream;
-import com.formationds.hadoop.FdsOutputStream;
-import com.formationds.hadoop.OwnerGroupInfo;
-import com.formationds.index.FdsLuceneDirectory;
+import com.formationds.nfs.ExportResolver;
 import com.formationds.nfs.InodeIndex;
 import com.formationds.nfs.InodeMetadata;
+import com.formationds.nfs.SimpleInodeIndex;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -18,12 +16,8 @@ import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
-import org.apache.lucene.store.IOContext;
-import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.store.IndexOutput;
-import org.apache.lucene.store.Lock;
+import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.junit.Before;
@@ -44,79 +38,84 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
+
+    public static final int NFS_EXPORT_ID = 42;
+
     @Test
-    public void testFdsIndexLock() throws Exception {
-        FdsLuceneDirectory directory = new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE);
-        Lock lock = directory.makeLock("myLock");
-        assertTrue(lock.obtain());
-        assertFalse(lock.obtain());
-        assertTrue(lock.isLocked());
-        lock.close();
-        assertFalse(lock.isLocked());
-        assertEquals(0, directory.listAll().length);
-        IndexOutput output = directory.createOutput("foo", new IOContext());
-        output.writeInt(42);
-        output.writeInt(42);
-        output.writeInt(43);
-        output.getChecksum();
-        output.writeInt(44);
-        output.close();
-        directory.renameFile("foo", "bar");
-        assertEquals("bar", Joiner.on(", ").join(directory.listAll()));
-        IndexInput input = directory.openInput("bar", IOContext.READ);
-        assertEquals(42, input.readInt());
-        directory.deleteFile("bar");
-        assertEquals(0, directory.listAll().length);
+    public void testUpdate() throws Exception {
+        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+                .withLink(dir.getFileId(), "panda");
+
+        index.index(dir, child);
+        child = child.withUpdatedAtime();
+        index.index(child);
+        List<DirectoryEntry> list = index.list(dir.asInode());
+        assertEquals(1, list.size());
     }
 
     @Test
-    public void testLuceneDirectorySlice() throws Exception {
-        FdsLuceneDirectory directory = new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE);
-        IndexOutput output = directory.createOutput("foo", IOContext.DEFAULT);
-        output.writeByte((byte) 1);
-        output.writeByte((byte) 2);
-        output.writeByte((byte) 3);
-        output.writeByte((byte) 4);
-        output.close();
-        IndexInput input = directory.openInput("foo", IOContext.DEFAULT);
-        assertEquals(1, input.readByte());
-        assertEquals(2, input.readByte());
-        assertEquals(3, input.readByte());
-        IndexInput slice = input.slice("mySlice", 1, 2);
-        assertEquals(2, slice.readByte());
-        assertEquals(3, slice.readByte());
-        slice.seek(0);
-        assertEquals(2, slice.readByte());
-        assertEquals(3, slice.readByte());
+    public void testLookup() throws Exception {
+        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
+
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+                .withLink(fooDir.getFileId(), "panda")
+                .withLink(barDir.getFileId(), "lemur");
+
+        index.index(fooDir, child);
+        assertEquals(child, index.lookup(fooDir.asInode(), "panda").get());
+        assertEquals(child, index.lookup(barDir.asInode(), "lemur").get());
+        assertFalse(index.lookup(fooDir.asInode(), "baboon").isPresent());
+        assertFalse(index.lookup(barDir.asInode(), "giraffe").isPresent());
+        index.unlink(fooDir.asInode(), "panda");
+        assertFalse(index.lookup(fooDir.asInode(), "panda").isPresent());
+        assertTrue(index.lookup(barDir.asInode(), "lemur").isPresent());
+        index.remove(barDir);
+//        assertFalse(index.lookup(barDir.asInode(), "lemur").isPresent());
     }
 
     @Test
-    public void testReopen() throws Exception {
-        InodeIndex inodeIndex = new InodeIndex((id) -> new FdsLuceneDirectory(asyncAm, volumeName, OBJECT_SIZE), null);
-        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, 42, 0);
-        InodeMetadata file = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0755, 43, 0);
-        inodeIndex.index(0, parent, file.withLink(42, "panda"));
-//        inodeIndex.index(0, file.withLink(42, "panda"));
-        Optional<InodeMetadata> metadata = inodeIndex.lookup(parent.asInode(), "panda");
-        assertTrue(metadata.isPresent());
+    public void testListDirectory() throws Exception {
+        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
+
+        InodeMetadata blue = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 3, NFS_EXPORT_ID)
+                .withLink(fooDir.getFileId(), "blue")
+                .withLink(barDir.getFileId(), "blue");
+
+        InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+                .withLink(fooDir.getFileId(), "red");
+
+        index.index(fooDir, barDir, blue, red);
+        assertEquals(2, index.list(fooDir.asInode()).size());
+        assertEquals(1, index.list(barDir.asInode()).size());
+        assertEquals(0, index.list(blue.asInode()).size());
     }
 
-    @Test
-    public void testFdsOutputStream() throws Exception {
-        FdsOutputStream out = FdsOutputStream.openNew(asyncAm, domainName, volumeName, blobName, OBJECT_SIZE, new OwnerGroupInfo("foo", "bar"));
-        out.write(1);
-        out.write(2);
-        out.flush();
-        out.write(3);
-        out.flush();
-        FdsInputStream in = new FdsInputStream(asyncAm, domainName, volumeName, blobName, OBJECT_SIZE);
-        assertEquals(1, in.read());
-        assertEquals(2, in.read());
-        assertEquals(3, in.read());
-        in.seek(0);
-        assertEquals(1, in.read());
-        assertEquals(2, in.read());
-        assertEquals(3, in.read());
+    private class MyExportResolver implements ExportResolver {
+        @Override
+        public int exportId(String volumeName) {
+            return NFS_EXPORT_ID;
+        }
+
+        @Override
+        public String volumeName(int volumeId) {
+            return volumeName;
+        }
+
+        @Override
+        public boolean exists(String volumeName) {
+            return true;
+        }
+
+        @Override
+        public int objectSize(String volume) {
+            return OBJECT_SIZE;
+        }
     }
 
     @Test
@@ -309,7 +308,7 @@ public class AsyncAmTest extends BaseAmTest {
         metadata.put("clothing", "boot");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
-        assertEquals("boot",bd1.getMetadata().get("clothing"));
+        assertEquals("boot", bd1.getMetadata().get("clothing"));
 
         // Rename the blob
 	try {

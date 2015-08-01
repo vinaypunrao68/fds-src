@@ -279,7 +279,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
             // preferred size of READDIR request
             res.resok.dtpref = new uint32(8192);
             // max size of a file of the file system
-            res.resok.maxfilesize = new size3(new uint64(4294967296L));
+            res.resok.maxfilesize = new size3(new uint64(Long.MAX_VALUE));
             // server time granularity -- accurate only to nearest second
             nfstime3 time = new nfstime3();
             time.seconds = new uint32(1);

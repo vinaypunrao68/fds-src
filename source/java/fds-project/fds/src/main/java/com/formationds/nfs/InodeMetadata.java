@@ -1,13 +1,6 @@
 package com.formationds.nfs;
 
 import com.formationds.protocol.BlobDescriptor;
-import org.apache.lucene.document.*;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.PrefixQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.util.BytesRefBuilder;
-import org.apache.lucene.util.NumericUtils;
 import org.dcache.auth.Subjects;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.FileHandle;
@@ -18,9 +11,8 @@ import org.json.JSONObject;
 import javax.security.auth.Subject;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
 
 public class InodeMetadata {
     public static final String NFS_FILE_ID = "NFS_FILE_ID";
@@ -37,74 +29,37 @@ public class InodeMetadata {
     public static final String NFS_LINKS = "NFS_LINKS";
     private Map<String, String> metadata;
 
-    public Document asDocument() {
-        Document document = new Document();
-        document.add(new LongField(NFS_FILE_ID, getFileId(), Field.Store.YES));
-        document.add(new StringField(NFS_TYPE, getType().name(), Field.Store.YES));
-        document.add(new IntField(NFS_MODE, getMode(), Field.Store.YES));
-        document.add(new IntField(NFS_UID, getUid(), Field.Store.YES));
-        document.add(new IntField(NFS_GID, getGid(), Field.Store.YES));
-        document.add(new LongField(NFS_ATIME, getAtime(), Field.Store.YES));
-        document.add(new LongField(NFS_CTIME, getCtime(), Field.Store.YES));
-        document.add(new LongField(NFS_MTIME, getMtime(), Field.Store.YES));
-        document.add(new LongField(NFS_SIZE, getSize(), Field.Store.YES));
-        document.add(new LongField(NFS_GENERATION, getGeneration(), Field.Store.YES));
-        document.add(new LongField(NFS_VOLUME_ID, getVolumeId(), Field.Store.YES));
-        JSONObject o = new JSONObject(metadata.get(NFS_LINKS));
-        Set<String> set = o.keySet();
-        for (String parentId : set) {
-            String name = o.getString(parentId);
-            String fieldValue = parentId + "/" + name;
-            document.add(new StringField(NFS_LINKS, fieldValue, Field.Store.YES));
-        }
-        return document;
-    }
-
-    public InodeMetadata(Document document) {
+    public InodeMetadata(JSONObject o) {
         metadata = new HashMap<>();
-        metadata.put(NFS_FILE_ID, Long.toString(document.getField(NFS_FILE_ID).numericValue().longValue()));
-        metadata.put(NFS_TYPE, document.get(NFS_TYPE));
-        metadata.put(NFS_MODE, Integer.toString(document.getField(NFS_MODE).numericValue().intValue()));
-        metadata.put(NFS_UID, Integer.toString(document.getField(NFS_UID).numericValue().intValue()));
-        metadata.put(NFS_GID, Integer.toString(document.getField(NFS_GID).numericValue().intValue()));
-        metadata.put(NFS_ATIME, Long.toString(document.getField(NFS_ATIME).numericValue().longValue()));
-        metadata.put(NFS_CTIME, Long.toString(document.getField(NFS_CTIME).numericValue().longValue()));
-        metadata.put(NFS_MTIME, Long.toString(document.getField(NFS_MTIME).numericValue().longValue()));
-        metadata.put(NFS_SIZE, Long.toString(document.getField(NFS_SIZE).numericValue().longValue()));
-        metadata.put(NFS_GENERATION, Long.toString(document.getField(NFS_GENERATION).numericValue().longValue()));
-        metadata.put(NFS_VOLUME_ID, Long.toString(document.getField(NFS_VOLUME_ID).numericValue().longValue()));
-        String[] values = document.getValues(NFS_LINKS);
+        metadata.put(NFS_FILE_ID, Long.toString(o.getLong(NFS_FILE_ID)));
+        metadata.put(NFS_TYPE, o.getString(NFS_TYPE));
+        metadata.put(NFS_MODE, Integer.toString(o.getInt(NFS_MODE)));
+        metadata.put(NFS_UID, Integer.toString(o.getInt(NFS_UID)));
+        metadata.put(NFS_GID, Integer.toString(o.getInt(NFS_GID)));
+        metadata.put(NFS_ATIME, Long.toString(o.getLong(NFS_ATIME)));
+        metadata.put(NFS_CTIME, Long.toString(o.getLong(NFS_CTIME)));
+        metadata.put(NFS_MTIME, Long.toString(o.getLong(NFS_MTIME)));
+        metadata.put(NFS_SIZE, Long.toString(o.getLong(NFS_SIZE)));
+        metadata.put(NFS_GENERATION, Long.toString(o.getLong(NFS_GENERATION)));
+        metadata.put(NFS_VOLUME_ID, Long.toString(o.getLong(NFS_VOLUME_ID)));
+        metadata.put(NFS_LINKS, o.getJSONObject(NFS_LINKS).toString());
+    }
+
+    public JSONObject asJsonObject() {
         JSONObject o = new JSONObject();
-        for (String value : values) {
-            StringTokenizer tokenizer = new StringTokenizer(value, "/", false);
-            String parentId = tokenizer.nextToken();
-            String name = tokenizer.nextToken();
-            o.put(parentId, name);
-        }
-        metadata.put(NFS_LINKS, o.toString());
-    }
-
-    public Term identity() {
-        return identity(getFileId());
-    }
-
-    private static Term identity(long fileId) {
-        BytesRefBuilder bytes = new BytesRefBuilder();
-        NumericUtils.longToPrefixCoded(fileId, 0, bytes);
-        return new Term(NFS_FILE_ID, bytes.toBytesRef());
-    }
-
-    public static Term identity(Inode inode) {
-        return identity(fileId(inode));
-    }
-
-    public static Query lookupQuery(long parentId, String name) {
-        Term t = new Term(NFS_LINKS, Long.toString(parentId) + "/" + name);
-        return new TermQuery(t);
-    }
-
-    public static Query listQuery(long parentId) {
-        return new PrefixQuery(new Term(NFS_LINKS, Long.toString(parentId) + "/"));
+        o.put(NFS_FILE_ID, getFileId());
+        o.put(NFS_TYPE, getType().name());
+        o.put(NFS_MODE, getMode());
+        o.put(NFS_UID, getUid());
+        o.put(NFS_GID, getGid());
+        o.put(NFS_ATIME, getAtime());
+        o.put(NFS_CTIME, getCtime());
+        o.put(NFS_MTIME, getMtime());
+        o.put(NFS_SIZE, getSize());
+        o.put(NFS_GENERATION, getGeneration());
+        o.put(NFS_VOLUME_ID, getVolumeId());
+        o.put(NFS_LINKS, new JSONObject(metadata.get(NFS_LINKS)));
+        return o;
     }
 
     public InodeMetadata(Stat.Type type, Subject subject, int mode, long fileId, long volId) {
@@ -335,5 +290,18 @@ public class InodeMetadata {
         return metadata.values().stream()
                 .mapToInt(o -> o.hashCode())
                 .sum();
+    }
+
+    public Map<Long, String> getLinks() {
+        JSONObject o = new JSONObject(metadata.get(NFS_LINKS));
+        Iterator<String> keys = o.keys();
+        Map<Long, String> links = new HashMap<>();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            long id = Long.parseLong(key);
+            String name = o.getString(key);
+            links.put(id, name);
+        }
+        return links;
     }
 }

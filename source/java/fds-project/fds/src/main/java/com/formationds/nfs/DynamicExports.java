@@ -117,6 +117,7 @@ public class DynamicExports implements ExportResolver {
         try {
             return config.statVolume(BlockyVfs.DOMAIN, volume).getPolicy().getMaxObjectSizeInBytes();
         } catch (TException e) {
+            LOG.error("config.statVolume(" + volume + ") failed", e);
             throw new RuntimeException(e);
         }
     }
