@@ -1071,15 +1071,20 @@ AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
               return;);
 
     auto blobReq = static_cast<RenameBlobReq *>(amReq);
+    blobReq->dmt_version = dmtMgr->getCommittedVersion();
+
     auto message = boost::make_shared<fpi::RenameBlobMsg>();
     message->volume_id = amReq->io_vol_id.get();
     message->source_blob = amReq->getBlobName();
     message->destination_blob = blobReq->new_blob_name;
+    message->source_tx_id = blobReq->tx_desc->getValue();
+    message->destination_tx_id = blobReq->dest_tx_desc->getValue();
+    message->dmt_version  = blobReq->dmt_version;
     message->sequence_id  = blobReq->vol_sequence;
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, amReq));
     auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,
-                                              DMT_VER_INVALID,
+                                              blobReq->dmt_version,
                                               message,
                                               respCb);
     asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,

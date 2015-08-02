@@ -316,8 +316,14 @@ struct RenameBlobMsg {
   2: string     source_blob;
   /** The new blob name */
   3: string     destination_blob;
+  /** The DMT version used for the op */
+  4: i64        dmt_version;
+  /** Transaction for BlobDelete */
+  5: i64        source_tx_id;
+  /** Transaction for BlobCreate */
+  6: i64        destination_tx_id;
   /** Volume update sequencing */
-  4: i64        sequence_id;
+  7: i64        sequence_id;
 }
 
 /**

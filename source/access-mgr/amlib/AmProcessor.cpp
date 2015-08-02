@@ -1033,7 +1033,10 @@ AmProcessor_impl::renameBlob(AmRequest *amReq) {
         return;
     }
 
-    static_cast<RenameBlobReq*>(amReq)->vol_sequence = vol->getNextSequenceId();
+    auto blobReq = static_cast<RenameBlobReq*>(amReq);
+    blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::renameBlobCb, amReq);
     amDispatcher->dispatchRenameBlob(amReq);
 }
