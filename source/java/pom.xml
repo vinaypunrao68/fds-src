@@ -84,6 +84,7 @@
     <thrift.version>0.9.0</thrift.version>
     <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
+    <grizzly.framework.version>2.3.21</grizzly.framework.version>
 
     <!-- unit test -->
     <junit.version>4.12</junit.version>
@@ -403,6 +404,13 @@
         <artifactId>jedis</artifactId>
         <version>${jedis.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>org.glassfish.grizzly</groupId>
+        <artifactId>grizzly-framework</artifactId>
+        <version>${grizzly.framework.version}</version>
+      </dependency>
+
 
       <!-- test scope -->
       <!--
