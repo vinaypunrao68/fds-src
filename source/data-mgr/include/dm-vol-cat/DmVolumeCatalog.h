@@ -214,19 +214,6 @@ class DmVolumeCatalog : public Module, public HasLogger,
                                      const Catalog::MemSnap snap) override;
 
     /**
-     * Returns blob descriptor after renaming a blob. Any existing blob will be
-     * truncated by this operation.
-     * @param[in] volume_id volume uuid
-     * @param[in] oldBlobName source blob
-     * @param[in] newBlobName renamed blob
-     * @return ERR_OK on success; ERR_BLOB_NOT_FOUND indicates that the source
-     * blob was not identified.
-     */
-    Error renameBlob(fds_volid_t const volume_id,
-                     std::string const& oldBlobName,
-                     std::string const& newBlobName) override;
-
-    /**
      * Returns the list of blobs in the volume with basic blob info
      * @param[out] binfoList list of blobs
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known

@@ -164,10 +164,6 @@ class DmPersistVolCat {
     virtual Error putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
             CatWriteBatch & wb) = 0;
 
-    // namespace operations
-    virtual Error renameBlob(const std::string & oldBlobName,
-                             const std::string & newBlobName) = 0;
-
     // deletes
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t offset) = 0;
 

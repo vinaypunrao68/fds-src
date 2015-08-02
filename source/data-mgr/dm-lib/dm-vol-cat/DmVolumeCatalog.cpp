@@ -423,20 +423,6 @@ Error DmVolumeCatalog::getBlobAndMetaFromSnapshot(fds_volid_t volId,
     return rc;
 }
 
-Error DmVolumeCatalog::renameBlob(fds_volid_t const volume_id,
-                 std::string const& oldBlobName,
-                 std::string const& newBlobName) {
-    GET_VOL_N_CHECK_DELETED(volume_id);
-
-    auto rc = vol->renameBlob(oldBlobName, newBlobName);
-    if (!rc.ok()) {
-        LOGNOTIFY << "Failed to rename blob : '" << oldBlobName
-                  << "' to: '" << newBlobName
-                  << "' error: " << rc;
-    }
-    return rc;
-}
-
 Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType* bDescrList) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();

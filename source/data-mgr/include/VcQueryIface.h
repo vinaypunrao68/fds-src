@@ -133,19 +133,6 @@ class VolumeCatalogQueryIface {
                                              fpi::FDSP_BlobObjectList& obj_list,
 
                                              Catalog::MemSnap snap) = 0;
-
-    /**
-     * Returns blob descriptor after renaming a blob. Any existing blob will be
-     * truncated by this operation.
-     * @param[in] volume_id volume uuid
-     * @param[in] oldBlobName source blob
-     * @param[in] newBlobName renamed blob
-     * @return ERR_OK on success; ERR_BLOB_NOT_FOUND indicates that the source
-     * blob was not identified.
-     */
-    virtual Error renameBlob(fds_volid_t const volume_id,
-                             std::string const& oldBlobName,
-                             std::string const& newBlobName) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */

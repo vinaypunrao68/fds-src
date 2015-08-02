@@ -59,46 +59,11 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 
 void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    DmIoRenameBlob* typedRequest = static_cast<DmIoRenameBlob*>(dmRequest);
-    auto renameRequest = static_cast<DmIoRenameBlob*>(dmRequest);
-
-    fds_uint64_t blobSize {0};
-    helper.err = dataManager
-                .timeVolCat_
-               ->renameBlob(typedRequest->volId,
-                            typedRequest->blob_name,
-                            typedRequest->new_blob_name,
-                            typedRequest->seq_id,
-                            std::bind(&RenameBlobHandler::renameBlobCb,
-                                      this,
-                                      std::placeholders::_1,
-                                      renameRequest,
-                                      std::placeholders::_2,
-                                      std::placeholders::_3,
-                                      std::placeholders::_4,
-                                      std::placeholders::_5));
-
-    // Our callback, renameBlobCb(), will be called and will handle calling handleResponse().
-    if (helper.err.ok()) {
-        helper.cancel();
-    }
-}
-
-void RenameBlobHandler::renameBlobCb(Error const& e,
-                                     DmIoRenameBlob* typedRequest,
-                                     blob_version_t blob_version,
-                                     BlobObjList::const_ptr const& blob_obj_list,
-                                     MetaDataList::const_ptr const& meta_list,
-                                     fds_uint64_t const blobSize) {
-    QueueHelper helper(dataManager, typedRequest);
-    helper.err = e;
+    helper.err = ERR_NOT_IMPLEMENTED;
     if (!helper.err.ok()) {
-        LOGWARN << "Failed to rename blob '" << typedRequest->blob_name << "'";
+        LOGWARN << "Failed to rename blob '" << dmRequest->blob_name << "'";
         return;
     }
-
-    meta_list->toFdspPayload(typedRequest->message->metaDataList);
-    typedRequest->message->byteCount = blobSize;
 
     helper.markIoDone();
 }
