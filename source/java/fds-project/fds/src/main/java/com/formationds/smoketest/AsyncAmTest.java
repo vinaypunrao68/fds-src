@@ -51,7 +51,7 @@ public class AsyncAmTest extends BaseAmTest {
         index.index(dir, child);
         child = child.withUpdatedAtime();
         index.index(child);
-        List<DirectoryEntry> list = index.list(dir.asInode());
+        List<DirectoryEntry> list = index.list(dir);
         assertEquals(1, list.size());
     }
 
@@ -91,9 +91,9 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "red");
 
         index.index(fooDir, barDir, blue, red);
-        assertEquals(2, index.list(fooDir.asInode()).size());
-        assertEquals(1, index.list(barDir.asInode()).size());
-        assertEquals(0, index.list(blue.asInode()).size());
+        assertEquals(2, index.list(fooDir).size());
+        assertEquals(1, index.list(barDir).size());
+        assertEquals(0, index.list(blue).size());
     }
 
     private class MyExportResolver implements ExportResolver {
