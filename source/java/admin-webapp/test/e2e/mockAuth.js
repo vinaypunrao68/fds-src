@@ -3,14 +3,14 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        userId: 0,
-        username: 'admin',
+        uid: 0,
+        name: 'admin',
         features: ['SYS_MGMT','VOL_MGMT','TENANT_MGMT','USER_MGMT']   
     };
 
     var goldman = {
-        userId: '1',
-        username: 'goldman',
+        uid: 1,
+        name: 'goldman',
         features: ['VOL_MGMT','USER_MGMT']   
     };
 
@@ -114,7 +114,7 @@ mockAuth = function() {
         service.getUsername = function(){
 
             if ( user !== null ){
-                return user.username;
+                return user.name;
             }
             else {
                 return undefined;
@@ -137,7 +137,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.userId );
+                success( user.uid );
             }
         };
 
@@ -161,16 +161,9 @@ mockAuth = function() {
             success();
         };
 
-        service.createUser = function( username, password, success, failure ){
+        service.createUser = function( user, success, failure ){
 
-            var user = { 
-                id: {
-                    uuid: (new Date()).getTime(),
-                    name: username
-                },
-                tenantId: undefined,
-                password: password
-            };
+            user.uid = (new Date()).getTime();
             
             users.push( user );
 
