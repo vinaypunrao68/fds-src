@@ -99,7 +99,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           DmIoCommitBlobTx* commitBlobReq) {
     QueueHelper helper(dataManager, commitBlobReq);
     // If this is a piggy-back request, do not notify QoS
-    if (commitBlobReq->orig_request) {
+    if (!commitBlobReq->orig_request) {
         helper.ioIsMarkedAsDone = true;
     }
     helper.err = e;
