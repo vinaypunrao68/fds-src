@@ -121,7 +121,8 @@ public class BlockyVfs implements VirtualFileSystem {
                     .withUpdatedAtime()
                     .withUpdatedCtime()
                     .withUpdatedMtime()
-                    .withLink(InodeMetadata.fileId(parent), path);
+                    .withLink(InodeMetadata.fileId(parent), path)
+                    .withLink(fileId, ".");
 
             Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode());
             if (!statResult.isPresent()) {
@@ -177,12 +178,15 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NoEntException();
         }
 
-        return inodeIndex.list(inode);
+        return inodeIndex.list(stat.get());
     }
 
     @Override
     public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException {
-        return create(parent, Stat.Type.DIRECTORY, path, subject, mode);
+        Inode inode = create(parent, Stat.Type.DIRECTORY, path, subject, mode);
+        link(inode, inode, ".", subject);
+        link(inode, parent, "..", subject);
+        return inode;
     }
 
     @Override
@@ -213,10 +217,6 @@ public class BlockyVfs implements VirtualFileSystem {
                 .withIncrementedGeneration();
 
         InodeMetadata updatedLink = linkMetadata.get()
-                .withUpdatedAtime()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration()
                 .withoutLink(inodeMap.fileId(source))
                 .withLink(inodeMap.fileId(destination), newName);
 
@@ -320,33 +320,9 @@ public class BlockyVfs implements VirtualFileSystem {
     }
 
     private WriteResult unguardedWrite(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        Optional<InodeMetadata> stat = inodeMap.stat(inode);
-        if (!stat.isPresent()) {
-            throw new NoEntException();
-        }
-
-        String volumeName = exportResolver.volumeName(inode.exportIndex());
-        String blobName = InodeMap.blobName(inode);
-
-        try {
-            long byteCount = stat.get().getSize();
-            int length = Math.min(data.length, count);
-            byteCount = Math.max(byteCount, offset + length);
-            InodeMetadata im = stat.get()
-                    .withUpdatedAtime()
-                    .withUpdatedMtime()
-                    .withUpdatedCtime()
-                    .withUpdatedSize(byteCount);
-            int objectSize = exportResolver.objectSize(volumeName);
-            chunker.write(DOMAIN, volumeName, blobName, objectSize, data, offset, count, byteCount, im.asMap());
-            inodeMap.update(im);
-            inodeIndex.index(im);
-            return new WriteResult(stabilityLevel, length);
-        } catch (Exception e) {
-            String message = "Error writing " + volumeName + "." + blobName;
-            LOG.error(message, e);
-            throw new IOException(message, e);
-        }
+        InodeMetadata updated = inodeMap.write(inode, data, offset, count);
+        inodeIndex.index(updated);
+        return new WriteResult(stabilityLevel, Math.max(data.length, count));
     }
 
     @Override
@@ -364,7 +340,7 @@ public class BlockyVfs implements VirtualFileSystem {
         if (!stat.isPresent()) {
             throw new NoEntException();
         }
-
+        LOG.debug("getattr " + inode.getFileId());
         return stat.get().asStat();
     }
 
@@ -376,11 +352,7 @@ public class BlockyVfs implements VirtualFileSystem {
                 throw new NoEntException();
             }
 
-            InodeMetadata updated = metadata.get().update(stat)
-                    .withUpdatedAtime()
-                    .withUpdatedCtime()
-                    .withUpdatedMtime()
-                    .withIncrementedGeneration();
+            InodeMetadata updated = metadata.get().update(stat);
 
             inodeMap.update(updated);
             inodeIndex.index(updated);

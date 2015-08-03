@@ -10,7 +10,7 @@ import java.util.Optional;
 public interface InodeIndex {
     Optional<InodeMetadata> lookup(Inode parent, String name) throws IOException;
 
-    List<DirectoryEntry> list(Inode inode) throws IOException;
+    List<DirectoryEntry> list(InodeMetadata inodeMetadata) throws IOException;
 
     void index(InodeMetadata... entries) throws IOException;
 

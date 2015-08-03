@@ -8,6 +8,7 @@ import com.formationds.xdi.AsyncAm;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.log4j.Logger;
+import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
@@ -35,12 +36,15 @@ public class InodeMap {
         ROOT_METADATA = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, Long.MAX_VALUE, Integer.MAX_VALUE);
     }
 
+    private final Chunker chunker;
+
     public InodeMap(AsyncAm asyncAm, ExportResolver exportResolver) {
         this.asyncAm = asyncAm;
         this.exportResolver = exportResolver;
         cache = CacheBuilder.newBuilder()
                 .maximumSize(100)
                 .build();
+        chunker = new Chunker(new ChunkyAm(asyncAm));
     }
 
 
@@ -79,6 +83,36 @@ public class InodeMap {
         return "inode-" + InodeMetadata.fileId(inode);
     }
 
+    public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {
+        Optional<InodeMetadata> stat = stat(inode);
+        if (!stat.isPresent()) {
+            throw new NoEntException();
+        }
+
+        String volumeName = exportResolver.volumeName(inode.exportIndex());
+        String blobName = InodeMap.blobName(inode);
+        CacheKey cacheKey = new CacheKey(volumeName, blobName);
+
+        try {
+            long byteCount = stat.get().getSize();
+            int length = Math.min(data.length, count);
+            byteCount = Math.max(byteCount, offset + length);
+            InodeMetadata im = stat.get()
+                    .withUpdatedAtime()
+                    .withUpdatedMtime()
+                    .withUpdatedCtime()
+                    .withUpdatedSize(byteCount);
+            int objectSize = exportResolver.objectSize(volumeName);
+            chunker.write(BlockyVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, byteCount, im.asMap());
+            cache.put(cacheKey, im);
+            return im;
+        } catch (Exception e) {
+            String message = "Error writing " + volumeName + "." + blobName;
+            LOG.error(message, e);
+            cache.invalidate(cacheKey);
+            throw new IOException(message, e);
+        }
+    }
     public Inode create(InodeMetadata metadata) throws IOException {
         return doUpdate(metadata, 1);
     }
