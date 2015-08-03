@@ -85,7 +85,10 @@ class BlobDescriptor {
 /**
  * Describes an aligned offset within a blob.
  */
-class BlobOffsetPair : public std::pair<std::string, fds_uint64_t> {
+class BlobOffsetPair :
+    private std::pair<std::string, fds_uint64_t>
+{
+    mutable size_t hash {0};
   public:
     typedef boost::shared_ptr<BlobOffsetPair> ptr;
     typedef boost::shared_ptr<const BlobOffsetPair> const_ptr;
@@ -94,8 +97,21 @@ class BlobOffsetPair : public std::pair<std::string, fds_uint64_t> {
             : std::pair<std::string, fds_uint64_t>(a, b) {
     }
 
-    std::string toString() const {
-        return first + std::to_string(second);
+    bool operator==(const BlobOffsetPair& rhs) const {
+        if (rhs.second != second) return false;
+        if (rhs.first != first) return false;
+        return true;
+    }
+
+    std::string getName() const { return first; }
+
+    fds_uint64_t getOffset() const { return second; }
+
+    size_t getHash() const {
+        if (0 == hash) {
+            hash = std::hash<std::string>()(first + std::to_string(second));
+        }
+        return hash;
     }
 
     friend std::ostream& operator<<(std::ostream& out,
@@ -105,7 +121,7 @@ class BlobOffsetPair : public std::pair<std::string, fds_uint64_t> {
 class BlobOffsetPairHash {
   public:
     size_t operator()(const BlobOffsetPair &blobOffset) const {
-        return std::hash<std::string>()(blobOffset.toString());
+        return blobOffset.getHash();
     }
 };
 

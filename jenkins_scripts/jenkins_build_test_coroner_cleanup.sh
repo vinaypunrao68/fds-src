@@ -11,7 +11,7 @@ PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES="source/platform/python/tests"
 PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
+SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr StaticMigration ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
 DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices"   ## This should be deleted when fs-2473 fs-2478 are resolved
 
 function performance_report
@@ -376,17 +376,18 @@ function run_coroner
 
     do_pushd ${TEST_WORKSPACE}
 
-    source/tools/coroner.py collect --refid $REFID --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
-                                                                  build_release_bin:source/Build/linux-x86_64.release/bin    \
-                                                                  fds-node1:/fds/node1                                       \
-                                                                  fds-node2:/fds/node2                                       \
-                                                                  fds-node3:/fds/node3                                       \
-                                                                  fds-node4:/fds/node4                                       \
-                                                                  fds-node5:/fds/node5                                       \
-                                                                  fds-node6:/fds/node6                                       \
-                                                                  fds-node7:/fds/node7                                       \
-                                                                  fds-node8:/fds/node8                                       \
-                                                                  fds-node9:/fds/node9
+    source/tools/coroner.py collect --refid $REFID --buildermode \
+      --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
+                     build_release_bin:source/Build/linux-x86_64.release/bin    \
+                     fds-node1:/fds/node1                                       \
+                     fds-node2:/fds/node2                                       \
+                     fds-node3:/fds/node3                                       \
+                     fds-node4:/fds/node4                                       \
+                     fds-node5:/fds/node5                                       \
+                     fds-node6:/fds/node6                                       \
+                     fds-node7:/fds/node7                                       \
+                     fds-node8:/fds/node8                                       \
+                     fds-node9:/fds/node9
 
     for file in /tmp/fdscoroner*.tar.gz
     do
