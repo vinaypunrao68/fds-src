@@ -26,6 +26,6 @@ mkdir $TEST_DIR
 
 pushd $WORKSPACE/source/test/perf/dell_test
 
-./run_dell_test.sh $TEST_DIR null "$machines" 2 "$fio_machine" 1g
+./run_dell_test.sh $TEST_DIR "$machines" 1 "$fio_machine" 1g "perf_ec2"
 
 popd
