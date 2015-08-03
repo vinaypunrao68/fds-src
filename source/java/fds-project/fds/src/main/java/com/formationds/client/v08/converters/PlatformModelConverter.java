@@ -355,6 +355,7 @@ public class PlatformModelConverter
       case LIMITED:
       case NOT_RUNNING:
       case ERROR:
+      case STANDBY:
       case UNEXPECTED_EXIT:
         internalState = Optional.of( FDSP_NodeState.FDS_Node_Down );
         break;
