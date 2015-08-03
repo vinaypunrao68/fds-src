@@ -56,8 +56,6 @@ public class ChunkyAm implements Chunker.ChunkyIo {
                     objectOffset,
                     metadata).get());
             long elapsed = System.currentTimeMillis() - then;
-
-            LOG.debug("AM wrote " + length + " bytes in " + elapsed + " ms");
         } catch (Exception e) {
             LOG.error("AmIO.write() - updateBlobOnce() failed", e);
             throw e;

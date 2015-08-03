@@ -1,0 +1,122 @@
+b0VIM 7.4
+root
+gurpreet
+/home/gurpreet/fds-src/source/test/cfg/RestartClusterSMDiskFailure.cfg
+3210
+#"! 
+log_marker      = Initial domain boot up.
+[scenario_boot_and_activate_ungraceful]
+params          = prevent_adding_dm_after_startup.*,prevent_adding_dm_after_startup = false
+param_names     = current_string,replace_string
+script          = [testcases.TestFDSEnvMgt.TestModifyPlatformConf]
+log_marker      = Change platform.conf
+[scenario_fix_up_platform.conf_ungraceful]
+action          = install
+script          = [domain]
+log_marker      = Install domain for 'kill' version.
+[scenario_domain_install_ungraceful]
+# Run the restart test "ungracefully".
+action          = kill_noverify-uninst
+script          = [domain]
+log_marker      = Make sure no errant Services currently running and clean installation areas.
+[scenario_verify_domain_down]
+# a previous test.
+# First, make sure we start cleanly by cleaning up any residual from
+# scenario steps with that name
+# Names must be unique otherwise last stanza w/ the same name is used for all
+# TEST STEPS or CASES or SCENARIOS
+access = block
+# The volume access type, currently either 'object' or 'block'
+size   = 10000000
+# The size of the volume
+id     = 3
+# Apparently meant to be the Tenant ID.
+client = node1
+# Name of the client AM to attach to
+[volume2]
+# The 'volume' section defines a volume
+access = object
+# The volume access type, currently either 'object' or 'block'
+size   = 10000
+# The size of the volume
+id     = 1
+# Apparently meant to be the Tenant ID.
+client = node1
+# Name of the client AM to attach to
+[volume1]
+# The 'volume' section defines a volume
+priority = 1
+# priority of the policy
+iops_max = 500
+# iops_max of the policy
+iops_min = 100
+# iops_min of the policy
+[policy1]
+# The 'policy' section defines a volume policy
+services        = sm,dm,am
+fds_port        = 7300
+fds_root        = /fds/node4
+#ip              = lxc-node-04
+ip              = localhost
+enable          = true
+[node4]
+services        = sm,dm,am
+fds_port        = 7200
+fds_root        = /fds/node3
+#ip              = lxc-node-03
+ip              = localhost
+enable          = true
+[node3]
+services        = sm,dm,am
+fds_port        = 7100
+fds_root        = /fds/node2
+#ip              = lxc-node-02
+ip              = localhost
+enable          = true
+[node2]
+services        = sm,dm,am
+fds_port        = 7000
+fds_root        = /fds/node1
+#ip              = lxc-node-01
+ip              = localhost
+influxdb        = true
+redis           = true
+om              = true
+[node1]
+# with 'node' but is also used as a unique ID for the node.
+# The 'node' section defines a nodes parameters. The section must be prefixed
+deb-location    = nightly
+# Is the deployable package pulled from a dev environment(local) or the nightly build (nightly)?
+inventory-template = ansible-inventory/generic-lxc-nodes
+# Where's the Ansible inventory template file?
+deploy-script   = deploy_fds.sh
+# Which script?
+deploy-script-dir = ../../../ansible/scripts
+# Where's the Ansible deployment script? (Can be a path relative to where the test is started.)
+[install]
+# Use this section to support installation from a deployable package.
+password        = passwd
+user_name       = root
+[user]
+# TEST RESOURCES and TOPOLOGY
+# Note: Do not embed white space in comma delimited lists - test framework bug.
+# it again after a graceful "shutdown" of services.
+# ungraceful "kill" of all domain services, and then we do
+# Data persistence across restarts. First, we restart after an
+# Defines resource, configuration and steps to test
+# Copyright 2015 Formation Data Systems, Inc.
+#action          = kill-uninst
+#script          = [domain]
+#log_marker      = Shutdown and cleanup.
+#[scenario_shutdown_and_clean_domain_graceful]
+#script          = [testcases.TestS3IntFace.TestS3CloseConn]
+#log_marker      = Close the S3 connection
+#[scenario_closes3conn_2_graceful]
+#params          = volume2
+#param_names     = bucket
+## Command separated list of parameter names and values
+#script          = [testcases.TestS3IntFace.TestS3LoadMBLOB]
+#log_marker      = Load some data into volume2 "bucket" using the S3 interface
+#[scenario_addMoreData_after_restart_graceful]
+#params          = volume1
+#param_names     = bucket
