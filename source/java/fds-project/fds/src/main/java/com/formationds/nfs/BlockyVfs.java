@@ -217,10 +217,6 @@ public class BlockyVfs implements VirtualFileSystem {
                 .withIncrementedGeneration();
 
         InodeMetadata updatedLink = linkMetadata.get()
-                .withUpdatedAtime()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration()
                 .withoutLink(inodeMap.fileId(source))
                 .withLink(inodeMap.fileId(destination), newName);
 
