@@ -665,6 +665,25 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     fds_verify(dp != NULL);
     fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
 
+    // Before we send DLT close, we persist DLT and set SM services ACTIVE
+    // We ignore DLT close errors in the state machine, and allow DLT deployment
+    // to complete; If SM fails on DLT close, it will resync to the latest data
+    // on restart
+
+    // persist commited DLT
+    dp->persistCommitedTargetDlt();
+
+    // set all added DMs to ACTIVE state
+    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
+    for (auto uuid : addedNodes) {
+        OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
+        sm_agent->handle_service_deployed();
+    }
+
+    // reset pending nodes in cluster map, since they are already
+    // present in the DLT
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
+
     /**
      * TODO(Gurpreet): Remove this sleep once FS-2231 is done. This sleep
      * prevents a race between outstanding IO for src SM which are forwared
@@ -679,10 +698,8 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // not get 'close_cnt' == 0
     fds_verify(close_cnt > 0);
     // wait for all 'dlt close' acks to make sure token sync completes
-    // on all SMs before we start updating DLT again
-    // TODO(anna) implement a timeout so we don't get stuck if one of
-    // those SMs fails or gets removed. In near future, we need to handle
-    // SM removal case in the middle of DLT update.
+    // on all SMs before we start updating DLT again; if SM fails/crashes
+    // we will receive timeout, which also counts as DLT close response
     dst.acks_to_wait = close_cnt;
 }
 
@@ -729,20 +746,6 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     fds_verify(cm != NULL);
     LOGNOTIFY << "OM deployed DLT with "
               << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
-
-    // persist commited DLT
-    dp->persistCommitedTargetDlt();
-
-    // set all added DMs to ACTIVE state
-    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
-    for (auto uuid : addedNodes) {
-        OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
-        sm_agent->handle_service_deployed();
-    }
-
-    // reset pending nodes in cluster map, since they are already
-    // present in the DLT
-    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
@@ -832,7 +835,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
     if (dp->hasNoTargetDlt()) {
-        LOGNORMAL << "No target DLT computed/commited, nothing to recover";
+        LOGNORMAL << "No target DLT computed/commited or new DLT was already commited"
+                  << ", nothing to recover";
         fsm.process_event(DltEndErrorEvt());
     } else {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
