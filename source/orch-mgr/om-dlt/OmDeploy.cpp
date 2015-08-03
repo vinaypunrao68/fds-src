@@ -661,6 +661,7 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     OM_Module *om = OM_Module::om_singleton();
+    ClusterMap* cm = om->om_clusmap_mod();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
     fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
