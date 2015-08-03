@@ -5,6 +5,8 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.util.RetryHelper;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.util.Configuration;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
@@ -142,14 +144,18 @@ public class InfluxDBConnection {
 
     protected CompletableFuture<InfluxDB> connectWithRetry() {
 
-        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl(), () -> {
-            InfluxDB conn = InfluxDBFactory.connect( url, user, String.valueOf( credentials ) );
+        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl( ),
+                                       ( ) -> {
+                                           InfluxDB conn
+                                               = InfluxDBFactory.connect( url,
+                                                                          user,
+                                                                          String.valueOf( credentials ) );
 
-            // attempt to ping the server to make sure it is really there.
-            conn.ping();
+                                           // attempt to ping the server to make sure it is really there.
+                                           conn.ping( );
 
-            return conn;
-        } );
+                                           return conn;
+                                       } );
     }
 
     /**
@@ -179,6 +185,20 @@ public class InfluxDBConnection {
                 Throwable failed = null;
                 try {
                     logger.trace( "QUERY_BEGIN [{}]: {}", start, query );
+
+                    if ( SingletonConfiguration.instance()
+                                               .getConfig()
+                                               .getPlatformConfig()
+                                               .defaultBoolean( "fds.om.influxdb.enable_query_backtrace", false ) ) {
+                        // hack to log the stack trace of each query
+                        StackTraceElement[] st = new Exception().getStackTrace();
+                        int maxDepth = 25;
+                        int d = 0;
+                        for ( StackTraceElement e : st ) {
+                            logger.trace( "QUERY_TRACE[" + d + "]: {}", e );
+                            if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
+                        }
+                    }
 
                     InfluxDB conn = connect();
                     connTime = System.currentTimeMillis() - start;

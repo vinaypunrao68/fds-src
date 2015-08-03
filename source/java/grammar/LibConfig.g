@@ -5,11 +5,11 @@ options {
 }
 
 @header {
-    package com.formationds.util.libconfig;
+    package com.formationds.commons.libconfig;
 }
 
 @lexer::header {
-    package com.formationds.util.libconfig;
+    package com.formationds.commons.libconfig;
 }
 
 namespace : ID^ ':'! '{'!  (namespace | assignment)*  '}'!;

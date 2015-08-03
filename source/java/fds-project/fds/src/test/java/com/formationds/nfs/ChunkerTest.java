@@ -1,16 +1,7 @@
 package com.formationds.nfs;
 
-import com.formationds.apis.ObjectOffset;
-import org.junit.Test;
-
-import java.io.FileNotFoundException;
-import java.nio.ByteBuffer;
-import java.util.*;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
 public class ChunkerTest {
+    /*
     @Test
     public void testMove() throws Exception {
         MemoryIo io = new MemoryIo();
@@ -201,4 +192,5 @@ public class ChunkerTest {
             }).put(objectOffset.getValue(), bytes);
         }
     }
+    */
 }

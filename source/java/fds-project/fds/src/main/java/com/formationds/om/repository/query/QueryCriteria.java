@@ -43,7 +43,7 @@ public class QueryCriteria
     //
     // For now the only time Context is used is with a Volume type so in favor of speed we are
     // changing the query to only take volumes
-    private List<Volume>  contexts;    // the context
+    private List<Volume>  contexts = new ArrayList<>();    // the context
     private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
 
     public QueryCriteria() {}
@@ -80,7 +80,7 @@ public class QueryCriteria
      * @param columns the columns to add to the select list
      */
     public QueryCriteria addColumns( String... columns ) {
-        if (columns == null)
+        if ( columns == null )
             return this;
 
         this.columns.addAll( Arrays.asList( columns ) );
@@ -105,11 +105,11 @@ public class QueryCriteria
         if ( columns.isEmpty() ) {
             return "*";
         }
-        StringBuilder sb = new StringBuilder( );
+        StringBuilder sb = new StringBuilder();
         Iterator<String> iter = columns.iterator();
-        while (iter.hasNext()) {
+        while ( iter.hasNext() ) {
             sb.append( iter.next() );
-            if (iter.hasNext())
+            if ( iter.hasNext() )
                 sb.append( "," );
         }
         return sb.toString();
@@ -130,6 +130,15 @@ public class QueryCriteria
      */
     public void setContexts( final List<Volume> contexts ) {
         this.contexts = contexts;
+    }
+
+    /**
+     * Add the context
+     *
+     * @param context the context to add
+     */
+    public void addContext( final Volume context ) {
+        this.contexts.add( context );
     }
 
     /**

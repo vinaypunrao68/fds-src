@@ -312,4 +312,8 @@ Error
 AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)
 { return amCache->putBlobDescriptor(volId, blobName, blobDesc); }
 
+Error
+AmTxManager::removeBlob(fds_volid_t volId, const std::string &blobName)
+{ return amCache->removeBlob(volId, blobName); }
+
 }  // namespace fds

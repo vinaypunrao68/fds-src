@@ -272,6 +272,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 // catalog read handlers
                 case FDS_LIST_BLOB:
                 case FDS_GET_BLOB_METADATA:
+                case FDS_RENAME_BLOB:
                 case FDS_CAT_QRY:
                 case FDS_STAT_VOLUME:
                 case FDS_GET_VOLUME_METADATA:
@@ -511,11 +512,6 @@ private:
      * Number of primary DMs
      */
     fds_uint32_t _numOfPrimary;
-
-    /**
-     * Method to get % of utilized space for the DM's partition
-     */
-    float_t getUsedCapacityAsPct();
 
     // Variables to track how frequently we call the diskCapacity checks
     fds_uint8_t sampleCounter;

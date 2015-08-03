@@ -81,6 +81,8 @@
 {% set om_influxdb_url = fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://' + om_ip + ':8086' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
+{% set rest_07_feature = ft_fds_rest_07_feature if ft_fds_rest_07_feature is defined else 'false' %}
+
 {#
    fds.xdi. specific entries
 #}
@@ -97,20 +99,20 @@
 {#
    fds.feature_toggle specific entries
 
-   These settings configure feature toggles (for c++ code)
+   These settings configure feature toggles (for c++/java code)
 
    In the inventory files they all begin fds_ft_ for fds_feature_toggle_.  Internally, we strip off the fds_.
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
+{% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
 {% set ft_platform_use_new_superblock             = fds_ft_platform_use_new_superblock             if fds_ft_platform_use_new_superblock             is defined else 'false' %}
-{% set ft_restart_failed_children_processes       = fds_ft_restart_failed_children_processes       if fds_ft_restart_failed_children_processes       is defined else 'true' %}
-{% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true' %}
+{% set ft_restart_failed_children_processes       = fds_ft_restart_failed_children_processes       if fds_ft_restart_failed_children_processes       is defined else 'true'  %}
+{% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true'  %}
+{% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
+{% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
 
-{#
-   Java fds-feature.conf deployment configurations
-#}
-{% set fds_rest_07_feature = fds_rest_07_feature if fds_rest_07_feature is defined else 'true' %}
+
 {% block content %}{% endblock %}

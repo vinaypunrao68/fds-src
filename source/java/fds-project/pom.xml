@@ -11,7 +11,7 @@
   <parent>
     <artifactId>company-pom</artifactId>
     <groupId>com.formationds</groupId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
   </parent>
 
   <name>${fds.project.name} Project POM</name>
@@ -34,6 +34,7 @@
     <jopt.simple.version>4.8</jopt.simple.version>
     <reflections.version>0.9.10</reflections.version>
     <stax.api.version>1.0-2</stax.api.version>
+    <grizzly.framework.version>2.3.21</grizzly.framework.version>
   </properties>
 
   <modules>
@@ -78,15 +79,29 @@
         <artifactId>dcache-auth</artifactId>
         <version>${dcache.auth.version}</version>
       </dependency>
+
       <dependency>
         <groupId>org.dcache</groupId>
         <artifactId>nfs4j-core</artifactId>
         <version>${dcache.nfs4j.core.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>org.glassfish.grizzly</groupId>
+        <artifactId>grizzly-framework</artifactId>
+        <version>${grizzly.framework.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>org.dcache</groupId>
         <artifactId>oncrpc4j-core</artifactId>
         <version>${dcache.onrpc4j.core.version}</version>
+        <exclusions>
+          <!--<exclusion>-->
+          <!--<groupId>org.glassfish.grizzly</groupId>-->
+          <!--<artifactId>grizzly-framework</artifactId>-->
+          <!--</exclusion>-->
+        </exclusions>
       </dependency>
 
       <dependency>
@@ -115,6 +130,7 @@
       	<artifactId>reflections</artifactId>
       	<version>${reflections.version}</version>
       </dependency>
+
     </dependencies>
   </dependencyManagement>
 

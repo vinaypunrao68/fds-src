@@ -20,7 +20,6 @@ import java.io.IOException;
 
 
 public class NfsServer {
-
     public static void main(String[] args) throws Exception {
         new Configuration("NFS", new String[]{"--console"});
         XdiClientFactory clientFactory = new XdiClientFactory();
@@ -35,13 +34,15 @@ public class NfsServer {
     }
 
     public void start(XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
+        startScavengerThread();
         // specify file with export entries
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
+//        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
+        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
 
         // create the RPC service which will handle NFS requests
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
@@ -50,7 +51,6 @@ public class NfsServer {
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
                 .build();
-
 
         // create NFS v4.1 server
         NFSServerV41 nfs4 = new NFSServerV41(
@@ -70,6 +70,19 @@ public class NfsServer {
 
         // start RPC service
         nfsSvc.start();
+    }
+
+    private void startScavengerThread() {
+        new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(500);
+                    System.gc();
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        }).start();
     }
 }
 

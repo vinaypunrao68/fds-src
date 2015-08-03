@@ -21,7 +21,6 @@
             dest: /root/fds_configs/{{item}}.conf
         with_items:
             - fds
-            - fds-features
             - platform
             - orch_mgr
             - redis

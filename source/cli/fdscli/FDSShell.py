@@ -8,6 +8,7 @@ import pkgutil
 from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from services.fds_auth import FdsAuth
 from services.fds_auth_error import FdsAuthError
+from requests.exceptions import ConnectionError
 
 class FDSShell( cmd.Cmd ):
     '''
@@ -100,16 +101,26 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
+                    print "Connected to: {}\n".format(self.__session.get_hostname()) 
+        
                 except FdsAuthError as f:
                     print str(f.error_code) + ":" + f.message
-                    pass
-                except Exception:
-                    print "Unkown error occurred."
-                    pass
+                    self.__session.logout()
+                    return
+                except Exception as ex:
+                    print "Unknown error occurred."
+                    self.__session.logout()
+                    return
             
             argList = shlex.split( line )
             pArgs = self.parser.parse_args( argList )
             pArgs.func( vars( pArgs ) )
+        
+        # a connection error occurs later
+        except ConnectionError:
+            print "Lost connection to OM.  Please verify that it is up and responsive."
+            self.__session.logout()
+            return
             
         # A system exit gets raised from the argparse stuff when you ask for help.  Stop it.    
         except SystemExit:

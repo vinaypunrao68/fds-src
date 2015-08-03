@@ -13,7 +13,7 @@
 #include <dmhandler.h>
 #include <util/stringutils.h>
 #include <util/path.h>
-#include <include/util/disk_utils.h>
+#include <util/disk_utils.h>
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
@@ -43,45 +43,6 @@ namespace fds {
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
-
-float_t DataMgr::getUsedCapacityAsPct() {
-
-    // Error injection points
-    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
-    fiu_do_on("dm.get_used_capacity_error", \
-            fiu_disable("dm.get_used_capacity_warn"); \
-            fiu_disable("dm.get_used_capacity_alert"); \
-            LOGDEBUG << "Err inection: returning max used disk capacity as " \
-                     << DISK_CAPACITY_ERROR_THRESHOLD; \
-            return DISK_CAPACITY_ERROR_THRESHOLD; );
-
-    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
-    fiu_do_on("dm.get_used_capacity_alert", \
-              fiu_disable("dm.get_used_capacity_warn"); \
-              fiu_disable("dm.get_used_capacity_error"); \
-              LOGDEBUG << "Err injection: returning max used disk capacity as " \
-                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
-              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
-
-    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
-    fiu_do_on("dm.get_used_capacity_warn", \
-              fiu_disable("dm.get_used_capacity_error"); \
-              fiu_disable("dm.get_used_capacity_alert"); \
-              LOGDEBUG << "Err injection: returning max used disk capacity as " \
-                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
-              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
-
-    // Get fds root dir
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    // Get sys-repo dir
-    DiskCapacityUtils::capacity_tuple cap = DiskCapacityUtils::getDiskConsumedSize(root->dir_sys_repo_stats());
-
-    // Calculate pct
-    float_t result = ((1. * cap.first) / cap.second) * 100;
-    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
-
-    return result;
-}
 
 /**
  * Send an Event to OM using the events API
@@ -253,7 +214,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
      */
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
-        float_t pct_used = getUsedCapacityAsPct();
+        float_t pct_used = timeVolCat_->getUsedCapacityAsPct();
 
         // We want to log which disk is too full here
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
@@ -591,8 +552,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
              << " created:" << vdesc->isStateCreated()
              << " old:" << fOldVolume;
 
-    if (vdesc->isSnapshot() || vdesc->isClone()) {
+    if (vdesc->isClone()) {
+        // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
+    } else if (vdesc->isSnapshot()) {
+        // snapshot happens on all nodes
+        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -603,8 +568,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    // do this processing only in the case of primary ..
-    if ((vdesc->isSnapshot() || vdesc->isClone()) && fPrimary) {
+    // do this processing only in the case..
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
@@ -639,7 +604,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
-        err = timeVolCat_->activateVolume(vol_uuid);
+        err = timeVolCat_->activateVolume(vdesc->volUUID);
         if (err.ok()) {
             fActivated = true;
         }
@@ -1086,6 +1051,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_RENAME_BLOB] = new dm::RenameBlobHandler(*this);
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);
@@ -1210,6 +1176,11 @@ void DataMgr::mod_enable_service() {
     // outbound requests have the correct dlt_version.
     if (!features.isTestModeEnabled()) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+    }
+
+    if (timeVolCat_->isUnavailable()) {
+        // send health check msg to OM
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
     }
 }
 

@@ -55,7 +55,7 @@ struct CtrlSvcEvent {
 
 // Make NotifyHealthReport defined within the fpi namespace.
 typedef health_monitoring_api.NotifyHealthReport NotifyHealthReport
-
+typedef health_monitoring_api.HeartbeatMessage HeartbeatMessage
  # OM Service.  Only put sync rpc calls in here.  Async RPC calls use
  # message passing provided by BaseAsyncSvc
 service OMSvc extends svc_api.PlatNetSvc {

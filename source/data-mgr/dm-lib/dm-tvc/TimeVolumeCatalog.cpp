@@ -14,7 +14,10 @@ extern "C" {
 #include <limits>
 #include <DataMgr.h>
 #include <cstdlib>
+#include <util/disk_utils.h>
 #include <boost/make_shared.hpp>
+#include <fiu-control.h>
+#include <fiu-local.h>
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <dm-tvc/VolumeAccessTable.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
@@ -98,9 +101,28 @@ DmTimeVolCatalog::mod_init(SysParams const *const p) {
  */
 void
 DmTimeVolCatalog::mod_startup() {
-    // for now setting TVC state to 'ready' without any checks
-    // TODO(Anna) FS-2402 check if mount point is available and
-    // there is enough disk state; only then set state to 'ready'
+    // check if mount point for volume catalog exists
+    std::string path = g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm() + "/.tempFlush";
+    fds_bool_t diskTestFailure = DiskUtils::diskFileTest(path);
+    if (!diskTestFailure) {
+        // check if we have enough disk space
+        float_t pct_used = getUsedCapacityAsPct();
+        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD) {
+            LOGERROR << "ERROR: DM already used " << pct_used << "% of available storage space!"
+                     <<" Setting DM to UNAVAILABLE state";
+            diskTestFailure = true;
+        }
+    } else {
+        LOGERROR << "Looks like DM sys repo mount point "
+                 << g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm()
+                 << " is unreachable; setting DM to UNAVAILABLE state";
+    }
+    if (diskTestFailure) {
+        setUnavailable();
+        return;
+    }
+
+    // looks like simple checks pass, setting DM state to READY
     LOGDEBUG << "TVC state -> READY";
     currentState = TVC_READY;
 }
@@ -116,6 +138,12 @@ void
 DmTimeVolCatalog::setUnavailable() {
     LOGDEBUG << "Setting TVC state to UNAVAILABLE. This will reject future write IO";
     currentState = TVC_UNAVAILABLE;
+}
+
+fds_bool_t
+DmTimeVolCatalog::isUnavailable() {
+    TimeVolumeCatalogState curState = currentState.load();
+    return (curState == TVC_UNAVAILABLE);
 }
 
 void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
@@ -336,25 +364,17 @@ DmTimeVolCatalog::setVolumeMetadata(fds_volid_t volId,
 }
 
 Error
-DmTimeVolCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-    DmCommitLog::ptr commitLog;
-    COMMITLOG_GET(volId, commitLog);
-    auto unique_lock = commitLog->getDrainedCommitLock();
-    return volcat->getVolumeSnapshot(volId, snap);
-}
-
-
-Error
 DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
                               const std::string &blobName,
                               const fds_int32_t blobMode,
-                              BlobTxId::const_ptr txDesc) {
+                              BlobTxId::const_ptr txDesc,
+                              fds_uint64_t dmtVersion) {
     TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Starting transaction " << *txDesc << " for blob " << blobName <<
             " volume " << std::hex << volId << std::dec << " blob mode " << blobMode;
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->startTx(txDesc, blobName, blobMode);
+    return commitLog->startTx(txDesc, blobName, blobMode, dmtVersion);
 }
 
 Error
@@ -387,6 +407,20 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
     COMMITLOG_GET(volId, commitLog);
     return commitLog->updateTx(txDesc, mdList);
 }
+
+Error
+DmTimeVolCatalog::renameBlob(fds_volid_t volId,
+                             const std::string & oldBlobName,
+                             const std::string & newBlobName,
+                             fds_uint64_t* blob_size,
+                             fpi::FDSP_MetaDataList * metaList) {
+    LOGDEBUG << "Will rename blob '" << oldBlobName << "' volume: '"
+            << std::hex << volId << std::dec << "' to '" << newBlobName << "'";
+    // TODO(bszmyd): Tue 28 Jul 2015 02:33:30 PM MDT
+    // Implement :P
+    return ERR_NOT_IMPLEMENTED;
+}
+
 
 Error
 DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
@@ -452,6 +486,10 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     blob_version_t blob_version = blob_version_invalid;
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
+
+    // Lock the commit log with a READ lock to block a snapshot/forward transition
+    // during migration
+    auto auto_lock = commitLog->getCommitLock();
     CommitLogTx::ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         BlobMetaDesc desc;
@@ -475,7 +513,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
             e = doCommitBlob(volid, blob_version, seq_id, commit_data);
         }
     }
-    
+
     if (commit_data != nullptr) {
         cb(e,
            blob_version,
@@ -607,4 +645,44 @@ DmTimeVolCatalog::migrateDescriptor(fds_volid_t volId,
                                     const std::string& blobData) {
     return volcat->migrateDescriptor(volId, blobName, blobData);
 }
+
+float_t
+DmTimeVolCatalog::getUsedCapacityAsPct() {
+    // Error injection points
+    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
+    fiu_do_on("dm.get_used_capacity_error", \
+              fiu_disable("dm.get_used_capacity_warn"); \
+              fiu_disable("dm.get_used_capacity_alert"); \
+              LOGDEBUG << "Err inection: returning max used disk capacity as " \
+              << DISK_CAPACITY_ERROR_THRESHOLD; \
+              return DISK_CAPACITY_ERROR_THRESHOLD; );
+
+    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_alert", \
+              fiu_disable("dm.get_used_capacity_warn"); \
+              fiu_disable("dm.get_used_capacity_error"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+              << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
+              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
+
+    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
+    fiu_do_on("dm.get_used_capacity_warn", \
+              fiu_disable("dm.get_used_capacity_error"); \
+              fiu_disable("dm.get_used_capacity_alert"); \
+              LOGDEBUG << "Err injection: returning max used disk capacity as " \
+              << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
+              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
+
+    // Get fds root dir
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    // Get sys-repo dir
+    DiskUtils::capacity_tuple cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
+
+    // Calculate pct
+    float_t result = ((1. * cap.first) / cap.second) * 100;
+    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
+
+    return result;
+}
+
 }  // namespace fds

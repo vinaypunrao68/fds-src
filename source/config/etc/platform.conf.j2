@@ -24,7 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-            volume_open_support = true
+            volume_open_support = {{ ft_common_enable_volume_open_support }}
         }
         pm: {
 
@@ -44,6 +44,8 @@ fds: {
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
+           rest_07_feature = {{ ft_fds_rest_07_feature }}
+           fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
         }
     }
 
@@ -650,6 +652,7 @@ fds: {
 
         influxdb: {
             url="{{ om_influxdb_url }}"
+            enable_query_backtrace = false
         }
 
         test_mode=false

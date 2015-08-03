@@ -9,21 +9,22 @@ import org.apache.log4j.Logger;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
-public class AmIO implements Chunker.ChunkIo {
-    private static final Logger LOG = Logger.getLogger(AmIO.class);
+public class ChunkyAm implements Chunker.ChunkyIo {
+    private static final Logger LOG = Logger.getLogger(ChunkyAm.class);
     private AsyncAm asyncAm;
 
-    public AmIO(AsyncAm asyncAm) {
+    public ChunkyAm(AsyncAm asyncAm) {
         this.asyncAm = asyncAm;
     }
 
     @Override
-    public ByteBuffer read(NfsPath path, int objectSize, ObjectOffset objectOffset) throws Exception {
+    public ByteBuffer read(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset) throws Exception {
         try {
-            ByteBuffer byteBuffer = unwindExceptions(() -> asyncAm.getBlob(AmVfs.DOMAIN, path.getVolume(), path.blobName(), objectSize, objectOffset).get());
+            ByteBuffer byteBuffer = unwindExceptions(() -> asyncAm.getBlob(BlockyVfs.DOMAIN, volume, blobName, objectSize, objectOffset).get());
             return byteBuffer;
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
@@ -35,10 +36,7 @@ public class AmIO implements Chunker.ChunkIo {
     }
 
     @Override
-    public void write(NfsEntry entry, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob) throws Exception {
-        LOG.debug("AmIO.write(): " + entry.path().toString() + ", objectSize=" + objectSize + ", objectOffset=" + objectOffset.getValue() +
-                ", byteBuffer=" + byteBuffer.remaining() + "bytes, isEndOfBlob=" + isEndOfBlob);
-
+    public void write(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob, Map<String, String> metadata) throws Exception {
         // This would cause DM to crash
         if (!isEndOfBlob && byteBuffer.remaining() != objectSize) {
             String message = "All objects except the last one should be exactly MAX_OBJECT_SIZE long";
@@ -49,17 +47,15 @@ public class AmIO implements Chunker.ChunkIo {
         try {
             long then = System.currentTimeMillis();
             int length = byteBuffer.remaining();
-            unwindExceptions(() -> asyncAm.updateBlobOnce(AmVfs.DOMAIN,
-                    entry.path().getVolume(),
-                    entry.path().blobName(),
+            unwindExceptions(() -> asyncAm.updateBlobOnce(domain,
+                    volume,
+                    blobName,
                     isEndOfBlob ? 1 : 0,
                     byteBuffer,
                     length,
                     objectOffset,
-                    entry.attributes().asMetadata()).get());
+                    metadata).get());
             long elapsed = System.currentTimeMillis() - then;
-
-            LOG.debug("AM wrote " + length + " bytes in " + elapsed + " ms");
         } catch (Exception e) {
             LOG.error("AmIO.write() - updateBlobOnce() failed", e);
             throw e;

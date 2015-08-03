@@ -112,7 +112,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        DiskCapacityUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
         if (capacity.first == 0 || capacity.second == 0) {
@@ -146,8 +146,12 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
-            if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
                 lastCapacityMessageSentAt = 0;
+            } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+                lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+            } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+                lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
             }
         }
 
@@ -1184,8 +1188,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
+	isDataPhysicallyExist = objMeta->dataPhysicallyExists();
+
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
+            isDataPhysicallyExist &&
             (conf_verify_data == true)) {
             // verify data -- read object from object data store
             // data in this msg
@@ -1208,8 +1215,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // create new object metadata for update from source SM
         updatedMeta.reset(new ObjMetaData(objMeta));
-
-        isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
 
         // we temporary assign error duplicate to indicate that we already have metadata
         // and data for this object, to differentiate from the case when this is the
