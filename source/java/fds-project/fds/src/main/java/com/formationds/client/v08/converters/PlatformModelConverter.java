@@ -206,7 +206,7 @@ public class PlatformModelConverter
 	
 	switch(externalServiceState){
 		case DEGRADED:
-        case LIMITED:
+		case LIMITED:
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
@@ -322,10 +322,10 @@ public class PlatformModelConverter
     switch( internalState )
     {
       case FDS_Node_Down:
-    	if(type != ServiceType.PM)
+    	if (type != ServiceType.PM)
             externalState = Optional.of( ServiceState.NOT_RUNNING );
     	else
-    		externalState = Optional.of(ServiceState.STANDBY);  
+    		externalState = Optional.of( ServiceState.STANDBY );  
         break;
       case FDS_Node_Discovered:
       case FDS_Node_Up:

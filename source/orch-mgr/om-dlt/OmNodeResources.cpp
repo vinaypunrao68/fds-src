@@ -1524,6 +1524,7 @@ OM_PmAgent::send_stop_service
         // Node is being shutdown, change the state of platform
         // to standby, this will send back external node state
         // as being FDS_Node_Down
+        LOGDEBUG << "Changing PM state to STANDBY";
         fds::change_service_state( configDB,
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_STANDBY );
@@ -1665,19 +1666,12 @@ OM_PmAgent::send_remove_service
             // 2. Remove node from the configDB
             // 3. Set platform service state to inactive
 
-            //TODO @meena for now, leave PM state active. Once node state
-            // and PM state have been decoupled we can look into doing this
-            //set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
             configDB->removeNode(get_uuid());
-
-
-
-
 
             fds::change_service_state( configDB,
                                        get_uuid().uuid_get_val(),
                                        fpi::SVC_STATUS_STANDBY );
-
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";
