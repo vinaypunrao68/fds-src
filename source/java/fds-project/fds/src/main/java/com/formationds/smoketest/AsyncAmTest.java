@@ -307,32 +307,32 @@ public class AsyncAmTest extends BaseAmTest {
         String blobName2 = UUID.randomUUID().toString();
         Map<String, String> metadata = new HashMap<>();
         metadata.put("clothing", "boot");
-        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), metadata).get();
         BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
         assertEquals("boot",bd1.getMetadata().get("clothing"));
 
         // Rename the blob
-	try {
-            asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
-	} catch (ExecutionException e) {
-            ApiException apiException = (ApiException) e.getCause();
-            assertEquals(ErrorCode.BAD_REQUEST, apiException.getErrorCode());
-	}
+        asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
 
-	//  TODO
-	//  reenable this when it works
         // The old one should be gone
-//        try {
-//            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
-//            fail("Should have gotten an ExecutionException");
-//        } catch (ExecutionException e) {
-//            ApiException apiException = (ApiException) e.getCause();
-//            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
-//        }
-//
-//        // The new identical to the old
-//        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
-//        assertEquals("boot",bd2.getMetadata().get("clothing"));
+        try {
+            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+
+        // The new identical to the old
+        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
+        assertEquals("boot",bd2.getMetadata().get("clothing"));
+
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName2, OBJECT_SIZE, new ObjectOffset(0)).get();
+        byte[] result = new byte[OBJECT_SIZE];
+        byteBuffer.get(result);
+        byte[] bigObjectByteArray = new byte[OBJECT_SIZE];
+        bigObject.get(bigObjectByteArray);
+        assertArrayEquals(result, bigObjectByteArray);
     }
 
     @Test

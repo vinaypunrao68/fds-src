@@ -43,11 +43,11 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
-    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
-                                                      message->blob_name,
-                                                      message->blob_version,
-                                                      message->dmt_version,
-                                                      message->sequence_id);
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,
+                                                                         message->blob_name,
+                                                                         message->blob_version,
+                                                                         message->dmt_version,
+                                                                         message->sequence_id);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
 
@@ -135,7 +135,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
 
 void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, DmRequest* dmRequest) {
-    DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+    auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
     delete parent;
@@ -150,7 +150,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
-        auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+        auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
     }

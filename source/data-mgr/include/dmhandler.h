@@ -25,12 +25,14 @@
 #define DM_SEND_ASYNC_RESP(...) \
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
-#define HANDLE_INVALID_TX_ID() \
-    if (BlobTxId::txIdInvalid == message->txId) { \
+#define HANDLE_INVALID_TX_ID_VAL(val) \
+    if (BlobTxId::txIdInvalid == (val)) { \
         LOGWARN << "Received invalid tx id with" << logString(*message); \
         handleResponse(asyncHdr, message, ERR_DM_INVALID_TX_ID, nullptr); \
         return; \
     }
+
+#define HANDLE_INVALID_TX_ID() HANDLE_INVALID_TX_ID_VAL(message->txId)
 
 #define HANDLE_U_TURN() \
     if (dataManager.testUturnAll) { \
@@ -127,8 +129,10 @@ struct RenameBlobHandler : Handler {
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::RenameBlobMsg>& message);
     void handleQueueItem(DmRequest* dmRequest);
+    void handleCommitNewBlob(Error const& e, DmRequest* dmRequest);
+    void handleDeleteOldBlob(Error const& e, DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::RenameBlobRespMsg> & message,
+                        boost::shared_ptr<fpi::RenameBlobMsg> & message,
                         Error const& e, DmRequest* dmRequest);
 };
 

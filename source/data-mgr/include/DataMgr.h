@@ -289,7 +289,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                     // otherwise just schedule directly.
                     if ((parentDm->features.isSerializeReqsEnabled())) {
                         auto renameReq = static_cast<DmIoRenameBlob*>(io);
-                        SerialKey key2(io->volId, renameReq->new_blob_name);
+                        SerialKey key2(io->volId, renameReq->message->destination_blob);
                         serialExecutor->scheduleOnHashKeys(keyHash(key),
                                                            keyHash(key2),
                                                            std::bind(&dm::Handler::handleQueueItem,
