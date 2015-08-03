@@ -5,13 +5,13 @@ mockAuth = function() {
     var admin = {
         userId: 0,
         username: 'admin',
-        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
+        features: ['SYS_MGMT','VOL_MGMT','TENANT_MGMT','USER_MGMT']   
     };
 
     var goldman = {
         userId: '1',
         username: 'goldman',
-        features: ['Volume Management','User Management']   
+        features: ['VOL_MGMT','USER_MGMT']   
     };
 
     var user = {};
@@ -149,15 +149,15 @@ mockAuth = function() {
 
         var service = {};
 
-        service.changePassword = function( userId, newPassword, success, failure ){
+        service.changePassword = function( user, success, failure ){
 
-            if ( userId === 'FAIL_PLEASE' ){
+            if ( user.password === 'FAIL_PLEASE' ){
                 failure( 500, 'Password change failed.' );
                 return;
             }
 
-            adminPassword = newPassword;
-
+            adminPassword = user.password;
+            
             success();
         };
 

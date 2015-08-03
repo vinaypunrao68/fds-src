@@ -30,7 +30,7 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                     $scope.policy = $media_policy_helper.convertRawToObjects( $scope.policy.value );
                 }
                 
-                if ( !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){
+                if ( !$scope.policy || $scope.policy == null || !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){
                     $scope.policy = $scope.tieringChoices[1];
                 }
             };
