@@ -128,7 +128,7 @@ public class SimpleInodeIndex implements InodeIndex {
                 return new JSONObject(source);
             });
         } catch (ExecutionException e) {
-            LOG.error("Error fetching index entry, volume=" + volume + ", fileId=" + fileId);
+            LOG.error("Error fetching index entry, volume=" + volume + ", fileId=" + fileId, e);
             if (e.getCause() instanceof IOException) {
                 throw (IOException) e.getCause();
             } else {
