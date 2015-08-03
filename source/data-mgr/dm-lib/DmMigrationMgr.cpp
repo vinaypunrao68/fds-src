@@ -263,7 +263,7 @@ DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
 }
 
 void
-DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
+DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
 {
     fds_verify(OmStartMigrCb != NULL);
     /**
@@ -392,20 +392,12 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         /**
          * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
          */
-        /**
-         * TODO(Neil):
-         * This will be moved to the callback when source client finishes and
-         * talks to the destination manager.
-         * Also, we're commenting this lock out because this isn't technically supposed to
-         * be here but I'm leaving the lock here to remind ourselves that lock is required.
-         */
-        // SCOPEDWRITE(migrExecutorLock);
         if (mit->second->shouldAutoExecuteNext()) {
             ++mit;
             if (mit != executorMap.end()) {
                 mit->second->startMigration();
             } else {
-                waitThenAckMigrationComplete(result);
+                ackStaticMigrationComplete(result);
             }
         }
     }
@@ -440,7 +432,7 @@ DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolRes
 }
 
 fds_bool_t
-DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
+DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff)
 {
     auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
@@ -448,9 +440,17 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
         return false;
     }
 
-    return (dmClient->shouldForwardIO());
+    return (dmClient->shouldForwardIO(dmtVersion, justOff));
 }
 
+Error
+DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
+{
+	auto dmClient = getMigrationClient(volId);
+	fds_assert(dmClient != nullptr);
+
+	return (dmClient->sendFinishFwdMsg());
+}
 
 Error
 DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
@@ -460,7 +460,7 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const MetaDataList::const_ptr& meta_list)
 {
    auto dmClient = getMigrationClient(volId);
-   fds_verify((dmClient != nullptr) && dmClient->shouldForwardIO());
+   fds_assert(dmClient != nullptr);
 
    dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
 

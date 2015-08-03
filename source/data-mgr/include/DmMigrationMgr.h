@@ -112,8 +112,19 @@ class DmMigrationMgr {
     /**
      * Public interface to check whether or not a I/O should be forwarded as part of
      * active migration.
+     * Params:
+     * 1. volId - the volume in question.
+     * 2. dmtVersion - dmtVersion of the commit to be sent.
+     * 3. justOff - True if this call returns false for the first time. Used to fire finish msg.
      */
-    fds_bool_t shouldForwardIO(fds_volid_t volId);
+    fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff);
+
+    /**
+     * Source side DM:
+     * Sends the finishVolResync msg to show that there's no more forwarding.
+     * We want it done ASAP because volume I/O is quiesced on the dest side.
+     */
+    Error sendFinishFwdMsg(fds_volid_t volId);
 
     Error forwardCatalogUpdate(fds_volid_t volId,
     						   DmIoCommitBlobTx *commitBlobReq,
@@ -207,7 +218,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void waitThenAckMigrationComplete(const Error &status);
+    void ackStaticMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
