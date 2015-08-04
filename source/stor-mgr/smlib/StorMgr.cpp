@@ -126,7 +126,8 @@ void ObjectStorMgr::startResyncRequest() {
         const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
         objStorMgr->migrationMgr->startResync(curDlt,
                                               getUuid(),
-                                              curDlt->getNumBitsForToken());
+                                              curDlt->getNumBitsForToken(),
+                                              std::bind(&ObjectStorMgr::startResyncRequest, this));
     }
 }
 
@@ -400,7 +401,8 @@ Error ObjectStorMgr::handleDltUpdate() {
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         getUuid(),
-                                                        curDlt->getNumBitsForToken());
+                                                        curDlt->getNumBitsForToken(),
+                                                        std::bind(&ObjectStorMgr::startResyncRequest, this));
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->notifyDltUpdate(curDlt,

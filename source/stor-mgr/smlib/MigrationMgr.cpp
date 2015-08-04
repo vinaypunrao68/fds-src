@@ -294,8 +294,20 @@ void MigrationMgr::removeTokensFromRetrySet(std::vector<fds_token_id>& tokens)
 Error
 MigrationMgr::startResync(const fds::DLT *dlt,
                           const NodeUuid& mySvcUuid,
-                          fds_uint32_t bitsPerDltToken)
+                          fds_uint32_t bitsPerDltToken,
+                          PendingResyncCb pendingResyncFn)
 {
+    if (pendingResyncFn) {
+        cachedPendingResyncCb = pendingResyncFn;
+    }
+
+    if (!isMigrationIdle()) {
+        fds_mutex::scoped_lock l(resyncPendingFlagLock);
+        isResyncPending = true;
+        LOGMIGRATE << "A migration still active. Making this migration request as pending.";
+        return ERR_OK;
+    }
+
     fpi::CtrlNotifySMStartMigrationPtr resyncMsg(
                        new fpi::CtrlNotifySMStartMigration());
     resyncMsg->DLT_version = dlt->getVersion();
@@ -326,8 +338,8 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     // set migration type to resync.
     SMMigrType migrType = MIGR_SM_RESYNC;
 
-    return startMigration(resyncMsg, NULL, mySvcUuid,
-                          bitsPerDltToken, migrType, onePhaseMigration);
+    return startMigration(resyncMsg, NULL, mySvcUuid, bitsPerDltToken,
+                          migrType, onePhaseMigration);
 }
 
 void
@@ -928,11 +940,26 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
 
+                checkAndStartPendingResync();
             } else {
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.cond_write_unlock();
             }
         }
+    }
+}
+
+void
+MigrationMgr::checkAndStartPendingResync() {
+    bool resync = false;
+    {
+        fds_mutex::scoped_lock l(resyncPendingFlagLock);
+        resync = isResyncPending;
+        isResyncPending = false;
+
+    }
+    if (resync) {
+        cachedPendingResyncCb();
     }
 }
 
@@ -1173,6 +1200,14 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     LOGMIGRATE << "Done coalescing clients";
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
+
+    /**
+     * Current migration is complete. Now check if there is any pending
+     * resync request is pending. If that's so, ask Object Store Manager
+     * to start a fresh resync.
+     */
+    checkAndStartPendingResync();
+
     return err;
 }
 

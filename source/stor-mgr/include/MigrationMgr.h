@@ -17,6 +17,7 @@ namespace fds {
  * Callback for Migration Start Ack
  */
 typedef std::function<void (const Error&)> OmStartMigrationCbType;
+typedef std::function<void (void)> PendingResyncCb;
 
 /*
  * Class responsible for migrating tokens between SMs
@@ -100,7 +101,8 @@ class MigrationMgr {
      */
      Error startResync(const fds::DLT *dlt,
                        const NodeUuid& mySvcUuid,
-                       fds_uint32_t bitsPerDltToken);
+                       fds_uint32_t bitsPerDltToken,
+                       PendingResyncCb pcb);
 
     /**
      * Handles message from OM to abort migration
@@ -355,6 +357,11 @@ class MigrationMgr {
                          const Error& error);
 
     /**
+     * Check if a resync is pending and start the resync if required.
+     */
+    void checkAndStartPendingResync();
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
@@ -520,6 +527,13 @@ class MigrationMgr {
      * because the source SM was not ready.
      */
      RetrySmTokenSet retryMigrSmTokenSet;
+
+    /**
+     * Pending resync
+     */
+    bool isResyncPending = {false};
+    fds_mutex resyncPendingFlagLock;
+    PendingResyncCb cachedPendingResyncCb = PendingResyncCb();
 
     /**
      * Source SMs which are marked as failed for some executors during migration.
