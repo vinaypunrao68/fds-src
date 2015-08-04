@@ -191,8 +191,16 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
+    helper.err = e;
     // This isn't the _real_ request, do not confuse QoS
     helper.ioIsMarkedAsDone = true;
+
+    if (helper.err != ERR_OK) {
+        LOGERROR << "Failed to commit tx during rename...aborting: "
+                 << e;
+        dataManager.timeVolCat_->abortBlobTx(typedRequest->volId, source_tx);
+        return;
+    }
 
     // Delete the source blob
     helper.err = dataManager.timeVolCat_->deleteBlob(typedRequest->volId,
@@ -236,6 +244,7 @@ void RenameBlobHandler::handleDeleteOldBlob(Error const& e, DmRequest* dmRequest
     delete commitOnceReq;
 
     QueueHelper helper(dataManager, parent);
+    helper.err = e;
 }
 
 void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
