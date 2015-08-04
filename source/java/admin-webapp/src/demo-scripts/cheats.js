@@ -84,24 +84,24 @@ var addNode = function( name ){
     
     var newNode = {
         "name": name,
-        "uuid": (new Date()).getTime(),
-        "ipV6address": "0.0.0.0",
-        "ipV4address": '10.3.50.' + (Math.random() * 255),
+        "uid": (new Date()).getTime(),
+        "address": {
+            "ipv4Address": "10.3.50." + (Math.random() * 255),
+            "ipv6Address": "nothing"
+        },
         "state": "DISCOVERED",
-        "services": {
-            "DM": [
+        "serviceMap": {
+            "PM": [
                 {
-                    "id": {
-                        "uuid": (new Date()).getTime() + 1,
-                        "name": "PM",
-                    },
+                    "uid": (new Date()).getTime() + 1,
+                    "name": "PM",
                     "port": 7031,
                     "status": {
                         "state": "NOT_RUNNING",
-                        "code": 1000,
+                        "errorCode": 1000,
                         "description": "Not added."
                     },
-                    "type": "FDSP_PLATFORM"
+                    "type": "PM"
                 }
             ]
         }
