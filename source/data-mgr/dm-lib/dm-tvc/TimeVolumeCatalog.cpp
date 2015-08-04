@@ -564,8 +564,7 @@ Error DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volid,
     if (blobVersion == blob_version_deleted) {
         LOGDEBUG << "Applying committed forwarded delete for blob " << blobName
                  << " volume " << std::hex << volid << std::dec;
-        fds_panic("not implemented!");
-        // err = volcat->deleteBlob(volid, blobName, blobVersion);
+        err = volcat->deleteBlob(volid, blobName, blobVersion);
     } else {
         LOGDEBUG << "Applying committed forwarded update for blob " << blobName
                  << " volume " << std::hex << volid << std::dec;
