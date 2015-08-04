@@ -104,12 +104,6 @@ class DmMigrationMgr {
     Error handleForwardedCommits(DmIoFwdCat* fwdCatReq);
 
     /**
-     * Destination Side DM:
-     * Message from Source to say which msg was the last fowarded commit log.
-     */
-    Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
-
-    /**
      * Public interface to check whether or not a I/O should be forwarded as part of
      * active migration.
      * Params:
@@ -131,6 +125,12 @@ class DmMigrationMgr {
     						   blob_version_t blob_version,
     						   const BlobObjList::const_ptr& blob_obj_list,
     						   const MetaDataList::const_ptr& meta_list);
+
+    /**
+     * Destination side DM:
+     * In the case no forwards is sent, this will finish the migration
+     */
+    Error finishActiveMigration(fds_volid_t volId);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;

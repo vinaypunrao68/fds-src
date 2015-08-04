@@ -82,14 +82,6 @@ class DmMigrationExecutor {
     Error processForwardedCommits(DmIoFwdCat* req);
 
     /**
-     * last step from source DM to destination DM:
-     * As part of ActiveMigration, this is the method called when the source DM wants to notify
-     * the destination DM of the last forwarded commit log. From this point on, we start draining
-     * the ordered map and switch over to regular QoS queue.
-     */
-    Error processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg);
-
-    /**
      * Apply queue blob descriptor.
      */
     Error applyQueuedBlobDescs();
@@ -99,15 +91,16 @@ class DmMigrationExecutor {
      */
     Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
 
-    /**
-     * Change the state machine to forward IO state
-     */
-    void notifyStaticMigrationComplete();
-
     inline fds_bool_t shouldAutoExecuteNext()
     {
     	return autoIncrement;
     }
+
+    /**
+     * Finish the active migration - in case where we have NO forwards, this takes care
+     * of the state machine change.
+     */
+    Error finishActiveMigration();
 
   private:
     /** Reference to the DataManager

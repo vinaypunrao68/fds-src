@@ -52,7 +52,6 @@ extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
-extern std::string logString(const fpi::CtrlNotifyFinishVolResyncMsg &msg);
 // ======
 
 class DmRequest : public FDS_IOType {
@@ -779,21 +778,6 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
     }
 
 	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg;
-};
-
-struct DmIoMigrationFinishVolResync : DmRequest {
-    explicit DmIoMigrationFinishVolResync(const fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
-            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_FINISH_VOL_RESYNC),
-             finishVolResyncMsg(msg)
-    {
-    }
-
-    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationFinishVolResync& io) {
-    	return out << "DmIoMigrationFinishVolResync vol:"
-                   << std::hex << io.finishVolResyncMsg->volume_id << std::dec;
-    }
-
-	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg;
 };
 }  // namespace fds
 

@@ -563,6 +563,7 @@ DmMigrationClient::sendFinishFwdMsg()
 	LOGMIGRATE << "Sending an empty finish forwarding message for volume: " << volId;
 
 	finMsg->volume_id = volId.v;
+	finMsg->blob_name = "";
 	finMsg->lastForward = true;
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());

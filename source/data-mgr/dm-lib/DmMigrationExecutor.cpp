@@ -396,10 +396,13 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
 }
 
 Error
-DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
+DmMigrationExecutor::finishActiveMigration()
 {
-       // TODO: what's the card number for this?
-       return ERR_OK;
-}
+	fds_scoped_lock lock(progressLock);
+	migrationProgress = MIGRATION_COMPLETE;
+	LOGMIGRATE << "No forwards was sent, resuming IO for volume " << volumeUuid;
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
+	return ERR_OK;
+}
 }  // namespace fds

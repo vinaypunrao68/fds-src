@@ -412,25 +412,6 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
     clientMap.erase(fds_volid_t(uniqueId));
 }
 
-Error
-DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq)
-{
-    fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg =
-        finishVolResyncReq->finishVolResyncMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(finishVolResyncMsg->volume_id));
-    if (executor == nullptr) {
-        LOGERROR << "Unable to find executor for volume " << finishVolResyncMsg->volume_id;
-        // this is an race cond error that needs to be fixed in dev env.
-        // Only panic in debug build.
-        fds_assert(0);
-        return ERR_NOT_FOUND;
-    }
-    executor->processLastFwdCommitLog(finishVolResyncMsg);
-
-    return ERR_OK;
-}
-
 fds_bool_t
 DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff)
 {
@@ -446,8 +427,13 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_
 Error
 DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
 {
+	Error err(ERR_NOT_FOUND);
 	auto dmClient = getMigrationClient(volId);
 	fds_assert(dmClient != nullptr);
+
+	if (err == ERR_NOT_FOUND) {
+		return err;
+	}
 
 	return (dmClient->sendFinishFwdMsg());
 }
@@ -459,11 +445,24 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const BlobObjList::const_ptr& blob_obj_list,
                                     const MetaDataList::const_ptr& meta_list)
 {
-   auto dmClient = getMigrationClient(volId);
-   fds_assert(dmClient != nullptr);
+	Error err(ERR_NOT_FOUND);
+	auto dmClient = getMigrationClient(volId);
+	fds_assert(dmClient != nullptr);
 
-   dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+	err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
 
-   return ERR_OK;
+	return err;
+}
+
+Error
+DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
+{
+	Error err(ERR_NOT_FOUND);
+	auto dmExecutor = getMigrationExecutor(volId);
+	fds_assert(dmExecutor != nullptr);
+
+	err = dmExecutor->finishActiveMigration();
+
+	return err;
 }
 }  // namespace fds

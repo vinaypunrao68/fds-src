@@ -44,12 +44,20 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoFwdCat* typedRequest = static_cast<DmIoFwdCat*>(dmRequest);
     QueueHelper helper(dataManager, typedRequest);
 
-    LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
-
     if (typedRequest->fwdCatMsg->lastForward &&
-        typedRequest->fwdCatMsg->blob_name.size() == 0) {
-            return;
+        typedRequest->fwdCatMsg->blob_name.empty()) {
+    	LOGMIGRATE << "Received empty last forward for volume "
+    			<< typedRequest->fwdCatMsg->volume_id;
+    	/**
+    	 * Need to signal to the migration manager that active Forwards is complete and
+    	 * there will not be anymore forwards.
+    	 */
+    	dataManager.dmMigrationMgr->
+			finishActiveMigration(fds_volid_t(typedRequest->fwdCatMsg->volume_id));
+    	return;
     }
+
+    LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
 
     helper.err = dataManager.timeVolCat_->updateFwdCommittedBlob(
             static_cast<fds_volid_t>(typedRequest->fwdCatMsg->volume_id),
