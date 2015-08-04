@@ -681,6 +681,11 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         sm_agent->handle_service_deployed();
     }
 
+    // once we persisted DLT and set SM states to 'active', we officially
+    // deployed new DLT!
+    LOGNOTIFY << "OM deployed DLT with "
+              << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
+
     // reset pending nodes in cluster map, since they are already
     // present in the DLT
     cm->resetPendServices(fpi::FDSP_STOR_MGR);
@@ -742,11 +747,6 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    ClusterMap* cm = om->om_clusmap_mod();
-    DataPlacement *dp = om->om_dataplace_mod();
-    fds_verify(cm != NULL);
-    LOGNOTIFY << "OM deployed DLT with "
-              << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
