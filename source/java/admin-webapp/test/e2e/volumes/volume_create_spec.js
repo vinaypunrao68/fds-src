@@ -136,7 +136,7 @@ describe( 'Testing volume creation permutations', function(){
     it( 'should save with just a name', function(){
         
         newText.sendKeys( 'Test Volume' );
-        browser.sleep( 100 );
+        browser.sleep( 200 );
         
         createButton.click();
 
@@ -166,6 +166,8 @@ describe( 'Testing volume creation permutations', function(){
     it ( 'should go to the view screen on clicking the row', function(){
         
         clickRow( 'Test Volume' );
+        
+        browser.sleep( 200 );
         
         // the screen should slide over
         expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );

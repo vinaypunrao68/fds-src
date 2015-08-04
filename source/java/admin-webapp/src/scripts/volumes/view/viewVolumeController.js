@@ -445,12 +445,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return;
         }
         
+        $scope.thisVolume = $scope.volumeVars.selectedVolume;
+        
         $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.uid, function( data ){ 
             $scope.snapshots = data;
             initTimeline();
         });
-
-        $scope.thisVolume = $scope.volumeVars.selectedVolume;
 
 //        $scope.dataConnector = $scope.thisVolume.data_connector;
 

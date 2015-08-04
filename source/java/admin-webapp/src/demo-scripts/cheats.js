@@ -70,7 +70,7 @@ var listVolumes = function( full ){
     
     for ( var i = 0; i < volumes.length; i++ ){
         
-        var str = volumes[i].id + ': ' + volumes[i].name;
+        var str = volumes[i].uid + ': ' + volumes[i].name;
         
         if ( full === true ){
             str = JSON.stringify( volumes[i] );
