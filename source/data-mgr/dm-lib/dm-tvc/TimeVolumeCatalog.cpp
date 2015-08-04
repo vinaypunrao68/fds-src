@@ -515,7 +515,10 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     Error e;
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
-        blob_version = commit_data->blobVersion;
+        // AM is sending in blob_version_invalid. We overload it here internally.
+        LOGDEBUG << "Blob version set to delete for volID: " << volid << " blob name: "
+        		<< commit_data->name;
+        blob_version = blob_version_deleted;
     } else {
 #ifdef ACTIVE_TX_IN_WRITE_BATCH
         e = volcat->putBlob(volid, commit_data->name, commit_data->blobSize,
