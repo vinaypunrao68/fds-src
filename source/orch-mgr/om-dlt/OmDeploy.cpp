@@ -40,15 +40,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         virtual void runTimerTask() override;
     };
 
-    class WaitingTimerTask : public FdsTimerTask {
-      public:
-        explicit WaitingTimerTask(FdsTimer &timer)  // NOLINT
-                : FdsTimerTask(timer) {}
-        ~WaitingTimerTask() {}
-
-        virtual void runTimerTask() override;
-    };
-
     // Lock to prevent dlt compute while already computing
     std::atomic_flag lock = ATOMIC_FLAG_INIT;
 
@@ -428,13 +419,6 @@ OM_DLTMod::dlt_deploy_event(DltLoadedDbEvt const &evt)
 }
 
 void
-OM_DLTMod::dlt_deploy_event(DltTimeoutEvt const &evt)
-{
-    fds_mutex::scoped_lock l(fsm_lock);
-    dlt_dply_fsm->process_event(evt);
-}
-
-void
 OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
@@ -486,13 +470,6 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
     domain->om_dlt_update_cluster();
-}
-
-void DltDplyFSM::WaitingTimerTask::runTimerTask()
-{
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "DltWaitingFSM: moving from waiting state to compute state";
-    domain->om_dlt_waiting_timeout();
 }
 
 // GRD_DltCompute
