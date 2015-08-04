@@ -736,7 +736,7 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volId) {
 }
 
 Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName,
-            blob_version_t blobVersion) {
+            blob_version_t blobVersion, bool const expunge_data) {
     LOGDEBUG << "Will delete blob: '" << blobName << "' volume: '" << std::hex << volId
             << std::dec << "'";
 
@@ -787,8 +787,10 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
 
         // actually expunge objects that were dereferenced by the blob
         // TODO(xxx): later that should become part of GC and done in background
-        fds_verify(expungeCb_);
-        return expungeCb_(volId, expungeList, fIsSnapshot);
+        fds_assert(expungeCb_);
+        if (expunge_data) {
+            return expungeCb_(volId, expungeList, fIsSnapshot);
+        }
     }
 
     return rc;

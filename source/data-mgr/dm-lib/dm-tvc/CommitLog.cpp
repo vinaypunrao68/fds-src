@@ -211,7 +211,7 @@ void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectLis
 }
 
 // delete blob
-Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion) {
+Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion, bool const expunge_data) {
     fds_assert(txDesc);
     fds_verify(started_);
 
@@ -228,6 +228,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 
     CommitLogTx::ptr & ptx = txMap_[txId];
     ptx->blobDelete = true;
+    ptx->blobExpunge = expunge_data;
     ptx->blobVersion = blobVersion;
 
     return rc;

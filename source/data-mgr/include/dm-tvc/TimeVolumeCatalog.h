@@ -258,8 +258,10 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      *
      * @return ERR_OK on success
      */
-    Error deleteBlob(fds_volid_t volId, BlobTxId::const_ptr txDesc,
-                     blob_version_t blob_version);
+    Error deleteBlob(fds_volid_t const volId,
+                     BlobTxId::const_ptr txDesc,
+                     blob_version_t const blob_version,
+                     bool const expunge_data = true);
 
     /**
      * Commits the updates associated with an existing transaction

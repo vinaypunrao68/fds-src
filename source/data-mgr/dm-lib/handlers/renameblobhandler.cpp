@@ -202,10 +202,11 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
         return;
     }
 
-    // Delete the source blob
+    // Delete the source blob (but keep object references)
     helper.err = dataManager.timeVolCat_->deleteBlob(typedRequest->volId,
                                                      source_tx,
-                                                     blob_version_invalid);
+                                                     blob_version_invalid,
+                                                     false);
 
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to delete the source blob" << typedRequest->blob_name << ": "

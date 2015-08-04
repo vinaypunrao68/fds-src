@@ -411,14 +411,16 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
 Error
 DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
                              BlobTxId::const_ptr txDesc,
-                             blob_version_t blob_version) {
+                             blob_version_t const blob_version,
+                             bool const expunge_data) {
     TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Deleting Blob for transaction " << *txDesc << ", volume " <<
-            std::hex << volId << std::dec << " version " << blob_version;
+            std::hex << volId << std::dec << " version " << blob_version
+            << " (expunge: [" << expunge_data << "])";
 
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->deleteBlob(txDesc, blob_version);
+    return commitLog->deleteBlob(txDesc, blob_version, expunge_data);
 }
 
 Error
@@ -521,7 +523,7 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
                                const sequence_id_t seq_id, CommitLogTx::ptr commit_data) {
     Error e;
     if (commit_data->blobDelete) {
-        e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
+        e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion, commit_data->blobExpunge);
         blob_version = commit_data->blobVersion;
     } else {
 #ifdef ACTIVE_TX_IN_WRITE_BATCH
