@@ -351,19 +351,6 @@ struct DmMigrationDeltaBlobHandler : Handler {
                          DmIoCommitBlobTx* commitBlobReq);
 };
 
-/**
- * Handler for msg from source DM to dest DM indicating the last forwarded commit log
- */
-struct DmMigrationFinishVolResyncHandler : Handler {
-	explicit DmMigrationFinishVolResyncHandler(DataMgr& dataManager);
-    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message);
-    void handleQueueItem(DmRequest* dmRequest);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
-                        Error const& e, DmRequest* dmRequest);
-};
-
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

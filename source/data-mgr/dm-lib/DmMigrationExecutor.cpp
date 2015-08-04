@@ -72,6 +72,16 @@ DmMigrationExecutor::startMigration()
      * OM could have sent the volume descriptor over already
      */
     if (err.ok() || (err == ERR_DUPLICATE)) {
+    	fds_scoped_lock lock(progressLock);
+    	fds_assert(migrationProgress == INIT);
+    	migrationProgress = STATICMIGRATION_IN_PROGRESS;
+
+    	/**
+    	 * First quiesce IO
+    	 */
+    	LOGMIGRATE << "Quiescing IO for volume " << volumeUuid;
+    	dataMgr.qosCtrl->quieseceIOs(volumeUuid);
+
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
     	 * initial blob filter set to be sent to the source DM.
@@ -203,6 +213,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
                    << ", msg_seq_id=" << msg->msg_seq_id
                    << " last_mst_seq_id=" << msg->last_msg_seq_id;
     } else {
+    	LOGMIGRATE << "Volume " << volumeUuid << " received non-empty blob message";
         /**
          * For each blob in the blob_obj_list, apply blob offset.
          */
@@ -295,6 +306,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
     if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
         LOGMIGRATE << "All Blob descriptors applied to volume="
                    << std::hex << volumeUuid << std::dec;
+        notifyStaticMigrationComplete();
         if (migrDoneCb) {
             migrDoneCb(volDesc.volUUID, err);
         }
@@ -336,7 +348,8 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 	// TODO - part of error handling (FS-2619)
 }
 
-void DmMigrationExecutor::notifyStaticMigrationComplete() {
+void
+DmMigrationExecutor::notifyStaticMigrationComplete() {
     fds_scoped_lock lock(progressLock);
     fds_assert(migrationProgress == STATICMIGRATION_IN_PROGRESS);
     migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
@@ -346,25 +359,26 @@ void DmMigrationExecutor::notifyStaticMigrationComplete() {
     }
 }
 
-Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+Error
+DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
             // TODO: Abort migration
             fds_panic("Not handled");
-            delete  dmReq;
+            delete dmReq;
             return;
         }
         auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
+        fds_assert((unsigned)(fwdCatReq->fwdCatMsg->volume_id) == volumeUuid.v);
         if (fwdCatReq->fwdCatMsg->lastForward) {
             fds_scoped_lock lock(progressLock);
             /* All forwards have been applied.  At this point we don't expect anything from
              * migration source.  We can resume active IO
              */
             migrationProgress = MIGRATION_COMPLETE;
-            LOGNOTIFY << "Applying forwards for volume: "
-                << std::hex << volumeUuid << std::dec << " is complete";
-            // TODO: Lift up the quiesce
+            LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
+            dataMgr.qosCtrl->resumeIOs(volumeUuid);
         }
         delete dmReq;
     };
@@ -382,10 +396,13 @@ Error DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
 }
 
 Error
-DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
+DmMigrationExecutor::finishActiveMigration()
 {
-       // TODO: what's the card number for this?
-       return ERR_OK;
-}
+	fds_scoped_lock lock(progressLock);
+	migrationProgress = MIGRATION_COMPLETE;
+	LOGMIGRATE << "No forwards was sent, resuming IO for volume " << volumeUuid;
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
+	return ERR_OK;
+}
 }  // namespace fds
