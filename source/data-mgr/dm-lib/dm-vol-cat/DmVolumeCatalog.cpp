@@ -738,7 +738,7 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volId) {
 Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName,
             blob_version_t blobVersion, bool const expunge_data) {
     LOGDEBUG << "Will delete blob: '" << blobName << "' volume: '" << std::hex << volId
-            << std::dec << "'";
+            << std::dec << "' expunge: " << expunge_data;
 
     BlobMetaDesc blobMeta;
     Error rc = getBlobMetaDesc(volId, blobName, blobMeta);
