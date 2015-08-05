@@ -62,7 +62,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityTimeChoice = $scope.timeRanges[0];
     
     $scope.setCapacityTooltipText = function( data, i, j ){
-        if ( i == 0 ){
+        if ( data.type === 'PBYTES' ){
             return $filter( 'translate' )( 'status.desc_dedup_capacity' );
         }
         else {
