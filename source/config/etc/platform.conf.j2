@@ -120,7 +120,7 @@ fds: {
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
-        
+
         redis_host = "{{ om_ip }}"
         redis_port = {{ redis_port }}
 
@@ -696,6 +696,9 @@ fds: {
 
     xdi: {
         am_host = "{{ am_host }}"
+    	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
+    	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
+    	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
     }
 
     test: {

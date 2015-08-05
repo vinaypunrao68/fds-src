@@ -86,7 +86,12 @@
 {#
    fds.xdi. specific entries
 #}
+
 {% set am_host = am_host if am_host is defined else 'localhost' %}
+{% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
+{% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
+{% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
+
 {#
    fds.checker. specific entries
 #}

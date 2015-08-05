@@ -23,65 +23,38 @@ public class Assignment
         "The specified name '%s' was not found or was not set.";
 
     private String name;
-    private Optional value;
+    private String value;
 
-    Assignment( final String name, final Optional value ) {
-
+    Assignment(final String name, final String value) {
         this.name = name;
-        this.value = value;
-
+        this.value = value == null ? "" : value.replaceAll("^\"", "").replaceAll("\"$", "");
     }
 
     public String getName() {
         return name;
     }
 
-    public Optional getValue( ) {
-
-        return value;
-
+    public Optional<String> getValue() {
+        if (!value.isEmpty()) {
+            return Optional.of(value);
+        } else {
+            return Optional.empty();
+        }
     }
 
     public int intValue() {
-
-        return ( Integer ) instanceOf( value );
-
+        return Integer.parseInt(value);
     }
 
     public String stringValue() {
-
-        return ( String ) instanceOf( value );
-
+        return value;
     }
 
     public boolean booleanValue() {
-
-        return ( Boolean ) instanceOf( value );
-
+        return Boolean.parseBoolean(value);
     }
 
-    private Object instanceOf( final Optional value ) {
-
-        if( value.isPresent() ) {
-
-            if( value.get() instanceof String ) {
-
-                return value.get();
-
-            } else if( value.get() instanceof Integer ) {
-
-                return value.get();
-
-            } else if( value.get() instanceof Boolean ) {
-
-                return value.get();
-
-            }
-        }
-
-        final String s = String.format( NOT_FOUND, name );
-        logger.warn( s );
-
-        return String.format( "[ %s not set ]", name );
+    public long longValue() {
+        return Long.parseLong(value);
     }
 }
