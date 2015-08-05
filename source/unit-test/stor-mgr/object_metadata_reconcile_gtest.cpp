@@ -149,6 +149,14 @@ TEST(ObjMetaData, test2)
     std::cout << objMetaDataPtr->logString();
 #endif  // TEST_VERBOSE
 
+    // pretend we wrote an object to the data store
+    obj_phy_loc_t objPhyLoc;
+    objPhyLoc.obj_tier == diskio::diskTier;
+    objPhyLoc.obj_stor_loc_id = 1;
+    objPhyLoc.obj_stor_offset = 0;
+    objPhyLoc.obj_file_id = 2;
+    objMetaDataPtr->updatePhysLocation(&objPhyLoc);
+
     // second PUT reconcile
     objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), fds_volid_t(1));
 
