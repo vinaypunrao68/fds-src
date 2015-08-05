@@ -532,7 +532,7 @@ class MigrationMgr {
      * Pending resync
      */
     bool isResyncPending = {false};
-    fds_mutex resyncPendingFlagLock; 
+    fds_mutex resyncPendingFlagLock;
     PendingResyncCb cachedPendingResyncCb = PendingResyncCb();
 
     /**
