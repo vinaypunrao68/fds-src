@@ -2763,13 +2763,9 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     }
 
     // tell state machine that we received ack for close
-    if (respError.ok()) {
-        dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
-    } else {
-        LOGERROR << "Received " << respError << " with response, handling";
-        dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid, respError));
-    }
-
+    // ignore errors here, we are going to complete DLT deployment
+    // if we are in this stage.
+    dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     return err;
 }
 } // namespace fds

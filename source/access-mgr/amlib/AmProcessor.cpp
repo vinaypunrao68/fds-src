@@ -1033,6 +1033,13 @@ AmProcessor_impl::renameBlob(AmRequest *amReq) {
         return;
     }
 
+    auto blobReq = static_cast<RenameBlobReq*>(amReq);
+    LOGDEBUG << "Renaming blob: " << blobReq->getBlobName()
+             << " to: " << blobReq->new_blob_name;
+
+    blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::renameBlobCb, amReq);
     amDispatcher->dispatchRenameBlob(amReq);
 }
@@ -1041,8 +1048,12 @@ void
 AmProcessor_impl::renameBlobCb(AmRequest *amReq, const Error& error) {
     if (error.ok()) {
         auto blobReq = static_cast<RenameBlobReq*>(amReq);
-        // Invalidate the old descriptor for this blob, it's no longer valid.
-        txMgr->removeBlob(amReq->io_vol_id, blobReq->getBlobName());
+        // TODO(bszmyd): Sun 02 Aug 2015 07:04:36 PM MDT
+        // This is a gross nuke of the metadata since we don't remove the offset
+        // caches for a blob. change this when we have a better interface to
+        // the cache
+        // Invalidate the old descriptors
+        txMgr->invalidateMetaCache(amReq->io_vol_id);
 
         // Place the new blob's descriptor in the cache
         txMgr->putBlobDescriptor(blobReq->io_vol_id,

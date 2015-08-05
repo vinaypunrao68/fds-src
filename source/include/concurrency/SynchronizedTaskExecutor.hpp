@@ -4,10 +4,11 @@
 #ifndef SOURCE_INCLUDE_SYNCHRONIZED_TASK_EXECUTOR_H_
 #define SOURCE_INCLUDE_SYNCHRONIZED_TASK_EXECUTOR_H_
 
+#include <condition_variable>
 #include <unordered_map>
 #include <deque>
+#include <mutex>
 #include <utility>
-#include <concurrency/Mutex.h>
 #include <concurrency/ThreadPool.h>
 
 namespace fds {
@@ -17,22 +18,26 @@ class SynchronizedTaskExecutor
 {
  public:
     typedef std::function<void ()>TaskT;
- public:
     SynchronizedTaskExecutor(fds_threadpool &tp);
     ~SynchronizedTaskExecutor();
 
     void scheduleOnTemplateKey(const KeyT &k, const TaskT &task);
     void scheduleOnHashKey(const size_t &k, const TaskT &task);
+    void scheduleOnHashKeys(const size_t &k1, const size_t &k2, const TaskT &task);
 
     void runTemplateKey_(const KeyT &k, const TaskT &task);
     void runHashKey_(const size_t &k, const TaskT &task);
+    void runHashKeys_(const size_t &k1, const size_t &k2, const TaskT &task);
 
  protected:
     /* Threadpool to execute task functions */
     fds_threadpool &threadpool_;
 
     /* Lock around task maps */
-    fds_mutex lock_;
+    std::mutex lock_;
+
+    /* Notification around finishing a queue */
+    std::condition_variable queue_finished_;
 
     /**
      * Depending upon the requirements of the task as determined by
@@ -47,6 +52,9 @@ class SynchronizedTaskExecutor
     std::unordered_map<KeyT, std::deque<TaskT>> templateKeyTaskMap_;
     /* Map of task qs based on hash values. */
     std::unordered_map<size_t, std::deque<TaskT>> hashKeyTaskMap_;
+
+ private:
+    void runLoop_(const size_t &k, const SynchronizedTaskExecutor::TaskT &task);
 };
 
 template <class KeyT>
@@ -86,7 +94,7 @@ runTemplateKey_(const KeyT &k, const SynchronizedTaskExecutor::TaskT &task)
 
             (*taskP)();
 
-            fds_scoped_lock l(lock_);
+            std::lock_guard<std::mutex> g(lock_);
             sameIdTasks.pop_front();
             if (sameIdTasks.size() == 0) {
                 /* No more tasks with same id left.  Exit */
@@ -120,36 +128,65 @@ runHashKey_(const size_t &k, const SynchronizedTaskExecutor::TaskT &task)
     lock_.lock();
     auto itr = hashKeyTaskMap_.find(k);
     if (itr == hashKeyTaskMap_.end()) {
-        /* No oustanding tasks with same hash.  Start a new queue for incoming tasks with same hash. */
-        const SynchronizedTaskExecutor::TaskT *taskP = &task;
-        auto insRes = hashKeyTaskMap_.insert(std::make_pair(k, std::deque<SynchronizedTaskExecutor::TaskT>()));
-        auto &sameHashTasks = insRes.first->second;
-        sameHashTasks.push_back(task);
-        lock_.unlock();
-
-        /* Execute tasks with same id in this loop */
-        while (true) {
-
-            (*taskP)();
-
-            fds_scoped_lock l(lock_);
-            sameHashTasks.pop_front();
-            if (sameHashTasks.size() == 0) {
-                /* No more tasks with same id left.  Exit */
-                hashKeyTaskMap_.erase(k);
-                break;
-            } else {
-                /* More tasks were added with same id while we were executing this task.
-                 * Move onto the next task
-                 */
-                taskP = &(sameHashTasks.front());
-            }
-        }
+        runLoop_(k, task);
     } else {
         /* We have outstanding tasks with same id.  Add this task to that queue */
         itr->second.push_back(task);
         lock_.unlock();
     }
+}
+
+template <class KeyT>
+void SynchronizedTaskExecutor<KeyT>::
+scheduleOnHashKeys(const size_t &k1, const size_t &k2, const SynchronizedTaskExecutor::TaskT &task)
+{
+    threadpool_.schedule(&SynchronizedTaskExecutor<KeyT>::runHashKeys_, this, k1, k2, task);
+}
+
+template <class KeyT>
+void SynchronizedTaskExecutor<KeyT>::
+runHashKeys_(const size_t &k1, const size_t &k2, const SynchronizedTaskExecutor::TaskT &task)
+{
+    runHashKey_(k1,
+                [this, &k1, &k2, &task] () mutable -> void {
+                    auto lock = std::unique_lock<std::mutex>(lock_);
+                    queue_finished_.wait(lock,
+                                         [this, k2] () -> bool {
+                                            return hashKeyTaskMap_.end() == hashKeyTaskMap_.find(k2);
+                                         });
+                    runLoop_(k2, task);
+                });
+}
+
+template <class KeyT>
+void SynchronizedTaskExecutor<KeyT>::
+runLoop_(const size_t &k, const SynchronizedTaskExecutor::TaskT &task) {
+    /* No oustanding tasks with same hash.  Start a new queue for incoming tasks with same hash. */
+    const SynchronizedTaskExecutor::TaskT *taskP = &task;
+    auto insRes = hashKeyTaskMap_.insert(std::make_pair(k, std::deque<SynchronizedTaskExecutor::TaskT>()));
+    auto &sameHashTasks = insRes.first->second;
+    sameHashTasks.push_back(task);
+    lock_.unlock();
+
+    /* Execute tasks with same id in this loop */
+    while (true) {
+
+        (*taskP)();
+
+        std::lock_guard<std::mutex> g(lock_);
+        sameHashTasks.pop_front();
+        if (sameHashTasks.size() == 0) {
+            /* No more tasks with same id left.  Exit */
+            hashKeyTaskMap_.erase(k);
+            break;
+        } else {
+            /* More tasks were added with same id while we were executing this task.
+             * Move onto the next task
+             */
+            taskP = &(sameHashTasks.front());
+        }
+    }
+    queue_finished_.notify_all();
 }
 
 }  // namespace fds
