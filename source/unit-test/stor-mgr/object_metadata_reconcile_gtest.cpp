@@ -76,7 +76,7 @@ TEST(ObjMetaData, test1)
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
 
-    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), invalid_vol_id);
 
 #ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
@@ -136,7 +136,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // first PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), invalid_vol_id);
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
@@ -150,7 +150,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // second PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, fds_volid_t(1));
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), fds_volid_t(1));
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
