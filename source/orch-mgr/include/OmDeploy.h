@@ -28,15 +28,6 @@ class DltComputeEvt
     }
 };
 
-class DltTimeoutEvt
-{
-  public:
-    DltTimeoutEvt() {}
-    std::string logString() const {
-        return "DltTimeoutEvt";
-    }
-};
-
 class DltLoadedDbEvt
 {
   public:
@@ -156,7 +147,6 @@ class OM_DLTMod : public Module
     void dlt_deploy_event(DltCommitOkEvt const &evt);
     void dlt_deploy_event(DltCloseOkEvt const &evt);
     void dlt_deploy_event(DltLoadedDbEvt const &evt);
-    void dlt_deploy_event(DltTimeoutEvt const &evt);
     void dlt_deploy_event(DltErrorFoundEvt const &evt);
     void dlt_deploy_event(DltRecoverAckEvt const &evt);
 
