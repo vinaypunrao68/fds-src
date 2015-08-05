@@ -14,6 +14,7 @@ public class ParsedConfigTest {
     public void testParse() throws Exception {
         ParsedConfig adapter = new ParsedConfig(input);
         assertEquals("bar", adapter.lookup("fds.foo").stringValue());
+        assertEquals("bar", adapter.defaultString("fds.foo", "panda"));
         assertEquals(42, adapter.lookup("fds.hello").intValue());
         assertTrue(adapter.lookup("fds.panda").booleanValue());
     }
@@ -22,7 +23,7 @@ public class ParsedConfigTest {
     public void defaultValue() throws Exception {
         ParsedConfig adapter = new ParsedConfig(input);
         assertEquals(3, adapter.defaultInt("fds.poop", 3));
-        assertEquals(42, adapter.defaultInt("fds.hello", 3));
+        assertEquals(42, adapter.defaultInt("fds.hello", 101));
     }
 
     @Test
@@ -34,12 +35,10 @@ public class ParsedConfigTest {
         Assert.assertTrue( pandaAssignment.booleanValue() );
 
         final Assignment omAssignment = config.lookup( "fds.emptyGroup" );
-        Assert.assertEquals( omAssignment.stringValue(),
-                             "[ emptyGroup not set ]" );
+        assertTrue(omAssignment.stringValue().isEmpty());
 
         final Assignment omSnmp = config.lookup( "fds.om.snmp" );
-        Assert.assertEquals( omSnmp.stringValue(),
-                             "[ fds.om.snmp not set ]" );
+        assertTrue(omSnmp.stringValue().isEmpty());
 
     }
 

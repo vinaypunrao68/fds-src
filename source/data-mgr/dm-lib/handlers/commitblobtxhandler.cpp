@@ -98,6 +98,10 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
     QueueHelper helper(dataManager, commitBlobReq);
+    // If this is a piggy-back request, do not notify QoS
+    if (!commitBlobReq->orig_request) {
+        helper.ioIsMarkedAsDone = true;
+    }
     helper.err = e;
     if (!helper.err.ok()) {
         LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
@@ -134,10 +138,10 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
                            << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
                 helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
-                															  commitBlobReq,
-																			  blob_version,
-																			  blob_obj_list,
-																			  meta_list);
+                                                                              commitBlobReq,
+                                                                              blob_version,
+                                                                              blob_obj_list,
+                                                                              meta_list);
                 if (helper.err.ok()) {
                     // we forwarded the request!!!
                     // if forwarding -- do not reply to AM yet, will reply when we receive response
