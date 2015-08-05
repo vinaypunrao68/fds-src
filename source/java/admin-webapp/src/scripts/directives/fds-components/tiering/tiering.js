@@ -21,7 +21,13 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 }
                 
                 if ( angular.isNumber( $scope.policy )){
-                    $scope.policy = $media_policy_helper.availablePolicies[ $scope.policy ];
+                    
+                    if ( $scope.policy > $media_policy_helper.availablePolicies.length-1 ){
+                        $scope.policy = $media_policy_helper.availablePolicies[0];
+                    }
+                    else {
+                        $scope.policy = $media_policy_helper.availablePolicies[ $scope.policy ];
+                    }
                 }
                 else if ( angular.isString( $scope.policy ) ){
                     $scope.policy = $media_policy_helper.convertRawToObjects( $scope.policy );

@@ -3,7 +3,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.snapshotPolicies = [];
     $scope.dataSettings = {};
     $scope.volumeName = '';
-    $scope.mediaPolicy = 0;
+    $scope.mediaPolicy = 1;
     $scope.enableDc = false;
     
     $scope.timelinePolicies = {};

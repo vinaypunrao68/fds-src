@@ -185,7 +185,7 @@ describe( 'Testing volume creation permutations', function(){
         // check the actual settings
         verifyVolume( 
             'Test Volume', 
-            'Flash Only',
+            'Hybrid',
             { preset: STANDARD, priority: '7', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: STANDARD, 
