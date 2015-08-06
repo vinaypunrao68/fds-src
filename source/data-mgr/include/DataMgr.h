@@ -173,6 +173,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(VolumeTokens , false);
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
+        DEF_FEATURE(Expunge      , true);
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
