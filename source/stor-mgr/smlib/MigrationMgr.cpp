@@ -400,7 +400,8 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         if (curSmTokenInProgress % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     // on error, we just stop the whole migration process
     if (!error.ok() || !err.ok()) {
-        LOGERROR << "Failed to get index db snapshot for SM token: " << curSmTokenInProgress;
+        LOGERROR << "Failed to get index db snapshot for SM token: " << curSmTokenInProgress
+                 << "primary error: " << err << " secondary error: " << error;
         abortMigrationForSMToken(curSmTokenInProgress, error);
         return;
     }

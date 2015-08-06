@@ -300,13 +300,12 @@ NodeUuid DLT::getSourceNodeForToken(const NodeUuid &destNodeUuid,
 
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
 
-    if (destNodeUuid != tokenNodeGroup->get(sm1Idx)) {
-        return tokenNodeGroup->get(sm1Idx);
+    if (destNodeUuid != tokenNodeGroup->get(sm1PIdx)) {
+        return tokenNodeGroup->get(sm1PIdx);
+    } else {
+        return tokenNodeGroup->get(sm2PIdx);
     }
-
-    return srcNodeUuid;
 }
-
 // get source nodes for all the tokens of a given destination node
 void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
                                     SourceNodeMap &srcNodeTokenMap) const {

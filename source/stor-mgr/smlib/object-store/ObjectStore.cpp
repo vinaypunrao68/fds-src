@@ -226,6 +226,7 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
             diskMap->removeDiskAndRecompute(diskId, tier);
@@ -241,7 +242,6 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
             return ERR_SM_NO_DISK;
         }
     }
-    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     Error err = openStore(lostTokens);
     if (!err.ok()) {
         LOGDEBUG << "Error opening metadata and data stores." << err;
