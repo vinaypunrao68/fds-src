@@ -21,8 +21,9 @@ export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
 export PATH=${PATH}:${fds_root}/bin
 export PATH=${PATH}:${fds_root}/sbin
 
-# JAVA dependencies
-export JAVA_OPTS="-Xmx2048M -Xms20M"
+# JAVA Options
+export OM_JAVA_OPTS="-Xmx2048M -Xms20M"
+export XDI_JAVA_OPTS="-Xmx16G -TESTING"
 export JAVA_HOME=/opt/fds-deps/embedded/jre
 
 # JAVA CLASSPATH dependencies
@@ -32,8 +33,9 @@ export CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
 export CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
 export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
 
-# JAVA Main executable dependency
-export MAIN_CLASS=com.formationds.om.Main
+# JAVA Main executables
+export OM_MAIN_CLASS=com.formationds.om.Main
+export XDI_MAIN_CLASS=com.formationds.om.Main
 
 # are we running on an OM host?
 {% if fds_om_host == inventory_hostname %}
@@ -41,5 +43,4 @@ export ENABLED=true
 {% else %}
 export ENABLED=false
 {% endif %}
-
 {% endblock %}

@@ -50,19 +50,19 @@ if [[ ! -z "${DEBUG_PORT}" ]]; then
 fi
 
 # JAVA dependencies
-export JAVA_OPTS="-Xmx2048M -Xms20M"
+export OM_JAVA_OPTS="-Xmx2048M -Xms20M"
 export JAVA_HOME=/opt/fds-deps/embedded/jre
 
 # JAVA CLASSPATH dependencies
 export CLASSPATH=${CLASSPATH}:../lib/java/\*
 
 # JAVA Main executable dependency
-export MAIN_CLASS=com.formationds.om.Main
+export OM_MAIN_CLASS=com.formationds.om.Main
 
-"${JAVA_HOME}"/bin/java ${JAVA_OPTS} \
+"${JAVA_HOME}"/bin/java ${OM_JAVA_OPTS} \
                         -cp "${CLASSPATH}" \
                         ${DEBUG_OPTS} \
-                        "${MAIN_CLASS}" \
+                        "${OM_MAIN_CLASS}" \
                         --foreground \
                         --fds-root="${fds_root}" \
                         "${NEW_ARGS[@]}" > ./om.out 2>&1
