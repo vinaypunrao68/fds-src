@@ -5,11 +5,11 @@
 
 #include <util/Log.h>
 
-namespace fds{
-fds_log* GetLog(){
-    return nullptr;
-}
-}
+//namespace fds{
+//fds_log* GetLog(){
+//    return nullptr;
+//}
+//}
 
 int main(int argc, char* argv[]) {
 

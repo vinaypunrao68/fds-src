@@ -203,6 +203,10 @@ class FdsProcess : public boost::noncopyable,
     */
     static void closeAllFDs();
 
+    std::string getProcId() const {
+       return proc_id;
+    }
+
  protected:
     // static members/methods
     static void* sig_handler(void* param);
@@ -212,6 +216,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_config(int argc, char *argv[],
                const std::string &default_config_path,
                const std::string &base_path);
+    virtual void log_config(libconfig::Setting& root);
 
     virtual void setup_sig_handler();
     virtual void setup_cntrs_mgr(const std::string &mgr_id);

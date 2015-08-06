@@ -179,6 +179,10 @@ void FdsProcess::init(int argc, char *argv[],
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
 
+    libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
+    LOGNORMAL << "Configurations as modified by the command line:";
+    log_config(fdsSettings);
+
     /* detect the core file size limit and print to log */
     struct rlimit crlim;
     int ret = getrlimit(RLIMIT_CORE, &crlim);
@@ -291,6 +295,36 @@ void FdsProcess::setup_config(int argc, char *argv[],
     boost::shared_ptr<FdsConfig> config(new FdsConfig(default_config_file,
                                                       argc, argv));
     conf_helper_.init(config, base_path);
+}
+
+void FdsProcess::log_config(libconfig::Setting& root)
+{
+    if (root.isGroup()) {
+        for (auto i = 0; i < root.getLength(); ++i) {
+            log_config(root[i]);
+        }
+    } else {
+        if (root.isAggregate()) {
+            LOGWARN << "Unexpected aggregate in configuration: " << root.getPath();
+        } else {
+            const libconfig::Config& config = conf_helper_.get_fds_config()->getConfig();
+            if (root.getType() == libconfig::Setting::TypeString) {
+                LOGNORMAL << root.getPath() << " = " << "\"" << config.lookup(root.getPath()).c_str() << "\"";
+            } else if (root.getType() == libconfig::Setting::TypeBoolean) {
+                bool value = config.lookup(root.getPath());
+                LOGNORMAL << root.getPath() << " = " << value;
+            } else if (root.getType() == libconfig::Setting::TypeFloat) {
+                float value = config.lookup(root.getPath());
+                LOGNORMAL << root.getPath() << " = " << value;
+            } else if ((root.getType() == libconfig::Setting::TypeInt) ||
+                       (root.getType() == libconfig::Setting::TypeInt64)) {
+                int64_t value = conf_helper_.get_abs<int64_t>(root.getPath());
+                LOGNORMAL << root.getPath() << " = " << value;
+            } else {
+                LOGWARN << "Unexpected value type.";
+            }
+        }
+    }
 }
 
 FdsConfigAccessor FdsProcess::get_conf_helper() const {

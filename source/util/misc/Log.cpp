@@ -10,7 +10,7 @@
 #include <boost/log/attributes/current_process_id.hpp>
 #include <boost/algorithm/string.hpp>
 #include <util/Log.h>
-#include <fds_globals.h>
+#include <fds_process.h>
 namespace fds {
 
 std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly) {
@@ -70,6 +70,31 @@ inline std::basic_ostream< CharT, TraitsT >& operator<< (std::basic_ostream< Cha
     return strm;
 }
 
+void writeHeader(boost::log::sinks::text_file_backend::stream_type& file) {
+    char buildStr[256];
+
+    if (g_fdsprocess == nullptr) {
+        snprintf(buildStr, sizeof(buildStr), buildStrTmpl, "?");
+    } else {
+        std::string unknownManager = "Unknown Manager(" + g_fdsprocess->getProcId() + ")";
+        snprintf(buildStr, sizeof(buildStr), buildStrTmpl,
+                 ((g_fdsprocess->getProcId().find("am") != std::string::npos) ||
+                  (g_fdsprocess->getProcId().find("bare_am") != std::string::npos)) ? "Access Manager" :
+                 ((g_fdsprocess->getProcId().find("dm") != std::string::npos) ||
+                  (g_fdsprocess->getProcId().find("DataMgr") != std::string::npos)) ? "Data Manager" :
+                 ((g_fdsprocess->getProcId().find("om") != std::string::npos) ||
+                  (g_fdsprocess->getProcId().find("orchMgr") != std::string::npos)) ? "Orchestration Manager" :
+                 ((g_fdsprocess->getProcId().find("pm") != std::string::npos) ||
+                  (g_fdsprocess->getProcId().find("platformd") != std::string::npos)) ? "Platform Manager" :
+                 ((g_fdsprocess->getProcId().find("sm") != std::string::npos) ||
+                  (g_fdsprocess->getProcId().find("StorMgr") != std::string::npos)) ? "Storage Manager" :
+                 unknownManager.c_str());
+    }
+
+    file << buildStr;
+
+}
+
 fds_log::severity_level fds_log::getLevelFromName(std::string level) {
     boost::to_upper(level);
     boost::trim(level);
@@ -126,7 +151,9 @@ void fds_log::init(const std::string& logfile,
      */
     sink->locked_backend()->scan_for_files();
 
+#ifdef DEBUG
     sink->locked_backend()->auto_flush(true);
+#endif
 
     /*
      * Set the filter to not print messages below
@@ -164,6 +191,11 @@ void fds_log::init(const std::string& logfile,
                         << boost::log::expressions::attr< boost::log::attributes::current_thread_id::value_type >("ThreadID")
                         << "] - "
                         << boost::log::expressions::smessage);
+
+    /*
+     * Set the log header.
+     */
+    sink->locked_backend()->set_open_handler(&writeHeader);
 
     /*
      * Add the sink to the core.

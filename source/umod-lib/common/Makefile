@@ -3,6 +3,7 @@ user_target      := lib
 user_rtime_env   := user
 user_python      := true
 user_cpp         := \
+    buildstr.cpp \
     fds_resource.cpp \
     fds_request.cpp \
     fds_module.cpp \
@@ -25,3 +26,8 @@ user_ar_libs     := fds-umod
 fds-umod         := $(user_cpp)
 
 include $(topdir)/Makefile.incl
+
+all: update_buildstr
+
+update_buildstr:
+	touch buildstr.cpp
