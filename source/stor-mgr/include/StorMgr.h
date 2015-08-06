@@ -303,6 +303,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
      void startResyncRequest();
+
+     void handleDiskChanges(const diskio::DataTier& tierType,
+                            const TokenDiskIdPairSet& tokenDiskPairs);
      Error handleDltUpdate();
 
      void storeCurrentDLT();

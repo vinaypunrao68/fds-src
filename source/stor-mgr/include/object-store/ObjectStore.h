@@ -22,6 +22,7 @@
 namespace fds {
 
 typedef std::function <void(void)> StartResyncFnObj;
+typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
 /**
  * The ObjectStore manages persistent storage of Formation Objects, which
@@ -111,7 +112,8 @@ class ObjectStore : public Module, public boost::noncopyable {
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
                 StorMgrVolumeTable* volTbl,
-                StartResyncFnObj fnObj=StartResyncFnObj());
+                StartResyncFnObj fnObj=StartResyncFnObj(),
+                DiskChangeFnObj diskChFnObj=DiskChangeFnObj());
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
@@ -276,7 +278,6 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Handle disk change.
      */
-    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
     void handleDiskChanges(const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
 

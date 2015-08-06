@@ -55,6 +55,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
 
+    Error closeAndDeleteMetadataDb(const fds_token_id& smTokenLost);
+
     /**
      * Delete metadata DBs of given SM tokens
      */

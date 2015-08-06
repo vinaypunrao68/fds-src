@@ -37,16 +37,14 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataProp
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl,
-                         StartResyncFnObj fn)
+                         StartResyncFnObj fn,
+                         DiskChangeFnObj dcFn)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           requestResyncFn(fn),
           conf_verify_data(true),
           diskMap(new SmDiskMap("SM Disk Map Module",
-                                std::bind(&ObjectStore::handleDiskChanges,
-                                          this,
-                                          std::placeholders::_1,
-                                          std::placeholders::_2))),
+                                std::move(dcFn))),
           dataStore(new ObjectDataStore("SM Object Data Storage",
                                         data_store,
                                         std::bind(&ObjectStore::updateMediaTrackers,
@@ -229,8 +227,7 @@ Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
-        if ((diskMap->getTotalDisks(diskio::diskTier) > 1) &&
-            (diskMap->getTotalDisks(diskio::flashTier) > 1)) {
+        if (diskMap->getTotalDisks(tier) > 1) {
             diskMap->removeDiskAndRecompute(diskId, tier);
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
@@ -1525,8 +1522,9 @@ ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
                      */
                     for (auto& tokenPair: tokenDiskPairs) {
                         LOGNOTIFY << tokenPair.first;
-                        metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
-                                                    tokenPair.first);
+                        metaStore->closeAndDeleteMetadataDb(tokenPair.first);
+                        //metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
+                        //                            tokenPair.first);
                     }
                 }
                 break;
@@ -1534,7 +1532,8 @@ ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
                 LOGNOTIFY << "Close and delete token files for smTokens ";
                 for (auto& tokenPair: tokenDiskPairs) {
                     LOGNOTIFY << tokenPair.first;
-                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second), tokenPair.first, tokenPair.second);
+                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second),
+                                                    tokenPair.first, tokenPair.second);
                 }
                 break;
             default:

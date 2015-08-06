@@ -110,7 +110,10 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl,
-                                                          std::bind(&ObjectStorMgr::startResyncRequest, this)));
+                                                          std::bind(&ObjectStorMgr::startResyncRequest, this),
+                                                          std::bind(&ObjectStorMgr::handleDiskChanges, this,
+                                                                    std::placeholders::_1,
+                                                                    std::placeholders::_2)));
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -119,6 +122,19 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     mod_intern = smDepMods;
     Module::mod_init(param);
     return 0;
+}
+
+void ObjectStorMgr::handleDiskChanges(const diskio::DataTier& tierType,
+                                      const TokenDiskIdPairSet& tokenDiskPairs) {
+    std::set<fds_token_id> dltTokens;
+    for (auto& tokenDiskPair : tokenDiskPairs) {
+        dltTokens.insert(tokenDiskPair.first);
+    }
+    if (dltTokens.size()) {
+        objStorMgr->migrationMgr->changeDltTokensState(dltTokens, false);
+    }
+
+    objStorMgr->objectStore->handleDiskChanges(tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::startResyncRequest() {
