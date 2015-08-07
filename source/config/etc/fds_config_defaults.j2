@@ -8,6 +8,11 @@
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ################################################################################
 {#
+
+   Do NOT leave blank lines in this file except inside comment blocks like this one
+
+#}
+{#
    fds. specific entries
 #}
 {% set fds_root = fds_default_root if fds_default_root is defined else '/fds' %}
@@ -42,6 +47,7 @@
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set dm_req_serialization = fds_dm_req_serialization if fds_dm_req_serialization is defined else 'true' %}
+{% set dm_enable_expunge = fds_dm_ if fds_dm_enable_expunge is defined else 'false' %}
 {% set dm_enable_timeline = fds_dm_enable_timeline if fds_dm_enable_timeline is defined else 'true' %}
 {% set dm_enable_migration = fds_dm_enable_migration if fds_dm_enable_migration is defined else 'false' %}
 {% set dm_enable_resync = fds_dm_enable_resync if fds_dm_enable_resync is defined else 'false' %}
@@ -82,7 +88,6 @@
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {% set rest_07_feature = ft_fds_rest_07_feature if ft_fds_rest_07_feature is defined else 'false' %}
-
 {#
    fds.xdi. specific entries
 #}
@@ -91,7 +96,6 @@
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
 {% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
-
 {#
    fds.checker. specific entries
 #}
@@ -118,6 +122,11 @@
 {% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true'  %}
 {% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
 {% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
-
-
+{#
+    Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
+#}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Xms20M' %}
+{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '' %}
+{#
+#}
 {% block content %}{% endblock %}
