@@ -441,12 +441,13 @@ ObjectStore::putObject(fds_volid_t volId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (err == ERR_OK) {
+        bool isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
         // TokenMigration + Active IO: Condition 2).
         // This should never happen, so panic if this condition is hit.
         // If hit, there is a bug in token migration.
         if (!objMeta->isObjReconcileRequired()) {
-            fds_verify(objMeta->dataPhysicallyExists());
+            fds_verify(isDataPhysicallyExist);
         }
 
         // check if existing object corrupted
@@ -456,7 +457,7 @@ ObjectStore::putObject(fds_volid_t volId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
-        if (conf_verify_data == true) {
+        if (isDataPhysicallyExist && (conf_verify_data == true)) {
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
                     = dataStore->getObjectData(volId, objId, objMeta, err);
@@ -1185,8 +1186,11 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
+	isDataPhysicallyExist = objMeta->dataPhysicallyExists();
+
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
+            isDataPhysicallyExist &&
             (conf_verify_data == true)) {
             // verify data -- read object from object data store
             // data in this msg
@@ -1209,8 +1213,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         // create new object metadata for update from source SM
         updatedMeta.reset(new ObjMetaData(objMeta));
-
-        isDataPhysicallyExist = updatedMeta->dataPhysicallyExists();
 
         // we temporary assign error duplicate to indicate that we already have metadata
         // and data for this object, to differentiate from the case when this is the

@@ -141,7 +141,8 @@ class VolumeCatalogQueryIface {
 
     virtual Error deleteBlob(fds_volid_t volume_id,
                      const std::string& blob_name,
-                     blob_version_t blob_version) = 0;
+                     blob_version_t blob_version,
+                     bool const expunge_data = true) = 0;
     /**
      * get total matadata size for a volume
      */

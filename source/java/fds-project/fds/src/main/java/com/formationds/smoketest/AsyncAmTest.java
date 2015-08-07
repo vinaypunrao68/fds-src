@@ -51,7 +51,7 @@ public class AsyncAmTest extends BaseAmTest {
         index.index(dir, child);
         child = child.withUpdatedAtime();
         index.index(child);
-        List<DirectoryEntry> list = index.list(dir.asInode());
+        List<DirectoryEntry> list = index.list(dir);
         assertEquals(1, list.size());
     }
 
@@ -91,9 +91,9 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "red");
 
         index.index(fooDir, barDir, blue, red);
-        assertEquals(2, index.list(fooDir.asInode()).size());
-        assertEquals(1, index.list(barDir.asInode()).size());
-        assertEquals(0, index.list(blue.asInode()).size());
+        assertEquals(2, index.list(fooDir).size());
+        assertEquals(1, index.list(barDir).size());
+        assertEquals(0, index.list(blue).size());
     }
 
     private class MyExportResolver implements ExportResolver {
@@ -306,32 +306,76 @@ public class AsyncAmTest extends BaseAmTest {
         String blobName2 = UUID.randomUUID().toString();
         Map<String, String> metadata = new HashMap<>();
         metadata.put("clothing", "boot");
-        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), metadata).get();
         BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
         assertEquals("boot", bd1.getMetadata().get("clothing"));
 
         // Rename the blob
-	try {
-            asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
-	} catch (ExecutionException e) {
-            ApiException apiException = (ApiException) e.getCause();
-            assertEquals(ErrorCode.BAD_REQUEST, apiException.getErrorCode());
-	}
+        asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
 
-	//  TODO
-	//  reenable this when it works
         // The old one should be gone
-//        try {
-//            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
-//            fail("Should have gotten an ExecutionException");
-//        } catch (ExecutionException e) {
-//            ApiException apiException = (ApiException) e.getCause();
-//            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
-//        }
-//
-//        // The new identical to the old
-//        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
-//        assertEquals("boot",bd2.getMetadata().get("clothing"));
+        try {
+            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+
+        // The new identical to the old
+        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
+        assertEquals(OBJECT_SIZE, bd2.getByteCount());
+        assertEquals("boot",bd2.getMetadata().get("clothing"));
+
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName2, OBJECT_SIZE, new ObjectOffset(0)).get();
+        byte[] result = new byte[OBJECT_SIZE];
+        byteBuffer.get(result);
+        byte[] bigObjectByteArray = new byte[OBJECT_SIZE];
+        bigObject.get(bigObjectByteArray);
+        assertArrayEquals(result, bigObjectByteArray);
+    }
+
+    @Test
+    public void testBlobRenameTrucate() throws Exception {
+        String blobName = UUID.randomUUID().toString();
+        String blobName2 = UUID.randomUUID().toString();
+
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("clothing", "hat");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        assertEquals("hat", bd1.getMetadata().get("clothing"));
+
+        metadata = new HashMap<>();
+        metadata.put("clothing", "boot");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName2, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), metadata).get();
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName2, 1, bigObject, OBJECT_SIZE, new ObjectOffset(1), metadata).get();
+        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName2).get();
+        assertEquals("boot", bd2.getMetadata().get("clothing"));
+
+        // Rename the blob
+        asyncAm.renameBlob(domainName, volumeName, blobName, blobName2).get();
+
+        // The old one should be gone
+        try {
+            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            fail("Should have gotten an ExecutionException");
+        } catch (ExecutionException e) {
+            ApiException apiException = (ApiException) e.getCause();
+            assertEquals(ErrorCode.MISSING_RESOURCE, apiException.getErrorCode());
+        }
+
+        // The new identical to the old (and truncated)
+        BlobDescriptor bd3 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
+        assertEquals(smallObjectLength, bd3.getByteCount());
+        assertEquals("hat",bd3.getMetadata().get("clothing"));
+
+        ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName2, smallObjectLength, new ObjectOffset(0)).get();
+        byte[] result = new byte[smallObjectLength];
+        byteBuffer.get(result);
+        byte[] smallObjectByteArray = new byte[smallObjectLength];
+        smallObject.get(smallObjectByteArray);
+        assertArrayEquals(result, smallObjectByteArray);
     }
 
     @Test

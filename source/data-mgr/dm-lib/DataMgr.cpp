@@ -1018,7 +1018,7 @@ int DataMgr::mod_init(SysParams const *const param)
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.dm.req_serialization", false));
+            "fds.dm.req_serialization", true));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 

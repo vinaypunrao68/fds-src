@@ -44,14 +44,14 @@ public class SimpleInodeIndex implements InodeIndex {
     }
 
     @Override
-    public List<DirectoryEntry> list(Inode inode) throws IOException {
-        JSONObject indexEntry = loadIndexEntry(inode);
+    public List<DirectoryEntry> list(InodeMetadata directory) throws IOException {
+        JSONObject indexEntry = loadIndexEntry(directory.asInode());
         List<DirectoryEntry> results = new ArrayList<>(indexEntry.keySet().size());
         Iterator<String> keys = indexEntry.keys();
         while (keys.hasNext()) {
             String name = keys.next();
             InodeMetadata value = new InodeMetadata(indexEntry.getJSONObject(name));
-            results.add(value.asDirectoryEntry(InodeMetadata.fileId(inode)));
+            results.add(value.asDirectoryEntry(directory.getFileId()));
         }
         return results;
     }
@@ -128,7 +128,7 @@ public class SimpleInodeIndex implements InodeIndex {
                 return new JSONObject(source);
             });
         } catch (ExecutionException e) {
-            LOG.error("Error fetching index entry, volume=" + volume + ", fileId=" + fileId);
+            LOG.error("Error fetching index entry, volume=" + volume + ", fileId=" + fileId, e);
             if (e.getCause() instanceof IOException) {
                 throw (IOException) e.getCause();
             } else {
