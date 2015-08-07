@@ -153,8 +153,8 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
 
     std::string value;
     Error rc = catalog_->Query(keyRec, &value, snap);
-    if (!rc.ok()) {
-        LOGNOTIFY << "Failed to get metadata for blob: '" << blobName << "' volume: '"
+    if (!rc.ok() && rc != ERR_CAT_ENTRY_NOT_FOUND) {
+        LOGERROR << "Failed to get metadata for blob: '" << blobName << "' volume: '"
                 << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
         return rc;
     }
