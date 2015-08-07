@@ -134,7 +134,9 @@ void ObjectStorMgr::handleDiskChanges(const diskio::DataTier& tierType,
         objStorMgr->migrationMgr->changeDltTokensState(dltTokens, false);
     }
 
-    objStorMgr->objectStore->handleDiskChanges(tierType, tokenDiskPairs);
+    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
+        objStorMgr->objectStore->handleDiskChanges(tierType, tokenDiskPairs);
+    }
 }
 
 void ObjectStorMgr::startResyncRequest() {

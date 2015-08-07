@@ -142,7 +142,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
     std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, smTokId);
-    // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
+    LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
     SCOPEDWRITE(dbmapLock_);
     // check whether this DB is already open
