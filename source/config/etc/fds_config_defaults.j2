@@ -69,7 +69,7 @@
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
 {% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
-{% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'true' %}
+{% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
 {#
    fds.am. specific entries
 #}
@@ -90,6 +90,7 @@
 {#
    fds.xdi. specific entries
 #}
+
 {% set am_host = am_host if am_host is defined else 'localhost' %}
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
