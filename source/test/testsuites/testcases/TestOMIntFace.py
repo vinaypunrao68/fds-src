@@ -50,7 +50,7 @@ class TestGetAuthToken(TestCase.FDSTestCase):
            om_node.auth_token = omREP.login(user='admin', password='admin')
 
            if not om_node.auth_token:
-               self.log.info("OM on %s still isn't available, retry %d." % om_node.nd_conf_dict['node-name'], count)
+               self.log.info("OM on %s still isn't available, retry %d." % (om_node.nd_conf_dict['node-name'], count))
                count = count + 1
                time.sleep(5)
            else:
