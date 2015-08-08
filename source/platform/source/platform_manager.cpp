@@ -117,7 +117,14 @@ namespace fds
             const char SPACE = ' ';
 
             // Load the java_am Java Options
-            std::string javaOptions (getenv("XDI_JAVA_OPTS"));
+            std::string javaOptions ("");
+
+            char *envValue = getenv("XDI_JAVA_OPTS");
+
+            if (NULL != envValue)
+            {
+                javaOptions = envValue;
+            }
 
             if (javaOptions.size() > 0)
             {
@@ -137,11 +144,15 @@ namespace fds
             }
 
             // Load the java_am main class name
-            m_javaXdiMainClassName = getenv("XDI_MAIN_CLASS");
+            envValue = getenv("XDI_MAIN_CLASS");
 
-            if (m_javaXdiMainClassName.size() == 0)
+            if (NULL == envValue)
             {
-                fds_panic ("Unable to load environment variable 'XDI_MAIN_CLASS'.  This variable is required to be configured.  Can not continue.");
+                m_javaXdiMainClassName = "com.formationds.am.Main";
+            }
+            else
+            {
+                m_javaXdiMainClassName = envValue;
             }
         }
 
