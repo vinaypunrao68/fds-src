@@ -11,6 +11,7 @@
 #include <fds_assert.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
+#include <util/process.h>  // For print_stacktrace().
 
 #include <unistd.h>
 #include <syslog.h>
@@ -20,6 +21,42 @@
 #include <sys/resource.h>
 
 namespace fds {
+
+/*
+ * This array is a simple way to define which signals should be caught
+ * by any thread and what function should handle them.
+ *
+ * We will block SIGTERM in all threads and listen for it in our
+ * signal handling thread. All other signals will be handeled
+ * by the thread that receives them.
+ */
+typedef struct
+{
+    int             signal;
+    std::string     signame;
+    sighandler_t    function;
+} fds_signal_handler_t;
+
+static fds_signal_handler_t fds_signal_table[] =
+{
+/*  signal ID           signal name     handler function
+    -------------       -------------   ----------------    */
+    {SIGABRT,           "SIGABRT",      FdsProcess::fds_catch_signal},
+    {SIGBUS,            "SIGBUS",       FdsProcess::fds_catch_signal},
+    {SIGFPE,            "SIGFPE",       FdsProcess::fds_catch_signal},
+    {SIGHUP,            "SIGHUP",       SIG_IGN},
+    {SIGILL,            "SIGILL",       FdsProcess::fds_catch_signal},
+    {SIGINT,            "SIGINT",       FdsProcess::fds_catch_signal},
+    {SIGPROF,           "SIGPROF",      FdsProcess::fds_catch_signal},
+    {SIGSEGV,           "SIGSEGV",      FdsProcess::fds_catch_signal},
+    {SIGSYS,            "SIGSYS",       FdsProcess::fds_catch_signal},
+    {SIGTERM,           "SIGTERM",      SIG_DFL},
+    {SIGTRAP,           "SIGTRAP",      FdsProcess::fds_catch_signal},
+    {SIGUSR1,           "SIGUSR1",      SIG_IGN},
+    {SIGUSR2,           "SIGUSR2",      SIG_IGN},
+    {SIGXCPU,           "SIGXCPU",      FdsProcess::fds_catch_signal},
+    {SIGXFSZ,           "SIGXFSZ",      FdsProcess::fds_catch_signal},
+};
 
 /* Processwide globals from fds_process.h */
 // TODO(Rao): Ideally we shouldn't have globals (g_fdslog maybe an exception).  As we slowly
@@ -110,6 +147,10 @@ void FdsProcess::init(int argc, char *argv[],
 
     fds_verify(g_fdsprocess == NULL);
 
+    proc_thrp    = NULL;
+    proc_id = argv[0];
+    exe_name = argv[0];
+
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
@@ -122,8 +163,9 @@ void FdsProcess::init(int argc, char *argv[],
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
     proc_root    = new FdsRootDir(fdsroot);
-    proc_thrp    = NULL;
-    proc_id = argv[0];
+
+    syslog(LOG_NOTICE, "FDS service %s started.",
+           SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
 
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
@@ -345,85 +387,211 @@ FdsTimerPtr FdsProcess::getTimer() const
     return timer_servicePtr_;
 }
 
+void
+FdsProcess::fds_catch_signal(int sig) {
+    static int timesCalledBefore = -1; // Protects against recursion. Probably should be synchronized.
+
+    /*
+     * Unblock the signal that just occurred.  Otherwise, we can't
+     * handle recursive signals.
+     */
+    sigset_t ctrl_c_sigs;
+    sigemptyset(&ctrl_c_sigs);
+    sigaddset(&ctrl_c_sigs, sig);
+    int rc = pthread_sigmask(SIG_UNBLOCK, &ctrl_c_sigs, 0);
+    fds_assert(rc == 0);
+
+    /*
+     * Let recursive signals fall through to the default handler,
+     * and let our call to abort fall through and create a core file.
+     */
+    if (signal(sig, SIG_DFL) == SIG_ERR) {
+        fds_assert("Unable to install signal handler.");
+    }
+    if (signal(SIGABRT, SIG_DFL) == SIG_ERR) {
+        fds_assert("Unable to install signal handler.");
+    }
+
+    const char* signalNotificationTmplt = "FDS service %s caught signal ";
+    char signalNotification[64];
+    snprintf(signalNotification, sizeof(signalNotification), signalNotificationTmplt,
+             SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+
+    /* Find our signal for reporting. */
+    std::string sigName(": unknown");
+    for (auto sigp : fds_signal_table)
+    {
+        if (sigp.signal == sig)
+        {
+            sigName = ": " + sigp.signame;
+            break;
+        }
+    }
+
+    GLOGNOTIFY << signalNotification << sig << sigName;
+    syslog(LOG_NOTICE, "%s%d %s", signalNotification, sig, sigName.c_str());
+
+    /*
+    * If we receive a SIGTERM or SIGINT, then gracefully shutdown
+    * the server process.
+    */
+    if ((sig == SIGTERM) || (sig == SIGINT)) {
+        const char* normalSignOffTmplt = "FDS service %s exiting normally.";
+        char normalSignOff[64];
+        snprintf(normalSignOff, sizeof(normalSignOff), normalSignOffTmplt,
+                 SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+
+        if (g_fdsprocess) {
+            g_fdsprocess->interrupt_cb(sig);
+        }
+
+        GLOGNOTIFY << normalSignOff;
+        syslog(LOG_NOTICE, "%s", normalSignOff);
+
+        exit(EXIT_SUCCESS);
+    }
+
+    const char* abnormalSignOffTmplt = "FDS service %s exiting abnormally.";
+    char abnormalSignOff[64];
+    snprintf(abnormalSignOff, sizeof(abnormalSignOff), abnormalSignOffTmplt,
+             SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+
+    GLOGERROR << abnormalSignOff;
+    syslog(LOG_ALERT, "%s", abnormalSignOff);
+
+    /*
+     * Protect against recursion.  Since the most likely cause is
+     * seg faults due to the code to dump the stack, the first
+     * time we recurse, we skip this code.  If the problem is in
+     * another place, we will recurse again. The second time we
+     * recurse we quickly call abort.
+     */
+    ++timesCalledBefore;
+    if (timesCalledBefore >= 2) {
+        abort();
+    }
+
+    if (timesCalledBefore == 0) {
+        util::print_stacktrace();
+    }
+
+    g_fdslog->flush();
+
+    abort(); // Produce a core file.
+    exit(EXIT_FAILURE); // For completness (helps searches), but not reached.
+}
+
+/*
+ * Handler for signals blocked on all other threads.
+ *
+ * param should point to a sigset_t of blocked signals
+ */
 void*
 FdsProcess::sig_handler(void* param)
 {
-    sigset_t ctrl_c_sigs;
-    sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGTERM);
-    /*
-     * NOTE: We arent doing anything for SIGHUP and SIGINT.  Becuase
-     * most processes that derive fds_process are daemonized.  When we do
-     * sigwait on these signals, when we gdb the process, hitting ctrl+c is
-     * delivered to the process instead of gdb.
-     * see https://bugzilla.kernel.org/show_bug.cgi?id=9039#c1
-     */
+    sigset_t blocked_sigs;
+    sigemptyset(&blocked_sigs);
+
+    sigorset(&blocked_sigs, &blocked_sigs, static_cast<sigset_t*>(param));
 
     while (true)
     {
         int signum = 0;
-        int rc = sigwait(&ctrl_c_sigs, &signum);
-        if (rc == EINTR)
+        int rc = sigwait(&blocked_sigs, &signum);
+        if ((rc == 0) || (rc == EINTR))
         {
             /*
-             * Some sigwait() implementations incorrectly return EINTR
-             * when interrupted by an unblocked caught signal
+             * RE: EINTR: Probably caught some unblocked signal.
              */
+            fds_catch_signal(signum);
             continue;
-        }
-        fds_assert(rc == 0);
-
-        if (g_fdsprocess) {
-            g_fdsprocess->interrupt_cb(signum);
-            return NULL;
         } else {
-            return reinterpret_cast<void*>(NULL);
+            fds_assert("sigwait failed");
         }
     }
-    return reinterpret_cast<void*>(NULL);
+    return (nullptr);
 }
 
 /**
- * ICE inspired way of handling signals.  This can possibly be
- * replaced by boost::asio::signal_set.  This needs to be investigated
+ * We will block SIGTERM in all threads and listen for it in our
+ * signal handling thread. All other signals will be handled
+ * by the thread that receives them.
  */
 void FdsProcess::setup_sig_handler()
 {
-    /*
-     * We will block sigterm signal in the main thread.  All
-     * other threads will have signals blocked as well.  We will
-     * create a thread to listen for signals
-     */
     sigset_t ctrl_c_sigs;
     sigemptyset(&ctrl_c_sigs);
-    sigaddset(&ctrl_c_sigs, SIGTERM);
 
+    /*
+     * NOTE: We won't block SIGHUP and SIGINT because when we do
+     * sigwait() on these signals with the process running under gdb, they are
+     * delivered to the process instead of gdb.
+     * See https://bugzilla.kernel.org/show_bug.cgi?id=9039
+     */
+    sigaddset(&ctrl_c_sigs, SIGTERM);
     int rc = pthread_sigmask(SIG_BLOCK, &ctrl_c_sigs, 0);
     fds_assert(rc == 0);
 
-    // Joinable thread
+    // Joinable thread for handling signals blocked by this and other threads.
     sig_tid_.reset(new pthread_t);
-    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, 0);
+    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, static_cast<void*>(&(ctrl_c_sigs)));
     fds_assert(rc == 0);
+
+    /**
+     * For each signal of interest, install the handler.
+     * However, if the current handler is not the default,
+     * then restore the current handler. We run into problems,
+     * for example, when the OM c++ library is driven by the JVM
+     * which uses certain signals (notably SIGSEGV) for its
+     * own purposes.
+     *
+     * TODO(Greg): I thought the non-default signal handler restoration above
+     * would take care of the JVM issues, but apparently not. Unless
+     * and until someone is able to come up with a solution for having
+     * the OM library manage its signals without interferring with the
+     * JVM, we'll leave OM signal handling alone.
+     */
+    if ((g_fdsprocess->getProcId() != "om") &&
+        (g_fdsprocess->getProcId().find("orchMgr") == std::string::npos)) {
+        __sighandler_t currentHandler;
+        for (auto sigp : fds_signal_table) {
+            if ((currentHandler = signal(sigp.signal, sigp.function)) == SIG_ERR) {
+                fds_assert("Unable to install signal handler.");
+            } else if (currentHandler != SIG_DFL) {
+                if (signal(sigp.signal, currentHandler) == SIG_ERR) {
+                    fds_assert("Failed to restore default signal handler.");
+                } else {
+                    // Our logging is not set up yet.
+                    char currentHandlerBuf[32];
+                    snprintf(currentHandlerBuf, 32, "%p", currentHandler);
+                    syslog(LOG_NOTICE, "FDS service %s restored signal handler %s for signal %s.",
+                           SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()),
+                           (currentHandler == SIG_ERR) ? "SIG_ERR" :
+                           (currentHandler == SIG_IGN) ? "SIG_IGN" : currentHandlerBuf,
+                           sigp.signame.c_str());
+                }
+            }
+        }
+    } else {
+        // Our logging is not set up yet.
+        syslog(LOG_NOTICE, "FDS service %s left with default signal handling.",
+               SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+    }
 }
 
+/**
+ * Called at normal process termination, either via exit(3) or via return from the program's main().
+ *
+ * Functions registered using atexit() (and on_exit(3)) are not called if a process terminates abnormally
+ * because of the delivery of a signal.
+ *
+ * When a child process is created via fork(2), it inherits copies of its parent's registrations.
+ *
+ */
 void
 FdsProcess::atExitHandler()
 {
-#define maxStackSize 128
-    void *stackBuffer[maxStackSize];
-    char **symStrings;
-
-    size_t symSize = backtrace(stackBuffer, maxStackSize);
-    symStrings = backtrace_symbols(stackBuffer, symSize);
-
-    std::string symbolString;
-    for (size_t i = 0; i < symSize; ++i) {
-        symbolString += symStrings[i];
-    }
-    free(symStrings);
-
-    syslog(LOG_NOTICE, "FDS_PROC Exiting...%s", symbolString.c_str());
+    g_fdslog->flush();
 }
 
 void
@@ -556,7 +724,6 @@ void FdsProcess::daemonize() {
     signal(SIGTTOU, SIG_IGN);
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
-    // signal(SIGTERM,signal_handler);
 }
 
 util::Properties* FdsProcess::getProperties() {

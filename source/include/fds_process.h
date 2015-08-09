@@ -32,6 +32,14 @@ extern fds_log* g_fdslog;
 extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 extern fds_log* GetLog();
 
+#define SERVICE_NAME_FROM_EXE_NAME(unknown) \
+   ((g_fdsprocess->getExeName().find("bare_am") != std::string::npos) ? "Access Manager" : \
+    (g_fdsprocess->getExeName().find("DataMgr") != std::string::npos) ? "Data Manager" : \
+    (g_fdsprocess->getExeName().find("orchMgr") != std::string::npos) ? "Orchestration Manager" : \
+    (g_fdsprocess->getExeName().find("platformd") != std::string::npos) ? "Platform Manager" : \
+    (g_fdsprocess->getExeName().find("StorMgr") != std::string::npos) ? "Storage Manager" : \
+    (unknown))
+
 /* Helper functions to init process globals. Only invoke these if you
  * aren't deriving from fds_process
  */
@@ -207,6 +215,12 @@ class FdsProcess : public boost::noncopyable,
        return proc_id;
     }
 
+    std::string getExeName() const {
+        return exe_name;
+    }
+
+   static void fds_catch_signal(int sig);
+
  protected:
     // static members/methods
     static void* sig_handler(void* param);
@@ -259,6 +273,9 @@ class FdsProcess : public boost::noncopyable,
 
     /* Name of proc */
     std::string proc_id;
+
+    /* Name of exe */
+    std::string exe_name;
 };
 
 }  // namespace fds

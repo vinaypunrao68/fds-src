@@ -78,17 +78,7 @@ void writeHeader(boost::log::sinks::text_file_backend::stream_type& file) {
     } else {
         std::string unknownManager = "Unknown Manager(" + g_fdsprocess->getProcId() + ")";
         snprintf(buildStr, sizeof(buildStr), buildStrTmpl,
-                 ((g_fdsprocess->getProcId().find("am") != std::string::npos) ||
-                  (g_fdsprocess->getProcId().find("bare_am") != std::string::npos)) ? "Access Manager" :
-                 ((g_fdsprocess->getProcId().find("dm") != std::string::npos) ||
-                  (g_fdsprocess->getProcId().find("DataMgr") != std::string::npos)) ? "Data Manager" :
-                 ((g_fdsprocess->getProcId().find("om") != std::string::npos) ||
-                  (g_fdsprocess->getProcId().find("orchMgr") != std::string::npos)) ? "Orchestration Manager" :
-                 ((g_fdsprocess->getProcId().find("pm") != std::string::npos) ||
-                  (g_fdsprocess->getProcId().find("platformd") != std::string::npos)) ? "Platform Manager" :
-                 ((g_fdsprocess->getProcId().find("sm") != std::string::npos) ||
-                  (g_fdsprocess->getProcId().find("StorMgr") != std::string::npos)) ? "Storage Manager" :
-                 unknownManager.c_str());
+                 SERVICE_NAME_FROM_EXE_NAME(unknownManager.c_str()));
     }
 
     file << buildStr;

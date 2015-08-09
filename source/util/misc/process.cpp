@@ -1,10 +1,12 @@
 #include <execinfo.h>
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <cxxabi.h>
 
 #include "util/process.h"
+
+extern ssize_t fds_exe_path(char* pBuf, size_t len);
 
 namespace fds {
 namespace util {
@@ -37,25 +39,26 @@ void printBackTrace() {
 void print_stacktrace(unsigned int max_frames)
 {
 	std::ostringstream stacktrace;
-	stacktrace << "STACK TRACE:\n";
+	stacktrace << "BACK TRACE:\n";
 
-	/* storage array for stack trace addess data */
-	void * addrlist[ max_frames + 1 ];
+	/* storage array for stack trace frame data */
+	void *callstack[ max_frames + 1 ];
 
 	/* retrieve current stack addresses */
-	int addrlen = backtrace( addrlist,
-			sizeof( addrlist ) / sizeof( void * ) );
-	if ( addrlen == 0 )
+	int nFrames = backtrace(callstack, sizeof(callstack) / sizeof( void * ) );
+	if ( nFrames == 0 )
 	{
 		stacktrace << "\t<empty, possibly corrupt>\n";
 	}
 	else
 	{
+		bool logLineNumbers = true;
+
 		/*
 		 * resolve address into stringsd containing "filename(function + address)"
 		 * NOTE: this array must be free()-ed
 		 */
-		char ** symbollist = backtrace_symbols(addrlist, addrlen);
+		char ** symbollist = backtrace_symbols(callstack, nFrames);
 
 		/* allocate string which will be filled with teh de-mangled function name */
 		size_t funcnamesize = 256;
@@ -65,14 +68,42 @@ void print_stacktrace(unsigned int max_frames)
 		 * iterate over the returned symbol lines. skip the first, it is the
 		 * address of this function.
 		 */
-		for ( int i = 1; i < addrlen; ++i )
+		for ( int i = 1; i < nFrames; ++i )
 		{
+// Both of these options seem to yield the same, not too useful, results.
+#if 0  // One option
+			Dl_info info;
+
+			if (dladdr(callstack[i], &info) && info.dli_sname) {
+				char *demangled = NULL;
+				int status = -1;
+
+				if (info.dli_sname[0] == '_') {
+					demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+				}
+
+				snprintf(buf, sizeof(buf), "%-3d %*p %s + %zd\n",
+				i, int(2 + sizeof(void*) * 2), callstack[i],
+				status == 0 ? demangled :
+				info.dli_sname == 0 ? symbollist[i] : info.dli_sname,
+				(char *)callstack[i] - (char *)info.dli_saddr);
+
+				free(demangled);
+
+				stacktrace << "[bt-dmg]\t" << buf;
+			} else {
+				snprintf(buf, sizeof(buf), "%-3d %*p %s\n",
+				i, int(2 + sizeof(void*) * 2), callstack[i], symbollist[i]);
+
+				stacktrace << "[bt-mgl]\t" << buf;
+			}
+#else  // Another option
 			char *begin_name = nullptr;
 			char *begin_offset = nullptr;
 			char *end_offset = nullptr;
 
 			/*
-			 * find parentheses and +address offset surrounding the mangled name: 
+			 * find parentheses and +address offset surrounding the mangled name:
 			 * ./module(function+0x15c) [0x8048a6d]
 			 */
 			for ( char *p = symbollist[i]; *p; ++p )
@@ -108,20 +139,49 @@ void print_stacktrace(unsigned int max_frames)
 				if ( status == 0 )
 				{
 					funcname = ret;
-					stacktrace << "\t" << symbollist[i] << " : " << funcname << begin_offset << "\n";
+					stacktrace << "[bt-dmg]\t" << symbollist[i] << " : " << funcname << begin_offset << "\n";
 				}
 				else
 				{
 					/*
 					 * de-mangling failed. Output function name as a C function with no arguments.
 					 */
-					stacktrace << "\t" << symbollist[i] << " : " << begin_name << "( )" << begin_offset << "\n";
+					stacktrace << "[bt-mgl]\t" << symbollist[i] << " : " << begin_name << "( )" << begin_offset << "\n";
 				}
 			}
 			else
 			{
 					/* couldn't parse line, so print the whole line! */
-					stacktrace << "\t" << symbollist[i] << "\n";
+					stacktrace << "[bt-npr]\t" << symbollist[i] << "\n";
+			}
+#endif
+
+			if (logLineNumbers) {
+				int rc;
+				char* exe;
+				const size_t exe_path_size = 192;
+				char exe_path[exe_path_size];
+				char syscom[256];
+
+				/**
+				 * The last parameter should be the full path to the executable. Also
+				 * in the case of OM where we have a c++ library being driven by the
+				 * JVM and it's all started wth a bash script, this just does not work
+				 * at all.
+				 */
+				errno = 0;
+				if (fds_exe_path(exe_path, exe_path_size) < 0) {
+					GLOGERROR << "fds_exe_path() failed with errno <" << errno;
+					logLineNumbers = false;
+				} else {
+					errno = 0;
+					sprintf(syscom, "addr2line %p -e %s", callstack[i], exe_path);
+					if ((rc = system(syscom)) != 0) {
+						GLOGERROR << "system() failed executing <" << syscom << "> with return code " <<
+								  std::to_string(rc) << "and errno " << errno;
+						logLineNumbers = false;
+					}
+				}
 			}
 		}
 
@@ -129,7 +189,7 @@ void print_stacktrace(unsigned int max_frames)
 		free(symbollist);
 	}
 
-	GLOGDEBUG << stacktrace.str();
+	GLOGNOTIFY << stacktrace.str();
 
 	return;
 }
