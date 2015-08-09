@@ -86,6 +86,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                 if (!err.ok()) {
                     LOGERROR << "Failed to open File for SM token " << *cit
                              << " tier " << tier << " " << err;
+                    writeFileIdMap.erase(wkey);
                     fds_verify(err != ERR_DUPLICATE);  // file should not be already open
                     break;
                 }
