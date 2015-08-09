@@ -12,7 +12,8 @@
 namespace fds
 {
 
-class RenameBlobReq : public AmRequest {
+class RenameBlobReq : public AmRequest,
+                      public AmTxReq {
   public:
     /**
      * Request constructor. Some of the fields
@@ -32,6 +33,8 @@ class RenameBlobReq : public AmRequest {
     }
 
     std::string const new_blob_name;
+    fds_uint64_t vol_sequence {0};
+    BlobTxId::ptr dest_tx_desc;
 };
 
 }  // namespace fds

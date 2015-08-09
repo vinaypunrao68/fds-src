@@ -444,12 +444,13 @@ ObjectStore::putObject(fds_volid_t volId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
     if (err == ERR_OK) {
+        bool isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
         // TokenMigration + Active IO: Condition 2).
         // This should never happen, so panic if this condition is hit.
         // If hit, there is a bug in token migration.
         if (!objMeta->isObjReconcileRequired()) {
-            fds_verify(objMeta->dataPhysicallyExists());
+            fds_verify(isDataPhysicallyExist);
         }
 
         // check if existing object corrupted
@@ -459,7 +460,7 @@ ObjectStore::putObject(fds_volid_t volId,
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
 
-        if (conf_verify_data == true) {
+        if (isDataPhysicallyExist && (conf_verify_data == true)) {
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
                     = dataStore->getObjectData(volId, objId, objMeta, err);
