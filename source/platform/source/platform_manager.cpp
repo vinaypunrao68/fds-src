@@ -107,7 +107,53 @@ namespace fds
                 verifyAndMountFDSFileSystems();
             }
 
+            loadEnvironmentVariables();
+
             return 0;
+        }
+
+        void PlatformManager::loadEnvironmentVariables()
+        {
+            const char SPACE = ' ';
+
+            // Load the java_am Java Options
+            std::string javaOptions ("");
+
+            char *envValue = getenv("XDI_JAVA_OPTS");
+
+            if (NULL != envValue)
+            {
+                javaOptions = envValue;
+            }
+
+            if (javaOptions.size() > 0)
+            {
+                std::istringstream options (javaOptions, std::istringstream::in);
+
+                std::string token;
+
+                while (options >> token)
+                {
+                    m_javaOptions.push_back (token);
+                }
+            }
+
+            for (auto const &vectItem : m_javaOptions)
+            {
+                LOGDEBUG << "XDI option loaded:  '" << vectItem << "'";
+            }
+
+            // Load the java_am main class name
+            envValue = getenv("XDI_MAIN_CLASS");
+
+            if (NULL == envValue)
+            {
+                m_javaXdiMainClassName = "com.formationds.am.Main";
+            }
+            else
+            {
+                m_javaXdiMainClassName = envValue;
+            }
         }
 
         bool PlatformManager::loadDiskUuidToDeviceMap()
@@ -442,6 +488,11 @@ namespace fds
             if (JAVA_AM == procIndex)
             {
                 command = JAVA_PROCESS_NAME;
+
+                for (auto const &vectItem : m_javaOptions)
+                {
+                    args.push_back (vectItem);
+                }
 
                 args.push_back ("-classpath");
                 args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
