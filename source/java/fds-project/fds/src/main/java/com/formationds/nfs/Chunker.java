@@ -35,6 +35,7 @@ public class Chunker {
                 toBeWritten = Math.min(objectSize - startOffset, remaining);
             }
             ByteBuffer writeBuf = ByteBuffer.allocate(objectSize);
+            // TODO: bypass read if length == objectSize
             try {
                 ByteBuffer readBuf = io.read(domain, volume, blobName, objectSize, new ObjectOffset(i));
                 writeBuf.put(readBuf);
