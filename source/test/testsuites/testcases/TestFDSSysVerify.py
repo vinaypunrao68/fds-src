@@ -40,6 +40,10 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
     if sftp is None:
         f = open(searchFile, "r")
         searchLines = f.readlines()
+        log.debug("Read {} lines from {}. Found {} as first line and {} as last line.".format(len(searchLines),
+                                                                                                  searchFile,
+                                                                                                  searchLines[0],
+                                                                                                  searchLines[-1]))
         f.close()
     else:
         f = sftp.file(searchFile, "r", -1)
