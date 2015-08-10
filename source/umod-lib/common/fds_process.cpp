@@ -23,12 +23,12 @@
 namespace fds {
 
 /*
- * This array is a simple way to define which signals should be caught
- * by any thread and what function should handle them.
- *
- * We will block SIGTERM in all threads and listen for it in our
- * signal handling thread. All other signals will be handeled
- * by the thread that receives them.
+ * This array is a simple way to define which signals are of interest
+ * and how they should be handled. For those designated with handler
+ * function SIG_DFL, we will likely block them to be waited for by the
+ * signal handling thread. At any rate, we need them here so that we can
+ * properly label them. In all other cases, the signal may be caught
+ * by any thread.
  */
 typedef struct
 {
@@ -221,7 +221,7 @@ void FdsProcess::init(int argc, char *argv[],
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
 
-    libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
+    const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
     log_config(fdsSettings);
 
@@ -339,7 +339,7 @@ void FdsProcess::setup_config(int argc, char *argv[],
     conf_helper_.init(config, base_path);
 }
 
-void FdsProcess::log_config(libconfig::Setting& root)
+void FdsProcess::log_config(const libconfig::Setting& root)
 {
     if (root.isGroup()) {
         for (auto i = 0; i < root.getLength(); ++i) {
@@ -545,8 +545,8 @@ void FdsProcess::setup_sig_handler()
      * which uses certain signals (notably SIGSEGV) for its
      * own purposes.
      *
-     * TODO(Greg): I thought the non-default signal handler restoration above
-     * would take care of the JVM issues, but apparently not. Unless
+     * TODO(Greg): I thought the non-default signal handler restoration described
+     * above would take care of the JVM issues, but apparently not. Unless
      * and until someone is able to come up with a solution for having
      * the OM library manage its signals without interferring with the
      * JVM, we'll leave OM signal handling alone.
@@ -585,7 +585,7 @@ void FdsProcess::setup_sig_handler()
  * Functions registered using atexit() (and on_exit(3)) are not called if a process terminates abnormally
  * because of the delivery of a signal.
  *
- * When a child process is created via fork(2), it inherits copies of its parent's registrations.
+ * When a child process is created via fork(2), it inherits its parent's registrations.
  *
  */
 void

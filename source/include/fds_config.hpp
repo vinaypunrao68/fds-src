@@ -115,7 +115,7 @@ class FdsConfigAccessor {
      *
      * @return FdsConfig object
      */
-    boost::shared_ptr<FdsConfig> get_fds_config() const;
+    const boost::shared_ptr<FdsConfig> get_fds_config() const;
 
     /**
      *

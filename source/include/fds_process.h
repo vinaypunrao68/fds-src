@@ -230,7 +230,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_config(int argc, char *argv[],
                const std::string &default_config_path,
                const std::string &base_path);
-    virtual void log_config(libconfig::Setting& root);
+    virtual void log_config(const libconfig::Setting& root);
 
     virtual void setup_sig_handler();
     virtual void setup_cntrs_mgr(const std::string &mgr_id);

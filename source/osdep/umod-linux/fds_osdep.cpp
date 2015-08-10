@@ -2,10 +2,10 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#include <stdarg.h>
-#include <stdio.h>
+#include <cstdarg>
+#include <cstdio>
 #include <fds_assert.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <ostream>
 #include <iostream>
 #include <unistd.h>

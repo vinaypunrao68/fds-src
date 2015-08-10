@@ -1,4 +1,5 @@
 topdir           := ../..
+user_predep      := update_buildstr
 user_target      := lib
 user_rtime_env   := user
 user_python      := true
@@ -27,7 +28,12 @@ fds-umod         := $(user_cpp)
 
 include $(topdir)/Makefile.incl
 
-all: update_buildstr
-
+# -----------------------------------------------------------------------------
+# The rule to generate build string content.
+#
+.PHONY: update_buildstr
 update_buildstr:
 	touch buildstr.cpp
+	git rev-parse HEAD | awk '{print "const char * gitRev = \"" $$0"\"; // NOLINT"}' > $(topdir)/include/dynamic_git_rev.h
+	uname -srvo | awk '{print "const char * machineArch = \"" $$0"\"; // NOLINT"}' > $(topdir)/include/dynamic_machine_arch.h
+

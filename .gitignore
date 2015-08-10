@@ -129,3 +129,5 @@ ExtendedFstabTest.unit.1*
 ExtendedFstabTest.unit.altered.1*
 .coverage
 CMakeLists.txt
+source/include/dynamic_git_rev.h
+source/include/dynamic_machine_arch.h
