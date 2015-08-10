@@ -140,7 +140,7 @@ namespace fds
 
             for (auto const &vectItem : m_javaOptions)
             {
-                LOGDEBUG << "XDI option loaded:  '" << vectItem << "'";
+                LOGDEBUG << "java_am command line option loaded:  '" << vectItem << "'";
             }
 
             // Load the java_am main class name
@@ -292,7 +292,7 @@ namespace fds
 
                     if (nullptr != tabEntry)
                     {
-                        LOGDEBUG << "Mounting FDS File System:  " << vectItem;
+                        LOGNORMAL << "Mounting FDS File System:  " << vectItem;
 
                         FdsRootDir::fds_mkdir (tabEntry->m_mountPath.c_str());      // Create the mount point
 
@@ -345,7 +345,7 @@ namespace fds
                     }
                     else
                     {
-                        LOGERROR << "Unable to find:  " << vectItem << " in fstab";
+                        LOGNOTIFY << "Unable to find:  " << vectItem << " in fstab";
                     }
                 }
             }
@@ -378,7 +378,7 @@ namespace fds
                 }
                 else
                 {
-                    LOGDEBUG << "Created " << hostRedisKeyFilename << " with " << redisUuidStr;
+                    LOGNORMAL << "Created " << hostRedisKeyFilename << " with " << redisUuidStr;
                     redisKeyFileWrite << redisUuidStr;
                     redisKeyFileWrite.close();
                 }
@@ -387,7 +387,7 @@ namespace fds
             {
                 redisKeyFile >> redisUuidStr;
                 redisKeyFile.close();
-                LOGDEBUG << "Loaded redisUUID of " << redisUuidStr << " from " << hostRedisKeyFilename;
+                LOGNORMAL << "Loaded redisUUID of " << redisUuidStr << " from " << hostRedisKeyFilename;
             }
 
             m_nodeRedisKeyId = redisUuidStr;
@@ -402,7 +402,7 @@ namespace fds
 
            if (commandNameFile.fail())
            {
-               LOGDEBUG "Looking for pid " << pid << " and it is gone.";
+               LOGWARN "Looking for pid " << pid << " and it is gone.";
                return false;
            }
 
@@ -424,7 +424,7 @@ namespace fds
 
                    if (commandLineFile.fail())
                    {
-                       LOGDEBUG "Looking for java pid " << pid << " and it is gone.";
+                       LOGWARN "Looking for java pid " << pid << " and it is gone.";
                        return false;
                    }
 
@@ -439,7 +439,7 @@ namespace fds
                    if (std::string::npos == arg.find (procName))
                    {
                        // TODO (donavan) Need a decent way to test this...
-                       LOGDEBUG "Looking for java pid " << pid << " and it is no longer " << procName;
+                       LOGWARN "Looking for java pid " << pid << " and it is no longer " << procName;
                        return false;
                    }
                }
@@ -481,7 +481,7 @@ namespace fds
 
             if (m_appPidMap.end() != mapIter)
             {
-                LOGDEBUG << "Received a request to start " << procName << ", but it is already running.  Not doing anything.";
+                LOGNORMAL << "Received a request to start " << procName << ", but it is already running.  Not doing anything.";
                 return;
             }
 
@@ -520,7 +520,7 @@ namespace fds
 
             if (pid > 0)
             {
-                LOGDEBUG << procName << " started by platformd as pid " << pid;
+                LOGNORMAL << procName << " started by platformd as pid " << pid;
                 m_appPidMap[procName] = pid;
                 updateNodeInfoDbPid (procIndex, pid);
                 updateNodeInfoDbState (procIndex, fpi::SERVICE_RUNNING);
@@ -624,17 +624,17 @@ namespace fds
                 {
                     if (WIFEXITED (status))
                     {
-                        LOGDEBUG << "pid " << pid << " exited normally with exit code " << WEXITSTATUS (status);
+                        LOGNORMAL << "pid " << pid << " exited normally with exit code " << WEXITSTATUS (status);
                     }
                     else if (WIFSIGNALED (status))
                     {
                         if (monitoring)
                         {
-                            LOGDEBUG << "pid " << pid << " exited unexpectedly.";
+                            LOGERROR << "pid " << pid << " exited unexpectedly.";
                         }
                         else
                         {
-                            LOGDEBUG << "pid " << pid << " exited via a signal (likely SIGTERM or SIGKILL during a shutdown sequence)";
+                            LOGWARN << "pid " << pid << " exited via a signal (likely SIGTERM or SIGKILL during a shutdown sequence)";
                         }
                     }
 
@@ -662,11 +662,11 @@ namespace fds
 
             if (m_appPidMap.end() == mapIter)
             {
-                LOGERROR << "Unable to find pid for " << procName << " in stopProcess()";
+                LOGWARN << "Unable to find pid for " << procName << " in stopProcess()";
                 return;
             }
 
-            LOGDEBUG << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
+            LOGNORMAL << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
 
             bool orphanChildProcess = mapIter->second & PROC_CHECK_BITMASK;
             int rc;
@@ -795,7 +795,8 @@ namespace fds
 
             for (auto const &vectItem : serviceList)
             {
-LOGDEBUG << "received an add service for type:  " << vectItem.svc_type;
+                LOGDEBUG << "received an add service for type:  " << vectItem.svc_type;
+
                 switch (vectItem.svc_type)
                 {
                     case fpi::FDSP_ACCESS_MGR:
@@ -868,7 +869,8 @@ LOGDEBUG << "received an add service for type:  " << vectItem.svc_type;
 
             for (auto const &vectItem : serviceList)
             {
-LOGDEBUG << "received a remove service for type:  " << vectItem.svc_type;
+                LOGNORMAL << "received a remove service for type:  " << vectItem.svc_type;
+
                 switch (vectItem.svc_type)
                 {
                     case fpi::FDSP_ACCESS_MGR:
@@ -941,7 +943,8 @@ LOGDEBUG << "received a remove service for type:  " << vectItem.svc_type;
 
             for (auto const &vectItem : serviceList)
             {
-LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
+                LOGNORMAL << "received a start service for type:  " << vectItem.svc_type;
+
                 switch (vectItem.svc_type)
                 {
                     case fpi::FDSP_ACCESS_MGR:
@@ -1019,7 +1022,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
             for (auto const &vectItem : serviceList)
             {
-                LOGDEBUG << "received a stop service for type:  " << vectItem.svc_type;
+                LOGNORMAL << "received a stop service for type:  " << vectItem.svc_type;
 
                 switch (vectItem.svc_type)
                 {
@@ -1096,8 +1099,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
+            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: " << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
@@ -1105,7 +1107,6 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
             request->setPayload (FDSP_MSG_TYPEID (fpi::HeartbeatMessage), heartbeatMsg);
             request->invoke();
         }
-
 
         void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
         {
@@ -1163,6 +1164,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                 diskCapability.node_iops_max    = fdsConfig->get<int>("testing.node_iops_max", 100000);
                 diskCapability.node_iops_min    = fdsConfig->get<int>("testing.node_iops_min", 6000);
             }
+
             LOGDEBUG << "Set node iops max to: " << diskCapability.node_iops_max;
             LOGDEBUG << "Set node iops min to: " << diskCapability.node_iops_min;
 
@@ -1217,7 +1219,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
                     count = m_appPidMap.size();
                     if (count != lastCount)
                     {
-                        LOGDEBUG << "Now monitoring " << count << " children (was " << lastCount << ")";
+                        LOGNORMAL << "Now monitoring " << count << " children (was " << lastCount << ")";
                         lastCount = count;
                     }
 #endif
@@ -1256,7 +1258,7 @@ LOGDEBUG << "received a start service for type:  " << vectItem.svc_type;
 
                             if (BARE_AM == appIndex)
                             {
-                                LOGDEBUG << "Discovered an exited bare_am process, also bringing down XDI";
+                                LOGWARN << "Discovered an exited bare_am process, also bringing down XDI";
                                 stopProcess(JAVA_AM);
                             }
 
