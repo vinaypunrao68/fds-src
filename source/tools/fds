@@ -39,6 +39,8 @@ FDSTEST_ROOT=/fds-test
 
 VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
 
+export XDI_MAIN_CLASS="com.formationds.am.Main"
+
 # else run from install dir
 run_from_install_dir=0
 
