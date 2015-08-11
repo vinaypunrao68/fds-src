@@ -146,7 +146,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     @Override
     protected <R extends IVolumeDatapoint> R doPersist( R entity ) {
-        throw new UnsupportedOperationException( "Persisting individual metrics is not supported for the Influx Metric repository" );
+        throw new UnsupportedOperationException( "Persisting individual metrics is not " +
+                                                 "supported for the Influx Metric repository" );
     }
 
     /**
@@ -171,7 +172,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs = VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
+            VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
             Long ts = e.getKey();
@@ -261,7 +263,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         }
 
         if (series.size() > 1) {
-            logger.warn( "Expecting only one metric series.  Skipping " + (series.size() - 1) + " unexpected series." );
+            logger.warn( "Expecting only one metric series.  Skipping " +
+                         (series.size() - 1) +
+                         " unexpected series." );
         }
 
         List<Map<String, Object>> rowList = series.get( 0 ).getRows();

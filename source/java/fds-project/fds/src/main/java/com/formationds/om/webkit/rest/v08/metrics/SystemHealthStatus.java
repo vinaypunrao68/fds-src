@@ -5,7 +5,6 @@ package com.formationds.om.webkit.rest.v08.metrics;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
-import com.formationds.client.v08.model.AbstractResource;
 import com.formationds.client.v08.model.HealthState;
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
@@ -15,19 +14,16 @@ import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.SystemHealth;
 import com.formationds.client.v08.model.SystemStatus;
 import com.formationds.client.v08.model.Volume;
-import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
 import com.formationds.commons.model.calculated.capacity.CapacityFull;
 import com.formationds.commons.model.calculated.capacity.CapacityToFull;
-import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -49,9 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Date;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,8 +102,9 @@ public class SystemHealthStatus implements RequestHandler {
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
         SystemHealth firebreakHealth = getFirebreakStatus(filteredVolumes);
 
-        HealthState overallState = getOverallState(serviceHealth.getState(),
-                capacityHealth.getState(), firebreakHealth.getState());
+        HealthState overallState = getOverallState( serviceHealth.getState(),
+                                                    capacityHealth.getState(),
+                                                    firebreakHealth.getState() );
 
         SystemStatus systemStatus = new SystemStatus();
         systemStatus.addStatus(serviceHealth);
@@ -218,7 +213,7 @@ public class SystemHealthStatus implements RequestHandler {
 
     	logger.debug( "Retrieving firebreak system status." );
 
-        SystemHealth status = null;
+        SystemHealth status;
         if ( volumes.size() == 0 ) {
             status = firebreakHealth( HealthState.GOOD );
             logger.debug( "Firebreak status is: {}:{}. (No active volumes)", status.getState().name(),
@@ -229,24 +224,11 @@ public class SystemHealthStatus implements RequestHandler {
         long volumesWithRecentFirebreak = 0;
         if ( !FdsFeatureToggles.FS_2660_METRIC_FIREBREAK_EVENT_QUERY.isActive() ) {
 
-            // TODO: hmmm.... we don't even need to query again, I don't think.  The Volume object already has a status
-            // that includes firebreak information (from the convertToExternalVolume call)!
+            // The Volume object already has a status from when loaded, so there is no need to
+            // make additional queries to search for firebreak events.  Just count the columns that
+            // have an active (last 24 hours) firebreak event.
+            volumesWithRecentFirebreak = volumes.stream().filter( FirebreakHelper::hasActiveFirebreak ).count();
 
-            final EventRepository eventRepository = SingletonRepositoryManager.instance().getEventRepository();
-            Map<Long, EnumMap<FirebreakType, FirebreakEvent>> activeFirebreaks = eventRepository.findLatestFirebreaks();
-
-            // There might be up to 2 firebreaks (capacity, performance) per volume, so spin through the list.
-            // TODO: might be sufficient to just get a size on the activeFirebreaks map (assuming it doesn't include
-            // volumes that do not have active firebreaks - need to check.)
-            List<Long> vids = volumes.stream().map( AbstractResource::getId )
-                                     .sorted( Comparator.<Long>naturalOrder() )
-                                     .collect( Collectors.toList() );
-
-            volumesWithRecentFirebreak = activeFirebreaks.entrySet()
-                                                         .stream()
-                                                         .filter( me -> vids.contains( me.getKey() ) &&
-                                                                        me.getValue().size() > 0 )
-                                                         .count();
         } else {
 
             // query that stats to get raw capacity data
@@ -273,35 +255,23 @@ public class SystemHealthStatus implements RequestHandler {
                 FirebreakHelper fbh = new FirebreakHelper();
                 List<Series> series = fbh.processFirebreak( queryResults );
                 final Date now = new Date();
+                final long t24s = now.getTime() - TimeUnit.DAYS.toSeconds( 1 );
 
+                // count firebreaks in the last 24hours
                 volumesWithRecentFirebreak = series.stream()
                                                    .filter( s -> {
-
-                                                       long fb = s.getDatapoints().stream()
-                                                                  .filter( dp -> {
-
-                                                                      // firebreak in the last 24hours
-                                                                      if ( dp.getY() > (now.getTime() -
-                                                                                        TimeUnit.DAYS
-                                                                                            .toSeconds( 1 )) ) {
-                                                                          return true;
-                                                                      }
-
-                                                                      return false;
-                                                                  } )
+                                                       long fb = s.getDatapoints()
+                                                                  .stream()
+                                                                  .filter( dp -> (dp.getY() > t24s) )
                                                                   .count();
 
-                                                       if ( fb > 0 ) {
-                                                           return true;
-                                                       }
-
-                                                       return false;
+                                                       return (fb > 0);
                                                    } )
                                                    .count();
             } catch ( TException e ) {
 
-                // TODO: this is pretty bad.... it almost certainly means the server is down
-                status = firebreakHealth( HealthState.UNKNOWN );
+                // this almost certainly means the server is down
+                return firebreakHealth( HealthState.UNKNOWN );
             }
         }
 
@@ -325,7 +295,7 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getCapacityStatus( List<Volume> volumes ) {
         logger.debug( "Getting system capacity status." );
-    	
+
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.CAPACITY.name());
 
@@ -399,7 +369,7 @@ public class SystemHealthStatus implements RequestHandler {
     private SystemHealth getServiceStatus() throws TException {
 
     	logger.debug( "Getting the system service status." );
-    	
+
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.SERVICES.name());
 
@@ -421,15 +391,16 @@ public class SystemHealthStatus implements RequestHandler {
         criteria.put( ALL_PMS, true );
         
         nodes.stream().forEach( (node) -> {
-        	
-        	node.getServices().keySet().stream().forEach( (serviceType) -> {
-        		
-        		node.getServices().get( serviceType ).stream().forEach( (service) -> {
-        			
-        			if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ){
+
+            node.getServices().keySet().stream().forEach( (serviceType) -> {
+
+                node.getServices().get( serviceType ).stream().forEach( (service) -> {
+
+                    if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ) {
+
         				downServices.add( service );
-        				
-        				switch( service.getType() ){
+
+                        switch( service.getType() ){
         					case PM:
         						criteria.put( ALL_PMS, false );
         						break;
@@ -442,11 +413,10 @@ public class SystemHealthStatus implements RequestHandler {
         					default:
         						break;
         				}
-        			}
-        			else {
-        				
-        				switch ( service.getType() ){
-        					case OM:
+                    } else {
+
+                        switch ( service.getType() ) {
+                            case OM:
         						criteria.put( ONE_OM, true );
         						break;
         					case AM: 

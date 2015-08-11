@@ -173,6 +173,32 @@ public class FirebreakHelper extends QueryHelper {
     }
 
     /**
+     * Determine if the volume status indicates that it has an active firebreak event, meaning one
+     * that has occurred in the last 24 hours.
+     *
+     * @param v
+     *
+     * @return true if the volume status indicates an active firebreak (one occurring less than 24 hours ago)
+     */
+    public static boolean hasActiveFirebreak( Volume v ) {
+        return hasActiveFirebreak( v.getStatus() );
+    }
+
+    /**
+     * Determine if the volume status indicates that it has an active firebreak event, meaning one
+     * that has occurred in the last 24 hours.
+     *
+     * @param v
+     *
+     * @return true if the volume status indicates an active firebreak (one occurring less than 24 hours ago)
+     */
+    public static boolean hasActiveFirebreak( com.formationds.client.v08.model.VolumeStatus v ) {
+        Instant activeThreshold = Instant.now().minus( Duration.ofDays( 1 ) );
+        return v.getLastCapacityFirebreak().isAfter( activeThreshold ) ||
+               v.getLastPerformanceFirebreak().isAfter( activeThreshold );
+    }
+
+    /**
      * default constructor
      */
     public FirebreakHelper() {
