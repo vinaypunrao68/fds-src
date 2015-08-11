@@ -4,6 +4,7 @@ package com.formationds.util;
  */
 
 import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.nfs.NfsConfiguration;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -40,6 +41,10 @@ public class Configuration {
         LOGLEVELS.put("error", "ERROR");
         LOGLEVELS.put("critical", "FATAL");
     }
+
+    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE = "fds.xdi.nfs_thread_pool_size";
+    public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE = "fds.xdi.nfs_thread_pool_queue_size";
+    public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
 
     private final String commandName;
     private Properties properties = new Properties();
@@ -164,6 +169,7 @@ public class Configuration {
 
     }
 
+
     /**
      * @return Returns the demo configuration
      * @deprecated Will be removed very soon.
@@ -186,5 +192,14 @@ public class Configuration {
             throw new RuntimeException( e );
 
         }
+    }
+
+    public NfsConfiguration getNfsConfig() {
+        ParsedConfig platformConfig = getPlatformConfig();
+        return new NfsConfiguration(
+                platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_SIZE).intValue(),
+                platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE).intValue(),
+                platformConfig.lookup(FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS).longValue()
+        );
     }
 }

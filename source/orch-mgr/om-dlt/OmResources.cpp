@@ -2520,25 +2520,6 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 
     // this will check if we need to compute DLT
     dltMod->dlt_deploy_event(DltComputeEvt());
-
-    // in case there was no DLT to send and we can
-    // go to re-balances state, send event to check that
-    const DLT* dlt = dp->getCommitedDlt();
-    fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
-    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
-}
-
-// Called when DLT state machine waiting ends
-void
-OM_NodeDomainMod::om_dlt_waiting_timeout() {
-    OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-    DataPlacement *dp = om->om_dataplace_mod();
-    dltMod->dlt_deploy_event(DltTimeoutEvt());
-
-    const DLT* dlt = dp->getCommitedDlt();
-    fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
-    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
 }
 
 void

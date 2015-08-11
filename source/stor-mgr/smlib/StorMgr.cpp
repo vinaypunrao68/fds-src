@@ -88,7 +88,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
-        "fds.feature_toggle.sm.req_serialization", false);
+        "fds.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -852,6 +852,9 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     ObjectID objectId;
+    // since volId received for delete operation is system volumeId. Preserve volId of the 
+    // volume to be deleted 
+    fds_volid_t delVolId    = ioReq->getVolId();
     ioReq->setVolId(volId);
 
     switch (ioReq->io_type) {
@@ -898,6 +901,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             // ID is passed to deleteObject and the object does not get deleted)
             // Volume association resolution is handled in object store layer
             // for deleteObject.
+            ioReq->setVolId(delVolId);
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
