@@ -101,12 +101,14 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
+                    print "Connected to: {}\n".format(self.__session.get_hostname()) 
+        
                 except FdsAuthError as f:
                     print str(f.error_code) + ":" + f.message
                     self.__session.logout()
                     return
                 except Exception as ex:
-                    print "Unkown error occurred."
+                    print "Unknown error occurred."
                     self.__session.logout()
                     return
             

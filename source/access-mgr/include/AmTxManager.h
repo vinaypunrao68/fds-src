@@ -92,6 +92,7 @@ struct AmTxManager {
      * Remove all metadata caches
      */
     void invalidateMetaCache(const VolumeDesc& volDesc);
+    void invalidateMetaCache(const fds_volid_t volId);
 
     /**
      * Notify that we have detached a volume, and remove any available

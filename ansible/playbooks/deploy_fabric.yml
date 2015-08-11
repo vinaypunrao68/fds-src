@@ -46,16 +46,14 @@
             - orch_mgr
             - redis
 
-    -   name: render /fds/etc/omenv config files
+    -   name: render /fds/etc/formation_env config files
         delegate_to: 127.0.0.1
         template:
-            src=../../source/config/etc/omenv.j2
-            dest=/fds/etc/omenv
+            src=../../source/config/etc/formation_env.j2
+            dest=/fds/etc/formation_env
             owner=root
             group=root
             mode=0754
-        with_items:
-            - omenv
 
     -   name: setup influxdb user and group
         delegate_to: 127.0.0.1

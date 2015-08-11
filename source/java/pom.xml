@@ -84,19 +84,20 @@
     <thrift.version>0.9.0</thrift.version>
     <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
+    <grizzly.framework.version>2.3.21</grizzly.framework.version>
 
     <!-- unit test -->
     <junit.version>4.12</junit.version>
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.commons.libconfig.version>2015.07.31-SNAPSHOT</formationds.commons.libconfig.version>
-    <formationds.commons.togglz.version>2015.07.31-SNAPSHOT</formationds.commons.togglz.version>
-    <formationds.commons.util.version>2015.07.31-SNAPSHOT</formationds.commons.util.version>
-    <formationds.ext.model.version>2015.07.31-SNAPSHOT</formationds.ext.model.version>
-    <formationds.project.version>2015.07.31-SNAPSHOT</formationds.project.version>
-    <formationds.thrift.client.util.version>2015.07.31-SNAPSHOT</formationds.thrift.client.util.version>
-    <formationds.thrift.version>2015.07.31-SNAPSHOT</formationds.thrift.version>
+    <formationds.commons.libconfig.version>2015.08.14-SNAPSHOT</formationds.commons.libconfig.version>
+    <formationds.commons.togglz.version>2015.08.14-SNAPSHOT</formationds.commons.togglz.version>
+    <formationds.commons.util.version>2015.08.14-SNAPSHOT</formationds.commons.util.version>
+    <formationds.ext.model.version>2015.08.14-SNAPSHOT</formationds.ext.model.version>
+    <formationds.project.version>2015.08.14-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.client.util.version>2015.08.14-SNAPSHOT</formationds.thrift.client.util.version>
+    <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -403,6 +404,13 @@
         <artifactId>jedis</artifactId>
         <version>${jedis.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>org.glassfish.grizzly</groupId>
+        <artifactId>grizzly-framework</artifactId>
+        <version>${grizzly.framework.version}</version>
+      </dependency>
+
 
       <!-- test scope -->
       <!--

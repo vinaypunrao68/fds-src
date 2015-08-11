@@ -37,7 +37,7 @@
         - "../../../omnibus/omnibus-fds-platform/pkg/fds-platform-{{build}}_*.deb"
     register: fds_platform_package_stat
     sudo: no
-    when: deploy_artifact == "local"
+    when: deploy_artifact is defined and deploy_artifact == "local"
     tags: local_check
 
 -   name: sanity check -> local fds-platform deb is present

@@ -552,8 +552,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
              << " created:" << vdesc->isStateCreated()
              << " old:" << fOldVolume;
 
-    if (vdesc->isSnapshot() || vdesc->isClone()) {
+    if (vdesc->isClone()) {
+        // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
+    } else if (vdesc->isSnapshot()) {
+        // snapshot happens on all nodes
+        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -564,8 +568,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    // do this processing only in the case of primary ..
-    if ((vdesc->isSnapshot() || vdesc->isClone()) && fPrimary) {
+    // do this processing only in the case..
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
@@ -600,7 +604,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
-        err = timeVolCat_->activateVolume(vol_uuid);
+        err = timeVolCat_->activateVolume(vdesc->volUUID);
         if (err.ok()) {
             fActivated = true;
         }
@@ -1010,11 +1014,14 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
 
+    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.dm.enable_expunge", true));
+
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.dm.req_serialization", false));
+            "fds.dm.req_serialization", true));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
