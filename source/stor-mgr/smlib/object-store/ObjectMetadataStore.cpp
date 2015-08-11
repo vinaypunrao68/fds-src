@@ -12,7 +12,8 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName,
                                          UpdateMediaTrackerFnObj fn)
         : Module(modName.c_str()),
           metaDb_(new ObjectMetadataDb(std::move(fn))),
-          metaCache(new ObjectMetaCache("SM Object Metadata Cache")) {
+          metaCache(new ObjectMetaCache("SM Object Metadata Cache")),
+          currentState(METADATA_STORE_INIT) {
 }
 
 ObjectMetadataStore::~ObjectMetadataStore() {
@@ -52,7 +53,12 @@ ObjectMetadataStore::setNumBitsPerToken(fds_uint32_t nbits) {
 
 Error
 ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap) {
-    return metaDb_->openMetadataDb(diskMap);
+    Error err(ERR_OK);
+    err = metaDb_->openMetadataDb(diskMap);
+    if (err.ok()) {
+        currentState = METADATA_STORE_OPEN;
+    }
+    return err;
 }
 
 Error
@@ -76,6 +82,7 @@ ObjectMetadataStore::deleteMetadataDb(const std::string& diskPath,
                                       const fds_token_id& smTokenLost) {
     return metaDb_->deleteMetadataDb(diskPath, smTokenLost);
 }
+
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,

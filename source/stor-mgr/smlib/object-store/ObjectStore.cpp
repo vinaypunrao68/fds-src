@@ -38,10 +38,12 @@ ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl,
                          StartResyncFnObj fn,
-                         DiskChangeFnObj dcFn)
+                         DiskChangeFnObj dcFn,
+                         TokenOfflineFnObj tokFn)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           requestResyncFn(fn),
+          changeTokensStateFn(tokFn),
           conf_verify_data(true),
           diskMap(new SmDiskMap("SM Disk Map Module",
                                 std::move(dcFn))),
@@ -227,6 +229,9 @@ Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
+    if (changeTokensStateFn) {
+        changeTokensStateFn(lostTokens);
+    }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
             diskMap->removeDiskAndRecompute(diskId, tier);
@@ -244,7 +249,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores." << err;
+        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -1514,19 +1519,26 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
 void
 ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
-    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-    /**
-     * Delete in-memory and persisted levelDB files(if exists)
-     * for given SM Tokens.
-     */
     SmTokenSet lostTokens;
+    LOGNOTIFY << "Tokens to be redistributed";
     for (auto& tokenPair: tokenDiskPairs) {
         LOGNOTIFY << tokenPair.first;
-        metaStore->closeAndDeleteMetadataDb(tokenPair.first);
         lostTokens.insert(tokenPair.first);
     }
-    LOGNOTIFY << "Close and delete token files for smTokens ";
-    dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
+
+    if (metaStore->isUp()) {
+        /**
+         * Delete in-memory and persisted levelDB files(if exists)
+         * for given SM Tokens.
+         */
+        LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
+        metaStore->closeAndDeleteMetadataDbs(lostTokens);
+    }
+
+    if (dataStore->isUp()) {
+        LOGNOTIFY << "Close and delete token files for smTokens ";
+        dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
+    }
 }
 
 /**

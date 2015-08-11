@@ -115,7 +115,27 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    inline bool isUp() const {
+        return (currentState.load() == METADATA_STORE_OPEN);
+    }
+
+    inline bool isUnavailable() const {
+        return (currentState.load() == METADATA_STORE_UNAVAILABLE);
+    }
+
+    inline bool isInitializing() const {
+        return (currentState.load() == METADATA_STORE_INIT);
+    }
+
   private:
+    enum ObjectMetadataStoreState {
+        METADATA_STORE_INIT,
+        METADATA_STORE_OPEN,
+        METADATA_STORE_UNAVAILABLE
+    };
+
+    std::atomic<ObjectMetadataStoreState> currentState;
+
     /**
      * Object metadata index db
      */

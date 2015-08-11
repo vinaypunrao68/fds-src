@@ -304,6 +304,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void notifyDLTClose(SmIoReq* ioReq);
      void startResyncRequest();
 
+     void changeTokensState(const std::set<fds_token_id>& dltTokens);
      void handleDiskChanges(const diskio::DataTier& tierType,
                             const TokenDiskIdPairSet& tokenDiskPairs);
      Error handleDltUpdate();
