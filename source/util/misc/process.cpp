@@ -55,6 +55,15 @@ void print_stacktrace(unsigned int max_frames)
 		bool logLineNumbers = true;
 
 		/*
+		 * Let's see what this looks like. We'll try a demangled version below.
+		 */
+		 printf("Mangled name backtace:\n");
+		 fflush(stdout);
+		 backtrace_symbols_fd(callstack, nFrames, STDOUT_FILENO);
+		 printf("End mangled name backtace:\n");
+		 fflush(stdout);
+
+		/*
 		 * resolve address into stringsd containing "filename(function + address)"
 		 * NOTE: this array must be free()-ed
 		 */
@@ -68,11 +77,14 @@ void print_stacktrace(unsigned int max_frames)
 		 * iterate over the returned symbol lines. skip the first, it is the
 		 * address of this function.
 		 */
+		printf("File/line number backtace:\n");
+		fflush(stdout);
 		for ( int i = 1; i < nFrames; ++i )
 		{
-// Both of these options seem to yield the same, not too useful, results.
-#if 0  // One option
+// Two options for logging a backtrace.
+#if 1  // One option
 			Dl_info info;
+			char buf[1024];
 
 			if (dladdr(callstack[i], &info) && info.dli_sname) {
 				char *demangled = NULL;
@@ -184,6 +196,8 @@ void print_stacktrace(unsigned int max_frames)
 				}
 			}
 		}
+		printf("End file/line number backtace:\n");
+		fflush(stdout);
 
 		free(funcname);
 		free(symbollist);
