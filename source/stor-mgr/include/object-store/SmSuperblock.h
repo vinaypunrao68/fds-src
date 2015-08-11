@@ -332,6 +332,8 @@ class SmSuperblockMgr {
                                 diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);
+    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+                                          diskio::DataTier tier);
     Error changeCompactionState(fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,

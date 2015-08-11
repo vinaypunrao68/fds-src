@@ -70,7 +70,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * Closes and deletes object data files for given SM tokens
      * @param[in] set of SM tokens for which this SM lost ownership
      */
-    Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost);
+    Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost,
+                                      const bool& diskFailure=false);
 
     /**
      * Deletes SM token file for a given SM Token.

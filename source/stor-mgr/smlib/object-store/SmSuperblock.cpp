@@ -353,9 +353,9 @@ SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
                                             DiskIdSet& hddIds,
                                             DiskIdSet& ssdIds) {
     SCOPEDWRITE(sbLock);
+    checkDiskTopology(hddIds, ssdIds);
     diskMap.erase(failedDiskId);
     diskDevMap.erase(failedDiskId);
-    checkDiskTopology(hddIds, ssdIds);
 }
 
 Error
@@ -1036,6 +1036,12 @@ fds_bool_t
 SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
                                       diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
+    return compactionInProgressNoLock(smToken, tier);
+}
+
+fds_bool_t
+SmSuperblockMgr::compactionInProgressNoLock(fds_token_id smToken,
+                                            diskio::DataTier tier) {
     return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
 }
 

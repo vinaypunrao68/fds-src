@@ -144,7 +144,8 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
 }
 
 Error
-ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost) {
+ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
+                                                 const bool& diskFailure) {
     Error err(ERR_OK);
     DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
     diskio::DataTier tier = diskio::diskTier;
@@ -168,8 +169,14 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost)
             LOGNOTIFY << "Closed and deleted token file for tier " << tier
                       << " smTokId " << *cit << " fileId " << fileId;
 
+            bool isCompactionInProgress = false;
+            if (diskFailure) {
+                isCompactionInProgress = smDiskMap->superblock->compactionInProgressNoLock(*cit, tier);
+            } else {
+                isCompactionInProgress = smDiskMap->superblock->compactionInProgress(*cit, tier);
+            }
             // also close and delete old file if compaction is in progress
-            if (smDiskMap->superblock->compactionInProgress(*cit, tier)) {
+            if (isCompactionInProgress) {
                 fds_uint16_t oldFileId = getShadowFileId(fileId);
                 closeTokenFile(tier, *cit, oldFileId, true);
                 LOGDEBUG << "Closed and deleted shadow token file for tier " << tier

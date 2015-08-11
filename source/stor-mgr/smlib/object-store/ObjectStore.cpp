@@ -1514,35 +1514,19 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
 void
 ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
-    if (!diskMap->isAllDisksSSD()) {
-        switch (tierType) {
-            case diskio::diskTier:
-                if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
-                    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-                    /**
-                     * Delete persisted levelDB for given SM Tokens.
-                     */
-                    for (auto& tokenPair: tokenDiskPairs) {
-                        LOGNOTIFY << tokenPair.first;
-                        metaStore->closeAndDeleteMetadataDb(tokenPair.first);
-                        //metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
-                        //                            tokenPair.first);
-                    }
-                }
-                break;
-            case diskio::flashTier:
-                LOGNOTIFY << "Close and delete token files for smTokens ";
-                for (auto& tokenPair: tokenDiskPairs) {
-                    LOGNOTIFY << tokenPair.first;
-                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second),
-                                                    tokenPair.first, tokenPair.second);
-                }
-                break;
-            default:
-                fds_panic("Unidentified disk type");
-                LOGWARN << "Unidentified disk type removed. No disk failure handling done";
-        }
+    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
+    /**
+     * Delete in-memory and persisted levelDB files(if exists)
+     * for given SM Tokens.
+     */
+    SmTokenSet lostTokens;
+    for (auto& tokenPair: tokenDiskPairs) {
+        LOGNOTIFY << tokenPair.first;
+        metaStore->closeAndDeleteMetadataDb(tokenPair.first);
+        lostTokens.insert(tokenPair.first);
     }
+    LOGNOTIFY << "Close and delete token files for smTokens ";
+    dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
 }
 
 /**
