@@ -431,7 +431,6 @@ OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
         const Error& error,
         boost::shared_ptr<std::string> payload)
 {
-    TRACEFUNC;
     LOGDEBUG << "OM received response for NotifyDltClose from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " with version " << msg->dlt_close.DLT_version
