@@ -263,7 +263,7 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     if (volume_map.end() != map) {
         ret_vol = map->second;
     } else {
-        LOGWARN << "AmVolumeTable::getVolume - Volume "
+        LOGDEBUG << "AmVolumeTable::getVolume - Volume "
             << std::hex << vol_uuid << std::dec
             << " does not exist";
     }
