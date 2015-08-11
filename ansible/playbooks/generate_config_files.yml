@@ -23,8 +23,8 @@
             src: ../../source/test/formation.conf.j2
             dest: ../../source/test/formation.conf
 
-    -   name: render omenv
+    -   name: render formation_env
         template:
-            src: ../../source/config/etc/omenv.j2
-            dest: ../../source/config/etc/omenv
+            src: ../../source/config/etc/formation_env.j2
+            dest: ../../source/config/etc/formation_env
             mode: 0754

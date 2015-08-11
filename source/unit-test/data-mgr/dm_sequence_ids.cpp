@@ -171,7 +171,7 @@ void putBlobOnce(){
 
         fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
 
-        auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
+        auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(dmTester->TESTVOLID,
                                                           updcatMsg->blob_name,
                                                           updcatMsg->blob_version,
                                                           updcatMsg->dmt_version,

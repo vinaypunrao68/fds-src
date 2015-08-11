@@ -67,6 +67,7 @@ namespace fds
         switch ( svcinfo.svc_status )
         {
             case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_STANDBY:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -88,6 +89,7 @@ namespace fds
         switch ( svcStatus )
         {
             case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_STANDBY:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:

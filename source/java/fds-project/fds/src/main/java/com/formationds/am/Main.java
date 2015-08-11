@@ -4,14 +4,14 @@ package com.formationds.am;
  */
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.commons.libconfig.Assignment;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.nfs.NfsServer;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
-import com.formationds.commons.libconfig.Assignment;
-import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.util.thrift.OMConfigServiceClient;
 import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
@@ -193,7 +193,7 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         // Default NFS port is 2049, or 7000 - 4951
-        new NfsServer().start(configCache, asyncAm, pmPort - 4951);
+        new NfsServer().start(configuration.getNfsConfig(), configCache, asyncAm, pmPort - 4951);
         startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
