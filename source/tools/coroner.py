@@ -242,7 +242,7 @@ def run_collect(opts):
         )
     bodybag.collect_cmd(command='/usr/bin/lshw', name='lshw')
     bodybag.collect_cmd(
-        command='/usr/bin/find %s -type d -exec ls -al {} ;' % bodybag.fdsroot,
+        command='/usr/bin/find %s -type d -print -exec ls -al {} ;' % bodybag.fdsroot,
         name='fds_files'
     )
     if opts['checksum_files']:
