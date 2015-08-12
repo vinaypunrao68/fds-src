@@ -19,6 +19,8 @@ function process_results {
     local hostname=$7
     local n_conns=$8
     local n_jobs=$9
+    local start_time=$10
+    local end_time=$11
 
     iops=`echo $files | xargs grep IOPs |awk '{e+=$2}END{print e}'`
     latency=`echo $files | xargs grep latency | awk '{print $4*1e-6}'|awk '{i+=1; e+=$1}END{print e/i}'`
@@ -36,6 +38,8 @@ function process_results {
     echo latency=$latency >>.data
     version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
     echo version=$version >>.data
+    echo start_time=$start_time >>.data
+    echo end_time=$end_time >>.data
     ../common/push_to_influxdb.py s3_test .data
     ../db/exp_db.py fio_regr_perf2 .data
 }
@@ -89,6 +93,7 @@ for t in $test_types ; do
 
             pids=""
             outfiles=""
+            start_time=`date +%s`
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
@@ -97,7 +102,8 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
-            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs
+            end_time=`date +%s`
+            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done
 done

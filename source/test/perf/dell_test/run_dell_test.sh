@@ -27,6 +27,8 @@ function process_results {
     local disksize=$6
     local machine=$7
     local vol=$8
+    local start_time=$9
+    local end_time=$10
 
     iops=`grep iops $f | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
     latency=`grep clat $f | grep avg| awk -F '[,=:()]' '{print ($2 == "msec") ? $9*1000 : $9}' | awk '{i+=1; e+=$1}END{print e/i/1000}'`
@@ -43,6 +45,8 @@ function process_results {
     echo vol=$i >> .data
     version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
     echo version=$version >>.data
+    echo start_time=$start_time >>.data
+    echo end_time=$end_time >>.data
     ../common/push_to_influxdb.py dell_test .data --influxdb-db $database
     ../db/exp_db.py $database .data
 }
@@ -115,6 +119,8 @@ done
 
 
 declare -A pids
+declare -A start_times
+declare -A end_times
 for bs in $bsizes ; do
     for worker in $workers ; do
         for workload in $workloads ; do
@@ -125,7 +131,9 @@ for bs in $bsizes ; do
     			        for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 				            echo "reading from $m disk: ${disks[$m:$i]}"
+                            start_times[$m:$i]=`date +%s`
                 	    	$SSH $m "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
+                            end_times[$m:$i]=`date +%s`
 			    	        pids[$m:$i]=$!
                         done
 			        done
@@ -135,10 +143,12 @@ for bs in $bsizes ; do
 			    	        wait ${pids[$m:$i]}
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 			    	        echo "Processing results for $m ${pids[$m:$i]} $outfile"
-                	        	process_results $outfile $worker $workload $bs $d $size $m $i
+                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]}
+                            start_times[$m:$i]=
+                            end_times[$m:$i]=
 			    	        pids[$m:$i]=""
                         done
-			sleep 10
+			            sleep 10
                    done
                 done
             done
