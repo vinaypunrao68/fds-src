@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cxxabi.h>
+#include <chrono>
 
 #include "util/process.h"
 
@@ -39,7 +40,17 @@ void printBackTrace() {
 void print_stacktrace(unsigned int max_frames)
 {
 	std::ostringstream stacktrace;
-	stacktrace << "BACK TRACE:\n";
+
+	// Some gyration here to come up with a timestamp without a newline appended.
+    std::chrono::time_point<std::chrono::system_clock> timeFmt1 = std::chrono::system_clock::now();
+    std::time_t timeFmt2 = std::chrono::system_clock::to_time_t(timeFmt1);
+	std::ostringstream timeFmt3;
+	timeFmt3 << std::ctime(&(timeFmt2));
+	std::string timeFmt4 = timeFmt3.str();
+	timeFmt4 = timeFmt4.substr(0, timeFmt4.length() - 1);
+
+
+	stacktrace << timeFmt4 << ": BACK TRACE:\n";
 
 	/* storage array for stack trace frame data */
 	void *callstack[ max_frames + 1 ];
@@ -57,10 +68,10 @@ void print_stacktrace(unsigned int max_frames)
 		/*
 		 * Let's see what this looks like. We'll try a demangled version below.
 		 */
-		 printf("Mangled name backtace:\n");
+		 printf("%s: Mangled name backtace:\n", timeFmt4.c_str());
 		 fflush(stdout);
 		 backtrace_symbols_fd(callstack, nFrames, STDOUT_FILENO);
-		 printf("End mangled name backtace:\n");
+		 printf("%s: End mangled name backtace:\n", timeFmt4.c_str());
 		 fflush(stdout);
 
 		/*
@@ -77,7 +88,7 @@ void print_stacktrace(unsigned int max_frames)
 		 * iterate over the returned symbol lines. skip the first, it is the
 		 * address of this function.
 		 */
-		printf("File/line number backtace:\n");
+		printf("%s: File/line number backtace:\n", timeFmt4.c_str());
 		fflush(stdout);
 		for ( int i = 1; i < nFrames; ++i )
 		{
@@ -190,13 +201,13 @@ void print_stacktrace(unsigned int max_frames)
 					sprintf(syscom, "addr2line %p -e %s", callstack[i], exe_path);
 					if ((rc = system(syscom)) != 0) {
 						GLOGERROR << "system() failed executing <" << syscom << "> with return code " <<
-								  std::to_string(rc) << "and errno " << errno;
+								  std::to_string(rc) << " and errno " << errno;
 						logLineNumbers = false;
 					}
 				}
 			}
 		}
-		printf("End file/line number backtace:\n");
+		printf("%s, End file/line number backtace:\n", timeFmt4.c_str());
 		fflush(stdout);
 
 		free(funcname);

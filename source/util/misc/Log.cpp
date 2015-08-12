@@ -11,7 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include <util/Log.h>
 #include <fds_process.h>
-#include <dynamic_git_rev.h>
+#include <dynamic_vers.h>
 #include <dynamic_machine_arch.h>
 
 namespace fds {
@@ -77,14 +77,14 @@ void writeHeader(boost::log::sinks::text_file_backend::stream_type& file) {
     char buildStr[256];
 
     if (g_fdsprocess == nullptr) {
-        snprintf(buildStr, sizeof(buildStr), buildStrTmpl, "?", machineArch, gitRev);
+        snprintf(buildStr, sizeof(buildStr), buildStrTmpl, "?", versDate, versRev, machineArch);
     } else {
         std::string unknownManager = "Unknown Manager(" + g_fdsprocess->getProcId() + ")";
         snprintf(buildStr, sizeof(buildStr), buildStrTmpl,
-                 SERVICE_NAME_FROM_EXE_NAME(unknownManager.c_str()), machineArch, gitRev);
+                 SERVICE_NAME_FROM_ID(unknownManager.c_str()), versDate, versRev, machineArch);
     }
 
-    file << buildStr;
+    file << buildStr << std::endl;
 
 }
 

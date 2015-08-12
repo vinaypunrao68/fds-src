@@ -25,8 +25,9 @@ namespace fds {
 /*
  * This array is a simple way to define which signals are of interest
  * and how they should be handled. For those designated with handler
- * function SIG_DFL, we will likely block them to be waited for by the
- * signal handling thread. At any rate, we need them here so that we can
+ * function SIG_DFL, there is likely some special handling required such
+ * as block them to be waited for by the signal handling thread or some other
+ * special treatment. At any rate, we need them here so that we can
  * properly label them. In all other cases, the signal may be caught
  * by any thread.
  */
@@ -43,6 +44,7 @@ static fds_signal_handler_t fds_signal_table[] =
     -------------       -------------   ----------------    */
     {SIGABRT,           "SIGABRT",      FdsProcess::fds_catch_signal},
     {SIGBUS,            "SIGBUS",       FdsProcess::fds_catch_signal},
+    {SIGCHLD,           "SIGCHLD",      SIG_DFL}, // Seems to be used by gtest in one way and PM in another.
     {SIGFPE,            "SIGFPE",       FdsProcess::fds_catch_signal},
     {SIGHUP,            "SIGHUP",       SIG_IGN},
     {SIGILL,            "SIGILL",       FdsProcess::fds_catch_signal},
@@ -50,7 +52,7 @@ static fds_signal_handler_t fds_signal_table[] =
     {SIGPROF,           "SIGPROF",      FdsProcess::fds_catch_signal},
     {SIGSEGV,           "SIGSEGV",      FdsProcess::fds_catch_signal},
     {SIGSYS,            "SIGSYS",       FdsProcess::fds_catch_signal},
-    {SIGTERM,           "SIGTERM",      SIG_DFL},
+    {SIGTERM,           "SIGTERM",      SIG_DFL}, // Handeled by signal handling thread.
     {SIGTRAP,           "SIGTRAP",      FdsProcess::fds_catch_signal},
     {SIGUSR1,           "SIGUSR1",      SIG_IGN},
     {SIGUSR2,           "SIGUSR2",      SIG_IGN},
@@ -149,7 +151,6 @@ void FdsProcess::init(int argc, char *argv[],
 
     proc_thrp    = NULL;
     proc_id = argv[0];
-    exe_name = argv[0];
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
@@ -164,9 +165,6 @@ void FdsProcess::init(int argc, char *argv[],
     fdsroot      = mod_vectors_->get_sys_params()->fds_root;
     proc_root    = new FdsRootDir(fdsroot);
 
-    syslog(LOG_NOTICE, "FDS service %s started.",
-           SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
-
     if (def_cfg_file != "") {
         cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
         /* Check if config file exists */
@@ -179,6 +177,18 @@ void FdsProcess::init(int argc, char *argv[],
         }
 
         setup_config(argc, argv, cfgfile, base_path);
+
+        /* We should be able to ID ourself now. And we need to do this
+         * before we use macro SERVICE_NAME_FROM_ID and before we create
+         * the logger (which uses that macro to ID the log).
+         */
+        if (conf_helper_.exists("id")) {
+            proc_id = conf_helper_.get<std::string>("id");
+        }
+
+        syslog(LOG_NOTICE, "FDS service %s started.",
+               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+
         /*
          * Create a global logger.  Logger is created here because we need the file
          * name from config
@@ -191,10 +201,8 @@ void FdsProcess::init(int argc, char *argv[],
             g_fdslog = new fds_log(proc_root->dir_fds_logs() + def_log_file,
                                    proc_root->dir_fds_logs());
         }
+
         /* Process wide counters setup */
-        if (conf_helper_.exists("id")) {
-            proc_id = conf_helper_.get<std::string>("id");
-        }
         setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
 
         /* Process wide fault injection */
@@ -260,13 +268,17 @@ FdsProcess::~FdsProcess()
     g_fdsprocess = nullptr;
 
     /* Terminate signal handling thread */
-    if (sig_tid_) {
-        int rc = pthread_kill(*sig_tid_, SIGTERM);
-        if (0 != rc) {
-            LOGERROR << "thread kill returned error:" << rc;
-        } else {
-            rc = pthread_join(*sig_tid_, NULL);
-            if ( 0 != rc) LOGERROR << "thread join returned error : " << rc;
+    {
+        std::lock_guard<std::mutex> lock(sig_tid_mutex_);
+
+        if (sig_tid_) {
+            int rc = pthread_kill(*sig_tid_, SIGTERM);
+            if (0 != rc) {
+                LOGERROR << "thread kill returned error:" << rc;
+            } else {
+                rc = pthread_join(*sig_tid_, NULL);
+                if ( 0 != rc) LOGERROR << "thread join returned error : " << rc;
+            }
         }
     }
 
@@ -415,7 +427,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* signalNotificationTmplt = "FDS service %s caught signal ";
     char signalNotification[64];
     snprintf(signalNotification, sizeof(signalNotification), signalNotificationTmplt,
-             SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
 
     /* Find our signal for reporting. */
     std::string sigName(": unknown");
@@ -439,7 +451,7 @@ FdsProcess::fds_catch_signal(int sig) {
         const char* normalSignOffTmplt = "FDS service %s exiting normally.";
         char normalSignOff[64];
         snprintf(normalSignOff, sizeof(normalSignOff), normalSignOffTmplt,
-                 SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+                 SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
 
         if (g_fdsprocess) {
             g_fdsprocess->interrupt_cb(sig);
@@ -454,7 +466,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* abnormalSignOffTmplt = "FDS service %s exiting abnormally.";
     char abnormalSignOff[64];
     snprintf(abnormalSignOff, sizeof(abnormalSignOff), abnormalSignOffTmplt,
-             SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
 
     GLOGERROR << abnormalSignOff;
     syslog(LOG_ALERT, "%s", abnormalSignOff);
@@ -533,9 +545,13 @@ void FdsProcess::setup_sig_handler()
     fds_assert(rc == 0);
 
     // Joinable thread for handling signals blocked by this and other threads.
-    sig_tid_.reset(new pthread_t);
-    rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, static_cast<void*>(&(ctrl_c_sigs)));
-    fds_assert(rc == 0);
+    {
+        std::lock_guard<std::mutex> lock(sig_tid_mutex_);
+
+        sig_tid_.reset(new pthread_t);
+        rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, static_cast<void *>(&(ctrl_c_sigs)));
+        fds_assert(rc == 0);
+    }
 
     /**
      * For each signal of interest, install the handler.
@@ -555,27 +571,37 @@ void FdsProcess::setup_sig_handler()
         (g_fdsprocess->getProcId().find("orchMgr") == std::string::npos)) {
         __sighandler_t currentHandler;
         for (auto sigp : fds_signal_table) {
-            if ((currentHandler = signal(sigp.signal, sigp.function)) == SIG_ERR) {
-                fds_assert("Unable to install signal handler.");
-            } else if (currentHandler != SIG_DFL) {
-                if (signal(sigp.signal, currentHandler) == SIG_ERR) {
-                    fds_assert("Failed to restore default signal handler.");
-                } else {
-                    // Our logging is not set up yet.
-                    char currentHandlerBuf[32];
-                    snprintf(currentHandlerBuf, 32, "%p", currentHandler);
-                    syslog(LOG_NOTICE, "FDS service %s restored signal handler %s for signal %s.",
-                           SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()),
-                           (currentHandler == SIG_ERR) ? "SIG_ERR" :
-                           (currentHandler == SIG_IGN) ? "SIG_IGN" : currentHandlerBuf,
-                           sigp.signame.c_str());
+            if (sigp.signal == SIGCHLD) {
+                /**
+                 * We won't mess with SIGCHLD. While PM relies upon it
+                 * to notice stopped child processes such as DM, SM, and AM,
+                 * apparently gtest uses it in some fashion as well.
+                 */
+                continue;
+            } else {
+                if ((currentHandler = signal(sigp.signal, sigp.function)) == SIG_ERR) {
+                    fds_assert("Unable to install signal handler.");
+                } else if (currentHandler != SIG_DFL) {
+                    if (signal(sigp.signal, currentHandler) == SIG_ERR) {
+                        fds_assert("Failed to restore default signal handler.");
+                    } else {
+                        // Our logging is not set up yet.
+                        char currentHandlerBuf[32];
+                        snprintf(currentHandlerBuf, 32, "%p", currentHandler);
+                        syslog(LOG_NOTICE, "FDS service %s restored signal handler %s for signal %s.",
+                               SERVICE_NAME_FROM_ID(
+                                       (g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"),
+                               (currentHandler == SIG_ERR) ? "SIG_ERR" :
+                               (currentHandler == SIG_IGN) ? "SIG_IGN" : currentHandlerBuf,
+                               sigp.signame.c_str());
+                    }
                 }
             }
         }
     } else {
         // Our logging is not set up yet.
         syslog(LOG_NOTICE, "FDS service %s left with default signal handling.",
-               SERVICE_NAME_FROM_EXE_NAME(g_fdsprocess->getProcId().c_str()));
+               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
     }
 }
 
@@ -591,7 +617,9 @@ void FdsProcess::setup_sig_handler()
 void
 FdsProcess::atExitHandler()
 {
-    g_fdslog->flush();
+    if (g_fdslog != nullptr) {
+        g_fdslog->flush();
+    }
 }
 
 void
@@ -704,12 +732,12 @@ void FdsProcess::daemonize() {
     int childpid = fork();
     if (childpid < 0) {
         /* fork failed */
-        GLOGERROR << "error forking for daemonize : " << errno;
+        printf("error forking for daemonize : %d", errno);
         exit(1);
     }
     if (childpid > 0) {
         /* parent process */
-        GLOGNORMAL << "forked successfully : child pid : " << childpid;
+        printf("forked successfully : child pid : %d", childpid);
         exit(0);
     }
 

@@ -34,6 +34,7 @@ include $(topdir)/Makefile.incl
 .PHONY: update_buildstr
 update_buildstr:
 	touch buildstr.cpp
-	git rev-parse HEAD | awk '{print "const char * gitRev = \"" $$0"\"; // NOLINT"}' > $(topdir)/include/dynamic_git_rev.h
-	uname -srvo | awk '{print "const char * machineArch = \"" $$0"\"; // NOLINT"}' > $(topdir)/include/dynamic_machine_arch.h
+	git rev-parse --short HEAD | awk '{print "const char * versRev = \"" $$0"\";"}' > $(topdir)/include/dynamic_vers.h
+	cat $(topdir)/../omnibus/VERSION | awk '{print "const char * versDate = \"" $$0"\";"}' >> $(topdir)/include/dynamic_vers.h
+	uname -srvo | awk '{print "const char * machineArch = \"" $$0"\";"}' > $(topdir)/include/dynamic_machine_arch.h
 

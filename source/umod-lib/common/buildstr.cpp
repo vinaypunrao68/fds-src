@@ -9,9 +9,9 @@
 namespace fds {
 
 #ifdef DEBUG
-const char* buildStrTmpl = "Formation Data Systems: Formation Dynamic Storage: %s: Diagnostic: " __DATE__ " " __TIME__ "\n%s\nBuild git-sha: %s\n";
+const char* buildStrTmpl = "Formation Data Systems: Formation Dynamic Storage: %s\nBuild Version: <%s-%s>\tBuild Mode: <Diagnostic>\tBuild Date: <" __DATE__ " " __TIME__ ">\n%s\n";
 #else
-const char* buildStrTmpl = "Formation Data Systems: Formation Dynamic Storage: %s: Optimized: " __DATE__ " " __TIME__ "\n%s\nBuild git-sha: %s\n";
+const char* buildStrTmpl = "Formation Data Systems: Formation Dynamic Storage: %s\nBuild Version: <%s-%s>\tBuild Mode: <Optimized>\tBuild Date: <" __DATE__ " " __TIME__ ">\n%s\n";
 #endif
 
 }  // namespace fds
