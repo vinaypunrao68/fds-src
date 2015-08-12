@@ -546,8 +546,7 @@ class MigrationMgr {
     /**
      * Pending resync
      */
-    bool isResyncPending = {false};
-    fds_mutex resyncPendingFlagLock;
+    std::atomic<bool> isResyncPending = {false};
     PendingResyncCb cachedPendingResyncCb = PendingResyncCb();
 
     /**

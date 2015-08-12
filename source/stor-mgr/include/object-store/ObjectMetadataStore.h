@@ -116,7 +116,7 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     virtual void mod_shutdown();
 
     inline bool isUp() const {
-        return (currentState.load() == METADATA_STORE_OPEN);
+        return (currentState.load() == METADATA_STORE_INITED);
     }
 
     inline bool isUnavailable() const {
@@ -124,13 +124,13 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     }
 
     inline bool isInitializing() const {
-        return (currentState.load() == METADATA_STORE_INIT);
+        return (currentState.load() == METADATA_STORE_INITING);
     }
 
   private:
     enum ObjectMetadataStoreState {
-        METADATA_STORE_INIT,
-        METADATA_STORE_OPEN,
+        METADATA_STORE_INITING,
+        METADATA_STORE_INITED,
         METADATA_STORE_UNAVAILABLE
     };
 

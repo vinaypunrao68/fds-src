@@ -36,8 +36,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     // TODO(Andrew): Add some private GC interfaces here?
 
     enum ObjectDataStoreState {
-        DATA_STORE_INIT,
-        DATA_STORE_OPEN,
+        DATA_STORE_INITING,
+        DATA_STORE_INITED,
         DATA_STORE_UNAVAILABLE
     };
 
@@ -52,7 +52,7 @@ public:
     typedef std::shared_ptr<ObjectDataStore> ptr;
 
     inline bool isUp() const {
-        return (currentState.load() == DATA_STORE_OPEN);
+        return (currentState.load() == DATA_STORE_INITED);
     }
 
     inline bool isUnavailable() const {
@@ -60,7 +60,7 @@ public:
     }
 
     inline bool isInitializing() const {
-        return (currentState.load() == DATA_STORE_INIT);
+        return (currentState.load() == DATA_STORE_INITING);
     }
 
     /**

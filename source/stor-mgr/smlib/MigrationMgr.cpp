@@ -28,7 +28,6 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     migrState = ATOMIC_VAR_INIT(MIGR_IDLE);
     nextLocalExecutorId = ATOMIC_VAR_INIT(1);
     uniqRestartId = ATOMIC_VAR_INIT(1);
-
     objStoreMgrUuid = (dynamic_cast<ObjectStorMgr *>(dataStore))->getUuid();
     LOGMIGRATE << "Object store manager uuid " << objStoreMgrUuid;
 
@@ -296,7 +295,6 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     }
 
     if (!isMigrationIdle()) {
-        fds_mutex::scoped_lock l(resyncPendingFlagLock);
         isResyncPending = true;
         LOGMIGRATE << "A migration still active. Making this migration request as pending.";
         return ERR_OK;
@@ -944,12 +942,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 void
 MigrationMgr::checkAndStartPendingResync() {
     bool resync = false;
-    {
-        fds_mutex::scoped_lock l(resyncPendingFlagLock);
-        resync = isResyncPending;
-        isResyncPending = false;
-
-    }
+    resync = std::atomic_exchange(isResyncPending, resync);
     if (resync) {
         cachedPendingResyncCb();
     }

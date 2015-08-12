@@ -13,7 +13,7 @@ ObjectMetadataStore::ObjectMetadataStore(const std::string& modName,
         : Module(modName.c_str()),
           metaDb_(new ObjectMetadataDb(std::move(fn))),
           metaCache(new ObjectMetaCache("SM Object Metadata Cache")),
-          currentState(METADATA_STORE_INIT) {
+          currentState(METADATA_STORE_INITING) {
 }
 
 ObjectMetadataStore::~ObjectMetadataStore() {
@@ -56,7 +56,7 @@ ObjectMetadataStore::openMetadataStore(SmDiskMap::ptr& diskMap) {
     Error err(ERR_OK);
     err = metaDb_->openMetadataDb(diskMap);
     if (err.ok()) {
-        currentState = METADATA_STORE_OPEN;
+        currentState = METADATA_STORE_INITED;
     }
     return err;
 }

@@ -17,7 +17,7 @@ ObjectDataStore::ObjectDataStore(const std::string &modName,
           persistData(new ObjectPersistData("SM Obj Persist Data Store",
                                             data_store,
                                             std::move(fn))),
-          currentState(DATA_STORE_INIT)
+          currentState(DATA_STORE_INITING)
 {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
@@ -35,7 +35,7 @@ ObjectDataStore::openDataStore(SmDiskMap::ptr& diskMap,
     Error err(ERR_OK);
     err = persistData->openObjectDataFiles(diskMap, pristineState);
     if (err.ok()) {
-        currentState = DATA_STORE_OPEN;
+        currentState = DATA_STORE_INITED;
     }
     return err;
 }

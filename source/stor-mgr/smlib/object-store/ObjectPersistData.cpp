@@ -158,11 +158,23 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
             fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
             fds_uint16_t fileId = SM_INVALID_FILE_ID;
             write_synchronized(mapLock) {
-                fds_verify(writeFileIdMap.count(wkey) > 0);
-                fileId = writeFileIdMap[wkey];
-                writeFileIdMap.erase(wkey);
+                if (writeFileIdMap.count(wkey) > 0) {
+                    fileId = writeFileIdMap[wkey];
+                    writeFileIdMap.erase(wkey);
+                    LOGDEBUG << "Erased " << tier << " " << *cit << " " << wkey << " " << fileId;
+                }
             }
-            fds_verify(fileId != SM_INVALID_FILE_ID);
+
+            /**
+             * No valid entry in writeFileIdMap for this token and tier
+             * combination. Token file and in-memory data structures
+             * cleanup would have already happened in a previous call.
+             * Skip and move to cleanup the next token file.
+             */
+            if (fileId == SM_INVALID_FILE_ID) {
+                continue;
+                LOGDEBUG << "Not found " << tier << " " << *cit << " " << wkey << " " << fileId;
+            }
 
             // actually close and delete SM token file
             closeTokenFile(tier, *cit, fileId, true);
