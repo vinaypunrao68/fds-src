@@ -10,40 +10,6 @@ import re
 import json
 import dataset
 
-def is_float(x):
-    try:
-        float(x)
-    except (ValueError, TypeError):
-        return False
-    else:
-        return True
-
-def is_int(x):
-    try:
-        int(x)
-    except (ValueError, TypeError):
-        return False
-    else:
-        return True
-
-def dyn_cast(val):
-    if is_float(val):
-        return float(val)
-    elif is_int(val):
-        return int(val)
-    else:
-        return val
-
-def byteify(input):
-    if isinstance(input, dict):
-        return {byteify(key):byteify(value) for key,value in input.iteritems()}
-    elif isinstance(input, list):
-        return [byteify(element) for element in input]
-    elif isinstance(input, unicode):
-        return input.encode('utf-8')
-    else:
-        return input
-
 def get_data(name):
     connection = "mysql://perf@matteo-vm/experiments"
     print connection
@@ -91,7 +57,6 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             name = m.group(1)[1:]
             tags = m.group(2).split('+')
             tags = [x.split('=') for x in tags]
-            tags = [(x[0], dyn_cast(x[1])) for x in tags]
             print name, tags
             data = search_data(name, tags)
         else:

@@ -41,7 +41,7 @@ function process_results {
     echo start_time=$start_time >>.data
     echo end_time=$end_time >>.data
     ../common/push_to_influxdb.py s3_test .data
-    ../db/exp_db.py fio_regr_perf2 .data
+    ../db/exp_db.py s3_test .data
 }
 
 ##################################
