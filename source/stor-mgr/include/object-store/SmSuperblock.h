@@ -284,7 +284,9 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
-    void recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds);
+    void recomputeTokensForLostDisk(const DiskId& diskId,
+                                    DiskIdSet& hddIds,
+                                    DiskIdSet& ssdIds);
 
     /**
      * Reconcile superblocks, if there is inconsistency.
@@ -330,6 +332,8 @@ class SmSuperblockMgr {
                                 diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);
+    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+                                          diskio::DataTier tier);
     Error changeCompactionState(fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,
