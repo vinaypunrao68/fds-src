@@ -17,7 +17,8 @@ public class Service extends AbstractResource<Long> {
         ERROR,
         UNREACHABLE,
         INITIALIZING,
-        SHUTTING_DOWN;
+        SHUTTING_DOWN,
+        STANDBY;         // To reflect PM state when the node is down
     }
     
     public static class ServiceStatus{

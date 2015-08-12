@@ -1,0 +1,45 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
+#!/bin/sh -e
+
+export fds_root={{ fds_root }}
+
+# LD_LIBRARY_PATH dependencies
+LD_LIBRARY_PATH=${fds_root}/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
+
+PATH=/usr/local/sbin
+PATH=${PATH}:/usr/local/bin
+PATH=${PATH}:/usr/sbin
+PATH=${PATH}:/usr/bin
+PATH=${PATH}:/sbin
+PATH=${PATH}:/bin
+PATH=${PATH}:/opt/fds-deps/embedded/bin
+PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+PATH=${PATH}:${fds_root}/bin
+export PATH=${PATH}:${fds_root}/sbin
+
+# JAVA Options
+export OM_JAVA_OPTS="{{ om_java_opts }}"
+export XDI_JAVA_OPTS="{{ xdi_java_opts }}"
+export JAVA_HOME=/opt/fds-deps/embedded/jre
+
+# JAVA CLASSPATH dependencies
+CLASSPATH=${fds_root}/etc
+CLASSPATH=${CLASSPATH}:${fds_root}/etc/hadoop
+CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
+CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
+export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
+
+# JAVA Main executables
+export OM_MAIN_CLASS=com.formationds.om.Main
+export XDI_MAIN_CLASS=com.formationds.am.Main
+
+# are we running on an OM host?
+{% if fds_om_host == inventory_hostname %}
+export OM_ENABLED=true
+{% else %}
+export OM_ENABLED=false
+{% endif %}
+{% endblock %}

@@ -950,11 +950,14 @@ ObjMetaData::reconcileDelObjMetaData(ObjectID objId,
  *  RECONCILE_REQUIRED flag.
  */
 void
-ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
+ObjMetaData::reconcilePutObjMetaData(ObjectID objId,
+                                     fds_uint32_t objSize,
+                                     fds_volid_t volId)
 {
     LOGMIGRATE << "Reconcile PUT (before):"
                << " ObjID=" << objId
                << " VolID=" << volId
+               << " objSize= " << objSize
                << " MetaData=" << logString();
 
     fds_assert(isObjReconcileRequired());
@@ -1024,6 +1027,13 @@ ObjMetaData::reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId)
         if (volsReconciled) {
             unsetObjReconcileRequired();
         }
+    }
+
+    // if this is the first time we are going to put an object (object does not
+    // physically exist yet), set correct object size
+    if (!dataPhysicallyExists()) {
+        fds_verify(obj_map.obj_size == 0);
+        obj_map.obj_size = objSize;
     }
 
     LOGMIGRATE << "Reconcile PUT (after):"

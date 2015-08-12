@@ -87,7 +87,7 @@ class ObjMetaData : public serialize::Serializable {
     fds_bool_t isObjReconcileRequired() const;
 
     void initializeDelReconcile(const ObjectID& objid, fds_volid_t volId);
-    void reconcilePutObjMetaData(ObjectID objId, fds_volid_t volId);
+    void reconcilePutObjMetaData(ObjectID objId, fds_uint32_t objSize, fds_volid_t volId);
     fds_bool_t reconcileDelObjMetaData(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
     void reconcileDeltaObjMetaData(const fpi::CtrlObjectMetaDataPropagate& objMetaData);
     fds_bool_t isVolAssocReconciled(fds_uint64_t& totalVolRefCnt,

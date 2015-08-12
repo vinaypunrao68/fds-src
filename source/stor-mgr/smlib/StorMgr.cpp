@@ -88,7 +88,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
-        "fds.feature_toggle.sm.req_serialization", false);
+        "fds.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
