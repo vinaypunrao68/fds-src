@@ -488,7 +488,7 @@ ObjectStore::putObject(fds_volid_t volId,
         //
         // In any case, write out the metadata. And write out ObjData if data physically doesn't exist.
         if (updatedMeta->isObjReconcileRequired()) {
-            updatedMeta->reconcilePutObjMetaData(objId, volId);
+            updatedMeta->reconcilePutObjMetaData(objId, objData->size(), volId);
         }
 
         PerfTracer::incr(PerfEventType::SM_PUT_DUPLICATE_OBJ, volId);
