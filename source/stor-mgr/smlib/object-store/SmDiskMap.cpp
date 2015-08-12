@@ -249,6 +249,7 @@ void SmDiskMap::getDiskMap() {
         fds_verify(disk_map.count(idx) == 0);
         disk_map[idx] = path;
         diskDevMap[idx] = dev;
+        diskState[idx] = DISK_ONLINE;
     }
     if (disk_map.size() == 0) {
         LOGCRITICAL << "Can't find any devices!";

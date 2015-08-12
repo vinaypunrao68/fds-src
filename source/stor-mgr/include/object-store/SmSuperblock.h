@@ -24,7 +24,8 @@ typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 
 typedef uint32_t fds_checksum32_t;
 
-typedef std::function<void (const diskio::DataTier&,
+typedef std::function<void (const DiskId& removedDiskId,
+                            const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
 
