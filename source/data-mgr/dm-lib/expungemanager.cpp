@@ -66,6 +66,7 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
 
 Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force) {
     if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
+    if (!dm->features.isExpungeEnabled()) return ERR_OK;
     if (!dm->amIPrimary(volId)) return ERR_OK;
 
     for (const auto& objId : vecObjIds) {
@@ -78,7 +79,9 @@ Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& ve
 
 Error ExpungeManager::expunge(fds_volid_t volId, const ObjectID& objId, bool force) {
     if (dm->features.isTestModeEnabled()) return ERR_OK;  // no SMs, no one to notify
+    if (!dm->features.isExpungeEnabled()) return ERR_OK;
     if (!dm->amIPrimary(volId)) return ERR_OK;
+
     serialExecutor->scheduleOnHashKey(VolObjHash(volId, objId),
                                       std::bind(&ExpungeManager::threadTask, this, volId, objId, force));
     return ERR_OK;

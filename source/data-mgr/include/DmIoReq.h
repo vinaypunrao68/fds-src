@@ -239,14 +239,15 @@ class DmIoCommitBlobTx : public DmRequest {
     sequence_id_t sequence_id;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
+    /* is this the original request */
+    bool orig_request {true};
 };
 
-// Forward declaration. Defined further down.
-class DmIoUpdateCatOnce;
+template <typename T>
 class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
   public:
    using DmIoCommitBlobTx::DmIoCommitBlobTx;
-   DmIoUpdateCatOnce *parent;
+   T *parent;
 };
 
 /**
@@ -535,10 +536,10 @@ class DmIoRenameBlob : public DmRequest {
 
     DmIoRenameBlob(const fds_volid_t& _volId,
                    const std::string& _oldName,
-                   const std::string& _newName,
-                   boost::shared_ptr<fpi::RenameBlobRespMsg> _message)
+                   const fds_uint64_t _seqId,
+                   boost::shared_ptr<fpi::RenameBlobMsg> _message)
         : message(_message), DmRequest(_volId, _oldName, "", blob_version_invalid, FDS_RENAME_BLOB),
-          new_blob_name(_newName)
+          seq_id(_seqId)
     {
         // perf-trace related data
         opReqFailedPerfEventType = PerfEventType::DM_QUERY_REQ_ERR;
@@ -553,11 +554,13 @@ class DmIoRenameBlob : public DmRequest {
         ret << "DmIoRenameBlob vol "
             << std::hex << volId << std::dec
             << " old name: " << blob_name
-            << " new name: " << new_blob_name;
+            << " new name: " << message->destination_blob;
         return ret.str();
     }
-    boost::shared_ptr<fpi::RenameBlobRespMsg> message;
-    std::string const new_blob_name;
+    DmIoCommitBlobOnce<DmIoRenameBlob> *commitReq;
+    boost::shared_ptr<fpi::RenameBlobMsg> message;
+    boost::shared_ptr<fpi::RenameBlobRespMsg> response;
+    fds_uint64_t const seq_id;
     /* response callback */
     CbType dmio_getmd_resp_cb;
 };

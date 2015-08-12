@@ -6,6 +6,7 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
+import org.apache.log4j.Logger;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v4.DeviceManager;
@@ -17,25 +18,47 @@ import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
 
 import java.io.IOException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 
 public class NfsServer {
+    private static final Logger LOG = Logger.getLogger(NfsServer.class);
+
     public static void main(String[] args) throws Exception {
-        new Configuration("NFS", new String[]{"--console"});
+        if (args.length != 2) {
+            System.out.println("Usasge: NfsServer omhost amhost");
+            System.exit(-1);
+        }
+        String omHost = args[0];
+        String amHost = args[1];
+        Configuration platformConfig = new Configuration("NFS", new String[]{"--console"});
+        NfsConfiguration nfsConfiguration = platformConfig.getNfsConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-        XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
+//        XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
+        XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, 9090));
         config.startCacheUpdaterThread(1000);
 
-        AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
+//        AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
+        AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
-        new NfsServer().start(config, asyncAm, 2049);
+        new NfsServer().start(nfsConfiguration, config, asyncAm, 2049);
 
         System.in.read();
     }
 
-    public void start(XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
-        startScavengerThread();
+    public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
+//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "com.formationds.nfs.FdsMemoryManager");
+//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "org.glassfish.grizzly.memory.HeapMemoryManager");
+//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "org.glassfish.grizzly.memory.PooledMemoryManager");
+
+//        getPlatformConfig().defaultInt(KEY_DEFAULT_TIMEOUT_SECONDS,
+//                (int) DEFAULT_TIMEOUT),
+//                DEFAULT_TIMEOUT_UNIT
+
         // specify file with export entries
+        LOG.info("Starting NFS server - " + nfsConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
         ExportFile exportFile = dynamicExports.exportFile();
@@ -45,11 +68,15 @@ public class NfsServer {
         VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
 
         // create the RPC service which will handle NFS requests
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(), nfsConfiguration.getThreadPoolSize(), 10, TimeUnit.MINUTES, new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()));
+        executor.setRejectedExecutionHandler(new BlockingRejectedExecutionHandler(nfsConfiguration.getIncomingRequestTimeoutSeconds(), TimeUnit.SECONDS));
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withPort(serverPort)
                 .withTCP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
+                .withWorkerThreadExecutionService(executor)
                 .build();
 
         // create NFS v4.1 server
@@ -72,20 +99,8 @@ public class NfsServer {
         nfsSvc.start();
     }
 
-    private void startScavengerThread() {
-        new Thread(() -> {
-            while (true) {
-                try {
-                    Thread.sleep(500);
-                    System.gc();
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }).start();
-    }
-}
 
+}
 
 // Stat
 // Base IO

@@ -188,11 +188,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     };
     
     $scope.setCapacityTooltipText = function( data, i, j ){
-        if ( i == 0 ){
-            return $filter( 'translate' )( 'status.desc_dedup_capacity' );
+        if ( data.type === 'LBYTES' ){
+            return $filter( 'translate' )( 'status.desc_pre_dedup_capacity' );
+            
         }
         else {
-            return $filter( 'translate' )( 'status.desc_pre_dedup_capacity' );
+            return $filter( 'translate' )( 'status.desc_dedup_capacity' );
         }
     };
     

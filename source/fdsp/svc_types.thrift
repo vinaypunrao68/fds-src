@@ -209,6 +209,11 @@ enum ServiceStatus {
  * "discovered" state to allow us to add it on first registration
  */
     SVC_STATUS_DISCOVERED   = 0x0003;
+/*
+ * When we shutdown or remove a node, we need a state to reflect
+ * that while the PM is not in inactive state, it is not active either
+ */
+    SVC_STATUS_STANDBY      = 0x0004;
 }
 
 /* ------------------------------------------------------------
