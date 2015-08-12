@@ -41,7 +41,10 @@ function process_results {
     echo latency=$latency >> .data
     echo machine=$machine >> .data
     echo vol=$i >> .data
-    ../common/push_to_influxdb.py dell_test .data --influxdb-db $INFLUXDB_DB
+    version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
+    echo version=$version >>.data
+    ../common/push_to_influxdb.py dell_test .data --influxdb-db $database
+    ../db/exp_db.py $database .data
 }
 
 #########################
@@ -51,13 +54,13 @@ machines=$2
 nvols=$3
 am_machines=$4
 size=$5
-INFLUXDB_DB=$6
+database=$6
 
 echo "outdir: $outdir"
 echo "machines: $machines"
 echo "am_machines: $am_machines"
 echo "size: $size"
-echo "influxdb_db: $INFLUXDB_DB"
+echo "database: $database"
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
 # iodepths="1 2 4 8 16 32 64 128 256"

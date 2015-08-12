@@ -41,7 +41,10 @@ function process_results {
     echo iops=$iops >> .data
     echo latency=$latency >> .data
     echo nodes=$nodes >> .data
+    version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
+    echo version=$version >>.data
     ../common/push_to_influxdb.py fio_regr .data
+    ../db/exp_db.py fio_regr_perf2 .data
 }
 
 #####################

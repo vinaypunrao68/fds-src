@@ -34,7 +34,10 @@ function process_results {
     echo n_jobs=$n_jobs >> .data
     echo iops=$iops >>.data
     echo latency=$latency >>.data
+    version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
+    echo version=$version >>.data
     ../common/push_to_influxdb.py s3_test .data
+    ../db/exp_db.py fio_regr_perf2 .data
 }
 
 ##################################

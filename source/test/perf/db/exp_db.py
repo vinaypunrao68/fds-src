@@ -29,25 +29,29 @@ def dyn_cast(val):
     else:
         return val
 
-def write_records(db, records):
+def write_records(db, series, records):
     cols, vals = [list(x) for x in  zip(*records)]
     vals = [dyn_cast(x) for x in vals]
     table = {}
     table["#timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
     for i, c in enumerate(cols):
         table[c] = vals[i]
-    db["experiments"].insert(table)
+    db[series].insert(table)
 
 def main():
     series = sys.argv[1]
     filein = sys.argv[2]
-    config = {"dbfile" : "/regress/%s.db" % series}
+    # config = {"dbfile" : "/regress/%s.db" % series}
     with open(filein, "r") as f:
         records = [ [re.sub(' ','',y) for y in x.split('=')] for x in filter(lambda x : x != "", re.split("[\n;,]+", f.read()))]
-    print 'sqlite:///%s' % config["dbfile"]    
-    db = dataset.connect('sqlite:///%s' % config["dbfile"])
-    write_records(db, records)
-    res = db["experiments"].all()
+    # print 'sqlite:///%s' % config["dbfile"]    
+    # db = dataset.connect('sqlite:///%s' % config["dbfile"])
+    database="experiments"
+    connection = "mysql://perf@matteo-vm/" + database
+    print connection
+    db = dataset.connect(connection)
+    write_records(db, series, records)
+    res = db[series].all()
     print json.dumps(list(res))
 
 if __name__ == "__main__":

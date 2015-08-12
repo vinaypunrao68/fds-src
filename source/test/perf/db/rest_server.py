@@ -45,17 +45,21 @@ def byteify(input):
         return input
 
 def get_data(name):
-    db = dataset.connect("sqlite:///" + "/regress/" + name + ".db")
+    connection = "mysql://perf@matteo-vm/experiments"
+    print connection
+    db = dataset.connect(connection)
     try:
-        res = db["experiments"].all()
+        res = db[name].all()
         return list(res)
     except:
         return []
     
 def search_data(name, tags):
-    db = dataset.connect("sqlite:///" + "/regress/" + name + ".db")
+    connection = "mysql://perf@matteo-vm/experiments"
+    print connection
+    db = dataset.connect(connection)
     # table = db["experiments"].table
-    myquery = "SELECT * FROM experiments"
+    myquery = "SELECT * FROM " + name
     if len(tags) > 0:
         myquery = myquery + " WHERE "
     for i, t in enumerate(tags):
@@ -66,6 +70,7 @@ def search_data(name, tags):
         if i < (len(tags) -1):
             myquery = myquery + " AND "
     try:
+        print myquery
         res = db.query(myquery)
         return list(res)
     except:
