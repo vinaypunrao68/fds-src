@@ -942,7 +942,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 void
 MigrationMgr::checkAndStartPendingResync() {
     bool resync = false;
-    resync = std::atomic_exchange(isResyncPending, resync);
+    resync = std::atomic_exchange(&isResyncPending, resync);
     if (resync) {
         cachedPendingResyncCb();
     }
