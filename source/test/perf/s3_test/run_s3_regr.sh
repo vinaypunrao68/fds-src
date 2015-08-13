@@ -2,9 +2,10 @@
 
 function s3_setup {
     local node=$1
+    local policy=$2
     echo "Setting up s3 on $node"
     pushd ../../../cli
-    ./fds volume create -name volume0 -type object -max_object_size 128 -max_object_size_unit KB -media_policy HDD
+    ./fds volume create -name volume0 -type object -max_object_size 128 -max_object_size_unit KB -media_policy $policy
     sleep 10
     popd
 }
@@ -48,6 +49,7 @@ function process_results {
 
 outdir=$1
 workspace=$2
+media_policy=$3
 
 client=perf2-node4
 njobs=4
@@ -65,7 +67,7 @@ test_types="GET"
 object_sizes="4096 65536 262144 1048576"
 concurrencies="25 100"
 
-s3_setup perf2-node1
+s3_setup perf2-node1 $media_policy
 
 #FIXME: assuming trafficgen is installed on the client
 #pushd $workspace/source/Build/linux-x86_64.release

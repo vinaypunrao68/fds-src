@@ -6,9 +6,10 @@ SSH="sshpass -p passwd ssh -o StrictHostKeyChecking=no -l root"
 
 function volume_setup {
     local vol=$1
+    local policy=$2
     pushd ../../../cli
     echo "Creating: $vol"
-    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy HDD
+    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy $policy
     popd
     sleep 10
 }
@@ -59,12 +60,14 @@ nvols=$3
 am_machines=$4
 size=$5
 database=$6
+media_policy=$7
 
 echo "outdir: $outdir"
 echo "machines: $machines"
 echo "am_machines: $am_machines"
 echo "size: $size"
 echo "database: $database"
+echo "media_policy: $media_policy"
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
 # iodepths="1 2 4 8 16 32 64 128 256"
@@ -101,7 +104,7 @@ for m in $machines; do echo "$m -> ${mremap[$m]}"; done
 echo "Setting up volumes"
 for m in $am_machines ; do
     for i in `seq $nvols` ; do
-    	volume_setup volume_block_$m\_$i
+    	volume_setup volume_block_$m\_$i $media_policy
 
     	# disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
 	    echo "$m ->  ${mremap[$m]} $i"
