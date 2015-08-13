@@ -113,7 +113,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           std::bind(&ObjectStorMgr::startResyncRequest, this),
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
-                                                                    std::placeholders::_2),
+                                                                    std::placeholders::_2,
+                                                                    std::placeholders::_3),
                                                           std::bind(&ObjectStorMgr::changeTokensState, this,
                                                                     std::placeholders::_1)));
 
@@ -132,9 +133,10 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     }
 }
 
-void ObjectStorMgr::handleDiskChanges(const diskio::DataTier& tierType,
+void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+                                      const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    objStorMgr->objectStore->handleDiskChanges(tierType, tokenDiskPairs);
+    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::startResyncRequest() {
