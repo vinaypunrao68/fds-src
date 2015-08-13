@@ -1896,7 +1896,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     if ( spoofed.size() > 0  )
     {    
         LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );       
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
         om_locDomain->om_bcast_svcmap();
     }
 }
