@@ -30,6 +30,7 @@ function process_results {
     local vol=$8
     local start_time=$9
     local end_time=$10
+    local media_policy=$11
 
     iops=`grep iops $f | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
     latency=`grep clat $f | grep avg| awk -F '[,=:()]' '{print ($2 == "msec") ? $9*1000 : $9}' | awk '{i+=1; e+=$1}END{print e/i/1000}'`
@@ -48,6 +49,7 @@ function process_results {
     echo version=$version >>.data
     echo start_time=$start_time >>.data
     echo end_time=$end_time >>.data
+    echo media_policy=$media_policy >>.data
     ../common/push_to_influxdb.py dell_test .data --influxdb-db $database
     ../db/exp_db.py $database .data
 }
@@ -146,7 +148,7 @@ for bs in $bsizes ; do
 			    	        wait ${pids[$m:$i]}
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 			    	        echo "Processing results for $m ${pids[$m:$i]} $outfile"
-                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]}
+                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy
                             start_times[$m:$i]=
                             end_times[$m:$i]=
 			    	        pids[$m:$i]=""
