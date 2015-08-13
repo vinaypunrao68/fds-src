@@ -13,12 +13,12 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 from common.ttypes import *
+from common.constants import *
 from svc_api.ttypes import *
 from svc_types.ttypes import *
 from svc_types.constants import *
 import sm_api as smapi
 import sm_types as smtypes
-#import fds_service.ttypes as fdssvc
 
 
 log = logging.getLogger(__name__)
@@ -250,25 +250,25 @@ def newSetScavengerPolicyMsg(t1, t2, t3, t4):
     return msg
 
 def newQueryScavengerPolicyMsg():
-    msg = CtrlQueryScavengerPolicy()
+    msg = smapi.ttypes.CtrlQueryScavengerPolicy()
     return msg
 
 def newQueryPolicyMsg():
-    msg = CtrlQueryTierPolicy()
+    msg = smapi.ttypes.CtrlQueryTierPolicy()
     return msg
 
 def newQueryScrubberStatusMsg():
-    msg = CtrlQueryScrubberStatus()
+    msg = smapi.ttypes.CtrlQueryScrubberStatus()
     return msg
 
 def newEnableScrubberMsg():
-    msg = CtrlSetScrubberStatus()
-    msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_ENABLE
-    return msg
+    msg = smapi.ttypes.CtrlSetScrubberStatus()
+    msg.scrubber_status = smtypes.ttypes.FDSP_ScrubberStatusType.FDSP_SCRUB_ENABLE
+    return msgz
 
 def newDisableScrubberMsg():
-    msg = CtrlSetScrubberStatus()
-    msg.scrubber_status = FDSP_ScrubberStatusType.FDSP_SCRUB_DISABLE
+    msg = smapi.ttypes.CtrlSetScrubberStatus()
+    msg.scrubber_status = smtypes.ttypes.FDSP_ScrubberStatusType.FDSP_SCRUB_DISABLE
     return msg
 
 def newShutdownMODMsg():
