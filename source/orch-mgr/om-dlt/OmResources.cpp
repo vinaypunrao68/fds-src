@@ -1882,7 +1882,9 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
             svc.incarnationNo = util::getTimeStampSeconds();
+            svc.svc_status = fpi::SVC_STATUS_ACTIVE;
             spoofed.push_back( svc );
+            configDB->updateSvcMap( svc );
         }
         else 
         {
@@ -1894,7 +1896,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     if ( spoofed.size() > 0  )
     {    
         LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );       
         om_locDomain->om_bcast_svcmap();
     }
 }
