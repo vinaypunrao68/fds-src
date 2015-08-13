@@ -522,9 +522,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
                 sftp = self.passedNode.nd_agent.env_ssh_clnt.open_sftp()
                 log_files = sftp.listdir(fds_dir + "/var/logs")
 
-            print("LOG_FILES = {}".format(log_files))
             for log_file in log_files:
-
                 if fnmatch.fnmatch(log_file, self.passedService + ".log_*.log"):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)

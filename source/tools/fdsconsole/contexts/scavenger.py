@@ -119,7 +119,6 @@ class ScrubberContext(Context):
             scrubCB = WaitedCallback()
             self.smClient().sendAsyncSvcReq(sm, scrubEnableMsg, None)
         except Exception, e:
-            print e
             log.exception(e)
             return 'enable scrubber failed'
 
