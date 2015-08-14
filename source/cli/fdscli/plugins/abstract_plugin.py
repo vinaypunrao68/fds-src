@@ -15,7 +15,7 @@ class AbstractPlugin( object ):
     priority_str = "priority"
     iops_guarantee_str = "iops_min"
     iops_limit_str = "iops_max"
-    media_policy_str = "media_policy"
+    media_policy_str = "tiering_policy"
     volume_name_str = "volume_name"
     volume_id_str = "volume_id"
     volume_ids_str = "volume_ids"

@@ -431,7 +431,6 @@ OM_NodeAgent::om_send_dlt_close_resp(fpi::CtrlNotifyDLTClosePtr msg,
         const Error& error,
         boost::shared_ptr<std::string> payload)
 {
-    TRACEFUNC;
     LOGDEBUG << "OM received response for NotifyDltClose from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " with version " << msg->dlt_close.DLT_version
@@ -1321,6 +1320,21 @@ OM_PmAgent::send_start_service
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
 
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+    // Check to see state of PM
+    fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
+                                                            get_uuid().uuid_get_val() );
+
+    if ( serviceStatus == fpi::SVC_STATUS_STANDBY ) {
+        // If the state is standby, this can only mean that a previously
+        // shutdown node is now being started, so change PM state and
+        // node state
+        fds::change_service_state( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_ACTIVE );
+        set_node_state(fpi::FDS_Node_Up);
+    }
     // Check if the requested services are already running
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         bool smRunning = false;
@@ -1333,8 +1347,7 @@ OM_PmAgent::send_start_service
             // OR the service was only previously stopped and not removed.
             // If service was stopped, state is inactive, in which case we want to keep going
             // and start
-            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
-                                                         activeSmAgent->get_uuid().uuid_get_val() );
+            serviceStatus = configDB->getStateSvcMap(activeSmAgent->get_uuid().uuid_get_val() );
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                 LOGNOTIFY << "OM_PmAgent: SM service already running, "
@@ -1343,8 +1356,7 @@ OM_PmAgent::send_start_service
             }
         }
         if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
-                                                         activeDmAgent->get_uuid().uuid_get_val() );
+            serviceStatus = configDB->getStateSvcMap(activeDmAgent->get_uuid().uuid_get_val() );
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                 LOGNOTIFY << "OM_PmAgent: DM service already running, "
@@ -1353,8 +1365,7 @@ OM_PmAgent::send_start_service
             }
         }
         if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-           fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
-                                                        activeAmAgent->get_uuid().uuid_get_val() );
+           serviceStatus = configDB->getStateSvcMap(activeAmAgent->get_uuid().uuid_get_val() );
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                 LOGNOTIFY << "OM_PmAgent: AM service already running,"
@@ -1367,7 +1378,6 @@ OM_PmAgent::send_start_service
         if (smRunning || dmRunning || amRunning) {
             fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
         }
-
     }
     else
     {
@@ -1509,6 +1519,18 @@ OM_PmAgent::send_stop_service
                               fpi::SVC_STATUS_INACTIVE );
     }
 
+    if (stop_sm && stop_dm && stop_am){
+        // Node is being shutdown, change the state of platform
+        // to standby, this will send back external node state
+        // as being FDS_Node_Down
+        LOGDEBUG << "Changing PM state to STANDBY";
+        fds::change_service_state( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_STANDBY );
+        // Also explicitly set the state to down
+        set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+    }
+
     return err;
 }
 
@@ -1643,13 +1665,12 @@ OM_PmAgent::send_remove_service
             // 2. Remove node from the configDB
             // 3. Set platform service state to inactive
 
-            //TODO @meena for now, leave PM state active. Once node state
-            // and PM state have been decoupled we can look into doing this
-            //set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
             configDB->removeNode(get_uuid());
-            //fds::change_service_state( configDB,
-            //                           get_uuid().uuid_get_val(),
-            //                           fpi::SVC_STATUS_INACTIVE );
+
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_STANDBY );
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";

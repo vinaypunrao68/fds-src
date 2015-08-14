@@ -41,24 +41,23 @@ function process_results {
     echo latency=$latency >> .data
     echo machine=$machine >> .data
     echo vol=$i >> .data
-    ../common/push_to_influxdb.py dell_test .data
+    ../common/push_to_influxdb.py dell_test .data --influxdb-db $INFLUXDB_DB
 }
 
 #########################
 
 outdir=$1
-node=$2
-machines=$3
-nvols=$4
-am_machines=$5
-size=$6
+machines=$2
+nvols=$3
+am_machines=$4
+size=$5
+INFLUXDB_DB=$6
 
 echo "outdir: $outdir"
-echo "node: $node"
 echo "machines: $machines"
 echo "am_machines: $am_machines"
 echo "size: $size"
-
+echo "influxdb_db: $INFLUXDB_DB"
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
 # iodepths="1 2 4 8 16 32 64 128 256"

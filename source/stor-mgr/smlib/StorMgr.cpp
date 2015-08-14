@@ -88,7 +88,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
 
     testStandalone = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone");
     enableReqSerialization = modProvider_->get_fds_config()->get<bool>(
-        "fds.feature_toggle.sm.req_serialization", false);
+        "fds.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
@@ -110,7 +110,13 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl,
-                                                          std::bind(&ObjectStorMgr::startResyncRequest, this)));
+                                                          std::bind(&ObjectStorMgr::startResyncRequest, this),
+                                                          std::bind(&ObjectStorMgr::handleDiskChanges, this,
+                                                                    std::placeholders::_1,
+                                                                    std::placeholders::_2,
+                                                                    std::placeholders::_3),
+                                                          std::bind(&ObjectStorMgr::changeTokensState, this,
+                                                                    std::placeholders::_1)));
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -121,12 +127,25 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     return 0;
 }
 
+void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
+    if (dltTokens.size()) {
+        objStorMgr->migrationMgr->changeDltTokensState(dltTokens, false);
+    }
+}
+
+void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+                                      const diskio::DataTier& tierType,
+                                      const TokenDiskIdPairSet& tokenDiskPairs) {
+    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+}
+
 void ObjectStorMgr::startResyncRequest() {
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
         const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
         objStorMgr->migrationMgr->startResync(curDlt,
                                               getUuid(),
-                                              curDlt->getNumBitsForToken());
+                                              curDlt->getNumBitsForToken(),
+                                              std::bind(&ObjectStorMgr::startResyncRequest, this));
     }
 }
 
@@ -400,7 +419,8 @@ Error ObjectStorMgr::handleDltUpdate() {
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         getUuid(),
-                                                        curDlt->getNumBitsForToken());
+                                                        curDlt->getNumBitsForToken(),
+                                                        std::bind(&ObjectStorMgr::startResyncRequest, this));
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->notifyDltUpdate(curDlt,
@@ -852,6 +872,9 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     ObjectID objectId;
+    // since volId received for delete operation is system volumeId. Preserve volId of the 
+    // volume to be deleted 
+    fds_volid_t delVolId    = ioReq->getVolId();
     ioReq->setVolId(volId);
 
     switch (ioReq->io_type) {
@@ -898,6 +921,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             // ID is passed to deleteObject and the object does not get deleted)
             // Volume association resolution is handled in object store layer
             // for deleteObject.
+            ioReq->setVolId(delVolId);
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:

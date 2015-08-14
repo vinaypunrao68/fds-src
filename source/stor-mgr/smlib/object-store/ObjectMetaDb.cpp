@@ -107,9 +107,22 @@ ObjectMetadataDb::deleteMetadataDb(const std::string& diskPath,
     std::string file = ObjectMetadataDb::getObjectMetaFilename(diskPath, smToken);
     leveldb::Status status = leveldb::DestroyDB(file, leveldb::Options());
     if (!status.ok()) {
-        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken;
+        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken
+                  << "Error: " << status.ToString();
     }
     return err;
+}
+
+Error
+ObjectMetadataDb::closeAndDeleteMetadataDb(const fds_token_id& smToken) {
+    Error tmpErr = closeObjectDB(smToken, true);
+    if (!tmpErr.ok()) {
+        LOGERROR << "Failed to close ObjectDB for SM token " << smToken
+                 << " " << tmpErr;
+    } else {
+        LOGNOTIFY << "Closed ObjectDB for SM token " << smToken;
+    }
+    return tmpErr;
 }
 
 Error
@@ -118,14 +131,7 @@ ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
          cit != smTokensLost.cend();
          ++cit) {
-        Error tmpErr = closeObjectDB(*cit, true);
-        if (!tmpErr.ok()) {
-            LOGERROR << "Failed to close ObjectDB for SM token " << *cit
-                     << " " << tmpErr;
-            err = tmpErr;
-        } else {
-            LOGNOTIFY << "Closed ObjectDB for SM token " << *cit;
-        }
+        err = closeAndDeleteMetadataDb(*cit);
     }
     return err;
 }
@@ -136,7 +142,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
     std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, smTokId);
-    // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
+    LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
     SCOPEDWRITE(dbmapLock_);
     // check whether this DB is already open

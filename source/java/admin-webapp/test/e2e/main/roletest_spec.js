@@ -20,6 +20,8 @@ describe( 'Test role effects on visual elements', function(){
         var sysNav = element( by.id( 'main.system') );
 
         expect( sysNav.getAttribute( 'class' ) ).not.toContain( 'ng-hide' );
+        
+        logout();
     });
 
 // page removed for the time being

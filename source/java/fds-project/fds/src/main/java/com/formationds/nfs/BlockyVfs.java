@@ -340,7 +340,6 @@ public class BlockyVfs implements VirtualFileSystem {
         if (!stat.isPresent()) {
             throw new NoEntException();
         }
-        LOG.debug("getattr " + inode.getFileId());
         return stat.get().asStat();
     }
 
