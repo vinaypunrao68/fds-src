@@ -1196,8 +1196,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
                         << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
-
-	isDataPhysicallyExist = objMeta->dataPhysicallyExists();
+        isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
@@ -1389,7 +1388,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
 
-    if (false == metadataAlreadyReconciled) {
+    if (false == metadataAlreadyReconciled || err == ERR_DUPLICATE) {
         err = updatedMeta->updateFromRebalanceDelta(msg);
         if (!err.ok()) {
             LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
