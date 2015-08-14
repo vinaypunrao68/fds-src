@@ -1382,7 +1382,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
 
-    if (false == metadataAlreadyReconciled || err == ERR_DUPLICATE ) {
+    if (false == metadataAlreadyReconciled || err == ERR_DUPLICATE) {
         err = updatedMeta->updateFromRebalanceDelta(msg);
         if (!err.ok()) {
             LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
