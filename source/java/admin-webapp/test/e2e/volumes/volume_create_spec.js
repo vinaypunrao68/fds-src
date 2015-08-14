@@ -136,7 +136,7 @@ describe( 'Testing volume creation permutations', function(){
     it( 'should save with just a name', function(){
         
         newText.sendKeys( 'Test Volume' );
-        browser.sleep( 100 );
+        browser.sleep( 200 );
         
         createButton.click();
 
@@ -167,6 +167,8 @@ describe( 'Testing volume creation permutations', function(){
         
         clickRow( 'Test Volume' );
         
+        browser.sleep( 200 );
+        
         // the screen should slide over
         expect( mainEl.getAttribute( 'style' ) ).toContain( '-100%' );
         expect( viewEl.getAttribute( 'style' ) ).toContain( '0%' );
@@ -183,7 +185,7 @@ describe( 'Testing volume creation permutations', function(){
         // check the actual settings
         verifyVolume( 
             'Test Volume', 
-            'Flash Only',
+            'Hybrid',
             { preset: STANDARD, priority: '7', iopsMin: 'None', iopsMax: 'Unlimited'},
             { 
                 preset: STANDARD, 
