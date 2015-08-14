@@ -23,6 +23,19 @@
 namespace fds {
 
 /*
+ * These thread synchronization components coordinate activity between
+ * the ctor and dtor in their management of the signal handler thread.
+ * Without them, we may experience "thread sleep delima" (a thread misses
+ * its wakeup call and ends up sleeping forever) when an FdsProcess instance
+ * is destroyed soon after it is created (as happens with our gtest unit tests).
+ */
+bool FdsProcess::sig_tid_ready = false;
+std::condition_variable FdsProcess::sig_tid_start_cv_;
+std::mutex FdsProcess::sig_tid_start_mutex_;
+std::condition_variable FdsProcess::sig_tid_stop_cv_;
+std::mutex FdsProcess::sig_tid_stop_mutex_;
+
+/*
  * This array is a simple way to define which signals are of interest
  * and how they should be handled. For those designated with handler
  * function SIG_DFL, there is likely some special handling required such
@@ -264,12 +277,12 @@ FdsProcess::~FdsProcess()
     if (timer_servicePtr_) {
         timer_servicePtr_->destroy();
     }
-    /* cleanup process wide globals */
-    g_fdsprocess = nullptr;
 
     /* Terminate signal handling thread */
     {
-        std::lock_guard<std::mutex> lock(sig_tid_mutex_);
+        std::unique_lock<std::mutex> lock(sig_tid_stop_mutex_);
+        sig_tid_stop_cv_.wait(lock, []{return FdsProcess::sig_tid_ready;}); // Make sure it's ready to be terminated.
+        lock.unlock();
 
         if (sig_tid_) {
             int rc = pthread_kill(*sig_tid_, SIGTERM);
@@ -281,6 +294,9 @@ FdsProcess::~FdsProcess()
             }
         }
     }
+
+    /* cleanup process wide globals */
+    g_fdsprocess = nullptr;
 
     if (proc_thrp) delete proc_thrp;
     if (proc_root) delete proc_root;
@@ -473,10 +489,10 @@ FdsProcess::fds_catch_signal(int sig) {
 
     /*
      * Protect against recursion.  Since the most likely cause is
-     * seg faults due to the code to dump the stack, the first
-     * time we recurse, we skip this code.  If the problem is in
-     * another place, we will recurse again. The second time we
-     * recurse we quickly call abort.
+     * seg faults due to the interrupt_cb() or the code to dump
+     * the stack, the first time we recurse, we skip this code.
+     * If the problem is in another place, we will recurse again.
+     * The second time we recurse we quickly call abort.
      */
     ++timesCalledBefore;
     if (timesCalledBefore >= 2) {
@@ -505,6 +521,8 @@ FdsProcess::sig_handler(void* param)
     sigemptyset(&blocked_sigs);
 
     sigorset(&blocked_sigs, &blocked_sigs, static_cast<sigset_t*>(param));
+
+    FdsProcess::sig_tid_start_cv_.notify_all(); // We're about as "started" as we can be before we must let folks know.
 
     while (true)
     {
@@ -546,12 +564,21 @@ void FdsProcess::setup_sig_handler()
 
     // Joinable thread for handling signals blocked by this and other threads.
     {
-        std::lock_guard<std::mutex> lock(sig_tid_mutex_);
+        std::unique_lock<std::mutex> lock(sig_tid_start_mutex_);
 
         sig_tid_.reset(new pthread_t);
         rc = pthread_create(sig_tid_.get(), 0, FdsProcess::sig_handler, static_cast<void *>(&(ctrl_c_sigs)));
         fds_assert(rc == 0);
+
+        /**
+         * Block until the sig handler thread is ready.
+         */
+        sig_tid_start_cv_.wait(lock);
+        lock.unlock();
     }
+
+    FdsProcess::sig_tid_ready = true;
+    FdsProcess::sig_tid_stop_cv_.notify_all(); // Let the dtor know it can proceed.
 
     /**
      * For each signal of interest, install the handler.

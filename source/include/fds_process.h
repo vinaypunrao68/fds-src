@@ -270,9 +270,15 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_graphite();
     virtual void setupAtExitHandler();
 
-    /* Signal handler thread and its mutex to ensure serial access. */
+    /*
+     * Signal handler thread and its condition variable (and _its_ mutex) to ensure serial access to the signal handler thread state.
+     */
     std::unique_ptr<pthread_t> sig_tid_;
-    std::mutex sig_tid_mutex_;
+    static std::condition_variable sig_tid_start_cv_;
+    static std::mutex sig_tid_start_mutex_;
+    static std::condition_variable sig_tid_stop_cv_;
+    static std::mutex sig_tid_stop_mutex_;
+    static bool sig_tid_ready;
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;
