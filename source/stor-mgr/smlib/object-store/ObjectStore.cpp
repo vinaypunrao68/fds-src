@@ -228,6 +228,12 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    if (diskMap->isDiskOffline(diskId)) {
+        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        return ERR_OK;
+    }
+    diskMap->makeDiskOffline(diskId);
+
     SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     if (changeTokensStateFn) {
         changeTokensStateFn(lostTokens);
@@ -1517,10 +1523,14 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
  *                    done.
  */
 void
-ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
+ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
+                               const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
     SmTokenSet lostTokens;
     LOGNOTIFY << "Tokens to be redistributed";
+
+    diskMap->makeDiskOffline(removedDiskId);
+
     for (auto& tokenPair: tokenDiskPairs) {
         LOGNOTIFY << tokenPair.first;
         lostTokens.insert(tokenPair.first);
