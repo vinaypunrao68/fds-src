@@ -264,7 +264,7 @@ def newQueryScrubberStatusMsg():
 def newEnableScrubberMsg():
     msg = smapi.ttypes.CtrlSetScrubberStatus()
     msg.scrubber_status = smtypes.ttypes.FDSP_ScrubberStatusType.FDSP_SCRUB_ENABLE
-    return msgz
+    return msg
 
 def newDisableScrubberMsg():
     msg = smapi.ttypes.CtrlSetScrubberStatus()
