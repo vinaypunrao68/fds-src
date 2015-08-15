@@ -593,9 +593,13 @@ void FdsProcess::setup_sig_handler()
      * and until someone is able to come up with a solution for having
      * the OM library manage its signals without interferring with the
      * JVM, we'll leave OM signal handling alone.
+     *
+     * Depending upon where we are in initializing and how the OM is started,
+     * the corresponding "process ID" may take on one of several forms.
      */
     if ((g_fdsprocess->getProcId() != "om") &&
-        (g_fdsprocess->getProcId().find("orchMgr") == std::string::npos)) {
+        (g_fdsprocess->getProcId().find("orchMgr") == std::string::npos) &&
+        (g_fdsprocess->getProcId().find("java") == std::string::npos)) {
         __sighandler_t currentHandler;
         for (auto sigp : fds_signal_table) {
             if (sigp.signal == SIGCHLD) {
