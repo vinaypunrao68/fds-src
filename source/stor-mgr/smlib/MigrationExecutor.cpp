@@ -136,7 +136,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                                                  &expectState,
                                                  ME_SECOND_PHASE_APPLYING_DELTA)) {
             LOGNOTIFY << "Non-ME_SECOND_PHASE_APPLYING_DELTA state " << state
-                      << " Executor " << std::hex << executorId << << ", source SM "
+                      << " Executor " << std::hex << executorId << ", source SM "
                       << sourceSmUuid.uuid_get_val() << std::dec << ", SM token " << smTokenId;
 
             // Since the state transition failed, stop tracking this IO.
