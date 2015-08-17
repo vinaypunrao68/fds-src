@@ -52,6 +52,15 @@ struct CommitLogTx : serialize::Serializable {
 
     virtual uint32_t write(serialize::Serializer * s) const override;
     virtual uint32_t read(serialize::Deserializer * d) override;
+
+    /*
+     * with synchronizer enabled we should never see multiple updates
+     * to the same tx at the same time, but synchronizer cannot be
+     * enabled for block volume and can be turned off, so we to lock
+     * the TX while we edit it. operations that have an exclusive
+     * TxMapLock do not need to bother grabbing this mutex in additon.
+     */
+    std::mutex lockTx_;
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
@@ -102,9 +111,6 @@ class DmCommitLog : public Module {
     // snapshot
     Error snapshot(BlobTxId::const_ptr & txDesc, const std::string & name);
 
-    // get transaction
-    CommitLogTx::const_ptr getTx(BlobTxId::const_ptr & txDesc);
-
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
@@ -117,9 +123,18 @@ class DmCommitLog : public Module {
         return nullary_always([this, exclusive] { exclusive ? commit_lock.write_unlock() : commit_lock.read_unlock(); });
     }
 
+    // take exculsive lock for map add or remove, read lock for value modification
+    nullary_always getTxMapLock(bool exclusive = false)
+    {
+        // Wait for the lock, then return a held lock that will
+        // release when it goes out of scope to prevent tx mutations
+        exclusive ? txmap_lock.write_lock() : txmap_lock.read_lock();
+        return nullary_always([this, exclusive] { exclusive ? txmap_lock.write_unlock() : txmap_lock.read_unlock(); });
+    }
+
     // get active transactions
     fds_uint32_t getActiveTx() {
-        std::lock_guard<std::mutex> guard(lockTxMap_);
+        auto auto_lock = getTxMapLock();
         return txMap_.size();
     }
 
@@ -127,7 +142,7 @@ class DmCommitLog : public Module {
 
   private:
     TxMap txMap_;    // in-memory state
-    std::mutex lockTxMap_;
+    fds_rwlock txmap_lock;
     std::unordered_map<fds_uint64_t,fds_uint64_t> dmtVerMap_;
     fds_rwlock commit_lock;
 
@@ -140,6 +155,8 @@ class DmCommitLog : public Module {
     Error validateSubsequentTx(const BlobTxId & txId);
 
     void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobObjList> & data) {
+        std::lock_guard<std::mutex> guard(tx.lockTx_);
+
         if (tx.blobObjList) {
             tx.blobObjList->merge(*data);
         } else {
@@ -148,6 +165,8 @@ class DmCommitLog : public Module {
     }
 
     void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const MetaDataList> & data) {
+        std::lock_guard<std::mutex> guard(tx.lockTx_);
+
         if (tx.metaDataList) {
             tx.metaDataList->merge(*data);
         } else {
