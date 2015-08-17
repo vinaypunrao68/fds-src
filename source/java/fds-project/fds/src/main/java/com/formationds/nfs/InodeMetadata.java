@@ -82,7 +82,7 @@ public class InodeMetadata {
         metadata.put(NFS_VOLUME_ID, Long.toString(volId));
     }
 
-    private InodeMetadata(Map<String, String> map) {
+    public InodeMetadata(Map<String, String> map) {
         this.metadata = map;
     }
 
@@ -182,6 +182,13 @@ public class InodeMetadata {
 
     public InodeMetadata withUpdatedCtime() {
         return clone(NFS_CTIME, System.currentTimeMillis());
+    }
+
+    public InodeMetadata withUpdatedTimestamps() {
+        return this.withUpdatedCtime()
+                .withUpdatedAtime()
+                .withUpdatedMtime()
+                .withIncrementedGeneration();
     }
 
     public InodeMetadata withUpdatedSize(long newSize) {

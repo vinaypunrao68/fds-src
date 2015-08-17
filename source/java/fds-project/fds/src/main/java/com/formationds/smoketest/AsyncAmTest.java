@@ -255,7 +255,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(0, volumeStatus.blobCount);
     }
 
-    @Test //done 9
+    @Test
     public void testUpdateMetadata() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -268,6 +268,17 @@ public class AsyncAmTest extends BaseAmTest {
         blobDescriptor = asyncAm.statBlob(domainName, volumeName, blobName).get();
         assertEquals("panda", blobDescriptor.getMetadata().get("hello"));
         assertEquals(1, blobDescriptor.getMetadataSize());
+    }
+
+    @Test
+    public void testUpdateMetadataOnMissingBlob() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        TxDescriptor tx = asyncAm.startBlobTx(domainName, volumeName, blobName, 0).get();
+        asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
+        asyncAm.commitBlobTx(domainName, volumeName, blobName, tx).get();
+        BlobDescriptor bd = asyncAm.statBlob(domainName, volumeName, blobName).get();
+        assertEquals("world", bd.getMetadata().get("hello"));
     }
 
     @Test

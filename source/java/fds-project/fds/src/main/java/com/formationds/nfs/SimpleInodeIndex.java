@@ -71,6 +71,7 @@ public class SimpleInodeIndex implements InodeIndex {
     }
 
     private void writeIndexEntry(String volumeName, long inodeId, JSONObject indexEntry) throws IOException {
+        cache.put(new CacheKey(volumeName, inodeId), indexEntry);
         int objectSize = exportResolver.objectSize(volumeName);
         FdsOutputStream outputStream = FdsOutputStream.openNew(asyncAm, BlockyVfs.DOMAIN, volumeName, blobName(inodeId), objectSize, new OwnerGroupInfo("foo", "bar"));
         IOUtils.write(indexEntry.toString(), outputStream);
