@@ -9,7 +9,7 @@ function volume_setup {
     local policy=$2
     pushd ../../../cli
     echo "Creating: $vol"
-    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy $policy
+    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -tiering_policy $policy
     popd
     sleep 10
 }
