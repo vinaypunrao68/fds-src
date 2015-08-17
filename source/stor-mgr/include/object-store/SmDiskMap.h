@@ -23,6 +23,10 @@ namespace fds {
  */
 class SmDiskMap : public Module, public boost::noncopyable {
   public:
+    enum Disk_State {
+        DISK_OFFLINE,
+        DISK_ONLINE
+    };
     const std::string DISK_MAP_FILE = "/disk-map";
 
     explicit SmDiskMap(const std::string& modName,
@@ -109,6 +113,15 @@ class SmDiskMap : public Module, public boost::noncopyable {
     bool isAllDisksSSD() const;
 
     /**
+     * Disk state specific inlines.
+     */
+    inline void makeDiskOffline(const DiskId& diskId) {
+        diskState[diskId] = DISK_OFFLINE;
+    }
+    inline bool isDiskOffline(const DiskId& diskId) {
+        return !(diskState[diskId] == DISK_ONLINE);
+    }
+   /**
     * Determines if a write to SSD will cause SSD usage to go beyond capacity threshold.
     * When called it will add writeSize to the map, and if the new value exceeds
     * the threshold will return false.
@@ -186,6 +199,9 @@ class SmDiskMap : public Module, public boost::noncopyable {
     DiskIdSet  ssd_ids;
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
+
+    /// Disk health map
+    std::map<DiskId, bool> diskState;
 
     /// Superblock caches and persists SM token info
     SmSuperblockMgr::unique_ptr superblock;

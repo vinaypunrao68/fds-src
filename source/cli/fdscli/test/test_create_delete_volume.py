@@ -96,7 +96,7 @@ class VolumeTest1( BaseCliTest ):
     def test_create_with_args(self, volumeCreate, listCall):
          
         args = ["volume", "create", "-name=Franklin2", "-priority=1", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
-                "-media_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
+                "-tiering_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
          
         self.callMessageFormatter(args)
         self.cli.run( args )
@@ -123,7 +123,7 @@ class VolumeTest1( BaseCliTest ):
     def test_create_boundary_checking(self, volumeCreate, listCall ):
         
         args = ["volume", "create", "-name=Franklin2", "-priority=11", "-iops_min=30", "-iops_max=30", "-continuous_protection=86400",
-                "-media_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
+                "-tiering_policy=SSD", "-type=block", "-size=2", "-size_unit=MB"]
         
         self.callMessageFormatter(args)
         
@@ -154,13 +154,13 @@ class VolumeTest1( BaseCliTest ):
         
         print "Testing bad media policy"
         args[6] = "-continuous_protection=86400"
-        args[7] = "-media_policy=MY_POLICY"
+        args[7] = "-tiering_policy=MY_POLICY"
         
         self.cli.run( args )
         assert volumeCreate.call_count == 0
         
         print "Testing bad volume type"
-        args[7] = "-media_policy=SSD"
+        args[7] = "-tiering_policy=SSD"
         args[8] = "-type=NFS"
         
         self.cli.run( args )

@@ -149,7 +149,8 @@ class ObjectPersistData : public Module,
      * @param[in] smTokensLost a list of SM tokens for which this SM
      * lost ownership
      */
-    Error closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost);
+    Error closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
+                                        const bool& diskFailure=false);
 
     /**
      * Deletes SM token file for a given SM Token.

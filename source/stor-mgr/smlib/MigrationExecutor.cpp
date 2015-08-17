@@ -567,9 +567,9 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << std::hex << executorId << std::dec;
-	    trackIOReqs.finishTrackIOReqs();
+            trackIOReqs.finishTrackIOReqs();
             handleMigrationRoundDone(err);
-	    return ERR_OK;
+            return ERR_OK;
         }
 
         // Empty delta set, so no need to track this IO.
@@ -652,6 +652,10 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                       req->lastSet,
+                                       req->qosSeqNum,
+                                       req->qosLastSet);
         abortMigrationCb(executorId, smTokenId);
         return;
     }
@@ -659,10 +663,13 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // beta2: if error happened, stop migration
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
-        handleMigrationRoundDone(error);
-
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                       req->lastSet,
+                                       req->qosSeqNum,
+                                       req->qosLastSet);
+        handleMigrationRoundDone(error);
         return;
     }
 

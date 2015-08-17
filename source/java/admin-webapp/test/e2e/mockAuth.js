@@ -3,15 +3,15 @@ mockAuth = function() {
     var adminPassword = 'admin';
 
     var admin = {
-        userId: 0,
-        username: 'admin',
-        features: ['SYS_MGMT','Volume Management','TENANT_MGMT','User Management']   
+        uid: 0,
+        name: 'admin',
+        features: ['SYS_MGMT','VOL_MGMT','TENANT_MGMT','USER_MGMT']   
     };
 
     var goldman = {
-        userId: '1',
-        username: 'goldman',
-        features: ['Volume Management','User Management']   
+        uid: 1,
+        name: 'goldman',
+        features: ['VOL_MGMT','USER_MGMT']   
     };
 
     var user = {};
@@ -114,7 +114,7 @@ mockAuth = function() {
         service.getUsername = function(){
 
             if ( user !== null ){
-                return user.username;
+                return user.name;
             }
             else {
                 return undefined;
@@ -137,7 +137,7 @@ mockAuth = function() {
         service.validateUserToken = function( success, failure ){
 
             if ( angular.isFunction( success ) ){
-                success( user.userId );
+                success( user.uid );
             }
         };
 
@@ -149,28 +149,21 @@ mockAuth = function() {
 
         var service = {};
 
-        service.changePassword = function( userId, newPassword, success, failure ){
+        service.changePassword = function( user, success, failure ){
 
-            if ( userId === 'FAIL_PLEASE' ){
+            if ( user.password === 'FAIL_PLEASE' ){
                 failure( 500, 'Password change failed.' );
                 return;
             }
 
-            adminPassword = newPassword;
-
+            adminPassword = user.password;
+            
             success();
         };
 
-        service.createUser = function( username, password, success, failure ){
+        service.createUser = function( user, success, failure ){
 
-            var user = { 
-                id: {
-                    uuid: (new Date()).getTime(),
-                    name: username
-                },
-                tenantId: undefined,
-                password: password
-            };
+            user.uid = (new Date()).getTime();
             
             users.push( user );
 
