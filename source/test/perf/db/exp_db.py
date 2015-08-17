@@ -4,6 +4,7 @@ import os,re,sys
 import json
 import time
 import dataset
+import logging
 
 def write_records(db, series, records):
     cols, vals = [list(x) for x in  zip(*records)]
@@ -16,15 +17,16 @@ def write_records(db, series, records):
 def main():
     series = sys.argv[1]
     filein = sys.argv[2]
+    logging.basicConfig(level=logging.DEBUG)
     with open(filein, "r") as f:
         records = [ [re.sub(' ','',y) for y in x.split('=')] for x in filter(lambda x : x != "", re.split("[\n;,]+", f.read()))]
     database="experiments"
     connection = "mysql://perf@matteo-vm/" + database
-    print "Connecting:", connection
+    logging.debug("Connecting: " + connection)
     db = dataset.connect(connection)
     write_records(db, series, records)
-    res = db[series].all()
-    print json.dumps(list(res))
+    # res = db[series].all()
+    # print json.dumps(list(res))
 
 if __name__ == "__main__":
     main()

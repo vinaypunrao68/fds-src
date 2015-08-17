@@ -20,9 +20,9 @@ function process_results {
     local hostname=$7
     local n_conns=$8
     local n_jobs=$9
-    local start_time=$10
-    local end_time=$11
-    local media_policy=$12
+    local start_time=${10}
+    local end_time=${11}
+    local media_policy=${12}
 
     iops=`echo $files | xargs grep IOPs |awk '{e+=$2}END{print e}'`
     latency=`echo $files | xargs grep latency | awk '{print $4*1e-6}'|awk '{i+=1; e+=$1}END{print e/i}'`
@@ -96,7 +96,7 @@ for t in $test_types ; do
 
             pids=""
             outfiles=""
-            start_time=`date +%s`
+            start_time=`date +%s%M`
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
@@ -105,7 +105,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
-            end_time=`date +%s`
+            end_time=`date +%s%M`
             process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done

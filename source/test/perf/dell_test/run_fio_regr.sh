@@ -72,9 +72,9 @@ fio --name=write --rw=write --filename=$nbd_disk --bs=$bs --numjobs=1 --iodepth=
 #echo 3 > /proc/sys/vm/drop_caches
 echo fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60
 outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size
-start_time=`date +%s`
+start_time=`date +%s%M`
 fio --name=test --rw=$workload --filename=$nbd_disk --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60 | tee $outfile
-end_time=`date +%s`
+end_time=`date +%s%M`
 echo start: $start_time end: $end_time
 process_results $outfile $worker $workload $bs $d $size $nodes $start_time $end_time
 volume_detach volume_$bs

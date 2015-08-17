@@ -9,10 +9,11 @@ import sys
 import re
 import json
 import dataset
+import logging
 
 def get_data(name):
     connection = "mysql://perf@matteo-vm/experiments"
-    print connection
+    logging.debug(connection)
     db = dataset.connect(connection)
     try:
         res = db[name].all()
@@ -22,7 +23,7 @@ def get_data(name):
     
 def search_data(name, tags):
     connection = "mysql://perf@matteo-vm/experiments"
-    print connection
+    logging.debug(connection)
     db = dataset.connect(connection)
     # table = db["experiments"].table
     myquery = "SELECT * FROM " + name
@@ -36,7 +37,7 @@ def search_data(name, tags):
         if i < (len(tags) -1):
             myquery = myquery + " AND "
     try:
-        print myquery
+        logging.debug(myquery)
         res = db.query(myquery)
         return list(res)
     except:
@@ -57,11 +58,11 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             name = m.group(1)[1:]
             tags = m.group(2).split('+')
             tags = [x.split('=') for x in tags]
-            print name, tags
+            logging.debug(name + " " + tags)
             data = search_data(name, tags)
         else:
             data = get_data(s.path[1:])
-        print data
+        logging.debug(data)
         s.wfile.write(json.dumps(data))
 
 class MyServer(object):
@@ -86,7 +87,8 @@ def main():
                       help = "Host port")
 
     (options, args) = parser.parse_args()
-    print "Options:", options
+    logging.basicConfig(level=logging.DEBUG)
+    logging.info("Options:" + str(options))
     
     s = MyServer(options)
 
@@ -94,12 +96,12 @@ def main():
     t.start()
 
     def signal_handler(signal, frame):
-        print('... Exiting. Wait a few seconds...')
+        print '... Exiting...'
         s.terminate()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
-    print('Press Ctrl+C to exit.')
+    print 'Press Ctrl+C to exit.'
     signal.pause()
 
 if __name__ == "__main__":
