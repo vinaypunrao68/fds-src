@@ -1425,6 +1425,9 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             DataPlacement *dp = om->om_dataplace_mod();
             VolumePlacement* vp = om->om_volplace_mod();
             dp->commitDlt( true );
+            LOGNOTIFY << "OM deployed DLT with "
+                      << deployed_sm_services.size() << " nodes";
+
             vp->commitDMT( true );
                         
             spoofRegisterSvcs( pmSvcs );
