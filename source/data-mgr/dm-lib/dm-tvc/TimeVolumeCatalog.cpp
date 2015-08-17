@@ -409,30 +409,18 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
 }
 
 Error
-DmTimeVolCatalog::renameBlob(fds_volid_t volId,
-                             const std::string & oldBlobName,
-                             const std::string & newBlobName,
-                             fds_uint64_t* blob_size,
-                             fpi::FDSP_MetaDataList * metaList) {
-    LOGDEBUG << "Will rename blob '" << oldBlobName << "' volume: '"
-            << std::hex << volId << std::dec << "' to '" << newBlobName << "'";
-    // TODO(bszmyd): Tue 28 Jul 2015 02:33:30 PM MDT
-    // Implement :P
-    return ERR_NOT_IMPLEMENTED;
-}
-
-
-Error
 DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
                              BlobTxId::const_ptr txDesc,
-                             blob_version_t blob_version) {
+                             blob_version_t const blob_version,
+                             bool const expunge_data) {
     TVC_CHECK_AVAILABILITY();
     LOGDEBUG << "Deleting Blob for transaction " << *txDesc << ", volume " <<
-            std::hex << volId << std::dec << " version " << blob_version;
+            std::hex << volId << std::dec << " version " << blob_version
+            << " (expunge: [" << expunge_data << "])";
 
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->deleteBlob(txDesc, blob_version);
+    return commitLog->deleteBlob(txDesc, blob_version, expunge_data);
 }
 
 Error

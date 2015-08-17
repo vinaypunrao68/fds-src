@@ -173,6 +173,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(VolumeTokens , false);
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
+        DEF_FEATURE(Expunge      , true);
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
@@ -272,7 +273,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 // catalog read handlers
                 case FDS_LIST_BLOB:
                 case FDS_GET_BLOB_METADATA:
-                case FDS_RENAME_BLOB:
                 case FDS_CAT_QRY:
                 case FDS_STAT_VOLUME:
                 case FDS_GET_VOLUME_METADATA:
@@ -284,6 +284,24 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);
+                    break;
+                case FDS_RENAME_BLOB:
+                    // If serialization is enabled, serialize on both keys,
+                    // otherwise just schedule directly.
+                    if ((parentDm->features.isSerializeReqsEnabled())) {
+                        auto renameReq = static_cast<DmIoRenameBlob*>(io);
+                        SerialKey key2(io->volId, renameReq->message->destination_blob);
+                        serialExecutor->scheduleOnHashKeys(keyHash(key),
+                                                           keyHash(key2),
+                                                           std::bind(&dm::Handler::handleQueueItem,
+                                                                     parentDm->handlers.at(io->io_type),
+                                                                     io));
+                    } else {
+                        threadPool->schedule(&dm::Handler::handleQueueItem,
+                                         parentDm->handlers.at(io->io_type),
+                                         io);
+                    }
+
                     break;
                 // catalog write handlers
                 case FDS_DELETE_BLOB:

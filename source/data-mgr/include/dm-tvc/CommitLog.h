@@ -32,6 +32,7 @@ struct CommitLogTx : serialize::Serializable {
     fds_uint64_t started;
     fds_uint64_t committed;     // commit issued by user, but not written yet
     bool blobDelete;
+    bool blobExpunge {false};
     bool snapshot;
 
     BlobObjList::ptr blobObjList;
@@ -90,7 +91,7 @@ class DmCommitLog : public Module {
     Error updateTx(BlobTxId::const_ptr & txDesc, const T & blobData);
 
     // delete blob
-    Error deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion);
+    Error deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion, bool const expunge_data);
 
     // commit transaction (time at which commit is ACKed)
     CommitLogTx::ptr commitTx(BlobTxId::const_ptr & txDesc, Error & status);

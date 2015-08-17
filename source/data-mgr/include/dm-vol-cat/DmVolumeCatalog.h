@@ -250,7 +250,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * If the blob version is invalid, deletes the most recent blob version.
      */
     Error deleteBlob(fds_volid_t volId, const std::string& blobName,
-            blob_version_t blobVersion) override;
+            blob_version_t blobVersion,
+            bool const expunge_data = true) override;
 
     /**
      * Sync volume catalog to DM 'dmUuid'

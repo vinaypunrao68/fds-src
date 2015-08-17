@@ -1014,11 +1014,14 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
 
+    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.dm.enable_expunge", true));
+
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.dm.req_serialization", false));
+            "fds.dm.req_serialization", true));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
