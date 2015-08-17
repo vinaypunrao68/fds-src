@@ -10,6 +10,8 @@ import re
 import json
 import dataset
 import logging
+sys.path.append("../common")
+import utils
 
 def get_data(name):
     connection = "mysql://perf@matteo-vm/experiments"
@@ -30,7 +32,7 @@ def search_data(name, tags):
     if len(tags) > 0:
         myquery = myquery + " WHERE "
     for i, t in enumerate(tags):
-        if is_int(t[1]) or is_float(t[1]):
+        if utils.is_int(t[1]) or utils.is_float(t[1]):
             myquery = myquery + t[0] + "=" + str(t[1])
         else:
             myquery = myquery + t[0] + "='" + t[1] + "'"
@@ -58,7 +60,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             name = m.group(1)[1:]
             tags = m.group(2).split('+')
             tags = [x.split('=') for x in tags]
-            logging.debug(name + " " + tags)
+            logging.debug(name + " " + str(tags))
             data = search_data(name, tags)
         else:
             data = get_data(s.path[1:])
