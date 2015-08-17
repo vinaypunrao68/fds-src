@@ -510,10 +510,10 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
-        commitReq->cb(ERR_DM_FORWARD_FAILED, commitReq);
+    	LOGERROR << "Forwarding failed. Aborting DM Migration.";
+    	// TODO(Neil) - call aborting code - need to do as part of abort card
         return;
     }
-    commitReq->cb(error, commitReq);
 }
 
 
