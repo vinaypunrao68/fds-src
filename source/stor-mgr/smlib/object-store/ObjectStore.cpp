@@ -1493,8 +1493,8 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
         (error == ERR_DISK_READ_FAILED) ||
         (error == ERR_NO_BYTES_READ)) {
         DiskId diskId = diskMap->getDiskId(smTokId, tier);
-        LOGDEBUG << "Feeding IO failed event for disk " << diskId
-                 << " due to error " << error;
+        LOGDEBUG << "Registering IO failed event for disk " << diskId
+                 << " due to " << error;
         if (tier == diskio::diskTier) {
             objStoreDiskMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
                                                 diskId);
