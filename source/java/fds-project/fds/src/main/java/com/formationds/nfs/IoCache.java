@@ -87,32 +87,28 @@ public class IoCache implements Io {
 
         ObjectView[] objectView = new ObjectView[1];
 
-        synchronized (objectLock(objectKey)) {
-            Optional<Map<String, String>> metadata = mapMetadata(domain, volume, blobName, om -> om);
-            if (!metadata.isPresent()) {
-                objectView[0] = mutator.mutateOrCreate(Optional.empty());
-                metadataCache.put(metaKey, Optional.of(objectView[0].getMetadata()));
-                objectCache.put(objectKey, objectView[0].getBuf().slice().duplicate());
-            } else {
-                ByteBuffer buf = objectCache.getIfPresent(objectKey);
-                if (buf == null) {
-                    buf = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
-                            oov -> oov.get().getBuf().slice());
-                    objectCache.put(objectKey, buf);
-                }
+        mapMetadata(domain, volume, blobName, om -> {
+            synchronized (objectLock(objectKey)) {
+                if (!om.isPresent()) {
+                    objectView[0] = mutator.mutateOrCreate(Optional.empty());
+                    metadataCache.put(metaKey, Optional.of(objectView[0].getMetadata()));
+                    objectCache.put(objectKey, objectView[0].getBuf().slice().duplicate());
+                } else {
+                    ByteBuffer buf = objectCache.getIfPresent(objectKey);
+                    if (buf == null) {
+                        buf = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
+                                oov -> oov.get().getBuf().slice());
+                        objectCache.put(objectKey, buf);
+                    }
 
-                // Ensure we mutate the current metadata version
-                synchronized (metadataLock(metaKey)) {
-                    metadata = mapMetadata(domain, volume, blobName, om -> om);
-                    objectView[0] = mutator.mutateOrCreate(Optional.of(new ObjectView(metadata.get(), buf.duplicate())));
-                    objectView[0] = new ObjectView(objectView[0].getMetadata(), buf.duplicate());
+                    objectView[0] = mutator.mutateOrCreate(Optional.of(new ObjectView(om.get(), buf.duplicate())));
                     metadataCache.put(metaKey, Optional.of(objectView[0].getMetadata()));
                 }
             }
 
-        }
+            return null;
+        });
 
-        // TODO: straight side effect instead of going back and forth
         io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset, objectView[0].getBuf(), objectView[0].getMetadata());
     }
 
@@ -134,10 +130,10 @@ public class IoCache implements Io {
     @Override
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         MetadataCacheKey metaKey = new MetadataCacheKey(domain, volume, blobName);
+        ConcurrentMap<ObjectCacheKey, ByteBuffer> map = objectCache.asMap();
 
         synchronized (metadataLock(metaKey)) {
             metadataCache.invalidate(metaKey);
-            ConcurrentMap<ObjectCacheKey, ByteBuffer> map = objectCache.asMap();
             Set<ObjectCacheKey> objectKeys = map.keySet();
             for (ObjectCacheKey objectKey : objectKeys) {
                 if (objectKey.domain.equals(domain) &&
