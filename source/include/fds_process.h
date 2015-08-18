@@ -18,6 +18,7 @@
 #include <graphite_client.h>
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
+#include <unordered_map>
 
 namespace fds {
 
@@ -45,7 +46,7 @@ static const std::string SM("Storage Manager");
  * The key here should match the value used for "id" configurations for the different services
  * in the config file.
  */
-static std::map<std::string, std::string> service_id_to_name =
+static std::unordered_map<std::string, std::string> service_id_to_name =
         {
             {"am", AM},
             {"dm", DM},
