@@ -8,6 +8,9 @@ import java.util.Objects;
 
 public class QosPolicy extends QosPolicyBase {
 
+    public static QosPolicy of(int priority, int iopsMin, int iopsMax ) {
+        return new QosPolicy( priority, iopsMin, iopsMax );
+    }
     public static QosPolicy fromPreset(QosPolicyPreset p) {
         return new QosPolicy( p.getPriority(), p.getIopsMin(), p.getIopsMax() );
     }
