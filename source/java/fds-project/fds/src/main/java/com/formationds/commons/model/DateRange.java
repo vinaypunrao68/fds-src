@@ -39,9 +39,14 @@ public class DateRange extends ModelBase {
      */
     public static DateRange last( Long start, TimeUnit unit ) {
 
-        Instant startInstant = Instant.now().minus( Duration.of( start,
-                                                                 com.formationds.client.v08.model.TimeUnit.from( unit )
-                                                                                                          .get() ) );
+        Instant startInstant = Instant.now();
+        if ( unit.equals( TimeUnit.DAYS ) ) {
+            startInstant = startInstant.minus( Duration.ofDays( start ) );
+        } else {
+            startInstant = startInstant.minus( Duration.of( start,
+                                                            com.formationds.client.v08.model.TimeUnit.from( unit )
+                                                                                                     .get() ) );
+        }
         return new DateRange( startInstant.getEpochSecond() );
     }
 
