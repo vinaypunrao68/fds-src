@@ -8,11 +8,28 @@ import java.util.Objects;
 
 public class QosPolicy extends QosPolicyBase {
 
+    /**
+     * Create a QosPolicy
+     *
+     * @param priority the qos priority
+     * @param iopsMin the minimum iops
+     * @param iopsMax the max iops
+     *
+     * @return the new QosPolicy
+     */
     public static QosPolicy of(int priority, int iopsMin, int iopsMax ) {
         return new QosPolicy( priority, iopsMin, iopsMax );
     }
+
+    /**
+     * Create a new QosPolicy from the specified preset
+     *
+     * @param p the preset
+     *
+     * @return the new QosPolicy based on the preset.
+     */
     public static QosPolicy fromPreset(QosPolicyPreset p) {
-        return new QosPolicy( p.getPriority(), p.getIopsMin(), p.getIopsMax() );
+        return new QosPolicy( p.getId(), p.getPriority(), p.getIopsMin(), p.getIopsMax() );
     }
 
     private Long presetID;
