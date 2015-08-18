@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.commons.util.thread.ThreadUtil;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
@@ -18,7 +19,8 @@ import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
 
 import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -49,14 +51,6 @@ public class NfsServer {
     }
 
     public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
-//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "com.formationds.nfs.FdsMemoryManager");
-//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "org.glassfish.grizzly.memory.HeapMemoryManager");
-//        System.setProperty("org.glassfish.grizzly.DEFAULT_MEMORY_MANAGER", "org.glassfish.grizzly.memory.PooledMemoryManager");
-
-//        getPlatformConfig().defaultInt(KEY_DEFAULT_TIMEOUT_SECONDS,
-//                (int) DEFAULT_TIMEOUT),
-//                DEFAULT_TIMEOUT_UNIT
-
         // specify file with export entries
         LOG.info("Starting NFS server - " + nfsConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
@@ -68,9 +62,15 @@ public class NfsServer {
         VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
 
         // create the RPC service which will handle NFS requests
-
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(), nfsConfiguration.getThreadPoolSize(), 10, TimeUnit.MINUTES, new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()));
-        executor.setRejectedExecutionHandler(new BlockingRejectedExecutionHandler(nfsConfiguration.getIncomingRequestTimeoutSeconds(), TimeUnit.SECONDS));
+        ThreadFactory factory = ThreadUtil.newThreadFactory("nfs-rpcsvc", true);
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
+                nfsConfiguration.getThreadPoolSize(),
+                10, TimeUnit.MINUTES,
+                //new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()),
+                new SynchronousQueue<>(),
+                factory,
+                //new BlockingRejectedExecutionHandler(nfsConfiguration.getIncomingRequestTimeoutSeconds(), TimeUnit.SECONDS));
+                new ThreadPoolExecutor.CallerRunsPolicy());
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withPort(serverPort)
                 .withTCP()
