@@ -24,6 +24,8 @@ user_hpp       := $(wildcard *.h)
 
 user_no_style  := \
 	data_mgr.h            \
+	dynamic_vers.h     \
+	dynamic_machine_arch.h \
 	fds_commons_rm.h      \
 	fds_config.hpp        \
 	fds_obj_cache.h       \
