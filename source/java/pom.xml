@@ -85,6 +85,7 @@
     <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
     <grizzly.framework.version>2.3.21</grizzly.framework.version>
+    <jopt.simple.version>4.8</jopt.simple.version>
 
     <!-- unit test -->
     <junit.version>4.12</junit.version>
@@ -411,6 +412,11 @@
         <version>${grizzly.framework.version}</version>
       </dependency>
 
+      <dependency>
+        <groupId>net.sf.jopt-simple</groupId>
+        <artifactId>jopt-simple</artifactId>
+        <version>${jopt.simple.version}</version>
+      </dependency>
 
       <!-- test scope -->
       <!--
