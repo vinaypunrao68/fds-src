@@ -1,4 +1,4 @@
-ddescribe( 'Testing the modular system health status panel', function(){
+describe( 'Testing the modular system health status panel', function(){
     
     var $scope, $panel;
     

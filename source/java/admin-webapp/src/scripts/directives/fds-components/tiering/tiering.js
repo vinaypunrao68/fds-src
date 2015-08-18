@@ -21,7 +21,13 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                 }
                 
                 if ( angular.isNumber( $scope.policy )){
-                    $scope.policy = $media_policy_helper.availablePolicies[ $scope.policy ];
+                    
+                    if ( $scope.policy > $media_policy_helper.availablePolicies.length-1 ){
+                        $scope.policy = $media_policy_helper.availablePolicies[0];
+                    }
+                    else {
+                        $scope.policy = $media_policy_helper.availablePolicies[ $scope.policy ];
+                    }
                 }
                 else if ( angular.isString( $scope.policy ) ){
                     $scope.policy = $media_policy_helper.convertRawToObjects( $scope.policy );
@@ -30,7 +36,7 @@ angular.module( 'volumes' ).directive( 'tieringPanel', function(){
                     $scope.policy = $media_policy_helper.convertRawToObjects( $scope.policy.value );
                 }
                 
-                if ( !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){
+                if ( !$scope.policy || $scope.policy == null || !angular.isDefined( $scope.policy ) || Object.keys( $scope.policy ).length === 0){
                     $scope.policy = $scope.tieringChoices[1];
                 }
             };

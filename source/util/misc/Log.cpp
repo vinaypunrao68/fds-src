@@ -10,7 +10,10 @@
 #include <boost/log/attributes/current_process_id.hpp>
 #include <boost/algorithm/string.hpp>
 #include <util/Log.h>
-#include <fds_globals.h>
+#include <fds_process.h>
+#include <dynamic_vers.h>
+#include <dynamic_machine_arch.h>
+
 namespace fds {
 
 std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly) {
@@ -70,6 +73,21 @@ inline std::basic_ostream< CharT, TraitsT >& operator<< (std::basic_ostream< Cha
     return strm;
 }
 
+void writeHeader(boost::log::sinks::text_file_backend::stream_type& file) {
+    char buildStr[256];
+
+    if (g_fdsprocess == nullptr) {
+        snprintf(buildStr, sizeof(buildStr), buildStrTmpl, "?", versDate, versRev, machineArch);
+    } else {
+        std::string unknownManager = "Unknown Manager(" + g_fdsprocess->getProcId() + ")";
+        snprintf(buildStr, sizeof(buildStr), buildStrTmpl,
+                 SERVICE_NAME_FROM_ID(unknownManager.c_str()), versDate, versRev, machineArch);
+    }
+
+    file << buildStr << std::endl;
+
+}
+
 fds_log::severity_level fds_log::getLevelFromName(std::string level) {
     boost::to_upper(level);
     boost::trim(level);
@@ -126,7 +144,9 @@ void fds_log::init(const std::string& logfile,
      */
     sink->locked_backend()->scan_for_files();
 
+#ifdef DEBUG
     sink->locked_backend()->auto_flush(true);
+#endif
 
     /*
      * Set the filter to not print messages below
@@ -164,6 +184,11 @@ void fds_log::init(const std::string& logfile,
                         << boost::log::expressions::attr< boost::log::attributes::current_thread_id::value_type >("ThreadID")
                         << "] - "
                         << boost::log::expressions::smessage);
+
+    /*
+     * Set the log header.
+     */
+    sink->locked_backend()->set_open_handler(&writeHeader);
 
     /*
      * Add the sink to the core.

@@ -55,7 +55,7 @@ def suiteConstruction(self):
 
     for node in nodes:
         for svc in ['SM', 'PM', 'AM', 'DM']:
-            delay=10 if svc != 'AM' else 60
+            delay=60
             tests = [
                 log ("restarting {}".format(svc))                  ,
                 eval('service.Test'+ svc + 'Kill(node="'+node+'")'),

@@ -74,14 +74,16 @@ clickCancel = function(){
 createTenant = function( name ){
     
     goto( 'tenants' );
+    browser.sleep( 200 );
     var createLink = element( by.css( '.create-tenant-link' ) );
     createLink.click();
+    browser.sleep( 200 );
 
     var nameEl = element( by.css( '.tenant-name-input' )).element( by.tagName( 'input' ));
     nameEl.sendKeys( name );
 
     element( by.css( '.create-tenant-button' ) ).click();
-    browser.sleep( 200 );
+    browser.sleep( 300 );
 };
 
 setTimelineTimes = function( pageEl, timeline ){

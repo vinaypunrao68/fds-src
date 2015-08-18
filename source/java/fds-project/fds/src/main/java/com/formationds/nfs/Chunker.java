@@ -1,113 +1,81 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
-import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Optional;
 
 public class Chunker {
-    private static final Logger LOG = Logger.getLogger(Chunker.class);
+    private Io io;
 
-    public Chunker(ChunkyIo io) {
+    public Chunker(Io io) {
         this.io = io;
     }
 
-    private ChunkyIo io;
-
-    public void write(String domain, String volume, String blobName, int objectSize, byte[] bytes, long offset, int length, long blobSize, Map<String, String> metadata) throws Exception {
-        length = Math.min(bytes.length, length);
-        if (length == 0) {
+    public void write(String domain, String volume, String blobName, int objectSize, byte[] bytes, long offset, int length, MetadataMutator mutator) throws IOException {
+        int actualLength = Math.min(bytes.length, length);
+        if (actualLength == 0) {
             return;
         }
 
         long startObject = Math.floorDiv(offset, objectSize);
-        int startOffset = (int) (offset % objectSize);
-        int remaining = length;
+        final int[] startOffset = new int[]{(int) (offset % objectSize)};
+        final int[] remaining = new int[]{length};
 
-        for (long i = startObject; remaining > 0; i++) {
-            boolean isEndOfBlob = offset + length == blobSize && (remaining + startOffset <= objectSize);
-            int toBeWritten = 0;
-            if (isEndOfBlob) {
-                toBeWritten = remaining;
-            } else {
-                toBeWritten = Math.min(objectSize - startOffset, remaining);
-            }
-            ByteBuffer writeBuf = ByteBuffer.allocate(objectSize);
-            // TODO: bypass read if length == objectSize
-            try {
-                ByteBuffer readBuf = io.read(domain, volume, blobName, objectSize, new ObjectOffset(i));
-                writeBuf.put(readBuf);
-                writeBuf.position(0);
-            } catch (FileNotFoundException e) {
-
-            }
-
-            writeBuf.position(startOffset);
-            writeBuf.put(bytes, length - remaining, toBeWritten);
-            writeBuf.position(0);
-
-            if (isEndOfBlob) {
-                writeBuf.limit(startOffset + toBeWritten);
-            }
-
-            io.write(domain, volume, blobName, objectSize, new ObjectOffset(i), writeBuf, isEndOfBlob, metadata);
-            startOffset = 0;
-            remaining -= toBeWritten;
+        for (long i = startObject; remaining[0] > 0; i++) {
+            int toBeWritten = Math.min(objectSize - startOffset[0], remaining[0]);
+            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), (oov) -> {
+                Map<String, String> updatedMeta = mutator.mutateOrCreate(oov.map(x -> x.getMetadata()));
+                if (!oov.isPresent()) {
+                    oov = Optional.of(new ObjectView(updatedMeta, ByteBuffer.allocate(objectSize)));
+                } else {
+                    oov = Optional.of(new ObjectView(updatedMeta, oov.get().getBuf()));
+                }
+                ByteBuffer buf = oov.get().getBuf().slice();
+                buf.position(startOffset[0]);
+                buf.put(bytes, actualLength - remaining[0], toBeWritten);
+                buf.position(0);
+                startOffset[0] = 0;
+                remaining[0] -= toBeWritten;
+                return oov.get();
+            });
         }
     }
 
-    public int read(String domain, String volume, String blobName, int objectSize, byte[] destination, long offset, int length) throws Exception {
-        length = Math.min(destination.length, length);
-        if (length == 0) {
+    public int read(String domain, String volume, String blobName, int objectSize, byte[] destination, long offset, int length) throws IOException {
+        final int[] remaining = new int[]{Math.min(destination.length, length)};
+        if (remaining[0] == 0) {
             return 0;
         }
 
         long totalObjects = (long) Math.ceil((double) (length + (offset % objectSize)) / (double) objectSize);
         long startObject = Math.floorDiv(offset, objectSize);
-        int startOffset = (int) (offset % objectSize);
-        int readSoFar = 0;
+        final int[] startOffset = new int[]{(int) (offset % objectSize)};
+        final int[] readSoFar = new int[]{0};
         ByteBuffer output = ByteBuffer.wrap(destination);
 
         for (long i = 0; i < totalObjects; i++) {
-            ByteBuffer buf = null;
-            try {
-                buf = io.read(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i));
-            } catch (FileNotFoundException e) {
-                break;
-            }
-            int toBeRead = Math.min(buf.remaining() - startOffset, (objectSize - startOffset));
-            toBeRead = Math.min(toBeRead, output.remaining());
-            try {
-                buf.position(buf.position() + startOffset);
-            } catch (Exception e) {
-                throw e;
-            }
-            buf.limit(buf.position() + toBeRead);
-            output.put(buf);
-            startOffset = 0;
-            length -= toBeRead;
-            readSoFar += toBeRead;
+            io.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i), oov -> {
+                if (!oov.isPresent()) {
+                    throw new FileNotFoundException();
+                }
+                ByteBuffer buf = oov.get().getBuf();
+                int toBeRead = Math.min(buf.remaining() - startOffset[0], (objectSize - startOffset[0]));
+                toBeRead = Math.min(toBeRead, output.remaining());
+                buf.position(buf.position() + startOffset[0]);
+                buf.limit(buf.position() + toBeRead);
+                output.put(buf);
+                startOffset[0] = 0;
+                remaining[0] -= toBeRead;
+                readSoFar[0] += toBeRead;
+                return null;
+            });
         }
 
-        return readSoFar;
+        return readSoFar[0];
     }
 
-    public void move(String domain, String volume, String sourceBlob, String destBlob, int objectSize, long blobSize, Map<String, String> metadata) throws Exception {
-        long remaining = blobSize;
-        for (long i = 0; remaining > 0; i++) {
-            boolean isEndOfBlob = remaining < objectSize;
-            ByteBuffer buf = io.read(domain, volume, sourceBlob, objectSize, new ObjectOffset(i));
-            LOG.debug("Buf: " + buf.remaining() + " bytes, blobSize=" + blobSize + ", isEndOfBlob=" + isEndOfBlob);
-            io.write(domain, volume, destBlob, objectSize, new ObjectOffset(i), buf, isEndOfBlob, metadata);
-            remaining -= objectSize;
-        }
-    }
-
-    public interface ChunkyIo {
-        public ByteBuffer read(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset) throws Exception;
-
-        public void write(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ByteBuffer byteBuffer, boolean isEndOfBlob, Map<String, String> metadata) throws Exception;
-    }
 }

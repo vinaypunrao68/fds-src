@@ -76,7 +76,7 @@ TEST(ObjMetaData, test1)
     fpi::CtrlObjectMetaDataPropagate msg;
     initMetaDataPropagate(msg, 1);
 
-    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), invalid_vol_id);
 
 #ifdef TEST_VERBOSE
     std::cout << objMetaDataPtr->logString();
@@ -136,7 +136,7 @@ TEST(ObjMetaData, test2)
 #endif  // TEST_VERBOSE
 
     // first PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, invalid_vol_id);
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), invalid_vol_id);
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 
@@ -149,8 +149,16 @@ TEST(ObjMetaData, test2)
     std::cout << objMetaDataPtr->logString();
 #endif  // TEST_VERBOSE
 
+    // pretend we wrote an object to the data store
+    obj_phy_loc_t objPhyLoc;
+    objPhyLoc.obj_tier == diskio::diskTier;
+    objPhyLoc.obj_stor_loc_id = 1;
+    objPhyLoc.obj_stor_offset = 0;
+    objPhyLoc.obj_file_id = 2;
+    objMetaDataPtr->updatePhysLocation(&objPhyLoc);
+
     // second PUT reconcile
-    objMetaDataPtr->reconcilePutObjMetaData(oid, fds_volid_t(1));
+    objMetaDataPtr->reconcilePutObjMetaData(oid, objData.size(), fds_volid_t(1));
 
     EXPECT_EQ(0, objMetaDataPtr->getRefCnt());
 

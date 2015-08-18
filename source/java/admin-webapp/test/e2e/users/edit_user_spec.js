@@ -17,9 +17,10 @@ describe( 'Edit user', function(){
         
         login();
         goto( 'users' );
-        browser.sleep( 200 );
+        browser.sleep( 300 );
 
         element( by.css( '.add-user-link' ) ).click();
+        browser.sleep( 200 );
         editPage = element.all( by.css( '.slide-window-stack-slide' ) ).get(1);
         
         username = editPage.element( by.css( '.create-user-name' ) ).element( by.tagName( 'input' ) );
@@ -31,7 +32,6 @@ describe( 'Edit user', function(){
         confirm.sendKeys( 'password' );
         
         element( by.css( '.create-user-button' ) ).click();
-        browser.sleep( 200 );
     });
     
     it ( 'should be able to click edit and see new page', function(){
@@ -41,7 +41,7 @@ describe( 'Edit user', function(){
         createTenant( 'northcarolina' );
         
         goto( 'users' );
-        browser.sleep( 200 );
+        browser.sleep( 300 );
         
         element( by.css( '.add-user-link' ) ).click();
         editPage = element.all( by.css( '.slide-window-stack-slide' ) ).get(1);
@@ -91,7 +91,7 @@ describe( 'Edit user', function(){
         
         element( by.css( '.create-user-button' ) ).click();
         
-        browser.sleep( 200 );
+        browser.sleep( 300 );
         
         userRow.element( by.css( '.tenant-name' )).getText().then( function( txt ){
             expect( txt ).toBe( 'duke' );

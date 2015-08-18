@@ -26,7 +26,8 @@
 
 namespace fds {
 #define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
-    const fds_uint8_t sm1Idx = 0;  /* DLT slot identifying SM1. */
+    const fds_uint8_t sm1PIdx = 0;  /* DLT slot identifying SM1. */
+    const fds_uint8_t sm2PIdx = 1;  /* DLT slot identifying SM2. */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;

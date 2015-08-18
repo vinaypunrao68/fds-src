@@ -509,7 +509,13 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
             LOGDEBUG << " rsync node id: " << (nodes->get(i)).uuid_get_val()
                                << "myuuid: " << selfSvcUuid.svc_uuid;
            if (selfSvcUuid != nodes->get(i).toSvcUuid()) {
-              volStatSync(nodes->get(i).uuid_get_val(), vol_id);
+               /* Disable volStatSync because we shouldn't be using rsync to sync stats
+                * One reaason is the below code use system() command to run rsync
+                * When you use system command it does a fork and copies all fds.  This
+                * causes issues when the parent restarts and child still owns fds opened
+                * by previous incarnation of the parent
+                */
+              // volStatSync(nodes->get(i).uuid_get_val(), vol_id);
            }
         }
     }
