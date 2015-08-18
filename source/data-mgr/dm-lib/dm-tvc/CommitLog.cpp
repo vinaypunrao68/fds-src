@@ -393,4 +393,22 @@ bool DmCommitLog::checkOutstandingTx(fds_uint64_t dmtVersion) {
     return true;
 }
 
+Error DmCommitLog::snapshotOutstandingTx(std::vector<std::string>& strings) {
+    auto auto_lock = getTxMapLock(true);
+
+    Error err = ERR_OK;
+
+    for (auto it : txMap_) {
+        strings.emplace_back("");
+
+        err = (it.second)->getSerialized(strings.back());
+
+        if (!err.ok()) {
+            return err;
+        }
+    }
+
+    return err;
+}
+
 }  /* namespace fds */

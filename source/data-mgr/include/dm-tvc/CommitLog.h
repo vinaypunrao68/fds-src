@@ -140,6 +140,8 @@ class DmCommitLog : public Module {
 
     bool checkOutstandingTx(fds_uint64_t dmtVersion);
 
+    Error snapshotOutstandingTx(std::vector<std::string>& strings);
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock txmap_lock;
