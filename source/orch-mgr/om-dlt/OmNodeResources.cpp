@@ -1210,13 +1210,65 @@ OM_PmAgent::send_add_service
         return Error(ERR_INVALID_ARG);
     }
 
+    bool add_sm = false;
+    bool add_dm = false;
+    bool add_am = false;
+
+    std::vector<fpi::SvcInfo>::iterator iter;
+    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    NodeServices services;
+
+    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
+    if (iter != svcInfos.end())
+        add_sm = true;
+
+    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR );
+    if (iter != svcInfos.end())
+        add_dm = true;
+
+    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
+    if (iter != svcInfos.end())
+        add_am = true;
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+    if (configDB->getNodeServices(node_uuid, services)) {
+        if (add_am && services.am.uuid_get_val() != 0) {
+            //has_am = true;
+            LOGDEBUG << "ServiceType:AM for node "
+                     << std::hex
+                     << node_uuid
+                     << std::dec << "already exists, will not add again";
+            return ERR_INVALID_ARG;
+        }
+        if (add_sm && services.sm.uuid_get_val() != 0) {
+            //has_sm = true;
+            LOGDEBUG << "ServiceType:SM for node "
+                     << std::hex
+                     << node_uuid
+                     << std::dec << " already exists, will not add again";
+            return ERR_INVALID_ARG;
+        }
+        if (add_dm && services.dm.uuid_get_val() != 0) {
+            //has_dm = true;
+            LOGDEBUG << "ServiceType:DM for node "
+                     << std::hex
+                     << node_uuid
+                     << std::dec << "already exists, will not add again";
+            return ERR_INVALID_ARG;
+        }
+
+        //if (has_am || has_sm || has_dm)
+        //    updateSvcInfoList(svcInfos, has_sm, has_dm, has_am);
+    }
     LOGNORMAL << "Add service for node: " << get_node_name()
               << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec;
 
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
+    //kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    //fds_mutex::scoped_lock l(dbNodeInfoLock);
 
     if (!configDB->nodeExists(get_uuid())) {
         // For now store only if the node was not known to DB
@@ -1255,13 +1307,11 @@ OM_PmAgent::send_add_service
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
     req->invoke();
+    //bool add_sm = false;
+    //bool add_dm = false;
+    //bool add_am = false;
 
-    std::vector<fpi::SvcInfo>::iterator iter;
-    bool add_sm = false;
-    bool add_dm = false;
-    bool add_am = false;
-
-    NodeUuid node_uuid = svc_uuid.svc_uuid;
+    //NodeUuid node_uuid = svc_uuid.svc_uuid;
 
     iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
     if (iter != svcInfos.end())
