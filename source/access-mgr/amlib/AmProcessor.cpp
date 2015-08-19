@@ -124,6 +124,11 @@ class AmProcessor_impl
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
     bool volume_open_support { true };
+    /**
+     * FEATURE TOGGLE: Safe UpdateBlobOnce
+     * Wed 19 Aug 2015 10:56:46 AM MDT
+     */
+    bool safe_atomic_write { false };
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
     /**
@@ -171,6 +176,7 @@ class AmProcessor_impl
      */
     void putBlob(AmRequest *amReq);
     void putBlobCb(AmRequest *amReq, const Error& error);
+    void putBlobOnceCb(AmRequest *amReq, const Error& error);
 
     /**
      * Processes a set volume metadata request
@@ -278,35 +284,45 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
     fds_assert(amReq->isCompleted() == true);
 
     switch (amReq->io_type) {
-        case fds::FDS_START_BLOB_TX:
-            startBlobTx(amReq);
-            break;
-        case fds::FDS_COMMIT_BLOB_TX:
-            commitBlobTx(amReq);
-            break;
-        case fds::FDS_ABORT_BLOB_TX:
-            abortBlobTx(amReq);
+        /* === Volume operations === */
+        case fds::FDS_ATTACH_VOL:
+            attachVolume(amReq);
             break;
 
         case fds::FDS_DETACH_VOL:
             detachVolume(amReq);
             break;
 
-        case fds::FDS_ATTACH_VOL:
-            attachVolume(amReq);
+        case fds::FDS_GET_VOLUME_METADATA:
+            getVolumeMetadata(amReq);
             break;
 
-        case fds::FDS_IO_READ:
-        case fds::FDS_GET_BLOB:
-            getBlob(amReq);
+        case fds::FDS_SET_VOLUME_METADATA:
+            setVolumeMetadata(amReq);
             break;
 
-        case fds::FDS_SM_GET_OBJECT:
-            getObject(amReq);
+        case fds::FDS_STAT_VOLUME:
+            statVolume(amReq);
             break;
 
-        case fds::FDS_IO_WRITE:
-        case fds::FDS_PUT_BLOB_ONCE:
+        case fds::FDS_VOLUME_CONTENTS:
+            volumeContents(amReq);
+            break;
+
+
+        /* == Tx based operations == */
+        case fds::FDS_ABORT_BLOB_TX:
+            abortBlobTx(amReq);
+            break;
+
+        case fds::FDS_COMMIT_BLOB_TX:
+            commitBlobTx(amReq);
+            break;
+
+        case fds::FDS_DELETE_BLOB:
+            deleteBlob(amReq);
+            break;
+
         case fds::FDS_PUT_BLOB:
             putBlob(amReq);
             break;
@@ -315,28 +331,28 @@ AmProcessor_impl::processBlobReq(AmRequest *amReq) {
             setBlobMetadata(amReq);
             break;
 
-        case fds::FDS_STAT_VOLUME:
-            statVolume(amReq);
+        case fds::FDS_START_BLOB_TX:
+            startBlobTx(amReq);
             break;
 
-        case fds::FDS_SET_VOLUME_METADATA:
-            setVolumeMetadata(amReq);
-            break;
 
-        case fds::FDS_GET_VOLUME_METADATA:
-            getVolumeMetadata(amReq);
-            break;
-
-        case fds::FDS_DELETE_BLOB:
-            deleteBlob(amReq);
+        /* ==== Read operations ==== */
+        case fds::FDS_GET_BLOB:
+            getBlob(amReq);
             break;
 
         case fds::FDS_STAT_BLOB:
             statBlob(amReq);
             break;
 
-        case fds::FDS_VOLUME_CONTENTS:
-            volumeContents(amReq);
+        case fds::FDS_SM_GET_OBJECT:
+            getObject(amReq);
+            break;
+
+        /* ==== Atomic operations === */
+        case fds::FDS_PUT_BLOB_ONCE:
+            // We piggy back this operation with some runtime conditions
+            putBlob(amReq);
             break;
 
         case fds::FDS_RENAME_BLOB:
@@ -359,12 +375,9 @@ AmProcessor_impl::start()
     }
     auto qos_threads = conf.get<int>("qos_threads");
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
     FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
-    volume_open_support = features.get<bool>("common.volume_open_support", true);
+    safe_atomic_write = features.get<bool>("am.safe_atomic_write", safe_atomic_write);
+    volume_open_support = features.get<bool>("common.volume_open_support", volume_open_support);
     vol_tok_renewal_freq =
         std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
@@ -808,13 +821,23 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
     }
 
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobCb, amReq);
-
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
-        // Sending the update in a single request. Create transaction ID to
-        // use for the single request
         blobReq->setTxId(randNumGen->genNumSafe());
         blobReq->vol_sequence = vol->getNextSequenceId();
-        amDispatcher->dispatchUpdateCatalogOnce(amReq);
+        /**
+         * FEATURE TOGGLE: Update object store before making catalog update.
+         * This models the transaction update since the commit comes last to DM.
+         * Will more thank likely cause an increase in latency in the write path
+         * Wed 19 Aug 2015 10:56:46 AM MDT
+         */
+        if (safe_atomic_write) {
+            // Make data stable on object store prior to updating the catalog, this
+            // means sending them in series rather than in parallel.
+            amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobOnceCb, amReq);
+            blobReq->setResponseCount(1);
+        } else {
+            amDispatcher->dispatchUpdateCatalogOnce(amReq);
+        }
     } else {
         // Verify we have a dmt version (and transaction) for this update
         auto err = txMgr->getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
@@ -833,7 +856,7 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
 
 void
 AmProcessor_impl::putBlobCb(AmRequest *amReq, const Error& error) {
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
 
     if (error.ok()) {
         auto tx_desc = blobReq->tx_desc;
@@ -873,6 +896,20 @@ AmProcessor_impl::putBlobCb(AmRequest *amReq, const Error& error) {
     }
 
     respond_and_delete(amReq, error);
+}
+
+void
+AmProcessor_impl::putBlobOnceCb(AmRequest *amReq, const Error& error) {
+    if (!error.ok()) {
+        // Skip the volume update, we couldn't even store the data
+        return putBlobCb(amReq, error);
+    }
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
+    // Sending the update in a single request. Create transaction ID to
+    // use for the single request
+    amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobCb, amReq);
+    blobReq->setResponseCount(1);
+    amDispatcher->dispatchUpdateCatalogOnce(amReq);
 }
 
 void
