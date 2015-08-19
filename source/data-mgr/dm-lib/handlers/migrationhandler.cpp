@@ -144,6 +144,8 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse,
+    								asyncHdr, message);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
@@ -156,6 +158,14 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
     dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
+                        Error const& e, DmRequest* dmRequest)
+{
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+    delete dmRequest;
 }
 
 DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)

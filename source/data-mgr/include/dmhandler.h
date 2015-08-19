@@ -335,6 +335,9 @@ struct DmMigrationDeltaBlobDescHandler : Handler {
 	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
 	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
     void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
+                        Error const& e, DmRequest* dmRequest);
 };
 
 struct DmMigrationDeltaBlobHandler : Handler {
