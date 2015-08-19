@@ -72,8 +72,6 @@ class MigrationMgr {
         MIGR_SM_RESYNC
     };
 
-    const fds_uint8_t MAX_RETRIES_WITH_DIFFERENT_SRCS = 3;
-
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
@@ -443,6 +441,9 @@ class MigrationMgr {
      * local to destination SM; we need 64bit + 64bit type for executor ID
      */
     std::atomic<fds_uint32_t> nextLocalExecutorId;
+
+    /// max number of times we will retry to sync DLT token
+    fds_uint8_t maxRetriesWithDifferentSources;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
