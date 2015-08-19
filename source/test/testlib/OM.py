@@ -9,21 +9,22 @@ import string
 import pdb
 from StringIO import StringIO
 import re
-import fabric_helper as fh
+#import fabric_helper as fh
 import logging
 import random
 import time
 import string
 import sys
 
-from fds.services.node_service import NodeService
-from fds.services.fds_auth import FdsAuth
-from fds.services.users_service import UsersService
-from fds.model.node_state import NodeState
-from fds.model.service import Service 
-from fds.model.domain import Domain
+from fdscli.services.node_service import NodeService
+from fdscli.services.fds_auth import FdsAuth
+from fdscli.services.users_service import UsersService
+#from fdscli.model.platform.node_state import NodeState
+from fdscli.model.platform.node import Node
+from fdscli.model.platform.service import Service
+from fdscli.model.platform.domain import Domain
 
-sys.path.insert(0, '../../scale-framework')
+#sys.path.insert(0, '../../scale-framework')
 import config
 
 env.user=config.SSH_USER
@@ -50,11 +51,11 @@ class OMService(object):
         fdsauth.login()
         self.nservice = NodeService(fdsauth)
         self.node_list = self.nservice.list_nodes()
-        self.node_state = NodeState()
+        self.node_state = Node()
         om_ip = config.FDS_DEFAULT_HOST
-        for node in self.node_list:
-            if node.ip_v4_address == om_ip:
-                env.host_string = node.ip_v4_address
+        for eachnode in self.node_list:
+            if eachnode.address.ipv4address == om_ip:
+                env.host_string = eachnode.address.ipv4address
 
         
 
@@ -65,32 +66,33 @@ class OMService(object):
 	    Attributes:
 	    -----------
 	    node_ip:  str
-		The IP address of the node (non main OM) to start OM service.
+		The IP address of the node to start OM service.
 
 	    Returns:
 	    -----------
 	    Boolean
         '''
         log.info(OMService.start.__name__)
-        fhObj = fh.FabricHelper(node_ip)
-        log.info('Starting FDSP_ORCH_MGR service...')
+        #fhObj = fh.FabricHelper(node_ip)
         env.host_string = node_ip
+        log.info('Starting OM service...')
 
-        for node in self.node_list:
-            if node.ip_v4_address == node_ip:
-                self.nservice.start_service(node.id, node.services['OM'][0].id)
-		time.sleep(7)
+        for eachnode in self.node_list:
+            if eachnode.address.ipv4address == node_ip:
+                #self.nservice.start_service(eachnode.id, eachnode.services['OM'][0].id)
+                sudo('service fds-om start')
+                time.sleep(7)
 
         #check updated node state
         node_list = self.nservice.list_nodes()
-        for node in node_list:
-            if node.ip_v4_address == node_ip:
-                if node.services['OM'][0].status !=  'ACTIVE':
-			         log.info('PASS - OM service has started on node {}'.format(node.ip_v4_address))
+        for eachnode in node_list:
+            if eachnode.address.ipv4address == node_ip:
+                if eachnode.services['OM'][0].status.state ==  'ACTIVE' or eachnode.services['OM'][0].status.state ==  'RUNNING':
+			         log.info('PASS - OM service has started on node {}'.format(eachnode.address.ipv4address))
 			         return True
 
                 else:
-			         log.warn('FAIL - OM service has NOT started on node {}'.format(node.ip_v4_address))
+			         log.warn('FAIL - OM service has NOT started on node {}'.format(eachnode.address.ipv4address))
 			         return False 
 
 
@@ -109,9 +111,10 @@ class OMService(object):
 
         '''
         log.info(OMService.stop.__name__)
-        fhObj = fh.FabricHelper(node_ip)
-        log.info('Stopping FDSP_ORCH_MGR service...')
         env.host_string = node_ip
+        om_pid_before = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
+        #fhObj = fh.FabricHelper(node_ip)
+        log.info('Stopping OM service...')
 
         #sudo('service fds-om stop')
         #cmd_output = sudo('service fds-om status')
@@ -119,65 +122,82 @@ class OMService(object):
 		#	         log.info('OM service is no longer running on node {}'.format(node_ip))
 		#	         return True
 
-        for node in self.node_list:
-            if node.ip_v4_address == node_ip:
-                self.nservice.stop_service(node.id, node.services['OM'][0].id)
-		time.sleep(7)
+        for eachnode in self.node_list:
+            if eachnode.address.ipv4address == node_ip:
+                #self.nservice.stop_service(eachnode.id, eachnode.services['OM'][0].id)
+                sudo('service fds-om stop')
+                time.sleep(7)
+                #om_pid_after = sudo('pgrep java')
+                try:
+                    om_pid_after = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
+
+                except SystemExit:
+                    log.info('stopping OM service on node {}'.format(node_ip))
 
         #check updated node state
         node_list = self.nservice.list_nodes()
-        for node in node_list:
-            if node.ip_v4_address == node_ip:
-                if node.services['OM'][0].status !=  'ACTIVE':
-			         log.info('PASS - OM service is no longer running on node {}'.format(node.ip_v4_address))
-			         return True
+        for eachnode in node_list:
+            if eachnode.address.ipv4address == node_ip:
+                #if eachnode.services['OM'][0].status.state !=  'ACTIVE':
+                if om_pid_before != om_pid_after:
+			        log.info('PASS - OM service is no longer running on node {}'.format(eachnode.address.ipv4address))
+			        return True
 
                 else:
-			         log.warn('FAIL - OM service is STILL running on node {}'.format(node.ip_v4_address))
-			         return False
+                    log.warn('FAIL - OM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                    return False
 
 
     def kill(self, node_ip):
         '''
         Kill OM service
 
-    	Attributes:
-    	-----------
-    	node_ip:  str
-		The IP address of the node (non main OM) to kill OM service.
+        Attributes:
+        -----------
+        node_ip:  str
+        The IP address of the node to kill OM service.
 
-    	Returns:
-    	-----------
-    	Boolean
+        Returns:
+        -----------
+        Boolean
         '''
         log.info(OMService.kill.__name__)
-        fhObj = fh.FabricHelper(node_ip)
-        om_pid = fhObj.get_service_pid('om.Main')
-        log.info('Killing FDSP_ORCH_MGR service')
+        node_list = self.nservice.list_nodes()
         env.host_string = node_ip
-        sudo('kill -9 {}'.format(om_pid))
-	time.sleep(7)
+        om_pid_before = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
+        #fhObj = fh.FabricHelper(node_ip)
+        #om_pid = fhObj.get_service_pid('om.Main')
+        log.info('Killing OM service')
+        #sudo('kill -9 {}'.format(om_pid))
+        try:
+            cmd_output = sudo('pkill -9 -f com.formationds.om.Main')
+            time.sleep(7)
+
+        except SystemExit:
+            log.info('PASS - killed OM service on node {}'.format(node_ip))
+
+        om_pid_after = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
 
         #cmd_output = sudo('service fds-om status')
         #if cmd_output.find('om stop') > 0:
-		#	         log.info('OM service is no longer running on node {}'.format(node_ip))
-		#	         return True
+        #	         log.info('OM service is no longer running on node {}'.format(node_ip))
+        #	         return True
 
 
         #check updated node state
-        node_list = self.nservice.list_nodes()
-        for node in node_list:
-            if node.ip_v4_address == node_ip:
+        for eachnode in node_list:
+            if eachnode.address.ipv4address == node_ip:
                try:
-                    if node.services['OM'][0].status ==  'ACTIVE':
-                        log.warn('FAIL - Failed to kill FDSP_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                   # if eachnode.services['OM'][0].status.state ==  'ACTIVE':
+                    if om_pid_before == om_pid_after:
+                        log.warn('FAIL - Failed to kill OM service on node {}'.format(eachnode.address.ipv4address))
                         return False 
 
                     else:
-                        log.info('PASS - killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                        log.info('PASS - killed OM service on node {}'.format(eachnode.address.ipv4address))
                         return True
 
                except IndexError:
-                    log.info('FAIL - killed FDS_ORCH_MGR service on node {}'.format(node.ip_v4_address))
+                    log.info('FAIL - killed OM service on node {}'.format(eachnode.address.ipv4address))
                     return True
 
