@@ -9,7 +9,7 @@ function volume_setup {
     pushd  ../../../cli
     let max_obj_size_kb=$max_obj_size/1024
     #./fds volume create -name $vol -type block -block_size $max_obj_size_kb -block_size_unit KB -media_policy HDD
-    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -media_policy HDD
+    ./fds volume create -name $vol -type block -block_size 128 -block_size_unit KB -tiering_policy HDD
     sleep 10
     popd
     nbd_disk=`../../../cinder/nbdadm.py attach $node $vol`
