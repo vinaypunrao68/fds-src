@@ -95,6 +95,7 @@ public class ListVolumes implements RequestHandler {
         data.setReportTime( now );
         
         getStatsConnection().publishStatistic( data );
+        getStatsConnection().close();
         
         return externalVolumes;
     }
