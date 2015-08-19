@@ -385,16 +385,14 @@ DmMigrationClient::processBlobFilterSet()
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
+        // Turn on forwarding
+        std::atomic_store(&forwardingIO, true);
     }
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
         return err;
     }
-
-    // Turn on forwarding
-    // TODO : this is not atomic??
-    std::atomic_store(&forwardingIO, true);
 
     /**
      * This is the main entrance for migrationClient (source) work.
