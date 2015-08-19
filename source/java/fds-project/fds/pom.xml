@@ -49,12 +49,6 @@
       <artifactId>formationds-commons-util</artifactId>
       <version>${formationds.commons.util.version}</version>
     </dependency>
-    
-    <dependency>
-	  <groupId>com.formationds</groupId>
-	  <artifactId>stats-service</artifactId>
-	  <version>0.0.1-SNAPSHOT</version>
-    </dependency>
 
     <dependency>
       <groupId>com.formationds</groupId>
