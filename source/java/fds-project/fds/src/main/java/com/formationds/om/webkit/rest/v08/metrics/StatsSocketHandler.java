@@ -31,7 +31,7 @@ public class StatsSocketHandler implements RequestHandler, SubscriptionHandler{
 	public StatsSocketHandler() {
 		
 		try {
-			StatsConnection conn = StatsConnection.newConnection( "localhost", 4242, "guest", "guest" );
+			StatsConnection conn = StatsConnection.newConnection( "localhost", 14242, "guest", "guest" );
 			
 			subscription = conn.subscribe( "1.>", this );
 			
