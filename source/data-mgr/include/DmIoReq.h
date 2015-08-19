@@ -797,6 +797,21 @@ struct DmIoMigrationFinishVolResync : DmRequest {
 
 	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg;
 };
+
+struct DmIoMigrationTxState : DmRequest {
+    explicit DmIoMigrationTxState(const fpi::CtrlNotifyTxStateMsgPtr &msg)
+            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_TX_STATE),
+             txStateMsg(msg)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationTxState& io) {
+        return out << "DmIoMigrationTxState vol:"
+                   << std::hex << io.volId.get() << std::dec;
+    }
+
+	fpi::CtrlNotifyTxStateMsgPtr txStateMsg;
+};
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_
