@@ -317,6 +317,13 @@ class ScavControl : public Module {
      */
     void diskCompactionDoneCb(fds_uint16_t diskId, const Error& error);
 
+    /**
+     * Update Disk Scavengers in case disk count changes for this SM
+     */
+    Error updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
+                               const DiskIdSet& diskIdSet,
+                               const bool& added);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

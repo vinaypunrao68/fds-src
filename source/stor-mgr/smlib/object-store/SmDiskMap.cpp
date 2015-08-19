@@ -475,4 +475,16 @@ bool
 SmDiskMap::isAllDisksSSD() const {
     return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
 }
+
+DataTier
+SmDiskMap::diskMediaType(DiskId& diskId) {
+    if (hdd_ids.find(diskId) != hdd_ids.end()) {
+        return diskio::diskTier;
+    } else if (ssd_ids.find(diskId) != ssd_ids.end()) {
+        return diskio::flashTier;
+    } else {
+        return diskio::maxTier;
+    }
+}
+
 }  // namespace fds

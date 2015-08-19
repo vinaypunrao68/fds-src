@@ -153,6 +153,45 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
     return ERR_OK;
 }
 
+Error
+ScavControl::updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
+                                  const DiskIdSet& diskIdSet,
+                                  const bool& added) {
+
+    fds_mutex::scoped_lock l(scav_lock);
+    if (!diskMap) {
+        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        return ERR_NOT_READY;
+    }
+
+    for (auto& diskId : diskIdSet) {
+        if (added) {
+            DiskScavenger *diskScav = new DiskScavenger(diskId,
+                                                        diskMediaType(diskId),
+                                                        dataStoreReqHandler,
+                                                        persistStoreGcHandler,
+                                                        diskMap,
+                                                        noPersistScavStats);
+            fds_assert(diskScavTbl.count(diskId) == 0);
+            if (diskScavTbl.count(diskId) != 0) {
+                LOGERROR << "Cannot create disk scavenger for disk=" << diskId
+                         << " because there's already a scavenger exists for this disk ";
+                delete diskScav;
+                return ERR_DUPLICATE;
+            }
+            diskScavTbl[diskId] = diskScav;
+            LOGNORMAL << "Added scavenger for Disk " << diskId;
+        } else {
+            delete diskScavTbl[diskId];
+            diskScavTbl.erase(diskId);
+            LOGNORMAL << "Removed scavenger for Disk " << diskId;
+        }
+    }
+
+    noPersistScavStats = false;
+    return ERR_OK;
+}
+
 Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
                                    SmCommandInitiator initiator)
 {
