@@ -278,6 +278,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_GET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                 case FDS_DM_MIGRATION:
+                case FDS_DM_MIG_TX_STATE:
                 // Other (stats, etc...) handlers
                 case FDS_DM_SYS_STATS:
                 case FDS_DM_STAT_STREAM:

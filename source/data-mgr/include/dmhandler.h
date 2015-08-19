@@ -375,6 +375,16 @@ struct DmMigrationFinishVolResyncHandler : Handler {
                         Error const& e, DmRequest* dmRequest);
 };
 
+struct DmMigrationTxStateHandler : Handler {
+    explicit DmMigrationTxStateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_
