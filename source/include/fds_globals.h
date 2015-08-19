@@ -16,6 +16,8 @@ namespace fds {
     extern FdsProcess *g_fdsprocess;
     /* Global process wide log */
     extern fds_log *g_fdslog;
+    /* Global build identifier string */
+    extern const char* buildStrTmpl;
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDS_GLOBALS_H_

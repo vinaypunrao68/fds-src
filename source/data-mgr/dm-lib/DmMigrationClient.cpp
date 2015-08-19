@@ -381,12 +381,14 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
+    std::vector<std::string> outstandingTx;
     // Block commit log and get snapshot for the volume.
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
         // Turn on forwarding
         std::atomic_store(&forwardingIO, true);
+        commitLog->snapshotOutstandingTx(outstandingTx);
     }
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId

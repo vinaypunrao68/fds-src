@@ -70,7 +70,14 @@ namespace fds
                 commandBuffer << argv[j] << " ";
             }
 
-            LOGDEBUG << "Preparing to fork and exec:  " << commandBuffer.str();
+            LOGNORMAL << "Preparing to fork and exec:  " << commandBuffer.str();
+
+            // Generate a file for the child's stdout/stderr output.
+            const char stdouterrTmpl[] = "%s.out";
+            char stdouterr[256];
+            snprintf(stdouterr, 256, stdouterrTmpl, argv[0]);
+            // However, this gets logged to the parent's stdout.
+            LOGNOTIFY << "Child to write stderr/stdout to " << stdouterr;
 
             child_pid = fork();
 
@@ -86,7 +93,7 @@ namespace fds
             }
             else if (child_pid < 0)
             {
-                LOGDEBUG << "fds_spawn fork failure:  errno = " << errno;
+                LOGERROR << "fds_spawn fork failure:  errno = " << errno;
             }
 
             // In the child process, No logging between fork and exec
@@ -94,7 +101,7 @@ namespace fds
             // This sets the process's process group id.  Using this prevents children from being killed when a parent is delivered a sigterm (service ... stop).
             if (-1 == setpgid (0, 0))
             {
-                std::cerr << "setpgid() failure:  errno = " << errno;
+                printf("setpgid() failure:  errno = %d.", errno);
             }
 
             /* Close all file descriptors. */
@@ -102,14 +109,23 @@ namespace fds
 
             for (fd = 0; fd < flim; fd++)
             {
-                close(fd);
+                if ((fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
+                    close(fd);
+                }
             }
 
-            // There is probably a better way, but for now, create a dummy variable to capture the
-            // return value from dup().  This prevents a compiler warning when compiling with -O2
-            fd = open("/dev/null", O_RDWR);  // will be file descriptor 0
-            int unused_discard = dup(fd);    // will be file descriptor 1
-            unused_discard = dup(fd);        // will be file descriptor 2
+            fd = open("/dev/null", O_RDWR);  // will be file descriptor 0, STDIN_FILENO
+
+            // Will be file descriptor 1, STDOUT_FILENO
+            if (freopen(stdouterr, "a", stdout) == nullptr) {
+                printf("freopen failed for stdout with errno %d.", errno);
+            }
+
+            // Will be file descriptor 2, STDERR_FILENO
+            if (freopen(stdouterr, "a", stderr) == nullptr) {
+                printf("freopen failed for stderr with errno %d.", errno);
+            }
+            printf("Child to write stderr/stdout to %s.", stdouterr);
 
             if (daemonize)
             {
@@ -121,10 +137,9 @@ namespace fds
                 }
             }
 
-            /* actual child process */
-
+            /* Start actual child process */
             execvp(argv[0], argv);
-            std::cerr << "fds_spawn execvp failure:  errno = " << errno;
+            printf("fds_spawn execvp failure:  errno = %d.", errno);
             abort();
         }
 
