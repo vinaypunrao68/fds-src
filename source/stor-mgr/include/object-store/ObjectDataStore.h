@@ -35,13 +35,33 @@ class ObjectDataStore : public Module, public boost::noncopyable {
 
     // TODO(Andrew): Add some private GC interfaces here?
 
-  public:
+    enum ObjectDataStoreState {
+        DATA_STORE_INITING,
+        DATA_STORE_INITED,
+        DATA_STORE_UNAVAILABLE
+    };
+
+    std::atomic<ObjectDataStoreState> currentState;
+
+public:
     ObjectDataStore(const std::string &modName,
                     SmIoReqHandler *data_store,
                     UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
     typedef std::shared_ptr<ObjectDataStore> ptr;
+
+    inline bool isUp() const {
+        return (currentState.load() == DATA_STORE_INITED);
+    }
+
+    inline bool isUnavailable() const {
+        return (currentState.load() == DATA_STORE_UNAVAILABLE);
+    }
+
+    inline bool isInitializing() const {
+        return (currentState.load() == DATA_STORE_INITING);
+    }
 
     /**
      * Opens object data store for all SM tokens that this SM owns
@@ -70,7 +90,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
      * Closes and deletes object data files for given SM tokens
      * @param[in] set of SM tokens for which this SM lost ownership
      */
-    Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost);
+    Error closeAndDeleteSmTokensStore(const SmTokenSet& smTokensLost,
+                                      const bool& diskFailure=false);
 
     /**
      * Deletes SM token file for a given SM Token.

@@ -30,6 +30,7 @@ import TestFDSSysMgt
 import TestFDSServiceMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
+import NetworkErrorInjection
 
 try:
     # Removed in Python 3

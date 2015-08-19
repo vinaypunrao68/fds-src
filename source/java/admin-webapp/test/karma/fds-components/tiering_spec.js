@@ -6,14 +6,37 @@ describe( 'Testing the modular tiering choice panels', function(){
         
         var fakeFilter;
         
-        module( function( $provide ){
-            
-            $provide.value( 'translateFilter', fakeFilter );
-        });
-        
         fakeFilter = function( value ){
             return value;
         };
+        
+        mock_media = {
+            availablePolicies: [
+                { label: 'SSD Only', value: 'SSD' },
+                { label: 'HDD Only', value: 'HDD' },
+                { label: 'Hybrid policy', value: 'HYBRID' }
+            ],
+            getSystemCapabilities: function( callback ){
+                callback( this.availablePolicies );
+            },
+            convertRawToObjects: function( policy ){
+        
+                for ( var i = 0; i < this.availablePolicies.length; i++ ){
+                    if ( this.availablePolicies[i].value === policy ){
+                        return this.availablePolicies[i];
+                    }
+                }
+
+                return null;
+            }
+        };
+        
+        module( 'utility-directives' );
+        
+        module( function( $provide ){
+            $provide.value( 'translateFilter', fakeFilter );
+            $provide.value( '$media_policy_helper', mock_media );
+        });
         
         module( 'volumes' );
         module( 'templates-main' );
@@ -33,7 +56,7 @@ describe( 'Testing the modular tiering choice panels', function(){
         });
     });
     
-    it( 'should set the media policy to ssd preferred', function(){
+    it( 'should set the media policy to hdd preferred', function(){
 
         $scope.mediaPolicy = 1;
         $scope.$apply();
@@ -41,7 +64,7 @@ describe( 'Testing the modular tiering choice panels', function(){
         var buttons = $panel.find('.button');
         
         expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( true );    
-        expect( $scope.mediaPolicy.value ).toBe( 'HDD_ONLY' );
+        expect( $scope.mediaPolicy.value ).toBe( 'HDD' );
     });
     
     it( 'should set the media policy to SSD only', function(){
@@ -51,18 +74,18 @@ describe( 'Testing the modular tiering choice panels', function(){
 
         var buttons = $panel.find('.button');
         
-        expect( $(buttons[0]).hasClass( 'selected' ) ).toBe( true );
-        expect( $scope.mediaPolicy.value ).toBe( 'SSD_ONLY' );
+        expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( true );
+        expect( $scope.mediaPolicy.value ).toBe( 'HDD' );
     });
     
     it( 'should set the media policy to HDD only', function(){
         
-        $scope.mediaPolicy = 'HDD_ONLY';
+        $scope.mediaPolicy = 'HYBRID';
         $scope.$apply();
         
         var buttons = $panel.find('.button');
         
-        expect( $(buttons[1]).hasClass( 'selected' ) ).toBe( true );
-        expect( $scope.mediaPolicy.value ).toBe( 'HDD_ONLY' );
+        expect( $(buttons[2]).hasClass( 'selected' ) ).toBe( true );
+        expect( $scope.mediaPolicy.value ).toBe( 'HYBRID' );
     });
 });

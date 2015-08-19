@@ -92,9 +92,11 @@ mockNode = function(){
         service.detachedNodes = [
             {
               "name": "awesome-new-node",
-              "uuid": 2,
-              "ipV6address": "0.0.0.0",
-              "ipV4address": "127.0.0.1",
+              "uid": 2,
+              "address": {
+                  "ipv6Address": "0.0.0.0",
+                  "ipv4Address": "127.0.0.1"
+              },
               "state": "DISCOVERED",
               "serviceMap": {
                 "PM": [
