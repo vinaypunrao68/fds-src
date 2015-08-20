@@ -146,7 +146,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     @Override
     protected <R extends IVolumeDatapoint> R doPersist( R entity ) {
-        throw new UnsupportedOperationException( "Persisting individual metrics is not supported for the Influx Metric repository" );
+        throw new UnsupportedOperationException( "Persisting individual metrics is not " +
+                                                 "supported for the Influx Metric repository" );
     }
 
     /**
@@ -171,7 +172,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs = VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
+        Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
+            VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
             Long ts = e.getKey();
@@ -261,7 +263,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         }
 
         if (series.size() > 1) {
-            logger.warn( "Expecting only one metric series.  Skipping " + (series.size() - 1) + " unexpected series." );
+            logger.warn( "Expecting only one metric series.  Skipping " +
+                         (series.size() - 1) +
+                         " unexpected series." );
         }
 
         List<Map<String, Object>> rowList = series.get( 0 ).getRows();
@@ -321,7 +325,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
@@ -436,7 +440,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), TimeUnit.SECONDS );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
         // execute the query limiting it to the most recent row for the volume
         List<Serie> series = getConnection().getDBReader().query( queryString + " limit 1", TimeUnit.SECONDS );

@@ -42,12 +42,10 @@ import org.json.JSONObject;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
@@ -251,10 +249,8 @@ public class ListVolumes implements RequestHandler {
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
 
-		MetricQueryCriteria query = new MetricQueryCriteria();      
-		DateRange range = new DateRange();
-		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime() ) ) );
-		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+		MetricQueryCriteria query = new MetricQueryCriteria();
+        DateRange range = DateRange.last24Hours();
 
 		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
 

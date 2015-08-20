@@ -24,7 +24,7 @@ public class Volume extends AbstractResource<Long> {
 
         private final String         volumeName;
         private Tenant               tenant;
-        private Optional<Long>       id;
+        private Optional<Long> id = Optional.empty();
         private String               application;
         private VolumeSettings       settings;
         private MediaPolicy          mediaPolicy;
@@ -33,7 +33,7 @@ public class Volume extends AbstractResource<Long> {
         private QosPolicy            qosPolicy;
         private VolumeStatus         status;
         private final Map<String, String> tags = new HashMap<>();
-        private Optional<Instant> creationTime = Optional.empty();
+        private       Optional<Instant>   creationTime = Optional.empty();
 
         /**
          * Create a new Volume with settings from an existing volume.  You must provide a
@@ -41,7 +41,7 @@ public class Volume extends AbstractResource<Long> {
          *
          * @param from the existing volume
          */
-        public Builder(Volume from, String name) {
+        public Builder( Volume from, String name ) {
 
             volumeName = name;
             tenant = from.getTenant();
@@ -51,7 +51,7 @@ public class Volume extends AbstractResource<Long> {
             dataProtectionPolicy = from.getDataProtectionPolicy().newPolicyFrom();
             accessPolicy = from.getAccessPolicy();
             qosPolicy = from.getQosPolicy();
-            tags.putAll(from.getTags());
+            tags.putAll( from.getTags() );
         }
 
         public Builder( String volumeName ) {
@@ -64,6 +64,29 @@ public class Volume extends AbstractResource<Long> {
         }
 
         public Builder id(Number id) { this.id = (id != null ? Optional.of( id.longValue() ) : Optional.empty()); return this; }
+
+        public Builder block( long capacity, long blockSize, SizeUnit unit ) {
+            return block( Size.of( capacity, unit ), Size.of( blockSize, unit ) );
+        }
+
+        public Builder block( Size capacity, Size blockSize ) {
+            this.settings = new VolumeSettingsBlock( capacity, blockSize );
+            return this;
+        }
+
+        public Builder object( long maxObjectSize, SizeUnit unit ) {
+            return object( Size.of( maxObjectSize, unit ) );
+        }
+
+        public Builder object( Size maxObjectSize ) {
+            this.settings = new VolumeSettingsObject( maxObjectSize );
+            return this;
+        }
+
+        public Builder settings( VolumeSettings settings ) {
+            this.settings = settings;
+            return this;
+        }
         public Builder creationTime(Instant t) { this.creationTime = Optional.of( t ); return this; }
         public Builder tenant(Tenant t) { this.tenant = t; return this; }
         public Builder addTag(String k, String v) { this.tags.put(k, v); return this; }

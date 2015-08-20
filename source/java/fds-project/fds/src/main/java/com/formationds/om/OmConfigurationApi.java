@@ -19,7 +19,11 @@ import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -64,6 +68,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             try {
                 volumeDescriptors = config.listVolumes("");
             } catch (TException e) {
+                LOG.trace( "Volumes not loaded.  This may be due to the config server not being ready", e );
                 volumeDescriptors = Lists.newArrayList();
             }
             volumesByName = volumeDescriptors.stream().collect(Collectors.toMap( VolumeDescriptor::getName, v -> v));

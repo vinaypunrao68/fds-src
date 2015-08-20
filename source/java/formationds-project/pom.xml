@@ -38,6 +38,7 @@
     <module>formationds-external</module>
     <module>thrift-client-util</module>
     <module>jsvc-layer</module>
+    <module>formationds-tools</module>
   </modules>
 
   <!--<dependencyManagement>-->

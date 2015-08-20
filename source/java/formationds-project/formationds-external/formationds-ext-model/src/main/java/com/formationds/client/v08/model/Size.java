@@ -11,7 +11,19 @@ import java.util.Objects;
 /**
  * Represent the binary size of an object.  Includes a method to convert into any other unit.
  */
-public class Size {
+public class Size implements Comparable<Size> {
+
+    public static final Size ZERO = of( 0, SizeUnit.B );
+
+    public static Size kb( long v ) { return of( v, SizeUnit.KB ); }
+
+    public static Size mb( long v ) { return of( v, SizeUnit.MB ); }
+
+    public static Size gb( long v ) { return of( v, SizeUnit.GB ); }
+
+    public static Size tb( long v ) { return of( v, SizeUnit.TB ); }
+
+    public static Size pb( long v ) { return of( v, SizeUnit.PB ); }
 
     public static Size of(byte v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
     public static Size of(short v, SizeUnit unit) { return new Size(BigDecimal.valueOf(v), unit); }
@@ -41,6 +53,16 @@ public class Size {
      */
     public BigDecimal getValue(SizeUnit unit) {
         return this.unit.convertTo( unit, value );
+    }
+
+    /**
+     * @return true if the value is zero
+     */
+    public boolean isZero() { return BigDecimal.ZERO.equals( value ); }
+
+    @Override
+    public int compareTo( Size o ) {
+        return value.compareTo( o.getValue() );
     }
 
     @Override

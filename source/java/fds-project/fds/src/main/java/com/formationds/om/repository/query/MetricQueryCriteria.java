@@ -8,6 +8,7 @@ import com.formationds.commons.model.type.Metrics;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author ptinius
@@ -47,6 +48,8 @@ public class MetricQueryCriteria
         }
 
         this.seriesType.add( seriesType );
+
+        super.addColumns( seriesType.name() );
     }
 
     /**
@@ -54,6 +57,8 @@ public class MetricQueryCriteria
      */
     public void setSeriesType( final List<Metrics> seriesType ) {
         this.seriesType = seriesType;
+        List<String> columnNames = seriesType.stream().map( Enum::name ).collect( Collectors.toList() );
+        super.setColumns( columnNames );
     }
 
     /**
