@@ -91,6 +91,8 @@ class DmMigrationExecutor {
     	return autoIncrement;
     }
 
+    Error processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg);
+
   private:
     /** Reference to the DataManager
      */

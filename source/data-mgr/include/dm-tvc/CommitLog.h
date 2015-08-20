@@ -142,6 +142,8 @@ class DmCommitLog : public Module {
 
     Error snapshotOutstandingTx(std::vector<std::string>& strings);
 
+    Error applySerializedTxs(std::vector<std::string> transactions);
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock txmap_lock;

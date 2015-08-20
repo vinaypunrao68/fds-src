@@ -451,4 +451,23 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 
    return ERR_OK;
 }
+
+// process the TxState request
+Error
+DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
+    Error err(ERR_OK);
+    fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
+    DmMigrationExecutor::shared_ptr executor =
+        getMigrationExecutor(fds_volid_t(txStateMsg->volume_id));
+    if (executor == nullptr) {
+        LOGERROR << "Unable to find executor for volume " << txStateMsg->volume_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+        fds_assert(0);
+        return ERR_NOT_FOUND;
+    }
+    err = executor->processTxState(txStateMsg);
+
+    return err;
+}
 }  // namespace fds

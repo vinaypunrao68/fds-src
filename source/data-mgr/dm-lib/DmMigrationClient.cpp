@@ -393,6 +393,7 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
+    txMsg->volume_id = volId.v;
     auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     txStateMsg->setTimeoutMs(15000);
     txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
