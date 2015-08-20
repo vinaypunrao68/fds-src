@@ -336,6 +336,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 
     if (!err.ok()) {
         LOGERROR << "Error getting commit log for vol: " << volumeUuid;
+        return err;
     }
 
     err = commitLog->applySerializedTxs(txStateMsg->transactions);
