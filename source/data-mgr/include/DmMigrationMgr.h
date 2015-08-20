@@ -109,9 +109,8 @@ class DmMigrationMgr {
      * Params:
      * 1. volId - the volume in question.
      * 2. dmtVersion - dmtVersion of the commit to be sent.
-     * 3. justOff - True if this call returns false for the first time. Used to fire finish msg.
      */
-    fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff);
+    fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion);
 
     /**
      * When DMT Close is issued by the OM, DM should stop ALL I/O forwarding. This method goes

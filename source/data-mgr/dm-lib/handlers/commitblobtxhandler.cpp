@@ -127,12 +127,10 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // do forwarding if needed and commit was successful
     if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
         fds_volid_t volId(commitBlobReq->volId);
-        fds_bool_t justOff(false);
 
         if (!(dataManager.features.isTestModeEnabled()) &&
         		(dataManager.dmMigrationMgr->shouldForwardIO(volId,
-        													 commitBlobReq->dmt_version,
-															 justOff))) {
+        													 commitBlobReq->dmt_version))) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
@@ -144,11 +142,6 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                                                               meta_list);
             }
         } else {
-        	if (justOff) {
-        		// Forwarding was just turned off. Send end forward message.
-        		dataManager.dmMigrationMgr->sendFinishFwdMsg(volId);
-        	}
-
             // DMT mismatch must not happen if volume is in 'not forwarding' state
             fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
         }

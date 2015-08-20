@@ -539,7 +539,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 
 
 fds_bool_t
-DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
+DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion)
 {
 	/**
 	 * If the forwarding is turned ON at this point, then we need to check if we still
@@ -549,16 +549,27 @@ DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
 	if (forwardingIO.load(std::memory_order_relaxed)) {
 		DmCommitLog::ptr commitLog;
 		dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
-		if (!(commitLog->checkOutstandingTx(dmtVersion))) {
+		if ((commitLog->checkOutstandingTx(dmtVersion))) {
 			/**
-			 * Commit log dictates that there is no more outstanding tx's.
-			 * Turn off forwarding from this point on
+			 * Commit log dictates that there is more outstanding tx's.
 			 */
-			justOff = true;
-			std::atomic_store(&forwardingIO, false);
+			return true;
 		}
 	}
-	return forwardingIO.load(std::memory_order_relaxed);
+	// Return false if forwarding is off
+	return false;
+}
+
+
+void DmMigrationClient::turnOnForwarding() {
+	LOGMIGRATE << "Turning on forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, true);
+}
+
+void DmMigrationClient::turnOffForwarding() {
+	LOGMIGRATE << "Turning off forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, false);
+	sendFinishFwdMsg();
 }
 
 Error
