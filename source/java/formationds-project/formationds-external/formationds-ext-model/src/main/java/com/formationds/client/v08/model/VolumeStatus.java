@@ -1,7 +1,6 @@
 /**
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
-
 package com.formationds.client.v08.model;
 
 import java.time.Instant;
@@ -14,7 +13,6 @@ import java.util.Objects;
  */
 // Immutable/Thread-safe
 public class VolumeStatus {
-
 
     private final Instant     timestamp;
     private final VolumeState state;
@@ -68,18 +66,18 @@ public class VolumeStatus {
     /**
      * @return true if there has been a capacity firebreak for the volume
      */
-    boolean hasCapacityFirebreak() { return !Instant.EPOCH.equals( lastCapacityFirebreak ); }
+    public boolean hasCapacityFirebreak() { return !Instant.EPOCH.equals( lastCapacityFirebreak ); }
 
     /**
      * @return true if there has been a performance firebreak for the volume.
      */
-    boolean hasPerformanceFirebreak() { return !Instant.EPOCH.equals( lastPerformanceFirebreak ); }
+    public boolean hasPerformanceFirebreak() { return !Instant.EPOCH.equals( lastPerformanceFirebreak ); }
 
     /**
      *
      * @return true if there has been a performance firebreak for this volume
      */
-    boolean hasFirebreak() { return hasCapacityFirebreak() || hasPerformanceFirebreak(); }
+    public boolean hasFirebreak() { return hasCapacityFirebreak() || hasPerformanceFirebreak(); }
 
     /**
      *

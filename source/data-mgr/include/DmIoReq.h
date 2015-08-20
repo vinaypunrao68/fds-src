@@ -782,6 +782,36 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
 
 	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg;
 };
+
+struct DmIoMigrationFinishVolResync : DmRequest {
+    explicit DmIoMigrationFinishVolResync(const fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
+            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_FINISH_VOL_RESYNC),
+             finishVolResyncMsg(msg)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationFinishVolResync& io) {
+    	return out << "DmIoMigrationFinishVolResync vol:"
+                   << std::hex << io.finishVolResyncMsg->volume_id << std::dec;
+    }
+
+	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg;
+};
+
+struct DmIoMigrationTxState : DmRequest {
+    explicit DmIoMigrationTxState(const fpi::CtrlNotifyTxStateMsgPtr &msg)
+            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_TX_STATE),
+             txStateMsg(msg)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationTxState& io) {
+        return out << "DmIoMigrationTxState vol:"
+                   << std::hex << io.volId.get() << std::dec;
+    }
+
+	fpi::CtrlNotifyTxStateMsgPtr txStateMsg;
+};
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

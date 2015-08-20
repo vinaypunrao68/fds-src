@@ -1,8 +1,7 @@
 package com.formationds.om.webkit.rest.v07.metrics;
 
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
@@ -20,12 +19,16 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
 import com.formationds.commons.model.type.StatOperation;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
+import com.formationds.protocol.FDSP_NodeState;
+import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
@@ -33,7 +36,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
@@ -51,19 +53,19 @@ public class SystemHealthStatus implements RequestHandler {
     private final Authorizer authorizer;
     private final AuthenticationToken token;
 
-    private final String SERVICES_GOOD = "l_services_good";
-    private final String SERVICES_OKAY = "l_services_not_good";
-    private final String SERVICES_BAD = "l_services_bad";
+    private static final String SERVICES_GOOD = "l_services_good";
+    private static final String SERVICES_OKAY = "l_services_not_good";
+    private static final String SERVICES_BAD  = "l_services_bad";
 
-    private final String CAPACITY_GOOD = "l_capacity_good";
-    private final String CAPACITY_OKAY_THRESHOLD = "l_capacity_not_good_threshold";
-    private final String CAPACITY_OKAY_RATE = "l_capacity_not_good_rate";
-    private final String CAPACITY_BAD_THRESHOLD = "l_capacity_bad_threshold";
-    private final String CAPACITY_BAD_RATE = "l_capacity_bad_rate";
+    private static final String CAPACITY_GOOD           = "l_capacity_good";
+    private static final String CAPACITY_OKAY_THRESHOLD = "l_capacity_not_good_threshold";
+    private static final String CAPACITY_OKAY_RATE      = "l_capacity_not_good_rate";
+    private static final String CAPACITY_BAD_THRESHOLD  = "l_capacity_bad_threshold";
+    private static final String CAPACITY_BAD_RATE       = "l_capacity_bad_rate";
 
-    private final String FIREBREAK_GOOD = "l_firebreak_good";
-    private final String FIREBREAK_OKAY = "l_firebreak_not_good";
-    private final String FIREBREAK_BAD = "l_firebreak_bad";
+    private static final String FIREBREAK_GOOD = "l_firebreak_good";
+    private static final String FIREBREAK_OKAY = "l_firebreak_not_good";
+    private static final String FIREBREAK_BAD  = "l_firebreak_bad";
 
     public SystemHealthStatus(ConfigurationApi configApi,
                               Authorizer authorizer, AuthenticationToken token) {
@@ -79,21 +81,19 @@ public class SystemHealthStatus implements RequestHandler {
 
         List<FDSP_Node_Info_Type> services = configApi.ListServices(0);
 
-        List<VolumeDescriptor> allVolumes = configApi.listVolumes("")
-                .stream()
-                .collect(Collectors.toList());
-
-        List<VolumeDescriptor> filteredVolumes = configApi.listVolumes("")
-                .stream()
-                .filter(v -> authorizer.ownsVolume(token, v.getName()))
-                .collect(Collectors.toList());
+        List<VolumeDescriptor> allVolumeDescriptors = configApi.listVolumes( "" );
+        List<Volume> allVolumes = ExternalModelConverter.convertToExternalVolumes( allVolumeDescriptors );
+        List<Volume> filteredVolumes = allVolumes.stream()
+                                                 .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
+                                                 .collect( Collectors.toList() );
 
         SystemHealth serviceHealth = getServiceStatus(services);
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
         SystemHealth firebreakHealth = getFirebreakStatus(filteredVolumes);
 
-        HealthState overallState = getOverallState(serviceHealth.getState(),
-                capacityHealth.getState(), firebreakHealth.getState());
+        HealthState overallState = getOverallState( serviceHealth.getState(),
+                                                    capacityHealth.getState(),
+                                                    firebreakHealth.getState() );
 
         SystemStatus systemStatus = new SystemStatus();
         systemStatus.addStatus(serviceHealth);
@@ -146,8 +146,8 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Utility to get the points associated with a particular state
      *
-     * @param state
-     * @return
+     * @param state the state
+     * @return the points for the state
      */
     private int getPointsForState(final HealthState state) {
 
@@ -170,83 +170,79 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to rollup firebreak status for filtered volumes
      *
-     * @param volDescs
-     * @return
+     * @param volumes the list of volumes
+     * @return the firebreak status
      */
-    private SystemHealth getFirebreakStatus(List<VolumeDescriptor> volDescs) {
+    private SystemHealth getFirebreakStatus( List<Volume> volumes ) {
 
         SystemHealth status = new SystemHealth();
         status.setCategory(SystemHealth.CATEGORY.FIREBREAK);
 
-        // convert descriptors into volume objects
-        List<Volume> volumes = convertVolDescriptors(volDescs);
+        long volumesWithRecentFirebreak = 0;
+        if ( !FdsFeatureToggles.FS_2660_METRIC_FIREBREAK_EVENT_QUERY.isActive() ) {
 
-        // query that stats to get raw capacity data
-        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+            // The Volume object already has a status from when loaded, so there is no need to
+            // make additional queries to search for firebreak events.  Just count the columns that
+            // have an active (last 24 hours) firebreak event.
+            volumesWithRecentFirebreak = volumes.stream().filter( FirebreakHelper::hasActiveFirebreak ).count();
+        } else {
 
-        List<Metrics> metrics = Arrays.asList(Metrics.STC_SIGMA,
-                Metrics.LTC_SIGMA,
-                Metrics.STP_SIGMA,
-                Metrics.LTP_SIGMA);
+            // query that stats to get raw capacity data
+            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+            List<Metrics> metrics = Arrays.asList( Metrics.STC_SIGMA,
+                                                   Metrics.LTC_SIGMA,
+                                                   Metrics.STP_SIGMA,
+                                                   Metrics.LTP_SIGMA );
 
-        MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesTypes(metrics)
-                .withRange(range)
-                .build();
+            DateRange range = DateRange.last24Hours();
+            MetricQueryCriteria query = queryBuilder.withContexts( volumes )
+                                                    .withSeriesTypes( metrics )
+                                                    .withRange( range )
+                                                    .build();
 
-        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>)SingletonRepositoryManager.instance()
-                                                                                                      .getMetricsRepository()
-                                                                                                      .query( query );
+            final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
+                                                                                 .getMetricsRepository();
+            @SuppressWarnings("unchecked")
+            final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
-        try {
+            try {
 
-            FirebreakHelper fbh = new FirebreakHelper();
-            List<Series> series = fbh.processFirebreak(queryResults);
-            final Date now = new Date();
+                FirebreakHelper fbh = new FirebreakHelper();
+                List<Series> series = fbh.processFirebreak( queryResults );
+                final Date now = new Date();
+                final long t24s = now.getTime() - TimeUnit.DAYS.toSeconds( 1 );
 
-            long volumesWithRecentFirebreak = series.stream()
-                    .filter(s -> {
+                // count firebreaks in the last 24hours
+                volumesWithRecentFirebreak = series.stream()
+                                                   .filter( s -> {
+                                                       long fb = s.getDatapoints()
+                                                                  .stream()
+                                                                  .filter( dp -> (dp.getY() > t24s) )
+                                                                  .count();
 
-                        long fb = s.getDatapoints().stream()
-                                .filter(dp -> {
+                                                       return (fb > 0);
+                                                   } )
+                                                   .count();
+            } catch ( TException e ) {
 
-                                    // firebreak in the last 24hours
-                                    if (dp.getY() > (now.getTime() - TimeUnit.DAYS.toSeconds(1))) {
-                                        return true;
-                                    }
-
-                                    return false;
-                                })
-                                .count();
-
-                        if (fb > 0) {
-                            return true;
-                        }
-
-                        return false;
-                    })
-                    .count();
-
-            Double volumePercent = ((double) volumesWithRecentFirebreak / (double) volumes.size()) * 100;
-
-            if (volumesWithRecentFirebreak == 0 || volumePercent.isNaN() || volumePercent.isInfinite()) {
-                status.setState(HealthState.GOOD);
-                status.setMessage(FIREBREAK_GOOD);
-            } else if (volumePercent <= 50) {
-                status.setState(HealthState.OKAY);
-                status.setMessage(FIREBREAK_OKAY);
-            } else {
-                status.setState(HealthState.BAD);
-                status.setMessage(FIREBREAK_BAD);
+                // TODO: this almost certainly means the server is down
+                status.setState( HealthState.UNKNOWN );
+                status.setMessage( "Status query failed: " + e.getMessage() );
             }
+        }
 
-        } catch (TException e) {
+        Double volumePercent = ((double) volumesWithRecentFirebreak / (double) volumes.size()) * 100;
 
-            status.setState(HealthState.UNKNOWN);
+        if ( volumesWithRecentFirebreak == 0 || volumePercent.isNaN() || volumePercent.isInfinite() ) {
+            status.setState( HealthState.GOOD );
+            status.setMessage( FIREBREAK_GOOD );
+        } else if ( volumePercent <= 50 ) {
+            status.setState( HealthState.OKAY );
+            status.setMessage( FIREBREAK_OKAY );
+        } else {
+            status.setState( HealthState.BAD );
+            status.setMessage( FIREBREAK_BAD );
         }
 
         return status;
@@ -255,25 +251,21 @@ public class SystemHealthStatus implements RequestHandler {
     /**
      * Generate a status object to rollup system capacity status
      */
-    private SystemHealth getCapacityStatus(List<VolumeDescriptor> volDescs) {
+    private SystemHealth getCapacityStatus( List<Volume> volumes ) {
         SystemHealth status = new SystemHealth();
         status.setCategory(SystemHealth.CATEGORY.CAPACITY);
-
-        // convert descriptors into volume objects
-        List<Volume> volumes = convertVolDescriptors(volDescs);
 
         // query that stats to get raw capacity data
         MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
 
-        DateRange range = new DateRange();
-        range.setEnd((new Date()).getTime());
-        range.setStart((new Date(0)).getTime());
+        DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesType(Metrics.PBYTES)
                 .withRange(range)
                 .build();
 
+        @SuppressWarnings("unchecked")
         final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>)SingletonRepositoryManager.instance()
                                                                                         .getMetricsRepository()
                                                                                         .query( query );
@@ -290,7 +282,10 @@ public class SystemHealthStatus implements RequestHandler {
                 .getMetricsRepository()
                 .sumPhysicalBytes());
 
-        List<Series> series = new SeriesHelper().getRollupSeries(queryResults, query, StatOperation.SUM);
+        List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
+                                                                  query.getRange(),
+                                                                  query.getSeriesType(),
+                                                                  StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
         CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacity);
@@ -340,12 +335,12 @@ public class SystemHealthStatus implements RequestHandler {
          */
         final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
         	.filter( (s) -> {
-	        	
-	        	if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
+
+                if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
 	        		return false;
 	        	}
-	        	
-	        	return true;
+
+                return true;
 	        })
 	        .collect( Collectors.toList() );
         

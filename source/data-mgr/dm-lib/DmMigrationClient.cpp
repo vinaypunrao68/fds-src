@@ -381,19 +381,28 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
-    std::vector<std::string> outstandingTx;
+    fpi::CtrlNotifyTxStateMsgPtr txMsg(new fpi::CtrlNotifyTxStateMsg());
     // Block commit log and get snapshot for the volume.
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
         turnOnForwarding();
-        commitLog->snapshotOutstandingTx(outstandingTx);
+        commitLog->snapshotOutstandingTx(txMsg->transactions);
     }
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
         return err;
     }
+
+    auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    txStateMsg->setTimeoutMs(15000);
+    txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
+                           txMsg);
+    /* TODO: set a callback that aborts on error/timeout */
+    //txStateMsg->onResponseCb();
+    txStateMsg->setTaskExecutorId(volId.v);
+    txStateMsg->invoke();
 
     /**
      * This is the main entrance for migrationClient (source) work.

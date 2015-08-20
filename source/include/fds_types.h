@@ -269,6 +269,7 @@ typedef enum {
     FDS_DM_MIG_DELTA_BLOBDESC,
     FDS_DM_MIG_DELTA_BLOB,
     FDS_DM_MIG_FINISH_VOL_RESYNC,
+    FDS_DM_MIG_TX_STATE,
     FDS_OP_INVALID
 } fds_io_op_t;
 
