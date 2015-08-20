@@ -5,7 +5,7 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import pdb
+
 import xmlrunner
 import TestCase
 from fdslib.TestUtils import findNodeFromInv
@@ -18,8 +18,9 @@ import logging
 import shlex
 import random
 import re
+import os
+import shutil
 import fdslib.platformservice as plat_svc
-import fdslib.FDSServiceUtils as FDSServiceUtils
 
 sm_killed_pid = -1
 
@@ -612,35 +613,20 @@ class TestDMKill(TestCase.FDSTestCase):
             self.log.info("Kill DM on %s." % n.nd_conf_dict['node-name'])
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
+            if pid != -1:
+                cmd = "kill -KILL %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            dm_obj = FDSServiceUtils.DMService(om_ip, node_ip)
-            ret_status = dm_obj.kill(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("DM (DataMgr) has been restarted on %s." % (n.nd_conf_dict['node-name']))
-
+                if status != 0:
+                    self.log.error("DM kill on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
             else:
-                self.log.error("Failing to kill DM (DataMgr) service on %s" %
-                       (n.nd_conf_dict['node-name']))
-
-            #if pid != -1:
-            #    cmd = "kill -KILL %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
-
-            #    if status != 0:
-            #        self.log.error("DM kill on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("DM not running on %s." % (n.nd_conf_dict['node-name']))
+                status = 0
+                self.log.warning("DM not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("DM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], ret_status))
+                self.log.error("DM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # Took care of the node passed in so get out.
@@ -928,35 +914,20 @@ class TestSMKill(TestCase.FDSTestCase):
             self.log.info("Kill SM on %s." %n.nd_conf_dict['node-name'])
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('StorMgr', n)
+            if pid != -1:
+                cmd = "kill -9 %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            sm_obj = FDSServiceUtils.SMService(om_ip, node_ip)
-            ret_status = sm_obj.kill(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("SM (StorMgr) has been restarted on %s." % (n.nd_conf_dict['node-name']))
-
+                if status != 0:
+                    self.log.error("SM kill on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
             else:
-                self.log.error("Failing to kill SM (StorMgr) service on %s" %
-                       (n.nd_conf_dict['node-name']))
-
-            #if pid != -1:
-            #    cmd = "kill -9 %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
-
-            #    if status != 0:
-            #        self.log.error("SM kill on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("SM not running on %s." % (n.nd_conf_dict['node-name']))
+                status = 0
+                self.log.warning("SM not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], ret_status))
+                self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
 
             if self.passedNode is not None:
@@ -1169,35 +1140,20 @@ class TestPMKill(TestCase.FDSTestCase):
             self.log.info("Kill PM on %s." %n.nd_conf_dict['node-name'])
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('platformd', n)
+            if pid != -1:
+                cmd = "kill -9 %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            pm_obj = FDSServiceUtils.PMService(om_ip, node_ip)
-            ret_status = pm_obj.kill(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("PM (platformd) has been restarted on %s." % (n.nd_conf_dict['node-name']))
-
+                if status != 0:
+                    self.log.error("PM kill on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
             else:
-                self.log.error("Failing to kill PM (platformd) service on %s" %
-                       (n.nd_conf_dict['node-name']))
-
-            #if pid != -1:
-            #    cmd = "kill -9 %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
-
-            #    if status != 0:
-            #        self.log.error("PM kill on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("PM is not running on %s." % (n.nd_conf_dict['node-name']))
+                status = 0
+                self.log.warning("PM is not running on %s." % (n.nd_conf_dict['node-name']))
 
             if status != 0:
-                self.log.error("PM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], ret_status))
+                self.log.error("PM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # Took care of the node passed in. Get out.
@@ -1684,28 +1640,13 @@ class TestAMBringUp(TestCase.FDSTestCase):
             bin_dir = n.nd_agent.get_bin_dir(debug=False)
             log_dir = n.nd_agent.get_log_dir()
 
-            pdb.set_trace()
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
-            ret_status = am_obj.start(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("AM (bare_am) has been started on %s." % (n.nd_conf_dict['node-name']))
-
-            else:
-                self.log.error("Failing to start AM (bare_am) service on %s." %
-                       (n.nd_conf_dict['node-name']))
-
             # The AMAgent script expected to be invoked from the bin directory in which it resides.
-            #status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> %s/am.%s.out &) \"' %
-                                         # (fds_dir, log_dir, port),
-                                         # fds_bin=True)
+            status = n.nd_agent.exec_wait('bash -c \"(nohup ./AMAgent --fds-root=%s 0<&- &> %s/am.%s.out &) \"' %
+                                          (fds_dir, log_dir, port),
+                                          fds_bin=True)
 
             if status != 0:
-                self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['node-name'], ret_status))
+                self.log.error("AM on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
                 # We were passed a specific AM so get out now.
@@ -1931,6 +1872,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
+
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
             # If a specific node was passed in, use that one and get out.
@@ -1945,65 +1887,49 @@ class TestAMKill(TestCase.FDSTestCase):
                 else:
                     break
 
-            self.log.info("Killing AM service on %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('bare_am', n)
+            if pid != -1:
+                cmd = "kill -KILL %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
-            ret_status = am_obj.kill(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("AM (bare_am) has been restarted on %s." % (n.nd_conf_dict['node-name']))
-
+                if status != 0:
+                    self.log.error("AM (bare_am) shutdown on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
             else:
-                self.log.error("Failing to kill AM (bare_am) service on %s" %
-                       (n.nd_conf_dict['node-name']))
+                status = 0
+                self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            #if pid != -1:
-            #    cmd = "kill -KILL %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
+            pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
+            if pid != -1:
+                cmd = "kill -KILL %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            #    if status != 0:
-            #        self.log.error("AM (bare_am) shutdown on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+                if status != 0:
+                    self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
+            else:
+                status = 0
+                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            #pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
-            #if pid != -1:
-            #    cmd = "kill -KILL %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
+            pid = getSvcPIDforNode('AMAgent', n)
+            if pid != -1:
+                cmd = "kill -KILL %s" % pid
+                status = n.nd_agent.exec_wait(cmd)
 
-            #    if status != 0:
-            #        self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+                if (status != 1) and (status != 0):
+                    self.log.error("AM (AMAgent) shutdown on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                    return False
+            else:
+                status = 0
+                self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            #pid = getSvcPIDforNode('AMAgent', n)
-            #if pid != -1:
-            #    cmd = "kill -KILL %s" % pid
-            #    status = n.nd_agent.exec_wait(cmd)
-
-            #    if (status != 1) and (status != 0):
-            #        self.log.error("AM (AMAgent) shutdown on %s returned status %d." %
-            #                       (n.nd_conf_dict['node-name'], status))
-            #        return False
-            #else:
-            #    status = 0
-            #    self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['node-name']))
-
-            #if (status != 1) and (status != 0):
-            if (status != 0):
+            if (status != 1) and (status != 0):
                 self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
             elif self.passedNode is not None:
@@ -2110,6 +2036,24 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             return True
 
         return False
+
+class TestStorMgrDeleteDisk(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, disk=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_DeleteDisk,
+                                             "Test to remove disk from fds mounted directory")
+        self.node = node
+        self.disk = disk
+    def test_DeleteDisk(self):
+        fdscfg = self.parameters["fdscfg"]
+        self.node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.node)
+        fds_dir = self.node.nd_conf_dict['fds_root']
+        diskPath = os.path.join(fds_dir, 'dev', self.disk)
+        self.log.info("Going to delete mount point {} for disk {}".format(diskPath, self.disk))
+        shutil.rmtree(diskPath)
+        return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
