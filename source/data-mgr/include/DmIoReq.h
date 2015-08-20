@@ -783,21 +783,6 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
 	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg;
 };
 
-struct DmIoMigrationFinishVolResync : DmRequest {
-    explicit DmIoMigrationFinishVolResync(const fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
-            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_FINISH_VOL_RESYNC),
-             finishVolResyncMsg(msg)
-    {
-    }
-
-    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationFinishVolResync& io) {
-    	return out << "DmIoMigrationFinishVolResync vol:"
-                   << std::hex << io.finishVolResyncMsg->volume_id << std::dec;
-    }
-
-	fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg;
-};
-
 struct DmIoMigrationTxState : DmRequest {
     explicit DmIoMigrationTxState(const fpi::CtrlNotifyTxStateMsgPtr &msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_TX_STATE),
