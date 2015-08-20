@@ -28,7 +28,7 @@ public class StatsStream implements SubscriptionHandler {
 		try {
 			StatsConnection conn = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
 			
-			subscription = conn.subscribe( "1.>", this );
+			subscription = conn.subscribe( "1.0.stats.volume", this );
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
