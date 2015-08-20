@@ -397,9 +397,6 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     if (!err.ok()) {
         LOGERROR << "DMT Close, volume meta may not be synced properly";
-        // ignore not ready errors
-        if (err == ERR_CATSYNC_NOT_PROGRESS)
-            err = ERR_OK;
         hdr->msg_code = err.GetErrno();
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
     }

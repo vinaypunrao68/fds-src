@@ -114,6 +114,12 @@ class DmMigrationMgr {
     fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff);
 
     /**
+     * When DMT Close is issued by the OM, DM should stop ALL I/O forwarding. This method goes
+     * through the map of clients and turn off forwarding for each of them.
+     */
+    void stopAllClientForwarding();
+
+    /**
      * Source side DM:
      * Sends the finishVolResync msg to show that there's no more forwarding.
      * We want it done ASAP because volume I/O is quiesced on the dest side.

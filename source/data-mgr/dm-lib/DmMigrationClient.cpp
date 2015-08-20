@@ -386,8 +386,7 @@ DmMigrationClient::processBlobFilterSet()
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
-        // Turn on forwarding
-        std::atomic_store(&forwardingIO, true);
+        turnOnForwarding();
         commitLog->snapshotOutstandingTx(outstandingTx);
     }
     if (ERR_OK != err) {
@@ -552,7 +551,6 @@ DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
 	}
 	return forwardingIO.load(std::memory_order_relaxed);
 }
-
 
 Error
 DmMigrationClient::sendFinishFwdMsg()

@@ -49,6 +49,14 @@ class DmMigrationClient {
      */
     fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff);
 
+    /* Forwarding Modifiers */
+    inline void turnOnForwarding() {
+        std::atomic_store(&forwardingIO, true);
+    }
+    inline void turnOffForwarding() {
+        std::atomic_store(&forwardingIO, false);
+    }
+
     /**
      * Sends a msg to say that we're done with forwarding.
      */

@@ -424,6 +424,16 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_
     return (dmClient->shouldForwardIO(dmtVersion, justOff));
 }
 
+void
+DmMigrationMgr::stopAllClientForwarding()
+{
+	DmMigrationClientMap::iterator mapIter (clientMap.begin());
+	for (; mapIter != clientMap.end(); mapIter++) {
+		LOGMIGRATE << "Turning off forwarding for vol:" << mapIter->first;
+		mapIter->second->turnOffForwarding();
+	}
+}
+
 Error
 DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
 {
