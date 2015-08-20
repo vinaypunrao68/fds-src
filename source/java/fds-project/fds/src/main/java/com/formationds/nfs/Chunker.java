@@ -5,8 +5,6 @@ import com.formationds.apis.ObjectOffset;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
-import java.util.Optional;
 
 public class Chunker {
     private Io io;
@@ -27,20 +25,14 @@ public class Chunker {
 
         for (long i = startObject; remaining[0] > 0; i++) {
             int toBeWritten = Math.min(objectSize - startOffset[0], remaining[0]);
-            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), (oov) -> {
-                Map<String, String> updatedMeta = mutator.mutateOrCreate(oov.map(x -> x.getMetadata()));
-                if (!oov.isPresent()) {
-                    oov = Optional.of(new ObjectView(updatedMeta, ByteBuffer.allocate(objectSize)));
-                } else {
-                    oov = Optional.of(new ObjectView(updatedMeta, oov.get().getBuf()));
-                }
-                ByteBuffer buf = oov.get().getBuf().slice();
+            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), (ov) -> {
+                mutator.mutate(ov.getMetadata());
+                ByteBuffer buf = ov.getBuf().slice();
                 buf.position(startOffset[0]);
                 buf.put(bytes, actualLength - remaining[0], toBeWritten);
                 buf.position(0);
                 startOffset[0] = 0;
                 remaining[0] -= toBeWritten;
-                return oov.get();
             });
         }
     }

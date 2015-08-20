@@ -4,8 +4,6 @@ import com.formationds.apis.ObjectOffset;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
@@ -30,11 +28,9 @@ public class ChunkerTest {
 
     private void readWriteCycle(int length) throws Exception {
         byte[] bytes = randomBytes(length);
-        Map<String, String> metadata = new HashMap<>();
         String arbitraryValue = UUID.randomUUID().toString();
-        metadata.put("key", arbitraryValue);
         String blobName = "blobName";
-        chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, x -> metadata);
+        chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
         io.mapObject(DOMAIN, VOLUME, blobName, OBJECT_SIZE, new ObjectOffset(0), (oov) -> {
             assertTrue(oov.isPresent());
             assertEquals(arbitraryValue, oov.get().getMetadata().get("key"));
