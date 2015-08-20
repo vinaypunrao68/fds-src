@@ -389,12 +389,16 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         throws TException {
         getConfig().assignUserToTenant( userId, tenantId );
         EventManager.notifyEvent( OmEvents.ASSIGN_USER_TENANT, userId, tenantId );
+
+        getCache().addTenantUser( userId, tenantId );
     }
 
     @Override
     public void revokeUserFromTenant( long userId, long tenantId ) throws TException {
         getConfig().revokeUserFromTenant( userId, tenantId );
         EventManager.notifyEvent( OmEvents.REVOKE_USER_TENANT, userId, tenantId );
+
+        getCache().removeTenantUser( tenantId, userId );
     }
 
     @Override
@@ -467,6 +471,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                             boolean isFdsAdmin ) throws TException {
         getConfig().updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
         EventManager.notifyEvent( OmEvents.UPDATE_USER, identifier, isFdsAdmin, userId );
+
+        getCache().updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
     }
 
     @Override
@@ -565,7 +571,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         EventManager.notifyEvent( OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
                                   vt.name(),
                                   maxSize );
+
         statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
+
+        // load the new volume into the cache
+        getCache().loadVolume( domainName, volumeName );
+
     }
 
     @Override
@@ -593,6 +604,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         getConfig().deleteVolume( domainName, volumeName );
         EventManager.notifyEvent( OmEvents.DELETE_VOLUME, domainName, volumeName );
         statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
+
+        getCache().removeVolume( domainName, volumeName );
     }
 
     @Override
@@ -606,6 +619,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<VolumeDescriptor> listVolumes( String domainName ) throws TException {
+        // todo: may want to always do version check in refresh here.
         List<VolumeDescriptor> v = getCache().getVolumes();
         if ( v == null || v.isEmpty() ) {
             v = refreshCacheMaybe().getVolumes();
@@ -724,6 +738,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                   fdsp_PolicyInfoId,
                                   clonedVolumeName,
                                   clonedVolumeId );
+
+        getCache().loadVolume( clonedVolumeId );
+
         return clonedVolumeId;
     }
 

@@ -87,6 +87,30 @@ public class CachedConfiguration {
         }
     }
 
+    public void loadVolume( String unusedDomain, String volumeName ) {
+
+        try {
+            VolumeDescriptor volumeDescriptor = config.statVolume( unusedDomain, volumeName );
+            volumeLock.lock();
+            try {
+                volumesByName.put( volumeDescriptor.getName(), volumeDescriptor );
+                volumesById.put( volumeDescriptor.getVolId(), volumeDescriptor );
+            } finally {
+                volumeLock.unlock();
+            }
+        } catch ( TException e ) {
+            throw new IllegalStateException( "configuration database is not ready!", e );
+        }
+    }
+
+    public void loadVolume( long volumeId ) {
+        try {
+            String vname = config.getVolumeName( volumeId );
+            loadVolume( "unused", vname );
+        } catch ( TException e ) {
+            throw new IllegalStateException( "configuration database is not ready!", e );
+        }
+    }
     public void loadUsers() {
         try {
             List<User> users = config.allUsers( 0 );
@@ -143,9 +167,31 @@ public class CachedConfiguration {
         try {
             usersById.remove( user.getId() );
             usersByName.remove( user.getIdentifier() );
+
+            tenantsByUser.remove( user.getId() );
         } finally {
             usersLock.unlock();
         }
+    }
+
+    public void updateUser( long userId,
+                            String identifier,
+                            String passwordHash,
+                            String secret,
+                            boolean isFdsAdmin ) {
+        User user = getUser( userId );
+        if ( user == null ) {
+            loadUsers();
+            user = getUser( userId );
+            if ( user == null ) {
+                // user really doesn't exist
+                return;
+            }
+        }
+        user.setIdentifier( identifier );
+        user.setPasswordHash( passwordHash );
+        user.setSecret( secret );
+        user.setIsFdsAdmin( isFdsAdmin );
     }
 
     public Long tenantId(long userId) {
