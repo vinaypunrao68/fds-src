@@ -476,8 +476,8 @@ SmDiskMap::isAllDisksSSD() const {
     return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
 }
 
-DataTier
-SmDiskMap::diskMediaType(DiskId& diskId) {
+diskio::DataTier
+SmDiskMap::diskMediaType(const DiskId& diskId) const {
     if (hdd_ids.find(diskId) != hdd_ids.end()) {
         return diskio::diskTier;
     } else if (ssd_ids.find(diskId) != ssd_ids.end()) {

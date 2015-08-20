@@ -154,42 +154,59 @@ ScavControl::createDiskScavengers(const SmDiskMap::const_ptr& diskMap) {
 }
 
 Error
+ScavControl::updateDiskScavenger(const SmDiskMap::const_ptr& diskMap,
+                                 const DiskId& diskId,
+                                 const bool& added) {
+    if (!diskMap) {
+        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        return ERR_NOT_READY;
+    }
+
+    fds_mutex::scoped_lock l(scav_lock);
+    if (added) {
+        DiskScavenger *diskScav = new DiskScavenger(diskId,
+                                                    diskMap->diskMediaType(diskId),
+                                                    dataStoreReqHandler,
+                                                    persistStoreGcHandler,
+                                                    diskMap,
+                                                    noPersistScavStats);
+        fds_assert(diskScavTbl.count(diskId) == 0);
+        if (diskScavTbl.count(diskId) != 0) {
+            LOGERROR << "Scavenger already exists for disk=" << diskId;
+            delete diskScav;
+            return ERR_DUPLICATE;
+        }
+        diskScavTbl[diskId] = diskScav;
+        LOGNORMAL << "Added scavenger for Disk " << diskId;
+    } else {
+        DiskScavenger *diskScav = diskScavTbl[diskId];
+        if (diskScav) {
+            diskScav->handleScavengeError(ERR_SM_NO_DISK);
+            LOGNORMAL << "Disabled scavenger for disk=" << diskId;
+        }
+    }
+
+    if (diskScavTbl.size()) {
+        noPersistScavStats = false;
+    }
+
+    return ERR_OK;
+}
+
+Error
 ScavControl::updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
                                   const DiskIdSet& diskIdSet,
                                   const bool& added) {
-
-    fds_mutex::scoped_lock l(scav_lock);
+    Error err(ERR_OK);
     if (!diskMap) {
         LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
         return ERR_NOT_READY;
     }
 
     for (auto& diskId : diskIdSet) {
-        if (added) {
-            DiskScavenger *diskScav = new DiskScavenger(diskId,
-                                                        diskMediaType(diskId),
-                                                        dataStoreReqHandler,
-                                                        persistStoreGcHandler,
-                                                        diskMap,
-                                                        noPersistScavStats);
-            fds_assert(diskScavTbl.count(diskId) == 0);
-            if (diskScavTbl.count(diskId) != 0) {
-                LOGERROR << "Cannot create disk scavenger for disk=" << diskId
-                         << " because there's already a scavenger exists for this disk ";
-                delete diskScav;
-                return ERR_DUPLICATE;
-            }
-            diskScavTbl[diskId] = diskScav;
-            LOGNORMAL << "Added scavenger for Disk " << diskId;
-        } else {
-            delete diskScavTbl[diskId];
-            diskScavTbl.erase(diskId);
-            LOGNORMAL << "Removed scavenger for Disk " << diskId;
-        }
+        err = updateDiskScavenger(diskMap, diskId, added);
     }
-
-    noPersistScavStats = false;
-    return ERR_OK;
+    return err;
 }
 
 Error ScavControl::enableScavenger(const SmDiskMap::const_ptr& diskMap,
@@ -770,6 +787,13 @@ void DiskScavenger::stopScavenge() {
         LOGNOTIFY << "Scavenger was not running (or already in the process of stopping) "
                   << "for disk_id " << disk_id;
     }
+}
+
+void
+DiskScavenger::handleScavengeError(const Error& err) {
+    std::atomic_exchange(&state, SCAV_STATE_ERROR);
+    LOGNOTIFY << "Scavenger for disk " << disk_id << " in error state"
+              << " due to " << err;
 }
 
 void

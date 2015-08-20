@@ -115,7 +115,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     /**
      * What type of disk is this. SSD or HDD?
      */
-    DataTier diskMediaType(DiskId& diskId);
+    diskio::DataTier diskMediaType(const DiskId& diskId) const;
 
     /**
      * Disk state specific inlines.

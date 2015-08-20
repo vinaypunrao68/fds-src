@@ -234,6 +234,10 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     diskMap->makeDiskOffline(diskId);
 
+    SmScavengerCmd *diskDisableCmd = new SmScavengerCmd(SmScavengerCmd::SCAV_DISABLE_DISK,
+                                                        SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE,
+                                                        diskId);
+    scavengerControlCmd(diskDisableCmd);
     SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     if (changeTokensStateFn) {
         changeTokensStateFn(lostTokens);
