@@ -103,7 +103,7 @@ public class ListVolumes implements RequestHandler {
     private StatsConnection getStatsConnection() throws IOException, InterruptedException{
     	
     	if ( statConnection == null ){
-    		statConnection = StatsConnection.newConnection( "localhost", 4242, "guest", "guest" );
+    		statConnection = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
     	}
     	
     	return statConnection;

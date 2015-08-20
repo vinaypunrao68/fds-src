@@ -15,6 +15,7 @@ import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
 import com.formationds.om.webkit.rest.v08.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.v08.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.v08.metrics.StatsSocketHandler;
+import com.formationds.om.webkit.rest.v08.metrics.StatsStream;
 import com.formationds.om.webkit.rest.v08.metrics.SystemHealthStatus;
 import com.formationds.om.webkit.rest.v08.platform.AddNode;
 import com.formationds.om.webkit.rest.v08.platform.AddService;
@@ -121,6 +122,8 @@ public class ApiDefinition extends AbstractApiDefinition{
     
     private void configureTestSocketEndpoint(){
     	
+    	// start listening
+    	StatsStream.getInstance();
     	authenticate( HttpMethod.GET, URL_PREFIX + "/stats/stream", ( t ) -> new StatsSocketHandler() );
     }
     
