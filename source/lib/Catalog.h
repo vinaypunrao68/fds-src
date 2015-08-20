@@ -4,18 +4,21 @@
 #ifndef SOURCE_LIB_CATALOG_H_
 #define SOURCE_LIB_CATALOG_H_
 
+// Standard includes.
 #include <memory>
 #include <string>
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdint>
+#include <cstdio>
 
-#include <fds_types.h>
-#include <fds_error.h>
-#include <leveldb/db.h>
-#include <leveldb/env.h>
-#include <leveldb/filter_policy.h>
+// Internal includes.
+#include "data-mgr/include/dm-vol-cat/CatalogKey.h"
+#include "fds_types.h"
+#include "fds_error.h"
+#include "leveldb/db.h"
+#include "leveldb/env.h"
+#include "leveldb/filter_policy.h"
 #include "leveldb/write_batch.h"
-#include <leveldb/copy_env.h>
+#include "leveldb/copy_env.h"
 
 namespace fds {
 
@@ -34,7 +37,6 @@ struct CopyDetails {
  * Just use leveldb's slice. We should consider our
  * own class in the future.
  */
-typedef leveldb::Slice Record;
 typedef leveldb::WriteBatch CatWriteBatch;
 
 /**
@@ -111,10 +113,10 @@ class Catalog {
         return write_options;
     }
 
-    fds::Error Update(const Record& key, const Record& val);
+    fds::Error Update(const CatalogKey& key, const leveldb::Slice& val);
     fds::Error Update(CatWriteBatch* batch);
-    fds::Error Query(const Record& key, std::string* val, MemSnap m = NULL);
-    fds::Error Delete(const Record& key);
+    fds::Error Query(const CatalogKey& key, std::string* val, MemSnap m = NULL);
+    fds::Error Delete(const CatalogKey& key);
 
     /**
      * Wrapper for leveldb::GetSnapshot(), ReleaseSnapshot()

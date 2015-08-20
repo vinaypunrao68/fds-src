@@ -2,26 +2,29 @@
  * copyright 2014 Formation Data Systems, Inc.
  */
 
+// Standard includes.
 #include <string>
 #include <iostream>
 #include <vector>
 
-#include "port/port.h"
+// Internal includes.
 #include "db/dbformat.h"
 #include "db/filename.h"
 #include "db/log_reader.h"
 #include "db/version_edit.h"
 #include "db/write_batch_internal.h"
+#include "leveldb/cat_journal.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
+#include "port/port.h"
 #include "util/logging.h"
-
-#include <leveldb/cat_journal.h>
-#include <util/Log.h>
+#include "util/Log.h"
+#include "data-mgr/include/dm-vol-cat/JournalTimestampKey.h"
+#include "data-mgr/include/dm-vol-cat/CatalogKeyType.h"
 
 using namespace fds;  // NOLINT
 using namespace leveldb;  // NOLINT
@@ -35,10 +38,10 @@ class WriteBatchGetLogTime : public WriteBatch::Handler {
     inline void Put(const Slice& key, const Slice& value) {
         if (journal_timestamp_) return;
 
-        const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
-        fds_verify(objKey);
-        if (0 == objKey->blobId && 0 == objKey->objIndex) {
-            journal_timestamp_ = *reinterpret_cast<const fds_uint64_t *>(value.data());
+        auto keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
+        if (keyType == fds::CatalogKeyType::JOURNAL_TIMESTAMP)
+        {
+            journal_timestamp_ = *reinterpret_cast<fds_uint64_t const*>(value.data());
         }
     }
 

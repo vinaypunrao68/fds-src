@@ -11,6 +11,8 @@ user_cpp          := \
 	DmVolumeCatalog.cpp \
 	DmPersistVolCat.cpp \
 	DmPersistVolDB.cpp \
+	CatalogKey.cpp \
+	BlobObjectKey.cpp
 #	DmOIDArrayMmap.cpp \
 #	DmPersistVolFile.cpp
 

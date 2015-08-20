@@ -113,10 +113,10 @@ Catalog::~Catalog()
  * @return The result of the update
  */
 Error
-Catalog::Update(const Record& key, const Record& val) {
+Catalog::Update(const CatalogKey& key, const leveldb::Slice& val) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Put(write_options, key, val);
+    leveldb::Status status = db->Put(write_options, static_cast<leveldb::Slice>(key), val);
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
     }
@@ -142,13 +142,13 @@ Catalog::Update(CatWriteBatch* batch) {
  * @return The result of the query
  */
 Error
-Catalog::Query(const Record& key, std::string* value, MemSnap m) {
+Catalog::Query(const CatalogKey& key, std::string* value, MemSnap m) {
     Error err(ERR_OK);
 
     leveldb::ReadOptions ro{read_options};
     ro.snapshot = m;
 
-    leveldb::Status status = db->Get(ro, key, value);
+    leveldb::Status status = db->Get(ro, static_cast<leveldb::Slice>(key), value);
     if (status.IsNotFound()) {
         err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
         return err;
@@ -165,10 +165,10 @@ Catalog::Query(const Record& key, std::string* value, MemSnap m) {
  * @return The result of the delete
  */
 Error
-Catalog::Delete(const Record& key) {
+Catalog::Delete(const CatalogKey& key) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Delete(write_options, key);
+    leveldb::Status status = db->Delete(write_options, static_cast<leveldb::Slice>(key));
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
     }

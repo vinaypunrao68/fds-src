@@ -4,14 +4,16 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
 
+// Standard includes.
 #include <map>
 #include <string>
 #include <vector>
 
-#include <fds_uuid.h>
-
-#include <lib/Catalog.h>
-#include <DmBlobTypes.h>
+// Internal includes.
+#include "BlobObjectKey.h"
+#include "fds_uuid.h"
+#include "lib/Catalog.h"
+#include "DmBlobTypes.h"
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -25,18 +27,8 @@ extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
 extern const fds_uint64_t VOL_META_ID;
 
-struct __attribute__((packed)) BlobObjKey {
-    fds_uint64_t blobId;
-    fds_uint32_t objIndex;
-
-    BlobObjKey() : blobId(INVALID_BLOB_ID), objIndex(BLOB_META_INDEX) {}
-
-    explicit BlobObjKey(fds_uint64_t blobId_, fds_uint32_t objIndex_ = BLOB_META_INDEX)
-            : blobId(blobId_), objIndex(objIndex_) {}
-};
-
-extern const BlobObjKey OP_TIMESTAMP_KEY;
-extern const Record OP_TIMESTAMP_REC;
+extern const BlobObjectKey OP_TIMESTAMP_KEY;
+extern const leveldb::Slice OP_TIMESTAMP_REC;
 
 class DmPersistVolCat {
   public:
@@ -178,12 +170,6 @@ class DmPersistVolCat {
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
     virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
-
-    // this is not a strong hash, but collisions are detected before
-    // blob creation in DmTimeVolCatalog::commitBlobTxWork
-    static inline fds_uint64_t getBlobIdFromName(const std::string & blobName) {
-        return fds_get_uuid64(blobName);
-    }
 
   protected:
     // vars

@@ -2,38 +2,23 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <stdlib.h>
+// Standard includes.
+#include <cstdlib>
+#include <limits>
+#include <string>
+
+// System includes.
 #include <linux/limits.h>
 
-#include <string>
-#include <limits>
-
-#include <fds_process.h>
-#include <fds_module.h>
-#include <fds_resource.h>
-
-#include <net/SvcMgr.h>
-#include <dm-vol-cat/DmPersistVolCat.h>
+// Internal includes.
+#include "dm-vol-cat/DmPersistVolCat.h"
+#include "leveldb/db.h"
+#include "net/SvcMgr.h"
+#include "fds_process.h"
+#include "fds_module.h"
+#include "fds_resource.h"
 
 namespace fds {
-const fds_uint64_t INVALID_BLOB_ID = 0;
-/**
- * Index that identifies a catalog entry as describing a blob's metadata.
- * TODO(Andrew): If we're going to use an index that's in range of possible
- * use then we should enforce a max blob size that's less than this.
- */
-const fds_uint32_t BLOB_META_INDEX = std::numeric_limits<fds_uint32_t>::max();
-/**
- * Key that identifies a catalog entry as describing a volume's metadata.
- * The key follows a different format than blob entries, so shouldn't conflict,
- * but is just an arbitrary string so there's technically nothing preventing
- * collision.
- */
-const fds_uint64_t VOL_META_ID = std::numeric_limits<fds_uint64_t>::max();
-
-const BlobObjKey OP_TIMESTAMP_KEY(INVALID_BLOB_ID, 0);
-const Record OP_TIMESTAMP_REC(reinterpret_cast<const char *>(&OP_TIMESTAMP_KEY),
-        sizeof(BlobObjKey));
 
 Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     const fpi::SvcUuid & dmSvcUuid = dmUuid.toSvcUuid();

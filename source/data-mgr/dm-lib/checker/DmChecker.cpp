@@ -1,18 +1,28 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <sys/stat.h>
+
+// Standard includes.
 #include <list>
-#include <vector>
+#include <stdexcept>
 #include <string>
+#include <vector>
+
+// System includes.
 #include <boost/lexical_cast.hpp>
-#include <checker/DmChecker.h>
-#include <net/SvcMgr.h>
-#include <fds_dmt.h>
-#include <checker/LeveldbDiffer.h>
-#include <dm-vol-cat/DmPersistVolDB.h>
-#include <DmBlobTypes.h>
-#include <util/stringutils.h>
-#include <fdsp/ConfigurationService.h>
+#include <sys/stat.h>
+
+// Internal includes.
+#include "checker/DmChecker.h"
+#include "checker/LeveldbDiffer.h"
+#include "dm-vol-cat/BlobMetadataKey.h"
+#include "dm-vol-cat/BlobObjectKey.h"
+#include "dm-vol-cat/CatalogKeyType.h"
+#include "dm-vol-cat/DmPersistVolDB.h"
+#include "fdsp/ConfigurationService.h"
+#include "net/SvcMgr.h"
+#include "util/stringutils.h"
+#include "DmBlobTypes.h"
+#include "fds_dmt.h"
 
 namespace fds {
 
@@ -128,11 +138,16 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
 #endif
     }
 
-    std::string keyAsString(leveldb::Iterator *itr) const override { 
-        const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
-        std::stringstream ss;
-        ss << key->blobId << ":" << key->objIndex;
-        return ss.str();
+    std::string keyAsString(leveldb::Iterator *itr) const override {
+        switch (*reinterpret_cast<CatalogKeyType const*>(itr->key().data()))
+        {
+        case CatalogKeyType::ERROR: throw std::runtime_error("ERROR catalog key type found.");
+        case CatalogKeyType::BLOB_METADATA: return BlobMetadataKey{ itr->key() }.toString();
+        case CatalogKeyType::JOURNAL_TIMESTAMP: return "JOURNAL_TIMESTAMP";
+        case CatalogKeyType::OBJECTS: return BlobObjectKey{ itr->key() }.toString();
+        case CatalogKeyType::VOLUME_METADATA: return "VOLUME_METADATA";
+        case CatalogKeyType::EXTENDED: throw std::runtime_error("EXTENDED catalog key type found.");
+        }
     }
 
     leveldb::Comparator* getComparator() override {
@@ -140,20 +155,20 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
     }
 
     static bool isTimestampEntry(leveldb::Iterator *itr) {
-        const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
-        return key->objIndex == 0 && key->blobId == 0;
+        return *reinterpret_cast<CatalogKeyType const*>(itr->key().data())
+               == CatalogKeyType::JOURNAL_TIMESTAMP;
     }
     static bool isVolumeDescriptor(leveldb::Iterator *itr) {
-        const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
-        return key->blobId == VOL_META_ID;
+        return *reinterpret_cast<CatalogKeyType const*>(itr->key().data())
+               == CatalogKeyType::VOLUME_METADATA;
     }
 
     static bool isBlobDescriptor(leveldb::Iterator *itr) {
-        const BlobObjKey *key = reinterpret_cast<const BlobObjKey *>(itr->key().data());
-        return key->objIndex == BLOB_META_INDEX;
+        return *reinterpret_cast<CatalogKeyType const*>(itr->key().data())
+               == CatalogKeyType::BLOB_METADATA;
     }
 
-    BlobObjKeyComparator comparator;
+    CatalogKeyComparator comparator;
 };
 
 DMChecker::DMChecker(DMCheckerEnv *env) {
