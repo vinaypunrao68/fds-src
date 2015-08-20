@@ -8,14 +8,14 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.SnapshotPolicy;
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
-import com.formationds.security.AuthenticationToken;
 import org.apache.thrift.TException;
 
-import java.util.Collection;
 import java.util.Optional;
 
 /**
  * additional possibly-cached configuration read operations.
+ *
+ * All apis here may throw an IllegalStateException wrapping a TException on failure.
  */
 // TODO: may want to move this out of thrift utils and abstract from the thrift
 // ConfigurationService

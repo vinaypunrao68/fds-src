@@ -9,6 +9,7 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_Node_Info_Type;
 import com.formationds.protocol.FDSP_PolicyInfoType;
 import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
@@ -29,7 +30,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
     private Updater updater = null;
 
-    public XdiConfigurationApi(ConfigurationService.Iface config) throws Exception {
+    public XdiConfigurationApi( ConfigurationService.Iface config ) throws Exception {
         this.config = config;
         map = new ConcurrentHashMap<>();
         map.compute( KEY, ( k, v ) -> {

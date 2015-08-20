@@ -133,7 +133,9 @@ public class Main {
             "OmConfigurationApi", 5, TimeUnit.MINUTES,
             ( ) -> new OmConfigurationApi( configApiFactory ) );
 
-        configCache.startConfigurationUpdater( );
+        final int configUpdateIntervalMS = platformConfig.defaultInt( "fds.om.config_cache_update_interval_ms",
+                                                                      10000 );
+        configCache.startConfigurationUpdater( configUpdateIntervalMS );
         SingletonConfigAPI.instance().api( configCache );
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
