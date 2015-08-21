@@ -24,7 +24,9 @@ public class StatsSocketHandler implements RequestHandler{
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 		
-		final Long lastTime = requiredLong( routeParameters, LAST_TIME );
+		String lastTimeStr = requiredString( request, LAST_TIME );
+		
+		final Long lastTime = Long.parseLong( lastTimeStr );
 		
 		List<StatDataPoint> points = StatsStream.getInstance().getStatCache().asMap().values().stream().filter( ( datapoint ) -> {
 			
