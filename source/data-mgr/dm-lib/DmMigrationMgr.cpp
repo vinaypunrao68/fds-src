@@ -413,7 +413,7 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 }
 
 fds_bool_t
-DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff)
+DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion)
 {
     auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
@@ -421,7 +421,17 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_
         return false;
     }
 
-    return (dmClient->shouldForwardIO(dmtVersion, justOff));
+    return (dmClient->shouldForwardIO(dmtVersion));
+}
+
+void
+DmMigrationMgr::stopAllClientForwarding()
+{
+	DmMigrationClientMap::iterator mapIter (clientMap.begin());
+	for (; mapIter != clientMap.end(); mapIter++) {
+		LOGMIGRATE << "Turning off forwarding for vol:" << mapIter->first;
+		mapIter->second->turnOffForwarding();
+	}
 }
 
 Error

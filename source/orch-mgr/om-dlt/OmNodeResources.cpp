@@ -3165,7 +3165,7 @@ OM_NodeContainer::om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version) {
 
 
 
-// om_send_dlt_close
+// om_send_scavenger_cmd
 // -----------------------
 //
 static void
