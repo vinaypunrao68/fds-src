@@ -2,6 +2,12 @@
 
 basedir=$1
 
+if [[ -z "$1" ]]
+  then
+    echo "Usage: ./program <basedir>"
+    exit 1
+fi
+
 if [ -d $basedir ]; then
     rm -f $basedir/*
 else

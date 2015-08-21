@@ -4,6 +4,13 @@ fsize=$1 # size in kB or "list"
 fnumber=$2 # number of files to be generated or path to "list"
 concurrency=$3
 host=$4
+
+if [[ ( -z "$1" ) || ( -z "$2" ) || ( -z "$3" )  || ( -z "$4" ) ]]
+  then
+    echo "Usage: ./program <size in kB or 'list'> <number of files or path to list> <concurrency> <host>"
+    exit 1
+fi
+
 echo "fsize: $fsize"
 echo "fnumber: $fnumber"
 echo "concurrency: $concurrency"
