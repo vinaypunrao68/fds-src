@@ -235,8 +235,7 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 void DmMigrationTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationTxState* typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
-    /* TODO: FS-2906 */
-    //helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+    helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
 }
 
 void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

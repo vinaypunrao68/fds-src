@@ -104,6 +104,12 @@ class DmMigrationMgr {
     Error handleForwardedCommits(DmIoFwdCat* fwdCatReq);
 
     /**
+     * Destination DM:
+     * Message with the in-flight transaction state (Commit Log) for a volume
+     */
+    Error applyTxState(DmIoMigrationTxState* txStateReq);
+
+    /**
      * Public interface to check whether or not a I/O should be forwarded as part of
      * active migration.
      * Params:

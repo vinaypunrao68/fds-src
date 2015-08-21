@@ -341,6 +341,22 @@ DmMigrationExecutor::applyQueuedBlobDescs()
     return err;
 }
 
+Error
+DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
+    Error err;
+
+    DmCommitLog::ptr commitLog;
+    err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
+
+    if (!err.ok()) {
+        LOGERROR << "Error getting commit log for vol: " << volumeUuid;
+        return err;
+    }
+
+    err = commitLog->applySerializedTxs(txStateMsg->transactions);
+
+    return err;
+}
 
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
