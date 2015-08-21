@@ -935,7 +935,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
-                LOGNOTIFY << "SM Resync data migration completed."
+                LOGNOTIFY << "SM Resync process done!"
 
                 checkAndStartPendingResync();
             } else {
