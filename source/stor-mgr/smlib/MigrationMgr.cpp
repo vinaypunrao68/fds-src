@@ -80,7 +80,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                << " It is a resync? " << (migrationType == SMMigrType::MIGR_SM_RESYNC);
 
     fiu_do_on("abort.sm.migration",\
-              LOGNOTIFY << "abort.sm.migration fault point enabled";\
+              LOGDEBUG << "abort.sm.migration fault point enabled";\
               sleep(1); if (cb) { cb(ERR_NOT_READY); } return ERR_NOT_READY;);
 
     // Check if the migraion feature is enabled or disabled.
@@ -640,7 +640,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
-    fiu_do_on("sm.exit.before.client.erase", LOGNOTIFY << "sm.exit.before.client.erase fault point enabled"; \
+    fiu_do_on("sm.exit.before.client.erase", LOGDEBUG << "sm.exit.before.client.erase fault point enabled"; \
               exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
