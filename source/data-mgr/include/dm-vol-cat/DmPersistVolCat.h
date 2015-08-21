@@ -10,7 +10,7 @@
 #include <vector>
 
 // Internal includes.
-#include "BlobObjectKey.h"
+#include "JournalTimestampKey.h"
 #include "fds_uuid.h"
 #include "lib/Catalog.h"
 #include "DmBlobTypes.h"
@@ -27,7 +27,7 @@ extern const fds_uint64_t INVALID_BLOB_ID;
 extern const fds_uint32_t BLOB_META_INDEX;
 extern const fds_uint64_t VOL_META_ID;
 
-extern const BlobObjectKey OP_TIMESTAMP_KEY;
+extern const JournalTimestampKey OP_TIMESTAMP_KEY;
 extern const leveldb::Slice OP_TIMESTAMP_REC;
 
 class DmPersistVolCat {

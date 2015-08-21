@@ -5,6 +5,9 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_VOLUMEMETADATAKEY_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_VOLUMEMETADATAKEY_H_
 
+// Standard includes.
+#include <string>
+
 // Internal includes.
 #include "CatalogKey.h"
 
@@ -15,6 +18,10 @@ class VolumeMetadataKey : public CatalogKey
 public:
 
     VolumeMetadataKey ();
+
+protected:
+
+    std::string getClassName () const override;
 
 };
 

@@ -612,7 +612,8 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
     fds_assert(dbIt);
     for (dbIt->Seek(BlobObjectKey(std::string()));
          dbIt->Valid()
-         && *reinterpret_cast<CatalogKeyType const*>(dbIt->key().data()) == CatalogKeyType::OBJECTS;
+         && *reinterpret_cast<CatalogKeyType const*>(dbIt->key().data())
+         == CatalogKeyType::BLOB_OBJECTS;
          dbIt->Next())
     {
         leveldb::Slice dbKey = dbIt->key();

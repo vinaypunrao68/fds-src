@@ -5,7 +5,8 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_CATALOGKEYCOMPARATOR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_CATALOGKEYCOMPARATOR_H_
 
-// System includes.
+// Standard includes.
+#include <string>
 
 // Internal includes.
 #include "leveldb/comparator.h"
@@ -23,6 +24,10 @@ public:
     void FindShortestSeparator (std::string* start, leveldb::Slice const& limit) const override;
 
     char const* Name () const override;
+
+private:
+
+    template <class T> static int _compareWithOperators (T const& lhs, T const& rhs);
 
 };
 

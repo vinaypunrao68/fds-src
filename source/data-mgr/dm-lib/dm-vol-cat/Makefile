@@ -12,7 +12,10 @@ user_cpp          := \
 	DmPersistVolCat.cpp \
 	DmPersistVolDB.cpp \
 	CatalogKey.cpp \
-	BlobObjectKey.cpp
+	CatalogKeyComparator.cpp \
+	BlobObjectKey.cpp \
+	VolumeMetadataKey.cpp \
+	JournalTimestampKey.cpp
 #	DmOIDArrayMmap.cpp \
 #	DmPersistVolFile.cpp
 

@@ -7,6 +7,7 @@
 
 // Standard includes.
 #include <string>
+#include <vector>
 
 // Internal includes.
 #include "leveldb/db.h"
@@ -21,30 +22,26 @@ public:
 
     explicit BlobObjectKey (leveldb::Slice const& leveldbKey);
     explicit BlobObjectKey (std::string const& blobName);
-    explicit BlobObjectKey (std::string&& blobName);
     BlobObjectKey (std::string const& blobName, fds_uint32_t objectIndex);
-    BlobObjectKey (std::string&& blobName, fds_uint32_t objectIndex);
 
     BlobObjectKey& operator= (BlobObjectKey const& other);
     BlobObjectKey& operator= (BlobObjectKey&& other);
 
-    operator leveldb::Slice () const override;
+    std::string getBlobName () const;
 
-    std::string const& getBlobName ();
-
-    fds_uint32_t getObjectIndex ();
+    fds_uint32_t getObjectIndex () const;
 
     void setBlobName (std::string const& value);
-    void setBlobName (std::string&& value);
 
     void setObjectIndex (fds_uint32_t value);
 
-private:
+protected:
 
-    std::string blobName;
+    std::string getClassName () const override;
 
-    fds_uint32_t objectIndex;
+    std::vector<std::string> toStringMembers () const override;
 
+    static constexpr size_t getNewDataSize ();
 };
 
 }  // namespace fds

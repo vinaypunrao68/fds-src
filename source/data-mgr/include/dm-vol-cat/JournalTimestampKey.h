@@ -5,6 +5,9 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_JOURNALTIMESTAMPKEY_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_JOURNALTIMESTAMPKEY_H_
 
+// Standard includes.
+#include <string>
+
 // Internal includes.
 #include "CatalogKey.h"
 
@@ -15,6 +18,10 @@ class JournalTimestampKey : public CatalogKey
 public:
 
     JournalTimestampKey ();
+
+protected:
+
+    std::string getClassName () const override;
 
 };
 

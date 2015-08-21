@@ -32,7 +32,12 @@ enum class CatalogKeyType : unsigned char
     ///
     /// Objects the blob's data consists of.
     ///
-    OBJECTS = 4,
+    BLOB_OBJECTS = 4,
+
+    ///
+    /// Object reference counts.
+    ///
+    OBJECT_EXPUNGE = 5,
 
     ///
     /// Reserved for future use.

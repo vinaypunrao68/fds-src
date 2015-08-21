@@ -18,6 +18,7 @@
 #include "dm-vol-cat/BlobObjectKey.h"
 #include "dm-vol-cat/CatalogKeyType.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
+#include "dm-vol-cat/ObjectExpungeKey.h"
 #include "fdsp/ConfigurationService.h"
 #include "net/SvcMgr.h"
 #include "util/stringutils.h"
@@ -139,15 +140,23 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
     }
 
     std::string keyAsString(leveldb::Iterator *itr) const override {
-        switch (*reinterpret_cast<CatalogKeyType const*>(itr->key().data()))
+        auto keyType = *reinterpret_cast<CatalogKeyType const*>(itr->key().data());
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch-enum"
+        switch (keyType)
         {
         case CatalogKeyType::ERROR: throw std::runtime_error("ERROR catalog key type found.");
         case CatalogKeyType::BLOB_METADATA: return BlobMetadataKey{ itr->key() }.toString();
         case CatalogKeyType::JOURNAL_TIMESTAMP: return "JOURNAL_TIMESTAMP";
-        case CatalogKeyType::OBJECTS: return BlobObjectKey{ itr->key() }.toString();
+        case CatalogKeyType::BLOB_OBJECTS: return BlobObjectKey{ itr->key() }.toString();
         case CatalogKeyType::VOLUME_METADATA: return "VOLUME_METADATA";
+        case CatalogKeyType::OBJECT_EXPUNGE: return ObjectExpungeKey{ itr->key() }.toString();
         case CatalogKeyType::EXTENDED: throw std::runtime_error("EXTENDED catalog key type found.");
+        default:
+            throw std::runtime_error("Unrecognized key type: "
+                                     + std::to_string(static_cast<unsigned int>(keyType)) + ".");
         }
+#pragma GCC diagnostic pop
     }
 
     leveldb::Comparator* getComparator() override {

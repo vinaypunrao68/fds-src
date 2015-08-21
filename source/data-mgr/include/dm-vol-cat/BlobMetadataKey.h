@@ -26,7 +26,12 @@ public:
 
     explicit BlobMetadataKey (leveldb::Slice const& key);
     explicit BlobMetadataKey (std::string const& blobName);
-    explicit BlobMetadataKey (std::string&& blobName);
+
+    std::string const& getBlobName();
+
+protected:
+
+    std::string getClassName () const override;
 
 };
 

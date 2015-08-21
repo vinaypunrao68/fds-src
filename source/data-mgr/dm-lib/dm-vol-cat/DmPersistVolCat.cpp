@@ -20,6 +20,9 @@
 
 namespace fds {
 
+extern const JournalTimestampKey OP_TIMESTAMP_KEY { };
+extern const leveldb::Slice OP_TIMESTAMP_REC { static_cast<leveldb::Slice>(OP_TIMESTAMP_KEY) };
+
 Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     const fpi::SvcUuid & dmSvcUuid = dmUuid.toSvcUuid();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
