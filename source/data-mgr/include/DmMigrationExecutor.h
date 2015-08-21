@@ -96,6 +96,10 @@ class DmMigrationExecutor {
     	return autoIncrement;
     }
 
+    /**
+     * Destination DM:
+     * Message with the in-flight transaction state (Commit Log) for a volume
+     */
     Error processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg);
 
     /**
