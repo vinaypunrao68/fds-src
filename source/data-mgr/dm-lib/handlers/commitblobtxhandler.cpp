@@ -126,11 +126,13 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
     // do forwarding if needed and commit was successful
     if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-        fds_bool_t is_forwarding = false;
         fds_volid_t volId(commitBlobReq->volId);
+        fds_bool_t justOff(false);
 
         if (!(dataManager.features.isTestModeEnabled()) &&
-        		(dataManager.dmMigrationMgr->shouldForwardIO(volId))) {
+        		(dataManager.dmMigrationMgr->shouldForwardIO(volId,
+        													 commitBlobReq->dmt_version,
+															 justOff))) {
             // DMT version must not match in order to forward the update!!!
             if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
                 LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
@@ -140,15 +142,13 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                                                               blob_version,
                                                                               blob_obj_list,
                                                                               meta_list);
-                if (helper.err.ok()) {
-                    // we forwarded the request!!!
-                    // if forwarding -- do not reply to AM yet, will reply when we receive response
-                    // for fwd cat update from destination DM
-                    // TODO(DAC): Actually sent the above mentioned response.
-                    helper.skipImplicitCb = true;
-                }
             }
         } else {
+        	if (justOff) {
+        		// Forwarding was just turned off. Send end forward message.
+        		dataManager.dmMigrationMgr->sendFinishFwdMsg(volId);
+        	}
+
             // DMT mismatch must not happen if volume is in 'not forwarding' state
             fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
         }
@@ -161,6 +161,7 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
 
+    // Sends reply to AM
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 

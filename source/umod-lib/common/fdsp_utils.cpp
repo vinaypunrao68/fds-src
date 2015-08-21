@@ -350,14 +350,6 @@ std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CtrlNotifyFinishVolResyncMsg& msg) {
-    std::ostringstream oss;
-    oss << " Finish volume Resync for volume ID: " << msg.volume_id
-    		<< ", DMT Version: " << msg.DMT_Version
-			<< ", commit log sequence number: " << msg.commit_log_seq_num;
-    return oss.str();
-}
-
 std::string quoteString(std::string const& text,
                         std::string const& delimiter,
                         std::string const& escape) {
