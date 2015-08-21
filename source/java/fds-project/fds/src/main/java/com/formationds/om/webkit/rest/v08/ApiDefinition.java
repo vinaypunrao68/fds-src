@@ -124,7 +124,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	
     	// start listening
     	StatsStream.getInstance();
-    	authenticate( HttpMethod.GET, URL_PREFIX + "/stats/stream", ( t ) -> new StatsSocketHandler() );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/stats/stream", ( t ) -> new StatsSocketHandler() );
     }
     
     /**
