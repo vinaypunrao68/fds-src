@@ -47,7 +47,6 @@ uint32_t CommitLogTx::write(serialize::Serializer * s) const {
 
 uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     fds_assert(d);
-
     fds_uint64_t txId = 0;
     uint32_t bytes = d->readI64(txId);
     txDesc.reset(new BlobTxId(txId));
@@ -147,6 +146,31 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     }
 
     return ERR_OK;
+}
+
+Error DmCommitLog::applySerializedTxs(std::vector<std::string> transactions) {
+    Error err;
+
+    auto auto_lock = getTxMapLock(true);
+
+    for (auto tx : transactions) {
+        BlobTxId txId;
+
+        auto ptx = boost::make_shared<CommitLogTx>();
+
+        err = ptx->loadSerialized(tx);
+        if (!err.ok()) {
+            return err;
+        }
+
+        txId = *(ptx->txDesc);
+
+        txMap_[txId] = ptx;
+
+        validateSubsequentTx(txId);
+    }
+
+    return err;
 }
 
 // update blob data (T can be BlobObjList or MetaDataList)

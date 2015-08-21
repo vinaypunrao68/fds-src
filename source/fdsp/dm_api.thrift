@@ -561,7 +561,8 @@ struct CtrlNotifyDeltaBlobDescMsg {
  *  send the snapshot of in-progress transactions (contents of the commit log)
  */
 struct CtrlNotifyTxStateMsg {
-  1: list<string> transactions;
+  1: i64                     volume_id;
+  2: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
