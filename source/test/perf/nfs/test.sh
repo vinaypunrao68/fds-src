@@ -136,6 +136,8 @@ for f in `cat .files` ; do
 done
 
 if [ $error -gt 0 ] ; then
+    echo "number of errors: $error"
+    umount /mount/tmp
     exit 1
 fi
 
