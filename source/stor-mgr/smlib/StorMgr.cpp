@@ -136,6 +136,10 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
+    std::vector<nullary_always> token_locks;
+    for (auto& tokenDiskPair: tokenDiskPairs) {
+        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
+    }
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
