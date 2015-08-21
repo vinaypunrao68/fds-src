@@ -8,6 +8,7 @@ import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.webkit.rest.v08.metrics.StatsStream;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.stats_client.StatsConnection;
@@ -94,19 +95,9 @@ public class ListVolumes implements RequestHandler {
         data.setMetricValue( new Double( diff ) );
         data.setReportTime( now );
         
-        getStatsConnection().publishStatistic( data );
-        getStatsConnection().close();
+        StatsStream.getInstance().getConnection().publishStatistic( data );
         
         return externalVolumes;
-    }
-    
-    private StatsConnection getStatsConnection() throws IOException, InterruptedException{
-    	
-    	if ( statConnection == null ){
-    		statConnection = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
-    	}
-    	
-    	return statConnection;
     }
 
     private Authorizer getAuthorizer() {

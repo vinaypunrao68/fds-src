@@ -22,13 +22,16 @@ public class StatsStream implements SubscriptionHandler {
 	
 	private LoadingCache<Long, StatDataPoint> statCache;
 	private Subscription subscription; 
+	private StatsConnection conn;
 	
 	private StatsStream(){
 		
 		try {
-			StatsConnection conn = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
+			conn = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
 			
 			subscription = conn.subscribe( "1.0.stats.volume", this );
+			
+			logger.info( "StatsStream connected successfully." );
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -49,6 +52,10 @@ public class StatsStream implements SubscriptionHandler {
 		}
 		
 		return instance;
+	}
+	
+	public StatsConnection getConnection(){
+		return conn;
 	}
 	
 	public LoadingCache<Long, StatDataPoint> getStatCache(){
