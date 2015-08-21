@@ -186,8 +186,6 @@ enum  FDSPMsgTypeId {
   CtrlNotifyInitialBlobFilterSetMsgTypeId;
   CtrlNotifyDeltaBlobDescMsgTypeId;
   CtrlNotifyDeltaBlobsMsgTypeId;
-  CtrlNotifyFinishVolResyncMsgTypeId;
-  CtrlNotifyFinishVolResyncRspMsgTypeId;
   RenameBlobMsgTypeId;
   RenameBlobRespMsgTypeId;
   CtrlNotifyTxStateMsgTypeId;

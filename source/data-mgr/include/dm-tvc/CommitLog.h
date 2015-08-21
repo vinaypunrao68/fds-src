@@ -148,6 +148,7 @@ class DmCommitLog : public Module {
     TxMap txMap_;    // in-memory state
     fds_rwlock txmap_lock;
     std::unordered_map<fds_uint64_t,fds_uint64_t> dmtVerMap_;
+    std::condition_variable drainTxWait;
     fds_rwlock commit_lock;
 
     fds_volid_t volId_;

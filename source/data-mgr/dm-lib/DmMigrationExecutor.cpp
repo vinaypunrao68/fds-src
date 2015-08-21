@@ -26,7 +26,9 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
 	  timerInterval(_timeout),
-	  seqTimer(new FdsTimer)
+	  seqTimer(new FdsTimer),
+      msgHandler(_dataMgr),
+      migrationProgress(INIT)
 {
     volumeUuid = volDesc.volUUID;
 
@@ -70,6 +72,16 @@ DmMigrationExecutor::startMigration()
      * OM could have sent the volume descriptor over already
      */
     if (err.ok() || (err == ERR_DUPLICATE)) {
+    	fds_scoped_lock lock(progressLock);
+    	fds_assert(migrationProgress == INIT);
+    	migrationProgress = STATICMIGRATION_IN_PROGRESS;
+
+    	/**
+    	 * First quiesce IO
+    	 */
+    	LOGMIGRATE << "Quiescing IO for volume " << volumeUuid;
+    	dataMgr.qosCtrl->quieseceIOs(volumeUuid);
+
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
     	 * initial blob filter set to be sent to the source DM.
@@ -201,6 +213,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
                    << ", msg_seq_id=" << msg->msg_seq_id
                    << " last_mst_seq_id=" << msg->last_msg_seq_id;
     } else {
+    	LOGMIGRATE << "Volume " << volumeUuid << " received non-empty blob message";
         /**
          * For each blob in the blob_obj_list, apply blob offset.
          */
@@ -293,6 +306,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
     if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
         LOGMIGRATE << "All Blob descriptors applied to volume="
                    << std::hex << volumeUuid << std::dec;
+        notifyStaticMigrationComplete();
         if (migrDoneCb) {
             migrDoneCb(volDesc.volUUID, err);
         }
@@ -350,11 +364,61 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 	// TODO - part of error handling (FS-2619)
 }
 
-Error
-DmMigrationExecutor::processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg)
-{
-       // TODO: what's the card number for this?
-       return ERR_OK;
+void
+DmMigrationExecutor::notifyStaticMigrationComplete() {
+    fds_scoped_lock lock(progressLock);
+    fds_assert(migrationProgress == STATICMIGRATION_IN_PROGRESS);
+    migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
+    /* Send any buffered Forwarded messages to qos controller under system volume tag */
+    for (const auto &msg : forwardedMsgs) {
+        msgHandler.addToQueue(msg);
+    }
 }
 
+Error
+DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+    /* Callback from QOS */
+    fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
+        if (e != ERR_OK) {
+            // TODO: Abort migration
+            fds_panic("Not handled");
+            delete dmReq;
+            return;
+        }
+        auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
+        fds_assert((unsigned)(fwdCatReq->fwdCatMsg->volume_id) == volumeUuid.v);
+        if (fwdCatReq->fwdCatMsg->lastForward) {
+            fds_scoped_lock lock(progressLock);
+            /* All forwards have been applied.  At this point we don't expect anything from
+             * migration source.  We can resume active IO
+             */
+            migrationProgress = MIGRATION_COMPLETE;
+            LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
+            dataMgr.qosCtrl->resumeIOs(volumeUuid);
+        }
+        delete dmReq;
+    };
+    
+    fds_scoped_lock lock(progressLock);
+    if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
+        forwardedMsgs.push_back(fwdCatReq);
+    } else if (migrationProgress  == APPLYING_FORWARDS_IN_PROGRESS) {
+        fds_assert(forwardedMsgs.size() == 0);
+        msgHandler.addToQueue(fwdCatReq);
+    } else {
+        fds_panic("Unexpected state encountered");
+    }
+    return ERR_OK;
+}
+
+Error
+DmMigrationExecutor::finishActiveMigration()
+{
+	fds_scoped_lock lock(progressLock);
+	migrationProgress = MIGRATION_COMPLETE;
+	LOGMIGRATE << "No forwards was sent, resuming IO for volume " << volumeUuid;
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
+
+	return ERR_OK;
+}
 }  // namespace fds

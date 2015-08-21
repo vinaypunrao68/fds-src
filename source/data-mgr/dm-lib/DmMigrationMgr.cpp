@@ -246,9 +246,24 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     return err;
 }
 
+Error
+DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
+    auto fwdCatMsg = fwdCatReq->fwdCatMsg;
+    DmMigrationExecutor::shared_ptr executor =
+    		getMigrationExecutor(fds_volid_t(fwdCatMsg->volume_id));
+    if (executor == nullptr) {
+    	LOGERROR << "Unable to find executor for volume " << fwdCatMsg->volume_id;
+        // this is an race cond error that needs to be fixed in dev env.
+        // Only panic in debug build.
+    	fds_panic("Unhandled case");
+    	return ERR_NOT_FOUND;
+    }
+    executor->processForwardedCommits(fwdCatReq);
+    return ERR_OK;
+}
 
 void
-DmMigrationMgr::waitThenAckMigrationComplete(const Error &status)
+DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
 {
     fds_verify(OmStartMigrCb != NULL);
     /**
@@ -377,20 +392,12 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         /**
          * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
          */
-        /**
-         * TODO(Neil):
-         * This will be moved to the callback when source client finishes and
-         * talks to the destination manager.
-         * Also, we're commenting this lock out because this isn't technically supposed to
-         * be here but I'm leaving the lock here to remind ourselves that lock is required.
-         */
-        // SCOPEDWRITE(migrExecutorLock);
         if (mit->second->shouldAutoExecuteNext()) {
             ++mit;
             if (mit != executorMap.end()) {
                 mit->second->startMigration();
             } else {
-                waitThenAckMigrationComplete(result);
+                ackStaticMigrationComplete(result);
             }
         }
     }
@@ -405,27 +412,8 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
     clientMap.erase(fds_volid_t(uniqueId));
 }
 
-Error
-DmMigrationMgr::notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq)
-{
-    fpi::CtrlNotifyFinishVolResyncMsgPtr finishVolResyncMsg =
-        finishVolResyncReq->finishVolResyncMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(finishVolResyncMsg->volume_id));
-    if (executor == nullptr) {
-        LOGERROR << "Unable to find executor for volume " << finishVolResyncMsg->volume_id;
-        // this is an race cond error that needs to be fixed in dev env.
-        // Only panic in debug build.
-        fds_assert(0);
-        return ERR_NOT_FOUND;
-    }
-    executor->processLastFwdCommitLog(finishVolResyncMsg);
-
-    return ERR_OK;
-}
-
 fds_bool_t
-DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
+DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff)
 {
     auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
@@ -433,9 +421,22 @@ DmMigrationMgr::shouldForwardIO(fds_volid_t volId)
         return false;
     }
 
-    return (dmClient->shouldForwardIO());
+    return (dmClient->shouldForwardIO(dmtVersion, justOff));
 }
 
+Error
+DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
+{
+	Error err(ERR_NOT_FOUND);
+	auto dmClient = getMigrationClient(volId);
+	fds_assert(dmClient != nullptr);
+
+	if (err == ERR_NOT_FOUND) {
+		return err;
+	}
+
+	return (dmClient->sendFinishFwdMsg());
+}
 
 Error
 DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
@@ -444,12 +445,25 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const BlobObjList::const_ptr& blob_obj_list,
                                     const MetaDataList::const_ptr& meta_list)
 {
-   auto dmClient = getMigrationClient(volId);
-   fds_verify((dmClient != nullptr) && dmClient->shouldForwardIO());
+	Error err(ERR_NOT_FOUND);
+	auto dmClient = getMigrationClient(volId);
+	fds_assert(dmClient != nullptr);
 
-   dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+	err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
 
-   return ERR_OK;
+	return err;
+}
+
+Error
+DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
+{
+	Error err(ERR_NOT_FOUND);
+	auto dmExecutor = getMigrationExecutor(volId);
+	fds_assert(dmExecutor != nullptr);
+
+	err = dmExecutor->finishActiveMigration();
+
+	return err;
 }
 
 // process the TxState request

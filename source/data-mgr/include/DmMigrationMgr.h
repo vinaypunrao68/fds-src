@@ -99,10 +99,9 @@ class DmMigrationMgr {
     Error applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq);
 
     /**
-     * Destination Side DM:
-     * Message from Source to say which msg was the last fowarded commit log.
-     */
-    Error notifyFinishVolResync(DmIoMigrationFinishVolResync* finishVolResyncReq);
+    * Routes DmIoFwdCat to right executor
+    */
+    Error handleForwardedCommits(DmIoFwdCat* fwdCatReq);
 
     /**
      * Destination DM:
@@ -113,14 +112,31 @@ class DmMigrationMgr {
     /**
      * Public interface to check whether or not a I/O should be forwarded as part of
      * active migration.
+     * Params:
+     * 1. volId - the volume in question.
+     * 2. dmtVersion - dmtVersion of the commit to be sent.
+     * 3. justOff - True if this call returns false for the first time. Used to fire finish msg.
      */
-    fds_bool_t shouldForwardIO(fds_volid_t volId);
+    fds_bool_t shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion, fds_bool_t &justOff);
+
+    /**
+     * Source side DM:
+     * Sends the finishVolResync msg to show that there's no more forwarding.
+     * We want it done ASAP because volume I/O is quiesced on the dest side.
+     */
+    Error sendFinishFwdMsg(fds_volid_t volId);
 
     Error forwardCatalogUpdate(fds_volid_t volId,
     						   DmIoCommitBlobTx *commitBlobReq,
     						   blob_version_t blob_version,
     						   const BlobObjList::const_ptr& blob_obj_list,
     						   const MetaDataList::const_ptr& meta_list);
+
+    /**
+     * Destination side DM:
+     * In the case no forwards is sent, this will finish the migration
+     */
+    Error finishActiveMigration(fds_volid_t volId);
 
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
@@ -208,7 +224,7 @@ class DmMigrationMgr {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb
      */
-    void waitThenAckMigrationComplete(const Error &status);
+    void ackStaticMigrationComplete(const Error &status);
 
 	/*
      * Destination side DM:
