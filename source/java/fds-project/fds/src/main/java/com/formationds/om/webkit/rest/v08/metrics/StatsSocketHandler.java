@@ -37,6 +37,8 @@ public class StatsSocketHandler implements RequestHandler{
 			return false;
 		}).collect( Collectors.toList() );
 		
+		points.sort( (s1, s2 ) -> s1.getReportTime().compareTo( s2.getReportTime() ) );
+		
 		JSONArray jArr = new JSONArray( points );
 		JSONObject rtn = new JSONObject();
 		rtn.put( "newPoints",  jArr );
