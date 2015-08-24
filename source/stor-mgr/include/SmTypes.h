@@ -30,6 +30,7 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 #define SM_INVALID_EXECUTOR_ID     0
 
 typedef fds_uint16_t DiskId;
+typedef std::set<fds_uint16_t> DiskIdSet;
 const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_
