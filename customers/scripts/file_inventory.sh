@@ -92,13 +92,15 @@ if [[ "${1}" == "${SKIP_EMPTY}" || "${1}" == "${SKIP_EMPTY_SHORT}" || "${1}" == 
 then
    skip_empty=1
    search_path=${2-\.}
-elif [[ "${2}" == "${SKIP_EMPTY}" || "${1}" == "${SKIP_EMPTY_SHORT}" || "${1}" == "${SKIP_EMPTY_ALT}" ]]
+elif [[ "${2}" == "${SKIP_EMPTY}" || "${2}" == "${SKIP_EMPTY_SHORT}" || "${2}" == "${SKIP_EMPTY_ALT}" ]]
 then
    skip_empty=1
    search_path=${1}
 else
    search_path=${1-\.}
 fi
+
+[[ ! -d ${search_path} ]] && echo "directory path not found:  ${search_path}" && exit 1
 
 dir_list=$( find ${search_path} -type d | sort )
 
