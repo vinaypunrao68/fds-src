@@ -183,74 +183,66 @@ namespace fds
         NodeUuid nodeUuid,
         std::vector<fpi::SvcInfo>& svcInfoList)
         {
+            NodeServices services;
 
-        /**
-         * We are being asked to start all Services defined for the Node.
-         * Which services are defined for this Node?
-         */
-        NodeServices services;
+            // Services that are being started after a node or domain shutdown,
+            // will already be present in the configurationDB.
+            // If not, it is the very initial startup of the domain, we will
+            // need to set up new svcInfos
 
-        // Services that are being started after a node or domain shutdown,
-        // will already be present in the configurationDB.
-        // If not, it is the very initial startup of the domain, we will
-        // need to set up new svcInfos
+            if (configDB->getNodeServices(nodeUuid, services)) {
+                LOGDEBUG << "Services present in configDB for node:"
+                         << std::hex << nodeUuid.uuid_get_val()
+                         << std::dec;
 
-        if (configDB->getNodeServices(nodeUuid, services)) {
-            LOGDEBUG << "Services present in configDB for node:"
-                     << std::hex << nodeUuid.uuid_get_val()
-                     << std::dec;
-
-            fpi::SvcInfo svcInfo;
-            fpi::SvcUuid svcUuid;
-            if ( start_am && (services.am.uuid_get_val() != 0) ) {
-                //start_am = true;
-                svcUuid.svc_uuid = services.am.uuid_get_val();
-                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                if (ret) {
-                    svcInfoList.push_back(svcInfo);
+                fpi::SvcInfo svcInfo;
+                fpi::SvcUuid svcUuid;
+                if ( start_am && (services.am.uuid_get_val() != 0) ) {
+                    svcUuid.svc_uuid = services.am.uuid_get_val();
+                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                    if (ret) {
+                        svcInfoList.push_back(svcInfo);
+                    }
                 }
-            }
-            if ( start_sm && (services.sm.uuid_get_val() != 0) ) {
-                //start_sm = true;
-                svcUuid.svc_uuid = services.sm.uuid_get_val();
-                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                if (ret) {
-                    svcInfoList.push_back(svcInfo);
+                if ( start_sm && (services.sm.uuid_get_val() != 0) ) {
+                    svcUuid.svc_uuid = services.sm.uuid_get_val();
+                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                    if (ret) {
+                        svcInfoList.push_back(svcInfo);
+                    }
                 }
-            }
-            if ( start_dm && (services.dm.uuid_get_val() != 0) ) {
-                //start_dm = true;
-                svcUuid.svc_uuid = services.dm.uuid_get_val();
-                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                if (ret) {
-                    svcInfoList.push_back(svcInfo);
+                if ( start_dm && (services.dm.uuid_get_val() != 0) ) {
+                    svcUuid.svc_uuid = services.dm.uuid_get_val();
+                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                    if (ret) {
+                        svcInfoList.push_back(svcInfo);
+                    }
                 }
-            }
-        } else {
-            /**
-            * We interpret no Services information in ConfigDB,
-            * this must be for a new Node.
-            */
+            } else {
+                /**
+                * We interpret no Services information in ConfigDB,
+                * this must be for a new Node.
+                */
 
-            LOGDEBUG << "No svcInfos in configDB, creating new";
-            if (start_am) {
-                fpi::SvcInfo* amInfo = new fpi::SvcInfo();
-                amInfo->__set_svc_type(fpi::FDSP_ACCESS_MGR);
-                amInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                svcInfoList.push_back(*amInfo);
-            }
-            if (start_dm) {
-                fpi::SvcInfo* dmInfo = new fpi::SvcInfo();
-                dmInfo->__set_svc_type(fpi::FDSP_DATA_MGR);
-                dmInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                svcInfoList.push_back(*dmInfo);
-            }
-            if (start_sm) {
-                fpi::SvcInfo* smInfo = new fpi::SvcInfo();
-                smInfo->__set_svc_type(fpi::FDSP_STOR_MGR);
-                smInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                svcInfoList.push_back(*smInfo);
+                LOGDEBUG << "No svcInfos in configDB, creating new";
+                if (start_am) {
+                    fpi::SvcInfo* amInfo = new fpi::SvcInfo();
+                    amInfo->__set_svc_type(fpi::FDSP_ACCESS_MGR);
+                    amInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+                    svcInfoList.push_back(*amInfo);
+                }
+                if (start_dm) {
+                    fpi::SvcInfo* dmInfo = new fpi::SvcInfo();
+                    dmInfo->__set_svc_type(fpi::FDSP_DATA_MGR);
+                    dmInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+                    svcInfoList.push_back(*dmInfo);
+                }
+                if (start_sm) {
+                    fpi::SvcInfo* smInfo = new fpi::SvcInfo();
+                    smInfo->__set_svc_type(fpi::FDSP_STOR_MGR);
+                    smInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+                    svcInfoList.push_back(*smInfo);
+                }
             }
         }
-    }
 }  // namespace fds
