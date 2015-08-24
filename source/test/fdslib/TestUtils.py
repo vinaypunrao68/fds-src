@@ -22,6 +22,8 @@ from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
+from fdscli.services.node_service import NodeService
+from fdscli.services.local_domain_service import LocalDomainService
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -156,16 +158,13 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     file. FDS: So be careful about what options have defaults. In those cases, the
     value in the configuration.ini will be ignored even if *not* specified
     on the command line.
-
     Following the import of the configuration, the settings will be scrubbed.
     Strings will be converted to int or bool where appropriate.  Paths on
     the file system will be resolved to their absolute paths.
-
     Note that if the file system is already mounted, the multicast IP, export,
     and mount point will be taken from the already mounted file system,
     irrespective of what has been specified in the configuration .ini file or
     the command line.
-
     FDS: With pyUnit = True, we understand that we are being called in support
     of a test being run with Python's unittest module infrastructure.
     """
@@ -441,16 +440,17 @@ def convertor(volume, fdscfg):
     return new_volume
 
 def get_volume_service(self,om_ip):
-    create_fdsConf_file(om_ip)
-    file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
-    self.__om_auth = FdsAuth(file_name)
-    self.__om_auth.login()
+    getAuth(self, om_ip)
     return VolumeService(self.__om_auth)
 
 def get_volume_policy(policy_id, fdscfg):
     qos_policy = QosPolicy()
     policies = fdscfg.rt_get_obj('cfg_vol_pol')
     for policy in policies:
+        if 'id' not in policy.nd_conf_dict:
+            print('Policy section must have an id')
+            sys.exit(1)
+
         if policy.nd_conf_dict['id'] == policy_id:
             if 'iops_min' in policy.nd_conf_dict:
                 qos_policy.iops_min = policy.nd_conf_dict['iops_min']
@@ -462,3 +462,17 @@ def get_volume_policy(policy_id, fdscfg):
                 qos_policy.priority = policy.nd_conf_dict['priority']
 
     return qos_policy
+
+def get_node_service(self, om_ip):
+    getAuth(self,om_ip)
+    return NodeService(self.__om_auth)
+
+def get_localDomain_service(self, om_ip):
+    getAuth(self,om_ip)
+    return LocalDomainService(self.__om_auth)
+
+def getAuth(self, om_ip):
+    create_fdsConf_file(om_ip)
+    file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
+    self.__om_auth = FdsAuth(file_name)
+    self.__om_auth.login()

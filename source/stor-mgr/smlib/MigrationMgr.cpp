@@ -80,7 +80,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                << " It is a resync? " << (migrationType == SMMigrType::MIGR_SM_RESYNC);
 
     fiu_do_on("abort.sm.migration",\
-              LOGNOTIFY << "abort.sm.migration fault point enabled";\
+              LOGDEBUG << "abort.sm.migration fault point enabled";\
               sleep(1); if (cb) { cb(ERR_NOT_READY); } return ERR_NOT_READY;);
 
     // Check if the migraion feature is enabled or disabled.
@@ -173,7 +173,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     }
 
     // TODO: limit this and make it configurable
-    LOGMIGRATE << "Number of executors: " << migrExecutors.size();
+    LOGNORMAL << "Number of executors: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0);
     // (Matteo) migrExecutorLock and smTokenInProgressMutex
@@ -253,7 +253,7 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
     fds_mutex::scoped_lock l(migrSmTokenLock);
     if (!retryMigrSmTokenSet.empty()) {
         retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
-        LOGMIGRATE << "Starting migration retry for SM token " << retrySmTokenInProgress;
+        LOGNORMAL << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
         snapshotRequests[retrySmTokenInProgress]->token_id = retrySmTokenInProgress;
@@ -290,7 +290,7 @@ MigrationMgr::startResync(const fds::DLT *dlt,
                           fds_uint32_t bitsPerDltToken,
                           PendingResyncCb pendingResyncFn)
 {
-    LOGMIGRATE << "Starting resync for dlt version " << dlt->getVersion();
+    LOGNORMAL << "Starting resync for dlt version " << dlt->getVersion();
     if (pendingResyncFn) {
         cachedPendingResyncCb = pendingResyncFn;
     }
@@ -640,7 +640,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     Error err(ERR_OK);
     fds_bool_t doneWithClients = false;
 
-    fiu_do_on("sm.exit.before.client.erase", LOGNOTIFY << "sm.exit.before.client.erase fault point enabled"; \
+    fiu_do_on("sm.exit.before.client.erase", LOGDEBUG << "sm.exit.before.client.erase fault point enabled"; \
               exit(1));
     if (atomic_load(&migrState) == MIGR_ABORTED) {
         // Something happened, for now stopping migration on any error
@@ -923,7 +923,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 // done with executors.  First check if there is any pending migration
                 // requests before clearing executors.  At this point, there shouldn't
                 // be any.
-                LOGMIGRATE << "SM Resync data migration completed. Cleaninup up clients and executors";
+                LOGNORMAL << "SM Resync data migration completed. Cleaninup up clients and executors";
                 LOGMIGRATE << "ResyncOnRestart: done with executors; wait for clients to complete";
                 coalesceExecutorsNoLock();
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
@@ -935,7 +935,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
-
+                LOGNOTIFY << "SM Resync process done!";
                 checkAndStartPendingResync();
             } else {
                 smTokenInProgressMutex.unlock();
@@ -1222,7 +1222,7 @@ MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
     FDSGUARD(dltTokenStatesMutex);
     for (auto token : tokens) {
         dltTokenStates[token] = availability;
-        LOGTRACE << "DLT token " << token << " availability = " << availability;
+        LOGNOTIFY << "DLT token " << token << " availability = " << availability;
     }
 }
 
@@ -1263,7 +1263,7 @@ MigrationMgr::changeDltTokensState(const std::set<fds_token_id>& dltTokens,
     fds_verify(dltTokenStates.size() > 0);
     for (auto dltTok : dltTokens) {
         dltTokenStates[dltTok] = state;
-        LOGDEBUG << "DLT token " << dltTok << " availability = " << state;
+        LOGNOTIFY << "DLT token " << dltTok << " availability = " << state;
     }
 }
 
@@ -1273,7 +1273,7 @@ MigrationMgr::markUnownedTokensUnavailable(const std::set<fds_token_id>& tokSet)
     for (fds_uint32_t i = 0; i < dltTokenStates.size(); ++i) {
         if (dltTokenStates[i] == true) {
             if (tokSet.count(i) == 0) {
-                LOGDEBUG << "DLT token " << i << " is not owned by this SM anymore --> INACTIVE";
+                LOGNOTIFY << "DLT token " << i << " is not owned by this SM anymore --> INACTIVE";
                 dltTokenStates[i] = false;
             }
         }
@@ -1455,7 +1455,7 @@ MigrationMgr::tryAbortingMigration() {
 
     resyncOnRestart = false;
 
-    LOGMIGRATE << "Done cleanup; migration aborted";
+    LOGNOTIFY << "Done cleanup; migration aborted";
     MigrationState expectState = MIGR_ABORTED;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
         LOGERROR << "Unexpected migration state " << migrState;

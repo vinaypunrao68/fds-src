@@ -386,8 +386,7 @@ DmMigrationClient::processBlobFilterSet()
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
-        // Turn on forwarding
-        std::atomic_store(&forwardingIO, true);
+        turnOnForwarding();
         commitLog->snapshotOutstandingTx(txMsg->transactions);
     }
     if (ERR_OK != err) {
@@ -396,6 +395,7 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
+    txMsg->volume_id = volId.v;
     auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     txStateMsg->setTimeoutMs(15000);
     txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
@@ -540,28 +540,32 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 
 
 fds_bool_t
-DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersion, fds_bool_t &justOff)
+DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersionIn)
 {
 	/**
 	 * If the forwarding is turned ON at this point, then we need to check if we still
 	 * have outstanding transactions. Otherwise, if it's off at this point, it means
 	 * that we aren't on yet, so return false.
 	 */
-	if (forwardingIO.load(std::memory_order_relaxed)) {
-		DmCommitLog::ptr commitLog;
-		dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
-		if (!(commitLog->checkOutstandingTx(dmtVersion))) {
-			/**
-			 * Commit log dictates that there is no more outstanding tx's.
-			 * Turn off forwarding from this point on
-			 */
-			justOff = true;
-			std::atomic_store(&forwardingIO, false);
-		}
+	if (forwardingIO.load(std::memory_order_relaxed) && (dmtVersionIn == dmtVersion)) {
+		return true;
+	} else {
+		// Return false if forwarding is off or if DMT version for the transaction is newer
+		return false;
 	}
-	return forwardingIO.load(std::memory_order_relaxed);
 }
 
+
+void DmMigrationClient::turnOnForwarding() {
+	LOGMIGRATE << "Turning on forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, true);
+}
+
+void DmMigrationClient::turnOffForwarding() {
+	LOGMIGRATE << "Turning off forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, false);
+	sendFinishFwdMsg();
+}
 
 Error
 DmMigrationClient::sendFinishFwdMsg()
