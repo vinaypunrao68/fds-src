@@ -44,14 +44,14 @@ osdep_kern_ar_flags  +=
 
 ifdef REALLY_NO_OPTIMIZATION
     osdep_user_cc_flags  += -O0 -DDEBUG -g3 -gdwarf-4 -fvar-tracking-assignments -fno-inline -DFIU_ENABLE=1
-    osdep_user_cpp_flags += -O0 -DDEBUG -g3 -gdwarf-4 -fvar-tracking-assignments -fno-inline -DFIU_ENABLE=1
+    osdep_user_cpp_flags += -O0 -DDEBUG -g3 -gdwarf-4 -fvar-tracking-assignments -fno-inline -DFIU_ENABLE=1 -rdynamic
     osdep_user_cc_flags  += $(REALLY_NO_OPTIMIZATION_FLAGS)
     osdep_user_cpp_flags += $(REALLY_NO_OPTIMIZATION_FLAGS)
 else
     osdep_user_cc_flags  += -Og -DDEBUG -g -DFIU_ENABLE=1
-    osdep_user_cpp_flags += -Og -DDEBUG -g -DFIU_ENABLE=1
+    osdep_user_cpp_flags += -Og -DDEBUG -g -DFIU_ENABLE=1 -rdynamic
 endif
-osdep_user_ld_flags  +=
+osdep_user_ld_flags  += -rdynamic
 osdep_user_so_flags  +=
 osdep_user_ar_flags  +=
 

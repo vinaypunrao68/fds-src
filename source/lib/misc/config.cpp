@@ -299,7 +299,7 @@ void FdsConfigAccessor::init(const boost::shared_ptr<FdsConfig> &fds_config,
     base_path_ = base_path;
 }
 
-boost::shared_ptr<FdsConfig> FdsConfigAccessor::get_fds_config() const {
+const boost::shared_ptr<FdsConfig> FdsConfigAccessor::get_fds_config() const {
     return fds_config_;
 }
 

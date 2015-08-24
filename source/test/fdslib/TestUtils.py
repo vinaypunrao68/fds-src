@@ -407,7 +407,7 @@ def check_localhost(ip):
 def create_fdsConf_file(om_ip):
     fileName = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     file = open(fileName, "w")
-    writeString = '[connection]\nhostname='+om_ip+'\nusername=admin\npassword=admin\nport=7777\n'
+    writeString = '[toggles]\ncommand_history=true\n[connection]\nhostname='+om_ip+'\nusername=admin\npassword=admin\nport=7777\n'
     file.write(writeString)
     file.close()
 

@@ -208,8 +208,10 @@ def run_collect(opts):
         paths=["/var/log/kern*", "/var/log/syslog*"]
     )
     # Collect FDS artifacts
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/bin')
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/sbin')
+    if not opts['skip_binaries']:
+        bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/bin')
+        bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/sbin')
+
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/etc')
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var')
     bodybag.collect_paths(
@@ -240,9 +242,14 @@ def run_collect(opts):
         )
     bodybag.collect_cmd(command='/usr/bin/lshw', name='lshw')
     bodybag.collect_cmd(
-        command="/usr/bin/find %s -type f -exec sha256sum {} ;" % bodybag.fdsroot,
-        name='fds_shasums'
+        command='/usr/bin/find %s -type d -print -exec ls -al {} ;' % bodybag.fdsroot,
+        name='fds_files'
     )
+    if opts['checksum_files']:
+        bodybag.collect_cmd(
+            command="/usr/bin/find %s -type f -exec sha256sum {} ;" % bodybag.fdsroot,
+            name='fds_shasums'
+        )
     # Collect cores from all possible locations
     corepaths = [
        '/corefiles/*',
@@ -275,6 +282,12 @@ def main():
     parser_collect.add_argument(
             '--buildermode', action='store_true', dest="buildermode", default=False,
             help='Use this when coroner is run in build environments')
+    parser_collect.add_argument(
+            '--skip-binaries', action='store_true', dest="skip_binaries", default=False,
+            help='Use this to skip interacting with binaries (collection or otherwise)')
+    parser_collect.add_argument(
+            '--checksum-files', action='store_true', dest="checksum_files", default=False,
+            help='Use this to checksum all files in /fdsroot')
     parser_collect.add_argument(
             '--fdsroot', dest="fdsroot", default='/fds',
             help='Location of FDS root directory - normally /fds')

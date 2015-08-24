@@ -18,6 +18,7 @@
 #include <graphite_client.h>
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
+#include <unordered_map>
 
 namespace fds {
 
@@ -31,6 +32,50 @@ extern fds_log* g_fdslog;
 // TODO(Rao): Remove this global.  Other than g_fdslog, we shouldn't have any globals
 extern boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 extern fds_log* GetLog();
+
+/*
+ * Service names.
+ */
+static const std::string AM("Access Manager");
+static const std::string DM("Data Manager");
+static const std::string OM("Orchestration Manager");
+static const std::string PM("Platform Manager");
+static const std::string SM("Storage Manager");
+
+/*
+ * The key here should match the value used for "id" configurations for the different services
+ * in the config file.
+ */
+static std::unordered_map<std::string, std::string> service_id_to_name =
+        {
+            {"am", AM},
+            {"dm", DM},
+            {"om", OM},
+            {"pm", PM},
+            {"sm", SM}
+        };
+/*
+ * Search the map for our service ID. If we can't find it, it may be because we've
+ * not looked up the ID in the config file yet. This can happen, for example, when
+ * we're setting signal handling. In that case, we have the path to the binary (argv[0])
+ * instead of the service ID. So try interpreting that before going to our "unknown"
+ * response.
+ *
+ * Note: Currently (Wed Aug 12 01:33:58 MDT 2015) the C++ OM library is driven by a JVM, hence
+ * the search for "java". In addition, the JVM may have been started by the orchMgr bash script.
+ */
+#define SERVICE_NAME_FROM_ID(unknown) \
+        ((g_fdsprocess == nullptr) ? \
+                 (unknown) : \
+                 (service_id_to_name.find(g_fdsprocess->getProcId()) == service_id_to_name.end()) ? \
+                        ((g_fdsprocess->getProcId().find("bare_am") != std::string::npos) ? AM.c_str() : \
+                         (g_fdsprocess->getProcId().find("DataMgr") != std::string::npos) ? DM.c_str() : \
+                         (g_fdsprocess->getProcId().find("platformd") != std::string::npos) ? PM.c_str() : \
+                         (g_fdsprocess->getProcId().find("StorMgr") != std::string::npos) ? SM.c_str() : \
+                         (g_fdsprocess->getProcId().find("orchMgr") != std::string::npos) ? OM.c_str() : \
+                         (g_fdsprocess->getProcId().find("java") != std::string::npos) ? OM.c_str() : \
+                         (unknown)) : \
+                        service_id_to_name.find(g_fdsprocess->getProcId())->second.c_str())
 
 /* Helper functions to init process globals. Only invoke these if you
  * aren't deriving from fds_process
@@ -203,6 +248,12 @@ class FdsProcess : public boost::noncopyable,
     */
     static void closeAllFDs();
 
+    std::string getProcId() const {
+       return proc_id;
+    }
+
+   static void fds_catch_signal(int sig);
+
  protected:
     // static members/methods
     static void* sig_handler(void* param);
@@ -212,6 +263,7 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_config(int argc, char *argv[],
                const std::string &default_config_path,
                const std::string &base_path);
+    virtual void log_config(const libconfig::Setting& root);
 
     virtual void setup_sig_handler();
     virtual void setup_cntrs_mgr(const std::string &mgr_id);
@@ -219,8 +271,15 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_graphite();
     virtual void setupAtExitHandler();
 
-    /* Signal handler thread */
+    /*
+     * Signal handler thread and its condition variable (and _its_ mutex) to ensure serial access to the signal handler thread state.
+     */
     std::unique_ptr<pthread_t> sig_tid_;
+    static std::condition_variable sig_tid_start_cv_;
+    static std::mutex sig_tid_start_mutex_;
+    static std::condition_variable sig_tid_stop_cv_;
+    static std::mutex sig_tid_stop_mutex_;
+    static bool sig_tid_ready;
 
     /* Process wide config accessor */
     FdsConfigAccessor conf_helper_;

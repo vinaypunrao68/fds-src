@@ -110,7 +110,13 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl,
-                                                          std::bind(&ObjectStorMgr::startResyncRequest, this)));
+                                                          std::bind(&ObjectStorMgr::startResyncRequest, this),
+                                                          std::bind(&ObjectStorMgr::handleDiskChanges, this,
+                                                                    std::placeholders::_1,
+                                                                    std::placeholders::_2,
+                                                                    std::placeholders::_3),
+                                                          std::bind(&ObjectStorMgr::changeTokensState, this,
+                                                                    std::placeholders::_1)));
 
     static Module *smDepMods[] = {
         objectStore.get(),
@@ -121,12 +127,25 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     return 0;
 }
 
+void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
+    if (dltTokens.size()) {
+        objStorMgr->migrationMgr->changeDltTokensState(dltTokens, false);
+    }
+}
+
+void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+                                      const diskio::DataTier& tierType,
+                                      const TokenDiskIdPairSet& tokenDiskPairs) {
+    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+}
+
 void ObjectStorMgr::startResyncRequest() {
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
         const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
         objStorMgr->migrationMgr->startResync(curDlt,
                                               getUuid(),
-                                              curDlt->getNumBitsForToken());
+                                              curDlt->getNumBitsForToken(),
+                                              std::bind(&ObjectStorMgr::startResyncRequest, this));
     }
 }
 
@@ -400,7 +419,8 @@ Error ObjectStorMgr::handleDltUpdate() {
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         getUuid(),
-                                                        curDlt->getNumBitsForToken());
+                                                        curDlt->getNumBitsForToken(),
+                                                        std::bind(&ObjectStorMgr::startResyncRequest, this));
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->notifyDltUpdate(curDlt,

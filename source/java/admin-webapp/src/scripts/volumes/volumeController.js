@@ -155,6 +155,8 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     $scope.$on( 'fds::authentication_success', function(){
         $timeout( $state.reload );
     });
+    
+    
 
     $scope.$watch( function(){ return $volume_api.volumes; }, function(){
 

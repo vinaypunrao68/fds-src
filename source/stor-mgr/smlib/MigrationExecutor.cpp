@@ -121,7 +121,9 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         if (!std::atomic_compare_exchange_strong(&state,
                                                  &expectState,
                                                  ME_FIRST_PHASE_APPLYING_DELTA)) {
-            LOGNOTIFY << "Non-ME_INIT state " << state;
+            LOGNOTIFY << "Non-ME_INIT state " << state << " Executor " << std::hex
+                      << executorId << ", source SM " << sourceSmUuid.uuid_get_val()
+                      << std::dec << ", SM token " << smTokenId;
 
             // Since the state transition failed, stop tracking this IO.
             trackIOReqs.finishTrackIOReqs();
@@ -133,7 +135,9 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         if (!std::atomic_compare_exchange_strong(&state,
                                                  &expectState,
                                                  ME_SECOND_PHASE_APPLYING_DELTA)) {
-            LOGNOTIFY << "Non-ME_SECOND_PHASE_APPLYING_DELTA state " << state;
+            LOGNOTIFY << "Non-ME_SECOND_PHASE_APPLYING_DELTA state " << state
+                      << " Executor " << std::hex << executorId << ", source SM "
+                      << sourceSmUuid.uuid_get_val() << std::dec << ", SM token " << smTokenId;
 
             // Since the state transition failed, stop tracking this IO.
             trackIOReqs.finishTrackIOReqs();
@@ -236,8 +240,9 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     retryDltTokens.clear();
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " sent rebalance initial set msgs to source SM"
-               << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+               << " sent rebalance initial set msgs to source SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+               << ", SM token " << smTokenId;
 
     // Completed this IO request.  Stop tracking this IO.
     trackIOReqs.finishTrackIOReqs();
@@ -264,7 +269,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     }
 
     LOGMIGRATE << "startObjectRebalance - Executor " << std::hex << executorId << std::dec
-               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId;
+               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
+               << " SM token " << smTokenId;
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -312,7 +318,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         msg->lastFilterSet = (seqId < dltTokens.size()) ? false : true;
         msg->onePhaseMigration = onePhaseMigration;
         LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                   << "Filter Set Msg: token=" << dltTok << ", seqNum="
+                   << "Filter Set Msg: DLT token=" << dltTok << ", seqNum="
                    << msg->seqNum << ", last=" << msg->lastFilterSet;
         perTokenMsgs[dltTok] = msg;
     }
@@ -371,6 +377,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         fds_panic("Unexpected migration executor state!");
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " for SM token " << smTokenId
                << " ME_FIRST_PHASE_REBALANCE_START --> " << nextState;
 
     // send rebalance set of objects to source SM
@@ -384,7 +391,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                    << " sending rebalance initial set for DLT token "
                    << tok << " set size " << perTokenMsgs[tok]->objectsToFilter.size()
                    << " to source SM "
-                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+                   << " for SM token " << smTokenId;
         try {
             auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
             asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
@@ -420,7 +428,8 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM"
-               << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec
+               << " for SM token " << smTokenId;
 
     // Completed this IO request.  Stop tracking this IO.
     trackIOReqs.finishTrackIOReqs();
@@ -432,11 +441,17 @@ void
 MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                                                 uint64_t seqId,
                                                 EPSvcRequest* req,
-                                                const Error& error,
+                                                const Error& respError,
                                                 boost::shared_ptr<std::string> payload)
 {
+    Error error(respError);
+    fiu_do_on("sm.all.filterset.resp.network.error",
+              LOGDEBUG << "fault sm.all.filterset.resp.network.error"; \
+              error = ERR_SVC_REQUEST_INVOCATION;);
+
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
              << std::hex << executorId << std::dec << " DLT token " << dltToken
+             << " SM token " << smTokenId
              << " " << error;
 
     // Completed this IO request.  Stop tracking this IO.
@@ -468,6 +483,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
             case ERR_SM_RESYNC_SOURCE_DECLINE:
                 // SM declined to be a source for DLT token
                 LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                           << " (SM token " << smTokenId << ")"
                            << " ; ok will stop resync for this dlt token, executor "
                            << std::hex << executorId << std::dec;
                 dltTokens.erase(dltToken);
@@ -487,7 +503,8 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 if (dltTokens.size() == 0) {
                     // resync was declined for all DLT tokens of this executor, we are done
                     LOGMIGRATE << "Resync was declined for all DLT tokens for executor "
-                               << std::hex << executorId << std::dec;
+                               << std::hex << executorId << std::dec
+                               << " SM token " << smTokenId;
                     handleMigrationRoundDone(ERR_OK);
                 }
                 break;
@@ -551,6 +568,7 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
 
     LOGMIGRATE << "Sync Delta Object Set: " << deltaSet->objectToPropagate.size()
                << " objects, executor ID=" << std::hex << deltaSet->executorID << std::dec
+               << " SM token " << smTokenId
                << " seqNum=" << deltaSet->seqNum
                << " lastSet=" << deltaSet->lastDeltaSet
                << " first rebalance round=" << (curState == ME_FIRST_PHASE_APPLYING_DELTA);
@@ -567,9 +585,9 @@ MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& d
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << std::hex << executorId << std::dec;
-	    trackIOReqs.finishTrackIOReqs();
+            trackIOReqs.finishTrackIOReqs();
             handleMigrationRoundDone(err);
-	    return ERR_OK;
+            return ERR_OK;
         }
 
         // Empty delta set, so no need to track this IO.
@@ -652,6 +670,10 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
 
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                       req->lastSet,
+                                       req->qosSeqNum,
+                                       req->qosLastSet);
         abortMigrationCb(executorId, smTokenId);
         return;
     }
@@ -659,10 +681,13 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // beta2: if error happened, stop migration
     if (!error.ok()) {
         LOGERROR << "Failed to apply a set of objects " << error;
-        handleMigrationRoundDone(error);
-
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
+        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
+                                       req->lastSet,
+                                       req->qosSeqNum,
+                                       req->qosLastSet);
+        handleMigrationRoundDone(error);
         return;
     }
 
@@ -712,7 +737,8 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // just one message containing executor ID
     LOGMIGRATE << "Sending request for second delta set to source SM "
                << std::hex << sourceSmUuid.uuid_get_val()
-               << " Executor ID " << executorId << std::dec;
+               << " Executor ID " << executorId << std::dec
+               << " SM token " << smTokenId;
 
     // Reset sequence number for the second phase delta set.
     seqNumDeltaSet.resetDoubleSeqNum();
@@ -738,6 +764,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
         }
     }
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " SM token " << smTokenId
                << " ME_SECOND_PHASE_REBALANCE_START --> ME_SECOND_PHASE_APPLYING_DELTA state";
 
     // send msg to the source SM to start second phase of the delta set.
@@ -766,7 +793,8 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                                                boost::shared_ptr<std::string> payload)
 {
     LOGDEBUG << "Received second rebalance delta response for executor "
-             << std::hex << executorId << std::dec << " " << error;
+             << std::hex << executorId << std::dec
+             << " SM token " << smTokenId << " " << error;
 
     /**
      * If abort is pending for this Executor. Exit.
@@ -802,7 +830,8 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
 void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     fds_uint32_t roundNum = 2;
-    LOGMIGRATE << "handleMigrationRoundDone " << error;
+    LOGMIGRATE << "handleMigrationRoundDone for executor " << std::hex << executorId
+               << std::hex << " (SM token " << smTokenId << ") " << error;
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
@@ -890,14 +919,15 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
-    LOGMIGRATE << "Received finish resync response from client for executor "
-               << std::hex << executorId << std::dec << " " << error;
+    LOGMIGRATE << "Received finish resync response from client for executor " << std::hex
+               << executorId << std::dec << " SM token " << smTokenId << " " << error;
 
     // here we just print an error if that happened... but nothing
     // we can do on destination since we already either finished sync or
     // aborted with error
     if (!error.ok()) {
-        LOGWARN << "Received error for finish resync from client " << error
+        LOGWARN << "Received error for finish resync from client "  << std::hex
+                << executorId << std::dec << " SM token " << smTokenId << " " << error
                 << ", not changing any state, source should be able to deal with it";
     }
 }

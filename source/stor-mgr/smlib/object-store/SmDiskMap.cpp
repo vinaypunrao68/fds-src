@@ -68,6 +68,7 @@ SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) 
     /**
      * TODO(Gurpreet) Make access to maps concurrency-safe.
      */
+    superblock->recomputeTokensForLostDisk(diskId, hdd_ids, ssd_ids);
     disk_map.erase(diskId);
     diskDevMap.erase(diskId);
     switch (tier) {
@@ -82,7 +83,6 @@ SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) 
             break;
     }
 
-    superblock->recomputeTokensForLostDisk(hdd_ids, ssd_ids);
     /**
      * TODO(Gurpreet): Handle capacity related changes(if required)
      * due to the failed disk.
@@ -249,6 +249,7 @@ void SmDiskMap::getDiskMap() {
         fds_verify(disk_map.count(idx) == 0);
         disk_map[idx] = path;
         diskDevMap[idx] = dev;
+        diskState[idx] = DISK_ONLINE;
     }
     if (disk_map.size() == 0) {
         LOGCRITICAL << "Can't find any devices!";

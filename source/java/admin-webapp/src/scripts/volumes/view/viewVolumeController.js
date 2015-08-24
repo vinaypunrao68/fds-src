@@ -62,7 +62,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.capacityTimeChoice = $scope.timeRanges[0];
     
     $scope.setCapacityTooltipText = function( data, i, j ){
-        if ( i == 0 ){
+        if ( data.type === 'PBYTES' ){
             return $filter( 'translate' )( 'status.desc_dedup_capacity' );
         }
         else {
@@ -445,12 +445,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return;
         }
         
+        $scope.thisVolume = $scope.volumeVars.selectedVolume;
+        
         $volume_api.getSnapshots( $scope.volumeVars.selectedVolume.uid, function( data ){ 
             $scope.snapshots = data;
             initTimeline();
         });
-
-        $scope.thisVolume = $scope.volumeVars.selectedVolume;
 
 //        $scope.dataConnector = $scope.thisVolume.data_connector;
 

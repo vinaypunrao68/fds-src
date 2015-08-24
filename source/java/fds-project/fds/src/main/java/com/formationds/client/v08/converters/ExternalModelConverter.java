@@ -6,20 +6,13 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
-import com.formationds.client.v08.model.Domain;
 import com.formationds.client.v08.model.Domain.DomainState;
-import com.formationds.client.v08.model.Snapshot;
-import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
-import com.formationds.client.v08.model.Tenant;
-import com.formationds.client.v08.model.User;
-import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.*;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -42,13 +35,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
@@ -64,7 +55,9 @@ public class ExternalModelConverter {
         Long extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
-        return new Domain( extId, extName, site, DomainState.UP );
+        Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
+
+        return externalDomain;
     }
 
     public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
@@ -97,7 +90,9 @@ public class ExternalModelConverter {
             externalTenant = convertToExternalTenant( tenant.get() );
         }
 
-        return new User( extId, extName, roleId, externalTenant );
+        User externalUser = new User( extId, extName, roleId, externalTenant );
+
+        return externalUser;
     }
 
     public static com.formationds.apis.User convertToInternalUser( User externalUser ) {
@@ -121,7 +116,8 @@ public class ExternalModelConverter {
         Long id = internalTenant.getId();
         String name = internalTenant.getIdentifier();
 
-        return new Tenant( id, name );
+        Tenant externalTenant = new Tenant( id, name );
+        return externalTenant;
     }
 
     public static com.formationds.apis.Tenant convertToInternalTenant( Tenant externalTenant ) {
@@ -175,8 +171,8 @@ public class ExternalModelConverter {
 
     public static VolumeState convertToExternalVolumeState( ResourceState internalState ) {
 
-        return VolumeState.valueOf( internalState.name() );
-
+        VolumeState state = VolumeState.valueOf( internalState.name() );
+        return state;
     }
 
     public static ResourceState convertToInternalVolumeState( VolumeState externalState ) {
@@ -713,9 +709,7 @@ public class ExternalModelConverter {
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
         MetricQueryCriteria query = new MetricQueryCriteria();
-        DateRange range = new DateRange();
-        range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime()) ) );
-        range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+        DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
         query.setRange( range );

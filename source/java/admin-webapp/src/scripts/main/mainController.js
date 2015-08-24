@@ -80,7 +80,7 @@ angular.module( 'main' ).controller( 'mainController', ['$scope', '$authenticati
 
         item.selected = true;
 
-        $state.transitionTo( item.link, item.data );
+        $state.transitionTo( item.link, item.data, {reload: true} );
     };
 
     $scope.login = function( event ){

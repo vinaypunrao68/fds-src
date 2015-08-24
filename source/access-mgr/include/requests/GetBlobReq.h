@@ -13,7 +13,7 @@
 namespace fds
 {
 
-struct GetBlobReq: public AmRequest {
+struct GetBlobReq: public AmMultiReq {
     fds_bool_t get_metadata;
 
     fds_bool_t metadata_cached;
@@ -32,29 +32,6 @@ struct GetBlobReq: public AmRequest {
                       fds_uint64_t _data_len);
 
     ~GetBlobReq() override = default;
-
-    void setResponseCount(uint16_t const cnt) {
-        resp_acks = cnt;
-    }
-
-    void notifyResponse(const Error &e) {
-        size_t acks_left = 0;
-        {
-            std::lock_guard<std::mutex> g(resp_lock);
-            op_err = e.ok() ? op_err : e;
-            acks_left = --resp_acks;
-        }
-        if (0 == acks_left) {
-            // Call back to processing layer
-            proc_cb(op_err);
-        }
-    }
-
- private:
-    /* ack cnt for responses, decremented when response from SM and DM come back */
-    std::mutex resp_lock;
-    size_t resp_acks;
-    Error op_err {ERR_OK};
 };
 
 GetBlobReq::GetBlobReq(fds_volid_t _volid,
@@ -63,8 +40,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        CallbackPtr cb,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len)
-    : AmRequest(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
-      get_metadata(false), metadata_cached(false), resp_acks(0)
+    : AmMultiReq(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
+      get_metadata(false), metadata_cached(false)
 {
     qos_perf_ctx.type = PerfEventType::AM_GET_QOS;
     hash_perf_ctx.type = PerfEventType::AM_GET_HASH;

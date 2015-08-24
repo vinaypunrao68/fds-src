@@ -1426,6 +1426,9 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             DataPlacement *dp = om->om_dataplace_mod();
             VolumePlacement* vp = om->om_volplace_mod();
             dp->commitDlt( true );
+            LOGNOTIFY << "OM deployed DLT with "
+                      << deployed_sm_services.size() << " nodes";
+
             vp->commitDMT( true );
                         
             spoofRegisterSvcs( pmSvcs );
@@ -1896,7 +1899,9 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
             svc.incarnationNo = util::getTimeStampSeconds();
+            svc.svc_status = fpi::SVC_STATUS_ACTIVE;
             spoofed.push_back( svc );
+            configDB->updateSvcMap( svc );
         }
         else 
         {

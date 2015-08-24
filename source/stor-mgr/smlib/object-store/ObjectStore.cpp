@@ -37,16 +37,16 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataProp
 ObjectStore::ObjectStore(const std::string &modName,
                          SmIoReqHandler *data_store,
                          StorMgrVolumeTable* volTbl,
-                         StartResyncFnObj fn)
+                         StartResyncFnObj fn,
+                         DiskChangeFnObj dcFn,
+                         TokenOfflineFnObj tokFn)
         : Module(modName.c_str()),
           volumeTbl(volTbl),
           requestResyncFn(fn),
+          changeTokensStateFn(tokFn),
           conf_verify_data(true),
           diskMap(new SmDiskMap("SM Disk Map Module",
-                                std::bind(&ObjectStore::handleDiskChanges,
-                                          this,
-                                          std::placeholders::_1,
-                                          std::placeholders::_2))),
+                                std::move(dcFn))),
           dataStore(new ObjectDataStore("SM Object Data Storage",
                                         data_store,
                                         std::bind(&ObjectStore::updateMediaTrackers,
@@ -228,9 +228,18 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    if (diskMap->isDiskOffline(diskId)) {
+        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        return ERR_OK;
+    }
+    diskMap->makeDiskOffline(diskId);
+
+    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
+    if (changeTokensStateFn) {
+        changeTokensStateFn(lostTokens);
+    }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
-        if ((diskMap->getTotalDisks(diskio::diskTier) > 1) &&
-            (diskMap->getTotalDisks(diskio::flashTier) > 1)) {
+        if (diskMap->getTotalDisks(tier) > 1) {
             diskMap->removeDiskAndRecompute(diskId, tier);
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
@@ -244,10 +253,9 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
             return ERR_SM_NO_DISK;
         }
     }
-    SmTokenSet lostTokens = diskMap->getSmTokens(diskId);
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores." << err;
+        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -488,7 +496,7 @@ ObjectStore::putObject(fds_volid_t volId,
         //
         // In any case, write out the metadata. And write out ObjData if data physically doesn't exist.
         if (updatedMeta->isObjReconcileRequired()) {
-            updatedMeta->reconcilePutObjMetaData(objId, volId);
+            updatedMeta->reconcilePutObjMetaData(objId, objData->size(), volId);
         }
 
         PerfTracer::incr(PerfEventType::SM_PUT_DUPLICATE_OBJ, volId);
@@ -1188,8 +1196,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
                         << " returning err=" << ERR_SM_DUP_OBJECT_CORRUPT;
             return ERR_SM_DUP_OBJECT_CORRUPT;
         }
-
-	isDataPhysicallyExist = objMeta->dataPhysicallyExists();
+        isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
         // if we got data with this message, check if it matches data stored on this SM
         if ((msg.objectData.size() != 0) &&
@@ -1381,7 +1388,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
     // note that we are not updating assoc entry as with datapath put
     // we are copying assoc entries from the msg and also copying ref count
 
-    if (false == metadataAlreadyReconciled) {
+    if (false == metadataAlreadyReconciled || err == ERR_DUPLICATE) {
         err = updatedMeta->updateFromRebalanceDelta(msg);
         if (!err.ok()) {
             LOGCRITICAL << "Failed to update metadata from delta from source SM " << err;
@@ -1486,8 +1493,8 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
         (error == ERR_DISK_READ_FAILED) ||
         (error == ERR_NO_BYTES_READ)) {
         DiskId diskId = diskMap->getDiskId(smTokId, tier);
-        LOGDEBUG << "Feeding IO failed event for disk " << diskId
-                 << " due to error " << error;
+        LOGDEBUG << "Registering IO failed event for disk " << diskId
+                 << " due to " << error;
         if (tier == diskio::diskTier) {
             objStoreDiskMediaTracker.feed_event(ERR_DISK_WRITE_FAILED,
                                                 diskId);
@@ -1515,34 +1522,31 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
  *                    done.
  */
 void
-ObjectStore::handleDiskChanges(const diskio::DataTier& tierType,
+ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
+                               const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
-    if (!diskMap->isAllDisksSSD()) {
-        switch (tierType) {
-            case diskio::diskTier:
-                if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
-                    LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-                    /**
-                     * Delete persisted levelDB for given SM Tokens.
-                     */
-                    for (auto& tokenPair: tokenDiskPairs) {
-                        LOGNOTIFY << tokenPair.first;
-                        metaStore->deleteMetadataDb(diskMap->getDiskPath(tokenPair.second),
-                                                    tokenPair.first);
-                    }
-                }
-                break;
-            case diskio::flashTier:
-                LOGNOTIFY << "Close and delete token files for smTokens ";
-                for (auto& tokenPair: tokenDiskPairs) {
-                    LOGNOTIFY << tokenPair.first;
-                    dataStore->deleteObjectDataFile(diskMap->getDiskPath(tokenPair.second), tokenPair.first, tokenPair.second);
-                }
-                break;
-            default:
-                fds_panic("Unidentified disk type");
-                LOGWARN << "Unidentified disk type removed. No disk failure handling done";
-        }
+    SmTokenSet lostTokens;
+    LOGNOTIFY << "Tokens to be redistributed";
+
+    diskMap->makeDiskOffline(removedDiskId);
+
+    for (auto& tokenPair: tokenDiskPairs) {
+        LOGNOTIFY << tokenPair.first;
+        lostTokens.insert(tokenPair.first);
+    }
+
+    if (metaStore->isUp()) {
+        /**
+         * Delete in-memory and persisted levelDB files(if exists)
+         * for given SM Tokens.
+         */
+        LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
+        metaStore->closeAndDeleteMetadataDbs(lostTokens);
+    }
+
+    if (dataStore->isUp()) {
+        LOGNOTIFY << "Close and delete token files for smTokens ";
+        dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
     }
 }
 
