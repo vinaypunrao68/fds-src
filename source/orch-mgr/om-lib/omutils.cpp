@@ -174,6 +174,19 @@ namespace fds
 
     }
 
+    fpi::SvcInfo getNewSvcInfo
+        (
+        FDS_ProtocolInterface::FDSP_MgrIdType type
+        )
+    {
+        LOGDEBUG << "Creating new SvcInfo of type:" << type;
+        fpi::SvcInfo* info = new fpi::SvcInfo();
+        info->__set_svc_type(type);
+        info->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+        return *info;
+
+    }
+
     void getServicesToStart
         (
         bool start_sm,
@@ -191,31 +204,63 @@ namespace fds
             // need to set up new svcInfos
 
             if (configDB->getNodeServices(nodeUuid, services)) {
-                LOGDEBUG << "Services present in configDB for node:"
-                         << std::hex << nodeUuid.uuid_get_val()
-                         << std::dec;
-
                 fpi::SvcInfo svcInfo;
                 fpi::SvcUuid svcUuid;
-                if ( start_am && (services.am.uuid_get_val() != 0) ) {
-                    svcUuid.svc_uuid = services.am.uuid_get_val();
-                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                    if (ret) {
-                        svcInfoList.push_back(svcInfo);
+
+                if ( start_am ) {
+                    if (services.am.uuid_get_val() != 0) {
+                        LOGDEBUG << "Service AM present in configDB for node:"
+                                 << std::hex << nodeUuid.uuid_get_val()
+                                 << std::dec;
+
+                        svcUuid.svc_uuid = services.am.uuid_get_val();
+                        bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                        if (ret) {
+                            svcInfoList.push_back(svcInfo);
+                        } else {
+                            LOGERROR <<"Error retrieving known AM svcInfo for node:"
+                                     << std::hex << nodeUuid.uuid_get_val() << std::dec;
+                        }
+                    } else {
+                        // It could be that other services are present but not this
+                        // one. So add new.
+                        svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_ACCESS_MGR));
                     }
                 }
-                if ( start_sm && (services.sm.uuid_get_val() != 0) ) {
-                    svcUuid.svc_uuid = services.sm.uuid_get_val();
-                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                    if (ret) {
-                        svcInfoList.push_back(svcInfo);
+                if ( start_sm ) {
+                    if (services.sm.uuid_get_val() != 0) {
+                        LOGDEBUG << "Service SM present in configDB for node:"
+                                 << std::hex << nodeUuid.uuid_get_val()
+                                 << std::dec;
+
+                        svcUuid.svc_uuid = services.sm.uuid_get_val();
+                        bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                        if (ret) {
+                            svcInfoList.push_back(svcInfo);
+                        } else {
+                            LOGERROR <<"Error retrieving known SM svcInfo for node:"
+                                     << std::hex << nodeUuid.uuid_get_val() << std::dec;
+                        }
+                    } else {
+                        svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_STOR_MGR));
                     }
                 }
-                if ( start_dm && (services.dm.uuid_get_val() != 0) ) {
-                    svcUuid.svc_uuid = services.dm.uuid_get_val();
-                    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
-                    if (ret) {
-                        svcInfoList.push_back(svcInfo);
+                if ( start_dm ) {
+                    if (services.dm.uuid_get_val() != 0) {
+                        LOGDEBUG << "Service DM present in configDB for node:"
+                                 << std::hex << nodeUuid.uuid_get_val()
+                                 << std::dec;
+
+                        svcUuid.svc_uuid = services.dm.uuid_get_val();
+                        bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
+                        if (ret) {
+                            svcInfoList.push_back(svcInfo);
+                        } else {
+                            LOGERROR <<"Error retrieving known DM svcInfo for node:"
+                                     << std::hex << nodeUuid.uuid_get_val() << std::dec;
+                        }
+                    } else {
+                        svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_DATA_MGR));
                     }
                 }
             } else {
@@ -223,25 +268,14 @@ namespace fds
                 * We interpret no Services information in ConfigDB,
                 * this must be for a new Node.
                 */
-
-                LOGDEBUG << "No svcInfos in configDB, creating new";
                 if (start_am) {
-                    fpi::SvcInfo* amInfo = new fpi::SvcInfo();
-                    amInfo->__set_svc_type(fpi::FDSP_ACCESS_MGR);
-                    amInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                    svcInfoList.push_back(*amInfo);
+                    svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_ACCESS_MGR));
                 }
                 if (start_dm) {
-                    fpi::SvcInfo* dmInfo = new fpi::SvcInfo();
-                    dmInfo->__set_svc_type(fpi::FDSP_DATA_MGR);
-                    dmInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                    svcInfoList.push_back(*dmInfo);
+                    svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_DATA_MGR));
                 }
                 if (start_sm) {
-                    fpi::SvcInfo* smInfo = new fpi::SvcInfo();
-                    smInfo->__set_svc_type(fpi::FDSP_STOR_MGR);
-                    smInfo->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
-                    svcInfoList.push_back(*smInfo);
+                    svcInfoList.push_back(getNewSvcInfo(fpi::FDSP_STOR_MGR));
                 }
             }
         }

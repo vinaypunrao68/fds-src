@@ -31,6 +31,7 @@ namespace fds
     std::vector<fpi::SvcInfo>::iterator isServicePresent(
                                           std::vector<fpi::SvcInfo>& svcInfos,
                                           FDS_ProtocolInterface::FDSP_MgrIdType type);
+    fpi::SvcInfo getNewSvcInfo(FDS_ProtocolInterface::FDSP_MgrIdType type);
     void getServicesToStart(bool start_sm, bool start_dm,
                             bool start_am,kvstore::ConfigDB* configDB,
                             NodeUuid nodeUuid,

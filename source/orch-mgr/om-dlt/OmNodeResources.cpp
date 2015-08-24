@@ -2507,7 +2507,6 @@ OM_NodeContainer::om_cond_bcast_start_services(fds_bool_t start_sm,
                                                fds_bool_t start_am)
 {
     TRACEFUNC;
-    LOGDEBUG << "Entered om_cond_bcast_start_services";
     dc_pm_nodes->agent_foreach<fds_bool_t, fds_bool_t, fds_bool_t>
             (start_sm, start_dm, start_am, om_prepare_services_start);
 }
