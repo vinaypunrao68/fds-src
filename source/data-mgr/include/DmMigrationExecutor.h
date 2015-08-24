@@ -69,11 +69,6 @@ class DmMigrationExecutor {
     Error processIncomingDeltaSetCb();
 
     /**
-     * Notification that all the static migration operations have been applied
-     */
-    void notifyStaticMigrationComplete();
-
-    /**
     * @brief Processes forward commit messages.  If the static migration is in progress
     * these messages are buffered.  Otherwise they are sent to QOS controller immediatel
     *
@@ -165,6 +160,11 @@ class DmMigrationExecutor {
     void sequenceTimeoutHandler();
 
     /**
+     * Notification that all the static migration operations have been applied
+     */
+    void testStaticMigrationComplete();
+
+    /**
      * Mutex for blob offset list and blob descriptor list coordination
      */
     std::mutex blobDescListMutex;
@@ -196,6 +196,8 @@ class DmMigrationExecutor {
     std::list<DmIoFwdCat*>                          forwardedMsgs;
     /* Lock to synchronize access to forwardedMsgs and migrationProgress */
     fds_mutex                                       progressLock;
+
+    fds_bool_t txStateIsMigrated;
 
 };  // DmMigrationExecutor
 
