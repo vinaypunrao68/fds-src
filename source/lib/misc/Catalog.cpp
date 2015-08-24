@@ -191,7 +191,7 @@ Catalog::DbSnap(const std::string& fileName) {
     fds_assert(env);
 
     // FIXME: We should be allowing through EEXIST and failing all others, but there's no way to get
-    //        the error code.
+    //        the error code. All we can see is that there was an I/O error.
     env->CreateDir(fileName);
 
     CopyDetails * details = new CopyDetails(backing_file, fileName);

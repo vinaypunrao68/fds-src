@@ -10,6 +10,8 @@
 #include "ObjectExpungeKey.h"
 
 using std::string;
+using std::to_string;
+using std::vector;
 
 namespace fds {
 
@@ -41,6 +43,16 @@ fds_volid_t ObjectExpungeKey::getVolumeId () const
 string ObjectExpungeKey::getClassName () const
 {
     return "ObjectExpungeKey";
+}
+
+vector<string> ObjectExpungeKey::toStringMembers () const
+{
+    auto retval = CatalogKey::toStringMembers();
+
+    retval.emplace_back("volumeId: " + to_string(getVolumeId().get()));
+    retval.emplace_back("objectId: " + getObjectId().ToHex());
+
+    return retval;
 }
 
 }  // namespace fds

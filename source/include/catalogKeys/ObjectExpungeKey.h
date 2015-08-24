@@ -30,6 +30,8 @@ protected:
 
     std::string getClassName () const override;
 
+    std::vector<std::string> toStringMembers () const override;
+
 };
 
 }  // namespace fds

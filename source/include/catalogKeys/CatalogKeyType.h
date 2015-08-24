@@ -15,7 +15,7 @@ enum class CatalogKeyType : unsigned char
     ERROR = 0,
 
     ///
-    /// FIXME: I don't know.
+    /// Mark times of leveldb operations.
     ///
     JOURNAL_TIMESTAMP = 1,
 
@@ -30,7 +30,7 @@ enum class CatalogKeyType : unsigned char
     BLOB_METADATA = 3,
 
     ///
-    /// Objects the blob's data consists of.
+    /// Objects in a blob.
     ///
     BLOB_OBJECTS = 4,
 
@@ -41,6 +41,7 @@ enum class CatalogKeyType : unsigned char
 
     ///
     /// Object ranking for SSD.
+    ///
     OBJECT_RANK = 6,
 
     ///

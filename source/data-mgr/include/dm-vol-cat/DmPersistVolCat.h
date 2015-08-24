@@ -9,11 +9,11 @@
 #include <string>
 #include <vector>
 
-#include "../../../include/catalogKeys/JournalTimestampKey.h"
 // Internal includes.
-#include "fds_uuid.h"
+#include "catalogKeys/JournalTimestampKey.h"
 #include "lib/Catalog.h"
 #include "DmBlobTypes.h"
+#include "fds_uuid.h"
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \

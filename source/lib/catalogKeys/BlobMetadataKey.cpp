@@ -10,6 +10,7 @@
 #include "BlobMetadataKey.h"
 
 using std::string;
+using std::vector;
 
 namespace fds {
 
@@ -31,6 +32,15 @@ string BlobMetadataKey::getBlobName () const
 string BlobMetadataKey::getClassName () const
 {
     return "BlobMetadataKey";
+}
+
+vector<string> BlobMetadataKey::toStringMembers () const
+{
+    auto retval = CatalogKey::toStringMembers();
+
+    retval.emplace_back("blobName: " + getBlobName());
+
+    return retval;
 }
 
 }  // namespace fds

@@ -10,6 +10,7 @@
 #include "ObjectRankKey.h"
 
 using std::string;
+using std::vector;
 
 namespace fds {
 
@@ -33,6 +34,15 @@ ObjectID ObjectRankKey::getObjectId () const
 string ObjectRankKey::getClassName () const
 {
     return "ObjectRankKey";
+}
+
+vector<string> ObjectRankKey::toStringMembers () const
+{
+    auto retval = CatalogKey::toStringMembers();
+
+    retval.emplace_back("objectId: " + getObjectId().ToHex());
+
+    return retval;
 }
 
 }  // namespace fds
