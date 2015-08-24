@@ -3,6 +3,7 @@
  */
 
 // Standard includes.
+#include <catalogKeys/BlobObjectKey.h>
 #include <utility>
 #include <string>
 #include <vector>
@@ -12,7 +13,6 @@
 #include "fds_process.h"
 #include "dm-tvc/CommitLog.h"
 #include "dm-vol-cat/DmPersistVolCat.h"
-#include "dm-vol-cat/BlobObjectKey.h"
 
 namespace fds {
 

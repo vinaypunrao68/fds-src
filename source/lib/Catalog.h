@@ -10,8 +10,8 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "../include/catalogKeys/CatalogKey.h"
 // Internal includes.
-#include "data-mgr/include/dm-vol-cat/CatalogKey.h"
 #include "fds_types.h"
 #include "fds_error.h"
 #include "leveldb/db.h"

@@ -3,7 +3,7 @@
  */
 
 // Internal includes.
-#include "dm-vol-cat/ObjectExpungeKey.h"
+#include <catalogKeys/ObjectExpungeKey.h>
 #include "fdsp/sm_api_types.h"
 #include "net/net_utils.h"
 #include "util/stringutils.h"

@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "../../../include/catalogKeys/JournalTimestampKey.h"
 // Internal includes.
-#include "JournalTimestampKey.h"
 #include "fds_uuid.h"
 #include "lib/Catalog.h"
 #include "DmBlobTypes.h"

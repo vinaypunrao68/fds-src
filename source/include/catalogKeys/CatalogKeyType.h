@@ -2,8 +2,8 @@
 /// @copyright 2015 Formation Data Systems, Inc.
 ///
 
-#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_CATALOGKEYTYPE_H_
-#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_CATALOGKEYTYPE_H_
+#ifndef SOURCE_INCLUDE_CATALOGKEYS_CATALOGKEYTYPE_H_
+#define SOURCE_INCLUDE_CATALOGKEYS_CATALOGKEYTYPE_H_
 
 namespace fds {
 
@@ -40,6 +40,10 @@ enum class CatalogKeyType : unsigned char
     OBJECT_EXPUNGE = 5,
 
     ///
+    /// Object ranking for SSD.
+    OBJECT_RANK = 6,
+
+    ///
     /// Reserved for future use.
     ///
     EXTENDED = 255
@@ -47,4 +51,4 @@ enum class CatalogKeyType : unsigned char
 
 }  // namespace fds
 
-#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_CATALOGKEYTYPE_H_
+#endif  // SOURCE_INCLUDE_CATALOGKEYS_CATALOGKEYTYPE_H_

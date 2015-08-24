@@ -2,17 +2,23 @@
 /// @copyright 2015 Formation Data Systems, Inc.
 ///
 
-#ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_BLOBOBJECTKEY_H_
-#define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_BLOBOBJECTKEY_H_
+#ifndef SOURCE_INCLUDE_CATALOGKEYS_BLOBOBJECTKEY_H_
+#define SOURCE_INCLUDE_CATALOGKEYS_BLOBOBJECTKEY_H_
 
 // Standard includes.
 #include <string>
 #include <vector>
 
 // Internal includes.
-#include "leveldb/db.h"
 #include "CatalogKey.h"
 #include "fds_types.h"
+
+// Forward declarations.
+namespace leveldb {
+
+class Slice;
+
+}  // namespace leveldb
 
 namespace fds {
 
@@ -46,4 +52,4 @@ protected:
 
 }  // namespace fds
 
-#endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_BLOBOBJECTKEY_H_
+#endif  // SOURCE_INCLUDE_CATALOGKEYS_BLOBOBJECTKEY_H_

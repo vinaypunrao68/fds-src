@@ -6,10 +6,10 @@
 #include <string>
 
 // Internal includes.
-#include "dm-vol-cat/CatalogKeyType.h"
+#include "CatalogKeyType.h"
 
 // Class include.
-#include "dm-vol-cat/JournalTimestampKey.h"
+#include "JournalTimestampKey.h"
 
 using std::string;
 

@@ -12,13 +12,14 @@
 #include <sys/stat.h>
 
 // Internal includes.
+#include "catalogKeys/BlobMetadataKey.h"
+#include "catalogKeys/BlobObjectKey.h"
+#include "catalogKeys/CatalogKeyType.h"
+#include "catalogKeys/ObjectExpungeKey.h"
+#include "catalogKeys/ObjectRankKey.h"
 #include "checker/DmChecker.h"
 #include "checker/LeveldbDiffer.h"
-#include "dm-vol-cat/BlobMetadataKey.h"
-#include "dm-vol-cat/BlobObjectKey.h"
-#include "dm-vol-cat/CatalogKeyType.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
-#include "dm-vol-cat/ObjectExpungeKey.h"
 #include "fdsp/ConfigurationService.h"
 #include "net/SvcMgr.h"
 #include "util/stringutils.h"
@@ -151,6 +152,7 @@ struct DmPersistVolDBDiffAdapter : LevelDbDiffAdapter {
         case CatalogKeyType::BLOB_OBJECTS: return BlobObjectKey{ itr->key() }.toString();
         case CatalogKeyType::VOLUME_METADATA: return "VOLUME_METADATA";
         case CatalogKeyType::OBJECT_EXPUNGE: return ObjectExpungeKey{ itr->key() }.toString();
+        case CatalogKeyType::OBJECT_RANK: return ObjectRankKey{ itr->key() }.toString();
         case CatalogKeyType::EXTENDED: throw std::runtime_error("EXTENDED catalog key type found.");
         default:
             throw std::runtime_error("Unrecognized key type: "

@@ -6,14 +6,16 @@
 #include <stdexcept>
 
 // Internal includes.
-#include "dm-vol-cat/BlobMetadataKey.h"
-#include "dm-vol-cat/BlobObjectKey.h"
-#include "dm-vol-cat/CatalogKeyType.h"
-#include "dm-vol-cat/ObjectExpungeKey.h"
+#include "leveldb/db.h"
+#include "BlobMetadataKey.h"
+#include "BlobObjectKey.h"
+#include "CatalogKeyType.h"
+#include "ObjectExpungeKey.h"
+#include "ObjectRankKey.h"
 
 // Class include.
-#include "dm-vol-cat/CatalogKeyComparator.h"
-#include "dm-vol-cat/CatalogKeyComparator.tcc"
+#include "CatalogKeyComparator.h"
+#include "CatalogKeyComparator.tcc"
 
 using std::domain_error;
 using std::invalid_argument;
@@ -37,6 +39,8 @@ int CatalogKeyComparator::Compare (Slice const& lhs, Slice const& rhs) const
     auto keyTypeResult = _compareWithOperators(lhsKeyType, rhsKeyType);
     if (keyTypeResult == 0)
     {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch-enum"
         switch (lhsKeyType)
         {
         case CatalogKeyType::BLOB_METADATA:
@@ -87,13 +91,23 @@ int CatalogKeyComparator::Compare (Slice const& lhs, Slice const& rhs) const
             }
         }
 
+        case CatalogKeyType::OBJECT_RANK:
+        {
+            ObjectRankKey typedLhs { lhs };
+            ObjectRankKey typedRhs { rhs };
+
+            return _compareWithOperators(typedLhs.getObjectId(), typedRhs.getObjectId());
+        }
+
         case CatalogKeyType::VOLUME_METADATA:
             return 0;
 
+        case CatalogKeyType::ERROR:
         default:
             throw domain_error("Key type " + to_string(static_cast<unsigned int>(lhsKeyType))
                                + " is unsupported.");
         }
+#pragma GCC diagnostic pop
     }
     else
     {

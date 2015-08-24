@@ -10,10 +10,10 @@
 #include <vector>
 
 // Internal includes.
+#include "catalogKeys/CatalogKeyComparator.h"
 #include "concurrency/RwLock.h"
 #include "dm-vol-cat/DmPersistVolCat.h"
 #include "lib/Catalog.h"
-#include "CatalogKeyComparator.h"
 #include "fds_config.hpp"
 #include "fds_process.h"
 

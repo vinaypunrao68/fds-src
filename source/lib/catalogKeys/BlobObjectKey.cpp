@@ -8,10 +8,11 @@
 #include <utility>
 
 // Internal includes.
-#include "dm-vol-cat/CatalogKeyType.h"
+#include "leveldb/db.h"
+#include "CatalogKeyType.h"
 
 // Class include.
-#include "dm-vol-cat/BlobObjectKey.h"
+#include "BlobObjectKey.h"
 
 using std::invalid_argument;
 using std::move;

@@ -6,11 +6,12 @@
 #include <utility>
 
 // Internal includes.
+#include "leveldb/db.h"
 #include "util/stringutils.h"
 #include "util/stringutils.tcc"
 
 // Class include.
-#include "dm-vol-cat/CatalogKey.h"
+#include "CatalogKey.h"
 
 using fds::util::join;
 using std::move;
@@ -31,7 +32,7 @@ CatalogKey::operator leveldb::Slice () const
 
 string CatalogKey::toString () const
 {
-    return getClassName() + "(" + join(toStringMembers(), ", ") + ")";
+    return getClassName() + "(" + join<string, vector<string>>(toStringMembers(), ", ") + ")";
 }
 
 CatalogKey::CatalogKey (string&& data) : _data{move(data)}
@@ -63,6 +64,8 @@ vector<string> CatalogKey::toStringMembers () const
 {
     string retval {"CatalogKeyType: "};
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch-enum"
     switch (getKeyType())
     {
     case CatalogKeyType::BLOB_METADATA: retval += "BLOB_METADATA"; break;
@@ -70,10 +73,13 @@ vector<string> CatalogKey::toStringMembers () const
     case CatalogKeyType::EXTENDED: retval += "EXTENDED"; break;
     case CatalogKeyType::JOURNAL_TIMESTAMP: retval += "JOURNAL_TIMESTAMP"; break;
     case CatalogKeyType::OBJECT_EXPUNGE: retval += "OBJECT_EXPUNGE"; break;
+    case CatalogKeyType::OBJECT_RANK: retval += "OBJECT_RANK"; break;
     case CatalogKeyType::VOLUME_METADATA: retval += "VOLUME_METADATA"; break;
+    case CatalogKeyType::ERROR:
     default:
         retval += "<ERROR>";
     }
+#pragma GCC diagnostic pop
 
     return vector<string>{retval};
 }

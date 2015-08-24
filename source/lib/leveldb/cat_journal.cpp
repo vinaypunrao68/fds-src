@@ -8,6 +8,8 @@
 #include <vector>
 
 // Internal includes.
+#include "catalogKeys/CatalogKeyType.h"
+#include "catalogKeys/JournalTimestampKey.h"
 #include "db/dbformat.h"
 #include "db/filename.h"
 #include "db/log_reader.h"
@@ -23,8 +25,6 @@
 #include "port/port.h"
 #include "util/logging.h"
 #include "util/Log.h"
-#include "data-mgr/include/dm-vol-cat/JournalTimestampKey.h"
-#include "data-mgr/include/dm-vol-cat/CatalogKeyType.h"
 
 using namespace fds;  // NOLINT
 using namespace leveldb;  // NOLINT

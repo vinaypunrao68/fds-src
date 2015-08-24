@@ -3,17 +3,17 @@
  */
 
 // Standard includes.
+#include <catalogKeys/BlobMetadataKey.h>
+#include <catalogKeys/BlobObjectKey.h>
+#include <catalogKeys/VolumeMetadataKey.h>
 #include <limits>
 #include <map>
 #include <string>
 #include <vector>
 
 // Internal includes.
-#include "dm-vol-cat/BlobMetadataKey.h"
-#include "dm-vol-cat/BlobObjectKey.h"
-#include "dm-vol-cat/CatalogKeyType.h"
+#include "catalogKeys/CatalogKeyType.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
-#include "dm-vol-cat/VolumeMetadataKey.h"
 #include "leveldb/db.h"
 #include "util/timeutils.h"
 #include "util/path.h"
