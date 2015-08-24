@@ -6,12 +6,14 @@
 
 ORIGINAL_ARGS=("${@}")
 
+echo $ORIGINAL_ARGS > ./om.out
+
 declare -a NEW_ARGS
 for i in "${ORIGINAL_ARGS[@]}"
 do
   case $i in
     --fds-root=*)
-      fds_root="${i#*=}"
+      om_fds_root="${i#*=}"
       # This is passed on manually below, don't pass the original.
       ;;
 
@@ -27,11 +29,16 @@ do
   esac
 done
 
-if [ -z "${fds_root}" ] || [ ! -d "${fds_root}/bin/platformd" ]; then
-    export fds_root=/fds
+# if --fds-root provided set the fds_root env which is used
+# by formation_env
+if [ -z "${om_fds_root}" ]; then
+    fds_root=/fds
+else
+    fds_root=${om_fds_root}
 fi
+export fds_root
 
-echo fds_root: ${fds_root} > ./om.out
+echo fds_root: ${fds_root} >> ./om.out
 
 # load environment settings including:
 # OM_MAIN_CLASS

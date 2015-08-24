@@ -146,9 +146,9 @@ function setupFdsDirs() {
 
     cd ${SOURCEDIR}
     if [ ${UID} -ne 0 ]; then
-        sudo ./dev_make_install.sh ${fds_root}
+        sudo ./dev_make_install.sh ${FDSROOT}
     else
-        ./dev_make_install.sh ${fds_root}
+        ./dev_make_install.sh ${FDSROOT}
     fi
     cd - > /dev/null
 }
@@ -703,6 +703,11 @@ if [[ -e $RUNMODEFILE ]]; then
 fi
 
 # TODO: modify fds script to use same variable names as formation_env  i.e. fds_root -> FDSROOT
+# for now, if fds_root is set via command-line, set fds_root before sourcing formation_env
+echo FDSROOT: $FDSROOT
+[[ ! -z "${FDSROOT}" ]] && export fds_root=${FDSROOT}
+echo fds_root: ${fds_root}
+echo FDSROOT2: $FDSROOT
 source $CONFIG_ETC/formation_env
 
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
