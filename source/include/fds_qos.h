@@ -186,48 +186,26 @@ namespace fds {
         // Quiesce queued IOs on this queue & block any new IOs
         virtual void quiesceIOs(fds_qid_t queue_id)
         {
-            Error err(ERR_OK);
-            if (queue_map.count(queue_id) == 0) {
-                return;
-            }
-            FDS_VolumeQueue *que = queue_map[queue_id];
-            que->quiesceIOs();
+            FDS_VolumeQueue *que = getQueue(queue_id);
+            if (que) {que->quiesceIOs();}
         }
 
         virtual void suspendQueue(fds_qid_t queue_id)
         {
-            if (queue_map.count(queue_id) == 0) {
-                return;
-            }
-            FDS_VolumeQueue *que = queue_map[queue_id];
-            que->suspendIO();
-        }
-
-        virtual void deactivateQueue(fds_qid_t queue_id)
-        {
-            if (queue_map.count(queue_id) == 0) {
-                return;
-            }
-            FDS_VolumeQueue *que = queue_map[queue_id];
-            que->stopDequeue();
+            FDS_VolumeQueue *que = getQueue(queue_id);
+            if (que) {que->suspendIO();}
         }
 
         virtual void resumeQueue(fds_qid_t queue_id)
         {
-            if (queue_map.count(queue_id) == 0) {
-                return;
-            }
-            FDS_VolumeQueue *que = queue_map[queue_id];
-            que->resumeIO();
+            FDS_VolumeQueue *que = getQueue(queue_id);
+            if (que) {que->resumeIO();}
         }
 
         virtual void stopDequeue(fds_qid_t queue_id)
         {
-            if (queue_map.count(queue_id) == 0) {
-                return;
-            }
-            FDS_VolumeQueue *que = queue_map[queue_id];
-            que->stopDequeue();
+            FDS_VolumeQueue *que = getQueue(queue_id);
+            if (que) {que->stopDequeue();}
         }
 
         virtual void setThrottleLevel(float throttle_level)
