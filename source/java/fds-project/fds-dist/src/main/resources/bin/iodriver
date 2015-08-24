@@ -1,12 +1,12 @@
 #!/bin/bash
-
-MY_DIR="$(dirname "${0}")"
-FDS_SRC="${MY_DIR}"/../../..
+export JAVA_HOME=/opt/fds-deps/embedded/jre/
+# MY_DIR="$(dirname "${0}")"
+# FDS_SRC="${MY_DIR}"/../../..
 # FIXME: We should really be getting this from the install.
-JAVA_LIB="${FDS_SRC}"/Build/linux-x86_64.debug/lib/java
+JAVA_LIB=/fds/lib/java
 CLASSPATH="${CLASSPATH}":"${JAVA_LIB}"/\*
 
-java -classpath $CLASSPATH \
+$JAVA_HOME/bin/java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4005 \
      com.formationds.iodriver.Main "${@}" \
      || exit 1
