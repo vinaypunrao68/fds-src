@@ -13,7 +13,8 @@ using std::string;
 
 namespace fds {
 
-ObjectRankKey::ObjectRankKey (leveldb::Slice const& key) : CatalogKey{key.data()}
+ObjectRankKey::ObjectRankKey (leveldb::Slice const& key) : CatalogKey{string{key.data(),
+                                                                             key.size()}}
 { }
 
 ObjectRankKey::ObjectRankKey (ObjectID const& objectId)

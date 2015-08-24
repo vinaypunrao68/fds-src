@@ -10,15 +10,16 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "../include/catalogKeys/CatalogKey.h"
 // Internal includes.
-#include "fds_types.h"
-#include "fds_error.h"
+#include "catalogKeys/CatalogKey.h"
+#include "catalogKeys/CatalogKeyComparator.h"
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/filter_policy.h"
 #include "leveldb/write_batch.h"
 #include "leveldb/copy_env.h"
+#include "fds_types.h"
+#include "fds_error.h"
 
 namespace fds {
 
@@ -146,6 +147,8 @@ class Catalog {
     }
 
     std::string GetFile() const;
+  private:
+    static const CatalogKeyComparator _DEFAULT_COMPARATOR;
   };
 
 }  // namespace fds

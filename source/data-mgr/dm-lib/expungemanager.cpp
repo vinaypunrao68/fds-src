@@ -2,12 +2,17 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
+// Standard includes.
+#include <functional>
+
 // Internal includes.
-#include <catalogKeys/ObjectExpungeKey.h>
+#include "catalogKeys/ObjectExpungeKey.h"
 #include "fdsp/sm_api_types.h"
 #include "net/net_utils.h"
 #include "util/stringutils.h"
 #include "DataMgr.h"
+#include "fds_types.h"
+#include "fds_volume.h"
 
 namespace fds {
 
@@ -56,6 +61,10 @@ std::string ExpungeDB::getKey(fds_volid_t volId, const ObjectID &objId) {
 ExpungeDB::~ExpungeDB() {
 
 }
+
+const std::hash<fds_volid_t> ExpungeManager::volIdHash;
+
+const ObjectHash ExpungeManager::objHash;
 
 ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
     auto efp = (Error (ExpungeManager::*)(fds_volid_t, const std::vector<ObjectID>&, bool))&ExpungeManager::expunge;

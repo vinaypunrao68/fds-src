@@ -13,7 +13,8 @@ using std::string;
 
 namespace fds {
 
-ObjectExpungeKey::ObjectExpungeKey (leveldb::Slice const& key) : CatalogKey{key.data()}
+ObjectExpungeKey::ObjectExpungeKey (leveldb::Slice const& key) : CatalogKey{string{key.data(),
+                                                                                   key.size()}}
 { }
 
 ObjectExpungeKey::ObjectExpungeKey (fds_volid_t const volumeId, ObjectID const objectId)

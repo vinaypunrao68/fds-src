@@ -49,6 +49,8 @@ const fds_uint32_t Catalog::CACHE_SIZE = 8 * 1024 * 1024;
 
 const std::string Catalog::empty;
 
+CatalogKeyComparator const Catalog::_DEFAULT_COMPARATOR;
+
 /** Catalog constructor
  */
 Catalog::Catalog(const std::string& _file,
@@ -68,8 +70,13 @@ Catalog::Catalog(const std::string& _file,
     options.filter_policy     = filter_policy.get();
     options.write_buffer_size = writeBufferSize;
     options.block_cache = leveldb::NewLRUCache(cacheSize);
-    if (cmp) {
+    if (cmp)
+    {
         options.comparator = cmp;
+    }
+    else
+    {
+        options.comparator = &_DEFAULT_COMPARATOR;
     }
     env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
     if (!logDirName.empty() && !logFilePrefix.empty()) {
@@ -183,13 +190,13 @@ Catalog::DbSnap(const std::string& fileName) {
     leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);
 
-    leveldb::Status status = env->CreateDir(fileName);
-    if (!status.ok()) {
-        err = Error(ERR_DISK_WRITE_FAILED);
-    }
+    // FIXME: We should be allowing through EEXIST and failing all others, but there's no way to get
+    //        the error code.
+    env->CreateDir(fileName);
 
     CopyDetails * details = new CopyDetails(backing_file, fileName);
-    status = env->Copy(backing_file, &doCopyFile, reinterpret_cast<void *>(details));
+    leveldb::Status status =
+            env->Copy(backing_file, &doCopyFile, reinterpret_cast<void *>(details));
     if (!status.ok()) {
         err = ERR_DISK_WRITE_FAILED;
     }

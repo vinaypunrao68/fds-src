@@ -13,7 +13,8 @@ using std::string;
 
 namespace fds {
 
-BlobMetadataKey::BlobMetadataKey (leveldb::Slice const& key) : CatalogKey{key.data()}
+BlobMetadataKey::BlobMetadataKey (leveldb::Slice const& key) : CatalogKey{string{key.data(),
+                                                                                 key.size()}}
 { }
 
 BlobMetadataKey::BlobMetadataKey (string const& blobName)
