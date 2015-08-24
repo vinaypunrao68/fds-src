@@ -1699,8 +1699,6 @@ OM_PmAgent::send_remove_service
         else
             LOGERROR << "Failed to delete SM from service map for node:"
                      << std::hex << node_uuid << std::dec;
-
-        //activeSmAgent = nullptr;
     }
     if (remove_dm)
     {
@@ -1716,8 +1714,6 @@ OM_PmAgent::send_remove_service
             LOGERROR << "Failed to delete DM from service map for node:"
                      << std::hex << node_uuid << std::dec;
 
-        //activeDmAgent = nullptr;
-
     }
     if (remove_am)
     {
@@ -1732,8 +1728,6 @@ OM_PmAgent::send_remove_service
         else
             LOGERROR << "Failed to delete AM from service map for node:"
                      << std::hex << node_uuid << std::dec;
-
-        //activeAmAgent = nullptr;
     }
 
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
@@ -2498,9 +2492,6 @@ om_prepare_services_start
     }
     else
         LOGNOTIFY << "Adding of services in domain failed";
-    //OM_PmAgent::agt_cast_ptr(node)->send_activate_services(activate_sm,
-    //                                                       activate_dm,
-    //                                                       activate_am);
 }
 
 // om_start_services
@@ -2530,7 +2521,7 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
                                             fds_bool_t activate_dm,
                                             fds_bool_t activate_am) {
     TRACEFUNC;
-    LOGNORMAL << "This is dead code -- should not be here";
+    LOGDEBUG << "This is dead code -- should not be here";
     OM_PmAgent::pointer agent = om_pm_agent(node_uuid);
     if (agent == NULL) {
         LOGERROR << "activate node services: platform service is not "
