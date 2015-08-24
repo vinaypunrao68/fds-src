@@ -95,7 +95,12 @@ public class ListVolumes implements RequestHandler {
         data.setMetricValue( new Double( diff ) );
         data.setReportTime( now );
         
-        StatsStream.getInstance().getConnection().publishStatistic( data );
+        try {
+        	StatsStream.getInstance().getConnection().publishStatistic( data );
+        }
+        catch( Exception e ){
+        	logger.warn( "Could not connect to messaging service." );
+        }
         
         return externalVolumes;
     }

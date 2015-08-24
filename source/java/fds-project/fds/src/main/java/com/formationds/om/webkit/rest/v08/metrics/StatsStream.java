@@ -24,7 +24,12 @@ public class StatsStream implements SubscriptionHandler {
 	private Subscription subscription; 
 	private StatsConnection conn;
 	
-	private StatsStream(){
+	private StatsStream() throws Exception{
+		
+		connect();
+	}
+	
+	private void connect() throws Exception {
 		
 		try {
 			conn = StatsConnection.newConnection( "localhost", 11011, "guest", "guest" );
@@ -32,20 +37,15 @@ public class StatsStream implements SubscriptionHandler {
 			subscription = conn.subscribe( "1.0.stats.volume", this );
 			
 			logger.info( "StatsStream connected successfully." );
+		} catch ( Exception e ){
 			
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.info( "Could not establish eonnectivity to the stats service." );
+			instance = null;
+			throw e;
 		}
 	}
 	
-	public static StatsStream getInstance(){
+	public static StatsStream getInstance() throws Exception{
 		
 		if ( instance == null ){
 			instance = new StatsStream();

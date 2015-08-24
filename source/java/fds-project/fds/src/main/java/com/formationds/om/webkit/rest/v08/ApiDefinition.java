@@ -41,6 +41,7 @@ import com.formationds.om.webkit.rest.v08.tenants.ListTenants;
 import com.formationds.om.webkit.rest.v08.tenants.RevokeUserFromTenant;
 import com.formationds.om.webkit.rest.v08.token.GrantToken;
 import com.formationds.om.webkit.rest.v08.token.ReissueToken;
+import com.formationds.om.webkit.rest.v08.token.StatsAuth;
 import com.formationds.om.webkit.rest.v08.users.CreateUser;
 import com.formationds.om.webkit.rest.v08.users.CurrentUser;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
@@ -123,8 +124,16 @@ public class ApiDefinition extends AbstractApiDefinition{
     private void configureTestSocketEndpoint(){
     	
     	// start listening
-    	StatsStream.getInstance();
+    	try {
+			StatsStream.getInstance();
+		} catch (Exception e) {
+			logger.warn( "Could not connect to stats service yet." );
+		}
+    	
     	authenticate( HttpMethod.POST, URL_PREFIX + "/stats/stream", ( t ) -> new StatsSocketHandler() );
+    	getWebApp().route( HttpMethod.GET, "/stats/auth/resources", () -> new StatsAuth() );
+    	getWebApp().route( HttpMethod.GET, "/stats/auth/user", () -> new StatsAuth() );
+    	getWebApp().route( HttpMethod.GET, "/stats/auth/vhost", () -> new StatsAuth() );
     }
     
     /**
