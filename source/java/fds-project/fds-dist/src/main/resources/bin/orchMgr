@@ -6,8 +6,6 @@
 
 ORIGINAL_ARGS=("${@}")
 
-export fds_root=/fds
-
 declare -a NEW_ARGS
 for i in "${ORIGINAL_ARGS[@]}"
 do
@@ -29,21 +27,16 @@ do
   esac
 done
 
-# LD_LIBRARY_PATH dependencies
-export LD_LIBRARY_PATH=../lib
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
+if [ -z "${fds_root}" ] || [ ! -d "${fds_root}/bin/platformd" ]; then
+    export fds_root=/fds
+fi
 
-export PATH=/usr/local/sbin
-export PATH=${PATH}:/usr/local/bin
-export PATH=${PATH}:/usr/sbin
-export PATH=${PATH}:/usr/bin
-export PATH=${PATH}:/sbin
-export PATH=${PATH}:/bin
-export PATH=${PATH}:/opt/fds-deps/embedded/bin
-export PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
-export PATH=${PATH}:./bin
-export PATH=${PATH}:../sbin
+echo fds_root: ${fds_root} > ./om.out
+
+# load environment settings including:
+# OM_MAIN_CLASS
+# OM_JAVA_JHOME
+. ${fds_root}/etc/formation_env
 
 if [[ ! -z "${DEBUG_PORT}" ]]; then
     DEBUG_OPTS='-Xdebug -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address='"${DEBUG_PORT}"
@@ -51,18 +44,18 @@ fi
 
 # JAVA dependencies
 export OM_JAVA_OPTS="-Xmx2048M -Xms20M"
-export JAVA_HOME=/opt/fds-deps/embedded/jre
 
 # JAVA CLASSPATH dependencies
 export CLASSPATH=${CLASSPATH}:../lib/java/\*
 
-# JAVA Main executable dependency
-export OM_MAIN_CLASS=com.formationds.om.Main
-
-"${JAVA_HOME}"/bin/java ${OM_JAVA_OPTS} \
-                        -cp "${CLASSPATH}" \
-                        ${DEBUG_OPTS} \
-                        "${OM_MAIN_CLASS}" \
-                        --foreground \
-                        --fds-root="${fds_root}" \
-                        "${NEW_ARGS[@]}" > ./om.out 2>&1
+JAVACMD="${OM_JAVA_HOME}/bin/java"
+echo "Using java: $JAVACMD" >> ./om.out
+echo "Java Version: " >> ./om.out
+$JAVACMD -version >> ./om.out 2>&1
+"${JAVACMD}" ${OM_JAVA_OPTS} \
+             ${DEBUG_OPTS} \
+             -cp "${CLASSPATH}" \
+             "${OM_MAIN_CLASS}" \
+             --foreground \
+             --fds-root="${fds_root}" \
+             "${NEW_ARGS[@]}" >> ./om.out 2>&1
