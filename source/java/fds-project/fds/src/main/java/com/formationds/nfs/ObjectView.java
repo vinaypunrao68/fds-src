@@ -17,6 +17,6 @@ public class ObjectView {
     }
 
     public ByteBuffer getBuf() {
-        return buf;
+        return buf.duplicate();
     }
 }

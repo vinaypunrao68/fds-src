@@ -11,6 +11,7 @@ import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,11 +46,12 @@ public class DirectAmIo implements Io {
     @Override
     public void mutateMetadata(String domain, String volume, String blobName, MetadataMutator mutator) throws IOException {
         mapMetadata(domain, volume, blobName, (om) -> {
-            Map<String, String> result = mutator.mutateOrCreate(om);
+            Map<String, String> meta = om.orElse(new HashMap<>());
+            mutator.mutate(meta);
             try {
                 TxDescriptor desc = unwindExceptions(() -> {
                     TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                    asyncAm.updateMetadata(domain, volume, blobName, tx, result).get();
+                    asyncAm.updateMetadata(domain, volume, blobName, tx, meta).get();
                     asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
                     return tx;
                 });
@@ -96,10 +98,10 @@ public class DirectAmIo implements Io {
 
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
-        mapObject(domain, volume, blobName, objectSize, objectOffset, (owm) -> {
-            ObjectView result = mutator.mutateOrCreate(owm);
-            ByteBuffer buf = result.getBuf();
-            int writeSize = buf.remaining();
+        mapObject(domain, volume, blobName, objectSize, objectOffset, (x) -> {
+            ObjectView ov = x.orElseGet(() -> new ObjectView(new HashMap<>(), ByteBuffer.allocate(objectSize)));
+            mutator.mutate(ov);
+            ByteBuffer buf = ov.getBuf();
             try {
                 unwindExceptions(() -> {
                     return asyncAm.updateBlobOnce(domain,
@@ -109,7 +111,7 @@ public class DirectAmIo implements Io {
                             buf,
                             objectSize,
                             objectOffset,
-                            result.getMetadata()).get();
+                            ov.getMetadata()).get();
                 });
             } catch (Exception e) {
                 LOG.error("AM.updateBlobOnce() failed, volume=" + volume + ", blobName=" + blobName, e);

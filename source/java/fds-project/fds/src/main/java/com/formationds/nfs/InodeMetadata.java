@@ -83,7 +83,7 @@ public class InodeMetadata {
     }
 
     public InodeMetadata(Map<String, String> map) {
-        this.metadata = map;
+        this.metadata = new HashMap<>(map);
     }
 
     public InodeMetadata(BlobDescriptor blobDescriptor) {

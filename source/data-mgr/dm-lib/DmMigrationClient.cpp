@@ -26,6 +26,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
     seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
+    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -380,12 +381,13 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
-    std::vector<std::string> outstandingTx;
+    fpi::CtrlNotifyTxStateMsgPtr txMsg(new fpi::CtrlNotifyTxStateMsg());
     // Block commit log and get snapshot for the volume.
     {
         auto auto_lock = commitLog->getCommitLock(true);
         err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
-        commitLog->snapshotOutstandingTx(outstandingTx);
+        turnOnForwarding();
+        commitLog->snapshotOutstandingTx(txMsg->transactions);
     }
     if (ERR_OK != err) {
         LOGERROR << "Failed to get snapshot volume=" << volId
@@ -393,10 +395,22 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
-    // Turn on forwarding
-    std::atomic_store(&forwardingIO, true);
+    txMsg->volume_id = volId.v;
+    auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    txStateMsg->setTimeoutMs(15000);
+    txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
+                           txMsg);
+    /* TODO: set a callback that aborts on error/timeout */
+    //txStateMsg->onResponseCb();
+    txStateMsg->setTaskExecutorId(volId.v);
+    txStateMsg->invoke();
 
-    // process blob diff
+    /**
+     * This is the main entrance for migrationClient (source) work.
+     * It will take care of generating the blobs diff, blobs descriptors, and send
+     * them over to the destination side. By the time this method returns, we have already
+     * fired and forgotten.
+     */
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
     fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
@@ -406,8 +420,16 @@ DmMigrationClient::processBlobFilterSet()
         return err;
     }
 
-    // Turn off forwarding JUST before the callback
-    std::atomic_store(&forwardingIO, false);
+    /**
+     * This is to make sure that in cases of static migration, we still send a "last"
+     * forward message to ensure that state machine keeps going.
+     * TODO - this is a potential for race condition. Need clean up after the shouldForwardIO
+     * method cleanup.
+     */
+    err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
+    if (!(commitLog->checkOutstandingTx(dmtVersion))) {
+    	sendFinishFwdMsg();
+    }
 
     // if completion handler is registered call it.
     if (migrDoneHandler) {
@@ -434,6 +456,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     asyncDeltaBlobsMsg->setTimeoutMs(0);
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
+	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobsMsg->invoke();
 
     return err;
@@ -455,6 +478,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     asyncDeltaBlobDescMsg->setTimeoutMs(0);
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
+    asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobDescMsg->invoke();
 
     return err;
@@ -478,10 +502,6 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
-    // This key is the same for this blob
-    DataMgr::dmQosCtrl::SerialKey blobKey(fds_volid_t(fwdMsg->volume_id), fwdMsg->blob_name);
-    static const DataMgr::dmQosCtrl::SerialKeyHash keyHash;
-
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
     // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
@@ -494,10 +514,10 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
      * There are 2 guarantees:
      * 1. AM will guarantee that the outstanding blob tx's are finished before a new one
      * is started.
-     * 2. The source (us) guarantee that the transmission for a same blob
+     * 2. The source (us) guarantee that the transmission for a same volume
      * are sent over the wire synchronously.
      */
-    asyncCatUpdReq->setTaskExecutorId(keyHash(blobKey));
+    asyncCatUpdReq->setTaskExecutorId(volId.v);
     asyncCatUpdReq->invoke();
 
     return err;
@@ -512,16 +532,59 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
-        commitReq->cb(ERR_DM_FORWARD_FAILED, commitReq);
+    	LOGERROR << "Forwarding failed. Aborting DM Migration.";
+    	// TODO(Neil) - call aborting code - need to do as part of abort card
         return;
     }
-    commitReq->cb(error, commitReq);
 }
 
 
 fds_bool_t
-DmMigrationClient::shouldForwardIO()
+DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersionIn)
 {
-	return forwardingIO.load(std::memory_order_relaxed);
+	/**
+	 * If the forwarding is turned ON at this point, then we need to check if we still
+	 * have outstanding transactions. Otherwise, if it's off at this point, it means
+	 * that we aren't on yet, so return false.
+	 */
+	if (forwardingIO.load(std::memory_order_relaxed) && (dmtVersionIn == dmtVersion)) {
+		return true;
+	} else {
+		// Return false if forwarding is off or if DMT version for the transaction is newer
+		return false;
+	}
+}
+
+
+void DmMigrationClient::turnOnForwarding() {
+	LOGMIGRATE << "Turning on forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, true);
+}
+
+void DmMigrationClient::turnOffForwarding() {
+	LOGMIGRATE << "Turning off forwarding for volume: " << volId;
+	std::atomic_store(&forwardingIO, false);
+	sendFinishFwdMsg();
+}
+
+Error
+DmMigrationClient::sendFinishFwdMsg()
+{
+	Error err(ERR_OK);
+	fpi::ForwardCatalogMsgPtr finMsg(new fpi::ForwardCatalogMsg());
+
+	LOGMIGRATE << "Sending an empty finish forwarding message for volume: " << volId;
+
+	finMsg->volume_id = volId.v;
+	finMsg->blob_name = "";
+	finMsg->lastForward = true;
+
+	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
+	thriftMsg->setTimeoutMs(5000);
+	thriftMsg->setTaskExecutorId(volId.v);
+	thriftMsg->invoke();
+
+	return (err);
 }
 }  // namespace fds
