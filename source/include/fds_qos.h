@@ -221,6 +221,15 @@ namespace fds {
             que->resumeIO();
         }
 
+        virtual void stopDequeue(fds_qid_t queue_id)
+        {
+            if (queue_map.count(queue_id) == 0) {
+                return;
+            }
+            FDS_VolumeQueue *que = queue_map[queue_id];
+            que->stopDequeue();
+        }
+
         virtual void setThrottleLevel(float throttle_level)
         {
             assert((throttle_level >= -10) && (throttle_level <= 10));
