@@ -129,8 +129,8 @@ public class StatsResourceAuth implements RequestHandler {
 		if ( resource.equals( EXCHANGE ) ){
 			
 			perms.add( READ );
-//			perms.add( WRITE );
-//			perms.add( CONFIGURE );
+			perms.add( WRITE );
+			perms.add( CONFIGURE );
 		}
 		else {
 			if ( name.equals( "stats.work" ) ){
