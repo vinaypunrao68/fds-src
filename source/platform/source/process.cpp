@@ -169,10 +169,10 @@ namespace fds
             char     *argv[32];
             int       argvIndex = 0;
             int       extraIndex = 0;
-            
+
             std::string progStr (prog);
             std::size_t found = progStr.rfind("java");
-            bool is_java = (found == (progStr.length() - strlen("java")));
+            bool is_java = (found != std::string::npos && (found == (progStr.length() - strlen("java"))));
 
             // This needs to live through the lifetime of the exec call
             ValgrindOptions valgrind_options(prog, fds_root);
