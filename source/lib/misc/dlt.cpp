@@ -26,62 +26,48 @@ std::ostream& operator<< (std::ostream &out, const TableColumn& column) {
     return out;
 }
 
-DLT::DLT(fds_uint32_t numBitsForToken,
+DLT::DLT(fds_uint32_t width,
          fds_uint32_t depth,
          fds_uint64_t version,
          bool fInit)
-        : Module("data placement table"),
-          version(version),
-          closed(false),
-          numBitsForToken(numBitsForToken),
-          numTokens(pow(2, numBitsForToken)),
-          depth(depth) {
+        : FDS_Table(width, depth, version),
+          Module("data placement table"),
+          closed(false) {
     distList = boost::shared_ptr<std::vector<DltTokenGroupPtr> >
             (new std::vector<DltTokenGroupPtr>());
     mapNodeTokens = boost::shared_ptr<NodeTokenMap>(
         new NodeTokenMap());
 
-    LOGDEBUG << "dlt.init : " << "numbits:" << numBitsForToken
+    LOGDEBUG << "dlt.init : " << "numbits:" << width
              << " depth:" << depth << " version:" << version;
     // Pre-allocate token groups for each token
     if (fInit) {
-        distList->reserve(numTokens);
-        for (uint i = 0; i < numTokens; i++) {
+        distList->reserve(columns);
+        for (uint i = 0; i < columns; i++) {
             distList->push_back(boost::shared_ptr<DltTokenGroup>(
                 new DltTokenGroup(depth)));
         }
     }
     timestamp = fds::util::getTimeStampMillis();
-    refcnt = ATOMIC_VAR_INIT(0);
-    omDltUpdateCb = nullptr;
 }
 
 DLT::DLT(const DLT& dlt)
-        : Module("data placement table"),
-          numBitsForToken(dlt.numBitsForToken),
-          depth(dlt.depth),
-          numTokens(dlt.numTokens),
-          version(dlt.version),
+        : FDS_Table(dlt.width, dlt.depth, dlt.version),
+          Module("data placement table"),
           distList(dlt.distList),
           timestamp(dlt.timestamp),
           closed(false),
           mapNodeTokens(dlt.mapNodeTokens) {
-    refcnt = ATOMIC_VAR_INIT(0);
-    omDltUpdateCb = nullptr;
 }
-
-DLT::~DLT() {
-}
-
 
 DLT* DLT::clone() const {
     LOGTRACE << "cloning";
-    DLT *pDlt = new DLT(numBitsForToken, depth, version, true);
+    DLT *pDlt = new DLT(width, depth, version, true);
 
     pDlt->version = version;
     pDlt->timestamp = timestamp;
 
-    for (uint i = 0; i < numTokens; i++) {
+    for (uint i = 0; i < columns; i++) {
         for (uint j = 0 ; j < depth ; j++) {
             pDlt->distList->at(i)->set(j, distList->at(i)->get(j));
         }
@@ -115,11 +101,11 @@ fds_uint32_t DLT::getWidth() const {
 }
 
 fds_uint32_t DLT::getNumBitsForToken() const {
-    return numBitsForToken;
+    return width;
 }
 
 fds_uint32_t DLT::getNumTokens() const {
-    return numTokens;
+    return columns;
 }
 
 fds_bool_t DLT::isClosed() const {
@@ -130,54 +116,17 @@ void DLT::setClosed() {
     closed = true;
 }
 
-fds_uint64_t DLT::incRefcnt() {
-    fds_uint64_t refcount = std::atomic_fetch_add(&refcnt, (fds_uint64_t)1);
-    return (refcount + 1);
-}
-
-fds_uint64_t DLT::decRefcnt() {
-    fds_uint64_t refcount = std::atomic_fetch_sub(&refcnt, (fds_uint64_t)1);
-    fds_verify(refcount != 0);
-    // if callback is set, call on refcnt 0
-    if ((refcount - 1) == 0) {
-        // this is called under read lock in dlt mgr,
-        // and set under write lock; the above atomic
-        // refcnt ensures that we call callback once
-        // (once refcnt becomes 0); however, not critical
-        // if we call callback more than once
-        if (omDltUpdateCb != nullptr) {
-            LOGDEBUG << "Refcnt became 0, will respond to DLT update"
-                     << " for version " << version;
-            omDltUpdateCb(ERR_OK);
-            omDltUpdateCb = nullptr;
-        }
-    }
-    return (refcount - 1);
-}
-
-Error DLT::addCbIfRefcnt(OmDltUpdateRespCbType cb) {
-    fds_uint64_t refcount = std::atomic_load(&refcnt);
-    if ((cb != nullptr) && (refcount > 0)) {
-        fds_verify(omDltUpdateCb == nullptr);
-        LOGDEBUG << "Will respond to DLT update when refcnt becomes 0"
-                 << ", current refcnt = " << refcount;
-        omDltUpdateCb = cb;
-        return ERR_DLT_IO_PENDING;
-    }
-    return ERR_OK;
-}
-
 fds_token_id DLT::getToken(const ObjectID& objId) const {
-    fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
+    fds_uint64_t token_bitmask = ((1 << width) - 1);
 //    fds_uint64_t bit_offset =
-//        (sizeof(objId.getTokenBits(numBitsForToken))*8 - numBitsForToken);
-    LOGDEBUG << "token bits:" << objId.getTokenBits(numBitsForToken)
-             << " numBits: " << numBitsForToken;
+//        (sizeof(objId.getTokenBits(width))*8 - width);
+    LOGDEBUG << "token bits:" << objId.getTokenBits(width)
+             << " numBits: " << width;
     return
-     (fds_token_id)(token_bitmask & (objId.getTokenBits(numBitsForToken)));
+     (fds_token_id)(token_bitmask & (objId.getTokenBits(width)));
 #if 0
-    fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
-    fds_uint64_t bit_offset = (sizeof(objId.GetHigh())*8 - numBitsForToken);
+    fds_uint64_t token_bitmask = ((1 << width) - 1);
+    fds_uint64_t bit_offset = (sizeof(objId.GetHigh())*8 - width);
     return (fds_token_id)(token_bitmask & (objId.GetHigh() >> bit_offset));
 #endif
 }
@@ -193,24 +142,24 @@ fds_token_id DLT::getToken(const ObjectID& objId,
 void DLT::getTokenObjectRange(const fds_token_id &token,
         ObjectID &begin, ObjectID &end) const
 {
-    ObjectID::getTokenRange(token, numBitsForToken, begin, end);
+    ObjectID::getTokenRange(token, width, begin, end);
 }
 
 // get all the Nodes for a token/objid
 DltTokenGroupPtr DLT::getNodes(fds_token_id token) const {
-    fds_verify(token < numTokens);
+    fds_verify(token < columns);
     return distList->at(token);
 }
 
 DltTokenGroupPtr DLT::getNodes(const ObjectID& objId) const {
     fds_token_id token = getToken(objId);
-    fds_verify(token < numTokens);
+    fds_verify(token < columns);
     return distList->at(token);
 }
 
 // get the primary node for a token/objid
 NodeUuid DLT::getPrimary(fds_token_id token) const {
-    fds_verify(token < numTokens);
+    fds_verify(token < columns);
     return getNodes(token)->get(0);
 }
 
@@ -219,7 +168,7 @@ NodeUuid DLT::getPrimary(const ObjectID& objId) const {
 }
 
 NodeUuid DLT::getNode(fds_token_id token, uint index) const {
-    fds_verify(token < numTokens);
+    fds_verify(token < columns);
     return getNodes(token)->get(index);
 }
 
@@ -237,7 +186,7 @@ int DLT::getIndex(const ObjectID& objId, const NodeUuid& nodeUuid) const {
 
 void DLT::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
     fds_verify(index < depth);
-    fds_verify(token < numTokens);
+    fds_verify(token < columns);
     distList->at(token)->set(index, nodeuuid);
 }
 
@@ -370,12 +319,12 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
 
 fds_bool_t DLT::operator==(const DLT &rhs) const {
     // number of rows and columns has to match
-    if ((depth != rhs.depth) || (numTokens != rhs.numTokens)) {
+    if ((depth != rhs.depth) || (columns != rhs.columns)) {
         return false;
     }
 
     // every column should match
-    for (fds_token_id i = 0; i < numTokens; ++i) {
+    for (fds_token_id i = 0; i < columns; ++i) {
         DltTokenGroupPtr myCol = getNodes(i);
         DltTokenGroupPtr col = rhs.getNodes(i);
         if ((myCol == nullptr) && (col == nullptr)) {
@@ -402,7 +351,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
 
     // check each column in DLT
     NodeUuidSet colSet;
-    for (fds_token_id i = 0; i < numTokens; ++i) {
+    for (fds_token_id i = 0; i < columns; ++i) {
         colSet.clear();
         DltTokenGroupPtr column = getNodes(i);
         for (fds_uint32_t j = 0; j < depth; ++j) {
@@ -437,7 +386,7 @@ void DLT::dump() const {
                  << "[version: " << version  << "] "
                  << "[timestamp: " << timestamp  << "] "
                  << "[depth: " << depth  << "] "
-                 << "[num.Tokens: " << numTokens  << "] "
+                 << "[num.Tokens: " << columns  << "] "
                  << "[num.Nodes: " << mapNodeTokens->size() << "]";
     }
 }
@@ -446,7 +395,7 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
     oss << "[version:" << dlt.version
         << " timestamp:" << dlt.timestamp
         << " depth:" << dlt.depth
-        << " num.Tokens:" << dlt.numTokens
+        << " num.Tokens:" << dlt.columns
         << " num.Nodes:" << dlt.mapNodeTokens->size()
         << "]\n";
 
@@ -554,9 +503,9 @@ uint32_t DLT::write(serialize::Serializer*  s) const {
 
     b += s->writeI64(version);
     b += s->writeTimeStamp(timestamp);
-    b += s->writeI32(numBitsForToken);
+    b += s->writeI32(width);
     b += s->writeI32(depth);
-    b += s->writeI32(numTokens);
+    b += s->writeI32(columns);
 
 
     std::call_once(mapInitialized,
@@ -611,13 +560,13 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     int64_t i64;
     b += d->readI64(version);
     b += d->readTimeStamp(timestamp);
-    b += d->readI32(numBitsForToken);
+    b += d->readI32(width);
     b += d->readI32(depth);
-    b += d->readI32(numTokens);
+    b += d->readI32(columns);
 
     fds_uint64_t uuid;
     distList->clear();
-    distList->reserve(numTokens);
+    distList->reserve(columns);
 
     uint32_t count = 0;
     std::vector<NodeUuid> uuidList;
@@ -635,7 +584,7 @@ uint32_t DLT::read(serialize::Deserializer* d) {
     fds_uint16_t i16;
 
     std::vector<DltTokenGroupPtr>::const_iterator iter;
-    for (uint i = 0; i < numTokens ; i++) {
+    for (uint i = 0; i < columns ; i++) {
         DltTokenGroupPtr ptr = boost::shared_ptr<DltTokenGroup>(new DltTokenGroup(depth));
         for (uint j = 0; j < depth; j++) {
             if (fByte) {
@@ -769,7 +718,7 @@ void DLTManager::checkSize() {
 
 // returns refcount of current DLT that was just replaced
 Error DLTManager::add(const DLT& _newDlt,
-                      OmDltUpdateRespCbType cb) {
+                      FDS_Table::callback_type const& cb) {
     Error err(ERR_OK);
     DLT* pNewDlt = new DLT(_newDlt);
     DLT& newDlt = *pNewDlt;
@@ -789,7 +738,7 @@ Error DLTManager::add(const DLT& _newDlt,
 
     // check refcnt of the current DLT, if 0
     if (curPtr && (cb != nullptr)) {
-        err = curPtr->addCbIfRefcnt(cb);
+        err = curPtr->setCallback(cb);
     }
 
     if (dltList.empty()) {
@@ -801,7 +750,7 @@ Error DLTManager::add(const DLT& _newDlt,
 
     const DLT& current = *curPtr;
 
-    for (uint i = 0; i < newDlt.numTokens; i++) {
+    for (uint i = 0; i < newDlt.columns; i++) {
         if (current.distList->at(i) != newDlt.distList->at(i) && (current.depth == newDlt.depth)) { //NOLINT
             // There is the diff in pointer data
             // so check if there is a diff in actual data
@@ -830,7 +779,7 @@ Error DLTManager::add(const DLT& _newDlt,
 }
 
 Error DLTManager::addSerializedDLT(std::string& serializedData,
-                                   OmDltUpdateRespCbType cb,
+                                   FDS_Table::callback_type cb,
                                    bool fFull) { //NOLINT
     Error err(ERR_OK);
     DLT dlt(0, 0, 0, false);
@@ -850,14 +799,14 @@ bool DLTManager::add(const DLTDiff& dltDiff) {
     LOGNOTIFY << "adding a diff - base:" << dltDiff.baseVersion
               << " version:" << dltDiff.version;
 
-    DLT *dlt = new DLT(baseDlt->numBitsForToken, baseDlt->depth, dltDiff.version, false);
-    dlt->distList->reserve(dlt->numTokens);
+    DLT *dlt = new DLT(baseDlt->width, baseDlt->depth, dltDiff.version, false);
+    dlt->distList->reserve(dlt->columns);
 
     DltTokenGroupPtr ptr;
     std::map<fds_token_id, DltTokenGroupPtr>::const_iterator iter;
 
     SCOPEDWRITE(dltLock);
-    for (uint i = 0; i < dlt->numTokens; i++) {
+    for (uint i = 0; i < dlt->columns; i++) {
         ptr = baseDlt->distList->at(i);
 
         iter = dltDiff.mapTokenNodes.find(i);
@@ -899,7 +848,7 @@ const DLT* DLTManager::getDLT(const fds_uint64_t version) const {
     return NULL;
 }
 
-const DLT* DLTManager::getAndLockCurrentDLT() {
+const DLT* DLTManager::getAndLockCurrentVersion() {
     SCOPEDREAD(dltLock);
     if (curPtr != NULL) {
         fds_uint64_t refcnt = curPtr->incRefcnt();
@@ -909,7 +858,7 @@ const DLT* DLTManager::getAndLockCurrentDLT() {
     return curPtr;
 }
 
-Error DLTManager::decDLTRefcnt(fds_uint64_t version) {
+Error DLTManager::releaseVersion(fds_uint64_t version) {
     // version must be specified
     if (version == 0) {
         return ERR_INVALID_ARG;

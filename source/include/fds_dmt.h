@@ -16,6 +16,7 @@
 #include <serialize.h>
 #include <util/Log.h>
 #include <fds_placement_table.h>
+#include <fds_table.h>
 
 namespace fds {
 
@@ -25,7 +26,7 @@ namespace fds {
     typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
     typedef boost::shared_ptr<std::vector<DmtColumnPtr>> DmtTablePtr;
 
-    class DMT: public serialize::Serializable {
+    class DMT: public FDS_Table {
   public:
         DMT(fds_uint32_t _width,
             fds_uint32_t _depth,
@@ -100,11 +101,6 @@ namespace fds {
         bool isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const;
 
   private:
-        fds_uint64_t version;  /**< DMT version */
-        fds_uint32_t depth;  /**< DMT column size */
-        fds_uint32_t width;  /**< num columns = 2^width */
-        fds_uint32_t columns;  /**< number of columns = 2^width */
-
         DmtTablePtr dmt_table;  /**< DMT table */
     };
 
@@ -163,6 +159,12 @@ namespace fds {
         inline fds_bool_t hasTargetDMT() const {
             return (target_version != DMT_VER_INVALID);
         };
+
+        /**
+         * Reference counting for I/O against table versions
+         */
+        fds_uint64_t getAndLockCurrentVersion();
+        void releaseVersion(const fds_uint64_t version);
 
         /**
          * Shortcut to get node group for a given volume 'volume_id'

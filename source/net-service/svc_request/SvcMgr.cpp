@@ -539,7 +539,7 @@ Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbT
 
     // dltMgr is threadsafe
     err = dltMgr_->addSerializedDLT(dlt_data, cb, dlt_type);
-    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+    if (err.ok() || (err == ERR_IO_PENDING)) {
         dltMgr_->dump();
     } else if (ERR_DUPLICATE != err) {
         LOGERROR << "Failed to update DLT! check dlt_data was set " << err;

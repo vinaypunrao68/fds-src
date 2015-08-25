@@ -17,10 +17,7 @@ DMT::DMT(fds_uint32_t _width,
          fds_uint32_t _depth,
          fds_uint64_t _version,
          fds_bool_t alloc_cols)
-        : version(_version),
-          depth(_depth),
-          width(_width),
-          columns(pow(2, _width)),
+        : FDS_Table(_width, _depth, _version),
           dmt_table(new std::vector<DmtColumnPtr>()) {
     // preallocate DMT and fill with invalid Node
     if (alloc_cols) {
@@ -374,6 +371,27 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     }
     dmt_lock.write_unlock();
     return err;
+}
+
+fds_uint64_t DMTManager::getAndLockCurrentVersion() {
+    ReadGuard guard(dmt_lock);
+    if (committed_version == DMT_VER_INVALID) {
+        throw Exception(ERR_INVALID_DMT, "DMT is not valid");
+    }
+    auto const it = dmt_map.find(committed_version);
+    fds_verify(dmt_map.cend() != it);
+    it->second->incRefcnt();
+    return committed_version;
+}
+
+void DMTManager::releaseVersion(const fds_uint64_t version) {
+    ReadGuard guard(dmt_lock);
+    if (committed_version == DMT_VER_INVALID) {
+        throw Exception(ERR_INVALID_DMT, "DMT is not valid");
+    }
+    auto const it = dmt_map.find(committed_version);
+    fds_verify(dmt_map.cend() != it);
+    it->second->decRefcnt();
 }
 
 DmtColumnPtr DMTManager::getCommittedNodeGroup(fds_volid_t const vol_id) const {

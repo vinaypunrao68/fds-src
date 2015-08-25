@@ -277,7 +277,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                                        this, hdr, dlt,
                                        std::placeholders::_1),
                                    dlt->dlt_data.dlt_type);
-    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+    if (err.ok() || (err == ERR_IO_PENDING)) {
         // added DLT
         dltMgr->dump();
     } else if (err == ERR_DUPLICATE) {
@@ -289,7 +289,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // send response right away on error or if there is no IO pending for
     // the previous DLT
-    if (err != ERR_DLT_IO_PENDING) {
+    if (err != ERR_IO_PENDING) {
         NotifyDLTUpdateCb(hdr, dlt, err);
     }
     // else we will get a callback from DLT manager when there are no more

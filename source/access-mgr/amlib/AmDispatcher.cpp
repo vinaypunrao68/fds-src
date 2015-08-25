@@ -131,7 +131,7 @@ AmDispatcher::start() {
 }
 
 Error
-AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
+AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     auto err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt_type, dlt_data, cb);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DLT version, ignoring";
@@ -218,10 +218,9 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
                                         boost::shared_ptr<Msg> const& payload,
                                         MultiPrimarySvcRequestRespCb cb,
                                         uint32_t timeout) const {
-    // Take either the group from a provided table version or the latest
-    auto token_group = ((DMT_VER_INVALID == dmt_ver) ?
-                                          dmtMgr->getCommittedNodeGroup(volId) :
-                                          dmtMgr->getVersionNodeGroup(volId, dmt_ver));
+    fds_assert(DMT_VER_INVALID != dmt_ver);
+    // Take the group from a provided table version
+    auto token_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
 
     // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups.
@@ -282,15 +281,17 @@ AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
 template<typename Msg>
 FailoverSvcRequestPtr
 AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
+                                    fds_uint64_t const dmt_ver,
                                     boost::shared_ptr<Msg> const& payload,
                                     FailoverSvcRequestRespCb cb,
                                     uint32_t timeout) const {
-    // Only issue reads from primaries.
-    DmtColumnPtr dmsForVol = dmtMgr->getCommittedNodeGroup(volId);
-    auto numNodes = std::min(dmsForVol->getLength(), numPrimaries);
+    fds_assert(DMT_VER_INVALID != dmt_ver);
+    // Take the group from a provided table version
+    auto token_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
+    auto numNodes = std::min(token_group->getLength(), numPrimaries);
     DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numNodes);
     for (uint32_t i = 0; numNodes > i; ++i) {
-        dmPrimariesForVol->set(i, dmsForVol->get(i));
+        dmPrimariesForVol->set(i, token_group->get(i));
     }
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
@@ -353,6 +354,7 @@ void
 AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
+    volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
     LOGDEBUG << "Attempting to open volume: " << std::hex << amReq->io_vol_id
              << " with token: " << volReq->token;
@@ -364,7 +366,7 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
 
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
-    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, DMT_VER_INVALID, volMDMsg, respCb);
+    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb);
     setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
@@ -375,6 +377,7 @@ AmDispatcher::dispatchOpenVolumeCb(AmRequest* amReq,
                                    const Error& error,
                                    boost::shared_ptr<std::string> payload) const {
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
+    dmtMgr->releaseVersion(volReq->dmt_version);
     auto e = error;
     auto msg = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
     if (e.ok()) {
@@ -407,7 +410,8 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
             return done.set_value(error); // Trigger processor thread
         };
 
-    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, DMT_VER_INVALID, volMDMsg, cb);
+    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
+    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, cb);
 
     /**
      * Need an AmRequest to call the serialization setter.
@@ -416,16 +420,24 @@ AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
     setSerialization(amReq.get(), asyncCloseVolReq);
 
     asyncCloseVolReq->invoke();
-    return ready.get();
+    auto err = ready.get();
+
+    // Release the DMT version so we can roll if needed
+    dmtMgr->releaseVersion(dmt_version);
+    return err;
 }
 
 void
 AmDispatcher::dispatchStatVolume(AmRequest *amReq) {
-    fpi::StatVolumeMsgPtr volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
+    auto volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
     volMDMsg->volume_id = amReq->io_vol_id.get();
 
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb, amReq));
-    auto asyncStatVolReq = createFailoverRequest(amReq->io_vol_id, volMDMsg,respCb);
+    auto asyncStatVolReq = createFailoverRequest(amReq->io_vol_id,
+                                                 amReq->dmt_version,
+                                                 volMDMsg,
+                                                 respCb);
     asyncStatVolReq->invoke();
 }
 
@@ -436,6 +448,10 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
                            boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+
+    // Release DMT version
+    dmtMgr->releaseVersion(amReq->dmt_version);
+
     auto volReq = static_cast<fds::StatVolumeReq*>(amReq);
     auto volMDMsg = deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
 
@@ -453,6 +469,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
             boost::make_shared<fpi::SetVolumeMetadataMsg>();
     auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
 
+    volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     volMetaMsg->volumeId = amReq->io_vol_id.get();
     // Copy api structure into fdsp structure.
     // TODO(Andrew): Make these calls use the same structure.
@@ -465,7 +482,7 @@ AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, amReq));
     auto asyncSetVolMetadataReq = createMultiPrimaryRequest(amReq->io_vol_id,
-                                                            DMT_VER_INVALID,
+                                                            amReq->dmt_version,
                                                             volMetaMsg,
                                                             respCb);
     setSerialization(amReq, asyncSetVolMetadataReq);
@@ -479,6 +496,7 @@ AmDispatcher::setVolumeMetadataCb(AmRequest* amReq,
                                   boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
     auto volMetaMsgRsp = deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
         const_cast<Error&>(error), payload);
@@ -493,8 +511,12 @@ AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
     auto volMetaMsg = boost::make_shared<fpi::GetVolumeMetadataMsg>();
     volMetaMsg->volumeId = amReq->io_vol_id.get();
 
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, amReq));
-    auto asyncGetVolMetadataReq = createFailoverRequest(amReq->io_vol_id, volMetaMsg, respCb);
+    auto asyncGetVolMetadataReq = createFailoverRequest(amReq->io_vol_id,
+                                                        amReq->dmt_version,
+                                                        volMetaMsg,
+                                                        respCb);
     asyncGetVolMetadataReq->invoke();
 }
 
@@ -505,6 +527,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
                                   boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     auto err = error;
 
     if (error.ok()) {
@@ -549,6 +572,7 @@ AmDispatcher::abortBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     amReq->proc_cb(error);
 }
 
@@ -560,7 +584,7 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     // TODO(Andrew): There's a potential race here between the
     // version we cache in the blobReq now and the version we
     // actually dispatch on below. Make the update/dispatch consistent.
-    blobReq->dmt_version = dmtMgr->getCommittedVersion();
+    blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
 
@@ -592,6 +616,11 @@ AmDispatcher::startBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+
+    // Release DMT version if transaction did not start.
+    if (!error.ok()) {
+        dmtMgr->releaseVersion(amReq->dmt_version);
+    }
 
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
@@ -683,7 +712,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
               blobReq->notifyResponse(ERR_OK); \
               return;);
 
-    blobReq->dmt_version = dmtMgr->getCommittedVersion();
+    blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
     auto updCatMsg(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
@@ -736,6 +765,7 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
                               boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
     auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
@@ -795,9 +825,9 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    auto const dlt = dltMgr->getAndLockCurrentDLT();
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb,
-                                     amReq, dlt->getVersion()));
+    auto const dlt = dltMgr->getAndLockCurrentVersion();
+    amReq->dlt_version = dlt->getVersion();
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb, amReq));
     auto asyncPutReq = createMultiPrimaryRequest(blobReq->obj_id,
                                                  dlt,
                                                  putObjMsg,
@@ -814,12 +844,15 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 
 void
 AmDispatcher::putObjectCb(AmRequest* amReq,
-                          fds_uint64_t dltVersion,
                           MultiPrimarySvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+
+    // notify DLT manager that request completed, so we can decrement refcnt
+    dltMgr->releaseVersion(amReq->dlt_version);
+
     auto blobReq = static_cast<fds::PutBlobReq*>(amReq);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
     auto putObjRsp = deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
@@ -830,11 +863,8 @@ AmDispatcher::putObjectCb(AmRequest* amReq,
             << " offset: " << amReq->blob_offset << " Error: " << error;
     } else {
         LOGDEBUG << svcReq->logString() << logString(*putObjRsp)
-                 << " DLT version " << dltVersion;
+                 << " DLT version " << amReq->dlt_version;
     }
-
-    // notify DLT manager that request completed, so we can decrement refcnt
-    dltMgr->decDLTRefcnt(dltVersion);
 
     blobReq->notifyResponse(error);
 }
@@ -863,8 +893,9 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    auto const dlt = dltMgr->getAndLockCurrentDLT();
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq, dlt->getVersion()));
+    auto const dlt = dltMgr->getAndLockCurrentVersion();
+    amReq->dlt_version = dlt->getVersion();
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getObjectCb, amReq));
     auto asyncGetReq = createFailoverRequest(objId,
                                              dlt,
                                              getObjMsg,
@@ -879,7 +910,6 @@ AmDispatcher::dispatchGetObject(AmRequest *amReq)
 
 void
 AmDispatcher::getObjectCb(AmRequest* amReq,
-                          fds_uint64_t dltVersion,
                           FailoverSvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload)
@@ -889,13 +919,13 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
     // notify DLT manager that request completed, so we can decrement refcnt
-    dltMgr->decDLTRefcnt(dltVersion);
+    dltMgr->releaseVersion(amReq->dlt_version);
 
     auto getObjRsp = deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
     if (error == ERR_OK) {
         LOGDEBUG << svcReq->logString() << logString(*getObjRsp)
-                 << " DLT version " << dltVersion;
+                 << " DLT version " << amReq->dlt_version;
         auto blobReq = static_cast<GetObjectReq*>(amReq);
         blobReq->obj_data = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
@@ -936,8 +966,10 @@ AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, amReq));
     auto asyncQueryReq = createFailoverRequest(amReq->io_vol_id,
+                                               amReq->dmt_version,
                                                queryMsg,
                                                respCb,
                                                message_timeout_io);
@@ -972,6 +1004,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
 {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
     Error err = ERR_OK;
@@ -1052,8 +1085,12 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
     message->blob_name = amReq->getBlobName();
     message->metaDataList.clear();
 
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, amReq));
-    auto asyncReq = createFailoverRequest(amReq->io_vol_id, message, respCb);
+    auto asyncReq = createFailoverRequest(amReq->io_vol_id,
+                                          amReq->dmt_version,
+                                          message,
+                                          respCb);
     asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
                                         this, amReq, std::placeholders::_1,
                                         std::placeholders::_2));
@@ -1071,7 +1108,7 @@ AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
               return;);
 
     auto blobReq = static_cast<RenameBlobReq *>(amReq);
-    blobReq->dmt_version = dmtMgr->getCommittedVersion();
+    blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
     auto message = boost::make_shared<fpi::RenameBlobMsg>();
     message->volume_id = amReq->io_vol_id.get();
@@ -1100,6 +1137,7 @@ AmDispatcher::renameBlobCb(AmRequest *amReq,
                            boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     // Deserialize if all OK
     if (ERR_OK == error) {
         auto blobReq = static_cast<RenameBlobReq *>(amReq);
@@ -1165,6 +1203,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
 {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     // Deserialize if all OK
     if (ERR_OK == error) {
         // using the same structure for input and output
@@ -1215,6 +1254,7 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     auto response = deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
@@ -1243,8 +1283,12 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
     message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
     message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
 
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::volumeContentsCb, amReq));
-    auto asyncReq = createFailoverRequest(amReq->io_vol_id, message, respCb);
+    auto asyncReq = createFailoverRequest(amReq->io_vol_id,
+                                          amReq->dmt_version,
+                                          message,
+                                          respCb);
     asyncReq->invoke();
 }
 
@@ -1256,6 +1300,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
 {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
     // Return if err
     if (ERR_OK == error) {
         // using the same structure for input and output
