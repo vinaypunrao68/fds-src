@@ -42,42 +42,56 @@ public class GrantToken implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String login = requiredString(request, "login");
         String password = requiredString(request, "password");
-
-        final List<String> features = new ArrayList<>();
-        for (final Feature feature : Feature.byRole(IdentityType.USER)) {
-            features.add(feature.name());
-        }
-
+        
         try {
-            AuthenticationToken token = authenticator.authenticate(login, password);
-            final User user = authorizer.userFor(token);
-            if (user.isIsFdsAdmin()) {
-                features.clear();
-                for (final Feature feature : Feature.byRole(IdentityType.ADMIN)) {
-                    features.add( feature.name() );
-              }
-            }
 
-            final JSONObject jsonObject = new JSONObject( );
-            // temporary work-a-round for goldman
-            jsonObject.put("username", login);
-            jsonObject.put("userId", user.getId() );
-            jsonObject.put("token", token.signature(key));
-            jsonObject.put("features", features);
-            // end of work-a-round
-
-            // new JSONObject().put("token", token.signature(Authenticator.KEY))
-            return new JsonResource(jsonObject) {
-                @Override
-                public Cookie[] cookies() {
-                    Cookie cookie = new Cookie( HttpAuthenticator.FDS_TOKEN, token.signature(key));
-                    cookie.setPath("/");
-                    return new Cookie[]{cookie};
-                }
-            };
+        	return doLogin( login, password );
+        	
         } catch (LoginException e) {
             JSONObject message = new JSONObject().put("message", "Invalid credentials.");
             return new JsonResource(message, HttpServletResponse.SC_UNAUTHORIZED);
         }
+    }
+    
+    /**
+     * do the actual login in a way that cna be accessed by other classes
+     * 
+     * @param username
+     * @param password
+     * @return
+     */
+    public Resource doLogin( String username, String password ) throws LoginException{
+       
+        final List<String> features = new ArrayList<>();
+        for (final Feature feature : Feature.byRole(IdentityType.USER)) {
+            features.add(feature.name());
+        }
+    	
+    	AuthenticationToken token = authenticator.authenticate(username, password);
+        final User user = authorizer.userFor(token);
+        if (user.isIsFdsAdmin()) {
+            features.clear();
+            for (final Feature feature : Feature.byRole(IdentityType.ADMIN)) {
+                features.add( feature.name() );
+          }
+        }
+
+        final JSONObject jsonObject = new JSONObject( );
+        // temporary work-a-round for goldman
+        jsonObject.put("username", username);
+        jsonObject.put("userId", user.getId() );
+        jsonObject.put("token", token.signature(key));
+        jsonObject.put("features", features);
+        // end of work-a-round
+
+        // new JSONObject().put("token", token.signature(Authenticator.KEY))
+        return new JsonResource(jsonObject) {
+            @Override
+            public Cookie[] cookies() {
+                Cookie cookie = new Cookie( HttpAuthenticator.FDS_TOKEN, token.signature(key));
+                cookie.setPath("/");
+                return new Cookie[]{cookie};
+            }
+        };
     }
 }

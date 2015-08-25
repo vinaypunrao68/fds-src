@@ -8,14 +8,13 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
-public class StatsAuth implements RequestHandler {
+public class StatsVhostAuth implements RequestHandler {
 
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
 
 		return new TextResource( "allow" );
-		
 	}
 
 }
