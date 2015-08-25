@@ -44,8 +44,18 @@ class DmMigrationClient {
     /**
      * Whether or not I/O to this volume needs to be forwarded
      * as part of Active Migration.
+     * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO();
+    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+
+    /* Forwarding Modifiers */
+    void turnOnForwarding();
+    void turnOffForwarding();
+
+    /**
+     * Sends a msg to say that we're done with forwarding.
+     */
+    Error sendFinishFwdMsg();
 
     /**
      * Forward the committed blob to the destination side.
@@ -102,6 +112,11 @@ class DmMigrationClient {
      * Number of blob descriptors before sending to destination DM.
      */
     uint64_t maxNumBlobs;
+
+    /**
+     * Local copy of the dmtVersion undergoing migration
+     */
+    fds_uint64_t dmtVersion;
 
     /**
      * Maintain the sequence number for the delta set of blob offset set to

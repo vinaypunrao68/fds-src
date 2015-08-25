@@ -15,6 +15,11 @@ import random
 import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from TestFDSServiceMgt import TestAMBringUp
+from fdslib.TestUtils import get_node_service
+from fdscli.model.platform.service import Service
+from fdslib.TestUtils import get_localDomain_service
+import time
+from fdscli.model.fds_error import FdsError
 
 
 # This class contains the attributes and methods to test
@@ -302,14 +307,14 @@ class TestDomainShutdown(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
+        local_domain_service = get_localDomain_service(self,om_node.nd_conf_dict['ip'])
+        local_domains =local_domain_service.get_local_domains()
+        for domain in local_domains:
+            self.log.info("Shutdown domain.")
+            status = local_domain_service.shutdown(domain)
 
-        self.log.info("Shutdown domain.")
-
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain shutdown local) \"',
-                                            fds_tools=True)
-
-        if status != 0:
-            self.log.error("Domain shutdown returned status %d." % (status))
+        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
+            self.log.error("Domain shutdown returned status %s." % (status))
             return False
         else:
             return True

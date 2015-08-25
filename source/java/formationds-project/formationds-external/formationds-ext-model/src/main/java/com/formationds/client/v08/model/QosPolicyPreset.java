@@ -33,6 +33,14 @@ public class QosPolicyPreset extends QosPolicyBase {
         super(priority, iopsMin, iopsMax );
     }
 
+    public Long getId() {
+        return id;
+    }
+
+    public void setId( Long id ) {
+        this.id = id;
+    }
+
     public String getName(){
     	return this.name;
     }

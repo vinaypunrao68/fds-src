@@ -92,6 +92,7 @@ struct AmMultiReq : public AmRequest {
     using AmRequest::AmRequest;
 
     void setResponseCount(size_t const cnt) {
+        std::lock_guard<std::mutex> g(resp_lock);
         resp_acks = cnt;
     }
 

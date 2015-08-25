@@ -18,7 +18,6 @@
 #define NANOS_IN_MINUTE (NANOS_IN_SECOND * 60)
 #define NANOS_IN_HOUR   (NANOS_IN_MINUTE * 60)
 
-#define ENUMCASE(x) case x : return #x
 #define ENUMCASEOS(x, os) case x : os << #x ; break;
 
 #define SHARED_DYN_CAST(T, ptr) boost::dynamic_pointer_cast<T>(ptr)

@@ -5,7 +5,7 @@ function s3_setup {
     local policy=$2
     echo "Setting up s3 on $node"
     pushd ../../../cli
-    ./fds volume create -name volume0 -type object -max_object_size 128 -max_object_size_unit KB -media_policy $policy
+    ./fds volume create -name volume0 -type object -max_object_size 128 -max_object_size_unit KB -tiering_policy $policy
     sleep 10
     popd
 }

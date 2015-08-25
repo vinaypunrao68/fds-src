@@ -97,6 +97,14 @@ public class QueryCriteria
     }
 
     /**
+     * @param columns
+     */
+    public void setColumns( List<String> columns ) {
+        this.columns.clear();
+        addColumns( columns );
+    }
+
+    /**
      *
      * @return a string representing the column projection list based on the configured columms.  If the columns
      * list is empty, returns a "*".
