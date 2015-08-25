@@ -521,7 +521,6 @@ class TestDMRemove(TestCase.FDSTestCase):
                                              "DM service removal")
 
         self.passedNode = node
-    @TestCase.expectedFailure
     def test_DMRemove(self):
         """
         Test Case:
@@ -553,17 +552,34 @@ class TestDMRemove(TestCase.FDSTestCase):
                                (node.nd_conf_dict['node-name'], status))
                 return False
 
-            self.log.info("Remove DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+            self.log.info("Shutting DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
 
-            self.log.warn("Remove services call currently not implemented. THIS CALL WILL FAIL!")
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} dm > '
-                                                '{}/cli.out 2>&1) \"'.format(node.nd_uuid, log_dir),
-                                                fds_tools=True)
+            self.log.debug("DM's Node UUID should be: " + node.nd_uuid + " and in decimal: " + str(int(node.nd_uuid, 16)))
+            output_buf = om_node.nd_agent.fds_cli_exec(cmd="service list")
+            self.log.debug(output_buf)
+            lined_output = output_buf.splitlines()
+            # See if UUID is found
+            status = 1
+            dm_service_id = ""
+            node_id_int = str(int(node.nd_uuid, 16))
+            for line in lined_output:
+                if node_id_int in line:
+                    if "DM" in line and "RUNNING" in line:
+                        status = 0
+                        split_columns = shlex.split(line)
+                        dm_service_id = split_columns[3]
+                        self.log.debug("DM service ID: " + dm_service_id)
+
+            self.log.debug("Output buffer: " + output_buf)
 
             if status != 0:
-                self.log.error("DM removal from %s returned status %d." % (node.nd_conf_dict['node-name'], status))
+                self.log.error("DM service not found on node %s - returned status %d." % (node.nd_conf_dict['node-name'], status))
                 return False
+            else:
+                output_buf = om_node.nd_agent.fds_cli_exec(cmd="service stop -node_id " + node_id_int + " -service_id " + dm_service_id)
+
+            self.log.debug(output_buf)
 
             if self.passedNode is not None:
                 break
