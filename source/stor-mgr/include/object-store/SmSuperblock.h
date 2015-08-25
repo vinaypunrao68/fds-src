@@ -18,7 +18,6 @@
 
 namespace fds {
 
-typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 

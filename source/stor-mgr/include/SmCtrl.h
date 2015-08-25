@@ -21,6 +21,7 @@ namespace fds {
 enum SmCommandInitiator {
     SM_CMD_INITIATOR_USER,
     SM_CMD_INITIATOR_TOKEN_MIGRATION,
+    SM_CMD_INITIATOR_DISK_CHANGE,
     SM_CMD_INITIATOR_NOT_SET
 };
 
@@ -35,6 +36,8 @@ class SmScavengerCmd {
         SCRUB_GET_STATUS,
         SCAV_ENABLE,
         SCAV_DISABLE,
+        SCAV_ENABLE_DISK,
+        SCAV_DISABLE_DISK,
         SCAV_START,
         SCAV_STOP,
         SCAV_SET_POLICY,
@@ -48,11 +51,12 @@ class SmScavengerCmd {
     // use this constructor if user is an initiator
     explicit SmScavengerCmd(CommandType cmd)
             : command(cmd), initiator(SM_CMD_INITIATOR_USER) {}
-    SmScavengerCmd(CommandType cmd, SmCommandInitiator who)
-            : command(cmd), initiator(who) {}
+    SmScavengerCmd(CommandType cmd, SmCommandInitiator who, DiskId id)
+            : command(cmd), initiator(who), diskId(id) {}
 
     CommandType command;
     SmCommandInitiator initiator;
+    DiskId diskId = {SM_INVALID_DISK_ID};
 };
 
 class SmScavengerActionCmd: public SmScavengerCmd {

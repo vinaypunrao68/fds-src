@@ -391,7 +391,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGNORMAL << "Received activate services for Local Domain " << domainName;
             LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
 
-            localDomain->om_cond_bcast_activate_services(*sm, *dm, *am);
+            localDomain->om_cond_bcast_start_services(*sm, *dm, *am);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
