@@ -164,12 +164,12 @@ class AMService(object):
             if eachnode.address.ipv4address == node_ip:
                 #if eachnode.services['AM'][0].status ==  'ACTIVE':
                 if am_pid_before ==  am_pid_after:
-		        log.warn('FAIL - Failed to kill bare_am service on node {}'.format(eachnode.address.ipv4address))
-		        return False 
+                    log.warn('FAIL - Failed to kill bare_am service on node {}'.format(eachnode.address.ipv4address))
+                    return False 
 
-		else:
-			log.info('PASS - bare_am service has been killed on node {}'.format(eachnode.address.ipv4address))
-		        return True
+                else:
+                    log.info('PASS - bare_am service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    return True
 
     def add(self, node_ip):
         '''
@@ -405,12 +405,12 @@ class DMService(object):
             if eachnode.address.ipv4address == node_ip:
                 #if eachnode.services['DM'][0].status ==  'ACTIVE':
                 if dm_pid_before ==  dm_pid_after:
-		        log.warn('FAIL - Failed to kill DataMgr service on node {}'.format(eachnode.address.ipv4address))
-		        return False 
+                    log.warn('FAIL - Failed to kill DataMgr service on node {}'.format(eachnode.address.ipv4address))
+                    return False 
 
-		else:
-			log.info('PASS - DataMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
-		        return True
+                else:
+                    log.info('PASS - DataMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    return True
 
     def add(self, node_ip):
         '''
@@ -645,12 +645,12 @@ class SMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if sm_pid_before ==  sm_pid_after:
-		        log.warn('FAIL - Failed to kill StorMgr service on node {}'.format(eachnode.address.ipv4address))
-		        return False 
+                    log.warn('FAIL - Failed to kill StorMgr service on node {}'.format(eachnode.address.ipv4address))
+                    return False 
 
-		else:
-			log.info('PASS - StorMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
-		        return True
+                else:
+                    log.info('PASS - StorMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    return True
 
     def add(self, node_ip):
         '''
@@ -843,7 +843,7 @@ class PMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address == node_ip:
                     try:
-                        if eachnode.services['PM'][0].status.state ==  'INACTIVE' or eachnode.services['PM'][0].status.state ==  'DOWN' or eachnode.services['PM'][0].status.state ==  'NOT_RUNNING':
+                        if eachnode.services['PM'][0].status.state ==  'STANDBY' or eachnode.services['PM'][0].status.state ==  'DOWN' or eachnode.services['PM'][0].status.state ==  'NOT_RUNNING':
                              log.info('PASS - PM service is no longer running on node {}'.format(eachnode.address.ipv4address))
                              return True
 
@@ -885,12 +885,12 @@ class PMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if pm_pid_before ==  pm_pid_after:
-		        log.warn('FAIL - Failed to kill platformd service on node {}'.format(eachnode.address.ipv4address))
-		        return False 
+                    log.warn('FAIL - Failed to kill platformd service on node {}'.format(eachnode.address.ipv4address))
+                    return False 
 
-		else:
-			log.info('PASS - platformd service has been killed on node {}'.format(eachnode.address.ipv4address))
-		        return True
+                else:
+                    log.info('PASS - platformd service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    return True
 
     def add(self, node_ip):
         '''
@@ -1128,12 +1128,12 @@ class OMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if om_pid_before == om_pid_after:
-		        log.warn('FAIL - Failed to kill platformd service on node {}'.format(eachnode.address.ipv4address))
-		        return False 
+                    log.warn('FAIL - Failed to kill OM service on node {}'.format(eachnode.address.ipv4address))
+                    return False 
 
-		else:
-			log.info('PASS - platformd service has been killed on node {}'.format(eachnode.address.ipv4address))
-		        return True
+                else:
+                    log.info('PASS - OM service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    return True
 
     def add(self, node_ip):
         '''
