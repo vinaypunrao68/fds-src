@@ -220,13 +220,13 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
                                         uint32_t timeout) const {
     fds_assert(DMT_VER_INVALID != dmt_ver);
     // Take the group from a provided table version
-    auto token_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
+    auto dm_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
 
     // Assuming the first N (if any) nodes are the primaries and
     // the rest are backups.
     std::vector<fpi::SvcUuid> primaries, secondaries;
-    for (size_t i = 0; token_group->getLength() > i; ++i) {
-        auto uuid = token_group->get(i).toSvcUuid();
+    for (size_t i = 0; dm_group->getLength() > i; ++i) {
+        auto uuid = dm_group->get(i).toSvcUuid();
         if (numPrimaries > i) {
             primaries.push_back(uuid);
             continue;
@@ -287,11 +287,11 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
                                     uint32_t timeout) const {
     fds_assert(DMT_VER_INVALID != dmt_ver);
     // Take the group from a provided table version
-    auto token_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
-    auto numNodes = std::min(token_group->getLength(), numPrimaries);
+    auto dm_group = dmtMgr->getVersionNodeGroup(volId, dmt_ver);
+    auto numNodes = std::min(dm_group->getLength(), numPrimaries);
     DmtColumnPtr dmPrimariesForVol = boost::make_shared<DmtColumn>(numNodes);
     for (uint32_t i = 0; numNodes > i; ++i) {
-        dmPrimariesForVol->set(i, token_group->get(i));
+        dmPrimariesForVol->set(i, dm_group->get(i));
     }
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
@@ -581,9 +581,6 @@ AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
     auto *blobReq = static_cast<StartBlobTxReq *>(amReq);
 
     // Update DMT version in request
-    // TODO(Andrew): There's a potential race here between the
-    // version we cache in the blobReq now and the version we
-    // actually dispatch on below. Make the update/dispatch consistent.
     blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
     fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);

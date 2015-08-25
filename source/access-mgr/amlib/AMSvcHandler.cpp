@@ -228,7 +228,7 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     // send response right away on error or if there is no IO pending for
-    // the previous DLT
+    // the previous DMT
     if (err != ERR_IO_PENDING) {
         NotifyDMTUpdateCb(hdr, msg, err);
     }

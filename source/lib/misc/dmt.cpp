@@ -296,9 +296,11 @@ Error DMTManager::add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const
     dmt_map[add_version] = DMTPtr(dmt);
 
     // check refcnt of the current DLT, if 0
-    auto old_ptr = dmt_map[old_version];
-    if (old_ptr && (cb != nullptr)) {
-        err = old_ptr->setCallback(cb);
+    if (DMT_VER_INVALID != old_version) {
+        auto old_ptr = dmt_map[old_version];
+        if (old_ptr && (cb != nullptr)) {
+            err = old_ptr->setCallback(cb);
+        }
     }
 
     // If we have too many elements in a map, remove DMT
