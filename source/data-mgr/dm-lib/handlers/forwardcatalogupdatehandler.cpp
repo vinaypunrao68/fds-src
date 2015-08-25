@@ -57,15 +57,26 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     	return;
     }
 
-    LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
+    DmCommitLog::ptr commitLog;
+    auto err = dataManager.timeVolCat_->getCommitlog(fds_volid_t(typedRequest->fwdCatMsg->volume_id), commitLog);
 
-    helper.err = dataManager.timeVolCat_->updateFwdCommittedBlob(
+    if (!err.ok() || !commitLog) {
+        LOGMIGRATE << "Failed to get commit log when processing fwd blob " << *typedRequest;
+        helper.err = ERR_DM_FORWARD_FAILED;
+    } else {
+        auto txDesc = boost::make_shared<const BlobTxId>(typedRequest->fwdCatMsg->txId);
+        commitLog->rollbackTx(txDesc);
+
+        LOGMIGRATE << "Will commit fwd blob " << *typedRequest << " to tvc";
+
+        helper.err = dataManager.timeVolCat_->updateFwdCommittedBlob(
             static_cast<fds_volid_t>(typedRequest->fwdCatMsg->volume_id),
             typedRequest->fwdCatMsg->blob_name,
             typedRequest->fwdCatMsg->blob_version,
             typedRequest->fwdCatMsg->obj_list,
             typedRequest->fwdCatMsg->meta_list,
             typedRequest->fwdCatMsg->sequence_id);
+    }
 }
 
 }  // namespace dm

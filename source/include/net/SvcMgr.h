@@ -88,7 +88,7 @@ typedef TableColumn DltTokenGroup;
 typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
 typedef TableColumn DmtColumn;
 typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
-using OmDltUpdateRespCbType = std::function<void (const Error&)> ;
+using OmUpdateRespCbType = std::function<void (const Error&)> ;
 // Callback for DMT close
 typedef std::function<void(Error &err)> DmtCloseCb;
 
@@ -378,8 +378,8 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     bool hasCommittedDMT() const;
 
-    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, OmUpdateRespCbType const& cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType const& cb);
     /**
     * @brief Gets dlt from OM and upadtes dlt manager
     *
