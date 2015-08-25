@@ -1,6 +1,5 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
