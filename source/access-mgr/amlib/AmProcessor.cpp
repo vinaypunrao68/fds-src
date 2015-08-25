@@ -80,9 +80,9 @@ class AmProcessor_impl
     Error updateQoS(long int const* rate, float const* throttle)
         { return volTable->updateQoS(rate, throttle); }
 
-    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
 
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
 
     bool haveTables();
 
@@ -529,7 +529,7 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
 }
 
 Error
-AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb) {
+AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     // If we successfully update the dlt, have the parent do it's init check
     auto e = amDispatcher->updateDlt(dlt_type, dlt_data, cb);
     if (e.ok() && !have_tables.first) {
@@ -540,9 +540,9 @@ AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, std::function<
 }
 
 Error
-AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data) {
+AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
     // If we successfully update the dmt, have the parent do it's init check
-    auto e = amDispatcher->updateDmt(dmt_type, dmt_data);
+    auto e = amDispatcher->updateDmt(dmt_type, dmt_data, cb);
     if (e.ok() && !have_tables.second) {
         have_tables.second = true;
         parent_mod->mod_enable_service();
@@ -1272,11 +1272,11 @@ void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 Error AmProcessor::removeVolume(const VolumeDesc& volDesc)
 { return _impl->removeVolume(volDesc); }
 
-Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb)
+Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb)
 { return _impl->updateDlt(dlt_type, dlt_data, cb); }
 
-Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data)
-{ return _impl->updateDmt(dmt_type, dmt_data); }
+Error AmProcessor::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb)
+{ return _impl->updateDmt(dmt_type, dmt_data, cb); }
 
 Error AmProcessor::updateQoS(long int const* rate, float const* throttle)
 { return _impl->updateQoS(rate, throttle); }
