@@ -214,6 +214,9 @@ enum ServiceStatus {
  * that while the PM is not in inactive state, it is not active either
  */
     SVC_STATUS_STANDBY      = 0x0004;
+    SVC_STATUS_ADDED        = 0x0005;
+    SVC_STATUS_STARTED      = 0x0006;
+    SVC_STATUS_STOPPED      = 0x0007;
 }
 
 /* ------------------------------------------------------------

@@ -1087,7 +1087,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 /**
  * DACT_DeactSvc
  * ------------
- * Send deactivate services msg to all PMs
+ * Send stop services msg to all PMs
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
@@ -1099,9 +1099,10 @@ NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
-        // broadcast deactivate services to all PMs
-        // all "false" params mean deactive all services that are running on node
-        fds_uint32_t count = dom_ctrl->om_cond_bcast_deactivate_services(false, false, false);
+        // broadcast stop services to all PMs
+        // all "false" params mean stop all services that are running on node
+        fds_uint32_t count = dom_ctrl->om_cond_bcast_stop_services(false, false, false);
+        LOGDEBUG <<"--Error count is" << count;
         if (count < 1) {
             // ok if we don't have any PMs, just finish shutdown process
             dst.acks_to_wait = 1;
@@ -1779,32 +1780,48 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
     NodeServices services;
     if ( configDB->getNodeServices( node_uuid, services ) )
     {
-      fds_bool_t activateAM = false;
-      fds_bool_t activateDM = false;
-      fds_bool_t activateSM = false;
+      fds_bool_t startAM = false;
+      fds_bool_t startDM = false;
+      fds_bool_t startSM = false;
 
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
-          activateAM = true;
+          startAM = true;
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
-          activateDM = true;
+          startDM = true;
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
-          activateSM = true;
+          startSM = true;
       }
 
-      if ( activateAM || activateDM || activateSM )
+      if ( startAM || startDM || startSM )
       {
           OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-          local->om_activate_node_services( node_uuid,
-                                           activateSM,
-                                           activateDM,
-                                           activateAM );
+
+          fpi::SvcUuid svcUuid;
+          svcUuid.svc_uuid = node_uuid.uuid_get_val();
+          std::vector<fpi::SvcInfo> svcInfoList;
+
+          fds::getServicesToStart(startSM,
+                                  startDM,
+                                  startAM,
+                                  gl_orch_mgr->getConfigDB(),
+                                  node_uuid,
+                                  svcInfoList);
+
+          if (svcInfoList.size() == 0) {
+              LOGWARN <<"No services found to start for node:"
+                         << std::hex << node_uuid << std::dec;
+          }
+          else
+          {
+              local->om_start_service( svcUuid, svcInfoList );
+          }
       }
     }
 }
