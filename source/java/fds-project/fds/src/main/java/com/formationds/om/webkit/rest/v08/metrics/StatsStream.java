@@ -33,7 +33,7 @@ public class StatsStream implements SubscriptionHandler {
 		try {
 			conn = StatsConnection.newConnection( "localhost", 11011, "admin", "admin" );
 			
-			subscription = conn.subscribe( "1.0.stats.volume", this );
+			subscription = conn.subscribe( "admin", "1.0.stats.volume", this );
 			
 			logger.info( "StatsStream connected successfully." );
 		} catch ( Exception e ){

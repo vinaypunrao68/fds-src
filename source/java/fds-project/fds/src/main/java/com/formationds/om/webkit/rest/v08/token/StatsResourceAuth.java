@@ -69,13 +69,13 @@ public class StatsResourceAuth implements RequestHandler {
 		
 		List<String> perms = new ArrayList<String>();
 		
-		// regular users cannot deal with exchanges
-		if ( resource.equals( EXCHANGE ) ){
-			
-			if ( name.equals( "stats" ) ){
-				perms.add( READ );
-			}
-			
+		// It only gets to the queue level if the exchange level
+		// has been authorized.  We will authorize exchange based on 
+		// tenancy and the queue must be read writable
+		if ( resource.equals( QUEUE ) ){
+			perms.add( WRITE );
+			perms.add( CONFIGURE );
+			perms.add( READ );
 			return perms;
 		}
 		
@@ -111,17 +111,13 @@ public class StatsResourceAuth implements RequestHandler {
 			
 			if ( name.equals( "stats.work" ) ){
 				perms.add( READ );
-			}
-			else {
-				perms.add( WRITE );
+//				perms.add( WRITE );
 				perms.add( CONFIGURE );
 			}
 		}
 		else {
-			if ( name.equals( "stats" ) ){
-				perms.add( WRITE );
-				perms.add( CONFIGURE );
-			}
+			perms.add( WRITE );
+			perms.add( CONFIGURE );
 		}
 		
 		return perms;
@@ -132,11 +128,9 @@ public class StatsResourceAuth implements RequestHandler {
 		
 		if ( resource.equals( EXCHANGE ) ){
 			
-			if ( name.equals( "stats" ) ){
-				perms.add( READ );
-				perms.add( WRITE );
-				perms.add( CONFIGURE );
-			}
+			perms.add( READ );
+//			perms.add( WRITE );
+//			perms.add( CONFIGURE );
 		}
 		else {
 			if ( name.equals( "stats.work" ) ){
@@ -146,6 +140,7 @@ public class StatsResourceAuth implements RequestHandler {
 			else {
 				perms.add( CONFIGURE );
 				perms.add( READ );
+				perms.add( WRITE );
 			}
 		}
 		

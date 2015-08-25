@@ -90,7 +90,7 @@ public class ListVolumes implements RequestHandler {
         StatDataPoint data = new StatDataPoint();
         data.setCollectionPeriod( diff );
         data.setContextId( 0L );
-        data.setContextType( 0 );
+        data.setContextType( -1 );
         data.setMetricName( "LIST_VOLUME_TIME" );
         data.setMetricValue( new Double( diff ) );
         data.setReportTime( now );
