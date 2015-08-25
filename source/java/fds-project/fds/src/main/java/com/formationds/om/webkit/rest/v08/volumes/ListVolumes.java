@@ -96,7 +96,12 @@ public class ListVolumes implements RequestHandler {
         data.setReportTime( now );
         
         try {
-        	StatsStream.getInstance().getConnection().publishStatistic( data );
+        	
+        	String caller = Thread.currentThread().getStackTrace()[1].getClassName();
+        	
+        	if ( !caller.equals( "GetVolume" ) ){
+        		StatsStream.getInstance().getConnection().publishStatistic( data );
+        	}
         }
         catch( Exception e ){
         	logger.warn( "Could not connect to messaging service." );
