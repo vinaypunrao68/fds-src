@@ -77,10 +77,10 @@ DmMigrationExecutor::startMigration()
     	migrationProgress = STATICMIGRATION_IN_PROGRESS;
 
     	/**
-    	 * First quiesce IO
+    	 * First do a StopDequeue on the volume
     	 */
-    	LOGMIGRATE << "Quiescing IO for volume " << volumeUuid;
-    	dataMgr.qosCtrl->quieseceIOs(volumeUuid);
+    	LOGMIGRATE << "Stopping De-queing IO for volume " << volumeUuid;
+    	dataMgr.qosCtrl->stopDequeue(volumeUuid);
 
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
