@@ -97,6 +97,8 @@ SmDiskMap::loadPersistentState() {
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
         LOGDEBUG << "Loaded superblock " << *superblock;
+    } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+        LOGNOTIFY << "SM is coming up from CLEAN state";
     } else {
         LOGERROR << "Failed to load superblock " << err;
     }
