@@ -33,14 +33,27 @@ public class StatsStream implements SubscriptionHandler {
 		try {
 			conn = StatsConnection.newConnection( "localhost", 11011, "admin", "admin" );
 			
-			subscription = conn.subscribe( "admin", "1.0.stats.volume", this );
-			
 			logger.info( "StatsStream connected successfully." );
 		} catch ( Exception e ){
 			
-			logger.info( "Could not establish eonnectivity to the stats service." );
+			logger.info( "Could not establish connectivity to the stats service." );
+			
+			if ( conn != null ){
+				conn.close();
+			}
+			
 			instance = null;
 			throw e;
+		}
+	}
+	
+	public void startListening(){
+		
+		try {
+			subscription = conn.subscribe( "admin", "1.0.stats.volume", this );
+		}
+		catch( Exception e ){
+			logger.warn( "Subscription to admin topic failed.  Publishing should work without problems." );
 		}
 	}
 	
@@ -48,6 +61,10 @@ public class StatsStream implements SubscriptionHandler {
 		
 		if ( instance == null ){
 			instance = new StatsStream();
+		}
+		
+		if ( instance.getSubscription() == null ){
+			instance.startListening();
 		}
 		
 		return instance;
