@@ -160,7 +160,11 @@ class DmMigrationExecutor {
     void sequenceTimeoutHandler();
 
     /**
-     * Notification that all the static migration operations have been applied
+     * Called by each function whose completion could signal the end of static migration.
+     * Tests that all the component operations have been applied, and if so triggers the actions for
+     * the next phase exactly once. Safe against races between the terminations conditions being met
+     * and the actual call to this function, i.e. safe to call even after the state machine has moved
+     * beyond static migration.
      */
     void testStaticMigrationComplete();
 
