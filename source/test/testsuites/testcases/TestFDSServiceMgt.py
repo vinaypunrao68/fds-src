@@ -648,15 +648,15 @@ class TestAWSDMKill(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWSDMKill,
+                                             self.test_AWS_DMKill,
                                              "DM service kill on AWS node")
 
         self.passedNode = node
 
-    def test_AWSDMKill(self):
+    def test_AWS_DMKill(self):
         """
         Test Case:
-        Attempt to shutdown the DM service(s)
+        Attempt to kill the DM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -676,7 +676,7 @@ class TestAWSDMKill(TestCase.FDSTestCase):
                 else:
                     break
 
-            self.log.info("Shutdown DM on %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Killing DM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
@@ -689,7 +689,7 @@ class TestAWSDMKill(TestCase.FDSTestCase):
 
             if ret_status:
                 status = 0
-                self.log.info("DM (DataMgr) has been restarted on %s." % (n.nd_conf_dict['node-name']))
+                self.log.info("DM (DataMgr) has been killed and restarted on %s." % (n.nd_conf_dict['node-name']))
             else:
                 self.log.error("Failing to kill DM (DataMgr) service on %s" %
                                 (n.nd_conf_dict['node-name']))
@@ -1018,15 +1018,15 @@ class TestAWSSMKill(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWSSMKill,
+                                             self.test_AWS_SMKill,
                                              "SM service kill on AWS node")
 
         self.passedNode = node
 
-    def test_AWSSMKill(self):
+    def test_AWS_SMKill(self):
         """
         Test Case:
-        Attempt to shutdown the SM service(s)
+        Attempt to kill the SM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -1046,7 +1046,7 @@ class TestAWSSMKill(TestCase.FDSTestCase):
                 else:
                     break
 
-            self.log.info("Shutdown SM on %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Killing SM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('StorMgr', n)
@@ -1059,7 +1059,7 @@ class TestAWSSMKill(TestCase.FDSTestCase):
 
             if ret_status:
                 status = 0
-                self.log.info("SM (StorMgr) has been restarted on %s." % (n.nd_conf_dict['node-name']))
+                self.log.info("SM (StorMgr) has been killed and restarted on %s." % (n.nd_conf_dict['node-name']))
             else:
                 self.log.error("Failing to kill SM (StorMgr) service on %s" %
                                 (n.nd_conf_dict['node-name']))
@@ -1308,12 +1308,12 @@ class TestAWSPMKill(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWSPMKill,
+                                             self.test_AWS_PMKill,
                                              "PM service kill on AWS node")
 
         self.passedNode = node
 
-    def test_AWSPMKill(self):
+    def test_AWS_PMKill(self):
         """
         Test Case:
         Attempt to kill the PM service(s)
@@ -1341,7 +1341,7 @@ class TestAWSPMKill(TestCase.FDSTestCase):
 
             if ret_status:
                 status = 0
-                self.log.info("PM (platformd) has been restarted on %s." % (n.nd_conf_dict['node-name']))
+                self.log.info("PM (platformd) has been killed and restarted on %s." % (n.nd_conf_dict['node-name']))
             else:
                 self.log.error("Failing to kill PM (platformd) service on %s" %
                                 (n.nd_conf_dict['node-name']))
@@ -1744,6 +1744,68 @@ class TestOMKill(TestCase.FDSTestCase):
         return True
 
 
+# This class contains the attributes and methods to test
+# killing an Access Manager (AM) service.
+class TestAWSOMKill(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_OMKill,
+                                             "OM service kill on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_OMKill(self):
+        """
+        Test Case:
+        Attempt to kill the OM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            # Make sure there is supposed to be an AM service on this node.
+            if n.nd_services.count("om") == 0:
+                self.log.warning("OM service not configured for node %s." % n.nd_conf_dict["node-name"])
+                if self.passedNode is None:
+                    continue
+                else:
+                    break
+
+            self.log.info("Killing OM on %s." % n.nd_conf_dict['node-name'])
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
+            ret_status = Om_obj.kill(om_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("OM (om.Main) has been killed and restarted on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to kill OM (om.Main) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                self.log.error("Failing to kill OM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
 # This class contains the attributes and methods to
 # verify that the the Orchestration Manager (OM) service is down.
 class TestOMVerifyDown(TestCase.FDSTestCase):
@@ -2145,15 +2207,15 @@ class TestAWSAMKill(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWSAMKill,
+                                             self.test_AWS_AMKill,
                                              "AM service kill on AWS node")
 
         self.passedNode = node
 
-    def test_AWSAMKill(self):
+    def test_AWS_AMKill(self):
         """
         Test Case:
-        Attempt to shutdown the AM service(s)
+        Attempt to kill the AM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -2173,7 +2235,7 @@ class TestAWSAMKill(TestCase.FDSTestCase):
                 else:
                     break
 
-            self.log.info("Shutdown AM on %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Killing AM on %s." % n.nd_conf_dict['node-name'])
 
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('bare_am', n)
@@ -2186,7 +2248,7 @@ class TestAWSAMKill(TestCase.FDSTestCase):
 
             if ret_status:
                 status = 0
-                self.log.info("AM (bare_am) has been restarted on %s." % (n.nd_conf_dict['node-name']))
+                self.log.info("AM (bare_am) has been killed and restarted on %s." % (n.nd_conf_dict['node-name']))
             else:
                 self.log.error("Failing to kill AM (bare_am) service on %s" %
                                 (n.nd_conf_dict['node-name']))
