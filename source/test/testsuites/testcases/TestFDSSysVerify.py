@@ -518,6 +518,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
             sftp = None
             if self.passedNode.nd_local:
                 log_files = os.listdir(fds_dir + "/var/logs")
+                self.log.debug("Found {} files during os.listdir. Files are {}".format(len(log_files), log_files))
             else:
                 sftp = self.passedNode.nd_agent.env_ssh_clnt.open_sftp()
                 log_files = sftp.listdir(fds_dir + "/var/logs")
