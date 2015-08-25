@@ -266,7 +266,7 @@ namespace fds {
          * and previous DLT refcount == 0
          */
         Error addSerializedDLT(std::string& serializedData,
-                               FDS_Table::callback_type cb,
+                               FDS_Table::callback_type const& cb,
                                bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version

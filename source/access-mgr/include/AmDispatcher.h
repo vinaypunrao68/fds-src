@@ -45,7 +45,7 @@ struct AmDispatcher : HasModuleProvider
      * Dlt/Dmt updates
      */
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
     /**
      * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
      */

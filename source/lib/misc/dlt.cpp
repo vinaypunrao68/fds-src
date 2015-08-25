@@ -779,7 +779,7 @@ Error DLTManager::add(const DLT& _newDlt,
 }
 
 Error DLTManager::addSerializedDLT(std::string& serializedData,
-                                   FDS_Table::callback_type cb,
+                                   FDS_Table::callback_type const& cb,
                                    bool fFull) { //NOLINT
     Error err(ERR_OK);
     DLT dlt(0, 0, 0, false);

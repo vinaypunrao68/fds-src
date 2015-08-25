@@ -141,8 +141,8 @@ AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callbac
 }
 
 Error
-AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data) {
-    auto err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt_type, dmt_data);
+AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt_type, dmt_data, cb);
     if (ERR_DUPLICATE == err) {
         LOGWARN << "Received duplicate DMT version, ignoring";
         err = ERR_OK;

@@ -125,8 +125,10 @@ namespace fds {
         explicit DMTManager(fds_uint32_t history_dmts = 0);
         virtual ~DMTManager();
 
-        Error add(DMT* dmt, DMTType dmt_type);
-        Error addSerializedDMT(std::string& data, DMTType dmt_type);
+        Error add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const& cb = nullptr);
+        Error addSerializedDMT(std::string& data,
+                               FDS_Table::callback_type const& cb,
+                               DMTType dmt_type);
 
         /**
          * Sets given version of DMT as commited

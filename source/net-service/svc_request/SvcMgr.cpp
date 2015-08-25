@@ -516,7 +516,7 @@ Error SvcMgr::getDMT(int maxAttempts) {
 	if (fdsp_dmt.dmt_version == DMT_VER_INVALID) {
 		err = ERR_NOT_FOUND;
 	} else {
-		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data);
+		err = updateDmt(DMT_COMMITTED, fdsp_dmt.dmt_data.dmt_data, nullptr);
 	}
 	return err;
 }
@@ -533,7 +533,7 @@ fds_uint64_t SvcMgr::getDMTVersion() {
     return dmtMgr_->getCommittedVersion();
 }
 
-Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb) {
+Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmUpdateRespCbType const& cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DLT version  " << dlt_type;
 
@@ -548,11 +548,11 @@ Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbT
     return err;
 }
 
-Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data) {
+Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType const& cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DMT version  " << dmt_type;
 
-    err = dmtMgr_->addSerializedDMT(dmt_data, DMT_COMMITTED);
+    err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
     if (!err.ok()) {
         LOGERROR << "Failed to update DMT! check dmt_data was set";
     }
