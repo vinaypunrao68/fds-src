@@ -133,9 +133,9 @@ public class ApiDefinition extends AbstractApiDefinition{
 		}
     	
     	authenticate( HttpMethod.POST, URL_PREFIX + "/stats/stream", ( t ) -> new StatsSocketHandler() );
-    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
-    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsVhostAuth() );
-    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsResourceAuth() );
+    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
+    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
+    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );
     }
     
     /**
