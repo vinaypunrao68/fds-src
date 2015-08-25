@@ -44,7 +44,7 @@ public class StatsUserAuth implements RequestHandler {
 		
 		String perms = "allow";
 		
-		if ( username == "admin" ){
+		if ( username.equals( "admin" ) ){
 			perms += "[management, policymaker, monitoring, administrator]";
 		}
 		
