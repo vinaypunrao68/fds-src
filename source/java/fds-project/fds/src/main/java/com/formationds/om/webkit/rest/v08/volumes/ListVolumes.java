@@ -99,7 +99,7 @@ public class ListVolumes implements RequestHandler {
         	
         	String caller = Thread.currentThread().getStackTrace()[1].getClassName();
         	
-        	if ( !caller.equals( "GetVolume" ) ){
+        	if ( !caller.equals( "com.formationds.om.webkit.rest.v08.volumes.GetVolume" ) ){
         		StatsStream.getInstance().getConnection().publishStatistic( data );
         	}
         }
