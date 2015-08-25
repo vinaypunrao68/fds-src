@@ -56,7 +56,7 @@ class FdsEnv(object):
             'package'   : 'fds.tar',
             'pkg-sbin'  : 'test',
             'pkg-tools' : 'tools',
-            'root-sbin' : 'sbin',
+            'root-sbin' : 'sbin'
         }
 
         self.env_ldLibPath = ("export LD_LIBRARY_PATH=" +
