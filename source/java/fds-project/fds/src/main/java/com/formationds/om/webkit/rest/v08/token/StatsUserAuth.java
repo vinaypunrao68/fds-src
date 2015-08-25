@@ -9,7 +9,6 @@ import org.eclipse.jetty.server.Request;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -45,7 +44,7 @@ public class StatsUserAuth implements RequestHandler {
 		String perms = "allow";
 		
 		if ( username.equals( "admin" ) ){
-			perms += "[management, policymaker, monitoring, administrator]";
+			perms += " administrator";
 		}
 		
 		return new TextResource( perms );
