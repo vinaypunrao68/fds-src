@@ -36,6 +36,8 @@ namespace fds
                             bool start_am,kvstore::ConfigDB* configDB,
                             NodeUuid nodeUuid,
                             std::vector<fpi::SvcInfo>& svcInfoList);
+    void retrieveSvcId(int64_t pmID, fpi::SvcUuid& svcUuid,
+                       FDS_ProtocolInterface::FDSP_MgrIdType type);
 
 }  // namespace fds
 

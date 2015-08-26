@@ -1235,7 +1235,6 @@ OM_PmAgent::send_add_service
 
     if (configDB->getNodeServices(node_uuid, services)) {
         if (add_am && services.am.uuid_get_val() != 0) {
-            //has_am = true;
             LOGDEBUG << "ServiceType:AM for node "
                      << std::hex
                      << node_uuid
@@ -1243,7 +1242,6 @@ OM_PmAgent::send_add_service
             return ERR_INVALID_ARG;
         }
         if (add_sm && services.sm.uuid_get_val() != 0) {
-            //has_sm = true;
             LOGDEBUG << "ServiceType:SM for node "
                      << std::hex
                      << node_uuid
@@ -1251,24 +1249,18 @@ OM_PmAgent::send_add_service
             return ERR_INVALID_ARG;
         }
         if (add_dm && services.dm.uuid_get_val() != 0) {
-            //has_dm = true;
             LOGDEBUG << "ServiceType:DM for node "
                      << std::hex
                      << node_uuid
                      << std::dec << "already exists, will not add again";
             return ERR_INVALID_ARG;
         }
-
-        //if (has_am || has_sm || has_dm)
-        //    updateSvcInfoList(svcInfos, has_sm, has_dm, has_am);
     }
     LOGNORMAL << "Add service for node: " << get_node_name()
               << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec;
 
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-    //kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    //fds_mutex::scoped_lock l(dbNodeInfoLock);
 
     if (!configDB->nodeExists(get_uuid())) {
         // For now store only if the node was not known to DB
@@ -1315,21 +1307,21 @@ OM_PmAgent::send_add_service
             // upon registrations
             switch (item.svc_type) {
             case fpi::FDSP_STOR_MGR:
-                svcuuid.svc_uuid = svc_uuid.svc_uuid + fpi::FDSP_STOR_MGR;
+                fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
                 svcId = new fpi::SvcID();
                 svcId->svc_name = "sm";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 break;
             case fpi::FDSP_DATA_MGR:
-                svcuuid.svc_uuid = svc_uuid.svc_uuid + fpi::FDSP_DATA_MGR;
+                fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
                 svcId = new fpi::SvcID();
                 svcId->svc_name = "dm";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 break;
             case fpi::FDSP_ACCESS_MGR:
-                svcuuid.svc_uuid = svc_uuid.svc_uuid + fpi::FDSP_ACCESS_MGR;
+                fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
                 svcId = new fpi::SvcID();
                 svcId->svc_name = "am";
                 svcId->svc_uuid = svcuuid;
@@ -1353,48 +1345,6 @@ OM_PmAgent::send_add_service
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
     req->invoke();
-    //bool add_sm = false;
-    //bool add_dm = false;
-    //bool add_am = false;
-
-    //NodeUuid node_uuid = svc_uuid.svc_uuid;
-
-    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
-    if (iter != svcInfos.end())
-        add_sm = true;
-
-    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR );
-    if (iter != svcInfos.end())
-        add_dm = true;
-
-    iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
-    if (iter != svcInfos.end())
-        add_am = true;
-
-    //TODO(meena): Now that we update the configDB with added state above, it should be okay
-    // to remove the below code
-    // If we are adding *individual* services, get the proper svc id, and update svc map
-    // The potential prior remove of this service would have caused it to be removed
-    // from the svcMap in the configuration database through om_del_services. A full
-    // registeration will happen once we start the service. We cannot start the individual service
-    // without it being present in the configDB, hence this step
-    if (! (add_sm && add_dm && add_am) )
-    {
-        for (iter = svcInfos.begin(); iter != svcInfos.end(); iter++)
-        {
-            if ((*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR ||
-                (*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR ||
-                (*iter).svc_type == FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR)
-            {
-                LOGDEBUG << "Adding service of type:" << (*iter).svc_type <<" to the configDB service map";
-
-                (*iter).svc_id.svc_uuid = SvcMgr::mapToSvcUuid(svc_uuid, (*iter).svc_type);
-
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*iter});
-                configDB->updateSvcMap(*iter);
-            }
-        }
-    }
 
     return err;
 }
@@ -1476,6 +1426,44 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
+    std::vector<fpi::SvcInfo> existingSvcs;
+    fpi::SvcUuid svcuuid;
+    bool foundSvc = false;
+
+    if (configDB->getSvcMap(existingSvcs)) {
+        for (auto item : svcInfos)
+        {
+            fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, item.svc_type);
+
+            for (auto existingItem : existingSvcs)
+            {
+                // We *must* be able to find the associated svc in the svcMap
+                // If we are coming after a stop, we never removed the service
+                // from the map. If this is start of a new service, we must
+                // have done "AddService" which would add a mostly blank
+                // service but with the right id into the map
+                if (svcuuid.svc_uuid == existingItem.svc_id.svc_uuid.svc_uuid) {
+                    foundSvc = true;
+                    break;
+                }
+            }
+
+            if (foundSvc) {
+                // Only if this is already in the map do we change state. Otherwise
+                // it can lead to some weird behavior
+                configDB->changeStateSvcMap(svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
+            } else {
+                LOGERROR <<"StartError: could not retrieve valid svcId";
+                return ERR_NOT_FOUND;
+            }
+
+            foundSvc = false;
+        }
+    } else {
+        LOGERROR <<"StartError:No services found in svcMap for node: "
+                 << std::hex << get_uuid().uuid_get_val()
+                 << std::dec;
+    }
 
     // Once this is done, an om_register_service call should be triggered for the
     // services that are attempting to be started
@@ -1519,15 +1507,15 @@ OM_PmAgent::send_stop_service
         bool dmNotPresent = false;
         bool amNotPresent = false;
 
-        if (! service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
+        if (stop_sm && !service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
             LOGNOTIFY << "OM_PmAgent: SM service does not exist";
             smNotPresent = true;
         }
-        if (! service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
+        if (stop_dm && !service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
             LOGNOTIFY << "OM_PmAgent: DM service does not exist";
             dmNotPresent = true;
         }
-        if (! service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
+        if (stop_am && !service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
             LOGNOTIFY << "OM_PmAgent: AM service does not exist";
             amNotPresent = true;
         }
@@ -1659,7 +1647,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  << " not updating local state of PM agent .... " << error;
     }
 
-    if (stop_sm && stop_dm && stop_am){
+    if (!activeSmAgent && !activeDmAgent && !activeAmAgent){
         // Node is being shutdown, change the state of platform
         // to standby, this will send back external node state
         // as being FDS_Node_Down
@@ -1787,19 +1775,40 @@ OM_PmAgent::send_remove_service
 
     auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyRemoveServiceMsg), removeServiceMsg);
+    req->onResponseCb(std::bind(&OM_PmAgent::send_remove_service_resp, this,
+                                node_uuid,
+                                std::placeholders::_1, std::placeholders::_2,
+                                std::placeholders::_3));
+    req->setTimeoutMs(10000);
     req->invoke();
 
-    // Assuming that if we plan to remove all 3 services,
-    // then the root action is "remove node": now that
-    // all handling on PM side is done, set the state of PM to inactive
-    if (remove_sm && remove_dm && remove_am)
+
+
+    return err;
+}
+
+void
+OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
+                                     EPSvcRequest* req,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload) {
+
+    LOGNORMAL << "ACK for remove services for node" << get_node_name()
+              << " UUID " << std::hex << nodeUuid.uuid_get_val() << std::dec;
+
+    kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+    NodeServices services;
+
+    // If there are no services present, then the action
+    // is "Remove node"
+    if (!configDB->getNodeServices(nodeUuid, services))
     {
         if (configDB->nodeExists(get_uuid())) {
 
             // Removing node so do:
             // 1. Set node to "down" state
             // 2. Remove node from the configDB
-            // 3. Set platform service state to inactive
+            // 3. Set platform service state to standby
 
             set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
             configDB->removeNode(get_uuid());
@@ -1810,12 +1819,16 @@ OM_PmAgent::send_remove_service
 
             LOGNOTIFY << "Removed node: " << get_node_name() << ":"
                 << std::hex << get_uuid().uuid_get_val() << std::dec << " from configDB";
+        } else {
+            LOGERROR << "Failed to set node/PM state correctly";
         }
+
+    } else {
+        LOGDEBUG <<"Removed service from node"
+                 << std::hex << nodeUuid.uuid_get_val() << std::dec
+                 << "successfully";
     }
-
-    return err;
 }
-
 /*
  * Send heartbeat message to PM to verify it is still well known
  *
