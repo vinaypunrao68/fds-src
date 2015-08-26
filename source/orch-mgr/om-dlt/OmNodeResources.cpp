@@ -92,20 +92,6 @@ OM_NodeAgent::handle_service_deployed()
                           fpi::SVC_STATUS_ACTIVE );
 }
 
-// om_send_myinfo
-// --------------
-// Send a node event taken from the new node agent to a peer agent.
-//
-void
-OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
-{
-    TRACEFUNC;
-    // TODO(Andrew): This function is deprecated and should not
-    // be called. It is not in any main code path but has a long
-    // deprecated call chain that can be removed when OM is re-factored.
-    LOGWARN << "You're calling a dead function";
-}
-
 // ----------------
 // TODO(Vy): define messages in inheritance tree.
 //
@@ -2399,53 +2385,6 @@ OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
     if (max_iopc != 0) {
         agent->om_send_qosinfo(max_iopc);
     }
-}
-
-// om_send_my_info_to_peer
-// -----------------------
-//
-static void
-om_send_my_info_to_peer(NodeAgent::pointer me, NodeAgent::pointer peer)
-{
-    TRACEFUNC;
-    OM_SmAgent::agt_cast_ptr(me)->om_send_myinfo(peer);
-}
-
-// om_bcast_new_node
-// -----------------
-//
-void
-OM_NodeContainer::om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref)
-{
-    TRACEFUNC;
-    if (ref->node_type == fpi::FDSP_ACCESS_MGR) {
-        return;
-    }
-    dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
-    dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
-    dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_my_info_to_peer);
-}
-
-// om_send_peer_info_to_me
-// -----------------------
-//
-static void
-om_send_peer_info_to_me(NodeAgent::pointer me, NodeAgent::pointer peer)
-{
-    TRACEFUNC;
-    OM_SmAgent::agt_cast_ptr(peer)->om_send_myinfo(me);
-}
-
-// om_update_node_list
-// -------------------
-//
-void
-OM_NodeContainer::om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref)
-{
-    TRACEFUNC;
-    dc_sm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
-    dc_dm_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
-    dc_am_nodes->agent_foreach<NodeAgent::pointer>(node, om_send_peer_info_to_me);
 }
 
 // om_prepare_services_start
