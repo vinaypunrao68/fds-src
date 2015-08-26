@@ -129,6 +129,9 @@ def get_options(pyUnit):
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
                       help = 'When the node is localhost, use this password for sudo access to the configured user. ')
 
+    parser.add_option("-z","--inventory-file", action="store", type="string", dest = 'inventory_file',
+                      help = 'If given , will over ride ip addresses in cfg file with inventory ips')
+
     validate_cli_options(parser, pyUnit)
     return parser
 
@@ -149,7 +152,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -370,7 +373,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # Currently, 3/2/2015, if we do an Ansible package install,
     # we only want to do it once as it will install the software
     # on all identified nodes at once.
-    params["ansible_install_done"] = False
+    params["ansible_install_done"] = pyUnitInstall
 
     return params
 
@@ -476,3 +479,16 @@ def getAuth(self, om_ip):
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
     self.__om_auth.login()
+
+def get_ips_from_inventory(inventory_file_name):
+    filename = inventory_file_name
+    path = '/home/parallels/fds-src/source/test/testsuites/templates/ansible-inventory/'
+    with open(path+filename) as f:
+        ips_array = []
+        lines = f.readlines()
+        for line in lines:
+            if (line.startswith('[')) or line == '\n':
+                break
+            else:
+                ips_array.append(line.rstrip('\n'))
+    return ips_array
