@@ -19,7 +19,6 @@ import shlex
 import random
 import re
 import os
-import shutil
 import fdslib.platformservice as plat_svc
 
 sm_killed_pid = -1
@@ -567,14 +566,14 @@ class TestDMRemove(TestCase.FDSTestCase):
                 if node_id_int in line:
                     if "DM" in line and "RUNNING" in line:
                         status = 0
-                        split_columns = shlex.split(line)
+                        split_columns = line.split()
                         dm_service_id = split_columns[3]
                         self.log.debug("DM service ID: " + dm_service_id)
 
             self.log.debug("Output buffer: " + output_buf)
 
             if status != 0:
-                self.log.error("DM service not found on node %s - returned status %d." % (node.nd_conf_dict['node-name'], status))
+                self.log.error("Active DM service not found on node %s - returned status %d." % (node.nd_conf_dict['node-name'], status))
                 return False
             else:
                 output_buf = om_node.nd_agent.fds_cli_exec(cmd="service stop -node_id " + node_id_int + " -service_id " + dm_service_id)
