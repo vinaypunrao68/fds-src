@@ -6,6 +6,7 @@
 # FDS test-case pattern requirements.
 import unittest
 import TestCase
+import pdb
 
 # Module-specific requirements
 import sys
@@ -445,16 +446,29 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
 
         if (action.count("kill") > 0):
-            if service == "pm":
-                suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
-            elif service == "dm":
-                suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
-            elif service == "sm":
-                suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
-            elif service == "om":
-                suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
-            elif service == "am":
-                suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+            if (action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
+
+            else:
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
 
         if (action.count("verifydown") > 0):
             if service == "pm":
