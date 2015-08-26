@@ -482,7 +482,7 @@ def getAuth(self, om_ip):
 
 def get_ips_from_inventory(inventory_file_name):
     filename = inventory_file_name
-    path = '/home/parallels/fds-src/source/test/testsuites/templates/ansible-inventory/'
+    path = os.path.join(os.path.expanduser("~"),'fds-src/source/test/testsuites/templates/ansible-inventory/')
     with open(path+filename) as f:
         ips_array = []
         lines = f.readlines()

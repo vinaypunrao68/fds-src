@@ -68,12 +68,16 @@ class FdsNodeConfig(FdsConfig):
             elif verbose['install']== True: #it's definately remote env as command line argument was passed
                 # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
+
+                if 'inventory_file' not in verbose:
+                    log.error("Need to provide inventory file name to run tests against deployed nodes")
+
                 ips_array = TestUtils.get_ips_from_inventory(verbose['inventory_file'])
                 if (ips_array.__len__() < (nodeId+1)):
                     raise Exception ("Number of ips give in inventory are less than nodes in cfg file")
 
                 if 'om' in self.nd_conf_dict:
-                    #TODO Pooja: do more efficiently, currently assuming that first ip in list is OM IP
+                    #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
                     self.nd_conf_dict['ip'] = ips_array[nodeId]
                 else:
                     self.nd_conf_dict['ip'] = ips_array[nodeId]
@@ -914,7 +918,7 @@ class FdsConfigFile(object):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
-        self.cfg_install   = install
+        self.cfg_install   = []
         self.cfg_am        = []
         self.cfg_user      = []
         self.cfg_nodes     = []
@@ -927,14 +931,15 @@ class FdsConfigFile(object):
         self.cfg_om        = None
         self.cfg_parser    = None
         self.cfg_localHost = None
-        self.cfg_inventory = inventory_file
+        self.cmd_line_option = inventory_file
+        self.cfg_is_fds_installed = install
 
     def config_parse(self):
         verbose = {
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun,
-            'install': self.cfg_install,
-            'inventory_file' : self.cfg_inventory
+            'install': self.cfg_is_fds_installed,
+            'inventory_file' : self.cmd_line_option
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)

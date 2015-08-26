@@ -25,7 +25,7 @@ import logging
 
 log_dir = None
 
-def suiteConstruction(install, self):
+def suiteConstruction(self, install):
     """
     Construct the ordered set of test cases that comprise the
     test suite defined by the input FDS scenario config file.
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     if log_dir is None:
         log_dir = 'test-reports'
 
-    test_suite = suiteConstruction(install, self=None)
+    test_suite = suiteConstruction(self=None, install= install)
 
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not
