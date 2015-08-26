@@ -12,7 +12,7 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # The list of system test scenarios, do not include the .ini"
 SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr StaticMigration ActiveMigration RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices"   ## This should be deleted when fs-2473 fs-2478 are resolved
+DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest"   ## This should be deleted when fs-2478 are resolved
 
 function performance_report
 {
