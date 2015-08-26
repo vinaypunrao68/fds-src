@@ -39,6 +39,7 @@ function process_results {
     local end_time=${10}
     local media_policy=${11}
     local exp_id=${12}
+    local tag=${13}
 
     version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
     iops=`grep iops $f | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
@@ -59,6 +60,7 @@ function process_results {
     echo end_time=$end_time >>.data
     echo media_policy=$media_policy >>.data
     echo exp_id=$exp_id >>.data
+    echo tag=$tag >>.data
     # .data has the results - Add here your result reporting backend
     echo "Results:"
     cat .data
@@ -87,6 +89,7 @@ workers=$9      # Numer of jobs                                  Ex.: "1 4"
 workloads=${10}    # Workloads                                     Ex.: "randread randwrite read write"
 # Results reporting (Matteo's perf reporting)
 database=${11}    # Name of the database for the results (influx and mysql) Ex.: perf
+tag=${12}       # Optional: some custom tag: ie: my_custom_test
 
 if [[ ( -z "$1" ) || ( -z "$2" ) || ( -z "$3" )  || ( -z "$4" )   || ( -z "$5" ) || ( -z "$6" )   || ( -z "$7" )  || ( -z "$8" )  || ( -z "$9" ) || ( -z "$10" )  || ( -z "$11" )]]
   then
@@ -104,6 +107,7 @@ echo "iodepths: $iodepths"
 echo "workers: $workers"
 echo "workloads: $workloads"
 echo "database: $database"
+echo "tag: $tag"
 
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
@@ -164,7 +168,7 @@ for bs in $bsizes ; do
     			        for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 				            echo "reading from $m disk: ${disks[$m:$i]}"
-                            start_times[$m:$i]=`date +%s%M`
+                            start_times[$m:$i]=`date +%s`
                 	    	$SSH $m "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
 			    	        pids[$m:$i]=$!
                         done
@@ -173,11 +177,11 @@ for bs in $bsizes ; do
     			        for i in `seq $nvols` ; do
 			    	        echo "Waiting for $m ${pids[$m:$i]}"
 			    	        wait ${pids[$m:$i]}
-                            end_times[$m:$i]=`date +%s%M`
+                            end_times[$m:$i]=`date +%s`
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 			    	        echo "Processing results for $m ${pids[$m:$i]} $outfile"
                             echo "-> $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id"
-                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id
+                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id $tag
                             start_times[$m:$i]=
                             end_times[$m:$i]=
 			    	        pids[$m:$i]=""
