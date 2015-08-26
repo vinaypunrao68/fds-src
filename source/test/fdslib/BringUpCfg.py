@@ -14,7 +14,7 @@ import FdsSetup as inst
 import socket
 import requests
 from requests.adapters import HTTPAdapter
-
+import TestUtils
 ###
 # Base config class, which is key/value dictionary.
 #
@@ -38,7 +38,7 @@ class FdsConfig(object):
 # Handle node config section
 #
 class FdsNodeConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
+    def __init__(self, name, items, verbose, nodeId = 0):
         log = logging.getLogger(self.__class__.__name__ + '.' + '__init__')
 
         super(FdsNodeConfig, self).__init__(items, verbose)
@@ -62,11 +62,21 @@ class FdsNodeConfig(FdsConfig):
             else:
                 hostName = self.nd_conf_dict['ip']
 
-            if (hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1'):
+            if verbose['install'] == False and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
                 self.nd_local = True
-            else:
+
+            elif verbose['install']== True: #it's definately remote env as command line argument was passed
                 # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
+                ips_array = TestUtils.get_ips_from_inventory(verbose['inventory_file'])
+                if (ips_array.__len__() < (nodeId+1)):
+                    raise Exception ("Number of ips give in inventory are less than nodes in cfg file")
+
+                if 'om' in self.nd_conf_dict:
+                    #TODO Pooja: do more efficiently, currently assuming that first ip in list is OM IP
+                    self.nd_conf_dict['ip'] = ips_array[nodeId]
+                else:
+                    self.nd_conf_dict['ip'] = ips_array[nodeId]
 
                 # In this case, the deployment scripts always sets "/fds" as fds_root
                 # regardless of test configuration.
@@ -900,10 +910,11 @@ class FdsPkgInstallConfig(FdsConfig):
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False, dryrun = False):
+    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
+        self.cfg_install   = install
         self.cfg_am        = []
         self.cfg_user      = []
         self.cfg_nodes     = []
@@ -912,16 +923,18 @@ class FdsConfigFile(object):
         self.cfg_scenarios = []
         self.cfg_io_blocks = []
         self.cfg_datagen   = []
-        self.cfg_install   = []
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = None
         self.cfg_localHost = None
+        self.cfg_inventory = inventory_file
 
     def config_parse(self):
         verbose = {
             'verbose': self.cfg_verbose,
-            'dryrun' : self.cfg_dryrun
+            'dryrun' : self.cfg_dryrun,
+            'install': self.cfg_install,
+            'inventory_file' : self.cfg_inventory
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
@@ -940,14 +953,14 @@ class FdsConfigFile(object):
                 items_d = dict(items)
                 if 'enable' in items_d:
                     if items_d['enable'] == 'true':
-                        n = FdsNodeConfig(section, items, verbose)
+                        n = FdsNodeConfig(section, items, verbose, nodeID)
                 else:
                     # Store OM ip address to pass to PMs during scenarios
                     if 'om' in items_d:
                         if items_d['om'] == 'true':
                             self.cfg_om = items_d['ip']
 
-                    n = FdsNodeConfig(section, items, verbose)
+                    n = FdsNodeConfig(section, items, verbose, nodeID)
 
                 if n is not None:
                     n.nd_nodeID = nodeID
@@ -1020,7 +1033,7 @@ class FdsConfigRun(object):
             self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
-        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file )
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.
