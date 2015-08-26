@@ -25,6 +25,7 @@ pyUnitDryrun = False
 pyUnitInstall = False
 pyUnitSudoPw = None
 pyUnitTCFailure = False
+pyUnitInventory = None
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.

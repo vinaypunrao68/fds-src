@@ -62,7 +62,7 @@ class FdsNodeConfig(FdsConfig):
             else:
                 hostName = self.nd_conf_dict['ip']
 
-            if verbose['install'] == False and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
+            if (verbose['install'] == False or verbose['install'] is None) and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
                 self.nd_local = True
 
             elif verbose['install']== True: #it's definately remote env as command line argument was passed
