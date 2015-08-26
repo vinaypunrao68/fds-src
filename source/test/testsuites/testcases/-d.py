@@ -15,4 +15,3 @@ idx = sys._getframe(2).f_locals['names'].index('-d')
 # Remove '-d' and its argument.
 sys._getframe(2).f_locals['names'].pop(sys._getframe(2).f_locals['names'].__len__()-1)
 sys._getframe(2).f_locals['names'].pop(sys._getframe(2).f_locals['names'].__len__()-1)
-
