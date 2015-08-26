@@ -98,6 +98,12 @@ module.exports = function( grunt ){
                     src: ['**/*.js', 'images/**/*'],
 //                    src: ['**/*.html', '**/*.js', 'images/**/*'],
                     dest: distDir + '/'
+                },
+                {
+                    expand: true,
+                    cwd: 'src',
+                    src: ['om*html'],
+                    dest: distDir + '/'
                 }]
             },
             release: {

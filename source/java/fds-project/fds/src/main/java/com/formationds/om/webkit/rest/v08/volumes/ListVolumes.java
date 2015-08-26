@@ -97,9 +97,10 @@ public class ListVolumes implements RequestHandler {
         
         try {
         	
-        	String caller = Thread.currentThread().getStackTrace()[1].getClassName();
+        	StackTraceElement[] stackElems = Thread.currentThread().getStackTrace();
+        	String caller = stackElems[2].getClassName();
         	
-        	if ( !caller.equals( "com.formationds.om.webkit.rest.v08.volumes.GetVolume" ) ){
+        	if ( !caller.equals( GetVolume.class.getName() ) ){
         		StatsStream.getInstance().getConnection().publishStatistic( data );
         	}
         }
