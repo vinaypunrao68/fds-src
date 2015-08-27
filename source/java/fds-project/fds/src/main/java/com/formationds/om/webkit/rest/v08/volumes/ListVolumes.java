@@ -11,7 +11,6 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.webkit.rest.v08.metrics.StatsStream;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.stats_client.StatsConnection;
 import com.formationds.stats_client.model.StatDataPoint;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
@@ -22,7 +21,6 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +32,6 @@ public class ListVolumes implements RequestHandler {
     private ConfigurationApi    configApi;
     private Authorizer          authorizer;
     private AuthenticationToken token;
-    private StatsConnection 	statConnection;
 
     public ListVolumes( Authorizer authorizer, AuthenticationToken token ) {
         this.authorizer = authorizer;
@@ -90,7 +87,7 @@ public class ListVolumes implements RequestHandler {
         StatDataPoint data = new StatDataPoint();
         data.setCollectionPeriod( diff );
         data.setContextId( -1L );
-        data.setContextType( 0 );
+        data.setContextType( StatDataPoint.CONTEXT_TYPE.VOLUME );
         data.setMetricName( "LIST_VOLUME_TIME" );
         data.setMetricValue( new Double( diff ) );
         data.setReportTime( now );

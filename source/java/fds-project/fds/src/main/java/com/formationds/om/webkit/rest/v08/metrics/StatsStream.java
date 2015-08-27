@@ -1,5 +1,7 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -50,7 +52,8 @@ public class StatsStream implements SubscriptionHandler {
 	public void startListening(){
 		
 		try {
-			subscription = conn.subscribe( "admin", "1.0.stats.volume", this );
+			List<StatDataPoint.CONTEXT_TYPE> types = Collections.singletonList( StatDataPoint.CONTEXT_TYPE.VOLUME ); 
+			subscription = conn.subscribe( "admin", types, this );
 		}
 		catch( Exception e ){
 			logger.warn( "Subscription to admin topic failed.  Publishing should work without problems." );
@@ -95,7 +98,7 @@ public class StatsStream implements SubscriptionHandler {
 	}
 
 	@Override
-	public void messageReceived(StatDataPoint datapoint) {
+	public void messageReceived( StatDataPoint datapoint ) {
 		
 		logger.info( "Stat message received: " + datapoint.toJson() );
 		getStatCache().put( datapoint.getReportTime(), datapoint );
