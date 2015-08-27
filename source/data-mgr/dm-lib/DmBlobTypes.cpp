@@ -319,8 +319,11 @@ Error BlobObjList::verify(fds_uint32_t max_obj_size) const {
 
     ++crit;
     while (crit != crend()) {
-        fds_verify((crit->second).size == max_obj_size);
-        fds_verify((crit->first % max_obj_size) == 0);
+        if ((crit->second).size != max_obj_size ||
+            (0 < (crit->first % max_obj_size))) {
+            LOGERROR << "Invalid short object of size: " << crit->second.size;
+            return ERR_DM_OP_NOT_ALLOWED;
+        }
         ++crit;
     }
     return ERR_OK;
