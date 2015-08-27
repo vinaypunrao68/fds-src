@@ -493,7 +493,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'; " << *blobObjList;
     // do not use this method if blob_obj_list is empty
-    fds_verify(0 < blobObjList->size());
+    fds_assert(0 < blobObjList->size());
 
     bool newBlob = false;
 
