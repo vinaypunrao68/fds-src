@@ -638,7 +638,7 @@ class TestDMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -695,7 +695,6 @@ class TestAWSDMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill DM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -704,7 +703,7 @@ class TestAWSDMKill(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (DM) service.
 class TestAWSDMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -754,7 +753,6 @@ class TestAWSDMStop(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to stop DM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -764,7 +762,7 @@ class TestAWSDMStop(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (DM) service.
 class TestAWSDMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -813,7 +811,6 @@ class TestAWSDMStart(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to start DM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1127,7 +1124,7 @@ class TestSMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1184,7 +1181,6 @@ class TestAWSSMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill SM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1194,7 +1190,7 @@ class TestAWSSMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSSMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1243,7 +1239,6 @@ class TestAWSSMStop(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to stop SM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1252,7 +1247,7 @@ class TestAWSSMStop(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSSMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1301,7 +1296,6 @@ class TestAWSSMStart(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to start SM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1533,7 +1527,7 @@ class TestPMKill(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1582,7 +1576,6 @@ class TestAWSPMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill PM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1592,7 +1585,7 @@ class TestAWSPMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (PM) service.
 class TestAWSPMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1641,7 +1634,6 @@ class TestAWSPMStop(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to stop PM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1651,7 +1643,7 @@ class TestAWSPMStop(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (PM) service.
 class TestAWSPMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1700,7 +1692,6 @@ class TestAWSPMStart(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to start PM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2097,7 +2088,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -2140,7 +2131,7 @@ class TestAWSOMKill(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
             om_ip = om_node.nd_conf_dict['ip']
             om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
-            ret_status = Om_obj.kill(om_ip)
+            ret_status = om_obj.kill(om_ip)
 
             if ret_status:
                 status = 0
@@ -2150,7 +2141,6 @@ class TestAWSOMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill OM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2159,7 +2149,7 @@ class TestAWSOMKill(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (OM) service.
 class TestAWSOMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -2194,7 +2184,7 @@ class TestAWSOMStop(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
             om_ip = om_node.nd_conf_dict['ip']
             om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
-            ret_status = Om_obj.stop(om_ip)
+            ret_status = om_obj.stop(om_ip)
 
             if ret_status:
                 status = 0
@@ -2204,7 +2194,6 @@ class TestAWSOMStop(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to stop OM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2213,7 +2202,7 @@ class TestAWSOMStop(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (OM) service.
 class TestAWSOMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -2266,7 +2255,6 @@ class TestAWSOMStart(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to start OM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2722,7 +2710,6 @@ class TestAWSAMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill AM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2781,7 +2768,6 @@ class TestAWSAMStop(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to stop AM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2840,7 +2826,6 @@ class TestAWSAMStart(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to start AM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
