@@ -1510,14 +1510,17 @@ OM_PmAgent::send_stop_service
         if (stop_sm && !service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
             LOGNOTIFY << "OM_PmAgent: SM service does not exist";
             smNotPresent = true;
+            stop_sm = false;
         }
         if (stop_dm && !service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
             LOGNOTIFY << "OM_PmAgent: DM service does not exist";
             dmNotPresent = true;
+            stop_dm = false;
         }
         if (stop_am && !service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
             LOGNOTIFY << "OM_PmAgent: AM service does not exist";
             amNotPresent = true;
+            stop_am = false;
         }
         // Perform updates only if necessary
         if (smNotPresent || dmNotPresent || amNotPresent) {
