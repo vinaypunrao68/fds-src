@@ -69,7 +69,7 @@ public class MutateService implements RequestHandler {
         
         ServiceType type = service.getType();
         if ( (type == ServiceType.PM) || (type == ServiceType.OM) ) {
-        	throw new ApiException( "Cannot change state of service:" +  type +
+            throw new ApiException( "Cannot change state of service:" +  type +
         			                ". Valid types are: AM,DM,SM", ErrorCode.BAD_REQUEST);
         }
         
@@ -80,7 +80,7 @@ public class MutateService implements RequestHandler {
         List<Service> curServices = node.getServices().get( type );
 		
 		if ( curServices == null || curServices.size() == 0 ){
-        	throw new ApiException( "Could not find service: " + type + "for node: "
+            throw new ApiException( "Could not find service: " + type + "for node: "
                                     + nodeId + ", try adding first: ",
                                     ErrorCode.MISSING_RESOURCE );
 		}
@@ -101,7 +101,7 @@ public class MutateService implements RequestHandler {
         switch( svcObj.getType() ){
         	case AM:
         		if ( amState == newState) {
-        			throw new ApiException( "Service:AM is already in desired state",
+        		    throw new ApiException( "Service:AM is already in desired state",
         					                ErrorCode.BAD_REQUEST);
         		} else {
         		    amState = newState;
@@ -109,7 +109,7 @@ public class MutateService implements RequestHandler {
         		break;
         	case DM:
         		if ( dmState == newState ) {
-        			throw new ApiException( "Service:DM is already in desired state",
+        		    throw new ApiException( "Service:DM is already in desired state",
         					                ErrorCode.BAD_REQUEST);
         		} else {
         		    dmState = newState;
@@ -117,7 +117,7 @@ public class MutateService implements RequestHandler {
         		break;
         	case SM:
         		if ( smState == newState) {
-        			throw new ApiException( "Service:SM is already in desired state",
+        		    throw new ApiException( "Service:SM is already in desired state",
         					                ErrorCode.BAD_REQUEST);
         		} else {
         		    smState = newState;
