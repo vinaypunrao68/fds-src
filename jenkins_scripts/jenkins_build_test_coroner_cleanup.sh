@@ -11,8 +11,8 @@ PYTHON_COVERAGE_TEST_RUNNER_DIRECTORIES="source/platform/python/tests"
 PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="ActiveMigration"
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices BuildSmokeTest_onpr RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
+SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr StaticMigration ActiveMigration"
+DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartClusterKillServices RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest QosTest"
 
 function performance_report
 {
