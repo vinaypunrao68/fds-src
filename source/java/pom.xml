@@ -11,7 +11,7 @@
   <name>${company.base.name} Company POM</name>
   <groupId>com.formationds</groupId>
   <artifactId>company-pom</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
   <packaging>pom</packaging>
 
   <inceptionYear>2013</inceptionYear>
@@ -46,6 +46,9 @@
     <java.source.version>1.8</java.source.version>
     <java.target.version>1.8</java.target.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <user>builder</user>
+    <user.passwd>h7qgA3fYr0P3</user.passwd>
 
     <!-- artifact dependency version -->
     <antlr.runtime.version>3.5.2</antlr.runtime.version>
@@ -124,18 +127,18 @@
     <module>fds-project</module>
   </modules>
 
-  <!--<distributionManagement>-->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
-    <!--<snapshotRepository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</snapshotRepository>-->
-  <!--</distributionManagement>-->
+  <distributionManagement>
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <pluginRepositories>
     <pluginRepository>
@@ -152,17 +155,17 @@
     -->
 
     <!-- Formation Data System, INC. maven repo -->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
-    <!--<repository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
     <repository>
       <id>central</id>

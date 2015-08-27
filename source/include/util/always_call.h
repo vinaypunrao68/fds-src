@@ -19,7 +19,7 @@ struct always_call {
     always_call(always_call && rhs) = default;
     always_call& operator=(always_call && rhs) = default;
     ~always_call()
-    { c(); }
+    { if (c) { c(); } }
     C c;
 };
 

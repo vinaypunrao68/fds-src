@@ -258,6 +258,11 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
                               bool remove_sm, bool remove_dm, bool remove_am);
+
+    void send_remove_service_resp(NodeUuid nodeUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload);
     /**
      * Send 'heartbeat check' message to Platform
      */
