@@ -128,24 +128,25 @@ BlobMetadataKey CatalogKeyComparator::getIncremented (BlobMetadataKey const& key
 {
     string blobName { key.getBlobName() };
 
-    for (size_t position = blobName.size(); position != 0; --position)
+    if (blobName.empty())
     {
-        unsigned char character = blobName[position - 1];
-        if (character == numeric_limits<unsigned char>::max())
+        // Next after an empty string is the lowest possible string.
+        return BlobMetadataKey{string{1, '\0'}};
+    }
+    else
+    {
+        if (static_cast<unsigned char>(blobName.back()) == numeric_limits<unsigned char>::max())
         {
-            // Carry needed.
-            blobName[position - 1] = '\0';
+            // Last character can't be incremented, so tack on the lowest character.
+            return BlobMetadataKey{blobName + string{1, '\0'}};
         }
         else
         {
-            // No carry needed, we can return.
-            blobName[position - 1] = character + '\1';
+            // Easy case, just increment the last character.
+            ++blobName[blobName.size() - 1];
             return BlobMetadataKey{blobName};
         }
     }
-
-    // We've incremented every character, and overflowed.
-    return BlobMetadataKey{'\1' + blobName};
 }
 
 void CatalogKeyComparator::FindShortestSeparator (string* start, Slice const& limit) const
