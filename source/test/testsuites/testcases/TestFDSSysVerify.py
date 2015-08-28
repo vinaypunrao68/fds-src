@@ -530,7 +530,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
-                    if self.atleastone is not None:
+                    if self.atleastone is not None and occurrencesFound > 0:
                         # At least once, we're good to go
                         break
                         
