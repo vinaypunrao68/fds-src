@@ -2180,9 +2180,8 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 LOGERROR << "Cannot find platform agent for node UUID ( "
                          << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
-        } 
+        }
             
-        om_locDomain->om_update_node_list( nodeAgent, msg );
         LOGNOTIFY << "OM Restart, spoof registration for"
              << " Platform UUID:: "
              << std::hex << ( msg->node_uuid ).uuid << std::dec 
@@ -2318,8 +2317,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     // Vy: we could get duplicate if the agent already registered by platform lib.
     // fds_verify(err.ok());
 
-    om_locDomain->om_bcast_new_node(newNode, msg);
-
         if ( fpi::FDSP_CONSOLE == msg->node_type || 
              fpi::FDSP_TEST_APP == msg->node_type ) {
             return;
@@ -2342,7 +2339,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
         om_locDomain->om_bcast_stream_reg_list(newNode);
     }
-    om_locDomain->om_update_node_list(newNode, msg);
 
     // Let this new node know about existing DLT if this is not SM or AM node
     // DLT deploy state machine will take care of SMs
