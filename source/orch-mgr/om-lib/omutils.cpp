@@ -69,13 +69,13 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE:
             case fpi::SVC_STATUS_STANDBY:
             case fpi::SVC_STATUS_STOPPED:
+            case fpi::SVC_STATUS_ADDED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_ACTIVE:
-            case fpi::SVC_STATUS_ADDED:
             case fpi::SVC_STATUS_STARTED:
                 nodeInfo.node_state = fpi::FDS_Node_Up;
                 break;
@@ -94,13 +94,13 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE:
             case fpi::SVC_STATUS_STANDBY:
             case fpi::SVC_STATUS_STOPPED:
+            case fpi::SVC_STATUS_ADDED:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_ACTIVE:
-            case fpi::SVC_STATUS_ADDED:
             case fpi::SVC_STATUS_STARTED:
                 retNodeState = fpi::FDS_Node_Up;
                 break;
@@ -279,4 +279,29 @@ namespace fds
                 }
             }
         }
+
+    void retrieveSvcId
+        (
+        int64_t pmID,
+        fpi::SvcUuid& svcUuid,
+        FDS_ProtocolInterface::FDSP_MgrIdType svcType
+        )
+    {
+        switch (svcType)
+        {
+            case fpi::FDSP_STOR_MGR:
+                svcUuid.svc_uuid = pmID + fpi::FDSP_STOR_MGR;
+                break;
+            case fpi::FDSP_DATA_MGR:
+                svcUuid.svc_uuid = pmID + fpi::FDSP_DATA_MGR;
+                break;
+            case fpi::FDSP_ACCESS_MGR:
+                svcUuid.svc_uuid = pmID + fpi::FDSP_ACCESS_MGR;
+                break;
+            default:
+                LOGDEBUG << "Not AM,DM,SM svc, skipping..";
+                break;
+        }
+
+    }
 }  // namespace fds

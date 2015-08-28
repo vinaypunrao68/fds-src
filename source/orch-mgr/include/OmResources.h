@@ -82,15 +82,6 @@ class OM_NodeAgent : public NodeAgent
     }
 
     /**
-     * Send this node agent info as an event to notify the peer node.
-     * TODO(Vy): it would be a cleaner interface to:
-     * - Formalized messages in inheritance tree.
-     * - API to format a message.
-     * - API to send a message.
-     */
-    virtual void om_send_myinfo(NodeAgent::pointer peer);
-
-    /**
      * Call this method when service is successfully deployed in the domain
      * (SM/DM is in DLT/DMT). Sets service state to active.
      */
@@ -258,6 +249,11 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
                               bool remove_sm, bool remove_dm, bool remove_am);
+
+    void send_remove_service_resp(NodeUuid nodeUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload);
     /**
      * Send 'heartbeat check' message to Platform
      */
@@ -701,8 +697,6 @@ class OM_NodeContainer : public DomainContainer
     friend class OM_NodeDomainMod;
 
     virtual void om_update_capacity(OM_PmAgent::pointer pm_agent, fds_bool_t b_add);
-    virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
-    virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
