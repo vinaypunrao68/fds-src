@@ -493,7 +493,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'; " << *blobObjList;
     // do not use this method if blob_obj_list is empty
-    fds_verify(0 < blobObjList->size());
+    fds_assert(0 < blobObjList->size());
 
     bool newBlob = false;
 
@@ -513,7 +513,11 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     GET_VOL_N_CHECK_DELETED(volId);
 
     // verify object size assumption holds
-    blobObjList->verify(vol->getObjSize());
+    rc = blobObjList->verify(vol->getObjSize());
+    if (!rc.ok()) {
+        LOGERROR << "Failed to verify updated object list for blob update: " << rc;
+        return rc;
+    }
 
     std::vector<ObjectID> expungeList;
 

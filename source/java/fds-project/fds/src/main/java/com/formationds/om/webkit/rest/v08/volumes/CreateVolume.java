@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -42,7 +43,7 @@ public class CreateVolume implements RequestHandler {
 	public CreateVolume(
 			final Authorizer authorizer,
 			final AuthenticationToken token) {
-		
+
 		this.authorizer = authorizer;
 		this.token = token;
 	}
@@ -52,16 +53,16 @@ public class CreateVolume implements RequestHandler {
 			throws Exception {
 
 		Volume newVolume;
-		
-		logger.debug( "Creating a new volume." );
-		
-		try {
-		
-			final Reader bodyReader = new InputStreamReader( request.getInputStream() );
-			
-			newVolume = ObjectModelHelper.toObject( bodyReader, Volume.class );
-			            
-			logger.trace( ObjectModelHelper.toJSON( newVolume ) );
+
+        logger.debug( "Creating a new volume." );
+
+        try {
+
+            final Reader bodyReader = new InputStreamReader( request.getInputStream() );
+
+            newVolume = ObjectModelHelper.toObject( bodyReader, Volume.class );
+
+            logger.trace( ObjectModelHelper.toJSON( newVolume ) );
 		}
 		catch( Exception e ){
 			logger.error( "Unable to convert the body to a valid Volume object.", e );
@@ -69,38 +70,38 @@ public class CreateVolume implements RequestHandler {
 		}
 
 		VolumeDescriptor internalVolume = ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
-		
-		final String domainName = "";
-		
-		// creating the volume
+
+        final String domainName = "";
+
+        // creating the volume
 		try {
-			
-			getConfigApi().createVolume( domainName, 
+
+            getConfigApi().createVolume( domainName,
 										 internalVolume.getName(), 
 										 internalVolume.getPolicy(), 
 										 getAuthorizer().tenantId( getToken() ));
 	    } catch( ApiException e ) {
-	
-	        if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
+
+            if ( e.getErrorCode().equals(ErrorCode.RESOURCE_ALREADY_EXISTS)) {
 
 	        	throw new ApiException( "A volume with this name already exists.", ErrorCode.RESOURCE_ALREADY_EXISTS );
 	        }
-	
-	        logger.error( "CREATE::FAILED::" + e.getMessage(), e );
-	
-	        // allow dispatcher to handle
+
+            logger.error( "CREATE::FAILED::" + e.getMessage(), e );
+
+            // allow dispatcher to handle
 	        throw e;
 	    } catch ( TException | SecurityException se ) {
 	        logger.error( "CREATE::FAILED::" + se.getMessage(), se );
-	
-	        // allow dispatcher to handle
+
+            // allow dispatcher to handle
 	        throw se;
 	    }
-		
-		long volumeId = getConfigApi().getVolumeId( newVolume.getName() );
+
+        long volumeId = getConfigApi().getVolumeId( newVolume.getName() );
 		newVolume.setId( volumeId );
-		
-		// setting the QOS for the volume
+
+        // setting the QOS for the volume
 		try {
 			setQosForVolume( newVolume, true );
 		}
@@ -108,8 +109,8 @@ public class CreateVolume implements RequestHandler {
 			logger.error( "CREATE::FAILED::" + thriftException.getMessage(), thriftException );
 			throw thriftException;
 		}
-		
-		// new that we've finished all that - create and attach the snapshot policies to this volume
+
+        // new that we've finished all that - create and attach the snapshot policies to this volume
 		try {
 			createSnapshotPolicies( newVolume );
 		}
@@ -117,23 +118,25 @@ public class CreateVolume implements RequestHandler {
 			logger.error( "CREATE::FAILED::" + thriftException.getMessage(), thriftException );
 			throw thriftException;
 		}
-		
-		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes();
-		Volume myVolume = null;
-		
-		for ( Volume volume : volumes ){
+
+        VolumeDescriptor vd = getConfigApi().statVolume( domainName, internalVolume.getName() );
+
+        List<Volume> volumes = ExternalModelConverter.convertToExternalVolumes( Arrays.asList( vd ) );
+        Volume myVolume = null;
+
+        for ( Volume volume : volumes ){
 			if ( volume.getId().equals( volumeId ) ){
 				myVolume = volume;
 				break;
 			}
 		}
-		
-		String volumeString = ObjectModelHelper.toJSON( myVolume );
-		
-		return new TextResource( volumeString );
+
+        String volumeString = ObjectModelHelper.toJSON( myVolume );
+
+        return new TextResource( volumeString );
 	}
-	
-	/**
+
+    /**
 	 * Handle setting the QOS for the volume in question
 	 * @param externalVolume
 	 * @throws ApiException
@@ -161,8 +164,8 @@ public class CreateVolume implements RequestHandler {
 			}
           
 	    	FDSP_VolumeDescType volumeDescType = ExternalModelConverter.convertToInternalVolumeDescType( externalVolume );
-	          
-	    	getConfigApi().ModifyVol( new FDSP_ModifyVolType( externalVolume.getName(), externalVolume.getId(), volumeDescType ) );    
+
+            getConfigApi().ModifyVol( new FDSP_ModifyVolType( externalVolume.getName(), externalVolume.getId(), volumeDescType ) );
 	    }
 	    else {
             String message = "Could not verify volume to set QOS parameters.";
@@ -171,19 +174,19 @@ public class CreateVolume implements RequestHandler {
 	    	throw new ApiException( message, ErrorCode.SERVICE_NOT_READY );
 	    }
 	}
-	
-	/**
-	 * Create and attach all the snapshot policies to the newly created volume
-	 * @param externalVolume
-	 * @throws Exception 
-	 */
+
+    /**
+     * Create and attach all the snapshot policies to the newly created volume
+     * @param externalVolume
+     * @throws Exception
+     */
 	public void createSnapshotPolicies( Volume externalVolume ) throws Exception{
-		
-		CreateSnapshotPolicy createEndpoint = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
-		
-		for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy().getSnapshotPolicies() ){
-			
-			createEndpoint.createSnapshotPolicy( externalVolume.getId(), policy );			
+
+        CreateSnapshotPolicy createEndpoint = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
+
+        for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy().getSnapshotPolicies() ){
+
+            createEndpoint.createSnapshotPolicy( externalVolume.getId(), policy );
 		}
 	}
 
@@ -251,17 +254,17 @@ public class CreateVolume implements RequestHandler {
 	private Authorizer getAuthorizer(){
 		return this.authorizer;
 	}
-	
-	private AuthenticationToken getToken(){
+
+    private AuthenticationToken getToken(){
 		return this.token;
 	}
-	
-	private ConfigurationApi getConfigApi(){
-		
-		if ( configApi == null ){
+
+    private ConfigurationApi getConfigApi(){
+
+        if ( configApi == null ){
 			configApi = SingletonConfigAPI.instance().api();
 		}
-		
-		return configApi;
+
+        return configApi;
 	}
 }

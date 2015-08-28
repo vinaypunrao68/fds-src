@@ -1152,7 +1152,8 @@ SMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNOTIFY << "Received new DMT commit version  "
                 << dmt->dmt_data.dmt_type;
     err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type,
-                                                   dmt->dmt_data.dmt_data);
+                                                   dmt->dmt_data.dmt_data,
+                                                   nullptr);
     if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DMT, ignoring";
         err = ERR_OK;

@@ -154,6 +154,21 @@ namespace fds
             {
                 m_javaXdiMainClassName = envValue;
             }
+
+            // Load the Java Home directory for the am/xdi
+            envValue = getenv("XDI_JAVA_HOME");
+
+            if (NULL == envValue)
+            {
+                LOGDEBUG << "XDI_JAVA_HOME is not defined.  Using java from PATH.";
+                m_javaXdiJavaCmd = JAVA_PROCESS_NAME;
+            }
+            else 
+            {
+                std::string jhome(envValue);
+                LOGDEBUG << "Using XDI_JAVA_HOME=" << jhome;
+                m_javaXdiJavaCmd = jhome + "/bin/" + JAVA_PROCESS_NAME;
+            }
         }
 
         bool PlatformManager::loadDiskUuidToDeviceMap()
@@ -415,7 +430,7 @@ namespace fds
            if (procName != commandName)
            {
                // Now check for java and com.formationds.am.Main
-               if (JAVA_PROCESS_NAME == commandName)
+               if (JAVA_PROCESS_NAME == commandName || m_javaXdiJavaCmd == commandName )
                {
                    std::ostringstream procCommandLineFileName;
                    procCommandLineFileName << "/proc/" << pid << "/cmdline";
@@ -487,7 +502,7 @@ namespace fds
 
             if (JAVA_AM == procIndex)
             {
-                command = JAVA_PROCESS_NAME;
+                command = m_javaXdiJavaCmd;
 
                 for (auto const &vectItem : m_javaOptions)
                 {

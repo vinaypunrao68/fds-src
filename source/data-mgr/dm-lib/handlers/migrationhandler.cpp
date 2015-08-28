@@ -144,6 +144,8 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse,
+    								asyncHdr, message);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
@@ -156,6 +158,14 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
     dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+}
+
+void DmMigrationDeltaBlobDescHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
+                        Error const& e, DmRequest* dmRequest)
+{
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+    delete dmRequest;
 }
 
 DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)
@@ -199,36 +209,45 @@ void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
 	delete dmRequest;
 }
 
-DmMigrationFinishVolResyncHandler::DmMigrationFinishVolResyncHandler(DataMgr& dataManager)
-	: Handler(dataManager)
+DmMigrationTxStateHandler::DmMigrationTxStateHandler(DataMgr& dataManager)
+    : Handler(dataManager)
 {
-    REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyFinishVolResyncMsg, handleRequest);
+    if (!dataManager.features.isTestModeEnabled()) {
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyTxStateMsg, handleRequest);
+    }
 }
 
-void DmMigrationFinishVolResyncHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message) {
-    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
+                                        fpi::CtrlNotifyTxStateMsgPtr& message) {
+    auto dmReq = new DmIoMigrationTxState(message);
 
-    auto dmReq = new DmIoMigrationFinishVolResync(message);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
-    fds_verify(dmReq->io_type == FDS_DM_MIG_FINISH_VOL_RESYNC);
+    fds_verify(dmReq->io_type == FDS_DM_MIG_TX_STATE);
+
+    LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)
+               << " " << *reinterpret_cast<DmIoMigrationTxState*>(dmReq);
 
     addToQueue(dmReq);
 }
 
-void DmMigrationFinishVolResyncHandler::handleQueueItem(DmRequest* dmRequest) {
+void DmMigrationTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    DmIoMigrationFinishVolResync* typedRequest = static_cast<DmIoMigrationFinishVolResync*>(dmRequest);
-
-    // dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+    DmIoMigrationTxState* typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
+    helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
 }
 
-void DmMigrationFinishVolResyncHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
+void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest) {
-	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
+    asyncHdr->msg_code = e.GetErrno();
+
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateRspMsg),
+                       fpi::CtrlNotifyTxStateRspMsg());
+
 	delete dmRequest;
 }
+
 }  // namespace dm
 }  // namespace fds

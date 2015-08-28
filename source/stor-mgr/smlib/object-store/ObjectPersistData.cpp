@@ -570,6 +570,12 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
         case SmScavengerCmd::SCAV_STOP:
             scavenger->stopScavengeProcess();
             break;
+        case SmScavengerCmd::SCAV_ENABLE_DISK:
+            // Case not handled as of now.
+            break;
+        case SmScavengerCmd::SCAV_DISABLE_DISK:
+            scavenger->updateDiskScavenger(smDiskMap, scavCmd->diskId, false);
+            break;
         case SmScavengerCmd::SCAV_SET_POLICY:
             {
                 SmScavengerSetPolicyCmd *policyCmd =

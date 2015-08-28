@@ -31,14 +31,11 @@ public class MemoryIo implements Io {
     @Override
     public void mutateMetadata(String domain, String volume, String blobName, MetadataMutator mutator) throws IOException {
         Map<String, String> map = metadataCache.get(blobName);
-        Map<String, String> mutated = null;
         if (map == null) {
-            mutated = mutator.mutateOrCreate(Optional.empty());
-        } else {
-            mutated = mutator.mutateOrCreate(Optional.of(map));
+            map = new HashMap<>();
         }
-
-        metadataCache.put(blobName, mutated);
+        mutator.mutate(map);
+        metadataCache.put(blobName, map);
     }
 
     @Override
@@ -70,9 +67,15 @@ public class MemoryIo implements Io {
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
         mapObject(domain, volume, blobName, objectSize, objectOffset, (oov) -> {
-            ObjectView result = mutator.mutateOrCreate(oov);
-            objectCache.put(new ObjectKey(blobName, objectOffset), result.getBuf().array());
-            metadataCache.put(blobName, result.getMetadata());
+            ObjectView objectView = null;
+            if (!oov.isPresent()) {
+                objectView = new ObjectView(new HashMap<String, String>(), ByteBuffer.allocate(objectSize));
+            } else {
+                objectView = oov.get();
+            }
+            mutator.mutate(objectView);
+            objectCache.put(new ObjectKey(blobName, objectOffset), objectView.getBuf().array());
+            metadataCache.put(blobName, objectView.getMetadata());
             return null;
         });
     }

@@ -1,8 +1,6 @@
 package com.formationds.nfs;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 public class InodeAllocator {
     private Io io;
@@ -17,15 +15,13 @@ public class InodeAllocator {
     public long allocate(String volume) throws IOException {
         long volumeId = exportResolver.exportId(volume);
         long[] nextId = new long[1];
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, (om) -> {
-            Map<String, String> metadata = new HashMap<>();
+        io.mutateMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, (meta) -> {
             long current = volumeId;
-            if (om.isPresent()) {
-                current = Long.parseLong(om.get().get(NUMBER_WELL));
+            if (meta.containsKey(NUMBER_WELL)) {
+                current = Long.parseLong(meta.get(NUMBER_WELL));
             }
             nextId[0] = current + 1;
-            metadata.put(NUMBER_WELL, Long.toString(nextId[0]));
-            return metadata;
+            meta.put(NUMBER_WELL, Long.toString(nextId[0]));
         });
         return nextId[0];
     }

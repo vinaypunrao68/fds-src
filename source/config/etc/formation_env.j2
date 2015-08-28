@@ -2,12 +2,27 @@
 {% block content %}
 #!/bin/sh -e
 
-export fds_root={{ fds_root }}
+DEFAULT_FDS_ROOT={{ fds_root }}
+
+FDS_DEPS=/opt/fds-deps/embedded
+DEFAULT_JAVA_HOME=${FDS_DEPS}/jre
+
+# set fds_root to the default if it is not set in the
+# environment.
+export fds_root=${fds_root:=${DEFAULT_FDS_ROOT}}
+
+# if FDS_JAVA_HOME is set, use it . Otherwise
+# default to the standard fds-deps install location.
+# This can be used to override the default, most likely
+# in a development environment.
+FDS_JAVA_HOME=${FDS_JAVA_HOME:=${DEFAULT_JAVA_HOME}}
+export FDS_JAVA_HOME
 
 # LD_LIBRARY_PATH dependencies
+# Note that Java libs not added - jvm handles
 LD_LIBRARY_PATH=${fds_root}/lib
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/jre/lib/amd64
+export LD_LIBRARY_PATH
 
 PATH=/usr/local/sbin
 PATH=${PATH}:/usr/local/bin
@@ -15,15 +30,16 @@ PATH=${PATH}:/usr/sbin
 PATH=${PATH}:/usr/bin
 PATH=${PATH}:/sbin
 PATH=${PATH}:/bin
-PATH=${PATH}:/opt/fds-deps/embedded/bin
-PATH=${PATH}:/opt/fds-deps/embedded/jre/bin
+PATH=${PATH}:${FDS_DEPS}/bin
+# add default java bin directory to path.  Scripts and platform
+# use OM|XDI_JAVA_HOME vars in preference to relying on the path.
+PATH=${PATH}:${FDS_JAVA_HOME}/bin
 PATH=${PATH}:${fds_root}/bin
 export PATH=${PATH}:${fds_root}/sbin
 
 # JAVA Options
 export OM_JAVA_OPTS="{{ om_java_opts }}"
 export XDI_JAVA_OPTS="{{ xdi_java_opts }}"
-export JAVA_HOME=/opt/fds-deps/embedded/jre
 
 # JAVA CLASSPATH dependencies
 CLASSPATH=${fds_root}/etc
@@ -33,7 +49,10 @@ CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
 export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
 
 # JAVA Main executables
+export OM_JAVA_HOME=${OM_JAVA_HOME:=${FDS_JAVA_HOME}}
 export OM_MAIN_CLASS=com.formationds.om.Main
+
+export XDI_JAVA_HOME=${XDI_JAVA_HOME:=${FDS_JAVA_HOME}}
 export XDI_MAIN_CLASS=com.formationds.am.Main
 
 # are we running on an OM host?
