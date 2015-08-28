@@ -82,10 +82,6 @@ public class Volume extends AbstractResource<Long> {
             return this;
         }
 
-        public Builder settings( VolumeSettings settings ) {
-            this.settings = settings;
-            return this;
-        }
         public Builder creationTime(Instant t) { this.creationTime = Optional.of( t ); return this; }
         public Builder tenant(Tenant t) { this.tenant = t; return this; }
         public Builder addTag(String k, String v) { this.tags.put(k, v); return this; }
