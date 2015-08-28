@@ -304,19 +304,35 @@ void BlobObjList::updateObject(fds_uint64_t offset,
 // last object can be less than max size; also that each offset
 // is aligned.
 //
-void BlobObjList::verify(fds_uint32_t max_obj_size) const {
+Error BlobObjList::verify(fds_uint32_t max_obj_size) const {
     std::map<fds_uint64_t, BlobObjInfo>::const_reverse_iterator crit;
     crit = crbegin();
-    if (crit == crend()) return;
+    if (crit == crend()) {
+        LOGERROR << "Object list is empty";
+        return ERR_DM_OP_NOT_ALLOWED;
+    }
 
-    fds_verify(end_of_blob || (crit->second).size == max_obj_size);
-    fds_verify((crit->first % max_obj_size) == 0);
+    // Check the last object is either truncating the blob or is of
+    // max_obj_size and that it is aligned.
+    if (!end_of_blob && (crit->second).size != max_obj_size) {
+        LOGERROR << "Object list ends with short object but is not a truncation";
+        return ERR_DM_OP_NOT_ALLOWED;
+    } else if (0 < (crit->first % max_obj_size)) {
+        LOGERROR << "Object list ends with an unaligned object at: 0x"
+                 << std::hex << crit->first;
+        return ERR_DM_OP_NOT_ALLOWED;
+    }
+
     ++crit;
     while (crit != crend()) {
-        fds_verify((crit->second).size == max_obj_size);
-        fds_verify((crit->first % max_obj_size) == 0);
+        if ((crit->second).size != max_obj_size ||
+            (0 < (crit->first % max_obj_size))) {
+            LOGERROR << "Invalid short object of size: " << crit->second.size;
+            return ERR_DM_OP_NOT_ALLOWED;
+        }
         ++crit;
     }
+    return ERR_OK;
 }
 
 //
