@@ -14,7 +14,13 @@ public class SystemHealth {
 	public SystemHealth(){
 		super();
 	}
-	
+
+	public SystemHealth( String category, HealthState state, String message ) {
+		this.state = state;
+		this.category = category;
+		this.message = message;
+	}
+
 	public HealthState getState() {
 		return state;
 	}

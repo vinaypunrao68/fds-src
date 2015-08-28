@@ -9,11 +9,11 @@ class MockFdsAuth(FdsAuth):
     
     def __init__(self):
         FdsAuth.__init__(self)
+        self.__features = [FdsAuth.VOL_MGMT, FdsAuth.TENANT_MGMT, FdsAuth.USER_MGMT, FdsAuth.SYS_MGMT]
     
     def login(self):
     
         self.__token = "thisisavalidmocktoken"
-        self.__features = ["VOL_MGMT", "TENANT_MGMT", "USER_MGMT"]
         
         return "thisisavalidmocktoken"
     
@@ -33,6 +33,10 @@ class MockFdsAuth(FdsAuth):
                 self.__features.remove(feature)
                 break
     
+    def set_features(self, features):
+        
+        self.__features = features
+    
     def is_allowed(self, feature):
         
         for capability in self.__features:
@@ -41,6 +45,16 @@ class MockFdsAuth(FdsAuth):
         # end of for loop
         
         return False
+    
+    def is_authenticated(self):
+        
+        if ( self.__token is not None ):
+            return True
+        
+        return False    
+    
+    def logout(self):
+        self.__token = None
     
     def get_user_id(self):
         return 1

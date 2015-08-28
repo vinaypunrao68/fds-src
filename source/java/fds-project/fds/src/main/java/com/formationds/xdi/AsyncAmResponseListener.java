@@ -116,6 +116,11 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     }
 
     @Override
+    public void renameBlobResponse(RequestId requestId, BlobDescriptor blobDescriptor) throws TException {
+        complete(requestId, blobDescriptor);
+    }
+
+    @Override
     public void updateMetadataResponse(RequestId requestId) throws TException {
         complete(requestId, null);
     }

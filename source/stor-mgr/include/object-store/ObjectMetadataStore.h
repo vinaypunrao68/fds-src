@@ -8,6 +8,7 @@
 #include <fds_module.h>
 #include <SmTypes.h>
 #include <SmIo.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
 
@@ -22,7 +23,8 @@ namespace fds {
  */
 class ObjectMetadataStore : public Module, public boost::noncopyable {
   public:
-    explicit ObjectMetadataStore(const std::string& modName);
+    ObjectMetadataStore(const std::string& modName,
+                        UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
     ~ObjectMetadataStore();
 
     typedef std::unique_ptr<ObjectMetadataStore> unique_ptr;
@@ -52,6 +54,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      * @param[in] set of SM tokens for which this SM lost ownership
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
+
+    Error closeAndDeleteMetadataDb(const fds_token_id& smTokenLost);
 
     /**
      * Delete metadata DBs of given SM tokens
@@ -111,11 +115,35 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    inline bool isUp() const {
+        return (currentState.load() == METADATA_STORE_INITED);
+    }
+
+    inline bool isUnavailable() const {
+        return (currentState.load() == METADATA_STORE_UNAVAILABLE);
+    }
+
+    inline bool isInitializing() const {
+        return (currentState.load() == METADATA_STORE_INITING);
+    }
+
   private:
-    /// object metadata index db
+    enum ObjectMetadataStoreState {
+        METADATA_STORE_INITING,
+        METADATA_STORE_INITED,
+        METADATA_STORE_UNAVAILABLE
+    };
+
+    std::atomic<ObjectMetadataStoreState> currentState;
+
+    /**
+     * Object metadata index db
+     */
     ObjectMetadataDb::unique_ptr metaDb_;
 
-    /// Metadata cache
+    /**
+     * Metadata cache
+     */
     ObjectMetaCache::unique_ptr metaCache;
 };
 

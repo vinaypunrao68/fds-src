@@ -16,8 +16,6 @@
 
 #include <net/SvcProcess.h>
 
-static Module * modVec[] = {};
-
 namespace fds {
 // TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr = 0;
@@ -25,17 +23,12 @@ DataMgr *dataMgr = 0;
 class MockDataMgr : public SvcProcess {
   public:
     MockDataMgr(int argc, char *argv[]) : SvcProcess(argc, argv, "platform.conf",
-            "fds.dm.", "dm.log", modVec) {
+            "fds.dm.", "dm.log", nullptr) {
     }
 
     virtual int run() override {
         return 0;
     }
-};
-
-static fds::Module *dmVec[] = {
-    &fds::gl_fds_stat,
-    NULL
 };
 
 struct DMTester :  SvcProcess {
@@ -87,7 +80,7 @@ struct DMTester :  SvcProcess {
         dataMgr->standalone = true;
         dataMgr->vol_map_mtx = new fds_mutex("Volume map mutex");
         dataMgr->features.setQosEnabled(false);
-        dataMgr->features.setTestMode(true);
+        dataMgr->features.setTestModeEnabled(true);
         dataMgr->features.setCatSyncEnabled(false);
         dataMgr->features.setTimelineEnabled(false);
 

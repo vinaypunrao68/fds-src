@@ -302,7 +302,12 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjDeltaSet(SmIoReq* ioReq);
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
+     void startResyncRequest();
 
+     void changeTokensState(const std::set<fds_token_id>& dltTokens);
+     void handleDiskChanges(const DiskId& dId,
+                            const diskio::DataTier& tierType,
+                            const TokenDiskIdPairSet& tokenDiskPairs);
      Error handleDltUpdate();
 
      void storeCurrentDLT();

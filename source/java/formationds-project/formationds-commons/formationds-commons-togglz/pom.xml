@@ -11,7 +11,7 @@
   <parent>
     <artifactId>formationds-commons</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.07.31-SNAPSHOT</version>
+    <version>2015.08.14-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.commons.togglz.name}</name>
@@ -32,6 +32,25 @@
     <dependency>
       <groupId>org.togglz</groupId>
       <artifactId>togglz-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>formationds-commons-libconfig</artifactId>
+    </dependency>
+
+    <!-- Togglz Testing -->
+    <dependency>
+      <groupId>org.togglz</groupId>
+      <artifactId>togglz-testing</artifactId>
+      <version>${togglz.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.togglz</groupId>
+      <artifactId>togglz-junit</artifactId>
+      <version>${togglz.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

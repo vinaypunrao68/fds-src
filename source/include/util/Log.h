@@ -44,7 +44,7 @@
 // incase your current logger is different fom GetLog(),
 // redefine macro [LOGGERPTR] at the top of your cpp file
 #ifndef DONTLOGLINE
-#define _ATLINE_ <<"[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
+#define _ATLINE_ << "[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
 #else
 #define _ATLINE_
 #endif

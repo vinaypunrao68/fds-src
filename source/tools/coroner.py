@@ -208,8 +208,10 @@ def run_collect(opts):
         paths=["/var/log/kern*", "/var/log/syslog*"]
     )
     # Collect FDS artifacts
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/bin')
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/sbin')
+    if not opts['skip_binaries']:
+        bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/bin')
+        bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/sbin')
+
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/etc')
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var')
     bodybag.collect_paths(
@@ -233,15 +235,21 @@ def run_collect(opts):
     bodybag.collect_cmd(command='/bin/netstat -ns', name='netstat_stats')
     bodybag.collect_cmd(command='/sbin/fdisk -l', name='fdisk_list')
     bodybag.collect_cmd(command='/bin/ls -l /corefiles', name='ls_corefiles')
-    bodybag.collect_cmd(
-        command='/opt/fds-deps/embedded/sbin/parted --list --script',
-        name='parted'
-    )
+    if not opts['buildermode']:
+        bodybag.collect_cmd(
+            command='/opt/fds-deps/embedded/sbin/parted --list --script',
+            name='parted'
+        )
     bodybag.collect_cmd(command='/usr/bin/lshw', name='lshw')
     bodybag.collect_cmd(
-        command="/usr/bin/find %s -type f -exec sha256sum {} ;" % bodybag.fdsroot,
-        name='fds_shasums'
+        command='/usr/bin/find %s -type d -print -exec ls -al {} ;' % bodybag.fdsroot,
+        name='fds_files'
     )
+    if opts['checksum_files']:
+        bodybag.collect_cmd(
+            command="/usr/bin/find %s -type f -exec sha256sum {} ;" % bodybag.fdsroot,
+            name='fds_shasums'
+        )
     # Collect cores from all possible locations
     corepaths = [
        '/corefiles/*',
@@ -272,6 +280,15 @@ def main():
             '--refid', dest="refid", default='noref',
             help='Reference ID - either FS-NNNN or other reference')
     parser_collect.add_argument(
+            '--buildermode', action='store_true', dest="buildermode", default=False,
+            help='Use this when coroner is run in build environments')
+    parser_collect.add_argument(
+            '--skip-binaries', action='store_true', dest="skip_binaries", default=False,
+            help='Use this to skip interacting with binaries (collection or otherwise)')
+    parser_collect.add_argument(
+            '--checksum-files', action='store_true', dest="checksum_files", default=False,
+            help='Use this to checksum all files in /fdsroot')
+    parser_collect.add_argument(
             '--fdsroot', dest="fdsroot", default='/fds',
             help='Location of FDS root directory - normally /fds')
     parser_collect.add_argument(
@@ -285,15 +302,15 @@ def main():
             help='Collect additional command')
     parser_collect.set_defaults(func=run_collect)
 
-    parser.add_argument(
-            '--url', default='http://localhost',
-            help='url to run tests against')
-    parser.add_argument(
-            '--fdsuser', dest="fdsuser", default='admin',
-            help='define FDS user to use Tenant API for auth token')
-    parser.add_argument(
-            '--fdspass', dest="fdspass", default='admin',
-            help='define FDS pass to use Tenant API for auth token')
+    #parser.add_argument(
+    #        '--url', default='http://localhost',
+    #        help='url to run tests against')
+    #parser.add_argument(
+    #        '--fdsuser', dest="fdsuser", default='admin',
+    #        help='define FDS user to use Tenant API for auth token')
+    #parser.add_argument(
+    #        '--fdspass', dest="fdspass", default='admin',
+    #        help='define FDS pass to use Tenant API for auth token')
     parser.add_argument(
             '--debug', action="store_true", default=False,
             help='enable debugging')

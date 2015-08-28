@@ -303,6 +303,7 @@ class NbdOperations
     void statBlobResp          (const resp_api_type::error_type &, handle_type&, shared_descriptor_type&) override {}  // NOLINT
     void updateBlobOnceResp    (const resp_api_type::error_type &, handle_type&) override {}
     void updateMetadataResp    (const resp_api_type::error_type &, handle_type&) override {}
+    void renameBlobResp        (const resp_api_type::error_type &, handle_type&, shared_descriptor_type&) override {}
     void volumeContentsResp    (const resp_api_type::error_type &, handle_type&, shared_descriptor_vec_type&) override {}  // NOLINT
     void volumeStatusResp      (const resp_api_type::error_type &, handle_type&, shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const resp_api_type::error_type &, handle_type&) override {}  // NOLINT

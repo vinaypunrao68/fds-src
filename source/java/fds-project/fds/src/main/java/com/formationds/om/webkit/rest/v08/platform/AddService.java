@@ -83,6 +83,9 @@ public class AddService implements RequestHandler {
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR, 0 );
+            throw new ApiException( "Error adding service to node: "
+                    + nodeId + " ensure svc does not already exist", 
+                    ErrorCode.BAD_REQUEST );
         }
         else
         {

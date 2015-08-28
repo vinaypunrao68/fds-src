@@ -6,6 +6,7 @@ package com.formationds.hadoop;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.xdi.AsyncAm;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -17,6 +18,7 @@ import java.util.Map;
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class FdsOutputStream extends OutputStream {
+    private static final Logger LOG = Logger.getLogger(FdsOutputStream.class);
     private final int objectSize;
     private final String domain;
     private final String volume;
@@ -47,19 +49,27 @@ public class FdsOutputStream extends OutputStream {
     }
 
     public static FdsOutputStream openForAppend(AsyncAm asyncAm, String domain, String volume, String blobName, int objectSize) throws IOException {
+        BlobDescriptor bd = null;
         try {
-            BlobDescriptor bd = asyncAm.statBlob(domain, volume, blobName).get();
-            OwnerGroupInfo owner = new OwnerGroupInfo(bd);
-            long byteCount = bd.getByteCount();
-            ObjectOffset objectOffset = getObjectOffset(byteCount, objectSize);
-            int length = (int) byteCount % objectSize;
-            ByteBuffer lastObject = asyncAm.getBlob(domain, volume, blobName, length, objectOffset).get();
-            ByteBuffer currentBuffer = ByteBuffer.allocate(objectSize);
-            currentBuffer.put(lastObject);
-            return new FdsOutputStream(objectSize, domain, volume, blobName, asyncAm, byteCount, currentBuffer, false, false, owner);
+            bd = unwindExceptions(() -> asyncAm.statBlob(domain, volume, blobName).get());
         } catch (Exception e) {
+            LOG.error("AM: statBlob() error", e);
             throw new IOException(e);
         }
+        OwnerGroupInfo owner = new OwnerGroupInfo(bd);
+        long byteCount = bd.getByteCount();
+        ObjectOffset objectOffset = getObjectOffset(byteCount, objectSize);
+        int length = (int) byteCount % objectSize;
+        ByteBuffer lastObject = null;
+        try {
+            lastObject = unwindExceptions(() -> asyncAm.getBlob(domain, volume, blobName, length, objectOffset).get());
+        } catch (Exception e) {
+            LOG.error("AM: getBlob() error", e);
+            throw new IOException(e);
+        }
+        ByteBuffer currentBuffer = ByteBuffer.allocate(objectSize);
+        currentBuffer.put(lastObject);
+        return new FdsOutputStream(objectSize, domain, volume, blobName, asyncAm, byteCount, currentBuffer, false, false, owner);
     }
 
 
@@ -68,6 +78,7 @@ public class FdsOutputStream extends OutputStream {
             unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), makeMetadata(owner)).get());
             return new FdsOutputStream(asyncAm, domain, volume, blobName, objectSize, owner);
         } catch (Exception e) {
+            LOG.error("AM updateBlobOnce() error", e);
             throw new IOException(e);
         }
     }
@@ -92,20 +103,31 @@ public class FdsOutputStream extends OutputStream {
             currentBuffer.flip();
 
             try {
-                unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, 1, currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get());
+                long currentLength = length();
+                long lastObject = Math.floorDiv(currentLength, objectSize);
+                int[] truncate = new int[]{1};
+                if (lastObject < objectOffset.getValue() && currentBuffer.remaining() == objectSize) {
+                    truncate[0] = 0;
+                }
+                unwindExceptions(() -> asyncAm.updateBlobOnce(domain, volume, blobName, truncate[0], currentBuffer, currentBuffer.limit(), objectOffset, makeMetadata(ownerGroupInfo)).get());
             } catch (Exception e) {
+                LOG.error("AM: updateBlobOnce() error", e);
                 isClosed = true;
                 throw new IOException();
             }
 
             isDirty = false;
-            currentBuffer.position(0);
+            currentBuffer.position((int) (currentOffset % objectSize));
             currentBuffer.limit(objectSize);
         }
     }
 
+    public long length() throws Exception {
+        return unwindExceptions(() -> asyncAm.statBlob(domain, volume, blobName).get()).getByteCount();
+    }
+
     private static ObjectOffset getObjectOffset(long atOffset, int objectSize) {
-        return new ObjectOffset((long) Math.floor(((double)atOffset) / ((double) objectSize)));
+        return new ObjectOffset((long) Math.floor(((double) atOffset) / ((double) objectSize)));
     }
 
     @Override
@@ -141,7 +163,7 @@ public class FdsOutputStream extends OutputStream {
             } finally {
                 super.close();
             }
-        }finally {
+        } finally {
             isClosed = true;
         }
     }

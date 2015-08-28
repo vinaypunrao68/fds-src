@@ -23,7 +23,8 @@ public class DynamicExports implements ExportResolver {
     public static final String EXPORTS = "./.exports";
     private XdiConfigurationApi config;
     private Set<String> knownVolumes;
-    private Map<String, Integer> exportIds;
+    private Map<String, Integer> exportsByName;
+    private Map<Integer, String> exportsById;
     private ExportFile exportFile;
 
     public DynamicExports(XdiConfigurationApi config) {
@@ -36,7 +37,7 @@ public class DynamicExports implements ExportResolver {
     private synchronized void refreshOnce() throws IOException {
         Set<String> exportableVolumes = null;
         try {
-            exportableVolumes = config.listVolumes(AmVfs.DOMAIN)
+            exportableVolumes = config.listVolumes(BlockyVfs.DOMAIN)
                     .stream()
                     .filter(v -> !v.getName().startsWith("SYSTEM_VOLUME"))
                     .map(v -> v.getName())
@@ -60,7 +61,12 @@ public class DynamicExports implements ExportResolver {
             exportFile = new ExportFile(new File(EXPORTS));
         }
         exportFile.rescan();
-        this.exportIds = exportIds(exportFile);
+        this.exportsByName = exportIds(exportFile);
+        this.exportsById = new HashMap<>();
+        for (String exportName : exportsByName.keySet()) {
+            int id = exportsByName.get(exportName);
+            exportsById.put(id, exportName);
+        }
     }
 
     private Map<String, Integer> exportIds(ExportFile exportFile) {
@@ -93,7 +99,26 @@ public class DynamicExports implements ExportResolver {
     }
 
     public int exportId(String volumeName) {
-        return exportIds.get(volumeName);
+        return exportsByName.get(volumeName);
     }
 
+    @Override
+    public String volumeName(int volumeId) {
+        return exportsById.get(volumeId);
+    }
+
+    @Override
+    public boolean exists(String volumeName) {
+        return exportsByName.containsKey(volumeName);
+    }
+
+    @Override
+    public int objectSize(String volume) {
+        try {
+            return config.statVolume(BlockyVfs.DOMAIN, volume).getPolicy().getMaxObjectSizeInBytes();
+        } catch (TException e) {
+            LOG.error("config.statVolume(" + volume + ") failed", e);
+            throw new RuntimeException(e);
+        }
+    }
 }

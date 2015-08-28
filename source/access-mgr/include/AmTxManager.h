@@ -92,6 +92,7 @@ struct AmTxManager {
      * Remove all metadata caches
      */
     void invalidateMetaCache(const VolumeDesc& volDesc);
+    void invalidateMetaCache(const fds_volid_t volId);
 
     /**
      * Notify that we have detached a volume, and remove any available
@@ -163,6 +164,8 @@ struct AmTxManager {
                      std::vector<boost::shared_ptr<ObjectID>> const& object_ids);
 
     void getObjects(GetBlobReq* blobReq);
+
+    Error removeBlob(fds_volid_t volId, const std::string &blobName);
 
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);

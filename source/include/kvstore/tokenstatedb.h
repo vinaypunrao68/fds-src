@@ -13,6 +13,14 @@
 #include <string>
 #include <vector>
 
+/*
+ * DEPRECATED? 07/23/2015 Is only currently used in
+ *  source/unit-test/migrations/ObjectStoreMock.h
+ *  source/unit-test/migrations/migration_ut.cpp
+ * 
+ * It does not look like any part of DM/SM/AM/OM or PM
+ */
+
 namespace fds {
 namespace kvstore {
 /**

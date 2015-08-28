@@ -4,21 +4,27 @@
 
 package com.formationds.om.webkit.rest.v07.volumes;
 
-import com.formationds.apis.*;
-import com.formationds.commons.model.entity.IVolumeDatapoint;
-import com.formationds.om.repository.MetricRepository;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.apis.FDSP_GetVolInfoReqType;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.Tenant;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.VolumeType;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.builder.VolumeBuilder;
+import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.MediaPolicyConverter;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.protocol.FDSP_VolumeDescType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;
@@ -34,8 +40,12 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.DecimalFormat;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
@@ -239,18 +249,16 @@ public class ListVolumes implements RequestHandler {
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
 
-		MetricQueryCriteria query = new MetricQueryCriteria();      
-		DateRange range = new DateRange();
-		range.setEnd( TimeUnit.MILLISECONDS.toSeconds( (new Date().getTime() ) ) );
-		range.setStart( range.getEnd() - TimeUnit.DAYS.toSeconds( 1 ) );
+		MetricQueryCriteria query = new MetricQueryCriteria();
+        DateRange range = DateRange.last24Hours();
 
 		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
-		
+
 		// "For now" code to use the new volume instead of the old.
 		com.formationds.client.v08.model.Volume newVolume = new com.formationds.client.v08.model.Volume( 
 				Long.parseLong( v.getId() ), v.getName() );
-		
-		query.setContexts( Collections.singletonList( newVolume ) );
+
+        query.setContexts( Collections.singletonList( newVolume ) );
 		query.setRange( range );
 
 		MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
@@ -262,8 +270,8 @@ public class ListVolumes implements RequestHandler {
 
 		try {
 			map = fbh.findFirebreakEvents( queryResults ).get( v.getId() );
-		} catch (TException e) {
-			 LOG.warn( "Could not determine the firebreak events for volume: " +
+        } catch ( Exception e ) {
+            LOG.warn( "Could not determine the firebreak events for volume: " +
 						   v.getId() + ":" + v.getName(), e );
 		}
 

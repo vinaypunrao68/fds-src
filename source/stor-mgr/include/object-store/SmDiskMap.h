@@ -13,8 +13,7 @@
 #include <dlt.h>
 #include <persistent-layer/dm_io.h>
 #include <object-store/SmSuperblock.h>
-#include <include/util/disk_utils.h>
-#include <util/EventTracker.h>
+#include <util/disk_utils.h>
 
 namespace fds {
 
@@ -24,6 +23,10 @@ namespace fds {
  */
 class SmDiskMap : public Module, public boost::noncopyable {
   public:
+    enum Disk_State {
+        DISK_OFFLINE,
+        DISK_ONLINE
+    };
     const std::string DISK_MAP_FILE = "/disk-map";
 
     explicit SmDiskMap(const std::string& modName,
@@ -110,6 +113,20 @@ class SmDiskMap : public Module, public boost::noncopyable {
     bool isAllDisksSSD() const;
 
     /**
+     * What type of disk is this. SSD or HDD?
+     */
+    diskio::DataTier diskMediaType(const DiskId& diskId) const;
+
+    /**
+     * Disk state specific inlines.
+     */
+    inline void makeDiskOffline(const DiskId& diskId) {
+        diskState[diskId] = DISK_OFFLINE;
+    }
+    inline bool isDiskOffline(const DiskId& diskId) {
+        return !(diskState[diskId] == DISK_ONLINE);
+    }
+   /**
     * Determines if a write to SSD will cause SSD usage to go beyond capacity threshold.
     * When called it will add writeSize to the map, and if the new value exceeds
     * the threshold will return false.
@@ -136,7 +153,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Gets the total consumed space and returns a pair (totalConsumed, totalAvailable).
      * The returned values can be divided out to get the % full
      */
-    DiskCapacityUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
+    DiskUtils::capacity_tuple getDiskConsumedSize(fds_uint16_t diskId);
 
     /**
      * Get current (i.e. closed DLT) from persitent storage.
@@ -148,9 +165,11 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * When SmDiskMap sees too many IO errors from the same disk, it declares disk
      * failed and migrates SM tokens from that disk to other disks
      */
-    void notifyIOError(fds_token_id smTokId,
-                       diskio::DataTier tier,
-                       const Error& error);
+
+    /**
+     * Remove the disk and distribute the tokens over other 'live' disks.
+     */
+    void removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier);
 
     /**
      * Module methods
@@ -185,9 +204,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
     /// set of disk IDs of existing HDD devices
     DiskIdSet hdd_ids;
 
-    // to track disk errors: disk id -> error
-    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> hdd_tracker;
-    EventTracker<fds_uint16_t, Error, std::hash<fds_uint16_t>, ErrorHash> ssd_tracker;
+    /// Disk health map
+    std::map<DiskId, bool> diskState;
 
     /// Superblock caches and persists SM token info
     SmSuperblockMgr::unique_ptr superblock;

@@ -11,13 +11,20 @@
 #include <concurrency/HashedLocks.hpp>
 #include <object-store/SmDiskMap.h>
 #include <TierEngine.h>
+#include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 #include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
+#include <util/EventTracker.h>
 
 namespace fds {
+
+typedef std::function <void(void)> StartResyncFnObj;
+typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
+
+typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
 /**
  * The ObjectStore manages persistent storage of Formation Objects, which
@@ -75,6 +82,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     // TODO(xxx) we should be able to get this from platform
     StorMgrVolumeTable *volumeTbl;
 
+    /// Resync request to Object store manager to start migration.
+    StartResyncFnObj requestResyncFn;
+
+    /// Callback to request Migration Manager(via Object Store Mgr)
+    /// to make given sm tokens offline.
+    TokenOfflineFnObj changeTokensStateFn;
+
     /// config params
     fds_bool_t conf_verify_data;
 
@@ -85,6 +99,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     typedef ScopedHashedLock<ObjectID,
                              HashedLocks<ObjectID, ObjectHash>> ScopedSynchronizer;
 
+    // to track disk errors: disk id -> error
+    typedef EventTracker<fds_uint16_t, Error,
+                         std::hash<fds_uint16_t>,
+                         ErrorHash> ObjectStoreMediaTracker;
+    ObjectStoreMediaTracker objStoreDiskMediaTracker;
+    ObjectStoreMediaTracker objStoreFlashMediaTracker;
+
+    void initObjectStoreMediaErrorHandlers();
 
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
@@ -95,7 +117,10 @@ class ObjectStore : public Module, public boost::noncopyable {
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
-                StorMgrVolumeTable* volTbl);
+                StorMgrVolumeTable* volTbl,
+                StartResyncFnObj fnObj=StartResyncFnObj(),
+                DiskChangeFnObj diskChFnObj=DiskChangeFnObj(),
+                TokenOfflineFnObj tokFn=TokenOfflineFnObj());
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
@@ -260,9 +285,22 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Handle disk change.
      */
-    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
-    void handleDiskChanges(const diskio::DataTier& diskType,
+    void handleDiskChanges(const DiskId& dId,
+                           const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
+
+    /**
+     * Handle detection of online disk failure.
+     */
+    Error handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier);
+
+    /**
+     * Update the HDD and SSD disk trackers with any errors seen during
+     * gets and puts.
+     */
+    void updateMediaTrackers(fds_token_id smTokId,
+                             diskio::DataTier tier,
+                             const Error& error);
 
     /**
      * Check if object store is ready to serve IO/become source for SM token

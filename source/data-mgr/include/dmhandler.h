@@ -25,12 +25,14 @@
 #define DM_SEND_ASYNC_RESP(...) \
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
-#define HANDLE_INVALID_TX_ID() \
-    if (BlobTxId::txIdInvalid == message->txId) { \
+#define HANDLE_INVALID_TX_ID_VAL(val) \
+    if (BlobTxId::txIdInvalid == (val)) { \
         LOGWARN << "Received invalid tx id with" << logString(*message); \
         handleResponse(asyncHdr, message, ERR_DM_INVALID_TX_ID, nullptr); \
         return; \
     }
+
+#define HANDLE_INVALID_TX_ID() HANDLE_INVALID_TX_ID_VAL(message->txId)
 
 #define HANDLE_U_TURN() \
     if (dataManager.testUturnAll) { \
@@ -120,6 +122,18 @@ struct UpdateCatalogHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::UpdateCatalogMsg> & message,
                         const Error &e, DmRequest *dmRequest);
+};
+
+struct RenameBlobHandler : Handler {
+    explicit RenameBlobHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::RenameBlobMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleCommitNewBlob(Error const& e, DmRequest* dmRequest);
+    void handleDeleteOldBlob(Error const& e, DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::RenameBlobMsg> & message,
+                        Error const& e, DmRequest* dmRequest);
 };
 
 struct GetBlobMetaDataHandler : Handler {
@@ -214,13 +228,6 @@ struct ForwardCatalogUpdateHandler : Handler {
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message);
     void handleQueueItem(DmRequest* dmRequest);
-    void handleUpdateFwdCommittedBlob(Error const& e, DmIoFwdCat* fwdCatReq);
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
-                        Error const& e, DmRequest* dmRequest);
-    void handleCompletion(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          boost::shared_ptr<fpi::ForwardCatalogMsg>& message,
-                          Error const& e, DmRequest* dmRequest);
 };
 
 struct StatVolumeHandler : Handler {
@@ -328,6 +335,9 @@ struct DmMigrationDeltaBlobDescHandler : Handler {
 	explicit DmMigrationDeltaBlobDescHandler(DataMgr &dataManager);
 	void handleRequest(fpi::AsyncHdrPtr& asyncHdr, fpi::CtrlNotifyDeltaBlobDescMsgPtr& message);
     void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
+                        Error const& e, DmRequest* dmRequest);
 };
 
 struct DmMigrationDeltaBlobHandler : Handler {
@@ -348,16 +358,13 @@ struct DmMigrationDeltaBlobHandler : Handler {
                          DmIoCommitBlobTx* commitBlobReq);
 };
 
-/**
- * Handler for msg from source DM to dest DM indicating the last forwarded commit log
- */
-struct DmMigrationFinishVolResyncHandler : Handler {
-	explicit DmMigrationFinishVolResyncHandler(DataMgr& dataManager);
+struct DmMigrationTxStateHandler : Handler {
+    explicit DmMigrationTxStateHandler(DataMgr& dataManager);
     void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                       boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message);
+                       boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message);
     void handleQueueItem(DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyFinishVolResyncMsg>& message,
+                        boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
 

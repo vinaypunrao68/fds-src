@@ -23,27 +23,25 @@
 #include <util/timeutils.h>
 #include <fds_placement_table.h>
 #include <concurrency/RwLock.h>
+#include <fds_table.h>
 
 namespace fds {
 #define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
-    const fds_uint8_t sm1Idx = 0;  /* DLT slot identifying SM1. */
+    const fds_uint8_t sm1PIdx = 0;  /* DLT slot identifying SM1. */
+    const fds_uint8_t sm2PIdx = 1;  /* DLT slot identifying SM2. */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
     typedef boost::shared_ptr<std::vector<DltTokenGroupPtr>> DistributionList;
     typedef std::vector<fds_token_id> TokenList;
     typedef std::map<NodeUuid, std::vector<fds_token_id>> NodeTokenMap;
-    /**
-     * Callback for DLT update response
-     */
-    typedef std::function<void (const Error&)> OmDltUpdateRespCbType;
 
     /**
      * Maintains the relation between a token and the responible nodes.
      * During lookup , an objid is converted to a token ..
      * Always generated the token using the getToken func.
      */
-    struct DLT :  serialize::Serializable , public Module , HasLogger {
+    struct DLT : public FDS_Table, public Module , HasLogger {
   public :
         /**
          * Return the token ID for a given Object based on
@@ -66,7 +64,7 @@ namespace fds {
         // if you change a copy's TokenGroup data , the original will be changed
         // Mebbe we can remove this later
         DLT(const DLT& dlt);
-        ~DLT();
+        ~DLT() override = default;
 
         // Deep copy . Safe modifiable copy.
         DLT* clone() const;
@@ -141,20 +139,6 @@ namespace fds {
         fds_bool_t isClosed() const;
 
         void setClosed();
-        /**
-         * Increments refcount and returns current refcount
-         */
-        fds_uint64_t incRefcnt();
-        /**
-         * Decrements refcount and returns current refcount
-         */
-        fds_uint64_t decRefcnt();
-        fds_uint64_t getRefcnt();
-        /**
-         * @return ERR_DLT_IO_PENDING if refcount > 0 and cb was stored;
-         * otherwise ERR_OK
-         */
-        Error addCbIfRefcnt(OmDltUpdateRespCbType cb);
 
         void getTokenObjectRange(const fds_token_id &token,
                 ObjectID &begin, ObjectID &end) const;
@@ -218,17 +202,8 @@ namespace fds {
         friend class DLTManager;
         friend class DLTDiff;
 
-        fds_uint64_t version;    /**< OM DLT version */
         util::TimeStamp    timestamp;  /**< Time OM created DLT */
         fds_bool_t   closed;     /**< true if DLT is closed, not only commited */
-        fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
-        fds_uint32_t numTokens;  /**< Expanded version of width */
-        fds_uint32_t depth;      /**< Depth of each token group */
-
-        // refcount DLT accesses
-        std::atomic<fds_uint64_t> refcnt;
-        // if callback is set, will be called when refcnt becomes 0
-        OmDltUpdateRespCbType omDltUpdateCb;
     };
 
     /**
@@ -278,20 +253,20 @@ namespace fds {
         /**
          * If cb is provided and returned error = ERR_OK, then provided
          * callback will be called when refcnt becomes 0
-         * @return If cb is provided: ERR_DLT_IO_PENDING if DLT was added successfully,
+         * @return If cb is provided: ERR_IO_PENDING if DLT was added successfully,
          * but previous DLT has refcount > 0; otherwise ERR_OK if DLT was added successfully
          */
         Error add(const DLT& dlt,
-                  OmDltUpdateRespCbType cb = nullptr);
+                  FDS_Table::callback_type const& cb = nullptr);
         bool add(const DLTDiff& dltDiff);
         /**
          * Adds DLT to the list and makes this DLT "committed" (current)
-         * @return ERR_DLT_IO_PENDING if DLT was added successfully, but
+         * @return ERR_IO_PENDING if DLT was added successfully, but
          * previous DLT has refcount > 0; ERR_OK if DLT was added successfully
          * and previous DLT refcount == 0
          */
         Error addSerializedDLT(std::string& serializedData,
-                               OmDltUpdateRespCbType cb,
+                               FDS_Table::callback_type const& cb,
                                bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
@@ -299,12 +274,12 @@ namespace fds {
         /**
          * Returns the current DLT and increments refcount for DLT accesses
          */
-        const DLT* getAndLockCurrentDLT();
+        const DLT* getAndLockCurrentVersion();
         /**
          * Decrements refcount for given DLT version
          * @return ERR_INVALID_ARG if version is 0
          */
-        Error decDLTRefcnt(fds_uint64_t version);
+        Error releaseVersion(fds_uint64_t version);
 
         std::vector<fds_uint64_t> getDltVersions();
 

@@ -17,7 +17,7 @@ namespace dm {
 StartBlobTxHandler::StartBlobTxHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::StartBlobTxMsg, handleRequest);
     }
 }
@@ -54,8 +54,6 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     dmReq->cb = BIND_MSG_CALLBACK(StartBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
-
     addToQueue(dmReq);
 }
 
@@ -84,7 +82,8 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
         helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
                                                           typedRequest->blob_name,
                                                           typedRequest->blob_mode,
-                                                          typedRequest->ioBlobTxDesc);
+                                                          typedRequest->ioBlobTxDesc,
+                                                          typedRequest->dmt_version);
     }
 }
 

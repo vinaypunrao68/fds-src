@@ -31,6 +31,11 @@
     </dependency>
     <dependency>
       <groupId>com.formationds</groupId>
+      <artifactId>formationds-commons-libconfig</artifactId>
+      <version>${formationds.commons.libconfig.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.formationds</groupId>
       <artifactId>formationds-commons-togglz</artifactId>
       <version>${formationds.commons.togglz.version}</version>
     </dependency>
@@ -252,6 +257,17 @@
     <dependency>
       <groupId>org.influxdb</groupId>
       <artifactId>influxdb-java</artifactId>
+    </dependency>
+
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-analyzers-common</artifactId>
     </dependency>
 
     <!--<dependency>-->

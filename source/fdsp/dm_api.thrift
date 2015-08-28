@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2014-2015 by Formation Data Systems, Inc.
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
@@ -307,6 +307,34 @@ struct UpdateCatalogOnceRspMsg {
 }
 
 /**
+ * Renames an existing blob with a new name.
+ */
+struct RenameBlobMsg {
+  /** The ID of the volume */
+  1: i64        volume_id;
+  /** The old blob name */
+  2: string     source_blob;
+  /** The new blob name */
+  3: string     destination_blob;
+  /** The DMT version used for the op */
+  4: i64        dmt_version;
+  /** Transaction for BlobDelete */
+  5: i64        source_tx_id;
+  /** Transaction for BlobCreate */
+  6: i64        destination_tx_id;
+  /** Volume update sequencing */
+  7: i64        sequence_id;
+}
+
+/**
+ * Response for blob rename operation
+ */
+struct RenameBlobRespMsg {
+  1: i64                        byteCount;
+  2: dm_types.FDSP_MetaDataList metaDataList;
+}
+
+/**
  * Updates an existing transaction with a new blob update. The
  * is not applied until the transcation is committed.
  * Metadata keys are unique so this update may overwrite a
@@ -496,19 +524,19 @@ struct CtrlNotifyDMStartMigrationRspMsg {
  */
 struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
-  /* message sequence  id  for tracking the messages 
+  /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
   2: i64                     msg_seq_id;
   3: bool                    last_msg_seq_id = false;
-  /* list of <offset, oid> in give volume 
+  /* list of <offset, oid> in give volume
    */
   4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 
 struct CtrlNotifyDeltaBlobDescRspMsg {
-  /* An empty reply from the Destination DM to the source DM after 
+  /* An empty reply from the Destination DM to the source DM after
    * all the blobs applied to the destination DM. This is a empty message
    */
 }
@@ -518,15 +546,27 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
  */
 struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
-  /* message sequence  id  for tracking the messages 
+  /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
   3: i64                     msg_seq_id;
   4: bool                    last_msg_seq_id = false;
-  /* list of <blob, blob descriptor> in give volume 
+  /* list of <blob, blob descriptor> in give volume
    * empty blob descriptor  for delete operation
    */
   5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+}
+
+/**
+ *  send the snapshot of in-progress transactions (contents of the commit log)
+ */
+struct CtrlNotifyTxStateMsg {
+  1: i64                     volume_id;
+  2: list<string>            transactions;
+}
+
+struct CtrlNotifyTxStateRspMsg {
+  /* empty message to acknowledge receipt */
 }
 
 /* ------------------------------------------------------------
@@ -578,6 +618,8 @@ struct ForwardCatalogMsg {
   4: dm_types.FDSP_BlobObjectList obj_list;
   5: dm_types.FDSP_MetaDataList   meta_list;
   6: i64                          sequence_id;
+  7: bool                         lastForward;
+  8: i64                          txId;
 }
 /**
  * Forward catalog update response message
@@ -622,21 +664,6 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
 }
 struct ResyncInitialBlobFilterSetRspMsg {
 }
-
-/**
- * Message from Source DM to Destination DM indicating the last forwarded message
- * during DM migration.
- */
-struct CtrlNotifyFinishVolResyncMsg {
-  /** Unique ID of executor on the destination DM */
-  1: i64                volume_id;
-  2: i64                DMT_Version;
-  3: i64                commit_log_seq_num;
-}
-
-struct CtrlNotifyFinishVolResyncRspMsg {
-}
-
 
 /* ------------------------------------------------------------
    Other specified services

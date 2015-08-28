@@ -14,6 +14,7 @@ from model.volume.settings.block_settings import BlockSettings
 from model.common.size import Size
 from model.volume.settings.object_settings import ObjectSettings
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 class VolumePlugin( AbstractPlugin):
     '''
@@ -27,18 +28,20 @@ class VolumePlugin( AbstractPlugin):
     @author: nate
     '''
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session)
+    def __init__(self):
+        AbstractPlugin.__init__(self)
     
     def build_parser(self, parentParser, session):
         '''
         @see: AbstractPlugin
         '''         
         
-        if not self.session.is_allowed( "VOL_MGMT" ):
+        self.session = session
+        
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
             return
         
-        self.__volume_service = volume_service.VolumeService( session )
+        self.__volume_service = volume_service.VolumeService( self.session )
         
         self.__parser = parentParser.add_parser( "volume", help="All volume management operations" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
@@ -106,11 +109,11 @@ class VolumePlugin( AbstractPlugin):
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str, help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.", type=VolumeValidator.iops_limit, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str, help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not specified.", type=VolumeValidator.iops_guarantee, default=0, metavar="" )
         __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str, help="A value that indicates how to prioritize performance for this volume.  1 = highest priority, 10 = lowest.  Default value is 7.", type=VolumeValidator.priority, default=7, metavar="")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.", choices=["object", "block"], default="object")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID", "SSD", "HDD"], default="HDD")
-        __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours.", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
-        __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes", type=VolumeValidator.size, default=10, metavar="" )
-        __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.", choices=["MB","GB","TB"], default="GB")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.type_str, help="The type of volume connector to use for this volume.  The default is object is none is specified.", choices=["object", "block"], default="object")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.media_policy_str, help="The policy that will determine where the data will live over time.", choices=["HYBRID", "SSD", "HDD"], default="HYBRID")
+        __createParser.add_argument( self.arg_str + AbstractPlugin.continuous_protection_str, help="A value (in seconds) for how long you want continuous rollback for this volume.  All values less than 24 hours will be set to 24 hours (which is also the default).", type=VolumeValidator.continuous_protection, default=86400, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.size_str, help="How large you would like the volume to be as a numerical value.  It will assume the value is in GB unless you specify the size_units.  NOTE: This is only applicable to Block volumes and is set to 10GB if not specified.", type=VolumeValidator.size, default=10, metavar="" )
+        __createParser.add_argument( self.arg_str + AbstractPlugin.size_unit_str, help="The units that should be applied to the size parameter.  The default is GB if not specified.", choices=["MB","GB","TB"], default="GB")
         __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_str, help="The block size you would like to use for block type volumes.  This value must be between 4KB and 8MB.  If it is not, the system default will be applied.", type=int, default=None)
         __createParser.add_argument( self.arg_str + AbstractPlugin.block_size_unit_str, help="The units that you wish the block size to be in.  The default is KB.", choices=["KB","MB"], default="KB")
         __createParser.add_argument( self.arg_str + AbstractPlugin.max_obj_size_str, help="The internal maximum size for one blob.  This is only applicable to OBJECT volumes and must be within 4KB and 8MB.  If it is not, the system default will be applied.", type=int, default=None)
@@ -224,7 +227,7 @@ class VolumePlugin( AbstractPlugin):
             return
         
         if len( response ) == 0:
-            print "\nNo volumes found."
+            print "No volumes found."
         
         #write the volumes out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":

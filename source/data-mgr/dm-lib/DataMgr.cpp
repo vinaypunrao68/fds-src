@@ -13,10 +13,12 @@
 #include <dmhandler.h>
 #include <util/stringutils.h>
 #include <util/path.h>
-#include <include/util/disk_utils.h>
+#include <util/disk_utils.h>
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
+#include <fdsp/svc_types_types.h>
+
 
 
 namespace {
@@ -41,45 +43,6 @@ namespace fds {
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
-
-float_t DataMgr::getUsedCapacityAsPct() {
-
-    // Error injection points
-    // Causes the method to return DISK_CAPACITY_ERROR_THRESHOLD capacity
-    fiu_do_on("dm.get_used_capacity_error", \
-            fiu_disable("dm.get_used_capacity_warn"); \
-            fiu_disable("dm.get_used_capacity_alert"); \
-            LOGDEBUG << "Err inection: returning max used disk capacity as " \
-                     << DISK_CAPACITY_ERROR_THRESHOLD; \
-            return DISK_CAPACITY_ERROR_THRESHOLD; );
-
-    // Causes the method to return DISK_CAPACITY_ALERT_THRESHOLD + 1 % capacity
-    fiu_do_on("dm.get_used_capacity_alert", \
-              fiu_disable("dm.get_used_capacity_warn"); \
-              fiu_disable("dm.get_used_capacity_error"); \
-              LOGDEBUG << "Err injection: returning max used disk capacity as " \
-                       << DISK_CAPACITY_ALERT_THRESHOLD + 1; \
-              return DISK_CAPACITY_ALERT_THRESHOLD + 1; );
-
-    // Causes the method to return DISK_CAPACITY_WARNING_THRESHOLD + 1 % capacity
-    fiu_do_on("dm.get_used_capacity_warn", \
-              fiu_disable("dm.get_used_capacity_error"); \
-              fiu_disable("dm.get_used_capacity_alert"); \
-              LOGDEBUG << "Err injection: returning max used disk capacity as " \
-                       << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
-              return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
-
-    // Get fds root dir
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    // Get sys-repo dir
-    DiskCapacityUtils::capacity_tuple cap = DiskCapacityUtils::getDiskConsumedSize(root->dir_sys_repo_stats());
-
-    // Calculate pct
-    float_t result = ((1. * cap.first) / cap.second) * 100;
-    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
-
-    return result;
-}
 
 /**
  * Send an Event to OM using the events API
@@ -251,7 +214,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
      */
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
-        float_t pct_used = getUsedCapacityAsPct();
+        float_t pct_used = timeVolCat_->getUsedCapacityAsPct();
 
         // We want to log which disk is too full here
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
@@ -263,7 +226,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             timeVolCat_->setUnavailable();
 
             // Send message to OM
-
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
 
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -271,6 +234,8 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt = pct_used;
 
             // Send message to OM
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
+                                   ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
@@ -290,11 +255,36 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                 lastCapacityMessageSentAt = 0;
 
                 // Send message to OM resetting us to OK state
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "DM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
     }
     sampleCounter++;
+
+}
+
+void DataMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                     fds_errno_t statusCode,
+                                     const std::string& statusInfo) {
+
+    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    // Send health check thrift message to OM
+    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
+    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
+    healthRepMsg->healthReport.serviceState = serviceState;
+    healthRepMsg->healthReport.statusCode = statusCode;
+    healthRepMsg->healthReport.statusInfo = statusInfo;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
+    request->invoke();
 
 }
 
@@ -562,8 +552,12 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
              << " created:" << vdesc->isStateCreated()
              << " old:" << fOldVolume;
 
-    if (vdesc->isSnapshot() || vdesc->isClone()) {
+    if (vdesc->isClone()) {
+        // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
+    } else if (vdesc->isSnapshot()) {
+        // snapshot happens on all nodes
+        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -574,8 +568,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         return err;
     }
 
-    // do this processing only in the case of primary ..
-    if ((vdesc->isSnapshot() || vdesc->isClone()) && fPrimary) {
+    // do this processing only in the case..
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
@@ -610,7 +604,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (err.ok() && !fActivated) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
-        err = timeVolCat_->activateVolume(vol_uuid);
+        err = timeVolCat_->activateVolume(vdesc->volUUID);
         if (err.ok()) {
             fActivated = true;
         }
@@ -711,7 +705,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     // should do the calculation if the primary fails over to us. but if we set it
     // here, before failover, we could have a seq_id ahead of the primary.
     // is this a problem?
-    if (fPrimary && fActivated) {
+    if (fActivated) {
         sequence_id_t seq_id;
         err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
 
@@ -877,45 +871,17 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
 }
 
 /**
- * For all volumes that are in forwarding state, move them to
- * finish forwarding state.
+ * For all the volumes under going Active Migration forwarding,
+ * turn them off.
  */
 Error DataMgr::notifyDMTClose() {
     Error err(ERR_OK);
-    DmIoPushMetaDone* pushMetaDoneIo = NULL;
-
-    if (features.isCatSyncEnabled()) {
-        if (!catSyncMgr->isSyncInProgress()) {
-            err = ERR_CATSYNC_NOT_PROGRESS;
-            return err;
-        }
-        // set DMT close time in catalog sync mgr
-        // TODO(Andrew): We're doing this later in the process,
-        // so can remove this when that works for sure.
-        // catSyncMgr->setDmtCloseNow();
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-
-    // set every volume's state to 'finish forwarding
-    // and enqueue DMT close marker to qos queues of volumes
-    // that are in 'finish forwarding' state
-    vol_map_mtx->lock();
-    for (auto vol_it = vol_meta_map.begin();
-         vol_it != vol_meta_map.end();
-         ++vol_it) {
-        VolumeMeta *vol_meta = vol_it->second;
-        vol_meta->finishForwarding();
-        pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
-        handleDMTClose(pushMetaDoneIo);
-    }
-    vol_map_mtx->unlock();
 
     // TODO(Andrew): Um, no where to we have a useful error statue
     // to even return.
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
-
+    dmMigrationMgr->stopAllClientForwarding();
     return err;
 }
 
@@ -1020,11 +986,14 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
 
+    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.dm.enable_expunge", true));
+
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.dm.req_serialization", false));
+            "fds.dm.req_serialization", true));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -1057,6 +1026,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_COMMIT_BLOB_TX] = new dm::CommitBlobTxHandler(*this);
     handlers[FDS_CAT_UPD_ONCE] = new dm::UpdateCatalogOnceHandler(*this);
     handlers[FDS_SET_BLOB_METADATA] = new dm::SetBlobMetaDataHandler(*this);
+    handlers[FDS_RENAME_BLOB] = new dm::RenameBlobHandler(*this);
     handlers[FDS_ABORT_BLOB_TX] = new dm::AbortBlobTxHandler(*this);
     handlers[FDS_DM_FWD_CAT_UPD] = new dm::ForwardCatalogUpdateHandler(*this);
     handlers[FDS_STAT_VOLUME] = new dm::StatVolumeHandler(*this);
@@ -1069,7 +1039,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
-    handlers[FDS_DM_MIG_FINISH_VOL_RESYNC] = new dm::DmMigrationFinishVolResyncHandler(*this);
+    handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1100,7 +1070,7 @@ void DataMgr::mod_startup()
     useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
-        features.setTestMode(true);
+        features.setTestModeEnabled(true);
     }
     LOGNORMAL << "Data Manager using control port "
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
@@ -1179,8 +1149,13 @@ void DataMgr::mod_enable_service() {
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
-    if (!features.isTestMode()) {
+    if (!features.isTestModeEnabled()) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+    }
+
+    if (timeVolCat_->isUnavailable()) {
+        // send health check msg to OM
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
     }
 }
 

@@ -8,6 +8,11 @@
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ################################################################################
 {#
+
+   Do NOT leave blank lines in this file except inside comment blocks like this one
+
+#}
+{#
    fds. specific entries
 #}
 {% set fds_root = fds_default_root if fds_default_root is defined else '/fds' %}
@@ -24,6 +29,7 @@
 {% set metricsdb_ip = fds_metricsdb_ip if fds_metricsdb_ip is defined else '127.0.0.1' %}
 {#
    Redis Deployment defaults
+    fds.pm.redis_host == om_ip above
 #}
 {% set redis_port = fds_redis_port if fds_redis_port is defined else '6379' %}
 {#
@@ -41,6 +47,7 @@
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set dm_req_serialization = fds_dm_req_serialization if fds_dm_req_serialization is defined else 'true' %}
+{% set dm_enable_expunge = fds_dm_ if fds_dm_enable_expunge is defined else 'false' %}
 {% set dm_enable_timeline = fds_dm_enable_timeline if fds_dm_enable_timeline is defined else 'true' %}
 {% set dm_enable_migration = fds_dm_enable_migration if fds_dm_enable_migration is defined else 'false' %}
 {% set dm_enable_resync = fds_dm_enable_resync if fds_dm_enable_resync is defined else 'false' %}
@@ -63,7 +70,7 @@
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
 {% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
-{% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'true' %}
+{% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
 {#
    fds.am. specific entries
 #}
@@ -73,6 +80,7 @@
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
+{% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'false' %}
 {#
    fds.om. specific entries
 #}
@@ -80,10 +88,15 @@
 {% set om_influxdb_url = fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://' + om_ip + ':8086' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
+{% set rest_07_feature = ft_fds_rest_07_feature if ft_fds_rest_07_feature is defined else 'false' %}
 {#
    fds.xdi. specific entries
 #}
+
 {% set am_host = am_host if am_host is defined else 'localhost' %}
+{% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
+{% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
+{% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
 {#
    fds.checker. specific entries
 #}
@@ -96,20 +109,25 @@
 {#
    fds.feature_toggle specific entries
 
-   These settings configure feature toggles (for c++ code)
+   These settings configure feature toggles (for c++/java code)
 
    In the inventory files they all begin fds_ft_ for fds_feature_toggle_.  Internally, we strip off the fds_.
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
+{% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
 {% set ft_platform_use_new_superblock             = fds_ft_platform_use_new_superblock             if fds_ft_platform_use_new_superblock             is defined else 'false' %}
-{% set ft_restart_failed_children_processes       = fds_ft_restart_failed_children_processes       if fds_ft_restart_failed_children_processes       is defined else 'true' %}
-{% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true' %}
-
+{% set ft_restart_failed_children_processes       = fds_ft_restart_failed_children_processes       if fds_ft_restart_failed_children_processes       is defined else 'true'  %}
+{% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true'  %}
+{% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
+{% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
 {#
-   Java fds-feature.conf deployment configurations
+    Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
 #}
-{% set fds_rest_07_feature = fds_rest_07_feature if fds_rest_07_feature is defined else 'true' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Xms20M' %}
+{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '' %}
+{#
+#}
 {% block content %}{% endblock %}

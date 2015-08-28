@@ -24,7 +24,7 @@ fds: {
 
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
             all_ssd = {{ all_ssd_support }}
-            volume_open_support = true
+            volume_open_support = {{ ft_common_enable_volume_open_support }}
         }
         pm: {
 
@@ -41,9 +41,12 @@ fds: {
         }
         am: {
             serialization = "{{ am_req_serialization }}"
+            safe_atomic_write = "{{ am_safe_atomic_write }}"
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
+           rest_07_feature = {{ ft_fds_rest_07_feature }}
+           fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
         }
     }
 
@@ -118,6 +121,9 @@ fds: {
         om_ip            = "{{ om_ip }}"
         om_port          = 8904
         om_platform_port = 7000
+
+        redis_host = "{{ om_ip }}"
+        redis_port = {{ redis_port }}
 
         /* Don't spawn any service daemon */
         auto_start_services = true
@@ -280,6 +286,7 @@ fds: {
 
         /* Timeline feature toggle */
         enable_timeline = {{ dm_enable_timeline }}
+        enable_expunge = {{ dm_enable_expunge }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -435,6 +442,9 @@ fds: {
 
             /* timeout duration in sec */
             migration_timeout=300
+
+            /* number of parallel sm migrations at a time */
+            parallel_migration=8
         }
         tiering: {
             hybrid: {
@@ -628,6 +638,7 @@ fds: {
         log_severity = "{{ om_log_severity }}"
         logfile="om"
         config_port=9090
+        config_cache_update_interval_ms=10000
 
         /* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
         control_port=8904
@@ -647,6 +658,7 @@ fds: {
 
         influxdb: {
             url="{{ om_influxdb_url }}"
+            enable_query_backtrace = false
         }
 
         test_mode=false
@@ -690,6 +702,9 @@ fds: {
 
     xdi: {
         am_host = "{{ am_host }}"
+    	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
+    	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
+    	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
     }
 
     test: {

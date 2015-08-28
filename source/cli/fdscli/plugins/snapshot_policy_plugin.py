@@ -9,6 +9,7 @@ from services.snapshot_policy_service import SnapshotPolicyService
 from services.response_writer import ResponseWriter
 from plugins.abstract_plugin import AbstractPlugin
 from model.fds_error import FdsError
+from services.fds_auth import FdsAuth
 
 
 class SnapshotPolicyPlugin( AbstractPlugin):
@@ -23,14 +24,21 @@ class SnapshotPolicyPlugin( AbstractPlugin):
     '''    
     
     
-    def __init__(self, session):
-        AbstractPlugin.__init__(self, session) 
-        self.__sp_service = SnapshotPolicyService( session )   
+    def __init__(self):
+        AbstractPlugin.__init__(self)  
     
     '''
     @see: AbstractPlugin
     '''
     def build_parser(self, parentParser, session): 
+        
+        self.session = session
+       
+        if not self.session.is_allowed( FdsAuth.VOL_MGMT ):
+            return
+        
+        self.__sp_service = SnapshotPolicyService( self.session )  
+ 
         
         self.__parser = parentParser.add_parser( "snapshot_policy", help="Create, edit, delete and manipulate snapshot policies" )
         self.__subparser = self.__parser.add_subparsers( help="The sub-commands that are available")
@@ -74,15 +82,15 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         __create_parser.add_argument( "-" + AbstractPlugin.data_str, help="A JSON formatted string that defines your policy entirely.  If this is present all other arguments will be ignored.", default=None )
         __create_parser.add_argument( "-" + AbstractPlugin.name_str, help="The name of the policy you are creating.", default=None)
         __create_parser.add_argument( "-" + AbstractPlugin.volume_id_str, help="The UUID of the volume that this policy will be attached to.", required=True)
-        __create_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever", type=int, default=0)
+        __create_parser.add_argument( "-" + AbstractPlugin.retention_str, help="The time (in seconds) that you want to keep snapshots that are created with this policy. 0 = forever and will be the default is not specified.", type=int, default=0)
         __create_parser.add_argument( "-" + AbstractPlugin.recurrence_rule_str, help="The iCal format recurrence rule you would like this policy to follow. http://www.kanzaki.com/docs/ical/rrule.html")
-        __create_parser.add_argument( "-" + AbstractPlugin.frequency_str, help="The frequency for which you would like snapshots to be taken on volumes this policy is applied to.", choices=["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "YEARLY"], default="DAILY")
-        __create_parser.add_argument( "-" + AbstractPlugin.day_of_week_str, help="The day(s) of the week you would like the policy to run (when applicable).", choices=["SU","MO","TU","WE","TH","FR","SA"], nargs="+", default=["SU"])
+        __create_parser.add_argument( "-" + AbstractPlugin.frequency_str, help="The frequency for which you would like snapshots to be taken on volumes this policy is applied to.  DAILY is the default.", choices=["DAILY", "HOURLY", "WEEKLY", "MONTHLY", "YEARLY"], default="DAILY")
+        __create_parser.add_argument( "-" + AbstractPlugin.day_of_week_str, help="The day(s) of the week you would like the policy to run (when applicable).  The default value is Sunday.", choices=["SU","MO","TU","WE","TH","FR","SA"], nargs="+", default=["SU"])
         __create_parser.add_argument( "-" + AbstractPlugin.day_of_month_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_month_values)
         __create_parser.add_argument( "-" + AbstractPlugin.day_of_year_str, help="The number day you would like the policy to run.", nargs="+", type=SnapshotPolicyValidator.day_of_year_values)
         __create_parser.add_argument( "-" + AbstractPlugin.month_str, help="The month you would like this policy to run.", nargs="+", type=SnapshotPolicyValidator.month_value)
-        __create_parser.add_argument( "-" + AbstractPlugin.hour_str, help="The hour(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.hour_value, default=[0])
-        __create_parser.add_argument( "-" + AbstractPlugin.minute_str, help="The minute(s) of the day you wish this policy to run.", nargs="+", type=SnapshotPolicyValidator.minute_value, default=[0])
+        __create_parser.add_argument( "-" + AbstractPlugin.hour_str, help="The hour(s) of the day you wish this policy to run.  Midnight is the default.", nargs="+", type=SnapshotPolicyValidator.hour_value, default=[0])
+        __create_parser.add_argument( "-" + AbstractPlugin.minute_str, help="The minute(s) of the day you wish this policy to run.  On the hour is the default.", nargs="+", type=SnapshotPolicyValidator.minute_value, default=[0])
         
         __create_parser.set_defaults( func=self.create_snapshot_policy, format="tabular")
         

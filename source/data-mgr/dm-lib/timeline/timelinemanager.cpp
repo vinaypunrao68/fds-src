@@ -43,7 +43,7 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
         LOGDEBUG << "deleting snap:" << snapshotId
                  << " of vol:" << volId;
         // remove the bloom filter from the map
-        // we need to do this first because we should not check this bf 
+        // we need to do this first because we should not check this bf
         // during expunge check.
         blooms[volId].erase(snapshotId);
 
@@ -227,6 +227,8 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
                  << " of srcvol:" << vdesc->srcVolumeId
                  << " will be a clone at current time";
         err = dm->timeVolCat_->copyVolume(*vdesc);
+        LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;
+        err = dm->timeVolCat_->activateVolume(vdesc->volUUID);
         return err;
     }
 
@@ -245,21 +247,34 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
         // recopy the original srcVolumeId
         vdesc->srcVolumeId = srcVolumeId;
     } else {
-        LOGDEBUG << "clone vol:" << vdesc->volUUID
-                 << " of srcvol:" << vdesc->srcVolumeId
-                 << " will be created from scratch as no nearest snapshot found";
-        // vol create time is in millis
-        snapshotTime = volmeta->vol_desc->createTime * 1000;
-        err = dm->timeVolCat_->addVolume(*vdesc);
-        if (!err.ok()) {
-            LOGWARN << "Add volume returned error: '" << err << "'";
+        // no matching snapshot
+
+        util::TimeStamp timeDiff = abs(createTime - util::getTimeStampMicros())/(1000*1000);
+        // if there is no matching snapshot & the timeline time is in the last 1 minute
+        // then create from current time
+        if (timeDiff <= 60) {
+            snapshotTime = util::getTimeStampMicros();
+            LOGDEBUG << "clone vol:" << vdesc->volUUID
+                     << " of srcvol:" << vdesc->srcVolumeId
+                     << " will be created from current time scratch as no nearest snapshot found(< 1m)";
+            err = dm->timeVolCat_->copyVolume(*vdesc);
+        } else {
+            LOGDEBUG << "clone vol:" << vdesc->volUUID
+                     << " of srcvol:" << vdesc->srcVolumeId
+                     << " will be created from scratch as no nearest snapshot found";
+            // vol create time is in millis
+            snapshotTime = volmeta->vol_desc->createTime * 1000;
+            err = dm->timeVolCat_->addVolume(*vdesc);
+            if (!err.ok()) {
+                LOGWARN << "Add volume returned error: '" << err << "'";
+            }
+            // XXX: Here we are creating and activating clone without copying src
+            // volume, directory needs to exist for activation
+            const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+            const std::string dirPath = root->dir_sys_repo_dm() +
+                    std::to_string(vdesc->volUUID.get());
+            root->fds_mkdir(dirPath.c_str());
         }
-        // XXX: Here we are creating and activating clone without copying src
-        // volume, directory needs to exist for activation
-        const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-        const std::string dirPath = root->dir_sys_repo_dm() +
-                std::to_string(vdesc->volUUID.get());
-        root->fds_mkdir(dirPath.c_str());
     }
 
     // now replay necessary commit logs as needed
@@ -271,6 +286,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
                 << " srcvol:" << srcVolumeId << " onto vol:" << vdesc->volUUID
                 << " logretention time:" << volmeta->vol_desc->contCommitlogRetention;
     }
+
 
     if (err.ok()) {
         LOGDEBUG << "will attempt to activate vol:" << vdesc->volUUID;

@@ -6,13 +6,17 @@
 #include <PerfTrace.h>
 #include <fds_process.h>
 #include <object-store/ObjectPersistData.h>
+#include <fiu-control.h>
+#include <fiu-local.h>
 
 namespace fds {
 
 ObjectPersistData::ObjectPersistData(const std::string &modName,
-                                     SmIoReqHandler *data_store)
+                                     SmIoReqHandler *data_store,
+                                     UpdateMediaTrackerFnObj fn)
         : Module(modName.c_str()),
           shuttingDown(false),
+          mediaTrackerFn(fn),
           scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
@@ -82,6 +86,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                 if (!err.ok()) {
                     LOGERROR << "Failed to open File for SM token " << *cit
                              << " tier " << tier << " " << err;
+                    writeFileIdMap.erase(wkey);
                     fds_verify(err != ERR_DUPLICATE);  // file should not be already open
                     break;
                 }
@@ -139,7 +144,8 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
 }
 
 Error
-ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost) {
+ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
+                                                 const bool& diskFailure) {
     Error err(ERR_OK);
     DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
     diskio::DataTier tier = diskio::diskTier;
@@ -152,19 +158,37 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost)
             fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
             fds_uint16_t fileId = SM_INVALID_FILE_ID;
             write_synchronized(mapLock) {
-                fds_verify(writeFileIdMap.count(wkey) > 0);
-                fileId = writeFileIdMap[wkey];
-                writeFileIdMap.erase(wkey);
+                if (writeFileIdMap.count(wkey) > 0) {
+                    fileId = writeFileIdMap[wkey];
+                    writeFileIdMap.erase(wkey);
+                    LOGDEBUG << "Erased " << tier << " " << *cit << " " << wkey << " " << fileId;
+                }
             }
-            fds_verify(fileId != SM_INVALID_FILE_ID);
+
+            /**
+             * No valid entry in writeFileIdMap for this token and tier
+             * combination. Token file and in-memory data structures
+             * cleanup would have already happened in a previous call.
+             * Skip and move to cleanup the next token file.
+             */
+            if (fileId == SM_INVALID_FILE_ID) {
+                continue;
+                LOGDEBUG << "Not found " << tier << " " << *cit << " " << wkey << " " << fileId;
+            }
 
             // actually close and delete SM token file
             closeTokenFile(tier, *cit, fileId, true);
             LOGNOTIFY << "Closed and deleted token file for tier " << tier
                       << " smTokId " << *cit << " fileId " << fileId;
 
+            bool isCompactionInProgress = false;
+            if (diskFailure) {
+                isCompactionInProgress = smDiskMap->superblock->compactionInProgressNoLock(*cit, tier);
+            } else {
+                isCompactionInProgress = smDiskMap->superblock->compactionInProgress(*cit, tier);
+            }
             // also close and delete old file if compaction is in progress
-            if (smDiskMap->superblock->compactionInProgress(*cit, tier)) {
+            if (isCompactionInProgress) {
                 fds_uint16_t oldFileId = getShadowFileId(fileId);
                 closeTokenFile(tier, *cit, oldFileId, true);
                 LOGDEBUG << "Closed and deleted shadow token file for tier " << tier
@@ -206,8 +230,13 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     }
 
     err = iop->disk_write(req);
+    fiu_do_on("sm.objectstore.fail.data.disk",
+              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              {  err = ERR_DISK_WRITE_FAILED; });
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, req->getTier(), err);
+        }
     }
     return err;
 }
@@ -228,8 +257,13 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
 
     fds_verify(iop);
     err = iop->disk_read(req);
+    fiu_do_on("sm.objectstore.fail.data.disk",
+              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              {  err = ERR_DISK_READ_FAILED; });
     if (!err.ok()) {
-        smDiskMap->notifyIOError(smTokId, req->getTier(), err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, req->getTier(), err);
+        }
     }
     return err;
 }
@@ -535,6 +569,12 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
             break;
         case SmScavengerCmd::SCAV_STOP:
             scavenger->stopScavengeProcess();
+            break;
+        case SmScavengerCmd::SCAV_ENABLE_DISK:
+            // Case not handled as of now.
+            break;
+        case SmScavengerCmd::SCAV_DISABLE_DISK:
+            scavenger->updateDiskScavenger(smDiskMap, scavCmd->diskId, false);
             break;
         case SmScavengerCmd::SCAV_SET_POLICY:
             {

@@ -5,6 +5,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
 
+#include <atomic>
 #include <string>
 
 #include "fds_volume.h"
@@ -25,6 +26,12 @@ class AmRequest : public FDS_IOType {
     PerfContext    hash_perf_ctx;
     PerfContext    dm_perf_ctx;
     PerfContext    sm_perf_ctx;
+
+    // Table version used to message Catalog Service
+    fds_uint64_t   dmt_version;
+
+    // Table version used to message Object Service
+    fds_uint64_t   dlt_version;
 
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
@@ -82,11 +89,43 @@ class AmRequest : public FDS_IOType {
     std::string        blob_name;
 };
 
+/**
+ * A requests that dispatches multiple messages, and therefore expects multiple
+ * responses. The responses need to be kept so that the *most relevant* error
+ * code is returned instead of whichever just happens to be the last.
+ */
+struct AmMultiReq : public AmRequest {
+    using AmRequest::AmRequest;
+
+    void setResponseCount(size_t const cnt) {
+        std::lock_guard<std::mutex> g(resp_lock);
+        resp_acks = cnt;
+    }
+
+    void notifyResponse(const Error &e) {
+        size_t acks_left = 0;
+        {
+            std::lock_guard<std::mutex> g(resp_lock);
+            op_err = e.ok() ? op_err : e;
+            acks_left = --resp_acks;
+        }
+        if (0 == acks_left) {
+            // Call back to processing layer
+            proc_cb(op_err);
+        }
+    }
+
+ protected:
+    /* ack cnt for responses, decremented when response from SM and DM come back */
+    std::mutex resp_lock;
+    Error op_err {ERR_OK};
+    size_t resp_acks;
+};
+
 struct AmTxReq {
     AmTxReq() : tx_desc(nullptr) {}
     explicit AmTxReq(BlobTxId::ptr _tx_desc) : tx_desc(_tx_desc) {}
     BlobTxId::ptr tx_desc;
-    fds_uint64_t dmt_version;
 };
 
 }  // namespace fds

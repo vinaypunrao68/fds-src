@@ -10,10 +10,14 @@
 #include <fiu-local.h>
 #include <include/util/disk_utils.h>
 #include <stor-mgr/include/SmTypes.h>
+extern "C" {
+#include <sys/mount.h>
+#include <fcntl.h>
+}
 
 namespace fds {
-DiskCapacityUtils::capacity_tuple
-DiskCapacityUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
+DiskUtils::capacity_tuple
+DiskUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
 
     // Stat won't give us an accurate total size, so we always want to statvfs to get the totalSize
     // However, if use_stat == true then we need to use stat to get the consumed size
@@ -39,7 +43,36 @@ DiskCapacityUtils::getDiskConsumedSize(const std::string &mount_path, bool use_s
         LOGDEBUG << "use_stat was TRUE found " << consumedSize << " as consumed size.";
     }
 
-    return DiskCapacityUtils::capacity_tuple(consumedSize, totalSize);
+    return DiskUtils::capacity_tuple(consumedSize, totalSize);
+}
+
+fds_bool_t
+DiskUtils::diskFileTest(const std::string& path) {
+    int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
+    if (fd == -1 || fsync(fd) ||close(fd)) {
+        LOGDEBUG << "File test for disk = " << path << " failed with errno = " << errno;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+fds_bool_t
+DiskUtils::isDiskUnreachable(const std::string& diskPath,
+                             const std::string& diskDev,
+                             const std::string& mountPnt) {
+  std::string path = diskPath + "/.tempFlush";
+  bool retVal = DiskUtils::diskFileTest(path);
+  std::remove(path.c_str());
+  if (mount(diskDev.c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
+    if (errno == ENODEV) {
+      LOGNOTIFY << "Device " << diskDev << ", disk path " << diskPath << " is not accessible ";
+      return  (retVal | true);
+    }
+  } else {
+    umount2(mountPnt.c_str(), MNT_FORCE);
+  }
+  return (retVal | false);
 }
 
 }  // namespace fds

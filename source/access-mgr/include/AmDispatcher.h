@@ -44,8 +44,8 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dlt/Dmt updates
      */
-    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
     /**
      * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
      */
@@ -178,6 +178,19 @@ struct AmDispatcher : HasModuleProvider
     void dispatchStatBlob(AmRequest *amReq);
 
     /**
+     * Dispatches a rename blob request.
+     */
+    void dispatchRenameBlob(AmRequest *amReq);
+
+    /**
+     * Dispatches a rename blob request.
+     */
+    void renameBlobCb(AmRequest *amReq,
+                      MultiPrimarySvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
+
+    /**
      * Dispatches a set metadata on blob transaction request.
      */
     void dispatchSetBlobMetadata(AmRequest *amReq);
@@ -219,6 +232,7 @@ struct AmDispatcher : HasModuleProvider
                                                         uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
+                                                fds_uint64_t const dmt_ver,
                                                 boost::shared_ptr<Msg> const& payload,
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;
@@ -248,7 +262,6 @@ struct AmDispatcher : HasModuleProvider
      * Callback for get blob responses.
      */
     void getObjectCb(AmRequest* amReq,
-                     fds_uint64_t dltVersion,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
@@ -300,7 +313,6 @@ struct AmDispatcher : HasModuleProvider
      * Callback for put object responses.
      */
     void putObjectCb(AmRequest* amReq,
-                     fds_uint64_t dltVersion,
                      MultiPrimarySvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);

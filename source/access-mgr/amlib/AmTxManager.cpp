@@ -188,7 +188,11 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
 
 void
 AmTxManager::invalidateMetaCache(const VolumeDesc& volDesc)
-{ amCache->invalidateMetaCache(volDesc.volUUID); }
+{ invalidateMetaCache(volDesc.volUUID); }
+
+void
+AmTxManager::invalidateMetaCache(const fds_volid_t volId)
+{ amCache->invalidateMetaCache(volId); }
 
 Error
 AmTxManager::removeVolume(const VolumeDesc& volDesc)
@@ -311,5 +315,9 @@ AmTxManager::putOffsets(fds_volid_t const vol_id,
 Error
 AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)
 { return amCache->putBlobDescriptor(volId, blobName, blobDesc); }
+
+Error
+AmTxManager::removeBlob(fds_volid_t volId, const std::string &blobName)
+{ return amCache->removeBlob(volId, blobName); }
 
 }  // namespace fds

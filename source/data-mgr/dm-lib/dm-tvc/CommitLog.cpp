@@ -47,7 +47,6 @@ uint32_t CommitLogTx::write(serialize::Serializer * s) const {
 
 uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     fds_assert(d);
-
     fds_uint64_t txId = 0;
     uint32_t bytes = d->readI64(txId);
     txDesc.reset(new BlobTxId(txId));
@@ -117,7 +116,8 @@ DmCommitLog::mod_shutdown() {
  */
 // start transaction
 Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
-        fds_int32_t blobMode) {
+                           fds_int32_t blobMode,
+                           fds_uint64_t dmtVersion) {
     fds_assert(txDesc);
     fds_verify(started_);
 
@@ -126,24 +126,51 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
 
     auto ptx = boost::make_shared<CommitLogTx>();
-    TxMap::iterator logIt;
+
     {
-        std::lock_guard<std::mutex> guard(lockTxMap_);
+        auto auto_lock = getTxMapLock(true);
         TxMap::const_iterator logIt = txMap_.find(txId);
         if (txMap_.end() != logIt) {
             GLOGWARN << "Blob transaction already exists";
             return ERR_DM_TX_EXISTS;
         }
         txMap_[txId] = ptx;
+        ++dmtVerMap_[dmtVersion];
+
+        ptx->txDesc = txDesc;
+        ptx->name = blobName;
+        ptx->blobMode = blobMode;
+        ptx->started = util::getTimeStampNanos();
+        ptx->nameId = DmPersistVolCat::getBlobIdFromName(blobName);
+        ptx->dmtVersion = dmtVersion;
     }
 
-    ptx->txDesc = txDesc;
-    ptx->name = blobName;
-    ptx->blobMode = blobMode;
-    ptx->started = util::getTimeStampNanos();
-    ptx->nameId = DmPersistVolCat::getBlobIdFromName(blobName);
-
     return ERR_OK;
+}
+
+Error DmCommitLog::applySerializedTxs(std::vector<std::string> transactions) {
+    Error err;
+
+    auto auto_lock = getTxMapLock(true);
+
+    for (auto tx : transactions) {
+        BlobTxId txId;
+
+        auto ptx = boost::make_shared<CommitLogTx>();
+
+        err = ptx->loadSerialized(tx);
+        if (!err.ok()) {
+            return err;
+        }
+
+        txId = *(ptx->txDesc);
+
+        txMap_[txId] = ptx;
+
+        validateSubsequentTx(txId);
+    }
+
+    return err;
 }
 
 // update blob data (T can be BlobObjList or MetaDataList)
@@ -157,12 +184,13 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
 
     GLOGDEBUG << "Update blob for transaction (" << txId << ")";
 
+    auto auto_lock = getTxMapLock();
+
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
     upsertBlobData(*txMap_[txId], blobData);
 
     return rc;
@@ -178,12 +206,13 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
 
     GLOGDEBUG << "Update blob for transaction (" << txId << ")";
 
+    auto auto_lock = getTxMapLock();
+
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
     upsertBlobData(*txMap_[txId], blobData);
 
     return rc;
@@ -192,6 +221,9 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
 void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data) {
     fds_uint64_t newSize = 0;
     BlobObjKey objKey(tx.nameId, 0);
+
+    std::lock_guard<std::mutex> guard(tx.lockTx_);
+
     for (const auto & objInfo : data) {
         fds_verify(0 == objInfo.offset % objSize_);
         fds_verify(0 < objInfo.size);
@@ -208,7 +240,7 @@ void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectLis
 }
 
 // delete blob
-Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion) {
+Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion, bool const expunge_data) {
     fds_assert(txDesc);
     fds_verify(started_);
 
@@ -216,15 +248,20 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 
     GLOGDEBUG << "Delete blob in transaction (" << txId << ")";
 
+    auto auto_lock = getTxMapLock();
+
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
 
     CommitLogTx::ptr & ptx = txMap_[txId];
+
+    std::lock_guard<std::mutex> guard(ptx->lockTx_);
+
     ptx->blobDelete = true;
+    ptx->blobExpunge = expunge_data;
     ptx->blobVersion = blobVersion;
 
     return rc;
@@ -239,18 +276,17 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
 
     GLOGDEBUG << "Committing blob transaction " << txId;
 
+    auto auto_lock = getTxMapLock(true);
+
     status = validateSubsequentTx(txId);
     if (!status.ok()) {
         return 0;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
     CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
+    --dmtVerMap_[ptx->dmtVersion];
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return ptx;
 }
@@ -264,16 +300,16 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
     GLOGDEBUG << "Rollback blob transaction " << txId;
 
+    auto auto_lock = getTxMapLock(true);
+
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
+    CommitLogTx::ptr ptx = txMap_[txId];
+    --dmtVerMap_[ptx->dmtVersion];
     txMap_.erase(txId);
-    if (txMap_.empty()) {
-        drainTxWait.notify_one();
-    }
 
     return rc;
 }
@@ -282,7 +318,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & name) {
     const BlobTxId & txId = *txDesc;
 
-    Error rc = startTx(txDesc, name, 0);
+    Error rc = startTx(txDesc, name, 0, 0);
     if (!rc.ok()) {
         GLOGWARN << "Failed to start transaction '" << txId << "' for snapshot '" << name << "'";
         return rc;
@@ -303,28 +339,10 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
     return rc;
 }
 
-// get transaction
-CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
-    fds_assert(txDesc);
-    fds_verify(started_);
-
-    const BlobTxId & txId = *txDesc;
-
-    GLOGDEBUG << "Get blob transaction " << txId;
-
-    std::lock_guard<std::mutex> guard(lockTxMap_);
-
-    TxMap::const_iterator iter = txMap_.find(txId);
-    if (txMap_.end() != iter) {
-        return iter->second;
-    }
-
-    return 0;
-}
-
+/*
+ * when calling this, you must hold txmap_lock
+ */
 Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
-    std::lock_guard<std::mutex> guard(lockTxMap_);
-
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
         GLOGERROR << "Blob transaction not started";
@@ -342,7 +360,7 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
 
 fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTimeStampNanos() */) {
     fds_bool_t ret = false;
-    std::lock_guard<std::mutex> guard(lockTxMap_);
+    auto auto_lock = getTxMapLock();
     for (auto it : txMap_) {
         if (it.second->started && !it.second->committed) {
             if (it.second->started <= tsNano) {
@@ -362,14 +380,59 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {
 
     GLOGDEBUG << "Snapshot transaction " << txId;
 
+    auto auto_lock = getTxMapLock();
+
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    std::lock_guard<std::mutex> guard(lockTxMap_);
+    std::lock_guard<std::mutex> guard(txMap_[txId]->lockTx_);
+
     txMap_[txId]->snapshot = true;
 
     return rc;
 }
+
+bool DmCommitLog::checkOutstandingTx(fds_uint64_t dmtVersion) {
+    /*
+     * since the only other methods that touch dmtVerMap (start, commit, abort)
+     * take an exclusive lock on the TxMap, we take one here too, instead of
+     * giving this map its own lock. makes sense that no TX should be processed
+     * while we check, anyhow.
+     */
+    auto auto_lock = getTxMapLock(true);
+
+    auto it = dmtVerMap_.find(dmtVersion);
+
+    if (it == dmtVerMap_.end()) {
+        return false;
+    }
+
+    if (0 == it->second) {
+        dmtVerMap_.erase(dmtVersion);
+        return false;
+    }
+
+    return true;
+}
+
+Error DmCommitLog::snapshotOutstandingTx(std::vector<std::string>& strings) {
+    auto auto_lock = getTxMapLock(true);
+
+    Error err = ERR_OK;
+
+    for (auto it : txMap_) {
+        strings.emplace_back("");
+
+        err = (it.second)->getSerialized(strings.back());
+
+        if (!err.ok()) {
+            return err;
+        }
+    }
+
+    return err;
+}
+
 }  /* namespace fds */

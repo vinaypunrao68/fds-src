@@ -115,7 +115,7 @@ TEST_F(DmUnitTest, PutBlobOnce) {
             putBlobOnce->txId = txnId;
 
 
-            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(dmTester->TESTVOLID,
+            auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(dmTester->TESTVOLID,
                                                               putBlobOnce->blob_name,
                                                               putBlobOnce->blob_version,
                                                               putBlobOnce->dmt_version,

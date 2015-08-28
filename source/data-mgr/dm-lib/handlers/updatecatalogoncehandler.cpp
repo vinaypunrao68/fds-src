@@ -9,7 +9,6 @@
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <DmIoReq.h>
-#include <PerfTrace.h>
 
 namespace fds {
 namespace dm {
@@ -17,7 +16,7 @@ namespace dm {
 UpdateCatalogOnceHandler::UpdateCatalogOnceHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, handleRequest);
     }
 }
@@ -44,21 +43,19 @@ void UpdateCatalogOnceHandler::handleRequest(
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
-    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(volId,
-                                                      message->blob_name,
-                                                      message->blob_version,
-                                                      message->dmt_version,
-                                                      message->sequence_id);
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,
+                                                                         message->blob_name,
+                                                                         message->blob_version,
+                                                                         message->dmt_version,
+                                                                         message->sequence_id);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
-    PerfTracer::tracePointBegin(dmCommitBlobOnceReq->opReqLatencyCtx);
 
     // allocate a new query cat log  class  and  queue  to per volume queue.
     auto dmUpdCatReq = new DmIoUpdateCatOnce(message, dmCommitBlobOnceReq);
     dmUpdCatReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleResponse, asyncHdr, message);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
-    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
 
     addToQueue(dmUpdCatReq);
 }
@@ -71,7 +68,8 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
                                                       typedRequest->blob_name,
                                                       typedRequest->updcatMsg->blob_mode,
-                                                      typedRequest->ioBlobTxDesc);
+                                                      typedRequest->ioBlobTxDesc,
+                                                      typedRequest->updcatMsg->dmt_version);
     if (helper.err != ERR_OK) {
         LOGERROR << "Failed to start transaction" << typedRequest->ioBlobTxDesc << ": "
                  << helper.err;
@@ -111,7 +109,6 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     // Commit the metadata updates
     // The commit callback we pass in will actually call the
     // final service callback
-    PerfTracer::tracePointBegin(typedRequest->commitBlobReq->opLatencyCtx);
     helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
             typedRequest->updcatMsg->sequence_id,
@@ -138,7 +135,7 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
 
 void UpdateCatalogOnceHandler::handleCommitBlobOnceResponse(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr, Error const& e, DmRequest* dmRequest) {
-    DmIoCommitBlobOnce* commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+    auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
     DmIoUpdateCatOnce* parent = commitOnceReq->parent;
     parent->cb(e, dmRequest);
     delete parent;
@@ -153,7 +150,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
-        auto commitOnceReq = static_cast<DmIoCommitBlobOnce*>(dmRequest);
+        auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
     }

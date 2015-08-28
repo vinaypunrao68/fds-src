@@ -38,14 +38,42 @@ class DmMigrationClient {
      */
     Error processBlobFilterSet();
 
-    /**
-     * Callback for the async task once done.
-     */
-    Error processBlobFilterSetCb();
-
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
+    /**
+     * Whether or not I/O to this volume needs to be forwarded
+     * as part of Active Migration.
+     * Input: dmtVersion - the version of DMT that the commit log belongs to
+     */
+    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+
+    /* Forwarding Modifiers */
+    void turnOnForwarding();
+    void turnOffForwarding();
+
+    /**
+     * Sends a msg to say that we're done with forwarding.
+     */
+    Error sendFinishFwdMsg();
+
+    /**
+     * Forward the committed blob to the destination side.
+     */
+    Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+    						   blob_version_t blob_version,
+							   const BlobObjList::const_ptr& blob_obj_list,
+							   const MetaDataList::const_ptr& meta_list);
+
+
+    /**
+     * Callback to ensure no error from forwarding.
+     * Otherwise, fail the migration for now.
+     */
+    void fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                 EPSvcRequest* req,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
 
     // XXX: only public so we can unit test it
     static Error diffBlobLists(const std::map<std::string, int64_t>& dest,
@@ -84,6 +112,11 @@ class DmMigrationClient {
      * Number of blob descriptors before sending to destination DM.
      */
     uint64_t maxNumBlobs;
+
+    /**
+     * Local copy of the dmtVersion undergoing migration
+     */
+    fds_uint64_t dmtVersion;
 
     /**
      * Maintain the sequence number for the delta set of blob offset set to
@@ -150,6 +183,11 @@ class DmMigrationClient {
      */
     uint64_t getSeqNumBlobDescs();
     void resetSeqNumBlobDescs();
+
+    /**
+     * Whether or not we're forwarding I/O during Active Migration
+     */
+    std::atomic<fds_bool_t> forwardingIO;
 
 };  // DmMigrationClient
 

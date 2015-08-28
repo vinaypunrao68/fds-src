@@ -70,7 +70,7 @@ Error DmPersistVolDB::activate() {
     }
 
     bool fAlreadyExists = util::dirExists(catName);
-    if (clone_ || snapshot_) {
+    if (snapshot_) {
         if (!fAlreadyExists) {
             LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
             return ERR_OK;
@@ -154,8 +154,10 @@ Error DmPersistVolDB::getBlobMetaDesc(const std::string & blobName,
     std::string value;
     Error rc = catalog_->Query(keyRec, &value, snap);
     if (!rc.ok()) {
-        LOGNOTIFY << "Failed to get metadata for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
+        if (rc != ERR_CAT_ENTRY_NOT_FOUND) {
+            LOGERROR << "Failed to get metadata for blob: '" << blobName << "' volume: '"
+                     << std::hex << volId_ << std::dec << "' error: '" << rc << "'";
+        }
         return rc;
     }
     return blobMeta.loadSerialized(value);

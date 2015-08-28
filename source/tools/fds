@@ -13,37 +13,6 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 
-# If run from source dir
-TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
-SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
-CONFIG_ETC=${SOURCEDIR}/config/etc
-
-BUILDMODE="debug"
-RELEASEMODEFILE="${SOURCEDIR}/Build/.build-mode-release.chk"
-if [[ -e $RELEASEMODEFILE ]]; then
-    BUILDMODE="release"
-fi
-
-RUNMODE="nomemchk"
-RUNMODEFILE="${SOURCEDIR}/Build/.run-mode-memchk.chk"
-if [[ -e $RUNMODEFILE ]]; then
-    RUNMODE="memchk"
-fi
-
-BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
-TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
-KODIR="${SOURCEDIR}/fds_client/blk_dev"
-FDSROOT=/fds
-FDSLOGROOT=${FDSROOT}/var/logs
-FDSTEST_ROOT=/fds-test
-
-VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
-
-# else run from install dir
-run_from_install_dir=0
-
-source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/fds_tool.${UID}.log
 ########################################################################
 
 REDIS_ARG=
@@ -178,9 +147,9 @@ function setupFdsDirs() {
 
     cd ${SOURCEDIR}
     if [ ${UID} -ne 0 ]; then
-        sudo ./dev_make_install.sh
+        sudo ./dev_make_install.sh ${FDSROOT}
     else
-        ./dev_make_install.sh
+        ./dev_make_install.sh ${FDSROOT}
     fi
     cd - > /dev/null
 }
@@ -633,7 +602,6 @@ function runTest() {
     else
         logerror "no matching tests for [$testname]"
     fi
-            
 }
 
 function cleanlogs() {
@@ -734,6 +702,45 @@ do
     esac
 done
 
+# If run from source dir
+TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
+SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
+CONFIG_ETC=${SOURCEDIR}/config/etc
+
+BUILDMODE="debug"
+RELEASEMODEFILE="${SOURCEDIR}/Build/.build-mode-release.chk"
+if [[ -e $RELEASEMODEFILE ]]; then
+    BUILDMODE="release"
+fi
+
+RUNMODE="nomemchk"
+RUNMODEFILE="${SOURCEDIR}/Build/.run-mode-memchk.chk"
+if [[ -e $RUNMODEFILE ]]; then
+    RUNMODE="memchk"
+fi
+
+# TODO: modify fds script to use same variable names as formation_env  i.e. fds_root -> FDSROOT
+# for now, if fds_root is set via command-line, set fds_root before sourcing formation_env
+echo FDSROOT: $FDSROOT
+[[ ! -z "${FDSROOT}" ]] && export fds_root=${FDSROOT}
+echo fds_root: ${fds_root}
+echo FDSROOT2: $FDSROOT
+source $CONFIG_ETC/formation_env
+
+BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
+TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
+KODIR="${SOURCEDIR}/fds_client/blk_dev"
+FDSROOT=${fds_root:=/fds}
+FDSLOGROOT=${FDSROOT}/var/logs
+FDSTEST_ROOT=/fds-test
+
+VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
+
+# else run from install dir
+run_from_install_dir=0
+
+source ${TOOLSDIR}/loghelper.sh
+init_loghelper /tmp/fds_tool.${UID}.log
 # else run from install dir
 if [ $run_from_install_dir -eq 1 ]; then
     SOURCEDIR="$( cd ${TOOLSDIR}/../.. && pwd)"
@@ -755,7 +762,7 @@ CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
 TESTNAME=""
-
+FDSLOGROOT=${FDSROOT}/var/logs
 
 
 #echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \

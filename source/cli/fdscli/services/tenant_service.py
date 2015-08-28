@@ -10,6 +10,9 @@ class TenantService( AbstractService):
     
     @author: nate
     '''
+    
+    def __init__(self, session):
+        AbstractService.__init__(self, session)
 
     def list_tenants(self):
         '''

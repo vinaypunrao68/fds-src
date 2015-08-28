@@ -3,11 +3,6 @@
  */
 package com.formationds.om.repository.influxdb;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-
 import com.formationds.commons.events.EventCategory;
 import com.formationds.commons.events.EventSeverity;
 import com.formationds.commons.events.EventType;
@@ -23,6 +18,10 @@ import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.google.common.collect.Lists;
 import org.influxdb.dto.Serie;
+
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class InfluxEventRepository extends InfluxRepository<Event, Long> implements EventRepository {
 
@@ -140,7 +139,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     @Override
 	public List<? extends Event> query(QueryCriteria queryCriteria) {
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
@@ -168,7 +167,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 			List<Long> tenantUsers) {
 
         QueryCriteria criteria = new QueryCriteria( );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         StringBuilder queryString = new StringBuilder( queryBase );
 
         if ( ! queryBase.contains( WHERE )) {
@@ -213,43 +212,112 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return (List<UserActivityEvent>)datapoints;
 	}
 
-	@Override
-	public FirebreakEvent findLatestFirebreak(Volume v, FirebreakType type) {
+    @Override
+    public EnumMap<FirebreakType, FirebreakEvent> findLatestFirebreaks( Volume v ) {
+
         // create base query (select * from EVENT_SERIES_NAME where
-        Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ));
-        Long tsOneDayAgo = oneDayAgo.toEpochMilli();
+        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
 
-        QueryCriteria criteria = new QueryCriteria( new DateRange( tsOneDayAgo ) );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, TimeUnit.MILLISECONDS );
-		StringBuilder queryString = new StringBuilder( queryBase );
+        // criteria is still using old model classes.
+        criteria.addContext( new com.formationds.client.v08.model.Volume( Long.valueOf( v.getId() ),
+                                                                          v.getName() ) );
 
-        queryString.append( " " )
-                   .append( AND )
-                   .append( " " )
-                   .append( FBEVENT_TYPE_COLUMN_NAME )
-                   .append( " = '" )
-                   .append( type.name() )
-                   .append( "'" );
+        String queryBase = formulateQueryString( criteria,
+                                                 FBEVENT_VOL_ID_COLUMN_NAME );
+
+        StringBuilder queryString = new StringBuilder( queryBase )
+                                        .append( " " )
+                                        .append( AND )
+                                        .append( " " )
+                                        .append( EVENT_TYPE_COLUMN_NAME )
+                                        .append( " = '" )
+                                        .append( EventType.FIREBREAK_EVENT.name() )
+                                        .append( "' " );
 
         // execute the query
         List<Serie> series = getConnection().getDBReader().query( queryString.toString(), TimeUnit.MILLISECONDS );
 
-        // we only care about the latest event
-        // TODO: do we need an order by to ensure correct ordering
-        if ( series.size() == 0 )
-            return null;
-        else if (series.size() > 1 ) {
-            series = series.subList( series.size() - 2, series.size() - 1 );
+        EnumMap<FirebreakType, FirebreakEvent> results = new EnumMap<>( FirebreakType.class );
+
+        // we only care about the latest event of each type, but there may be older events.
+        // scan through the series until we have found both a perf and capacity event, or exhausted the list
+        for ( Serie s : series ) {
+
+            List<? extends Event> fbevents = convertSeriesToEvents( s );
+            for ( Event e : fbevents ) {
+                // unchecked cast.  if they are not FirebreakEvents, then the above query is broken.
+                FirebreakEvent fbe = (FirebreakEvent) e;
+                results.putIfAbsent( fbe.getFirebreakType(), fbe );
+
+                if ( results.size() == FirebreakType.values().length ) {
+                    break;
+                }
+            }
+
+            if ( results.size() == FirebreakType.values().length ) {
+                break;
+            }
+
         }
+
+        return results;
+    }
+
+    @Override
+    public FirebreakEvent findLatestFirebreak( Volume v, FirebreakType type ) {
+        EnumMap<FirebreakType, FirebreakEvent> results = findLatestFirebreaks( v );
+        return results.getOrDefault( type, null );
+    }
+
+    /**
+     * @return the latest active firebreaks in the last 24 hours across all volumes
+     */
+    @Override
+    public Map<Long, EnumMap<FirebreakType, FirebreakEvent>> findLatestFirebreaks() {
+
+        // create base query (select * from EVENT_SERIES_NAME where
+        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
+        String queryString = new StringBuilder( queryBase )
+                                 .append( " " )
+                                 .append( AND )
+                                 .append( " " )
+                                 .append( EVENT_TYPE_COLUMN_NAME )
+                                 .append( " = '" )
+                                 .append( EventType.FIREBREAK_EVENT.name() )
+                                 .append( "' " ).toString();
+
+        // execute the query
+        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
 
         // convert from influxdb format to FDS model format
         List<? extends Event> datapoints = convertSeriesToEvents( series );
 
-        return (FirebreakEvent)datapoints.get( datapoints.size() - 1 );
-	}
+        // TODO: can we map as Map<Volume, EnumMap<FirebreakType, FirebreakEvent>> in one stream expression?
+        List<FirebreakEvent> fbevents = datapoints.stream()
+                                                  .map( event -> (FirebreakEvent) event )
+                                                  .sorted( ( e1, e2 ) -> e1.getVolumeId()
+                                                                           .compareTo( e2.getVolumeId() ) )
+                                                  .collect( Collectors.toList() );
+
+        Map<Long, EnumMap<FirebreakType, FirebreakEvent>> results = new HashMap<>();
+        fbevents.stream()
+                .forEach( f -> {
+                    long volId = f.getVolumeId();
+                    FirebreakType type = f.getFirebreakType();
+                    EnumMap<FirebreakType, FirebreakEvent> pt = results.get( volId );
+                    if ( pt == null ) {
+                        pt = new EnumMap<>( FirebreakType.class );
+                        results.put( volId, pt );
+                    }
+                    pt.put( type, f );
+                } );
+
+        return results;
+    }
 
 	@Override
-	protected <R extends Event> R doPersist(R entity) {
+    protected <R extends Event> R doPersist( R entity ) {
 
 		Serie s = new Serie.Builder(EVENT_SERIES_NAME)
                            .columns( EVENT_COLUMN_NAMES_A )
@@ -361,6 +429,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
                 long usage = ((Number)row.getOrDefault( FBEVENT_USAGE_COLUMN_NAME, 0L )).longValue();
                 double sigma = ((Number)row.getOrDefault( FBEVENT_SIGMA_COLUMN_NAME, 0D )).doubleValue();
 
+                // TODO: get correct tenant for volume?  (if not storing in influx, requires separate configdb access)
                 return new FirebreakEvent( new Volume( 0, Long.toString( volId ), "", volName ),
                                            FirebreakType.valueOf( fbtypeStr.trim().toUpperCase( Locale.US ) ) ,
                                            ts,

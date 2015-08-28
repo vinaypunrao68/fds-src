@@ -356,37 +356,6 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
     return err;
 }
 
-Error
-CatalogSyncMgr::startCatalogSyncDelta(OmDMTMsgCbType cb) {
-    Error err(ERR_OK);
-
-    fds_mutex::scoped_lock l(cat_sync_lock);
-    // sync must be in progress
-    if (!sync_in_progress) {
-        LOGWARN << "Will Not start delta sync because catsync not in progress!";
-        return ERR_CATSYNC_NOT_PROGRESS;
-    }
-
-    omDmtUpdateCb = cb;
-    fds_verify(cat_sync_map.size() > 0);
-    // make sure that all CatalogSync objects finished the initial sync
-    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
-         cit != cat_sync_map.cend();
-         ++cit) {
-        if ((cit->second)->isInitialSyncDone() == false) {
-            // make sure this method is called on DMT commit from OM
-            fds_panic("Cannot start delta sync if initial sync is not done!!!");
-        }
-    }
-    // start delta sync on all our CatalogSync objects
-    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
-         cit != cat_sync_map.cend();
-         ++cit) {
-        (cit->second)->doDeltaSync();
-    }
-    return err;
-}
-
 Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
                                            blob_version_t blob_version,
                                            const BlobObjList::const_ptr& blob_obj_list,

@@ -29,6 +29,9 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
+#include <fdsp/event_types_types.h>
+#include "fdsp/health_monitoring_types_types.h"
+#include "fds_types.h"
 #include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
@@ -51,7 +54,7 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
-#include <fdsp/event_types_types.h>
+
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -153,59 +156,24 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     } dmRunModes;
     dmRunModes    runMode;
 
+
+#define DEF_FEATURE(name, defvalue)                             \
+    private: bool f##name = defvalue;                           \
+  public: inline bool is##name##Enabled() const {               \
+      return f##name;                                           \
+  }                                                             \
+  public: inline void set##name##Enabled(bool const val) {      \
+      f##name = val;                                            \
+  }
+
     class Features {
-      private:
-        bool fQosEnabled = true;
-        bool fCatSyncEnabled = true;
-        bool fTestMode = false;
-        bool fTimelineEnabled = true;
-        bool fVolumeTokensEnabled { false };
-        bool fSerializeReqsEnabled { true };
-
-      public:
-        inline bool isQosEnabled() const {
-            return fQosEnabled;
-        }
-        inline void setQosEnabled(bool const val) {
-            fQosEnabled = val;
-        }
-
-        inline bool isCatSyncEnabled() const {
-            return fCatSyncEnabled;
-        }
-        inline void setCatSyncEnabled(bool const val) {
-            fCatSyncEnabled = val;
-        }
-
-        inline bool isTestMode() const {
-            return fTestMode;
-        }
-        inline void setTestMode(bool const val) {
-            fTestMode = val;
-        }
-
-        inline bool isTimelineEnabled() const {
-            return fTimelineEnabled;
-        }
-        inline void setTimelineEnabled(bool const val) {
-            fTimelineEnabled = val;
-        }
-
-        inline bool isVolumeTokensEnabled() const {
-            return fVolumeTokensEnabled;
-        }
-
-        inline void setVolumeTokensEnabled(bool const val) {
-            fVolumeTokensEnabled = val;
-        }
-
-        inline bool isSerializeReqsEnabled() const {
-            return fSerializeReqsEnabled;
-        }
-
-        inline void setSerializeReqsEnabled(bool const val) {
-            fSerializeReqsEnabled = val;
-        }
+        DEF_FEATURE(Qos          , true);
+        DEF_FEATURE(CatSync      , true);
+        DEF_FEATURE(Timeline     , true);
+        DEF_FEATURE(VolumeTokens , false);
+        DEF_FEATURE(SerializeReqs, true);
+        DEF_FEATURE(TestMode     , false);
+        DEF_FEATURE(Expunge      , true);
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
@@ -268,8 +236,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
             DmRequest *io = static_cast<DmRequest*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
 
+            // Stop the queue latency timer.
             PerfTracer::tracePointEnd(io->opQoSWaitCtx);
-            PerfTracer::tracePointBegin(io->opLatencyCtx);
 
             // Get the key and vol type to use during serialization
             // TODO(Andrew): Adding the sender's SvcUuid to the key
@@ -310,12 +278,31 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_GET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                 case FDS_DM_MIGRATION:
+                case FDS_DM_MIG_TX_STATE:
                 // Other (stats, etc...) handlers
                 case FDS_DM_SYS_STATS:
                 case FDS_DM_STAT_STREAM:
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);
+                    break;
+                case FDS_RENAME_BLOB:
+                    // If serialization is enabled, serialize on both keys,
+                    // otherwise just schedule directly.
+                    if ((parentDm->features.isSerializeReqsEnabled())) {
+                        auto renameReq = static_cast<DmIoRenameBlob*>(io);
+                        SerialKey key2(io->volId, renameReq->message->destination_blob);
+                        serialExecutor->scheduleOnHashKeys(keyHash(key),
+                                                           keyHash(key2),
+                                                           std::bind(&dm::Handler::handleQueueItem,
+                                                                     parentDm->handlers.at(io->io_type),
+                                                                     io));
+                    } else {
+                        threadPool->schedule(&dm::Handler::handleQueueItem,
+                                         parentDm->handlers.at(io->io_type),
+                                         io);
+                    }
+
                     break;
                 // catalog write handlers
                 case FDS_DELETE_BLOB:
@@ -325,7 +312,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_CAT_UPD_ONCE:
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
-                case FDS_DM_FWD_CAT_UPD:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
@@ -353,6 +339,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                                          parentDm->handlers.at(io->io_type),
                                          io);
                     }
+                    break;
+                case FDS_DM_FWD_CAT_UPD:
+                    /* Forwarded IO during migration needs to synchronized on blob id */
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&dm::Handler::handleQueueItem,
+                                                                parentDm->handlers.at(io->io_type),
+                                                                io));
                     break;
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -419,18 +412,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * A callback from stats collector to sample DM-specific stats
      */
     void sampleDMStats(fds_uint64_t timestamp);
-
-    /**
-     * Send event message to OM
-     */
-    void sendEventMessageToOM(fpi::EventType eventType,
-                              fpi::EventCategory eventCategory,
-                              fpi::EventSeverity eventSeverity,
-                              fpi::EventState eventState,
-                              const std::string& messageKey,
-                              std::vector<fpi::MessageArgs> messageArgs,
-                              const std::string& messageFormat);
-
 
     /**
      * A callback from stats collector with stats for a given volume
@@ -557,14 +538,27 @@ private:
      */
     fds_uint32_t _numOfPrimary;
 
-    /**
-     * Method to get % of utilized space for the DM's partition
-     */
-    float_t getUsedCapacityAsPct();
-
     // Variables to track how frequently we call the diskCapacity checks
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;
+
+    /**
+     * Send event message to OM
+     */
+    void sendEventMessageToOM(fpi::EventType eventType,
+                              fpi::EventCategory eventCategory,
+                              fpi::EventSeverity eventSeverity,
+                              fpi::EventState eventState,
+                              const std::string& messageKey,
+                              std::vector<fpi::MessageArgs> messageArgs,
+                              const std::string& messageFormat);
+
+    // Send health check message
+    void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
+                                fds_errno_t statusCode,
+                                const std::string& statusInfo);
+
+
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

@@ -138,6 +138,8 @@ describe( 'Basic user management', function(){
 
         });
 
+        browser.sleep( 200 );
+        
         createLink.click();
 
         var emptyTextCheck = function( txt ){

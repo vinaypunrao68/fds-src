@@ -32,7 +32,6 @@
         mode=0644
     with_items:
         - fds
-        - fds-features
         - platform
         - orch_mgr
         - redis
@@ -40,15 +39,13 @@
         - post-install
         - fdsconfig
 
--   name: render /fds/etc/omenv config files
+-   name: render /fds/etc/formation_env config file
     template:
-        src=../../source/config/etc/omenv.j2
-        dest=/fds/etc/omenv
+        src=../../source/config/etc/formation_env.j2
+        dest=/fds/etc/formation_env
         owner=root
         group=root
         mode=0754
-    with_items:
-        - omenv
     tags:
         - post-install
 

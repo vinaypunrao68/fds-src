@@ -23,20 +23,35 @@ parser.add_option("-c", "--connect", metavar="NAME" )
 DOCKER_PORT=2375
 DOCKER_SLAVES = {
         "fre-build-01": {
-            "builder01": "10051",
-            "builder02": "10052"
+            "builder01": "10051"
             },
         "fre-build-02": {
-            "builder03": "10053",
-            "builder04": "10054"
+            "builder03": "10053"
             },
         "fre-build-03": {
-            "builder05": "10055",
-            "builder06": "10056"
+            "builder05": "10055"
             },
         "fre-build-04": {
             "builder07": "10057",
             "builder08": "10058"
+            },
+        "juno-compute1": {
+            "builder09": "10059",
+            },
+        "juno-control": {
+            "builder10": "10060"
+            },
+        "10.3.121.72": {
+            "builder1000": "11000"
+            },
+        "10.3.121.71": {
+            "builder1001": "11001"
+            },
+        "10.3.121.74": {
+            "builder1002": "11002"
+            },
+        "10.3.121.73": {
+            "builder1003": "11003"
             }
         }
 IMAGE="registry.formationds.com:5000/fds_dev"

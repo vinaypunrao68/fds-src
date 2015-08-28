@@ -40,15 +40,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         virtual void runTimerTask() override;
     };
 
-    class WaitingTimerTask : public FdsTimerTask {
-      public:
-        explicit WaitingTimerTask(FdsTimer &timer)  // NOLINT
-                : FdsTimerTask(timer) {}
-        ~WaitingTimerTask() {}
-
-        virtual void runTimerTask() override;
-    };
-
     // Lock to prevent dlt compute while already computing
     std::atomic_flag lock = ATOMIC_FLAG_INIT;
 
@@ -228,6 +219,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
         fds_uint32_t abortMigrAcksToWait;
         fds_uint32_t commitDltAcksToWait;
+        NodeUuidSet nodesAbortResent;
         Error errFound;   /// error that got us to the error mode state
     };
 
@@ -427,13 +419,6 @@ OM_DLTMod::dlt_deploy_event(DltLoadedDbEvt const &evt)
 }
 
 void
-OM_DLTMod::dlt_deploy_event(DltTimeoutEvt const &evt)
-{
-    fds_mutex::scoped_lock l(fsm_lock);
-    dlt_dply_fsm->process_event(evt);
-}
-
-void
 OM_DLTMod::dlt_deploy_event(DltErrorFoundEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
@@ -485,13 +470,6 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
     domain->om_dlt_update_cluster();
-}
-
-void DltDplyFSM::WaitingTimerTask::runTimerTask()
-{
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "DltWaitingFSM: moving from waiting state to compute state";
-    domain->om_dlt_waiting_timeout();
 }
 
 // GRD_DltCompute
@@ -660,9 +638,34 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     OM_Module *om = OM_Module::om_singleton();
+    ClusterMap* cm = om->om_clusmap_mod();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
     fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
+
+    // Before we send DLT close, we persist DLT and set SM services ACTIVE
+    // We ignore DLT close errors in the state machine, and allow DLT deployment
+    // to complete; If SM fails on DLT close, it will resync to the latest data
+    // on restart
+
+    // persist commited DLT
+    dp->persistCommitedTargetDlt();
+
+    // set all added DMs to ACTIVE state
+    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
+    for (auto uuid : addedNodes) {
+        OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
+        sm_agent->handle_service_deployed();
+    }
+
+    // once we persisted DLT and set SM states to 'active', we officially
+    // deployed new DLT!
+    LOGNOTIFY << "OM deployed DLT with "
+              << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
+
+    // reset pending nodes in cluster map, since they are already
+    // present in the DLT
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     /**
      * TODO(Gurpreet): Remove this sleep once FS-2231 is done. This sleep
@@ -678,10 +681,8 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // not get 'close_cnt' == 0
     fds_verify(close_cnt > 0);
     // wait for all 'dlt close' acks to make sure token sync completes
-    // on all SMs before we start updating DLT again
-    // TODO(anna) implement a timeout so we don't get stuck if one of
-    // those SMs fails or gets removed. In near future, we need to handle
-    // SM removal case in the middle of DLT update.
+    // on all SMs before we start updating DLT again; if SM fails/crashes
+    // we will receive timeout, which also counts as DLT close response
     dst.acks_to_wait = close_cnt;
 }
 
@@ -723,25 +724,6 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    ClusterMap* cm = om->om_clusmap_mod();
-    DataPlacement *dp = om->om_dataplace_mod();
-    fds_verify(cm != NULL);
-    LOGNOTIFY << "OM deployed DLT with "
-              << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
-
-    // persist commited DLT
-    dp->persistCommitedTargetDlt();
-
-    // set all added DMs to ACTIVE state
-    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
-    for (auto uuid : addedNodes) {
-        OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
-        sm_agent->handle_service_deployed();
-    }
-
-    // reset pending nodes in cluster map, since they are already
-    // present in the DLT
-    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
@@ -831,7 +813,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
     if (dp->hasNoTargetDlt()) {
-        LOGNORMAL << "No target DLT computed/commited, nothing to recover";
+        LOGNORMAL << "No target DLT computed/commited or new DLT was already commited"
+                  << ", nothing to recover";
         fsm.process_event(DltEndErrorEvt());
     } else {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
@@ -926,7 +909,22 @@ DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     if (recoverAckEvt.ackForAbort) {
         fds_verify(src.abortMigrAcksToWait > 0);
-        --src.abortMigrAcksToWait;
+        // if we got abort ack with error, if this is 'not found'
+        // error, retry abort one more time
+        if ((recoverAckEvt.ackError == ERR_NOT_FOUND) &&
+            (src.nodesAbortResent.count(recoverAckEvt.svcUuid) == 0)) {
+            LOGNOTIFY << "Will re-send abort migration to SM "
+                      << std::hex << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+            OM_Module *om = OM_Module::om_singleton();
+            DataPlacement *dp = om->om_dataplace_mod();
+            OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+            OM_SmAgent::pointer sm_agent = domain->om_sm_agent(recoverAckEvt.svcUuid);
+            src.nodesAbortResent.insert(recoverAckEvt.svcUuid);
+            sm_agent->om_send_sm_abort_migration(dp->getCommitedDltVersion(),
+                                                 recoverAckEvt.targetDlt);
+        } else {
+            --src.abortMigrAcksToWait;
+        }
     } else {
         if (src.commitDltAcksToWait > 0) {
             --src.commitDltAcksToWait;

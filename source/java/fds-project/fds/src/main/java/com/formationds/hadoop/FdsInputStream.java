@@ -3,13 +3,14 @@ package com.formationds.hadoop;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
+import org.apache.log4j.Logger;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -19,6 +20,7 @@ import java.nio.ByteBuffer;
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class FdsInputStream extends InputStream implements Seekable, PositionedReadable {
+    private static final Logger LOG = Logger.getLogger(FdsInputStream.class);
     private final int objectSize;
     private final String domain;
     private final String volume;
@@ -61,8 +63,10 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
         } catch(ApiException ex) {
             if(ex.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                 return ByteBuffer.allocate(0);
+            LOG.error("AM: getBlob() error", ex);
             throw new IOException("Read failed", ex);
         } catch(Exception ex) {
+            LOG.error("AM: getBlob() error", ex);
             throw new IOException("Read failed", ex);
         }
     }
@@ -72,6 +76,24 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
         int readLength = read(position, b, off, len);
         position += readLength;
         return readLength;
+    }
+
+    public long length() throws Exception {
+        long byteCount = 0;
+        try {
+            byteCount = unwindExceptions(() -> asyncAm.statBlob(domain, volume, blobName).get()).getByteCount();
+        } catch (ApiException e) {
+            if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
+                byteCount = 0;
+            } else {
+                LOG.error("AM: statBlob(" + blobName + ") error", e);
+                throw e;
+            }
+        } catch (Exception e) {
+            LOG.error("AM: statBlob(" + blobName + ") error", e);
+            throw e;
+        }
+        return Math.max(position, byteCount);
     }
 
     @Override
@@ -132,5 +154,9 @@ public class FdsInputStream extends InputStream implements Seekable, PositionedR
     @Override
     public void readFully(long position, byte[] buffer) throws IOException {
         readFully(position, buffer, 0, buffer.length);
+    }
+
+    public String getBlobName() {
+        return blobName;
     }
 }

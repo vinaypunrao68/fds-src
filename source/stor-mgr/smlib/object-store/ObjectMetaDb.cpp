@@ -13,8 +13,9 @@
 
 namespace fds {
 
-ObjectMetadataDb::ObjectMetadataDb()
-        : bitsPerToken_(0) {
+ObjectMetadataDb::ObjectMetadataDb(UpdateMediaTrackerFnObj fn)
+        : bitsPerToken_(0),
+          mediaTrackerFn(fn) {
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
@@ -49,7 +50,7 @@ ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap,
     fds_uint32_t hddCount = diskMap->getTotalDisks(diskio::diskTier);
     if ((ssdCount == 0) && (hddCount == 0)) {
         LOGCRITICAL << "No disks (no SSDs and no HDDs)";
-        return ERR_SM_EXCEEDED_DISK_CAPACITY;
+        return ERR_SM_NO_DISK;
     }
 
     // tier we are using to store metadata
@@ -83,6 +84,12 @@ ObjectMetadataDb::openMetadataDb(SmDiskMap::ptr& diskMap,
          cit != smToks.cend();
          ++cit) {
         std::string diskPath = diskMap->getDiskPath(*cit, metaTier);
+        if (diskPath.empty()) {
+            err = ERR_NOT_FOUND;
+            LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
+                     << ". Disk not found" << " " << err;
+            break;
+        }
         err = openObjectDb(*cit, diskPath, syncW);
         if (!err.ok()) {
             LOGERROR << "Failed to open Object Meta DB for SM token " << *cit
@@ -100,9 +107,22 @@ ObjectMetadataDb::deleteMetadataDb(const std::string& diskPath,
     std::string file = ObjectMetadataDb::getObjectMetaFilename(diskPath, smToken);
     leveldb::Status status = leveldb::DestroyDB(file, leveldb::Options());
     if (!status.ok()) {
-        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken;
+        LOGNOTIFY << "Could not delete metadataDB for smToken = " << smToken
+                  << "Error: " << status.ToString();
     }
     return err;
+}
+
+Error
+ObjectMetadataDb::closeAndDeleteMetadataDb(const fds_token_id& smToken) {
+    Error tmpErr = closeObjectDB(smToken, true);
+    if (!tmpErr.ok()) {
+        LOGERROR << "Failed to close ObjectDB for SM token " << smToken
+                 << " " << tmpErr;
+    } else {
+        LOGNOTIFY << "Closed ObjectDB for SM token " << smToken;
+    }
+    return tmpErr;
 }
 
 Error
@@ -111,14 +131,7 @@ ObjectMetadataDb::closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost) {
     for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
          cit != smTokensLost.cend();
          ++cit) {
-        Error tmpErr = closeObjectDB(*cit, true);
-        if (!tmpErr.ok()) {
-            LOGERROR << "Failed to close ObjectDB for SM token " << *cit
-                     << " " << tmpErr;
-            err = tmpErr;
-        } else {
-            LOGNOTIFY << "Closed ObjectDB for SM token " << *cit;
-        }
+        err = closeAndDeleteMetadataDb(*cit);
     }
     return err;
 }
@@ -129,7 +142,7 @@ ObjectMetadataDb::openObjectDb(fds_token_id smTokId,
                                const std::string& diskPath,
                                fds_bool_t syncWrite) {
     std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, smTokId);
-    // LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
+    LOGDEBUG << "SM Token " << smTokId << " MetaDB: " << filename;
 
     SCOPEDWRITE(dbmapLock_);
     // check whether this DB is already open
@@ -246,11 +259,19 @@ ObjectMetadataDb::get(fds_volid_t volId,
     PerfContext tmp_pctx(PerfEventType::SM_OBJ_METADATA_DB_READ, volId);
     SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
-    fiu_do_on("sm.persist.meta_readfail", err = ERR_NO_BYTES_READ; );
+    fiu_do_on("sm.persist.meta_readfail", err = ERR_NO_BYTES_READ;);
+    fiu_do_on("sm.objectstore.fail.metadata.disk",
+              DiskId diskId = smDiskMap->getDiskId(objId, metaTier);\
+              LOGDEBUG << "sm.objectstore.fail.metadata.disk fault point hit for disk id="
+                       << diskId;
+              if (diskId == 12)
+              {    err = ERR_NO_BYTES_READ;    } );
     if (!err.ok()) {
         // Object not found. Return.
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        smDiskMap->notifyIOError(smTokId, metaTier, err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, metaTier, err);
+        }
         return NULL;
     }
 
@@ -274,9 +295,18 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
     ObjectBuf buf;
     objMeta->serializeTo(buf);
     err = odb->Put(objId, buf);
+    fiu_do_on("sm.persist.meta_writefail", err = ERR_DISK_WRITE_FAILED;);
+    fiu_do_on("sm.objectstore.fail.metadata.disk",\
+              DiskId diskId = smDiskMap->getDiskId(objId, metaTier);\
+              LOGDEBUG << "sm.objectstore.fail.metadata.disk fault point hit for disk id="
+                       << diskId;
+              if (diskId == 12)
+              {    err = ERR_DISK_WRITE_FAILED;    } );
     if (!err.ok()) {
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        smDiskMap->notifyIOError(smTokId, metaTier, err);
+        if (mediaTrackerFn) {
+            mediaTrackerFn(smTokId, metaTier, err);
+        }
     }
     return err;
 }

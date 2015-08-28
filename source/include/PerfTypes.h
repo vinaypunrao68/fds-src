@@ -94,6 +94,7 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (AM_STAT_VOLUME_REQ)        /* End2end stat_volume*/
     (AM_SET_VOLUME_METADATA_REQ)/* End2end set_volume_matadata */
     (AM_GET_VOLUME_METADATA_REQ)/* End2end get_volume_metadata*/
+    (AM_RENAME_BLOB_REQ)        /* End2end rename_blob*/
 
     (AM_QOS_QUEUE_SIZE)         /* Histogram of AM QoS size */
 
@@ -102,22 +103,32 @@ DEFINE_ENUM_WITH_STRING_CONVERSIONS(PerfEventType,
     (AM_OBJECT_CACHE_HIT)       /* AM object cache hits */
 
     // Data Manager
-    (DM_TX_OP)                  /* DM IO latency */
     (DM_TX_OP_ERR)              /* DM IO number of errors */
-    (DM_TX_OP_REQ)              /* End2end latency of DM transactions */
     (DM_TX_OP_REQ_ERR)          /* Number of errors for DM transactions */
 
+    (DM_TX_START_REQ)           /* Latency of DM tx start */
     (DM_TX_STARTED)             /* Number of started transactions */
+    (DM_TX_UPDATE_REQ)          /* Latency of DM tx update */
+    (DM_TX_SET_BLOB_META_REQ)   /* Latency of DM tx set blob meta */
     (DM_TX_COMMITTED)           /* Number of committed transactions */
     (DM_TX_COMMIT_REQ)          /* Latency DM commit */
     (DM_TX_COMMIT_REQ_ERR)      /* NUmber of DM commit errors */
+    (DM_TX_ABORT_REQ)           /* Latency of DM tx abort */
     (DM_VOL_CAT_WRITE)          /* Latency of volume catalog write */
-    (DM_TX_QOS_WAIT)            /* QoS wait of a DM transaction*/
+    (DM_QOS_REQ_WAIT)           /* QoS wait latency of a DM request */
 
     (DM_QUERY_REQ)              /* DM query request latency */
     (DM_QUERY_REQ_ERR)          /* DM query request #errors */
-    (DM_VOL_CAT_READ)           /* Volume catalog read latency*/
-    (DM_QUERY_QOS_WAIT)         /* DM query QoS wait */
+    (DM_UPDATE_ONCE_REQ)        /* Latency of DM update once request */
+    (DM_DELETE_BLOB_REQ)        /* Latency of DM delete blob request */
+    (DM_GET_BLOB_META_REQ)      /* Latency of DM get blob meta request */
+    (DM_OPEN_VOL_REQ)           /* Latency of DM open volume request */
+    (DM_CLOSE_VOL_REQ)          /* Latency of DM close volume request */
+    (DM_SET_VOL_META_REQ)       /* Latency of DM set volume meta request */
+    (DM_GET_VOL_META_REQ)       /* Latency of DM get volume meta request */
+    (DM_GET_VOL_CONTENTS_REQ)   /* Latency of DM get volume contents request */
+    (DM_STAT_VOL_REQ)           /* Latency of DM stat volume request */
+    (DM_RENAME_BLOB_REQ)        /* Latency of DM rename blob request */
 
     (DM_CACHE_HIT)              /* Number of DM cache hits*/
 )

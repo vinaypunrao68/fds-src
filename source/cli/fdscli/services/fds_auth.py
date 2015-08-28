@@ -1,9 +1,9 @@
 import getpass
 import requests
 import os
-from requests.exceptions import ConnectionError
 from utils.fds_cli_configuration_manager import FdsCliConfigurationManager
 from requests.packages import urllib3
+from services.fds_auth_error import FdsAuthError
 
 class FdsAuth():
     
@@ -17,19 +17,29 @@ class FdsAuth():
     
     @author: nate
     '''        
+    
+    #feature list
+    VOL_MGMT = "VOL_MGMT"
+    SYS_MGMT = "SYS_MGMT"
+    USER_MGMT = "USER_MGMT"
+    TENANT_MGMT = "TENANT_MGMT"
+    
     def __init__(self, confFile=os.path.join(os.path.expanduser("~"), ".fdscli.conf")):
         
 #         self.__parser = SafeConfigParser()
 #         self.__parser.read( confFile )
         
-        self.__config = FdsCliConfigurationManager(["conf_file=" + confFile])
         self.__token = None
         self.__user_id = -1
-        self.__features = []
+        self.__features = [FdsAuth.VOL_MGMT, FdsAuth.USER_MGMT]
+        self.__config = FdsCliConfigurationManager(["conf_file=" + confFile])
+        self.refresh()
+        
+    def refresh(self):
+        self.__config.refresh()
         self.__hostname = self.get_from_parser( FdsCliConfigurationManager.HOSTNAME )
         self.__port = self.get_from_parser( FdsCliConfigurationManager.PORT )
         self.__username = self.get_from_parser( FdsCliConfigurationManager.USERNAME )
-        self.__password = self.get_from_parser( FdsCliConfigurationManager.PASSWORD )
         self.__protocol = self.get_from_parser( FdsCliConfigurationManager.PROTOCOL )
         
     def get_from_parser(self, option):
@@ -59,11 +69,17 @@ class FdsAuth():
         return self.__username
     
     def get_password(self):
+        ''' 
+        get the password fresh each time so that it does not
+        stay in memory long
+        '''
         
-        if ( self.__password is None ):
-            self.__password = getpass.getpass( 'Password: ' )
+        passwd = self.get_from_parser(FdsCliConfigurationManager.PASSWORD)
+        
+        if passwd is None:
+            passwd = getpass.getpass( 'Password: ' )
             
-        return self.__password
+        return passwd
 
     def get_port(self):
         
@@ -75,11 +91,7 @@ class FdsAuth():
     def get_token(self):
         
         if self.__token is None:
-            self.login()
-            
-        if self.__token is None:
-            print 'Authentication failed.'
-            raise SystemError('Authentication Failed.')
+                self.login()
         
         return self.__token
     
@@ -102,41 +114,47 @@ class FdsAuth():
         
         return False
     
+    def logout(self):
+        '''
+        effectively lose the connection session
+        '''
+        self.__token = None
+        
+        #re load the login settings
+        FdsCliConfigurationManager().refresh()
+    
     def login(self):
     
         '''
         uses the connection parameters to try and login into the FDS system
         '''
     
+        payload = { "login" : self.get_username(), "password" : self.get_password() }
+    
+        urllib3.disable_warnings()
+        url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
+        response = None
+        
         try:
-            payload = { "login" : self.get_username(), "password" : self.get_password() }
-            
-            #get rid of the password immediately after its used
-            self.__password = None
-
-            urllib3.disable_warnings()
-            url = "{}://{}:{}/fds/config/v08/token".format( self.get_protocol(), self.get_hostname(), self.get_port())
             response = requests.post( url, params=payload, verify=False )
-            
-            if "message" in response:
-                print "Login failed.\n"
-                print response.pop("message")
-                return
-            
-            print "Connected to: " + self.get_hostname() + "\n\n"
-            
-            response = response.json()
-            
-            if ( "userId" in response ):
-                self.__user_id = response["userId"]
+        except Exception:
+            self.refresh()
+            raise FdsAuthError(message="Login URL was not found.  Your OM may be down or unreachable.", error_code=404)
         
-            if ( "token" in response ):
-                self.__token = response['token']
-                
-            if ( "features" in response ):
-                self.__features = response["features"]
-                
-            return self.__token
+        #error occurred so get back to the starting line
+        if "message" in response or (hasattr(response, "ok") and response.ok is False):
+            self.refresh()
+            raise FdsAuthError()
         
-        except ConnectionError:
-            return None
+        response = response.json()
+        
+        if ( "userId" in response ):
+            self.__user_id = response["userId"]
+    
+        if ( "token" in response ):
+            self.__token = response['token']
+            
+        if ( "features" in response ):
+            self.__features = response["features"]
+            
+        return self.__token

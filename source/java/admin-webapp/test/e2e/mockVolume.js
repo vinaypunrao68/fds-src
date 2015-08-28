@@ -104,13 +104,13 @@ mockVolume = function(){
             volume.rate = 10000;
             volume.snapshots = [];
             
-            if ( !angular.isDefined( volume.snapshotPolicies ) ){
-                volume.snapshotPolicies = [];
+            if ( !angular.isDefined( volume.dataProtectionPolicy.snapshotPolicies ) ){
+                volume.dataProtectionPolicy.snapshotPolicies = [];
             }
             
             // re-name the policies
-            for ( var polIndex = 0; polIndex < volume.snapshotPolicies.length; polIndex++ ){
-                var policy = volume.snapshotPolicies[polIndex];
+            for ( var polIndex = 0; polIndex < volume.dataProtectionPolicy.snapshotPolicies.length; polIndex++ ){
+                var policy = volume.dataProtectionPolicy.snapshotPolicies[polIndex];
                 
                 policy.uid = (new Date()).getTime() - polIndex;
                 policy.type = volume.uid + '_SYSTEM_TIMELINE_' + policy.recurrenceRule.FREQ;
@@ -182,7 +182,7 @@ mockVolume = function(){
                 var volume = volService.volumes[i];
                 
                 if ( volume.uid === volumeId ){
-                    policies = volume.snapshotPolicies;
+                    policies = volume.dataProtectionPolicy.snapshotPolicies;
                     break;
                 }
             }

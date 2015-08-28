@@ -55,6 +55,10 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     }
 
     /*
+     * Start the PM monitoring thread
+     */
+    omMonitor.reset(new OMMonitorWellKnownPMs());
+    /*
      * Testing code for loading test info from disk.
      */
     LOGDEBUG << "Constructor of Orchestration Manager ( called )";

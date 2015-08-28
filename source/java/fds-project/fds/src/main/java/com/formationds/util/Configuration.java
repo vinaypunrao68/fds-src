@@ -3,6 +3,15 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.nfs.NfsConfiguration;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -14,17 +23,6 @@ import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-
-import org.apache.log4j.PropertyConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.sun.management.HotSpotDiagnosticMXBean;
-
-import com.formationds.util.libconfig.ParsedConfig;
 
 public class Configuration {
     public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";
@@ -43,6 +41,10 @@ public class Configuration {
         LOGLEVELS.put("error", "ERROR");
         LOGLEVELS.put("critical", "FATAL");
     }
+
+    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE = "fds.xdi.nfs_thread_pool_size";
+    public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE = "fds.xdi.nfs_thread_pool_queue_size";
+    public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
 
     private final String commandName;
     private Properties properties = new Properties();
@@ -167,6 +169,7 @@ public class Configuration {
 
     }
 
+
     /**
      * @return Returns the demo configuration
      * @deprecated Will be removed very soon.
@@ -189,5 +192,14 @@ public class Configuration {
             throw new RuntimeException( e );
 
         }
+    }
+
+    public NfsConfiguration getNfsConfig() {
+        ParsedConfig platformConfig = getPlatformConfig();
+        return new NfsConfiguration(
+                platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_SIZE).intValue(),
+                platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE).intValue(),
+                platformConfig.lookup(FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS).longValue()
+        );
     }
 }

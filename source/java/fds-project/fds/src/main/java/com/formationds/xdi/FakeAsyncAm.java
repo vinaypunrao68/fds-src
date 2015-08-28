@@ -49,6 +49,11 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
+    public CompletableFuture<BlobDescriptor> renameBlob(String domainName, String volumeName, String sourceBlobName, String destinationBlobName) {
+        return CompletableFuture.completedFuture(BLOB_DESCRIPTOR);
+    }
+
+    @Override
     public CompletableFuture<BlobWithMetadata> getBlobWithMeta(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         return CompletableFuture.completedFuture(new BlobWithMetadata(ByteBuffer.wrap(BYTES), BLOB_DESCRIPTOR));
     }

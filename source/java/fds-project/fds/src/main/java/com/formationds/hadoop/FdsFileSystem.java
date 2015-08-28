@@ -9,7 +9,7 @@ import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.ServerPortFinder;
-import com.formationds.util.SupplierWithExceptions;
+import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -235,16 +235,13 @@ public class FdsFileSystem extends FileSystem {
     }
 
     private boolean renameFile(Path srcAbsolutePath, Path dstAbsolutePath) throws IOException {
-        FSDataInputStream in = open(srcAbsolutePath);
-        FSDataOutputStream out = create(dstAbsolutePath);
-
-        byte[] data = new byte[blockSize];
-        int readLength = 0;
-        while ((readLength = in.read(data)) != -1) {
-            out.write(data, 0, readLength);
-        }
-        out.close();
-        delete(srcAbsolutePath, false);
+	Path originalPath = getAbsolutePath(srcAbsolutePath);
+	Path newPath = getAbsolutePath(dstAbsolutePath);
+        try {
+	    asyncAm.renameBlob(DOMAIN, getVolume(), originalPath.toString(), newPath.toString()).get();
+	} catch (Exception e) {
+	    throw new IOException(e);
+	}
         return true;
     }
 

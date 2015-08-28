@@ -17,6 +17,7 @@ namespace fds {
  * Callback for Migration Start Ack
  */
 typedef std::function<void (const Error&)> OmStartMigrationCbType;
+typedef std::function<void (void)> PendingResyncCb;
 
 /*
  * Class responsible for migrating tokens between SMs
@@ -71,8 +72,6 @@ class MigrationMgr {
         MIGR_SM_RESYNC
     };
 
-    const fds_uint8_t MAX_RETRIES_WITH_DIFFERENT_SRCS = 3;
-
     inline fds_bool_t isMigrationInProgress() const {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IN_PROGRESS);
@@ -100,7 +99,8 @@ class MigrationMgr {
      */
      Error startResync(const fds::DLT *dlt,
                        const NodeUuid& mySvcUuid,
-                       fds_uint32_t bitsPerDltToken);
+                       fds_uint32_t bitsPerDltToken,
+                       PendingResyncCb pcb);
 
     /**
      * Handles message from OM to abort migration
@@ -221,14 +221,23 @@ class MigrationMgr {
     Error handleDltClose(const DLT* dlt,
                          const NodeUuid& mySvcUuid);
 
-    inline fds_bool_t isDltTokenReady(const ObjectID& objId) const {
-        if (dltTokenStates.size() > 0) {
-            fds_verify(numBitsPerDltToken > 0);
-            fds_token_id dltTokId = DLT::getToken(objId, numBitsPerDltToken);
-            return dltTokenStates[dltTokId];
-        }
-        return false;
-    }
+    fds_bool_t isDltTokenReady(const ObjectID& objId);
+
+    /**
+     * Reset all the dlt tokens assigned to this SM.
+     */
+    void resetDltTokensStates(fds_uint32_t& bitsPerDltToken);
+
+    void changeDltTokensState(const std::set<fds_token_id>& dltTokens,
+                              const bool& state);
+
+    /**
+     * If SM lost some tokens, just mark them unavailable.
+     */
+    void markUnownedTokensUnavailable(const std::set<fds_token_id>& tokSet);
+
+    bool dltTokenStatesEmpty();
+
     /**
      * If migration not in progress and DLT tokens active/not active
      * states are not assigned, activate DLT tokens (this SM did not need
@@ -355,6 +364,11 @@ class MigrationMgr {
                          const Error& error);
 
     /**
+     * Check if a resync is pending and start the resync if required.
+     */
+    void checkAndStartPendingResync();
+
+    /**
      * Stops migration and sends ack with error to OM
      */
     void abortMigration(const Error& error);
@@ -399,7 +413,7 @@ class MigrationMgr {
      *           SM will receive DLT update from OM and set all DLT tokens that this
      *           SM owns to available.
      *   Case 2: New SM added to the domain where there is an existing DLT.
-     *           SM will received StartMigration message from OM. All DLT tokens will
+     *           SM will receive StartMigration message from OM. All DLT tokens will
      *           be initialized to unavailable.
      *   Case 3: SM restarts and it was part of DLT before the shutdown.
      *           MigrationMgr will be called to start resync. All DLT tokens will be
@@ -407,8 +421,14 @@ class MigrationMgr {
      *   Case 4: In one node SM cluster, SM restarts and it was part of DLT before
      *           shutdown. Since this is the only SM in the domain, mark all DLT
      *           tokens to available.
+     *   Case 5: In case of a disk failure, all the tokens residing on that disk
+     *           will be marked unavailable and their state will change once resync
+     *           of those tokens complete.
+     *
+     *  dltTokenStatesMutex is meant for mutual exclusion to dltTokenStates.
      */
     std::vector<fds_bool_t> dltTokenStates;
+    fds_mutex dltTokenStatesMutex;
 
     /// next ID to assign to a migration executor
     /**
@@ -421,6 +441,9 @@ class MigrationMgr {
      * local to destination SM; we need 64bit + 64bit type for executor ID
      */
     std::atomic<fds_uint32_t> nextLocalExecutorId;
+
+    /// max number of times we will retry to sync DLT token
+    fds_uint8_t maxRetriesWithDifferentSources;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb;
@@ -520,6 +543,12 @@ class MigrationMgr {
      * because the source SM was not ready.
      */
      RetrySmTokenSet retryMigrSmTokenSet;
+
+    /**
+     * Pending resync
+     */
+    std::atomic<bool> isResyncPending = {false};
+    PendingResyncCb cachedPendingResyncCb = PendingResyncCb();
 
     /**
      * Source SMs which are marked as failed for some executors during migration.

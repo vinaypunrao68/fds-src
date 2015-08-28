@@ -17,7 +17,7 @@ namespace dm {
 VolumeCloseHandler::VolumeCloseHandler(DataMgr& dataManager)
     : Handler(dataManager)
 {
-    if (!dataManager.features.isTestMode()) {
+    if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CloseVolumeMsg, handleRequest);
     }
 }
@@ -40,8 +40,6 @@ void VolumeCloseHandler::handleRequest(
 
     auto dmReq = new DmIoVolumeClose(message);
     dmReq->cb = BIND_MSG_CALLBACK(VolumeCloseHandler::handleResponse, asyncHdr, message);
-
-    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
 
     addToQueue(dmReq);
 }

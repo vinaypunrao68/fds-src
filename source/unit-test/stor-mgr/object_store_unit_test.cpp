@@ -530,7 +530,7 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     DLT::SourceNodeMap srcNodeMap;
 
     unsigned destSm = 1; // destination SM id
-    unsigned srcSm = DLT_VER_INVALID; // expected source SM id to be assinged for resync
+    unsigned srcSm = 2;  // expected source SM id to be assinged for resync
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
 
     for (auto obj : srcNodeMap) {

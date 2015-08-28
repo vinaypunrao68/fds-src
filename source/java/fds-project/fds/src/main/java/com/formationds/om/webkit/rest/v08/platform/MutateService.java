@@ -143,9 +143,9 @@ public class MutateService implements RequestHandler {
                     nodeId );
         }
         
-        List<Service> services = (new ListServices()).getServicesForNode( nodeId );
+        Service currentService = (new GetService()).getService( nodeId, serviceId );
         
-        String jsonString = ObjectModelHelper.toJSON( services );
+        String jsonString = ObjectModelHelper.toJSON( currentService );
 	       
         return new TextResource( jsonString );
 	}

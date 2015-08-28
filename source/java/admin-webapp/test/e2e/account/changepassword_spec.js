@@ -28,7 +28,6 @@ describe( 'Test change password scenarios', function(){
         confirm.sendKeys( confirmpass );
 
         var saveButton = element( by.cssContainingText( '.save-password', 'Save' ) );
-
         saveButton.click();
     };
 

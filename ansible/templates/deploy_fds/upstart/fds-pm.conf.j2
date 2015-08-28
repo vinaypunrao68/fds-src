@@ -1,22 +1,37 @@
-# platformd
+{% extends 'fds_upstart_defaults.j2' %}
+{% block content %}
+##
+# Platform Manager upstart conf file
+#
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
 
-description     "platformd"
+description "Platform Manager"
 
 start on runlevel [2345]
 stop on runlevel [!2345]
 
+env fds_root={{ fds_root }}
+
 limit nofile 400000 400000
 limit core unlimited unlimited
 
-env LD_LIBRARY_PATH=/fds/lib:/opt/fds-deps/embedded/lib:/opt/fds-deps/embedded/jre/lib/amd64
-env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/fds-deps/embedded/bin:/opt/fds-deps/embedded/jre/bin:/fds/bin:/fds/sbin
-
-env FDS_ROOT=/fds
-
 respawn
-respawn limit 10 5
+respawn limit 5 60
 
 script
-chdir $FDS_ROOT/bin
-exec platformd --fds-root=$FDS_ROOT --foreground > $FDS_ROOT/bin/pm.out 2>&1
+  chdir ${fds_root}/bin
+
+  echo '=====================================================' > ${fds_root}/bin/pm.out
+  echo 'UPTIME:\t'`date` >> ${fds_root}/bin/pm.out
+  echo 'Loading '${fds_root}/etc/formation_env >> ${fds_root}/bin/pm.out
+  [ -f ${fds_root}/etc/formation_env ] || exit 1
+  # Sourcing a file here
+  . ${fds_root}/etc/formation_env
+  echo 'Loaded '${fds_root}/etc/formation_env >> ${fds_root}/bin/pm.out
+  echo 'ENV   :\t'`env` >> ${fds_root}/bin/pm.out
+  echo '=====================================================' >> ${fds_root}/bin/pm.out
+  echo ''
+
+  exec platformd --fds-root=${fds_root} --foreground > ${fds_root}/bin/pm.out 2>&1
 end script
+{% endblock %}

@@ -15,7 +15,7 @@ class AbstractPlugin( object ):
     priority_str = "priority"
     iops_guarantee_str = "iops_min"
     iops_limit_str = "iops_max"
-    media_policy_str = "media_policy"
+    media_policy_str = "tiering_policy"
     volume_name_str = "volume_name"
     volume_id_str = "volume_id"
     volume_ids_str = "volume_ids"
@@ -65,8 +65,11 @@ class AbstractPlugin( object ):
     most_recent_str = "most_recent"
     size_for_value_str = "size_for_value"
 
-    def __init__(self, session):
-        self.__session = session
+    def __init__(self):
+        '''
+        constructor
+        '''
+        self.__session = None
 
     def build_parser(self, parentParser, session): 
         raise NotImplementedError( "Required method for an FDS CLI plugin.")
@@ -81,6 +84,10 @@ class AbstractPlugin( object ):
     @property
     def session(self):
         return self.__session
+    
+    @session.setter
+    def session(self, session):
+        self.__session = session
     
     def add_format_arg(self, parser):
         '''

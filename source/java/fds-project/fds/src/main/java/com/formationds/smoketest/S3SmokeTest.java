@@ -1,11 +1,29 @@
 package com.formationds.smoketest;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.SDKGlobalConfiguration;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import com.amazonaws.services.s3.model.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.commons.Fds;
+import com.formationds.commons.util.Uris;
+import com.formationds.protocol.Snapshot;
+import com.formationds.util.RngFactory;
+import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
+import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.json.JSONObject;
+import org.junit.*;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
@@ -16,36 +34,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import javax.servlet.http.HttpServletResponse;
-
-import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
-import com.amazonaws.services.s3.model.*;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.json.JSONObject;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.SDKGlobalConfiguration;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
-
-import com.formationds.apis.ConfigurationService;
-import com.formationds.commons.Fds;
-import com.formationds.commons.util.Uris;
-import com.formationds.protocol.Snapshot;
-import com.formationds.util.RngFactory;
-import com.formationds.xdi.XdiClientFactory;
+import static org.junit.Assert.*;
 
 /**
  * Copyright (c) 2014 Formation Data Systems. All rights reserved.
@@ -383,26 +372,49 @@ public class S3SmokeTest {
     }
 
     @Test
-    public void Snapshot() {
-        putSomeData(userBucket, 0, 10, randomBytes);
+    public void Timeline() {
         long volumeId = 0;
+        long curTime;
+        long clonedVolumeId;
+        int numKeys;
         String clonedVolume = "cloned-"+userBucket;
+
         try {
+            // put 10 items
+            putSomeData(userBucket, 0, 10, randomBytes);
+
             volumeId = config.getVolumeId(userBucket);
+            numKeys = userClient.listObjects(userBucket).getObjectSummaries().size();
+            assertEquals(10, numKeys);
+
+            curTime = System.currentTimeMillis() / 1000;
+            // plain clone
+            clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume + "-plain", curTime);
+            assertEquals(true, clonedVolumeId > 0);
+            numKeys = userClient.listObjects(clonedVolume + "-plain").getObjectSummaries().size();
+            assertEquals(10, numKeys);
+
+            // put 10 items
+            putSomeData(userBucket, 10, 20, randomBytes);
+
+            // create snapshot
             config.createSnapshot(volumeId, snapBucket, 0, 0);
             sleep(3000);
             List<Snapshot> snaps = config.listSnapshots(volumeId);
             assertEquals(1, snaps.size());
-            long curTime = System.currentTimeMillis() / 1000;
-            putSomeData(userBucket, 10, 20, randomBytes);
-            config.createSnapshot(volumeId, snapBucket + "_1", 0, 0);
-            long clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
+
+            // put 10 items
+            putSomeData(userBucket, 20, 30, randomBytes);
+
+            curTime = System.currentTimeMillis() / 1000;
+            // clone from a snapshot
+            clonedVolumeId = config.cloneVolume(volumeId, 0, clonedVolume, curTime);
             assertEquals(true, clonedVolumeId > 0);
-            int numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
-            assertEquals(10, numKeys);
+            numKeys = userClient.listObjects(clonedVolume).getObjectSummaries().size();
+            assertEquals(20, numKeys);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("ERR: unable to create Snapshot.");
+            System.err.println("ERR: unable to create Snapshot/Clone.");
         }
     }
 
@@ -416,7 +428,7 @@ public class S3SmokeTest {
         putGetOneObject(1024 * 4);
     }
 
-    
+
     void putSomeData(String volumeName, int from, int to, byte[] data) {
         final PutObjectResult[] last = {null};
         IntStream.range(from, to)
@@ -757,6 +769,7 @@ public class S3SmokeTest {
         }
     }
 
+    @Ignore
     public static class V4Auth extends S3SmokeTest {
         public V4Auth() throws Exception {
             super();

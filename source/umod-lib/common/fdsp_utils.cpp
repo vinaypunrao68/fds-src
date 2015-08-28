@@ -80,7 +80,7 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
         << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
         << std::dec
         << " DLT version: " << header.dlt_version
-        << " error: " << header.msg_code;
+        << " error: " << static_cast<fds_errno_t>(header.msg_code);
     return oss.str();
 }
 
@@ -307,6 +307,16 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
     return "GetBlobMetaDataMsg";
 }
 
+std::string logString(const FDS_ProtocolInterface::RenameBlobMsg& message)
+{
+    return "RenameBlobMsg";
+}
+
+std::string logString(const FDS_ProtocolInterface::RenameBlobRespMsg& message)
+{
+    return "RenameBlobRespMsg";
+}
+
 std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg) {
     return "SetVolumeMetadataMsg";
 }
@@ -337,14 +347,6 @@ std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
 std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
     std::ostringstream oss;
     oss << " DeleteBlobMsg ";
-    return oss.str();
-}
-
-std::string logString(const FDS_ProtocolInterface::CtrlNotifyFinishVolResyncMsg& msg) {
-    std::ostringstream oss;
-    oss << " Finish volume Resync for volume ID: " << msg.volume_id
-    		<< ", DMT Version: " << msg.DMT_Version
-			<< ", commit log sequence number: " << msg.commit_log_seq_num;
     return oss.str();
 }
 

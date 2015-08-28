@@ -9,6 +9,7 @@
 #include <util/Log.h>
 #include <fds_process.h>
 #include <dlt.h>
+#include <util/disk_utils.h>
 #include <object-store/SmTokenPlacement.h>
 #include <object-store/SmSuperblock.h>
 extern "C" {
@@ -347,21 +348,32 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
     return err;
 }
 
+void
+SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
+                                            DiskIdSet& hddIds,
+                                            DiskIdSet& ssdIds) {
+    SCOPEDWRITE(sbLock);
+    checkDiskTopology(hddIds, ssdIds);
+    diskMap.erase(failedDiskId);
+    diskDevMap.erase(failedDiskId);
+}
+
 Error
 SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
                                            fds_uint64_t dltVersion) {
     Error err(ERR_OK);
 
     SCOPEDWRITE(sbLock);
-    // If this is restart, DLT version stored in superblock must be the same
-    // or greater than DLT version that we received from OM. Restarted SM may
-    // receive a greater version from OM if SM previously failed (shutdown)
+    // Restarted SM may receive a greater version from OM if SM previously failed (shutdown)
     // and OM rotated DLT columns to move this SM to a secondary position.
     // Note that in this case (or in all cases when we receive DLT after restart),
     // SM must not gain any tokens than it already knows about in the superblock.
+    // Restarted SM may also receive a lower version of DLT from OM if the domain
+    // shutdown in the middle of token migration, specifically between DLT commit
+    // and DLT close. In that case, OM will re-start migration later, but domain
+    // starts on the previous version (as if we aborted)
     if ( (dltVersion == superblockMaster.DLTVersion) ||
          ( (superblockMaster.DLTVersion != DLT_VER_INVALID) &&
-           (dltVersion > superblockMaster.DLTVersion) &&
            noDltReceived ) ) {
         // this is restart case, otherwise all duplicate DLTs are catched at upper layers
         fds_verify(superblockMaster.DLTVersion != DLT_VER_INVALID);
@@ -370,6 +382,19 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         if (!noDltReceived) {
             LOGNORMAL << "Superblock already handled this DLT version " << dltVersion;
             return ERR_DUPLICATE;
+        }
+
+        if (dltVersion < superblockMaster.DLTVersion) {
+            LOGNOTIFY << "First DLT on SM restart is lower than stored in superblock "
+                      << " most likely SM went down in the middle of migration, between"
+                      << " DLT commit and DLT close. Will sync based on DLT we got from OM."
+                      << " Received DLT version " << dltVersion
+                      << " DLT version in superblock " << superblockMaster.DLTVersion;
+        } else if (dltVersion > superblockMaster.DLTVersion) {
+            LOGNOTIFY << "First DLT on SM restart is higher than stored in superblock."
+                      << " Most likely OM rotated DLT due to this SM failure"
+                      << " Received DLT version " << dltVersion
+                      << " DLT version in superblock " << superblockMaster.DLTVersion;
         }
 
         // Check if superblock matches with this DLT
@@ -405,14 +430,10 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
                           << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
             }
         }
-    } else if (noDltReceived && (superblockMaster.DLTVersion != DLT_VER_INVALID)) {
-        // If this is restart, DLT version stored in superblock must be no greater than
-        // DLT version we received from OM now.
-        LOGCRITICAL << "We expect first DLT on SM restart to be the same or greater version "
-                    << " as when SM went down;"
-                    << " Received DLT version " << dltVersion
-                    << " DLT version in superblock " << superblockMaster.DLTVersion;
-        err = ERR_INVALID_ARG;
+        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) && (dltVersion != superblockMaster.DLTVersion)) {
+            // make sure we save DLT version in superblock
+            setDLTVersionLockHeld(dltVersion, true);
+        }
     }
     noDltReceived = false;
 
@@ -511,7 +532,9 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
     LOGDEBUG << "Do mount test on disks";
     // check for unreachable HDDs first.
     for (auto& diskId : HDDs) {
-        if (isDiskUnreachable(diskId, tempMountDir)) {
+        if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                         diskDevMap[diskId],
+                                         tempMountDir)) {
             badDisks.insert(diskId);
         }
     }
@@ -525,7 +548,9 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 
     // check for unreachable SSDs.
     for (auto& diskId : SSDs) {
-        if (isDiskUnreachable(diskId, tempMountDir)) {
+        if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                         diskDevMap[diskId],
+                                         tempMountDir)) {
             badDisks.insert(diskId);
         }
     }
@@ -538,35 +563,6 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
     deleteMount(tempMountDir);
 }
 
-bool
-SmSuperblockMgr::diskFileTest(const std::string& path) {
-
-    int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
-    if (fd == -1 || fsync(fd) ||close(fd)) {
-        LOGDEBUG << "File test for disk = " << path << " failed with errno = " << errno;
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool
-SmSuperblockMgr::isDiskUnreachable(const fds_uint16_t& diskId,
-                                   const std::string& mountPnt) {
-    std::string path = diskMap[diskId] + "/.tempFlush";
-    bool retVal = diskFileTest(path);
-    std::remove(path.c_str());
-    if (mount(diskDevMap[diskId].c_str(), mountPnt.c_str(), "xfs", MS_RDONLY, nullptr)) {
-        if (errno == ENODEV) {
-            LOGNOTIFY << "Disk " << diskId << " is not accessible ";
-            return  (retVal | true);
-        }
-    } else {
-        umount2(mountPnt.c_str(), MNT_FORCE);
-    }
-    return (retVal | false);
-}
-
 /*
  * Determine if the node's disk topology has changed or not.
  *
@@ -575,6 +571,7 @@ void
 SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                    DiskIdSet& newSSDs)
 {
+    Error err(ERR_OK);
     DiskIdSet persistentHDDs, persistentSSDs;
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
@@ -613,27 +610,33 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                   << ", added HDDs=" << addedHDDs.size();
         for (auto &removedDiskId : removedHDDs) {
             LOGNOTIFY <<"Disk HDD=" << removedDiskId << " removed";
-            if (g_fdsprocess->
-                    get_fds_config()->
-                        get<bool>("fds.sm.testing.useSsdForMeta")) {
-                SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
-                std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
-                for (auto& lostSmToken : lostSmTokens) {
-                    auto metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
-                                                                 diskio::flashTier);
-                    changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
-                    smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
+            SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
+            std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+            for (auto& lostSmToken : lostSmTokens) {
+                DiskId metaDiskId = removedDiskId;
+                if (g_fdsprocess->
+                        get_fds_config()->
+                            get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
+                                                                diskio::flashTier);
                 }
-                if (diskChangeFn) {
-                    diskChangeFn(diskio::diskTier, smTokenDiskIdPairs);
-                }
+                changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
+                smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
+            }
+            if (diskChangeFn) {
+                diskChangeFn(removedDiskId, diskio::diskTier, smTokenDiskIdPairs);
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentHDDs,
                                                   addedHDDs,
                                                   removedHDDs,
                                                   diskio::diskTier,
-                                                  &(superblockMaster.olt));
+                                                  &(superblockMaster.olt),
+                                                  err);
+        if (!err.ok()) {
+            LOGCRITICAL << "Redistribution of data failed with error " << err;
+            return;
+        }
     }
 
     if ((removedSSDs.size() > 0) ||
@@ -642,29 +645,34 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                   << ", added SSDs=" << addedSSDs.size();
         for (auto &removedDiskId : removedSSDs) {
             LOGNOTIFY <<"Disk SSD=" << removedDiskId << " removed";
-            if (g_fdsprocess->
-                    get_fds_config()->
-                        get<bool>("fds.sm.testing.useSsdForMeta")) {
-                SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
-                std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
-                for (auto& lostSmToken : lostSmTokens) {
-                    auto diskId = superblockMaster.olt.getDiskId(lostSmToken,
-                                                                 diskio::diskTier);
-                    smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
+            SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
+            std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+            for (auto& lostSmToken : lostSmTokens) {
+                DiskId diskId = removedDiskId;
+                if (g_fdsprocess->
+                        get_fds_config()->
+                            get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    diskId = superblockMaster.olt.getDiskId(lostSmToken,
+                                                            diskio::diskTier);
                 }
-                if (diskChangeFn) {
-                    diskChangeFn(diskio::flashTier, smTokenDiskIdPairs);
-                }
+                smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
+            }
+            if (diskChangeFn) {
+                diskChangeFn(removedDiskId, diskio::flashTier, smTokenDiskIdPairs);
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentSSDs,
                                                   addedSSDs,
                                                   removedSSDs,
                                                   diskio::flashTier,
-                                                  &(superblockMaster.olt));
+                                                  &(superblockMaster.olt),
+                                                  err);
+        if (!err.ok()) {
+            LOGCRITICAL << "Redistribution of data failed with error " << err;
+            return;
+        }
     }
 
-    Error err(ERR_OK);
     /* Token mapping is recomputed.  Now sync out to disk. */
     if (recomputed) {
         err = syncSuperblock();
@@ -970,11 +978,9 @@ SmSuperblockMgr::checkForHandledErrors(Error& err) {
 }
 
 Error
-SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
+SmSuperblockMgr::setDLTVersionLockHeld(fds_uint64_t dltVersion, bool syncImmediately)
 {
     Error err(ERR_OK);
-    SCOPEDWRITE(sbLock);
-
     superblockMaster.DLTVersion = dltVersion;
 
     if (syncImmediately) {
@@ -995,6 +1001,12 @@ SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately)
     }
 
     return err;
+}
+
+Error
+SmSuperblockMgr::setDLTVersion(fds_uint64_t dltVersion, bool syncImmediately) {
+    SCOPEDWRITE(sbLock);
+    return setDLTVersionLockHeld(dltVersion, syncImmediately);
 }
 
 fds_uint64_t
@@ -1024,6 +1036,12 @@ fds_bool_t
 SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
                                       diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
+    return compactionInProgressNoLock(smToken, tier);
+}
+
+fds_bool_t
+SmSuperblockMgr::compactionInProgressNoLock(fds_token_id smToken,
+                                            diskio::DataTier tier) {
     return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
 }
 

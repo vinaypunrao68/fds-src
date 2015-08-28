@@ -11,7 +11,7 @@
   <name>${company.base.name} Company POM</name>
   <groupId>com.formationds</groupId>
   <artifactId>company-pom</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.4</version>
   <packaging>pom</packaging>
 
   <inceptionYear>2013</inceptionYear>
@@ -46,6 +46,9 @@
     <java.source.version>1.8</java.source.version>
     <java.target.version>1.8</java.target.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <user>builder</user>
+    <user.passwd>h7qgA3fYr0P3</user.passwd>
 
     <!-- artifact dependency version -->
     <antlr.runtime.version>3.5.2</antlr.runtime.version>
@@ -82,20 +85,23 @@
     <slf4j.version>1.7.12</slf4j.version>
     <snmp4j.version>2.3.3_1</snmp4j.version>
     <thrift.version>0.9.0</thrift.version>
-    <togglz.version>2.1.0.Final</togglz.version>
+    <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
+    <grizzly.framework.version>2.3.21</grizzly.framework.version>
+    <jopt.simple.version>4.8</jopt.simple.version>
 
     <!-- unit test -->
     <junit.version>4.12</junit.version>
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.commons.util.version>2015.07.31-SNAPSHOT</formationds.commons.util.version>
-    <formationds.commons.togglz.version>2015.07.31-SNAPSHOT</formationds.commons.togglz.version>
-    <formationds.ext.model.version>2015.07.31-SNAPSHOT</formationds.ext.model.version>
-    <formationds.project.version>2015.07.31-SNAPSHOT</formationds.project.version>
-    <formationds.thrift.version>2015.07.31-SNAPSHOT</formationds.thrift.version>
-    <formationds.thrift.client.util.version>2015.07.31-SNAPSHOT</formationds.thrift.client.util.version>
+    <formationds.commons.libconfig.version>2015.08.14-SNAPSHOT</formationds.commons.libconfig.version>
+    <formationds.commons.togglz.version>2015.08.14-SNAPSHOT</formationds.commons.togglz.version>
+    <formationds.commons.util.version>2015.08.14-SNAPSHOT</formationds.commons.util.version>
+    <formationds.ext.model.version>2015.08.14-SNAPSHOT</formationds.ext.model.version>
+    <formationds.project.version>2015.08.14-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.client.util.version>2015.08.14-SNAPSHOT</formationds.thrift.client.util.version>
+    <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -121,18 +127,18 @@
     <module>fds-project</module>
   </modules>
 
-  <!--<distributionManagement>-->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
-    <!--<snapshotRepository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</snapshotRepository>-->
-  <!--</distributionManagement>-->
+  <distributionManagement>
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <pluginRepositories>
     <pluginRepository>
@@ -149,17 +155,17 @@
     -->
 
     <!-- Formation Data System, INC. maven repo -->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
-    <!--<repository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
     <repository>
       <id>central</id>
@@ -401,6 +407,18 @@
         <groupId>redis.clients</groupId>
         <artifactId>jedis</artifactId>
         <version>${jedis.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.glassfish.grizzly</groupId>
+        <artifactId>grizzly-framework</artifactId>
+        <version>${grizzly.framework.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>net.sf.jopt-simple</groupId>
+        <artifactId>jopt-simple</artifactId>
+        <version>${jopt.simple.version}</version>
       </dependency>
 
       <!-- test scope -->
