@@ -92,6 +92,11 @@ struct GetBucketHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::GetBucketRspMsg>& message,
                         const Error &e, DmRequest *dmRequest);
+private:
+    static std::string _bashCurlyToPcre(std::string const& glob, std::size_t& characterIndex);
+    static std::string _bashGlobToPcre(std::string const& glob);
+    static std::string _bashSquareToPcre(std::string const& glob, std::size_t& characterIndex);
+    static std::string _dosGlobToPcre(std::string const& glob);
 };
 
 struct DmSysStatsHandler : Handler {

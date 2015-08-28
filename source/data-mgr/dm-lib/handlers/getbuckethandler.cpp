@@ -1,7 +1,9 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <stack>
 #include <string>
+#include <tuple>
 #include <list>
 #include <algorithm>
 
@@ -10,6 +12,13 @@
 #include <DataMgr.h>
 #include <dmhandler.h>
 #include <DMSvcHandler.h>
+
+using std::get;
+using std::string;
+using std::stack;
+using std::tuple;
+
+using FDS_ProtocolInterface::PatternSemantics;
 
 namespace fds {
 namespace dm {
@@ -59,10 +68,34 @@ void GetBucketHandler::handleQueueItem(DmRequest *dmRequest) {
     helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
 
     // match pattern if specified
-    if (!request->message->pattern.empty()) {
-        pcrecpp::RE pattern(request->message->pattern, pcrecpp::UTF8());
+    auto& patternString = request->message->pattern;
+    if (!patternString.empty()) {
+
+        string semanticPattern;
+
+        // Compile-time error for missing a value.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch-enum"
+        switch (request->message->patternSemantics)
+        {
+        case PatternSemantics::PCRE:
+            semanticPattern = patternString;
+            break;
+        case PatternSemantics::DOS:
+            semanticPattern = _dosGlobToPcre(patternString);
+            break;
+        case PatternSemantics::UNIX:
+            semanticPattern = _bashGlobToPcre(patternString);
+            break;
+        case PatternSemantics::LITERAL:
+            semanticPattern = pcrecpp::RE::QuoteMeta(patternString);
+            break;
+        }
+#pragma GCC diagnostic pop
+
+        pcrecpp::RE pattern(semanticPattern, pcrecpp::UTF8());
         if (!pattern.error().empty()) {
-            LOGWARN << "Error initializing pattern: " << quoteString(request->message->pattern)
+            LOGWARN << "Error initializing pattern: " << quoteString(patternString)
                     << " " << pattern.error();
             helper.err = ERR_DM_INVALID_REGEX;
             return;
@@ -111,6 +144,198 @@ void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;
+}
+
+string GetBucketHandler::_bashCurlyToPcre(string const& glob, size_t& characterIndex)
+{
+    string retval;
+
+    auto start = characterIndex;
+
+    bool escaping = false;
+    while (characterIndex < glob.length())
+    {
+        char character = glob[characterIndex++];
+
+        if (escaping)
+        {
+            retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            escaping = false;
+        }
+        else
+        {
+            switch (character)
+            {
+            case '\\':
+                escaping = true;
+                break;
+            case ',':
+                retval.push_back('|');
+                break;
+            case '{':
+                retval.append(_bashCurlyToPcre(glob, characterIndex));
+                break;
+            case '}':
+                if (retval.empty())
+                {
+                    characterIndex = start;
+                    return pcrecpp::RE::QuoteMeta("{");
+                }
+                else
+                {
+                    return "(?:" + retval + ")";
+                }
+            default:
+                retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+                break;
+            }
+        }
+    }
+
+    // Ran out of characters before finding a close.
+    characterIndex = start;
+    return pcrecpp::RE::QuoteMeta("{");
+}
+
+string GetBucketHandler::_bashGlobToPcre(string const& glob)
+{
+    string retval;
+
+    bool escaping = false;
+    size_t characterIndex = 0;
+    while (characterIndex < glob.length())
+    {
+        char character = glob[characterIndex++];
+
+        if (escaping)
+        {
+            retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            escaping = false;
+        }
+        else
+        {
+            switch (character)
+            {
+            case '\\':
+                escaping = true;
+                break;
+            case '?':
+                retval.push_back('.');
+                break;
+            case '*':
+                retval.append(".*");
+                break;
+            case '[':
+                retval.append(_bashSquareToPcre(glob, characterIndex));
+                break;
+            case '{':
+                retval.append(_bashCurlyToPcre(glob, characterIndex));
+                break;
+            default:
+                retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            }
+        }
+    }
+
+    return retval;
+}
+
+string GetBucketHandler::_bashSquareToPcre(string const& glob, size_t& characterIndex)
+{
+    string retval;
+
+    auto start = characterIndex;
+
+    bool inverse = false;
+    while (characterIndex < glob.length())
+    {
+        char character = glob[characterIndex++];
+
+        switch (character)
+        {
+        case '-':
+            // Range syntax is the same, so we can just pass this on.
+            retval.push_back(character);
+            break;
+        case '!':
+            if (retval.empty())
+            {
+                inverse = true;
+            }
+            else
+            {
+                retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            }
+            break;
+        case ']':
+            if (retval.empty())
+            {
+                // Can't have an empty group, so these can come in unescaped. If we don't find
+                // another closing brace, we take care of it when we run out of characters.
+                retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            }
+            else
+            {
+                // Normal exit.
+                return string("[") + (inverse ? "^" : "") + retval + "]";
+            }
+            break;
+        default:
+            retval.append(pcrecpp::RE::QuoteMeta(string(1, character)));
+            break;
+        }
+    }
+
+    // Ran out of characters before finding a close.
+    if (retval.empty())
+    {
+        // No close, interpret as regular characters.
+        if (inverse)
+        {
+            characterIndex = start + 2;
+            return pcrecpp::RE::QuoteMeta("[!");
+        }
+        else
+        {
+            characterIndex = start + 1;
+            return pcrecpp::RE::QuoteMeta("[");
+        }
+    }
+    else
+    {
+        // Close in first character, inversion is a regular character and only content.
+        if (retval[0] == ']')
+        {
+            characterIndex = start + 3;
+            return string("[") + (inverse ? "!" : "") + "]";
+        }
+        else
+        {
+            // Without close, it's not a character group, so inversion doesn't mean anything.
+            characterIndex = start + 1;
+            return "[";
+        }
+    }
+}
+
+string GetBucketHandler::_dosGlobToPcre(string const& glob)
+{
+    string retval;
+    for (char character : glob)
+    {
+        switch (character)
+        {
+        case '?':
+            retval.push_back('.');
+            break;
+        case '*':
+            retval.append(".*");
+            break;
+        default:
+            retval.push_back(character);
+        }
+    }
+    return retval;
 }
 }  // namespace dm
 }  // namespace fds
