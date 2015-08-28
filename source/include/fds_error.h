@@ -71,7 +71,7 @@ namespace fds {
     ADD(ERR_DM_MIGRATION_ABORTED,= 52,"DM migration aborted"), \
     ADD(ERR_DM_VOL_NOT_ACTIVATED,= 53,"DM volume not activated"), \
     ADD(ERR_DM_INVALID_TX_ID,= 54,"Invalid transaction ID"), \
-    ADD(ERR_DLT_IO_PENDING,= 55,"There are inflight IOs for the current DLT version"), \
+    ADD(ERR_IO_PENDING,= 55,"There are inflight IOs for the current Table version"), \
                                     \
     ADD(ERR_ARCHIVE_SNAP_TAR_FAILED,= 56,"Failed to tar snap"), \
     ADD(ERR_ARCHIVE_PUT_FAILED,= 57,"Archive put failed"), \

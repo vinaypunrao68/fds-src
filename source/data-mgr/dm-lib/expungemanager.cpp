@@ -116,7 +116,7 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+    const DLT* dlt = dltMgr->getAndLockCurrentVersion();
     SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
 
     // Assuming the number of primaries is the same as DM (it is for now),
@@ -169,7 +169,7 @@ void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
     }
 
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    dltMgr->decDLTRefcnt(dltVersion);
+    dltMgr->releaseVersion(dltVersion);
     taskStatus->done();
 }
 

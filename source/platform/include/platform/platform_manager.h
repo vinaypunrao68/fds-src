@@ -123,7 +123,7 @@ namespace fds
                 std::map <std::string, std::string> m_diskUuidToDeviceMap;
                 std::vector <std::string>           m_javaOptions;                 // List of options to use with java child processes
                 std::string                         m_javaXdiMainClassName;
-
+                std::string                         m_javaXdiJavaCmd;              // path to java command
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
