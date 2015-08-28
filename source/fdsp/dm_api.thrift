@@ -16,9 +16,8 @@ namespace java com.formationds.protocol.dm
 
 enum PatternSemantics {
     PCRE,
-    DOS,
-    UNIX,
-    LITERAL
+    PREFIX,
+    PREFIX_AND_DELIMITER
 }
 
 /**
@@ -40,7 +39,7 @@ struct GetBucketMsg {
   5: common.BlobListOrder      orderBy = 0;
   6: bool                      descending = false;
   7: PatternSemantics          patternSemantics = PatternSemantics.PCRE;
-  
+  8: string                    delimiter = "/";
 }
 
 /**

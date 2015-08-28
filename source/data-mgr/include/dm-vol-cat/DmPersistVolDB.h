@@ -64,6 +64,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) override;
 
+    virtual Error getBlobMetaDescForPrefix (std::string const& prefix,
+                                            std::string const& delimiter,
+                                            std::vector<BlobMetaDesc>& blobMetaList) override;
+
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) override;
 

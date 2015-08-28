@@ -63,50 +63,60 @@ void GetBucketHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
-    fpi::BlobDescriptorListType & blobVec = request->response->blob_descr_list;
-    // do processing and set the error
-    helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
-
-    // match pattern if specified
-    auto& patternString = request->message->pattern;
-    if (!patternString.empty()) {
-
-        string semanticPattern;
-
-        // Compile-time error for missing a value.
+    fpi::BlobDescriptorListType& blobVec = request->response->blob_descr_list;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wswitch-enum"
-        switch (request->message->patternSemantics)
+    switch (request->message->patternSemantics)
+    {
+
+    case PatternSemantics::PCRE:
+    {
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
+
+        auto& patternString = request->message->pattern;
+        if (!patternString.empty())
         {
-        case PatternSemantics::PCRE:
-            semanticPattern = patternString;
-            break;
-        case PatternSemantics::DOS:
-            semanticPattern = _dosGlobToPcre(patternString);
-            break;
-        case PatternSemantics::UNIX:
-            semanticPattern = _bashGlobToPcre(patternString);
-            break;
-        case PatternSemantics::LITERAL:
-            semanticPattern = pcrecpp::RE::QuoteMeta(patternString);
-            break;
-        }
-#pragma GCC diagnostic pop
+            pcrecpp::RE pattern { patternString, pcrecpp::UTF8() };
+            if (!pattern.error().empty())
+            {
+                LOGWARN << "Error initializing pattern: " << quoteString(patternString)
+                        << " " << pattern.error();
+                helper.err = ERR_DM_INVALID_REGEX;
+                return;
+            }
 
-        pcrecpp::RE pattern(semanticPattern, pcrecpp::UTF8());
-        if (!pattern.error().empty()) {
-            LOGWARN << "Error initializing pattern: " << quoteString(patternString)
-                    << " " << pattern.error();
-            helper.err = ERR_DM_INVALID_REGEX;
-            return;
+            auto iterEnd = std::remove_if(
+                    blobVec.begin(),
+                    blobVec.end(),
+                    [&pattern](fpi::BlobDescriptor const& blobDescriptor)
+                    {
+                        return !pattern.PartialMatch(blobDescriptor.name);
+                    });
+            blobVec.erase(iterEnd, blobVec.end());
         }
 
-        auto iterEnd = std::remove_if(blobVec.begin(), blobVec.end(),
-                [&pattern](const fpi::BlobDescriptor & blobDescr) {
-                    return !pattern.PartialMatch(blobDescr.name);
-                });
-        blobVec.erase(iterEnd, blobVec.end());
+        break;
     }
+
+    case PatternSemantics::PREFIX:
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
+                dmRequest->volId, request->message->pattern, "", blobVec);
+        break;
+
+    case PatternSemantics::PREFIX_AND_DELIMITER:
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
+                dmRequest->volId, request->message->pattern, request->message->delimiter, blobVec);
+        break;
+
+    default:
+        helper.err = ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS;
+        LOGWARN << "Pattern semantics "
+                << std::to_string(static_cast<int>(request->message->patternSemantics))
+                << " not recognized.";
+        return;
+
+    }
+#pragma GCC diagnostic pop
 
     // sort if required
     if (request->message->orderBy) {

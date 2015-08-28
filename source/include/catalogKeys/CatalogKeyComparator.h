@@ -10,6 +10,7 @@
 
 // Internal includes.
 #include "leveldb/comparator.h"
+#include "BlobMetadataKey.h"
 
 namespace fds {
 
@@ -22,6 +23,8 @@ public:
     void FindShortSuccessor (std::string* key) const override;
 
     void FindShortestSeparator (std::string* start, leveldb::Slice const& limit) const override;
+
+    BlobMetadataKey getIncremented (BlobMetadataKey const& key) const;
 
     char const* Name () const override;
 

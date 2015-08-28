@@ -12,6 +12,7 @@
 #include <vector>
 
 // Internal includes.
+#include "catalogKeys/CatalogKeyComparator.h"
 #include "catalogKeys/CatalogKeyType.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
 #include "leveldb/db.h"
@@ -172,6 +173,7 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
     auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        fds_assert(dbIt->status().ok());
         leveldb::Slice dbKey = dbIt->key();
         if (*reinterpret_cast<CatalogKeyType const*>(dbKey.data()) == CatalogKeyType::BLOB_METADATA) {
             BlobMetaDesc blobMeta;
@@ -179,7 +181,36 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
             blobMetaList.push_back(blobMeta);
         }
     }
-    fds_assert(dbIt->status().ok());  // check for any errors during the scan
+
+    return ERR_OK;
+}
+
+Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
+                                                std::string const& delimiter,
+                                                std::vector<BlobMetaDesc>& blobMetaList)
+{
+    auto dbIt = catalog_->NewIterator();
+    fds_assert(dbIt);
+
+    auto& catalogOptions = catalog_->GetOptions();
+    auto& comparator = *catalogOptions.comparator;
+    auto& typedComparator = dynamic_cast<CatalogKeyComparator const&>(comparator);
+
+    BlobMetadataKey begin { prefix };
+    BlobMetadataKey end { typedComparator.getIncremented(begin) };
+
+    auto beginSlice { static_cast<leveldb::Slice>(begin) };
+    auto endSlice { static_cast<leveldb::Slice>(end) };
+
+    for (dbIt->Seek(begin); dbIt->Valid()
+                            && comparator.Compare(dbIt->key(), end) < 0; dbIt->Next())
+    {
+        fds_assert(dbIt->status().ok());
+
+        BlobMetaDesc blobMetadata;
+        fds_verify(blobMetadata.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+        blobMetaList.push_back(blobMetadata);
+    }
 
     return ERR_OK;
 }
