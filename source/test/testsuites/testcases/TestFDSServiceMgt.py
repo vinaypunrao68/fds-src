@@ -653,7 +653,7 @@ class TestDMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -710,13 +710,129 @@ class TestAWSDMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill DM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 
         return True
+
+# This class contains the attributes and methods to test
+# killing an (DM) service.
+class TestAWSDMStop(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_DMStop,
+                                             "Stop DM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_DMStop(self):
+        """
+        Test Case:
+        Attempt to stop the DM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+
+            self.log.info("Stopping DM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('DataMgr', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            dm_obj = FDSServiceUtils.DMService(om_ip, node_ip)
+            ret_status = dm_obj.stop(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("DM (DataMgr) is no longer running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to stop DM (DataMgr) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# killing an (DM) service.
+class TestAWSDMStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_DMStart,
+                                             "Start DM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_DMStart(self):
+        """
+        Test Case:
+        Attempt to start the DM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Starting DM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('DataMgr', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            dm_obj = FDSServiceUtils.DMService(om_ip, node_ip)
+            ret_status = dm_obj.start(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("DM (DataMgr) is running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to start DM (DataMgr) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
 
 
 # This class contains the attributes and methods to test
@@ -1023,7 +1139,7 @@ class TestSMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1080,7 +1196,6 @@ class TestAWSSMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill SM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1088,6 +1203,120 @@ class TestAWSSMKill(TestCase.FDSTestCase):
 
         return True
 
+
+# This class contains the attributes and methods to test
+# killing an (SM) service.
+class TestAWSSMStop(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_SMStop,
+                                             "Stop SM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_SMStop(self):
+        """
+        Test Case:
+        Attempt to stop the SM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Stopping SM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('StorMgr', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            sm_obj = FDSServiceUtils.SMService(om_ip, node_ip)
+            ret_status = sm_obj.stop(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("SM (StorMgr) is no longer running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to stop SM (StorMgr) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+# This class contains the attributes and methods to test
+# killing an (SM) service.
+class TestAWSSMStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_SMStart,
+                                             "Start SM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_SMStart(self):
+        """
+        Test Case:
+        Attempt to start the SM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Starting SM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('StorMgr', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            sm_obj = FDSServiceUtils.SMService(om_ip, node_ip)
+            ret_status = sm_obj.start(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("SM (StorMgr) is running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to start SM (StorMgr) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
 
 # This class contains the attributes and methods to test
 # whether a Storage Manager (SM) service is down.
@@ -1313,7 +1542,7 @@ class TestPMKill(TestCase.FDSTestCase):
         return True
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1362,7 +1591,6 @@ class TestAWSPMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill PM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -1370,6 +1598,121 @@ class TestAWSPMKill(TestCase.FDSTestCase):
 
         return True
 
+
+# This class contains the attributes and methods to test
+# killing an (PM) service.
+class TestAWSPMStop(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_PMStop,
+                                             "Stop PM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_PMStop(self):
+        """
+        Test Case:
+        Attempt to stop the PM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Killing PM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('platformd', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            pm_obj = FDSServiceUtils.PMService(om_ip, node_ip)
+            ret_status = pm_obj.stop(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("PM (platformd) is no longer running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to stop PM (platformd) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# killing an (PM) service.
+class TestAWSPMStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_PMStart,
+                                             "Stop PM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_PMStart(self):
+        """
+        Test Case:
+        Attempt to start the PM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Starting PM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('platformd', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            pm_obj = FDSServiceUtils.PMService(om_ip, node_ip)
+            ret_status = pm_obj.start(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("PM (platformd) is running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to start PM (platformd) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
 
 
 # This class contains the attributes and methods to test
@@ -1760,7 +2103,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# killing an Access Manager (AM) service.
+# killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -1803,7 +2146,7 @@ class TestAWSOMKill(TestCase.FDSTestCase):
             om_node = fdscfg.rt_om_node
             om_ip = om_node.nd_conf_dict['ip']
             om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
-            ret_status = Om_obj.kill(om_ip)
+            ret_status = om_obj.kill(om_ip)
 
             if ret_status:
                 status = 0
@@ -1813,7 +2156,120 @@ class TestAWSOMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill OM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+# This class contains the attributes and methods to test
+# killing an (OM) service.
+class TestAWSOMStop(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_OMStop,
+                                             "Stop OM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_OMStop(self):
+        """
+        Test Case:
+        Attempt to stop the OM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Stopping OM on %s." % n.nd_conf_dict['node-name'])
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
+            ret_status = om_obj.stop(om_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("OM (om.Main) is no longer running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to stop OM (om.Main) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+# This class contains the attributes and methods to test
+# killing an (OM) service.
+class TestAWSOMStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_OMStart,
+                                             "Start OM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_OMStart(self):
+        """
+        Test Case:
+        Attempt to start the OM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            # Make sure there is supposed to be an AM service on this node.
+            if n.nd_services.count("om") == 0:
+                self.log.warning("OM service not configured for node %s." % n.nd_conf_dict["node-name"])
+                if self.passedNode is None:
+                    continue
+                else:
+                    break
+
+            self.log.info("Starting OM on %s." % n.nd_conf_dict['node-name'])
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
+            ret_status = Om_obj.start(om_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("OM (om.Main) is running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to start OM (om.Main) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
@@ -2269,7 +2725,122 @@ class TestAWSAMKill(TestCase.FDSTestCase):
                                 (n.nd_conf_dict['node-name']))
 
             if (status != 0):
-                self.log.error("Failing to kill AM service on %s returned status %s." % (n.nd_conf_dict['node-name'], ret_status))
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# killing an Access Manager (AM) service.
+class TestAWSAMStop(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_AMStop,
+                                             "Stop AM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_AMStop(self):
+        """
+        Test Case:
+        Attempt to stop the AM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Stopping AM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('bare_am', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
+            ret_status = am_obj.stop(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("AM (bare_am) is no longer running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to stop AM (bare_am) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
+                return False
+            elif self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# killing an Access Manager (AM) service.
+class TestAWSAMStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_AWS_AMStart,
+                                             "Start AM service on AWS node")
+
+        self.passedNode = node
+
+    def test_AWS_AMStart(self):
+        """
+        Test Case:
+        Attempt to start the AM service(s)
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode)
+
+            self.log.info("Startinng AM on %s." % n.nd_conf_dict['node-name'])
+
+            # Get the PID of the processes in question and ... kill them!
+            pid = getSvcPIDforNode('bare_am', n)
+
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            node_ip = n.nd_conf_dict['ip']
+            am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
+            ret_status = am_obj.start(node_ip)
+
+            if ret_status:
+                status = 0
+                self.log.info("AM (bare_am) is running on %s." % (n.nd_conf_dict['node-name']))
+            else:
+                self.log.error("Failing to start AM (bare_am) service on %s" %
+                                (n.nd_conf_dict['node-name']))
+
+            if (status != 0):
                 return False
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
