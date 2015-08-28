@@ -88,13 +88,16 @@ class DiskScavenger {
     enum ScavState {
         SCAV_STATE_IDLE,     // not doing any compaction
         SCAV_STATE_INPROG,   // compaction in progress
-        SCAV_STATE_STOPPING  // stop was called, finishing compaction
+        SCAV_STATE_STOPPING, // stop was called, finishing compaction
+        SCAV_STATE_ERROR     // scavenger encountered error for this disk
     };
 
     Error startScavenge(fds_bool_t verify,
                         disk_compaction_done_handler_t done_hdlr,
                         fds_uint32_t token_reclaim_threshold = 0);
     void stopScavenge();
+
+    void handleScavengeError(const Error& err);
 
     /**
      * Setters for scavenger policies
@@ -316,6 +319,17 @@ class ScavControl : public Module {
      * Callback from DiskScavenger that compaction for a disk is done
      */
     void diskCompactionDoneCb(fds_uint16_t diskId, const Error& error);
+
+    /**
+     * Update Disk Scavengers in case disk count changes for this SM
+     */
+    Error updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
+                               const DiskIdSet& diskIdSet,
+                               const bool& added);
+
+    Error updateDiskScavenger(const SmDiskMap::const_ptr& diskMap,
+                              const DiskId& diskId,
+                              const bool& added);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

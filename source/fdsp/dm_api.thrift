@@ -619,6 +619,7 @@ struct ForwardCatalogMsg {
   5: dm_types.FDSP_MetaDataList   meta_list;
   6: i64                          sequence_id;
   7: bool                         lastForward;
+  8: i64                          txId;
 }
 /**
  * Forward catalog update response message

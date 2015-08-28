@@ -96,7 +96,7 @@ for t in $test_types ; do
 
             pids=""
             outfiles=""
-            start_time=`date +%s%M`
+            start_time=`date +%s`
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
@@ -105,7 +105,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
-            end_time=`date +%s%M`
+            end_time=`date +%s`
             process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done

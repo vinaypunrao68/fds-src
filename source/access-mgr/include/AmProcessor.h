@@ -69,8 +69,8 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     /**
      * DMT/DLT table updates
      */
-    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, std::function<void (const Error&)> const& cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, std::function<void (const Error&)> const& cb);
 
     /**
      * True when DLT and DMT have been received

@@ -246,11 +246,23 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
                             bool stop_sm, bool stop_dm, bool stop_am);
+
+    void send_stop_services_resp(fds_bool_t stop_sm,
+                                 fds_bool_t stop_dm,
+                                 fds_bool_t stop_am,
+                                 EPSvcRequest* req,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
     /**
      * Send 'remove service' message to Platform
      */
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
                               bool remove_sm, bool remove_dm, bool remove_am);
+
+    void send_remove_service_resp(NodeUuid nodeUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload);
     /**
      * Send 'heartbeat check' message to Platform
      */
@@ -631,10 +643,10 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * conditional broadcast to platform (nodes) to
-     * activate SM, DM, and AM services on those nodes, but only
+     * start SM, DM, and AM services on those nodes, but only
      * to those nodes which are in discovered state
      */
-    virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
+    virtual void om_cond_bcast_start_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
                                                  fds_bool_t activate_am); // Activate these specific Services on each Node.
     virtual Error om_activate_node_services(const NodeUuid& node_uuid,
@@ -663,10 +675,10 @@ class OM_NodeContainer : public DomainContainer
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
 
-    // broadcast "deactivate services" message to all PMs in the domain
-    virtual fds_uint32_t om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                           fds_bool_t deactivate_dm,
-                                                           fds_bool_t deactivate_am);
+    // broadcast "stop service" message to all PMs in the domain
+    virtual fds_uint32_t om_cond_bcast_stop_services(fds_bool_t stop_sm,
+                                                     fds_bool_t stop_dm,
+                                                     fds_bool_t stop_am);
 
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);

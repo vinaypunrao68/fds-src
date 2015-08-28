@@ -62,16 +62,6 @@ public class AddService implements RequestHandler {
                                     + nodeId, ErrorCode.MISSING_RESOURCE );
   		}
         
-        // Check if the service already exists
-        long serviceId = retrieveSvcId(service.getType(), nodeId);
-        
-        Service newService = (new GetService()).getService(nodeId, serviceId);
-        
-        if(newService != null) {
-        	throw new ApiException( "Service type:" + service.getType() + " already exists",
-        			                ErrorCode.BAD_REQUEST );
-        }
-        
         Node node = (new GetNode()).getNode(nodeId);
           	
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
@@ -93,19 +83,22 @@ public class AddService implements RequestHandler {
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR, 0 );
+            throw new ApiException( "Error adding service to node: "
+                    + nodeId + " ensure svc does not already exist", 
+                    ErrorCode.BAD_REQUEST );
         }
         else
         {
         	EventManager.notifyEvent( OmEvents.ADD_SERVICE, 0 );
         }  
         
-        serviceId = retrieveSvcId(service.getType(), nodeId);
+        long serviceId = retrieveSvcId(service.getType(), nodeId);
         if(serviceId == -1) {
         	throw new ApiException( "Valid service id could not be retrieved for type:"
                                      + service.getType(), ErrorCode.MISSING_RESOURCE );
         }
         
-        newService = (new GetService()).getService(nodeId, serviceId);
+        Service newService = (new GetService()).getService(nodeId, serviceId);
         String jsonString = ObjectModelHelper.toJSON( newService );
         return new TextResource( jsonString );
 	}

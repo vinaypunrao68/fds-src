@@ -28,7 +28,8 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  timerInterval(_timeout),
 	  seqTimer(new FdsTimer),
       msgHandler(_dataMgr),
-      migrationProgress(INIT)
+      migrationProgress(INIT),
+      txStateIsMigrated(false)
 {
     volumeUuid = volDesc.volUUID;
 
@@ -77,10 +78,10 @@ DmMigrationExecutor::startMigration()
     	migrationProgress = STATICMIGRATION_IN_PROGRESS;
 
     	/**
-    	 * First quiesce IO
+    	 * First do a StopDequeue on the volume
     	 */
-    	LOGMIGRATE << "Quiescing IO for volume " << volumeUuid;
-    	dataMgr.qosCtrl->quieseceIOs(volumeUuid);
+    	LOGMIGRATE << "Stopping De-queing IO for volume " << volumeUuid;
+    	dataMgr.qosCtrl->stopDequeue(volumeUuid);
 
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
@@ -297,7 +298,10 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
     /**
      * Record the sequence number after the blob descriptor is applied.
      */
-    deltaBlobDescsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
+    {
+        fds_scoped_lock lock(progressLock);
+        deltaBlobDescsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
+    }
 
     /**
      * If the blob descriptor seq number is complete, then notify the mgr that
@@ -306,10 +310,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
     if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
         LOGMIGRATE << "All Blob descriptors applied to volume="
                    << std::hex << volumeUuid << std::dec;
-        notifyStaticMigrationComplete();
-        if (migrDoneCb) {
-            migrDoneCb(volDesc.volUUID, err);
-        }
+        testStaticMigrationComplete();
     }
 
     return err;
@@ -355,6 +356,16 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 
     err = commitLog->applySerializedTxs(txStateMsg->transactions);
 
+    if (err.ok()) {
+        {
+            fds_scoped_lock lock(progressLock);
+            txStateIsMigrated = true;
+        }
+        testStaticMigrationComplete();
+    } else {
+        /*XXX: trigger abort... be sure to call migrDoneCb with an error code */
+    }
+
     return err;
 }
 
@@ -365,13 +376,29 @@ DmMigrationExecutor::sequenceTimeoutHandler()
 }
 
 void
-DmMigrationExecutor::notifyStaticMigrationComplete() {
-    fds_scoped_lock lock(progressLock);
-    fds_assert(migrationProgress == STATICMIGRATION_IN_PROGRESS);
-    migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
-    /* Send any buffered Forwarded messages to qos controller under system volume tag */
-    for (const auto &msg : forwardedMsgs) {
-        msgHandler.addToQueue(msg);
+DmMigrationExecutor::testStaticMigrationComplete() {
+    fds_bool_t doWork = false;
+
+    {
+        fds_scoped_lock lock(progressLock);
+
+        if (migrationProgress == STATICMIGRATION_IN_PROGRESS &&
+            deltaBlobDescsSeqNum.isSeqNumComplete() && txStateIsMigrated) {
+            migrationProgress = APPLYING_FORWARDS_IN_PROGRESS;
+            doWork = true;
+        }
+    }
+
+    if (doWork) {
+        /* Send any buffered Forwarded messages to qos controller under system
+           volume tag */
+        for (const auto &msg : forwardedMsgs) {
+            msgHandler.addToQueue(msg);
+        }
+
+        if (migrDoneCb) {
+            migrDoneCb(volDesc.volUUID, ERR_OK);
+        }
     }
 }
 
@@ -398,7 +425,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
         }
         delete dmReq;
     };
-    
+
     fds_scoped_lock lock(progressLock);
     if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
         forwardedMsgs.push_back(fwdCatReq);
