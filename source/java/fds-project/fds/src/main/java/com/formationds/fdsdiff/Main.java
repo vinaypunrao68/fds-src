@@ -44,75 +44,75 @@ public final class Main
     public static final int EXIT_COMMAND_LINE_ERROR;
     public static final int EXIT_NO_MATCH;
     
-	/**
-	 * Program entry point.
-	 * 
-	 * @param args Command-line arguments.
-	 */
-	public static void main(String[] args)
-	{
-		int result = Integer.MIN_VALUE;
-		Logger logger = null;
-		try
-		{
-			if (args == null) throw new NullArgumentException("args");
-			
-			logger = Config.Defaults.getLogger();
-			
-			Config config = new Config(args);
-			logger = config.getLogger();
-			
-			if (config.isHelpNeeded())
-			{
-				config.showHelp();
-				if (config.isHelpExplicitlyRequested())
-				{
-					result = EXIT_SUCCESS;
-				}
-				else
-				{
-					result = EXIT_COMMAND_LINE_ERROR;
-				}
-			}
-			else
-			{
-			    result = _execPrimaryPath(config, logger);
-			}
-		}
-		catch (Exception ex)
-		{
-			if (logger != null)
-			{
-				logger.logError("Unexpected exception.", ex);
-			}
-			result = 1;
-		}
-		
-		System.exit(result);
-	}
-	
-	static
-	{
-	    EXIT_SUCCESS = 0;
-	    EXIT_FAILURE = 1;
-	    EXIT_COMMAND_LINE_ERROR = 2;
-	    EXIT_NO_MATCH = 3;
-	}
-	
-	/**
-	 * Prevent instantiation.
-	 */
-	private Main()
-	{
-		throw new UnsupportedOperationException("Trying to instantiate a utility class.");
-	}
-	
-	private static int _execPrimaryPath(Config config, Logger logger)
-	        throws IOException, RuntimeException, ParseException, ExecutionException, ConfigurationException
-	{
-	    if (config == null) throw new NullArgumentException("config");
-	    if (logger == null) throw new NullArgumentException("logger");
-	    
+    /**
+     * Program entry point.
+     * 
+     * @param args Command-line arguments.
+     */
+    public static void main(String[] args)
+    {
+        int result = Integer.MIN_VALUE;
+        Logger logger = null;
+        try
+        {
+            if (args == null) throw new NullArgumentException("args");
+            
+            logger = Config.Defaults.getLogger();
+            
+            Config config = new Config(args);
+            logger = config.getLogger();
+            
+            if (config.isHelpNeeded())
+            {
+                config.showHelp();
+                if (config.isHelpExplicitlyRequested())
+                {
+                    result = EXIT_SUCCESS;
+                }
+                else
+                {
+                    result = EXIT_COMMAND_LINE_ERROR;
+                }
+            }
+            else
+            {
+                result = _execPrimaryPath(config, logger);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (logger != null)
+            {
+                logger.logError("Unexpected exception.", ex);
+            }
+            result = 1;
+        }
+        
+        System.exit(result);
+    }
+    
+    static
+    {
+        EXIT_SUCCESS = 0;
+        EXIT_FAILURE = 1;
+        EXIT_COMMAND_LINE_ERROR = 2;
+        EXIT_NO_MATCH = 3;
+    }
+    
+    /**
+     * Prevent instantiation.
+     */
+    private Main()
+    {
+        throw new UnsupportedOperationException("Trying to instantiate a utility class.");
+    }
+    
+    private static int _execPrimaryPath(Config config, Logger logger)
+            throws IOException, RuntimeException, ParseException, ExecutionException, ConfigurationException
+    {
+        if (config == null) throw new NullArgumentException("config");
+        if (logger == null) throw new NullArgumentException("logger");
+        
         ComparisonDataFormat format = config.getComparisonDataFormat();
         
         Optional<Path> inputAPath = config.getInputAPath();
@@ -220,19 +220,19 @@ public final class Main
                 return EXIT_SUCCESS;
             }
         }
-	}
-	
-	private static void _outputContent(Appendable writer, SystemContent content, Gson gson)
-	{
-	    if (writer == null) throw new NullArgumentException("writer");
-	    if (content == null) throw new NullArgumentException("content");
-	    if (gson == null) throw new NullArgumentException("gson");
-	    
-	    gson.toJson(content, writer);
-	}
-	
-	private static void _outputContent(Path path, SystemContent content, Gson gson) throws IOException
-	{
+    }
+    
+    private static void _outputContent(Appendable writer, SystemContent content, Gson gson)
+    {
+        if (writer == null) throw new NullArgumentException("writer");
+        if (content == null) throw new NullArgumentException("content");
+        if (gson == null) throw new NullArgumentException("gson");
+        
+        gson.toJson(content, writer);
+    }
+    
+    private static void _outputContent(Path path, SystemContent content, Gson gson) throws IOException
+    {
         if (path == null) throw new NullArgumentException("path");
         if (content == null) throw new NullArgumentException("content");
         if (gson == null) throw new NullArgumentException("gson");
@@ -244,40 +244,40 @@ public final class Main
         {
             _outputContent(writer, content, gson);
         }
-	}
-	
-	private static void _outputContent(SystemContent content, Gson gson) throws IOException
-	{
-	    _outputContent(System.out, content, gson);
-	}
-	
+    }
+    
+    private static void _outputContent(SystemContent content, Gson gson) throws IOException
+    {
+        _outputContent(System.out, content, gson);
+    }
+    
     private static ObjectManifest.Builder<?, ?> _getBasicBuilderSupplier()
     {
         return new BasicObjectManifest.ConcreteBuilder();
     }
     
-	private static Supplier<ObjectManifest.Builder<?, ?>> _getBuilderSupplier(
-	        ComparisonDataFormat format)
-	{
-	    switch (format)
-	    {
-	    case FULL: return Main::_getFullBuilderSupplier;
-	    case EXTENDED: return Main::_getExtendedBuilderSupplier;
-	    case BASIC: return Main::_getBasicBuilderSupplier;
-	    case MINIMAL: throw new IllegalArgumentException("Minimal format does not need this.");
-	    default: throw new IllegalArgumentException(format + " not recognized.");
-	    }
-	}
-	
+    private static Supplier<ObjectManifest.Builder<?, ?>> _getBuilderSupplier(
+            ComparisonDataFormat format)
+    {
+        switch (format)
+        {
+        case FULL: return Main::_getFullBuilderSupplier;
+        case EXTENDED: return Main::_getExtendedBuilderSupplier;
+        case BASIC: return Main::_getBasicBuilderSupplier;
+        case MINIMAL: throw new IllegalArgumentException("Minimal format does not need this.");
+        default: throw new IllegalArgumentException(format + " not recognized.");
+        }
+    }
+    
     private static ObjectManifest.Builder<?, ?> _getExtendedBuilderSupplier()
     {
         return new ExtendedObjectManifest.ConcreteBuilder();
     }
     
-	private static ObjectManifest.Builder<?, ?> _getFullBuilderSupplier()
-	{
-	    return new FullObjectManifest.ConcreteBuilder();
-	}
+    private static ObjectManifest.Builder<?, ?> _getFullBuilderSupplier()
+    {
+        return new FullObjectManifest.ConcreteBuilder();
+    }
 
     private static SystemContent _getSystemContent(Path serializedComparisonFile,
                                                    Gson gson) throws IOException
@@ -290,7 +290,7 @@ public final class Main
             return gson.fromJson(reader, SystemContent.class);
         }
     }
-	
+    
     private static SystemContent _getSystemContent(Endpoint endpoint,
                                                    Logger logger,
                                                    ComparisonDataFormat format)
