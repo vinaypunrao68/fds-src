@@ -209,6 +209,21 @@ Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
 
         BlobMetaDesc blobMetadata;
         fds_verify(blobMetadata.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+
+        if (!delimiter.empty())
+        {
+            auto& blobName = blobMetadata.desc.blob_name;
+            auto delimiterPosition = blobName.find(delimiter, prefix.size());
+            if (delimiterPosition != std::string::npos)
+            {
+                auto blobNameToDelimiter = blobName.substr(0, delimiterPosition + 1);
+                BlobMetadataKey blobNameToDelimiterEnd { blobNameToDelimiter };
+
+                dbIt->Seek(typedComparator.getIncremented(blobNameToDelimiterEnd));
+                continue;
+            }
+        }
+
         blobMetaList.push_back(blobMetadata);
     }
 
