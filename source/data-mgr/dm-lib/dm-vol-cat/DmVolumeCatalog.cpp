@@ -16,6 +16,15 @@
 #include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
+#define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
+        auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
+        if (seq_ev_a >= seq_ev_b) { \
+            LOGERROR << "Rejecting request to overwrite blob with older sequence id on vol:" \
+                     << (volId) << " blob: " << (blobName) << " old seq_id: " \
+                     << seq_ev_a << " new seq_id: "<< seq_ev_b; \
+            return ERR_BLOB_SEQUENCE_ID_REGRESSION; \
+        }
+
 #define GET_VOL(volId) \
         DmPersistVolCat::ptr vol; \
         synchronized(volMapLock_) { \
@@ -489,14 +498,7 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
 
-        if (blobMeta.desc.sequence_id >= seq_id) {
-            LOGERROR << "Rejecting request to overwrite blob with older sequence id on vol:"
-                     << volId << " blob: " << blobName << " old seq_id: "
-                     << blobMeta.desc.sequence_id << " new seq_id: "<< seq_id;
-
-            fds_assert(blobMeta.desc.sequence_id < seq_id);
-            return ERR_BLOB_SEQUENCE_ID_REGRESSION;
-        }
+        ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
         blobMeta.desc.version += 1;
         blobMeta.desc.sequence_id = seq_id;
@@ -541,6 +543,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     }
 
     GET_VOL_N_CHECK_DELETED(volId);
+    ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
     // verify object size assumption holds
     rc = blobObjList->verify(vol->getObjSize());
