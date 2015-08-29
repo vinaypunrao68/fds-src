@@ -44,22 +44,22 @@ public class SimpleInodeIndex implements InodeIndex {
     }
 
     @Override
-    public List<DirectoryEntry> list(InodeMetadata directory) throws IOException {
-        JSONObject indexEntry = loadIndexEntry(directory.asInode());
+    public List<DirectoryEntry> list(InodeMetadata directory, long exportId) throws IOException {
+        JSONObject indexEntry = loadIndexEntry(directory.asInode(exportId));
         List<DirectoryEntry> results = new ArrayList<>(indexEntry.keySet().size());
         Iterator<String> keys = indexEntry.keys();
         while (keys.hasNext()) {
             String name = keys.next();
             InodeMetadata value = new InodeMetadata(indexEntry.getJSONObject(name));
-            results.add(value.asDirectoryEntry(directory.getFileId()));
+            results.add(value.asDirectoryEntry(directory.getFileId(), exportId));
         }
         return results;
     }
 
     @Override
-    public void index(InodeMetadata... entries) throws IOException {
+    public void index(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            String volumeName = exportResolver.volumeName((int) entry.getVolumeId());
+            String volumeName = exportResolver.volumeName((int) exportId);
             Map<Long, String> links = entry.getLinks();
             for (long parentId : links.keySet()) {
                 String name = links.get(parentId);
@@ -80,8 +80,8 @@ public class SimpleInodeIndex implements InodeIndex {
     }
 
     @Override
-    public void remove(InodeMetadata inodeMetadata) throws IOException {
-        String volume = exportResolver.volumeName((int) inodeMetadata.getVolumeId());
+    public void remove(long exportId, InodeMetadata inodeMetadata) throws IOException {
+        String volume = exportResolver.volumeName((int) exportId);
         long fileId = inodeMetadata.getFileId();
         String blobName = blobName(fileId);
         try {

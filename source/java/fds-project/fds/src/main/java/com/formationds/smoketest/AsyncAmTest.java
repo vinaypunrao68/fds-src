@@ -48,10 +48,10 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
 
-        index.index(dir, child);
+        index.index(NFS_EXPORT_ID, dir, child);
         child = child.withUpdatedAtime();
-        index.index(child);
-        List<DirectoryEntry> list = index.list(dir);
+        index.index(NFS_EXPORT_ID, child);
+        List<DirectoryEntry> list = index.list(dir, NFS_EXPORT_ID);
         assertEquals(1, list.size());
     }
 
@@ -65,15 +65,15 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "panda")
                 .withLink(barDir.getFileId(), "lemur");
 
-        index.index(fooDir, child);
-        assertEquals(child, index.lookup(fooDir.asInode(), "panda").get());
-        assertEquals(child, index.lookup(barDir.asInode(), "lemur").get());
-        assertFalse(index.lookup(fooDir.asInode(), "baboon").isPresent());
-        assertFalse(index.lookup(barDir.asInode(), "giraffe").isPresent());
-        index.unlink(fooDir.asInode(), "panda");
-        assertFalse(index.lookup(fooDir.asInode(), "panda").isPresent());
-        assertTrue(index.lookup(barDir.asInode(), "lemur").isPresent());
-        index.remove(barDir);
+        index.index(NFS_EXPORT_ID, fooDir, child);
+        assertEquals(child, index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").get());
+        assertEquals(child, index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").get());
+        assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "baboon").isPresent());
+        assertFalse(index.lookup(barDir.asInode(NFS_EXPORT_ID), "giraffe").isPresent());
+        index.unlink(fooDir.asInode(NFS_EXPORT_ID), "panda");
+        assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").isPresent());
+        assertTrue(index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").isPresent());
+        index.remove(NFS_EXPORT_ID, barDir);
 //        assertFalse(index.lookup(barDir.asInode(), "lemur").isPresent());
     }
 
@@ -90,10 +90,10 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(fooDir, barDir, blue, red);
-        assertEquals(2, index.list(fooDir).size());
-        assertEquals(1, index.list(barDir).size());
-        assertEquals(0, index.list(blue).size());
+        index.index(NFS_EXPORT_ID, fooDir, barDir, blue, red);
+        assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
+        assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
+        assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());
     }
 
     private class MyExportResolver implements ExportResolver {
