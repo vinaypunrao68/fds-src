@@ -3,10 +3,7 @@ package com.formationds.smoketest;
 import com.formationds.apis.*;
 import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
-import com.formationds.nfs.ExportResolver;
-import com.formationds.nfs.InodeIndex;
-import com.formationds.nfs.InodeMetadata;
-import com.formationds.nfs.SimpleInodeIndex;
+import com.formationds.nfs.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
@@ -43,7 +40,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testUpdate() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
@@ -57,7 +54,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testLookup() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
 
@@ -70,16 +67,14 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(child, index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").get());
         assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "baboon").isPresent());
         assertFalse(index.lookup(barDir.asInode(NFS_EXPORT_ID), "giraffe").isPresent());
-        index.unlink(fooDir.asInode(NFS_EXPORT_ID), "panda");
+        index.unlink(NFS_EXPORT_ID, 2, "panda");
         assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").isPresent());
         assertTrue(index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").isPresent());
-        index.remove(NFS_EXPORT_ID, barDir);
-//        assertFalse(index.lookup(barDir.asInode(), "lemur").isPresent());
     }
 
     @Test
     public void testListDirectory() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(asyncAm, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
 

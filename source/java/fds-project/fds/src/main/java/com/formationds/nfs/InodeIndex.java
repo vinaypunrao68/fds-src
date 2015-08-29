@@ -16,5 +16,5 @@ public interface InodeIndex {
 
     void remove(long exportId, InodeMetadata inodeMetadata) throws IOException;
 
-    void unlink(Inode parentInode, String path) throws IOException;
+    void unlink(long exportId, long parentId, String linkName) throws IOException;
 }

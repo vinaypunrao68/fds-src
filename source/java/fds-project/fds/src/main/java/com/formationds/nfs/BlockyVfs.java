@@ -42,7 +42,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         inodeMap = new InodeMap(amIo, resolver);
         allocator = new InodeAllocator(amIo);
         this.exportResolver = resolver;
-        inodeIndex = new SimpleInodeIndex(asyncAm, resolver);
+        inodeIndex = new SimpleInodeIndex(amIo, resolver);
         idMap = new SimpleIdMap();
         chunker = new Chunker(amIo);
     }
@@ -211,7 +211,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
 
         inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination);
-        inodeIndex.unlink(source, oldName);
+        inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName);
         inodeIndex.index(source.exportIndex(), updatedSource, updatedLink, updatedDestination);
 
         return true;
@@ -268,7 +268,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
                 .withoutLink(inodeMap.fileId(parentInode));
 
 
-        inodeIndex.unlink(parentInode, path);
+        inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
         if (updatedLink.refCount() == 0) {
             inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
             inodeIndex.remove(parentInode.exportIndex(), updatedLink);
