@@ -498,10 +498,12 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
 
-        ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
+        // TODO(bszmyd): Sat 29 Aug 2015 10:46:52 AM MDT
+        // Renable this when the working
+        // ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
         blobMeta.desc.version += 1;
-        blobMeta.desc.sequence_id = seq_id;
+        blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
         }
@@ -543,7 +545,9 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     }
 
     GET_VOL_N_CHECK_DELETED(volId);
-    ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
+    // TODO(bszmyd): Sat 29 Aug 2015 10:46:52 AM MDT
+    // Renable this when the working
+    // ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
     // verify object size assumption holds
     rc = blobObjList->verify(vol->getObjSize());
@@ -647,7 +651,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
-    blobMeta.desc.sequence_id = seq_id;
+    blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
