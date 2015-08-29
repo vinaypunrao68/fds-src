@@ -4,16 +4,50 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 
+#include <mutex>
 #include <string>
 #include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
+#include "concurrency/RwLock.h"
 
 namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
 struct DLT;
+
+struct VolumeDispatchTable {
+    using entry_type = std::pair<std::mutex, fds_uint64_t>;
+    using key_type = fds_volid_t;
+    using map_type = std::unordered_map<key_type, entry_type>;
+
+    VolumeDispatchTable() = default;
+    VolumeDispatchTable(VolumeDispatchTable const& rhs) = delete;
+    VolumeDispatchTable& operator=(VolumeDispatchTable const& rhs) = delete;
+    ~VolumeDispatchTable() = default;
+
+    std::unique_lock<std::mutex> getAndLockVolumeSequence(fds_volid_t const vol_id, int64_t& seq_id) {
+        SCOPEDREAD(table_lock);
+        auto it = lock_table.find(vol_id);
+        fds_assert(lock_table.end() != it);
+        std::unique_lock<std::mutex> g(it->second.first);
+        seq_id = ++it->second.second;
+        return g;
+    }
+
+    void registerVolumeSequence(fds_volid_t const vol_id, fds_uint64_t const seq_id) {
+        SCOPEDWRITE(table_lock);
+        // TODO(bszmyd): Sat 29 Aug 2015 09:51:21 AM MDT
+        // If we already have the volume ignore, this may need fixing later
+        if (lock_table.end() != lock_table.find(vol_id)) return;
+        lock_table[vol_id].second = seq_id;
+    }
+
+ private:
+    map_type lock_table;
+    fds_rwlock table_lock;
+};
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
@@ -62,7 +96,7 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches an open volume request to DM.
      */
     void dispatchOpenVolume(AmRequest *amReq);
-    void dispatchOpenVolumeCb(AmRequest* amReq,
+    void openVolumeCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) const;
@@ -217,6 +251,8 @@ struct AmDispatcher : HasModuleProvider
      */
     boost::shared_ptr<DLTManager> dltMgr;
     boost::shared_ptr<DMTManager> dmtMgr;
+
+    mutable VolumeDispatchTable dispatchTable;
 
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
