@@ -80,18 +80,18 @@ public class InodeMap {
         }
     }
 
-    public Inode create(InodeMetadata metadata) throws IOException {
-        return doUpdate(metadata);
+    public Inode create(InodeMetadata metadata, long exportId) throws IOException {
+        return doUpdate(metadata, exportId);
     }
 
-    private Inode doUpdate(InodeMetadata metadata) throws IOException {
-        String volume = exportResolver.volumeName((int) metadata.getVolumeId());
-        String blobName = blobName(metadata.asInode());
+    private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
+        String volume = exportResolver.volumeName((int) exportId);
+        String blobName = blobName(metadata.asInode(exportId));
         io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, (x) -> {
             x.clear();
             x.putAll(metadata.asMap());
         });
-        return metadata.asInode();
+        return metadata.asInode(exportId);
     }
 
     public int volumeId(Inode inode) {
@@ -106,9 +106,9 @@ public class InodeMap {
         return InodeMetadata.fileId(inode);
     }
 
-    public void update(InodeMetadata... entries) throws IOException {
+    public void update(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry);
+            doUpdate(entry, exportId);
         }
     }
 

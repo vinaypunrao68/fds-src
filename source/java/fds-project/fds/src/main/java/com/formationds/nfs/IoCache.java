@@ -6,10 +6,7 @@ import com.google.common.cache.CacheBuilder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
@@ -158,6 +155,11 @@ public class IoCache implements Io {
         }
 
         io.deleteBlob(domain, volume, blobName);
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        return io.scan(domain, volume, blobNamePrefix, mapper);
     }
 
     private Object metadataLock(MetadataCacheKey key) {
