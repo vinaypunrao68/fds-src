@@ -27,6 +27,11 @@ struct VolumeDispatchTable {
     VolumeDispatchTable& operator=(VolumeDispatchTable const& rhs) = delete;
     ~VolumeDispatchTable() = default;
 
+    /**
+     * Set the sequence id of a request to the next value and return a unique
+     * lock preventing any other request that would update the volume from
+     * being dispatched until this has entered SvcLayer
+     */
     std::unique_lock<std::mutex> getAndLockVolumeSequence(fds_volid_t const vol_id, int64_t& seq_id) {
         SCOPEDREAD(table_lock);
         auto it = lock_table.find(vol_id);
@@ -36,12 +41,19 @@ struct VolumeDispatchTable {
         return g;
     }
 
+    /**
+     * Either register a new sequence id for dispatching updates or update an
+     * existing id if newer.
+     */
     void registerVolumeSequence(fds_volid_t const vol_id, fds_uint64_t const seq_id) {
         SCOPEDWRITE(table_lock);
-        // TODO(bszmyd): Sat 29 Aug 2015 09:51:21 AM MDT
-        // If we already have the volume ignore, this may need fixing later
-        if (lock_table.end() != lock_table.find(vol_id)) return;
-        lock_table[vol_id].second = seq_id;
+        auto it = lock_table.find(vol_id);
+        if (lock_table.end() != it) {
+            auto& curr_seq_id = it->second.second;
+            curr_seq_id = std::max(curr_seq_id, seq_id);
+        } else {
+            lock_table[vol_id].second = seq_id;
+        }
     }
 
  private:
