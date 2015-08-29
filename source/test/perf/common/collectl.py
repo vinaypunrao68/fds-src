@@ -12,7 +12,6 @@ class SystemMonitor(object):
     def __init__(self, config):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
-        self.stop = threading.Event()
         self.ps = subprocess.Popen(('collectl', '-P', '-m', '-s+m', '-i' + str(self.config["period"])), stdout=subprocess.PIPE)
         self.hostname = socket.gethostname()
 
@@ -26,12 +25,11 @@ class SystemMonitor(object):
             records = []
             for i, v in enumerate(tokens):
                 records.append((labels[i], v))
-                #self.print_records(records)
-                series = "system_stats." + self.hostname
-                self.influxdb.write_records(series, records)
+            #self.print_records(records)
+            series = "system_stats." + self.hostname
+            self.influxdb.write_records(series, records)
         
     def terminate(self):
-        self.stop.set()
         self.ps.kill()
 
     def print_records(self, recs):
@@ -47,11 +45,11 @@ def main():
                       help = "Influxdb host")
     parser.add_option("", "--influxdb-port", dest = "influxdb_port", default = 8086, type = "int",
                       help = "Influxdb port")
-    parser.add_option("", "--influxdb-db", dest = "influx_db", default = "system_stats",
+    parser.add_option("", "--influxdb-db", dest = "influxdb_db", default = "system_stats",
                       help = "Influxdb db")
-    parser.add_option("", "--influxdb-user", dest = "influx_user", default = "root",
+    parser.add_option("", "--influxdb-user", dest = "influxdb_user", default = "root",
                       help = "Influxdb user")
-    parser.add_option("", "--influxdb-password", dest = "influx_password", default = "root",
+    parser.add_option("", "--influxdb-password", dest = "influxdb_password", default = "root",
                       help = "Influxdb password")
 
 
@@ -59,10 +57,10 @@ def main():
 
     influx_db_config = {
         "ip" : options.influxdb_host,
-        "port" :  options.influxdb_host,
-        "user" :  options.influxdb_host,
-        "password" :  options.influxdb_host,
-        "db" :  options.influxdb_host
+        "port" :  options.influxdb_port,
+        "user" :  options.influxdb_user,
+        "password" :  options.influxdb_password,
+        "db" :  options.influxdb_db
     }
  
     config = {
