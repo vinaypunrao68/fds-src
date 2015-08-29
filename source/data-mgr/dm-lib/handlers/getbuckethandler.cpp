@@ -1,7 +1,9 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <stack>
 #include <string>
+#include <tuple>
 #include <list>
 #include <algorithm>
 
@@ -10,6 +12,13 @@
 #include <DataMgr.h>
 #include <dmhandler.h>
 #include <DMSvcHandler.h>
+
+using std::get;
+using std::string;
+using std::stack;
+using std::tuple;
+
+using FDS_ProtocolInterface::PatternSemantics;
 
 namespace fds {
 namespace dm {
@@ -54,26 +63,60 @@ void GetBucketHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
-    fpi::BlobDescriptorListType & blobVec = request->response->blob_descr_list;
-    // do processing and set the error
-    helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
+    fpi::BlobDescriptorListType& blobVec = request->response->blob_descr_list;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch-enum"
+    switch (request->message->patternSemantics)
+    {
 
-    // match pattern if specified
-    if (!request->message->pattern.empty()) {
-        pcrecpp::RE pattern(request->message->pattern, pcrecpp::UTF8());
-        if (!pattern.error().empty()) {
-            LOGWARN << "Error initializing pattern: " << quoteString(request->message->pattern)
-                    << " " << pattern.error();
-            helper.err = ERR_DM_INVALID_REGEX;
-            return;
+    case PatternSemantics::PCRE:
+    {
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobs(dmRequest->volId, &blobVec);
+
+        auto& patternString = request->message->pattern;
+        if (!patternString.empty())
+        {
+            pcrecpp::RE pattern { patternString, pcrecpp::UTF8() };
+            if (!pattern.error().empty())
+            {
+                LOGWARN << "Error initializing pattern: " << quoteString(patternString)
+                        << " " << pattern.error();
+                helper.err = ERR_DM_INVALID_REGEX;
+                return;
+            }
+
+            auto iterEnd = std::remove_if(
+                    blobVec.begin(),
+                    blobVec.end(),
+                    [&pattern](fpi::BlobDescriptor const& blobDescriptor)
+                    {
+                        return !pattern.PartialMatch(blobDescriptor.name);
+                    });
+            blobVec.erase(iterEnd, blobVec.end());
         }
 
-        auto iterEnd = std::remove_if(blobVec.begin(), blobVec.end(),
-                [&pattern](const fpi::BlobDescriptor & blobDescr) {
-                    return !pattern.PartialMatch(blobDescr.name);
-                });
-        blobVec.erase(iterEnd, blobVec.end());
+        break;
     }
+
+    case PatternSemantics::PREFIX:
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
+                dmRequest->volId, request->message->pattern, "", blobVec);
+        break;
+
+    case PatternSemantics::PREFIX_AND_DELIMITER:
+        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
+                dmRequest->volId, request->message->pattern, request->message->delimiter, blobVec);
+        break;
+
+    default:
+        helper.err = ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS;
+        LOGWARN << "Pattern semantics "
+                << std::to_string(static_cast<int>(request->message->patternSemantics))
+                << " not recognized.";
+        return;
+
+    }
+#pragma GCC diagnostic pop
 
     // sort if required
     if (request->message->orderBy) {
@@ -112,5 +155,6 @@ void GetBucketHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetBucketRspMsgTypeId, message);
     delete dmRequest;
 }
+
 }  // namespace dm
 }  // namespace fds

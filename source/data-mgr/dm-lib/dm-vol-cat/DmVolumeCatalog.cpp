@@ -445,6 +445,36 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
     return rc;
 }
 
+Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
+                                            std::string const& prefix,
+                                            std::string const& delimiter,
+                                            fpi::BlobDescriptorListType& results)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    std::vector<BlobMetaDesc> blobMetaList;
+    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList);
+    if (!rc.ok())
+    {
+        LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
+                 << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    for (auto const& blobMetadata : blobMetaList)
+    {
+        fpi::BlobDescriptor descriptor;
+        descriptor.name = blobMetadata.desc.blob_name;
+        descriptor.byteCount = blobMetadata.desc.blob_size;
+        descriptor.metadata = blobMetadata.meta_list;
+
+        results.push_back(descriptor);
+    }
+
+    return rc;
+}
+
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
         const sequence_id_t seq_id) {
