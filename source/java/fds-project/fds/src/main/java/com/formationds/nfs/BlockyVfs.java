@@ -3,15 +3,8 @@ package com.formationds.nfs;
 import com.formationds.xdi.AsyncAm;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
-import org.dcache.acl.ACE;
-import org.dcache.acl.enums.AceFlags;
-import org.dcache.acl.enums.AceType;
-import org.dcache.acl.enums.Who;
 import org.dcache.auth.GidPrincipal;
-import org.dcache.auth.Subjects;
 import org.dcache.auth.UidPrincipal;
-import org.dcache.nfs.ChimeraNFSException;
-import org.dcache.nfs.status.BadOwnerException;
 import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.status.NotDirException;
@@ -22,12 +15,14 @@ import org.dcache.nfs.vfs.*;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import static org.dcache.nfs.v4.xdr.nfs4_prot.ACE4_INHERIT_ONLY_ACE;
-
-public class BlockyVfs implements VirtualFileSystem, AclCheckable {
+public class BlockyVfs implements VirtualFileSystem {
     public static final String DOMAIN = "nfs";
     private static final Logger LOG = Logger.getLogger(BlockyVfs.class);
     private InodeMap inodeMap;
@@ -35,6 +30,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     private InodeIndex inodeIndex;
     private ExportResolver exportResolver;
     private SimpleIdMap idMap;
+    private ExecutorService executor;
     private Chunker chunker;
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver) {
@@ -45,6 +41,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         inodeIndex = new SimpleInodeIndex(amIo, resolver);
         idMap = new SimpleIdMap();
         chunker = new Chunker(amIo);
+        executor = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -76,13 +73,12 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.allocate(volume), inodeMap.volumeId(parent))
                 .withLink(inodeMap.fileId(parent), name);
 
-        Inode inode = inodeMap.create(metadata, parent.exportIndex());
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
-        inodeMap.update(inode.exportIndex(), updatedParent);
-        inodeIndex.index(parent.exportIndex(), metadata, updatedParent);
-        return inode;
+        return parallel(
+                () -> inodeMap.create(metadata, parent.exportIndex()),
+                () -> inodeMap.update(parent.exportIndex(), updatedParent),
+                () -> inodeIndex.index(parent.exportIndex(), metadata, updatedParent));
     }
-
 
     @Override
     public FsStat getFsStat() throws IOException {
@@ -210,9 +206,10 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
 
-        inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination);
-        inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName);
-        inodeIndex.index(source.exportIndex(), updatedSource, updatedLink, updatedDestination);
+        parallel(() -> null,
+                () -> inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination),
+                () -> inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName),
+                () -> inodeIndex.index(source.exportIndex(), updatedSource, updatedLink, updatedDestination));
 
         return true;
     }
@@ -328,8 +325,9 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updated = metadata.get().update(stat);
 
-        inodeMap.update(inode.exportIndex(), updated);
-        inodeIndex.index(inode.exportIndex(), updated);
+        parallel(() -> null,
+                () -> inodeMap.update(inode.exportIndex(), updated),
+                () -> inodeIndex.index(inode.exportIndex(), updated));
     }
 
     @Override
@@ -369,73 +367,54 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         return null;
     }
 
-    private static ACE valueOf(nfsace4 ace, NfsIdMapping idMapping) throws BadOwnerException {
-        String principal = ace.who.toString();
-        int type = ace.type.value.value;
-        int flags = ace.flag.value.value;
-        int mask = ace.access_mask.value.value;
-
-        int id = -1;
-        Who who = Who.fromAbbreviation(principal);
-        if (who == null) {
-            // not a special pricipal
-            boolean isGroup = AceFlags.IDENTIFIER_GROUP.matches(flags);
-            if (isGroup) {
-                who = Who.GROUP;
-                id = idMapping.principalToGid(principal);
-            } else {
-                who = Who.USER;
-                id = idMapping.principalToUid(principal);
-            }
-        }
-        return new ACE(AceType.valueOf(type), flags, mask, who, id, ACE.DEFAULT_ADDRESS_MSK);
-    }
-
-    @Override
-    public Access checkAcl(Subject subject, Inode inode, int access) throws ChimeraNFSException, IOException {
-        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
-        if (!metadata.isPresent()) {
-            throw new NoEntException();
-        }
-
-        nfsace4[] nfsAces = metadata.get().getNfsAces();
-        for (nfsace4 ace4 : nfsAces) {
-            ACE ace = valueOf(ace4, idMap);
-            int flag = ace.getFlags();
-            if ((flag & ACE4_INHERIT_ONLY_ACE) != 0) {
-                continue;
-            }
-
-            if ((ace.getType() != AceType.ACCESS_ALLOWED_ACE_TYPE) && (ace.getType() != AceType.ACCESS_DENIED_ACE_TYPE)) {
-                continue;
-            }
-
-            int ace_mask = ace.getAccessMsk();
-            if ((ace_mask & access) == 0) {
-                continue;
-            }
-
-            Who who = ace.getWho();
-
-            if ((who == Who.EVERYONE)
-                    || (who == Who.OWNER & Subjects.hasUid(subject, metadata.get().getUid()))
-                    || (who == Who.OWNER_GROUP & Subjects.hasGid(subject, metadata.get().getGid()))
-                    || (who == Who.GROUP & Subjects.hasGid(subject, ace.getWhoID()))
-                    || (who == Who.USER & Subjects.hasUid(subject, ace.getWhoID()))) {
-
-                if (ace.getType() == AceType.ACCESS_DENIED_ACE_TYPE) {
-                    return Access.DENY;
-                } else {
-                    return Access.ALLOW;
-                }
-            }
-        }
-
-        return Access.UNDEFINED;
-    }
-
     @Override
     public NfsIdMapping getIdMapper() {
         return idMap;
+    }
+
+
+    private interface IoAction {
+        public void execute() throws IOException;
+    }
+
+    private interface IoSupplier<T> {
+        public T execute() throws IOException;
+    }
+
+    private <T> T parallel(IoSupplier<T> supplier, IoAction... actions) throws IOException {
+        List<IOException> exceptions = new ArrayList<>();
+        List<T> result = new ArrayList<>(1);
+        CountDownLatch latch = new CountDownLatch(actions.length + 1);
+        executor.execute(() -> {
+            try {
+                result.add(supplier.execute());
+            } catch (IOException e) {
+                exceptions.add(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+        for (IoAction action : actions) {
+            executor.execute(() -> {
+                try {
+                    action.execute();
+                } catch (IOException e) {
+                    exceptions.add(e);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            LOG.error("Interrupted while awaiting completion of parallel IO", e);
+            throw new IOException(e);
+        }
+        if (exceptions.size() != 0) {
+            throw exceptions.get(0);
+        }
+
+        return result.get(0);
     }
 }

@@ -63,7 +63,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
             CacheBuilder.newBuilder()
                     .expireAfterWrite(10, TimeUnit.MINUTES)
                     .softValues()
-                    .maximumSize(512)
+                    .maximumSize(10000)
                     .recordStats()
                     .build();
 

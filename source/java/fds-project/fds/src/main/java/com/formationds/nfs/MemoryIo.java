@@ -41,6 +41,11 @@ public class MemoryIo implements Io {
     }
 
     @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        metadataCache.put(blobName, map);
+    }
+
+    @Override
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         Map<String, String> metadata = metadataCache.get(blobName);
         if (metadata == null) {
