@@ -110,7 +110,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
                                                           this,
                                                           volTbl,
-                                                          std::bind(&ObjectStorMgr::startResyncRequest, this),
+                                                          std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                    std::placeholders::_1),
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
@@ -139,13 +140,16 @@ void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
-void ObjectStorMgr::startResyncRequest() {
+void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync) {
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
         const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-        objStorMgr->migrationMgr->startResync(curDlt,
-                                              getUuid(),
-                                              curDlt->getNumBitsForToken(),
-                                              std::bind(&ObjectStorMgr::startResyncRequest, this));
+        if (startResync) {
+            objStorMgr->migrationMgr->startResync(curDlt,
+                                                  getUuid(),
+                                                  curDlt->getNumBitsForToken(),
+                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                            std::placeholders::_1));
+        }
     }
 }
 
@@ -435,7 +439,8 @@ Error ObjectStorMgr::handleDltUpdate() {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         getUuid(),
                                                         curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::startResyncRequest, this));
+                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                  std::placeholders::_1));
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->notifyDltUpdate(curDlt,

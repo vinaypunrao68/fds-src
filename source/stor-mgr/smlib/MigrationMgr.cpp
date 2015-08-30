@@ -288,11 +288,11 @@ Error
 MigrationMgr::startResync(const fds::DLT *dlt,
                           const NodeUuid& mySvcUuid,
                           fds_uint32_t bitsPerDltToken,
-                          PendingResyncCb pendingResyncFn)
+                          ResyncDoneOrPendingCb doneOrPendingResyncFn)
 {
     LOGNORMAL << "Starting resync for dlt version " << dlt->getVersion();
-    if (pendingResyncFn) {
-        cachedPendingResyncCb = pendingResyncFn;
+    if (doneOrPendingResyncFn) {
+        cachedResyncDoneOrPendingCb = doneOrPendingResyncFn;
     }
 
     if (!isMigrationIdle()) {
@@ -935,8 +935,6 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
-                LOGNOTIFY << "SM Resync process done!";
-                checkAndStartPendingResync();
             } else {
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.cond_write_unlock();
@@ -946,11 +944,11 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 }
 
 void
-MigrationMgr::checkAndStartPendingResync() {
+MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
     bool resync = false;
     resync = std::atomic_exchange(&isResyncPending, resync);
-    if (resync) {
-        cachedPendingResyncCb();
+    if (resync || resyncOnRestart) {
+        cachedResyncDoneOrPendingCb(resync);
     }
 }
 
@@ -1191,7 +1189,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
      * resync request is pending. If that's so, ask Object Store Manager
      * to start a fresh resync.
      */
-    checkAndStartPendingResync();
+    reportMigrationCompleted(false);
 
     return err;
 }
@@ -1321,8 +1319,9 @@ MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
             mTimer.cancel(retryTokenMigrationTask);
         }
 
-        LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
-                  << targetDltVersion;
+        LOGNOTIFY << "SM Resync process done! (Token resync on restart / or being resync client"
+                  << " completed for DLT version " << targetDltVersion << ")";
+        reportMigrationCompleted(true);
     }
 }
 
@@ -1333,7 +1332,7 @@ MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
 void
 MigrationMgr::timeoutAbortMigration()
 {
-    LOGNOTIFY << "Will abort tokenmigration due to timeout";
+    LOGNOTIFY << "Will abort token migration due to timeout";
     abortMigration(ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
