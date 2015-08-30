@@ -5,6 +5,7 @@ import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
@@ -17,7 +18,7 @@ public interface AsyncAm {
 
     CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException;
 
-    CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder order, boolean descending);
+    CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, BlobListOrder order, boolean descending);
 
     CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName);
 

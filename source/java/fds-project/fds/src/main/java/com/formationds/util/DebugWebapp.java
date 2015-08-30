@@ -2,6 +2,7 @@ package com.formationds.util;
 
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.XdiConfigurationApi;
@@ -29,7 +30,7 @@ public class DebugWebapp {
         @Override
         public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
             String volumeName = routeParameters.get("volume");
-            List<BlobDescriptor> bds = asyncAm.volumeContents("", volumeName, 100, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+            List<BlobDescriptor> bds = asyncAm.volumeContents("", volumeName, 100, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
             JSONArray array = new JSONArray();
             for (BlobDescriptor bd : bds) {
                 JSONObject o = new JSONObject();

@@ -1279,13 +1279,16 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
               amReq->proc_cb(ERR_OK); \
               return;);
 
+    auto volReq = static_cast<VolumeContentsReq*>(amReq);
     auto message = boost::make_shared<fpi::GetBucketMsg>();
     message->volume_id = amReq->io_vol_id.get();
-    message->startPos  = static_cast<VolumeContentsReq *>(amReq)->offset;
-    message->count   = static_cast<VolumeContentsReq *>(amReq)->count;
-    message->pattern = static_cast<VolumeContentsReq *>(amReq)->pattern;
-    message->orderBy = static_cast<VolumeContentsReq *>(amReq)->orderBy;
-    message->descending = static_cast<VolumeContentsReq *>(amReq)->descending;
+    message->startPos  = volReq->offset;
+    message->count   = volReq->count;
+    message->pattern = volReq->pattern;
+    message->patternSemantics = volReq->patternSemantics;
+    message->delimiter = volReq->delimiter;
+    message->orderBy = volReq->orderBy;
+    message->descending = volReq->descending;
 
     amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::volumeContentsCb, amReq));

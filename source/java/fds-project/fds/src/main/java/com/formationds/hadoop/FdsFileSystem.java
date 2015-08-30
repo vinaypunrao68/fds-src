@@ -3,10 +3,7 @@ package com.formationds.hadoop;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.*;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.commons.util.SupplierWithExceptions;
@@ -290,7 +287,7 @@ public class FdsFileSystem extends FileSystem {
         }
 
         try {
-            return asyncAm.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, BlobListOrder.LEXICOGRAPHIC, descending).get();
+            return asyncAm.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, PatternSemantics.PCRE, BlobListOrder.LEXICOGRAPHIC, descending).get();
         } catch (Exception e) {
             throw new IOException(e);
         }
