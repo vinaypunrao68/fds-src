@@ -2,10 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.*;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.BlobWithMetadata;
 import org.apache.log4j.Logger;
@@ -173,7 +170,7 @@ public class DirectAmIo implements Io {
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
         try {
             long then = System.currentTimeMillis();
-            List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, BlobListOrder.UNSPECIFIED, false).get());
+            List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false).get());
             long elapsed = System.currentTimeMillis() - then;
             LOG.debug("AM.volumeContents() returned " + blobDescriptors.size() + " entries in " + elapsed + " ms");
             List<T> result = new ArrayList<>(blobDescriptors.size());
