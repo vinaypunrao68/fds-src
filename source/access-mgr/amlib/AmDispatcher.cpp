@@ -365,17 +365,17 @@ AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
     volMDMsg->mode = volReq->mode;
 
     /** What to do with the response */
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchOpenVolumeCb, amReq));
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::openVolumeCb, amReq));
     auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb);
     setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
 
 void
-AmDispatcher::dispatchOpenVolumeCb(AmRequest* amReq,
-                                   MultiPrimarySvcRequest* svcReq,
-                                   const Error& error,
-                                   boost::shared_ptr<std::string> payload) const {
+AmDispatcher::openVolumeCb(AmRequest* amReq,
+                           MultiPrimarySvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload) const {
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
     dmtMgr->releaseVersion(volReq->dmt_version);
     auto e = error;
@@ -383,7 +383,7 @@ AmDispatcher::dispatchOpenVolumeCb(AmRequest* amReq,
     if (e.ok()) {
         // Set the token and volume sequence returned by the DM
         volReq->token = (msg ? msg->token : invalid_vol_token);
-        volReq->vol_sequence = msg->sequence_id;
+        dispatchTable.registerVolumeSequence(amReq->io_vol_id, msg->sequence_id);
     }
     amReq->proc_cb(e);
 }
@@ -718,7 +718,6 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     updCatMsg->txId         = blobReq->tx_desc->getValue();
     updCatMsg->blob_mode    = blobReq->blob_mode;
     updCatMsg->dmt_version  = blobReq->dmt_version;
-    updCatMsg->sequence_id  = blobReq->vol_sequence;
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -741,6 +740,11 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
     }
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
+
+    PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
+
+    auto volumeLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id,
+                                                             updCatMsg->sequence_id);
     // Always use the current DMT version since we're updating in a single request
     auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                                        blobReq->dmt_version,
@@ -748,10 +752,8 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
                                                        respCb,
                                                        message_timeout_io);
 
-    PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
     setSerialization(amReq, asyncUpdateCatReq);
     asyncUpdateCatReq->invoke();
-
     LOGDEBUG << asyncUpdateCatReq->logString() << logString(*updCatMsg);
 }
 
@@ -1114,9 +1116,11 @@ AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
     message->source_tx_id = blobReq->tx_desc->getValue();
     message->destination_tx_id = blobReq->dest_tx_desc->getValue();
     message->dmt_version  = blobReq->dmt_version;
-    message->sequence_id  = blobReq->vol_sequence;
 
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, amReq));
+
+    auto volumeLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id,
+                                                             message->sequence_id);
     auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                               blobReq->dmt_version,
                                               message,
@@ -1124,6 +1128,7 @@ AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
     asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
                                         this, amReq, std::placeholders::_1,
                                         std::placeholders::_2));
+    setSerialization(amReq, asyncReq);
     asyncReq->invoke();
 }
 
@@ -1229,10 +1234,12 @@ AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
     commitBlobTxMsg->volume_id    = amReq->io_vol_id.get();
     commitBlobTxMsg->txId         = blobReq->tx_desc->getValue();
     commitBlobTxMsg->dmt_version  = blobReq->dmt_version;
-    commitBlobTxMsg->sequence_id  = blobReq->vol_sequence;
 
     // Create callback
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, amReq));
+
+    auto volumeLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id,
+                                                             commitBlobTxMsg->sequence_id);
     auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                                           blobReq->dmt_version,
                                                           commitBlobTxMsg,
