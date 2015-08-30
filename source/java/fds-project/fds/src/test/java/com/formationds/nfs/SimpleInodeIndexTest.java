@@ -2,7 +2,6 @@ package com.formationds.nfs;
 
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.security.auth.Subject;
@@ -18,7 +17,6 @@ public class SimpleInodeIndexTest {
     public static final String JOHN = "john";
 
     @Test
-    @Ignore
     public void testIndex() throws Exception {
         ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE);
         Io io = new MemoryIo();

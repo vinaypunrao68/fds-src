@@ -62,6 +62,20 @@ public class DirectAmIo implements Io {
         });
     }
 
+    @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        try {
+            unwindExceptions(() -> {
+                asyncAm.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), map).get();
+                return null;
+            });
+        } catch (Exception e) {
+            LOG.error("AM.updateMetadata() failed, volume=" + volume + ", blobName=" + blobName, e);
+            throw new IOException(e);
+        }
+
+    }
+
     // Objects will be either non-existent or have 'objectSize' bytes
     @Override
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
@@ -158,7 +172,10 @@ public class DirectAmIo implements Io {
     @Override
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
         try {
+            long then = System.currentTimeMillis();
             List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, BlobListOrder.UNSPECIFIED, false).get());
+            long elapsed = System.currentTimeMillis() - then;
+            LOG.debug("AM.volumeContents() returned " + blobDescriptors.size() + " entries in " + elapsed + " ms");
             List<T> result = new ArrayList<>(blobDescriptors.size());
             for (BlobDescriptor bd : blobDescriptors) {
                 result.add(mapper.map(Optional.of(bd.getMetadata())));

@@ -18,13 +18,12 @@ public class IoCache implements Io {
     private Cache<MetadataCacheKey, Object> metadataCacheLocks;
     private Cache<ObjectCacheKey, Object> objectCacheLocks;
 
-
     public IoCache(Io io) {
         this.io = io;
-        metadataCache = CacheBuilder.newBuilder().maximumSize(10000).build();
-        objectCache = CacheBuilder.newBuilder().maximumSize(200).build();
-        objectCacheLocks = CacheBuilder.newBuilder().maximumSize(10000).build();
-        metadataCacheLocks = CacheBuilder.newBuilder().maximumSize(10000).build();
+        metadataCache = CacheBuilder.newBuilder().maximumSize(20000).build();
+        objectCache = CacheBuilder.newBuilder().maximumSize(500).build();
+        objectCacheLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
+        metadataCacheLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
     }
 
     @Override
@@ -66,6 +65,12 @@ public class IoCache implements Io {
     }
 
     @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        metadataCache.put(new MetadataCacheKey(domain, volume, blobName), Optional.of(map));
+        io.setMetadataOnEmptyBlob(domain, volume, blobName, map);
+    }
+
+    @Override
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         ObjectCacheKey key = new ObjectCacheKey(domain, volume, blobName, objectOffset);
 
@@ -93,26 +98,30 @@ public class IoCache implements Io {
         ObjectView[] objectView = new ObjectView[1];
 
         synchronized (objectLock(objectKey)) {
+            ByteBuffer[] buf = new ByteBuffer[]{objectCache.getIfPresent(objectKey)};
+            if (buf[0] == null) {
+                buf[0] = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
+                        oov -> {
+                            if (oov.isPresent()) {
+                                return oov.get().getBuf().slice();
+                            } else {
+                                return ByteBuffer.allocate(objectSize);
+                            }
+                        });
+                objectCache.put(objectKey, buf[0]);
+            }
+
             mapMetadata(domain, volume, blobName, om -> {
                 if (!om.isPresent()) {
                     Map<String, String> metadata = new HashMap<>();
-                    ByteBuffer buf = ByteBuffer.allocate(objectSize);
-                    mutator.mutate(new ObjectView(metadata, buf.duplicate()));
+                    mutator.mutate(new ObjectView(metadata, buf[0].duplicate()));
                     metadataCache.put(metaKey, Optional.of(metadata));
-                    objectCache.put(objectKey, buf);
-                    objectView[0] = new ObjectView(new HashMap<>(metadata), buf.duplicate());
+                    objectView[0] = new ObjectView(new HashMap<>(metadata), buf[0].duplicate());
                 } else {
-                    ByteBuffer buf = objectCache.getIfPresent(objectKey);
-                    if (buf == null) {
-                        buf = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
-                                oov -> oov.get().getBuf().slice());
-                        objectCache.put(objectKey, buf);
-                    }
-
-                    ObjectView ov = new ObjectView(om.get(), buf.duplicate());
+                    ObjectView ov = new ObjectView(om.get(), buf[0].duplicate());
                     mutator.mutate(ov);
                     metadataCache.put(metaKey, Optional.of(ov.getMetadata()));
-                    objectView[0] = new ObjectView(new HashMap<String, String>(om.get()), buf.duplicate());
+                    objectView[0] = new ObjectView(new HashMap<String, String>(om.get()), buf[0].duplicate());
                 }
                 return null;
             });

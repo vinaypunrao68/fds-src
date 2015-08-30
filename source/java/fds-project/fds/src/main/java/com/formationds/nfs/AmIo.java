@@ -26,6 +26,11 @@ public class AmIo implements Io {
     }
 
     @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        io.setMetadataOnEmptyBlob(domain, volume, blobName, map);
+    }
+
+    @Override
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         return io.mapObject(domain, volume, blobName, objectSize, objectOffset, objectMapper);
     }
