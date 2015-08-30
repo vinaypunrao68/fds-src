@@ -3,6 +3,7 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
 import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
@@ -123,7 +124,7 @@ public class RealAsyncAm implements AsyncAm {
     @Override
     public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder order, boolean descending) {
         return scheduleAsync(rid -> {
-            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, pattern, order, descending);
+            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, pattern, PatternSemantics.PCRE, order, descending, "/");
         });
     }
 

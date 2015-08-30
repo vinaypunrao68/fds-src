@@ -14,12 +14,6 @@ namespace java com.formationds.protocol.dm
    Operations on Volumes
    ------------------------------------------------------------*/
 
-enum PatternSemantics {
-    PCRE,
-    PREFIX,
-    PREFIX_AND_DELIMITER
-}
-
 /**
  * Lists specific contents of a volume. A specific offset into
  * the current list of blobs in the volumes and number of blobs
@@ -38,7 +32,7 @@ struct GetBucketMsg {
   4: string                    pattern = "";
   5: common.BlobListOrder      orderBy = 0;
   6: bool                      descending = false;
-  7: PatternSemantics          patternSemantics = PatternSemantics.PCRE;
+  7: common.PatternSemantics   patternSemantics = common.PatternSemantics.PCRE;
   8: string                    delimiter = "/";
 }
 
