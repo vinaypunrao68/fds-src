@@ -182,29 +182,29 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
     # Based on the script defined in the scenario, take appropriate
     # action which typically includes executing one or more test cases.
     if re.match('\[domain\]', script) is not None:
-        if install_done:
-            log.info("FDS is already installed and up hence skippping scenario "+scenario.nd_conf_dict['scenario-name'])
+        # What action should be taken against the domain? If not stated, assume "install-boot-activate".
+        if "action" in scenario.nd_conf_dict:
+            action = scenario.nd_conf_dict['action']
         else:
-            # What action should be taken against the domain? If not stated, assume "install-boot-activate".
-            if "action" in scenario.nd_conf_dict:
-                action = scenario.nd_conf_dict['action']
-            else:
-                action = "install-boot-activate"
+            action = "install-boot-activate"
 
-            if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
-                   (action.count("graceful_restart") > 0):
+        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
+                (action.count("graceful_restart") > 0):
+            if install_done:
+                log.info("FDS is already installed, hence skippping scenario "+scenario.nd_conf_dict['scenario-name'])
+            else:
                 # Start this domain as indicated by the action.
                 domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
                 suite.addTest(domainBootSuite)
-            elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
-                    (action.count("uninst") > 0):
-                # Shutdown the domain as indicated by the action.
-                domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
-                suite.addTest(domainShutdownSuite)
-            else:
-                log.error("Unrecognized domain action '%s' for scenario %s" %
-                          (action, scenario.nd_conf_dict['scenario-name']))
-                raise Exception
+        elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
+                (action.count("uninst") > 0):
+            # Shutdown the domain as indicated by the action.
+            domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
+            suite.addTest(domainShutdownSuite)
+        else:
+            log.error("Unrecognized domain action '%s' for scenario %s" %
+                      (action, scenario.nd_conf_dict['scenario-name']))
+            raise Exception
 
     elif re.match('\[node.+\]', script) is not None:
         # Support for random node bringup/shutdown
