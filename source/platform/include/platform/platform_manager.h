@@ -121,7 +121,9 @@ namespace fds
                                                                                    // node UUID used in other places.  This persists across cleans, reboots, etc.
 
                 std::map <std::string, std::string> m_diskUuidToDeviceMap;
-
+                std::vector <std::string>           m_javaOptions;                 // List of options to use with java child processes
+                std::string                         m_javaXdiMainClassName;
+                std::string                         m_javaXdiJavaCmd;              // path to java command
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
@@ -133,6 +135,7 @@ namespace fds
                 bool procCheck (std::string procName, pid_t pid);
                 bool loadDiskUuidToDeviceMap();
                 void verifyAndMountFDSFileSystems();
+                void loadEnvironmentVariables();
         };
     }  // namespace pm
 }  // namespace fds

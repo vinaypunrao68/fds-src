@@ -277,7 +277,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                                        this, hdr, dlt,
                                        std::placeholders::_1),
                                    dlt->dlt_data.dlt_type);
-    if (err.ok() || (err == ERR_DLT_IO_PENDING)) {
+    if (err.ok() || (err == ERR_IO_PENDING)) {
         // added DLT
         dltMgr->dump();
     } else if (err == ERR_DUPLICATE) {
@@ -289,7 +289,7 @@ DMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // send response right away on error or if there is no IO pending for
     // the previous DLT
-    if (err != ERR_DLT_IO_PENDING) {
+    if (err != ERR_IO_PENDING) {
         NotifyDLTUpdateCb(hdr, dlt, err);
     }
     // else we will get a callback from DLT manager when there are no more
@@ -354,7 +354,7 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
     LOGNOTIFY << "DMSvcHandler received new DMT commit version  "
               << dmt->dmt_version;
-    err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data);
+    err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt->dmt_data.dmt_type, dmt->dmt_data.dmt_data, nullptr);
     if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DMT (version " << dmt->dmt_version
                 << "), ignoring...";
@@ -397,9 +397,6 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     if (!err.ok()) {
         LOGERROR << "DMT Close, volume meta may not be synced properly";
-        // ignore not ready errors
-        if (err == ERR_CATSYNC_NOT_PROGRESS)
-            err = ERR_OK;
         hdr->msg_code = err.GetErrno();
         sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);
     }
@@ -411,8 +408,12 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 {
     LOGNOTIFY << "DMT close callback: DMTversion=" << dmtClose->dmt_close.DMT_version;
 
-    // When DMT is closed, then delete unowned volumes.
-    dataManager_.deleteUnownedVolumes();
+    // When DMT is closed, then delete unowned volumes iff DM Migration is active
+    if (dataManager_.dmMigrationMgr->isMigrationEnabled()) {
+    	dataManager_.deleteUnownedVolumes();
+    } else {
+    	LOGNOTIFY << "DM Migration feature is disabled. Skipping removing unowned volumes.";
+    }
 
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);

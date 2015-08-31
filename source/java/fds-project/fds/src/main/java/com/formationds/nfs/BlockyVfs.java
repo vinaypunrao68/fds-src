@@ -15,8 +15,12 @@ import org.dcache.nfs.vfs.*;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BlockyVfs implements VirtualFileSystem {
     public static final String DOMAIN = "nfs";
@@ -26,28 +30,18 @@ public class BlockyVfs implements VirtualFileSystem {
     private InodeIndex inodeIndex;
     private ExportResolver exportResolver;
     private SimpleIdMap idMap;
+    private ExecutorService executor;
     private Chunker chunker;
-    private WriteLocks writeLocks;
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver) {
-        inodeMap = new InodeMap(asyncAm, resolver);
-        allocator = new InodeAllocator(asyncAm, resolver);
+        AmIo amIo = new AmIo(asyncAm);
+        inodeMap = new InodeMap(amIo, resolver);
+        allocator = new InodeAllocator(amIo);
         this.exportResolver = resolver;
-        inodeIndex = new SimpleInodeIndex(asyncAm, resolver);
+        inodeIndex = new SimpleInodeIndex(amIo, resolver);
         idMap = new SimpleIdMap();
-        writeLocks = new WriteLocks();
-        chunker = new Chunker(new ChunkyAm(asyncAm));
-    }
-
-    public BlockyVfs(InodeMap inodeMap,
-                     InodeIndex inodeIndex,
-                     InodeAllocator allocator,
-                     ExportResolver exportResolver) {
-        this.inodeMap = inodeMap;
-        this.inodeIndex = inodeIndex;
-        this.allocator = allocator;
-        this.exportResolver = exportResolver;
-        this.idMap = new SimpleIdMap();
+        chunker = new Chunker(amIo);
+        executor = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -79,17 +73,12 @@ public class BlockyVfs implements VirtualFileSystem {
         InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.allocate(volume), inodeMap.volumeId(parent))
                 .withLink(inodeMap.fileId(parent), name);
 
-        Inode inode = inodeMap.create(metadata);
-        InodeMetadata updatedParent = parentMetadata.get()
-                .withUpdatedAtime()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration();
-        inodeMap.update(updatedParent);
-        inodeIndex.index(metadata, updatedParent);
-        return inode;
+        InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
+        return parallel(
+                () -> inodeMap.create(metadata, parent.exportIndex()),
+                () -> inodeMap.update(parent.exportIndex(), updatedParent),
+                () -> inodeIndex.index(parent.exportIndex(), metadata, updatedParent));
     }
-
 
     @Override
     public FsStat getFsStat() throws IOException {
@@ -109,29 +98,27 @@ public class BlockyVfs implements VirtualFileSystem {
                 throw new NoEntException();
             }
 
-            long fileId = exportResolver.exportId(volumeName);
-            int exportId = (int) fileId;
+            int exportId = (int) exportResolver.exportId(volumeName);
             Subject unixRootUser = new Subject(
                     true,
                     Sets.newHashSet(new UidPrincipal(0), new GidPrincipal(0, true)),
                     Sets.newHashSet(),
                     Sets.newHashSet());
 
-            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, fileId, exportId)
+            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, InodeAllocator.START_VALUE, exportId)
                     .withUpdatedAtime()
                     .withUpdatedCtime()
                     .withUpdatedMtime()
-                    .withLink(InodeMetadata.fileId(parent), path)
-                    .withLink(fileId, ".");
+                    .withLink(InodeAllocator.START_VALUE, ".");
 
-            Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode());
+            Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode(exportId));
             if (!statResult.isPresent()) {
                 LOG.debug("Creating export root for volume " + path);
-                Inode inode = inodeMap.create(inodeMetadata);
-                inodeIndex.index(inodeMetadata);
+                Inode inode = inodeMap.create(inodeMetadata, exportId);
+                inodeIndex.index(exportId, inodeMetadata);
                 return inode;
             } else {
-                return statResult.get().asInode();
+                return statResult.get().asInode(exportId);
             }
         }
 
@@ -140,7 +127,7 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NoEntException();
         }
 
-        return oim.get().asInode();
+        return oim.get().asInode(parent.exportIndex());
     }
 
     @Override
@@ -158,27 +145,28 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NoEntException();
         }
 
-        InodeMetadata updatedParentMetadata = parentMetadata.get()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withUpdatedAtime()
-                .withIncrementedGeneration();
+        InodeMetadata updatedParentMetadata = parentMetadata.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
 
-        inodeMap.update(updatedParentMetadata, updatedLinkMetadata);
-        inodeIndex.index(updatedParentMetadata, updatedLinkMetadata);
+        inodeMap.update(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
+        inodeIndex.index(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
         return link;
     }
 
     @Override
     public List<DirectoryEntry> list(Inode inode) throws IOException {
+        if (InodeMap.isRoot(inode)) {
+            LOG.error("Can't list root inode");
+            throw new IOException("Can't list root inode");
+        }
+
         Optional<InodeMetadata> stat = inodeMap.stat(inode);
         if (!stat.isPresent()) {
             throw new NoEntException();
         }
 
-        return inodeIndex.list(stat.get());
+        return inodeIndex.list(stat.get(), inode.exportIndex());
     }
 
     @Override
@@ -210,25 +198,18 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NotDirException();
         }
 
-        InodeMetadata updatedSource = sourceMetadata.get()
-                .withUpdatedAtime()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration();
+        InodeMetadata updatedSource = sourceMetadata.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = linkMetadata.get()
                 .withoutLink(inodeMap.fileId(source))
                 .withLink(inodeMap.fileId(destination), newName);
 
-        InodeMetadata updatedDestination = destinationMetadata.get()
-                .withUpdatedAtime()
-                .withUpdatedCtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration();
+        InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
 
-        inodeMap.update(updatedSource, updatedLink, updatedDestination);
-        inodeIndex.unlink(source, oldName);
-        inodeIndex.index(updatedSource, updatedLink, updatedDestination);
+        parallel(() -> null,
+                () -> inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination),
+                () -> inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName),
+                () -> inodeIndex.index(source.exportIndex(), updatedSource, updatedLink, updatedDestination));
 
         return true;
     }
@@ -245,7 +226,7 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NoEntException();
         }
 
-        String volumeName = exportResolver.volumeName((int) target.get().getVolumeId());
+        String volumeName = exportResolver.volumeName(inode.exportIndex());
         String blobName = InodeMap.blobName(inode);
         try {
             return chunker.read(DOMAIN, volumeName, blobName, exportResolver.objectSize(volumeName), data, offset, count);
@@ -278,27 +259,23 @@ public class BlockyVfs implements VirtualFileSystem {
             throw new NoEntException();
         }
 
-        InodeMetadata updatedParent = parent.get()
-                .withUpdatedCtime()
-                .withUpdatedAtime()
-                .withUpdatedMtime()
-                .withIncrementedGeneration();
+        InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = link.get()
                 .withoutLink(inodeMap.fileId(parentInode));
 
 
-        inodeIndex.unlink(parentInode, path);
+        inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
         if (updatedLink.refCount() == 0) {
-            inodeMap.remove(updatedLink.asInode());
-            inodeIndex.remove(updatedLink);
+            inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
+            inodeIndex.remove(parentInode.exportIndex(), updatedLink);
         } else {
-            inodeMap.update(updatedLink);
-            inodeIndex.index(updatedLink);
+            inodeMap.update(parentInode.exportIndex(), updatedLink);
+            inodeIndex.index(parentInode.exportIndex(), updatedLink);
         }
 
-        inodeMap.update(updatedParent);
-        inodeIndex.index(updatedParent);
+        inodeMap.update(parentInode.exportIndex(), updatedParent);
+        inodeIndex.index(parentInode.exportIndex(), updatedParent);
     }
 
     @Override
@@ -316,12 +293,8 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        return writeLocks.guard(inode, () -> unguardedWrite(inode, data, offset, count, stabilityLevel));
-    }
-
-    private WriteResult unguardedWrite(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
         InodeMetadata updated = inodeMap.write(inode, data, offset, count);
-        inodeIndex.index(updated);
+        inodeIndex.index(inode.exportIndex(), updated);
         return new WriteResult(stabilityLevel, Math.max(data.length, count));
     }
 
@@ -333,40 +306,55 @@ public class BlockyVfs implements VirtualFileSystem {
     @Override
     public Stat getattr(Inode inode) throws IOException {
         if (inodeMap.isRoot(inode)) {
-            return InodeMap.ROOT_METADATA.asStat();
+            return InodeMap.ROOT_METADATA.asStat(inode.exportIndex());
         }
 
         Optional<InodeMetadata> stat = inodeMap.stat(inode);
         if (!stat.isPresent()) {
             throw new NoEntException();
         }
-        return stat.get().asStat();
+        return stat.get().asStat(inode.exportIndex());
     }
 
     @Override
     public void setattr(Inode inode, Stat stat) throws IOException {
-        writeLocks.guard(inode, () -> {
-            Optional<InodeMetadata> metadata = inodeMap.stat(inode);
-            if (!metadata.isPresent()) {
-                throw new NoEntException();
-            }
+        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
+        if (!metadata.isPresent()) {
+            throw new NoEntException();
+        }
 
-            InodeMetadata updated = metadata.get().update(stat);
+        InodeMetadata updated = metadata.get().update(stat);
 
-            inodeMap.update(updated);
-            inodeIndex.index(updated);
-            return 0;
-        });
+        parallel(() -> null,
+                () -> inodeMap.update(inode.exportIndex(), updated),
+                () -> inodeIndex.index(inode.exportIndex(), updated));
     }
 
     @Override
     public nfsace4[] getAcl(Inode inode) throws IOException {
+//        if (inodeMap.isRoot(inode)) {
+//            return InodeMap.ROOT_METADATA.getNfsAces();
+//        }
+//
+//        Optional<InodeMetadata> stat = inodeMap.stat(inode);
+//        if (!stat.isPresent()) {
+//            throw new NoEntException();
+//        }
+//        return stat.get().getNfsAces();
         return new nfsace4[0];
     }
 
     @Override
     public void setAcl(Inode inode, nfsace4[] acl) throws IOException {
-
+//        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
+//        if (!metadata.isPresent()) {
+//            throw new NoEntException();
+//        }
+//
+//        InodeMetadata updated = metadata.get().withNfsAces(acl);
+//
+//        inodeMap.update(updated);
+//        inodeIndex.index(updated);
     }
 
     @Override
@@ -382,5 +370,51 @@ public class BlockyVfs implements VirtualFileSystem {
     @Override
     public NfsIdMapping getIdMapper() {
         return idMap;
+    }
+
+
+    private interface IoAction {
+        public void execute() throws IOException;
+    }
+
+    private interface IoSupplier<T> {
+        public T execute() throws IOException;
+    }
+
+    private <T> T parallel(IoSupplier<T> supplier, IoAction... actions) throws IOException {
+        List<IOException> exceptions = new ArrayList<>();
+        List<T> result = new ArrayList<>(1);
+        CountDownLatch latch = new CountDownLatch(actions.length + 1);
+        executor.execute(() -> {
+            try {
+                result.add(supplier.execute());
+            } catch (IOException e) {
+                exceptions.add(e);
+            } finally {
+                latch.countDown();
+            }
+        });
+        for (IoAction action : actions) {
+            executor.execute(() -> {
+                try {
+                    action.execute();
+                } catch (IOException e) {
+                    exceptions.add(e);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            LOG.error("Interrupted while awaiting completion of parallel IO", e);
+            throw new IOException(e);
+        }
+        if (exceptions.size() != 0) {
+            throw exceptions.get(0);
+        }
+
+        return result.get(0);
     }
 }

@@ -173,6 +173,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(VolumeTokens , false);
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
+        DEF_FEATURE(Expunge      , true);
     } features;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
@@ -277,6 +278,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_GET_VOLUME_METADATA:
                 case FDS_DM_LIST_BLOBS_BY_PATTERN:
                 case FDS_DM_MIGRATION:
+                case FDS_DM_MIG_TX_STATE:
                 // Other (stats, etc...) handlers
                 case FDS_DM_SYS_STATS:
                 case FDS_DM_STAT_STREAM:
@@ -310,7 +312,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                 case FDS_CAT_UPD_ONCE:
                 case FDS_SET_BLOB_METADATA:
                 case FDS_ABORT_BLOB_TX:
-                case FDS_DM_FWD_CAT_UPD:
                 case FDS_SET_VOLUME_METADATA:
                 case FDS_OPEN_VOLUME:
                 case FDS_CLOSE_VOLUME:
@@ -338,6 +339,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                                          parentDm->handlers.at(io->io_type),
                                          io);
                     }
+                    break;
+                case FDS_DM_FWD_CAT_UPD:
+                    /* Forwarded IO during migration needs to synchronized on blob id */
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&dm::Handler::handleQueueItem,
+                                                                parentDm->handlers.at(io->io_type),
+                                                                io));
                     break;
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";

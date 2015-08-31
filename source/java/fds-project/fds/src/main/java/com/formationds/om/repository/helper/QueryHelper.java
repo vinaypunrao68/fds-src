@@ -13,7 +13,11 @@ import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Context;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.calculated.capacity.*;
+import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
+import com.formationds.commons.model.calculated.capacity.CapacityDeDupRatio;
+import com.formationds.commons.model.calculated.capacity.CapacityFull;
+import com.formationds.commons.model.calculated.capacity.CapacityToFull;
+import com.formationds.commons.model.calculated.capacity.TotalCapacity;
 import com.formationds.commons.model.calculated.performance.AverageIOPs;
 import com.formationds.commons.model.calculated.performance.IOPsConsumed;
 import com.formationds.commons.model.calculated.performance.PercentageConsumed;
@@ -32,7 +36,6 @@ import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
-
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -122,7 +125,8 @@ public class QueryHelper {
 
                 series.addAll(
                     new SeriesHelper().getRollupSeries( queryResults,
-                                                        query,
+                                                        query.getRange(),
+                                                        query.getSeriesType(),
                                                         StatOperation.SUM ) );
                 final IOPsConsumed ioPsConsumed = new IOPsConsumed();
                 ioPsConsumed.setDailyAverage( 0.0 );
@@ -132,7 +136,8 @@ public class QueryHelper {
             	
                 series.addAll(
                     new SeriesHelper().getRollupSeries( queryResults,
-                                                        query,
+                                                        query.getRange(),
+                                                        query.getSeriesType(),
                                                         StatOperation.MAX_X) );
 
                 calculatedList.add( deDupRatio() );
@@ -181,9 +186,10 @@ public class QueryHelper {
             } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
             	
             	series.addAll(
-            		new SeriesHelper().getRollupSeries( queryResults, 
-            										 	query,
-            										 	StatOperation.RATE) );
+            		new SeriesHelper().getRollupSeries( queryResults,
+                                                        query.getRange(),
+                                                        query.getSeriesType(),
+                                                        StatOperation.RATE) );
             	
             	// we could just test the query, but this captures more potential problems retrieving the list
             	try {

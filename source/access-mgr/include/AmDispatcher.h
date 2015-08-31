@@ -4,16 +4,62 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 
+#include <mutex>
 #include <string>
 #include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
+#include "concurrency/RwLock.h"
 
 namespace fds {
 
 /* Forward declaarations */
 class MockSvcHandler;
 struct DLT;
+
+struct VolumeDispatchTable {
+    using entry_type = std::pair<std::mutex, fds_uint64_t>;
+    using key_type = fds_volid_t;
+    using map_type = std::unordered_map<key_type, entry_type>;
+
+    VolumeDispatchTable() = default;
+    VolumeDispatchTable(VolumeDispatchTable const& rhs) = delete;
+    VolumeDispatchTable& operator=(VolumeDispatchTable const& rhs) = delete;
+    ~VolumeDispatchTable() = default;
+
+    /**
+     * Set the sequence id of a request to the next value and return a unique
+     * lock preventing any other request that would update the volume from
+     * being dispatched until this has entered SvcLayer
+     */
+    std::unique_lock<std::mutex> getAndLockVolumeSequence(fds_volid_t const vol_id, int64_t& seq_id) {
+        SCOPEDREAD(table_lock);
+        auto it = lock_table.find(vol_id);
+        fds_assert(lock_table.end() != it);
+        std::unique_lock<std::mutex> g(it->second.first);
+        seq_id = ++it->second.second;
+        return g;
+    }
+
+    /**
+     * Either register a new sequence id for dispatching updates or update an
+     * existing id if newer.
+     */
+    void registerVolumeSequence(fds_volid_t const vol_id, fds_uint64_t const seq_id) {
+        SCOPEDWRITE(table_lock);
+        auto it = lock_table.find(vol_id);
+        if (lock_table.end() != it) {
+            auto& curr_seq_id = it->second.second;
+            curr_seq_id = std::max(curr_seq_id, seq_id);
+        } else {
+            lock_table[vol_id].second = seq_id;
+        }
+    }
+
+ private:
+    map_type lock_table;
+    fds_rwlock table_lock;
+};
 
 /**
  * AM FDSP request dispatcher and reciever. The dispatcher
@@ -44,8 +90,8 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dlt/Dmt updates
      */
-    Error updateDlt(bool dlt_type, std::string& dlt_data, OmDltUpdateRespCbType cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data);
+    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
     /**
      * Uses the OM Client to fetch the DMT and DLT, and update the AM's own versions.
      */
@@ -62,7 +108,7 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches an open volume request to DM.
      */
     void dispatchOpenVolume(AmRequest *amReq);
-    void dispatchOpenVolumeCb(AmRequest* amReq,
+    void openVolumeCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) const;
@@ -218,6 +264,8 @@ struct AmDispatcher : HasModuleProvider
     boost::shared_ptr<DLTManager> dltMgr;
     boost::shared_ptr<DMTManager> dmtMgr;
 
+    mutable VolumeDispatchTable dispatchTable;
+
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
                                                         fds_uint64_t const dmt_ver,
@@ -232,6 +280,7 @@ struct AmDispatcher : HasModuleProvider
                                                         uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
+                                                fds_uint64_t const dmt_ver,
                                                 boost::shared_ptr<Msg> const& payload,
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;
@@ -261,7 +310,6 @@ struct AmDispatcher : HasModuleProvider
      * Callback for get blob responses.
      */
     void getObjectCb(AmRequest* amReq,
-                     fds_uint64_t dltVersion,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);
@@ -313,7 +361,6 @@ struct AmDispatcher : HasModuleProvider
      * Callback for put object responses.
      */
     void putObjectCb(AmRequest* amReq,
-                     fds_uint64_t dltVersion,
                      MultiPrimarySvcRequest* svcReq,
                      const Error& error,
                      boost::shared_ptr<std::string> payload);

@@ -349,9 +349,13 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
 }
 
 void
-SmSuperblockMgr::recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds) {
+SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
+                                            DiskIdSet& hddIds,
+                                            DiskIdSet& ssdIds) {
     SCOPEDWRITE(sbLock);
     checkDiskTopology(hddIds, ssdIds);
+    diskMap.erase(failedDiskId);
+    diskDevMap.erase(failedDiskId);
 }
 
 Error
@@ -606,20 +610,21 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                   << ", added HDDs=" << addedHDDs.size();
         for (auto &removedDiskId : removedHDDs) {
             LOGNOTIFY <<"Disk HDD=" << removedDiskId << " removed";
-            if (g_fdsprocess->
-                    get_fds_config()->
-                        get<bool>("fds.sm.testing.useSsdForMeta")) {
-                SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
-                std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
-                for (auto& lostSmToken : lostSmTokens) {
-                    auto metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
-                                                                 diskio::flashTier);
-                    changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
-                    smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
+            SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
+            std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+            for (auto& lostSmToken : lostSmTokens) {
+                DiskId metaDiskId = removedDiskId;
+                if (g_fdsprocess->
+                        get_fds_config()->
+                            get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
+                                                                diskio::flashTier);
                 }
-                if (diskChangeFn) {
-                    diskChangeFn(diskio::diskTier, smTokenDiskIdPairs);
-                }
+                changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
+                smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
+            }
+            if (diskChangeFn) {
+                diskChangeFn(removedDiskId, diskio::diskTier, smTokenDiskIdPairs);
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentHDDs,
@@ -640,19 +645,20 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                   << ", added SSDs=" << addedSSDs.size();
         for (auto &removedDiskId : removedSSDs) {
             LOGNOTIFY <<"Disk SSD=" << removedDiskId << " removed";
-            if (g_fdsprocess->
-                    get_fds_config()->
-                        get<bool>("fds.sm.testing.useSsdForMeta")) {
-                SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
-                std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
-                for (auto& lostSmToken : lostSmTokens) {
-                    auto diskId = superblockMaster.olt.getDiskId(lostSmToken,
-                                                                 diskio::diskTier);
-                    smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
+            SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
+            std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+            for (auto& lostSmToken : lostSmTokens) {
+                DiskId diskId = removedDiskId;
+                if (g_fdsprocess->
+                        get_fds_config()->
+                            get<bool>("fds.sm.testing.useSsdForMeta")) {
+                    diskId = superblockMaster.olt.getDiskId(lostSmToken,
+                                                            diskio::diskTier);
                 }
-                if (diskChangeFn) {
-                    diskChangeFn(diskio::flashTier, smTokenDiskIdPairs);
-                }
+                smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
+            }
+            if (diskChangeFn) {
+                diskChangeFn(removedDiskId, diskio::flashTier, smTokenDiskIdPairs);
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentSSDs,
@@ -1030,6 +1036,12 @@ fds_bool_t
 SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
                                       diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
+    return compactionInProgressNoLock(smToken, tier);
+}
+
+fds_bool_t
+SmSuperblockMgr::compactionInProgressNoLock(fds_token_id smToken,
+                                            diskio::DataTier tier) {
     return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
 }
 

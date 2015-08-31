@@ -82,15 +82,6 @@ class OM_NodeAgent : public NodeAgent
     }
 
     /**
-     * Send this node agent info as an event to notify the peer node.
-     * TODO(Vy): it would be a cleaner interface to:
-     * - Formalized messages in inheritance tree.
-     * - API to format a message.
-     * - API to send a message.
-     */
-    virtual void om_send_myinfo(NodeAgent::pointer peer);
-
-    /**
      * Call this method when service is successfully deployed in the domain
      * (SM/DM is in DLT/DMT). Sets service state to active.
      */
@@ -246,11 +237,23 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
                             bool stop_sm, bool stop_dm, bool stop_am);
+
+    void send_stop_services_resp(fds_bool_t stop_sm,
+                                 fds_bool_t stop_dm,
+                                 fds_bool_t stop_am,
+                                 EPSvcRequest* req,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
     /**
      * Send 'remove service' message to Platform
      */
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
                               bool remove_sm, bool remove_dm, bool remove_am);
+
+    void send_remove_service_resp(NodeUuid nodeUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload);
     /**
      * Send 'heartbeat check' message to Platform
      */
@@ -631,10 +634,10 @@ class OM_NodeContainer : public DomainContainer
 
     /**
      * conditional broadcast to platform (nodes) to
-     * activate SM, DM, and AM services on those nodes, but only
+     * start SM, DM, and AM services on those nodes, but only
      * to those nodes which are in discovered state
      */
-    virtual void om_cond_bcast_activate_services(fds_bool_t activate_sm,
+    virtual void om_cond_bcast_start_services(fds_bool_t activate_sm,
                                                  fds_bool_t activate_dm,
                                                  fds_bool_t activate_am); // Activate these specific Services on each Node.
     virtual Error om_activate_node_services(const NodeUuid& node_uuid,
@@ -663,10 +666,10 @@ class OM_NodeContainer : public DomainContainer
                                                fds_bool_t activate_dm,
                                                fds_bool_t activate_am); // Remove the Services defined for each Node.
 
-    // broadcast "deactivate services" message to all PMs in the domain
-    virtual fds_uint32_t om_cond_bcast_deactivate_services(fds_bool_t deactivate_sm,
-                                                           fds_bool_t deactivate_dm,
-                                                           fds_bool_t deactivate_am);
+    // broadcast "stop service" message to all PMs in the domain
+    virtual fds_uint32_t om_cond_bcast_stop_services(fds_bool_t stop_sm,
+                                                     fds_bool_t stop_dm,
+                                                     fds_bool_t stop_am);
 
     virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
                                       const DMTPtr& curDmt);
@@ -694,8 +697,6 @@ class OM_NodeContainer : public DomainContainer
     friend class OM_NodeDomainMod;
 
     virtual void om_update_capacity(OM_PmAgent::pointer pm_agent, fds_bool_t b_add);
-    virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
-    virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;

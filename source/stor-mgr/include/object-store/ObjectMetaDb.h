@@ -64,6 +64,8 @@ class ObjectMetadataDb {
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
 
+    Error closeAndDeleteMetadataDb(const fds_token_id& smToken);
+
     /**
      * Destroy levelDBs of sm Tokens if the object DBs were not present.
      */

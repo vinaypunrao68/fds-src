@@ -13,7 +13,7 @@ namespace fds
 {
 
 struct PutBlobReq
-    :   public AmRequest,
+    :   public AmMultiReq,
         public AmTxReq
 {
     // Calculated object id
@@ -25,13 +25,6 @@ struct PutBlobReq
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
     fds_int32_t blob_mode;
-    /** Maintains order of blob updates */
-    fds_uint64_t vol_sequence {0};
-
-    /* ack cnt for responses, decremented when response from SM and DM come back */
-    std::atomic<int> resp_acks;
-    /* Return status for completion callback */
-    Error ret_status;
 
     /* Final metadata view after catalog update */
     fpi::FDSP_MetaDataList final_meta_data;
@@ -67,14 +60,6 @@ struct PutBlobReq
     }
 
     ~PutBlobReq() override = default;
-
-    void notifyResponse(const Error &e) {
-        fds_verify(resp_acks > 0);
-        if (0 == --resp_acks) {
-            // Call back to processing layer
-            proc_cb(e);
-        }
-    }
 };
 
 PutBlobReq::PutBlobReq(fds_volid_t _volid,
@@ -84,11 +69,9 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        fds_uint64_t _data_len,
                        boost::shared_ptr<std::string> _data,
                        BlobTxId::ptr _txDesc,
-                       CallbackPtr _cb) :
-AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
+                       CallbackPtr _cb)
+    : AmMultiReq(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     AmTxReq(_txDesc),
-    resp_acks(2),
-    ret_status(ERR_OK),
     final_meta_data(),
     final_blob_size(0ULL),
     dataPtr(_data)
@@ -97,6 +80,7 @@ AmRequest(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_l
     hash_perf_ctx.type = PerfEventType::AM_PUT_HASH;
     dm_perf_ctx.type = PerfEventType::AM_PUT_DM;
     sm_perf_ctx.type = PerfEventType::AM_PUT_SM;
+    setResponseCount(2);
 
     e2e_req_perf_ctx.type = PerfEventType::AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
@@ -110,12 +94,10 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                        boost::shared_ptr<std::string> _data,
                        fds_int32_t          _blobMode,
                        boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
-                       CallbackPtr _cb) :
-    AmRequest(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
+                       CallbackPtr _cb)
+    : AmMultiReq(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     blob_mode(_blobMode),
     metadata(_metadata),
-    resp_acks(2),
-    ret_status(ERR_OK),
     final_meta_data(),
     final_blob_size(0ULL),
     dataPtr(_data)
@@ -124,6 +106,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     hash_perf_ctx.type = PerfEventType::AM_PUT_HASH;
     dm_perf_ctx.type = PerfEventType::AM_PUT_DM;
     sm_perf_ctx.type = PerfEventType::AM_PUT_SM;
+    setResponseCount(2);
 
     e2e_req_perf_ctx.type = PerfEventType::AM_PUT_OBJ_REQ;
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);

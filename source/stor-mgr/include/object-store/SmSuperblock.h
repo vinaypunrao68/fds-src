@@ -18,13 +18,13 @@
 
 namespace fds {
 
-typedef std::set<fds_uint16_t> DiskIdSet;
 typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 
 typedef uint32_t fds_checksum32_t;
 
-typedef std::function<void (const diskio::DataTier&,
+typedef std::function<void (const DiskId& removedDiskId,
+                            const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
 
@@ -284,7 +284,9 @@ class SmSuperblockMgr {
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
 
-    void recomputeTokensForLostDisk(DiskIdSet& hddIds, DiskIdSet& ssdIds);
+    void recomputeTokensForLostDisk(const DiskId& diskId,
+                                    DiskIdSet& hddIds,
+                                    DiskIdSet& ssdIds);
 
     /**
      * Reconcile superblocks, if there is inconsistency.
@@ -330,6 +332,8 @@ class SmSuperblockMgr {
                                 diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);
+    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+                                          diskio::DataTier tier);
     Error changeCompactionState(fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,

@@ -55,6 +55,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     Error closeAndDeleteMetadataDbs(const SmTokenSet& smTokensLost);
 
+    Error closeAndDeleteMetadataDb(const fds_token_id& smTokenLost);
+
     /**
      * Delete metadata DBs of given SM tokens
      */
@@ -113,7 +115,27 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    inline bool isUp() const {
+        return (currentState.load() == METADATA_STORE_INITED);
+    }
+
+    inline bool isUnavailable() const {
+        return (currentState.load() == METADATA_STORE_UNAVAILABLE);
+    }
+
+    inline bool isInitializing() const {
+        return (currentState.load() == METADATA_STORE_INITING);
+    }
+
   private:
+    enum ObjectMetadataStoreState {
+        METADATA_STORE_INITING,
+        METADATA_STORE_INITED,
+        METADATA_STORE_UNAVAILABLE
+    };
+
+    std::atomic<ObjectMetadataStoreState> currentState;
+
     /**
      * Object metadata index db
      */

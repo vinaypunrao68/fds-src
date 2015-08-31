@@ -9,10 +9,7 @@ import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeStatus;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
@@ -118,7 +115,7 @@ public class Xdi {
 
     public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
         attemptVolumeAccess(token, volumeName, Intent.read);
-        return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, orderBy, descending);
+        return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, PatternSemantics.PCRE, orderBy, descending);
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

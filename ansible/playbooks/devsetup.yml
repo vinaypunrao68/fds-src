@@ -219,14 +219,15 @@
         - fstab
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
+        - python-iptables
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.9"
-        - "fdsutil==0.2.4"
+        - "fdscli==0.1.10"
+        - "fdsutil==0.3.2"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

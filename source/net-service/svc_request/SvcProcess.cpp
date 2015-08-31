@@ -184,6 +184,9 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.incarnationNo = util::getTimeStampSeconds();
     svcInfo_.name = svcName_;
 
+    // With this method of building the FdsProcess, no signal handler thread is started.
+    FdsProcess::sig_tid_ready = true;
+
     fds_assert(svcInfo_.svc_id.svc_uuid.svc_uuid != 0);
     fds_assert(svcInfo_.svc_port != 0);
 

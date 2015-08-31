@@ -871,45 +871,17 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
 }
 
 /**
- * For all volumes that are in forwarding state, move them to
- * finish forwarding state.
+ * For all the volumes under going Active Migration forwarding,
+ * turn them off.
  */
 Error DataMgr::notifyDMTClose() {
     Error err(ERR_OK);
-    DmIoPushMetaDone* pushMetaDoneIo = NULL;
-
-    if (features.isCatSyncEnabled()) {
-        if (!catSyncMgr->isSyncInProgress()) {
-            err = ERR_CATSYNC_NOT_PROGRESS;
-            return err;
-        }
-        // set DMT close time in catalog sync mgr
-        // TODO(Andrew): We're doing this later in the process,
-        // so can remove this when that works for sure.
-        // catSyncMgr->setDmtCloseNow();
-    } else {
-        LOGWARN << "catalog sync feature - NOT enabled";
-    }
-
-    // set every volume's state to 'finish forwarding
-    // and enqueue DMT close marker to qos queues of volumes
-    // that are in 'finish forwarding' state
-    vol_map_mtx->lock();
-    for (auto vol_it = vol_meta_map.begin();
-         vol_it != vol_meta_map.end();
-         ++vol_it) {
-        VolumeMeta *vol_meta = vol_it->second;
-        vol_meta->finishForwarding();
-        pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
-        handleDMTClose(pushMetaDoneIo);
-    }
-    vol_map_mtx->unlock();
 
     // TODO(Andrew): Um, no where to we have a useful error statue
     // to even return.
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
-
+    dmMigrationMgr->stopAllClientForwarding();
     return err;
 }
 
@@ -1014,6 +986,9 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.volume_open_support", false));
 
+    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.dm.enable_expunge", true));
+
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
@@ -1064,7 +1039,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
-    handlers[FDS_DM_MIG_FINISH_VOL_RESYNC] = new dm::DmMigrationFinishVolResyncHandler(*this);
+    handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
 }
 
 DataMgr::~DataMgr()

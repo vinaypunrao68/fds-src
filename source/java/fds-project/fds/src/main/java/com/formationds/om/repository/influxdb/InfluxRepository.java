@@ -116,11 +116,10 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      *
      * @param queryCriteria the query criteria
      * @param volIdColumnName the name for the volume id column, required if the query criteria has volume contexts.
-     * @param unit the TimeUnit to represent the data range in.
      *
      * @return a query string for influx event series based on the criteria
      */
-    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName, TimeUnit unit ) {
+    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName ) {
 
         StringBuilder sb = new StringBuilder();
 
@@ -146,15 +145,16 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
             if ( range.getEnd() != null )
                 sb.append( "( " );
 
+            String influxUnit = toInfluxUnits( range.getUnit() );
             sb.append( getTimestampColumnName() ).append( " > " )
               .append( range.getStart() )
-              .append( toInfluxUnits( unit ) );
+              .append( influxUnit );
 
             if ( range.getEnd() != null ) {
                 sb.append( AND )
                   .append( getTimestampColumnName() )
                   .append( " < " )
-                  .append( range.getEnd() ).append( toInfluxUnits( unit ) )
+                  .append( range.getEnd() ).append( influxUnit )
                   .append( " )" );
             }
         }

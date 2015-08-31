@@ -11,6 +11,7 @@ import paramiko
 import datetime
 from scp import SCPClient
 from contextlib import contextmanager
+from cStringIO import StringIO
 
 @contextmanager
 def pushd(new_dir):
@@ -339,6 +340,10 @@ class FdsLocalEnv(FdsEnv):
     #
     def local_exec_fds(self, cmd, wait_compl = False):
         return self.local_exec(cmd, wait_compl, True)
+
+    def fds_cli_exec(self, cmd):
+        cmd = "/usr/local/bin/fds " + cmd + "; exit 0"
+        return subprocess.check_output(cmd, shell=True)
 
     ###
     # Execute command and wait for result. We'll also log
