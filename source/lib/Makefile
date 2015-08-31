@@ -1,5 +1,5 @@
 topdir           := ..
 speedup          = -j $(threads)
-user_build_dir   := blob net concurrency kvstore crypto misc leveldb qos
+user_build_dir   := blob net catalogKeys concurrency kvstore crypto misc leveldb qos
 
 include $(topdir)/Makefile.incl

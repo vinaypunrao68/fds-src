@@ -4,45 +4,20 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDB_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDB_H_
 
+// Standard includes.
 #include <map>
 #include <string>
 #include <vector>
 
-#include <leveldb/comparator.h>
-
-#include <concurrency/RwLock.h>
-#include <lib/Catalog.h>
-
-#include <dm-vol-cat/DmPersistVolCat.h>
+// Internal includes.
+#include "catalogKeys/CatalogKeyComparator.h"
+#include "concurrency/RwLock.h"
+#include "dm-vol-cat/DmPersistVolCat.h"
+#include "lib/Catalog.h"
+#include "fds_config.hpp"
+#include "fds_process.h"
 
 namespace fds {
-
-class BlobObjKeyComparator : public leveldb::Comparator {
-  public:
-    int Compare(const leveldb::Slice & lhs, const leveldb::Slice & rhs) const {
-        const BlobObjKey * lhsKey = reinterpret_cast<const BlobObjKey *>(lhs.data());
-        const BlobObjKey * rhsKey = reinterpret_cast<const BlobObjKey *>(rhs.data());
-
-        if (lhsKey->blobId < rhsKey->blobId) {
-            return -1;
-        } else if (lhsKey->blobId > rhsKey->blobId) {
-            return 1;
-        } else if (lhsKey->objIndex < rhsKey->objIndex) {
-            return -1;
-        } else if (lhsKey->objIndex > rhsKey->objIndex) {
-            return 1;
-        }
-
-        return 0;
-    }
-
-    const char * Name() const {
-        return "BlobObjKeyComparator";
-    }
-
-    void FindShortestSeparator(std::string *, const leveldb::Slice &) const {}
-    void FindShortSuccessor(std::string*) const {}
-};
 
 class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
   public:
@@ -88,6 +63,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
                                   Catalog::MemSnap m = NULL) override;
 
     virtual Error getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaList) override;
+
+    virtual Error getBlobMetaDescForPrefix (std::string const& prefix,
+                                            std::string const& delimiter,
+                                            std::vector<BlobMetaDesc>& blobMetaList) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) override;
@@ -146,7 +125,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     // Catalog that stores volume's objects
     std::unique_ptr<Catalog> catalog_;
-    BlobObjKeyComparator cmp_;
+    CatalogKeyComparator cmp_;
 
     // as the configuration will not be refreshed frequently, we can read it without lock
     FdsConfigAccessor configHelper_;

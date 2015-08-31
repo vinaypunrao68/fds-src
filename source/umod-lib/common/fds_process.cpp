@@ -522,7 +522,19 @@ FdsProcess::sig_handler(void* param)
 
     sigorset(&blocked_sigs, &blocked_sigs, static_cast<sigset_t*>(param));
 
-    FdsProcess::sig_tid_start_cv_.notify_all(); // We're about as "started" as we can be before we must let folks know.
+    /**
+     * We're about as "started" as we can be before we must let folks know.
+     */
+    {
+        /**
+         * Grabbing the lock here ensures that the thread that started us
+         * (whom we expect to have grabbed this lock before starting us)
+         * is in fact waiting for us to notify it to continue before we
+         * actually send the notification.
+         */
+        std::lock_guard<std::mutex> lock(sig_tid_start_mutex_);
+        FdsProcess::sig_tid_start_cv_.notify_all();
+    }
 
     while (true)
     {
@@ -577,8 +589,20 @@ void FdsProcess::setup_sig_handler()
         lock.unlock();
     }
 
-    FdsProcess::sig_tid_ready = true;
-    FdsProcess::sig_tid_stop_cv_.notify_all(); // Let the dtor know it can proceed.
+    /**
+     * Let the dtor know it can proceed.
+     *
+     * Normally, the dtor is not running at the same time as this,
+     * the ctor. But it can happen in contrived cases such as unit
+     * testing. Without some coordination in that case, the dtor
+     * will try to cleanup the signal handling thread before it
+     * is started.
+     */
+    {
+        std::lock_guard<std::mutex> lock(FdsProcess::sig_tid_stop_mutex_);
+        FdsProcess::sig_tid_ready = true;
+        FdsProcess::sig_tid_stop_cv_.notify_all();
+    }
 
     /**
      * For each signal of interest, install the handler.
