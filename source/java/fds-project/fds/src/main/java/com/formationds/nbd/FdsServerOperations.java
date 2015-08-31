@@ -3,10 +3,9 @@ package com.formationds.nbd;/*
  */
 
 import com.formationds.commons.Fds;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.apis.*;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
 import com.formationds.xdi.RealAsyncAm;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -15,7 +14,6 @@ import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -73,7 +71,7 @@ public class FdsServerOperations implements NbdServerOperations {
             if(!volumeExists)
                 return false;
 
-            boolean blobExists = asyncAm.volumeContents(FDS, exportName, 1, 0, "", BlobListOrder.UNSPECIFIED, false).get().stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
+            boolean blobExists = asyncAm.volumeContents(FDS, exportName, 1, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get().stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
             // do an initial write to create the blob in FDS
             if(!blobExists) {
                 ByteBuf buf = Unpooled.buffer(4096);

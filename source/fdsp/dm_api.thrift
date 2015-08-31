@@ -21,7 +21,9 @@ namespace java com.formationds.protocol.dm
  * Note that each call is indendant, so the order and contents
  * may change between calls.
  * A pattern filter may be specified that returns only blobs whose
- * name matches the string pattern.
+ * name matches the string pattern. Pattern is a partial-match
+ * (if you want to match the full name, you must include ^ and $)
+ * case-sensitive UTF-8 PCRE.
  */
 struct GetBucketMsg {
   1: required i64              volume_id;
@@ -30,7 +32,10 @@ struct GetBucketMsg {
   4: string                    pattern = "";
   5: common.BlobListOrder      orderBy = 0;
   6: bool                      descending = false;
+  7: common.PatternSemantics   patternSemantics = common.PatternSemantics.PCRE;
+  8: string                    delimiter = "/";
 }
+
 /**
  * Returns a list of blob descriptors matching the query. The
  * list may be ordered depending on the query.

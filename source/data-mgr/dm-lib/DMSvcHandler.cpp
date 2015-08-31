@@ -408,8 +408,12 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 {
     LOGNOTIFY << "DMT close callback: DMTversion=" << dmtClose->dmt_close.DMT_version;
 
-    // When DMT is closed, then delete unowned volumes.
-    dataManager_.deleteUnownedVolumes();
+    // When DMT is closed, then delete unowned volumes iff DM Migration is active
+    if (dataManager_.dmMigrationMgr->isMigrationEnabled()) {
+    	dataManager_.deleteUnownedVolumes();
+    } else {
+    	LOGNOTIFY << "DM Migration feature is disabled. Skipping removing unowned volumes.";
+    }
 
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTClose), *dmtClose);

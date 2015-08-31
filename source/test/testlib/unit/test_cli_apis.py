@@ -3,23 +3,23 @@ import unittest
 import os
 import sys
 
-from fds.services.node_service import NodeService
-from fds.services.users_service import UsersService
-from fds.services.volume_service import VolumeService
-from fds.services.users_service import UsersService
-from fds.services.local_domain_service import LocalDomainService
-from fds.services.snapshot_policy_service import SnapshotPolicyService
-from fds.services.fds_auth import FdsAuth
+from fdscli.services.node_service import NodeService
+from fdscli.services.users_service import UsersService
+from fdscli.services.volume_service import VolumeService
+from fdscli.services.users_service import UsersService
+from fdscli.services.local_domain_service import LocalDomainService
+from fdscli.services.snapshot_policy_service import SnapshotPolicyService
+from fdscli.services.fds_auth import FdsAuth
 
-from fds.model.node_state import NodeState
-from fds.model.volume import Volume
-from fds.model.domain import Domain
+from fdscli.model.platform.node import Node
+from fdscli.model.volume.volume import Volume
+from fdscli.model.platform.domain import Domain
 
 import pdb
 import sys
 
 sys.path.append("..")
-import AM
+#import AM
 
 class TestRESTAPI(unittest.TestCase):
     logging.basicConfig(level=logging.INFO,
@@ -30,11 +30,11 @@ class TestRESTAPI(unittest.TestCase):
     fdsauth = FdsAuth()
     fdsauth.login()
 
-    def _test_get_hostname(self):
+    def test_get_hostname(self):
     	self.log.info(TestRESTAPI.test_get_hostname.__name__)
     	self.log.info('get_hostname= {}'.format(self.fdsauth.get_hostname()))
 
-    def _test_get_domains(self):
+    def test_get_domains(self):
     	self.log.info(TestRESTAPI.test_get_domains.__name__)
     	lds = LocalDomainService(self.fdsauth)
     	domains_list = lds.get_local_domains()
@@ -45,7 +45,7 @@ class TestRESTAPI(unittest.TestCase):
     		self.log.info('domain.site= {}'.format(domain.site))
     		print '==============='
 
-    def _test_get_volume_list(self):
+    def test_get_volume_list(self):
     	self.log.info(TestRESTAPI.test_get_volume_list.__name__)
     	volServ = VolumeService(self.fdsauth)
     	volumes_list = volServ.list_volumes()
@@ -53,21 +53,26 @@ class TestRESTAPI(unittest.TestCase):
     	for volume in volumes_list:
             self.log.info('Volume.name= {}'.format(volume.name))
             self.log.info('Volume.id= {}'.format(volume.id))
-            self.log.info('Volume.priority= {}'.format(volume.priority))
-            self.log.info('Volume.type= {}'.format(volume.type))
-            self.log.info('Volume.state= {}'.format(volume.state))
-            self.log.info('Volume.current_size= {}'.format(volume.current_size))
-            self.log.info('Volume.current_unit= {}'.format(volume.current_units))            
+            #self.log.info('Volume.priority= {}'.format(volume.priority))
+            #self.log.info('Volume.type= {}'.format(volume.type))
+            #self.log.info('Volume.state= {}'.format(volume.state))
+            #self.log.info('Volume.current_size= {}'.format(volume.current_size))
+            #self.log.info('Volume.current_unit= {}'.format(volume.current_units))            
             self.log.info('===============')
 
-    def _test_create_volume(self):
+    def test_create_volume(self):
         vservice = VolumeService(self.fdsauth)
         volume = Volume()
-        new_volume = "testvolumecreation3"
-        new_type = "block"
+        new_volume = "create_volume_test"
+        new_type = "object"
+        new_max_object_size="1"
+        new_max_object_size_unit="MB"
         volume.name = "{}".format(new_volume)
         volume.type = "{}".format(new_type)
+        volume.max_object_size="{}".format(new_max_object_size)
+        volume.max_object_size_unit="{}".format(new_max_object_size_unit)
         vservice.create_volume(volume)
+
         
         volCheck = VolumeService(self.fdsauth)
         volumes_list = volCheck.list_volumes()
@@ -75,8 +80,41 @@ class TestRESTAPI(unittest.TestCase):
             if volume.name == new_volume:
                 self.log.info("Volume {} has been created.".format(volume.name))
 
+        #find volume by name
+        volname = vservice.find_volume_by_name(new_volume)
+        print "find_volume_by_name = %s" %volname.name
+
+    def _test_delete_volume(self):
+        new_volume = "create_volume_test"
+        volCheck = VolumeService(self.fdsauth)
+        volumes_list = volCheck.list_volumes()
+        for volume in volumes_list:
+            if volume.name == new_volume:
+                volID = volume.id
+
+        #find volume by name
+        volname = volCheck.delete_volume(volID)
+        volumes_list = volCheck.list_volumes()
+        for volume in volumes_list:
+            if volume.name == new_volume:
+                print "Failed to delete volume %s" %volume.name
+
+    def test_create_snapshot(self):
+        new_volume = "create_volume_test"
+        volCheck = VolumeService(self.fdsauth)
+        volumes_list = volCheck.list_volumes()
+        for volume in volumes_list:
+            if volume.name == new_volume:
+                pdb.set_trace()
+                volID = volume.id
+                volName = volume.name
+
+        #find volume by name
+        volCheck.create_snapshot("%s_snapshot" %volName)
+        pdb.set_trace()
+
     def _test_get_node_list(self):
-    	self.log.info(TestRESTAPI.test_get_node_list.__name__)
+        self.log.info(TestRESTAPI.test_get_node_list.__name__)
     	nodeService = NodeService(self.fdsauth)
     	nodes_list = nodeService.list_nodes()
     	
@@ -93,7 +131,7 @@ class TestRESTAPI(unittest.TestCase):
     def _test_stop_am(self):
     	self.log.info(TestRESTAPI.test_stop_am.__name__)
     	nservice = NodeService(self.fdsauth)
-    	nodeS2 = NodeState()
+    	nodeS2 = Node()
     	
     	nodes_list = nservice.list_nodes()
     
@@ -117,25 +155,25 @@ class TestRESTAPI(unittest.TestCase):
     		#self.log.info('node.state.sm= {}'.format(node.sm))
     		#self.log.info('node.state.dm= {}'.format(node.dm))
 
-    def test_start_am(self):
-        self.log.info(TestRESTAPI.test_start_am.__name__)
-        amobj = AM.am_service()
-        amobj.start('10.3.79.115')	
-
-    def test_stop_am(self):
-        self.log.info(TestRESTAPI.test_stop_am.__name__)
-        amobj = AM.am_service()
-        amobj.stop('10.3.79.115')	
-
-    def test_add_am_service(self):
-        self.log.info(TestRESTAPI.test_add_am_service.__name__)
-        amobj = AM.am_service()
-        amobj.add('10.3.79.115')	
-
-    def test_remove_am_service(self):
-        self.log.info(TestRESTAPI.test_remove_am_service.__name__)
-        amobj = AM.am_service()
-        amobj.remove('10.3.79.115')	
+#    def test_start_am(self):
+#        self.log.info(TestRESTAPI.test_start_am.__name__)
+#        amobj = AM.am_service()
+#        amobj.start('10.3.79.115')	
+#
+#    def _test_stop_am(self):
+#        self.log.info(TestRESTAPI.test_stop_am.__name__)
+#        amobj = AM.am_service()
+#        amobj.stop('10.3.79.115')	
+#
+#    def _test_add_am_service(self):
+#        self.log.info(TestRESTAPI.test_add_am_service.__name__)
+#        amobj = AM.am_service()
+#        amobj.add('10.3.79.115')	
+#
+#    def _test_remove_am_service(self):
+#        self.log.info(TestRESTAPI.test_remove_am_service.__name__)
+#        amobj = AM.am_service()
+#        amobj.remove('10.3.79.115')	
 #################
 
 if __name__ == '__main__':

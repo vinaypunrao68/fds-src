@@ -56,10 +56,10 @@ struct LevelDbDifferFixture :  BaseTestFixture {
 };
 
 TEST_F(LevelDbDifferFixture, keymatch) {
-    db1->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
-    db1->Put(leveldb::WriteOptions(), Record("key2"), Record("val2"));
-    db2->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
-    db2->Put(leveldb::WriteOptions(), Record("key2"), Record("val2"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key2"), leveldb::Slice("val2"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key2"), leveldb::Slice("val2"));
     closeDbs();
 
     LevelDbDiffAdapter adapter;
@@ -71,10 +71,10 @@ TEST_F(LevelDbDifferFixture, keymatch) {
 }
 
 TEST_F(LevelDbDifferFixture, deleted_key) {
-    db1->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
-    db2->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
-    db2->Put(leveldb::WriteOptions(), Record("key2"), Record("val2"));
-    db2->Put(leveldb::WriteOptions(), Record("key3"), Record("val3"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key2"), leveldb::Slice("val2"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key3"), leveldb::Slice("val3"));
     closeDbs();
 
     LevelDbDiffAdapter adapter;
@@ -88,15 +88,15 @@ TEST_F(LevelDbDifferFixture, deleted_key) {
 }
 
 TEST_F(LevelDbDifferFixture, mixed_keys) {
-    db1->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
-    db2->Put(leveldb::WriteOptions(), Record("key1"), Record("val1"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key1"), leveldb::Slice("val1"));
     /* Extra key */
-    db1->Put(leveldb::WriteOptions(), Record("key2"), Record("val2"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key2"), leveldb::Slice("val2"));
     /* Delete key */
-    db2->Put(leveldb::WriteOptions(), Record("key3"), Record("val3"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key3"), leveldb::Slice("val3"));
     /* Value mismatch */
-    db1->Put(leveldb::WriteOptions(), Record("key4"), Record("val4_1"));
-    db2->Put(leveldb::WriteOptions(), Record("key4"), Record("val4_2"));
+    db1->Put(leveldb::WriteOptions(), leveldb::Slice("key4"), leveldb::Slice("val4_1"));
+    db2->Put(leveldb::WriteOptions(), leveldb::Slice("key4"), leveldb::Slice("val4_2"));
     closeDbs();
 
     LevelDbDiffAdapter adapter;
