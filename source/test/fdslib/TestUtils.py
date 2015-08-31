@@ -480,9 +480,9 @@ def getAuth(self, om_ip):
     self.__om_auth = FdsAuth(file_name)
     self.__om_auth.login()
 
-def get_ips_from_inventory(inventory_file_name):
+def get_ips_from_inventory(inventory_file_name,rt_env):
     filename = inventory_file_name
-    path = os.path.join(os.path.expanduser("~"),'fds-src/source/test/testsuites/templates/ansible-inventory/')
+    path = rt_env.env_fdsSrc + "test/testsuites/templates/ansible-inventory/"
     with open(path+filename) as f:
         ips_array = []
         lines = f.readlines()
