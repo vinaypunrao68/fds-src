@@ -63,15 +63,16 @@ class FdsNodeConfig(FdsConfig):
             else:
                 hostName = self.nd_conf_dict['ip']
 
-            if (cmd_line_options['install'] == False or cmd_line_options['install'] is None) and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
+            if (cmd_line_options['install'] is None or cmd_line_options['install'] == False) and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
                 self.nd_local = True
 
             elif cmd_line_options['install']== True: #it's definately remote env as command line argument was passed
                 # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
 
-                if 'inventory_file' not in cmd_line_options:
+                if cmd_line_options['inventory_file']is None:
                     log.error("Need to provide inventory file name to run tests against deployed nodes")
+                    sys.exit(1)
 
                 ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
                 if (ips_array.__len__() < (nodeId+1)):
