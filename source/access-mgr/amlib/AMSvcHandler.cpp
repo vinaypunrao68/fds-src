@@ -218,9 +218,32 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = amProcessor->updateDmt(msg->dmt_data.dmt_type, msg->dmt_data.dmt_data);
+        err = amProcessor->updateDmt(msg->dmt_data.dmt_type,
+                                     msg->dmt_data.dmt_data,
+                                     std::bind(&AMSvcHandler::NotifyDMTUpdateCb,
+                                               this,
+                                               hdr,
+                                               msg,
+                                               std::placeholders::_1));
     }
 
+    // send response right away on error or if there is no IO pending for
+    // the previous DMT
+    if (err != ERR_IO_PENDING) {
+        NotifyDMTUpdateCb(hdr, msg, err);
+    }
+    // else we will get a callback from DLT manager when there are no more
+    // IO pending for the previous DLT, and then we will send response
+}
+
+// NotifyDMTUpdateCb
+//
+//
+void
+AMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            hdr,
+                                boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> msg,
+                                const Error                                 &err) {
+    LOGDEBUG << "Sending response for DMT version " << msg->dmt_version << " "  << err;
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
 }
@@ -255,7 +278,7 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 
     // send response right away on error or if there is no IO pending for
     // the previous DLT
-    if (err != ERR_DLT_IO_PENDING) {
+    if (err != ERR_IO_PENDING) {
         NotifyDLTUpdateCb(hdr, dlt, err);
     }
     // else we will get a callback from DLT manager when there are no more
@@ -263,8 +286,8 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 }
 
 void
-AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                                boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt,
+AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            hdr,
+                                boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> dlt,
                                 const Error                                 &err) {
     LOGDEBUG << "Sending response for DLT version " << dlt->dlt_data.dlt_type
              << " "  << err;

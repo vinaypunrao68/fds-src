@@ -162,7 +162,7 @@ struct BlobObjList :
      * we need to make some modifications in Volume Catalog to
      * remove these assumptions
      */
-    void verify(fds_uint32_t max_obj_size) const;
+    Error verify(fds_uint32_t max_obj_size) const;
 
     /**
      * Copies obj info list to FDSP obj list message; if there is any

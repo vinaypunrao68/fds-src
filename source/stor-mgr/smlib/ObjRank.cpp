@@ -3,10 +3,18 @@
  *
  * Rank engine implementation
  */
+
+// Standard includes.
 #include <set>
 #include <utility>
 #include <string>
-#include <ObjRank.h>
+
+// Internal includes.
+#include "catalogKeys/ObjectRankKey.h"
+#include "leveldb/db.h"
+
+// Class include.
+#include "ObjRank.h"
 
 namespace fds {
 
@@ -101,9 +109,9 @@ Error ObjectRankEngine::initialize()
     auto db_it = rankDB->NewIterator();
     for (db_it->SeekToFirst(); db_it->Valid(); db_it->Next())
     {
-        Record key = db_it->key();
-        Record value = db_it->value();
-        ObjectID oid(key.ToString());
+        ObjectRankKey key { db_it->key() };
+        leveldb::Slice value = db_it->value();
+        ObjectID oid = key.getObjectId();
         fds_uint32_t rank = (fds_uint32_t)std::stoul(value.ToString());
         rank = updateRank(oid, rank);
         std::pair<fds_uint32_t, ObjectID> entry(rank, oid);
@@ -381,8 +389,8 @@ void ObjectRankEngine::analyzeStats()
 Error ObjectRankEngine::deleteFromRankDB(const ObjectID& oid)
 {
     Error err(ERR_OK);
-    Record del_key((const char*)oid.GetId(), oid.getDigestLength());
-    err = rankDB->Delete(del_key);
+    ObjectRankKey key { oid };
+    err = rankDB->Delete(key);
     fds_verify(cur_rank_tbl_size > 0);
     --cur_rank_tbl_size;
     LOGNORMAL << " from rankDB";
@@ -404,15 +412,15 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
     Error err(ERR_OK);
     /* ignore helper bits specifying promotion/demotion/etc. */
     fds_uint32_t o_rank = rank & 0xFFFFFF00;
-    Record put_key((const char*)oid.GetId(), oid.getDigestLength());
+    ObjectRankKey key { oid };
     std::string valstr = std::to_string(o_rank);
-    Record put_val(valstr);
+    leveldb::Slice put_val(valstr);
     if (b_addition) {
         /* we are adding new entry */
         ++cur_rank_tbl_size;
         LOGNORMAL << " rank " << o_rank << " to db";
     }
-    err = rankDB->Update(put_key, put_val);
+    err = rankDB->Update(key, put_val);
 
     /* if we add to rankdb something we demoted (e.g. deletions happend after hot objs
      * demoted objs in rank db), this obj is not demoted anymore */
@@ -433,7 +441,7 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
 fds_bool_t ObjectRankEngine::inRankDB(const ObjectID& oid)
 {
     Error err(ERR_OK);
-    Record key((const char*)oid.GetId(), oid.getDigestLength());
+    ObjectRankKey key { oid };
     std::string val("");
 
     err = rankDB->Query(key, &val);
@@ -643,8 +651,8 @@ Error ObjectRankEngine::doRanking()
             break;
         }
 
-        Record key = db_it->key();
-        Record value = db_it->value();
+        leveldb::Slice key = db_it->key();
+        leveldb::Slice value = db_it->value();
         ObjectID oid(key.ToString());
         fds_uint32_t rank = (fds_uint32_t)std::stoul(value.ToString());
         rank = updateRank(oid, rank);

@@ -3,30 +3,46 @@ package com.formationds.nfs;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class InodeAllocator {
     private Io io;
-    private ExportResolver exportResolver;
     private static final String NUMBER_WELL = "number-well";
+    public static final long START_VALUE = 256;
+    private final ConcurrentHashMap<String, Long> cache;
 
-    public InodeAllocator(Io io, ExportResolver exportResolver) {
+    public InodeAllocator(Io io) {
         this.io = io;
-        this.exportResolver = exportResolver;
+        cache = new ConcurrentHashMap<>(256, .5f, 512);
     }
 
     public long allocate(String volume) throws IOException {
-        long volumeId = exportResolver.exportId(volume);
-        long[] nextId = new long[1];
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, (om) -> {
-            Map<String, String> metadata = new HashMap<>();
-            long current = volumeId;
-            if (om.isPresent()) {
-                current = Long.parseLong(om.get().get(NUMBER_WELL));
+        return cache.compute(volume, (k, v) -> {
+            long newValue = 0;
+            try {
+                if (v == null) {
+                    v = io.mapMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, new MetadataMapper<Long>() {
+                        @Override
+                        public Long map(Optional<Map<String, String>> metadata) throws IOException {
+                            if (!metadata.isPresent()) {
+                                return START_VALUE;
+                            }
+
+                            String currentValue = metadata.get().getOrDefault(NUMBER_WELL, Long.toString(START_VALUE));
+                            return Long.parseLong(currentValue);
+                        }
+                    });
+                }
+
+                Map<String, String> map = new HashMap<>();
+                newValue = v + 1;
+                map.put(NUMBER_WELL, Long.toString(newValue));
+                io.setMetadataOnEmptyBlob(BlockyVfs.DOMAIN, volume, NUMBER_WELL, map);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-            nextId[0] = current + 1;
-            metadata.put(NUMBER_WELL, Long.toString(nextId[0]));
-            return metadata;
+            return newValue;
         });
-        return nextId[0];
     }
 }

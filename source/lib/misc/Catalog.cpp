@@ -49,6 +49,8 @@ const fds_uint32_t Catalog::CACHE_SIZE = 8 * 1024 * 1024;
 
 const std::string Catalog::empty;
 
+CatalogKeyComparator const Catalog::_DEFAULT_COMPARATOR;
+
 /** Catalog constructor
  */
 Catalog::Catalog(const std::string& _file,
@@ -68,8 +70,13 @@ Catalog::Catalog(const std::string& _file,
     options.filter_policy     = filter_policy.get();
     options.write_buffer_size = writeBufferSize;
     options.block_cache = leveldb::NewLRUCache(cacheSize);
-    if (cmp) {
+    if (cmp)
+    {
         options.comparator = cmp;
+    }
+    else
+    {
+        options.comparator = &_DEFAULT_COMPARATOR;
     }
     env.reset(new leveldb::CopyEnv(*leveldb::Env::Default()));
     if (!logDirName.empty() && !logFilePrefix.empty()) {
@@ -113,10 +120,10 @@ Catalog::~Catalog()
  * @return The result of the update
  */
 Error
-Catalog::Update(const Record& key, const Record& val) {
+Catalog::Update(const CatalogKey& key, const leveldb::Slice& val) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Put(write_options, key, val);
+    leveldb::Status status = db->Put(write_options, static_cast<leveldb::Slice>(key), val);
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
     }
@@ -142,13 +149,13 @@ Catalog::Update(CatWriteBatch* batch) {
  * @return The result of the query
  */
 Error
-Catalog::Query(const Record& key, std::string* value, MemSnap m) {
+Catalog::Query(const CatalogKey& key, std::string* value, MemSnap m) {
     Error err(ERR_OK);
 
     leveldb::ReadOptions ro{read_options};
     ro.snapshot = m;
 
-    leveldb::Status status = db->Get(ro, key, value);
+    leveldb::Status status = db->Get(ro, static_cast<leveldb::Slice>(key), value);
     if (status.IsNotFound()) {
         err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
         return err;
@@ -165,10 +172,10 @@ Catalog::Query(const Record& key, std::string* value, MemSnap m) {
  * @return The result of the delete
  */
 Error
-Catalog::Delete(const Record& key) {
+Catalog::Delete(const CatalogKey& key) {
     Error err(ERR_OK);
 
-    leveldb::Status status = db->Delete(write_options, key);
+    leveldb::Status status = db->Delete(write_options, static_cast<leveldb::Slice>(key));
     if (!status.ok()) {
         err = Error(ERR_DISK_WRITE_FAILED);
     }
@@ -183,13 +190,13 @@ Catalog::DbSnap(const std::string& fileName) {
     leveldb::CopyEnv * env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);
 
-    leveldb::Status status = env->CreateDir(fileName);
-    if (!status.ok()) {
-        err = Error(ERR_DISK_WRITE_FAILED);
-    }
+    // FIXME: We should be allowing through EEXIST and failing all others, but there's no way to get
+    //        the error code. All we can see is that there was an I/O error.
+    env->CreateDir(fileName);
 
     CopyDetails * details = new CopyDetails(backing_file, fileName);
-    status = env->Copy(backing_file, &doCopyFile, reinterpret_cast<void *>(details));
+    leveldb::Status status =
+            env->Copy(backing_file, &doCopyFile, reinterpret_cast<void *>(details));
     if (!status.ok()) {
         err = ERR_DISK_WRITE_FAILED;
     }

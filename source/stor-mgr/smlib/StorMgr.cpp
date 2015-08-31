@@ -136,6 +136,10 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
+    std::vector<nullary_always> token_locks;
+    for (auto& tokenDiskPair: tokenDiskPairs) {
+        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
+    }
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
@@ -238,6 +242,21 @@ void ObjectStorMgr::mod_enable_service()
                 // even if SM is not yet in the DLT (this SM is not part of the domain yet),
                 // we need to tell disk map about DLT width so when migration happens, we
                 // can map objectID to DLT token
+
+                // extra checks here -- if ObjectStore is in READY state at this point, then
+                // SM came up from pristine state. If OM has DLT which contains this SM, most
+                // likely either data was unintentionally cleaned up or we failed to clean up
+                // persistent state in OM (configDB)
+                if (objectStore->isReady()) {
+                    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+                    if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
+                        LOGWARN << "SM came up from pristine state, but committed DLT already contains "
+                                << " this SM. This means either: 1) it was intended to brignup domain "
+                                << " from clean state, but configDB in OM was not cleaned up; or "
+                                << " 2) it was intended to bringup domain from persisted state, but "
+                                << " data in SM was cleaned up";
+                    }
+                }
 
                 // Store the current DLT to the presistent storage to be used
                 // by offline smcheck.
@@ -1317,6 +1336,11 @@ ObjectStorMgr::storeCurrentDLT()
     uuidFile <<  myUuid.uuid_get_val();
 }
 
+const std::hash<fds_volid_t> ObjectStorMgr::SmQosCtrl::volIdHash;
+
+const std::hash<int64_t> ObjectStorMgr::SmQosCtrl::svcIdHash;
+
+const ObjectStorMgr::SmQosCtrl::SerialKeyHash ObjectStorMgr::SmQosCtrl::keyHash;
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);

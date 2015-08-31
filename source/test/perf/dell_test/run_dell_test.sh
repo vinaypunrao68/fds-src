@@ -1,9 +1,12 @@
 #!/bin/bash
 
 #########################
+# Functions and misc
+#########################
 
 SSH="sshpass -p passwd ssh -o StrictHostKeyChecking=no -l root"
 
+# set up a volume given its name
 function volume_setup {
     local vol=$1
     local policy=$2
@@ -14,11 +17,15 @@ function volume_setup {
     sleep 10
 }
 
+# detach a volume given its name
 function volume_detach {
     local vol=$1
     ../../../cinder/nbdadm.py detach $vol
 }
 
+# process FIO results and push to influxdb and mysql
+# add here your result resporting backend (see 
+# end of the function)
 function process_results {
     local f=$1
     local numjobs=$2
@@ -32,6 +39,7 @@ function process_results {
     local end_time=${10}
     local media_policy=${11}
     local exp_id=${12}
+    local tag=${13}
 
     version=`dpkg -l|grep fds-platform | awk '{print $3}'` 
     iops=`grep iops $f | sed -e 's/[ ,=:]/ /g' | awk '{e+=$7}END{print e}'`
@@ -52,42 +60,60 @@ function process_results {
     echo end_time=$end_time >>.data
     echo media_policy=$media_policy >>.data
     echo exp_id=$exp_id >>.data
+    echo tag=$tag >>.data
+    # .data has the results - Add here your result reporting backend
+    echo "Results:"
+    cat .data
+    # Uncomment this if you don't want to push to influxdb
     ../common/push_to_influxdb.py dell_test .data --influxdb-db $database
+    # Uncomment this if you don't want to push to mysql
     ../db/exp_db.py $database .data
 }
 
 #########################
+# Main script
+#########################
 
-outdir=$1
-machines=$2
-nvols=$3
-am_machines=$4
-size=$5
-database=$6
-media_policy=$7
+# FDS cluster
+machines=$1     # Machine where the test will run                Ex.: "perf2-node1 perf2-node2 perf2-node3 perf2-node4"
+am_machines=$2  # Machines targeted by FIO (number of AMs)       Ex.: "perf2-node1 perf2-node2 perf2-node3 perf2-node4"
+nvols=$3        # Number of volumes per AM                       Ex.: 2
+media_policy=$4 # Media polcy                                   Ex.: HDD
+# FIO parameters
+outdir=$5       # Output directory for FIO (must exist)          Ex.: "/regress/test"
+size=$6         # Size of each volume                            Ex.: 50g
+# Parameter spaces - each value is an array and will test all combinations
+bsizes=$7       # block sizes                                    Ex.: "4096 131072 524288"
+iodepths=$8     # iodepth                                        Ex.: "16 64"
+workers=$9      # Numer of jobs                                  Ex.: "1 4"
+workloads=${10}    # Workloads                                     Ex.: "randread randwrite read write"
+# Results reporting (Matteo's perf reporting)
+database=${11}    # Name of the database for the results (influx and mysql) Ex.: perf
+tag=${12}       # Optional: some custom tag: ie: my_custom_test
+
+if [[ ( -z "$1" ) || ( -z "$2" ) || ( -z "$3" )  || ( -z "$4" )   || ( -z "$5" ) || ( -z "$6" )   || ( -z "$7" )  || ( -z "$8" )  || ( -z "$9" ) || ( -z "$10" )  || ( -z "$11" )]]
+  then
+    echo "Usage ./program list of parameters. Look at the comments in the code for detailed usage"
+    exit 1
+fi
 
 echo "outdir: $outdir"
 echo "machines: $machines"
 echo "am_machines: $am_machines"
 echo "size: $size"
-echo "database: $database"
 echo "media_policy: $media_policy"
+echo "bsizes: $bsizes"
+echo "iodepths: $iodepths"
+echo "workers: $workers"
+echo "workloads: $workloads"
+echo "database: $database"
+echo "tag: $tag"
+
 # Dell test specs:
 # bsizes="512 4096 8192 65536 524288"
 # iodepths="1 2 4 8 16 32 64 128 256"
 # workers="4"
 # workloads="randread read randwrite write"
-
-#bsizes="4096"
-bsizes="4096 131072 524288"
-iodepths="16 64"
-workers="1 4"
-workloads="randread randwrite read write"
-
-echo "bsizes: $bsizes"
-echo "iodepths: $iodepths"
-echo "workers: $workers"
-echo "workloads: $workloads"
 
 declare -A disks
 
@@ -104,13 +130,14 @@ done
 
 echo "machine - remap:"
 for m in $machines; do echo "$m -> ${mremap[$m]}"; done
-##############################
+
+######### Setting volumes up  ##########
+
 echo "Setting up volumes"
 for m in $am_machines ; do
     for i in `seq $nvols` ; do
     	volume_setup volume_block_$m\_$i $media_policy
 
-    	# disks[$m]=`../../../cinder/nbdadm.py attach $m  volume_block_$m`
 	    echo "$m ->  ${mremap[$m]} $i"
     	disks[$m:$i]=`$SSH $m "cd /fds/sbin && ./nbdadm.py attach ${mremap[$m]}  volume_block_$m\_$i"`
 
@@ -124,6 +151,7 @@ for m in $am_machines ; do
     done
 done
 
+######### Testing  ##########
 
 declare -A pids
 declare -A start_times
@@ -132,6 +160,7 @@ for bs in $bsizes ; do
     for worker in $workers ; do
         for workload in $workloads ; do
                 for d in $iodepths ; do
+                    # If you want to drop the FS cache uncomment
                 	#sync
                 	#echo 3 > /proc/sys/vm/drop_caches
                     exp_id=`cat /regress/id`
@@ -139,7 +168,7 @@ for bs in $bsizes ; do
     			        for i in `seq $nvols` ; do
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 				            echo "reading from $m disk: ${disks[$m:$i]}"
-                            start_times[$m:$i]=`date +%s%M`
+                            start_times[$m:$i]=`date +%s`
                 	    	$SSH $m "fio --name=test --rw=$workload --filename=${disks[$m:$i]} --bs=$bs --numjobs=$worker --iodepth=$d --ioengine=libaio --direct=1 --size=$size --time_based --runtime=60" | tee $outfile &
 			    	        pids[$m:$i]=$!
                         done
@@ -148,11 +177,11 @@ for bs in $bsizes ; do
     			        for i in `seq $nvols` ; do
 			    	        echo "Waiting for $m ${pids[$m:$i]}"
 			    	        wait ${pids[$m:$i]}
-                            end_times[$m:$i]=`date +%s%M`
+                            end_times[$m:$i]=`date +%s`
                 	    	outfile=$outdir/out.numjobs=$worker.workload=$workload.bs=$bs.iodepth=$d.disksize=$size.machine=$m.vol=$i
 			    	        echo "Processing results for $m ${pids[$m:$i]} $outfile"
                             echo "-> $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id"
-                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id
+                	        process_results $outfile $worker $workload $bs $d $size $m $i ${start_times[$m:$i]} ${end_times[$m:$i]} $media_policy $exp_id $tag
                             start_times[$m:$i]=
                             end_times[$m:$i]=
 			    	        pids[$m:$i]=""
@@ -165,6 +194,9 @@ for bs in $bsizes ; do
             done
         done
 done
+
+######### Detaching volumes  ##########
+
 for m in $am_machines ; do
     for i in `seq $nvols` ; do
         volume_detach volume_block_$m\_$i

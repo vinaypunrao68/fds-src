@@ -97,6 +97,8 @@ SmDiskMap::loadPersistentState() {
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
         LOGDEBUG << "Loaded superblock " << *superblock;
+    } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+        LOGNOTIFY << "SM is coming up from CLEAN state";
     } else {
         LOGERROR << "Failed to load superblock " << err;
     }
@@ -475,4 +477,16 @@ bool
 SmDiskMap::isAllDisksSSD() const {
     return ((ssd_ids.size() > 0) && (hdd_ids.size() == 0));
 }
+
+diskio::DataTier
+SmDiskMap::diskMediaType(const DiskId& diskId) const {
+    if (hdd_ids.find(diskId) != hdd_ids.end()) {
+        return diskio::diskTier;
+    } else if (ssd_ids.find(diskId) != ssd_ids.end()) {
+        return diskio::flashTier;
+    } else {
+        return diskio::maxTier;
+    }
+}
+
 }  // namespace fds

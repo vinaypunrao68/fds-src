@@ -69,12 +69,12 @@ class DmMigrationExecutor {
     Error processIncomingDeltaSetCb();
 
     /**
-     * last step from source DM to destination DM:
-     * As part of ActiveMigration, this is the method called when the source DM wants to notify
-     * the destination DM of the last forwarded commit log. From this point on, we start draining
-     * the ordered map and switch over to regular QoS queue.
-     */
-    Error processLastFwdCommitLog(fpi::CtrlNotifyFinishVolResyncMsgPtr &msg);
+    * @brief Processes forward commit messages.  If the static migration is in progress
+    * these messages are buffered.  Otherwise they are sent to QOS controller immediatel
+    *
+    * @return
+    */
+    Error processForwardedCommits(DmIoFwdCat* req);
 
     /**
      * Apply queue blob descriptor.
@@ -90,6 +90,18 @@ class DmMigrationExecutor {
     {
     	return autoIncrement;
     }
+
+    /**
+     * Destination DM:
+     * Message with the in-flight transaction state (Commit Log) for a volume
+     */
+    Error processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg);
+
+    /**
+     * Finish the active migration - in case where we have NO forwards, this takes care
+     * of the state machine change.
+     */
+    Error finishActiveMigration();
 
   private:
     /** Reference to the DataManager
@@ -148,6 +160,15 @@ class DmMigrationExecutor {
     void sequenceTimeoutHandler();
 
     /**
+     * Called by each function whose completion could signal the end of static migration.
+     * Tests that all the component operations have been applied, and if so triggers the actions for
+     * the next phase exactly once. Safe against races between the terminations conditions being met
+     * and the actual call to this function, i.e. safe to call even after the state machine has moved
+     * beyond static migration.
+     */
+    void testStaticMigrationComplete();
+
+    /**
      * Mutex for blob offset list and blob descriptor list coordination
      */
     std::mutex blobDescListMutex;
@@ -157,6 +178,32 @@ class DmMigrationExecutor {
      * blob offsets to be written out to disk.
      */
     std::vector<fpi::CtrlNotifyDeltaBlobDescMsgPtr> blobDescList;
+
+    /* enum to track migration progress */
+    enum {
+        INIT,
+        /* In this state forwared io is buffered util static migratio ops are applied
+         * to leveldb
+         */
+        STATICMIGRATION_IN_PROGRESS,
+        /* In this state forwared io is applied as it arrives from the wire.  Any active IO
+         * assumed to be quiesced
+         */
+        APPLYING_FORWARDS_IN_PROGRESS,
+        /* In this state we shouldn't receive any migration related ops.  Client IO quiesce is
+         * lifted
+         */
+        MIGRATION_COMPLETE
+    } migrationProgress;
+    dm::Handler                                     msgHandler;
+    /* Queue to buffer forwarded messages */
+    std::list<DmIoFwdCat*>                          forwardedMsgs;
+    /* Lock to synchronize access to forwardedMsgs and migrationProgress */
+    fds_mutex                                       progressLock;
+
+    /* boolean set to true once the commit log state migration message has been received AND applied. 
+       access to this variable should be protected with the progressLock */
+    fds_bool_t txStateIsMigrated;
 
 };  // DmMigrationExecutor
 

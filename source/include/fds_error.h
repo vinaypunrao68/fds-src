@@ -71,7 +71,7 @@ namespace fds {
     ADD(ERR_DM_MIGRATION_ABORTED,= 52,"DM migration aborted"), \
     ADD(ERR_DM_VOL_NOT_ACTIVATED,= 53,"DM volume not activated"), \
     ADD(ERR_DM_INVALID_TX_ID,= 54,"Invalid transaction ID"), \
-    ADD(ERR_DLT_IO_PENDING,= 55,"There are inflight IOs for the current DLT version"), \
+    ADD(ERR_IO_PENDING,= 55,"There are inflight IOs for the current Table version"), \
                                     \
     ADD(ERR_ARCHIVE_SNAP_TAR_FAILED,= 56,"Failed to tar snap"), \
     ADD(ERR_ARCHIVE_PUT_FAILED,= 57,"Archive put failed"), \
@@ -83,6 +83,7 @@ namespace fds {
     ADD(ERR_DM_NOT_TOP_PRIMARY,= 63,"Not the first primary"), \
     ADD(ERR_SERVICE_CAPACITY_FULL,= 64,"Service ran out of disk capacity"), \
     ADD(ERR_SERVICE_CAPACITY_DANGEROUS,= 65,"Service is at dangerous used disk capacity level"), \
+    ADD(ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS,= 66,"Pattern semantics not recognized"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

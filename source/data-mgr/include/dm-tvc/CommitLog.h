@@ -41,14 +41,13 @@ struct CommitLogTx : serialize::Serializable {
     CatWriteBatch wb;
 
     blob_version_t blobVersion;
-    fds_uint64_t nameId;
     fds_uint64_t blobSize;
 
     fds_uint64_t dmtVersion;
 
     CommitLogTx() : txDesc(0), blobMode(0), started(0), committed(0), blobDelete(false),
             snapshot(false), blobObjList(new BlobObjList()), metaDataList(new MetaDataList()),
-            blobVersion(blob_version_invalid), nameId(0), blobSize(0) {}
+            blobVersion(blob_version_invalid), blobSize(0) {}
 
     virtual uint32_t write(serialize::Serializer * s) const override;
     virtual uint32_t read(serialize::Deserializer * d) override;
@@ -142,10 +141,13 @@ class DmCommitLog : public Module {
 
     Error snapshotOutstandingTx(std::vector<std::string>& strings);
 
+    Error applySerializedTxs(std::vector<std::string> transactions);
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock txmap_lock;
     std::unordered_map<fds_uint64_t,fds_uint64_t> dmtVerMap_;
+    std::condition_variable drainTxWait;
     fds_rwlock commit_lock;
 
     fds_volid_t volId_;
