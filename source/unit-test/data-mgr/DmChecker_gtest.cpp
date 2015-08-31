@@ -1,15 +1,19 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <cstdlib>
-#include <fds_process.h>
-#include <dm-vol-cat/DmPersistVolDB.h>
-#include <checker/DmChecker.h>
 
 #define GTEST_USE_OWN_TR1_TUPLE 0
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-#include <testlib/TestFixtures.h>
+// Standard includes.
+#include <cstdlib>
+
+// Internal includes.
+#include "catalogKeys/BlobObjectKey.h"
+#include "checker/DmChecker.h"
+#include "dm-vol-cat/DmPersistVolDB.h"
+#include "fds_process.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "testlib/TestFixtures.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -49,9 +53,8 @@ struct DMCheckerFixture : fds::DMCheckerEnv, BaseTestFixture {
     void TearDown() override {
         closeDbs();
     }
-    void putBlob(leveldb::DB* db, const BlobObjKey &key, const std::string &value) {
-        Record keyRec(reinterpret_cast<const char *>(&key), sizeof(BlobObjKey));
-        db->Put(leveldb::WriteOptions(), keyRec, Record(value));
+    void putBlob(leveldb::DB* db, fds::BlobObjectKey const& key, const std::string &value) {
+        db->Put(leveldb::WriteOptions(), static_cast<leveldb::Slice>(key), leveldb::Slice(value));
     }
     std::list<fds_volid_t> getVolumeIds() const override {
         return {fds_volid_t(1)};
@@ -73,15 +76,15 @@ struct DMCheckerFixture : fds::DMCheckerEnv, BaseTestFixture {
     std::string db2Path;
     leveldb::DB* db1;
     leveldb::DB* db2;
-    BlobObjKeyComparator cmp;
+    CatalogKeyComparator cmp;
 };
 
 TEST_F(DMCheckerFixture, nomismatches) {
-    putBlob(db1, BlobObjKey(1,1), "val1");
-    putBlob(db1, BlobObjKey(1,2), "val2");
+    putBlob(db1, BlobObjectKey("1",1), "val1");
+    putBlob(db1, BlobObjectKey("1",2), "val2");
 
-    putBlob(db2, BlobObjKey(1,1), "val1");
-    putBlob(db2, BlobObjKey(1,2), "val2");
+    putBlob(db2, BlobObjectKey("1",1), "val1");
+    putBlob(db2, BlobObjectKey("1",2), "val2");
 
     closeDbs();
 
@@ -91,13 +94,13 @@ TEST_F(DMCheckerFixture, nomismatches) {
 }
 
 TEST_F(DMCheckerFixture, mismatches) {
-    putBlob(db1, BlobObjKey(1,1), "val1_1");
-    putBlob(db1, BlobObjKey(1,2), "val1_2");
-    putBlob(db1, BlobObjKey(1,4), "val1_4");
+    putBlob(db1, BlobObjectKey("1",1), "val1_1");
+    putBlob(db1, BlobObjectKey("1",2), "val1_2");
+    putBlob(db1, BlobObjectKey("1",4), "val1_4");
 
-    putBlob(db2, BlobObjKey(1,1), "val1_1");
-    putBlob(db2, BlobObjKey(1,3), "val1_3");
-    putBlob(db1, BlobObjKey(1,4), "val1_?");
+    putBlob(db2, BlobObjectKey("1",1), "val1_1");
+    putBlob(db2, BlobObjectKey("1",3), "val1_3");
+    putBlob(db1, BlobObjectKey("1",4), "val1_?");
 
     closeDbs();
 
@@ -108,10 +111,10 @@ TEST_F(DMCheckerFixture, mismatches) {
 
 TEST_F(DMCheckerFixture, lotofmismatches) {
     for (uint32_t i = 0; i < 2000; ++i) {
-        putBlob(db1, BlobObjKey(i,i), "val1_1");
+        putBlob(db1, BlobObjectKey(std::to_string(i),i), "val1_1");
     }
     for (uint32_t i = 1000; i < 4000; ++i) {
-        putBlob(db2, BlobObjKey(i,i), "val1_1");
+        putBlob(db2, BlobObjectKey(std::to_string(i),i), "val1_1");
     }
     closeDbs();
 
