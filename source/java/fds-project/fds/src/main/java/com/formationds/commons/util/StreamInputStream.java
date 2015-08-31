@@ -13,16 +13,15 @@ public final class StreamInputStream extends InputStream
     {
         if (source == null) throw new NullArgumentException("source");
         
-        _source = source;
+        _source = source.iterator();
     }
     
     @Override
     public int read() throws IOException
     {
-        Iterator<Byte> iterator = _getIterator();
-        if (iterator.hasNext())
+        if (_source.hasNext())
         {
-            return iterator.next();
+            return _source.next();
         }
         else
         {
@@ -30,16 +29,5 @@ public final class StreamInputStream extends InputStream
         }
     }
     
-    private Iterator<Byte> _iterator;
-    
-    private final Stream<Byte> _source;
-    
-    private Iterator<Byte> _getIterator()
-    {
-        if (_iterator == null)
-        {
-            _iterator = _source.iterator();
-        }
-        return _iterator;
-    }
+    private final Iterator<Byte> _source;
 }
