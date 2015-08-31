@@ -430,20 +430,43 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSServiceMgt.TestAMActivate(node=node))
 
         if (action.count("remove") > 0):
-            if service == "pm":
-                log.error("Remove action not valid for PM service for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-            elif service == "dm":
-                suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
-            elif service == "sm":
-                suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
-            elif service == "om":
-                log.error("Remove action not valid for OM service for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-            elif service == "am":
-                suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
+            if(action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMRemove(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMRemove(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMRemove(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMRemove(node=node))
+
+
+            else:
+                if service == "pm":
+                    log.error("Remove action not valid for PM service for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
+                elif service == "om":
+                    log.error("Remove action not valid for OM service for scenario '%s'" %
+                              (scenario.nd_conf_dict['scenario-name']))
+                    raise Exception
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
+
+        if (action.count("add") > 0):
+            if(action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node))
 
         if (action.count("kill") > 0):
             if (action.count("aws") > 0):
