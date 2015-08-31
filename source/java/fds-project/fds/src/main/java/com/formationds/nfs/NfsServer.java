@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.commons.util.thread.ThreadUtil;
 import com.formationds.util.Configuration;
+import com.formationds.util.DebugWebapp;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -46,7 +47,7 @@ public class NfsServer {
         AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
         new NfsServer().start(nfsConfiguration, config, asyncAm, 2049);
-
+        new DebugWebapp().start(5555, asyncAm, config);
         System.in.read();
     }
 

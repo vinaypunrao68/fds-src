@@ -160,7 +160,9 @@ class VolumeContext(Context):
     @arg('startpos', help= "-starting index of the blob list", nargs='?' , type=long, default=0)
     @arg('orderby', help= "-order by BLOBNAME or BLOBSIZE", nargs='?', default='UNSPECIFIED')
     @arg('descending', help="-display in descending order", nargs='?')
-    def listblobs(self, volname, pattern, count, startpos, orderby, descending):
+    @arg('patternSemantics', help="-", nargs='?', default='PCRE')
+    @arg('delimiter', help="-", nargs='?', default='/')
+    def listblobs(self, volname, pattern, count, startpos, orderby, descending, patternSemantics, delimiter):
         try:
             dmClient = self.config.getPlatform();
 
@@ -177,6 +179,13 @@ class VolumeContext(Context):
                 getblobmsg.orderBy = 0;
             getblobmsg.descending = descending;
             listcb = WaitedCallback();
+            if patternSemantics == 'PCRE':
+                getblobmsg.patternSemantics = 0
+            elif patternSemantics == 'PREFIX':
+                getblobmsg.patternSemantics = 1
+            elif patternSemantics == 'PREFIX_AND_DELIMITER':
+                getblobmsg.patternSemantics = 2
+            getblobmsg.delimiter = delimiter
             dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
 
             if not listcb.wait():

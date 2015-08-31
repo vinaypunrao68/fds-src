@@ -31,7 +31,6 @@ class InfluxDb:
             ]
           }
         ]
-        print data
         self.db.write_points(data)
         if self.logging_enabled:
             logger.info((json.dumps(data)))

@@ -17,6 +17,8 @@ from common.constants import *
 from svc_api.ttypes import *
 from svc_types.ttypes import *
 from svc_types.constants import *
+from dm_api.ttypes import *
+from dm_api.constants import *
 import sm_api as smapi
 import sm_types as smtypes
 

@@ -10,11 +10,13 @@ user_cpp_flags    :=
 user_cpp          := \
 	DmVolumeCatalog.cpp \
 	DmPersistVolCat.cpp \
-	DmPersistVolDB.cpp \
+	DmPersistVolDB.cpp
 #	DmOIDArrayMmap.cpp \
 #	DmPersistVolFile.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
+
+user_fds_ar_libs := fds-lib
 
 include $(topdir)/Makefile.incl

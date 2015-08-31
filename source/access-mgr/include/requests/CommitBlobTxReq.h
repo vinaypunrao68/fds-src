@@ -37,7 +37,6 @@ struct CommitBlobTxReq :
 
     fds_uint64_t final_blob_size;
     fpi::FDSP_MetaDataList final_meta_data;
-    fds_uint64_t vol_sequence {0};
 };
 
 }  // namespace fds
