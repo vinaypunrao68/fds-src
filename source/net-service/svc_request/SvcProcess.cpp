@@ -131,8 +131,18 @@ void SvcProcess::registerSvcProcess()
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
 
+    int numAttempts = 0;
+
+    // microseconds
+    int waitTime = 10000;
+    int maxWaitTime = 10000 * 50;
+
     do {
         try {
+            ++numAttempts;
+
+            LOGDEBUG << "Attempting connection to OM... [" << numAttempts << "]";
+
             /* This will block until we get a connection.  All the call below should be
              * idempotent.  In case of failure we just retry until we succeed
              */
@@ -147,9 +157,24 @@ void SvcProcess::registerSvcProcess()
             break;
         } catch (Exception &e) {
             LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";
-        } catch (...) {
-            LOGWARN << "Failed to register: unknown excpeption" << ".  Retrying...";
+        } catch(const std::runtime_error& re) {
+            // specific handling for runtime_error
+            LOGWARN << "Runtime error: " << re.what() << std::endl;
+        }  catch(const std::exception& ex) {
+            // specific handling for all exceptions extending std::exception, except
+            // std::runtime_error which is handled explicitly
+            LOGWARN << "Error occurred: " << ex.what() << std::endl;
+        }catch (...) {
+            LOGWARN << "Failed to register: unknown exception" << ".  Retrying...";
         }
+
+        if (numAttempts % 5 == 0) {
+            waitTime *= 2;
+            if (waitTime > maxWaitTime)
+                waitTime = maxWaitTime;
+        }
+        usleep(waitTime);
+
     } while (true);
 
     svcMgr_->updateSvcMap(svcMap);

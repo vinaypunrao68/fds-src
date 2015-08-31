@@ -8,7 +8,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.transport.TTransportException;
 
@@ -38,55 +38,55 @@ public class ThriftClientFactory<IF> {
         int maxPoolSize = DEFAULT_MAX_POOL_SIZE;
         int minIdle = DEFAULT_MIN_IDLE;
         long softMinEvictionIdleTimeMillis = DEFAULT_MIN_EVICTION_IDLE_TIME_MS;
-        Function<TBinaryProtocol, IF> clientFactory;
+        Function<TProtocol, IF> clientFactory;
 
         final Class<IF> ifaceClass;
 
-        public Builder(Class<IF> ifaceClass) {
+        public Builder( Class<IF> ifaceClass ) {
             this.ifaceClass = ifaceClass;
         }
 
-        public Builder<IF> withHostPort(String host, Integer port) {
+        public Builder<IF> withHostPort( String host, Integer port ) {
             defaultHost = host;
             defaultPort = port;
             return this;
         }
 
-        public Builder<IF> withPoolConfig(int max, int minIdle, int minEvictionIdleTimeMS) {
+        public Builder<IF> withPoolConfig( int max, int minIdle, int minEvictionIdleTimeMS ) {
             this.maxPoolSize = max;
             this.minIdle = minIdle;
             this.softMinEvictionIdleTimeMillis = minEvictionIdleTimeMS;
             return this;
         }
 
-        public Builder<IF> withMaxPoolSize(int n) {
+        public Builder<IF> withMaxPoolSize( int n ) {
             this.maxPoolSize = n;
             return this;
         }
 
-        public Builder<IF> withMinPoolSize(int minIdle) {
+        public Builder<IF> withMinPoolSize( int minIdle ) {
             this.minIdle = minIdle;
             return this;
         }
 
-        public Builder<IF> withEvictionIdleTimeMillis(int n) {
+        public Builder<IF> withEvictionIdleTimeMillis( int n ) {
             this.softMinEvictionIdleTimeMillis = n;
             return this;
         }
 
-        public Builder<IF> withClientFactory(Function<TBinaryProtocol, IF> clientSupplier) {
+        public Builder<IF> withClientFactory( Function<TProtocol, IF> clientSupplier ) {
             this.clientFactory = clientSupplier;
             return this;
         }
 
         public ThriftClientFactory<IF> build() {
             GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
-            config.setMaxTotal(maxPoolSize);
-            config.setMinIdlePerKey(minIdle);
-            config.setSoftMinEvictableIdleTimeMillis(softMinEvictionIdleTimeMillis);
+            config.setMaxTotal( maxPoolSize );
+            config.setMinIdlePerKey( minIdle );
+            config.setSoftMinEvictableIdleTimeMillis( softMinEvictionIdleTimeMillis );
 
-            return new ThriftClientFactory<IF>(ifaceClass,
-                                               defaultHost,
+            return new ThriftClientFactory<IF>( ifaceClass,
+                                                defaultHost,
                                                defaultPort,
                                                config,
                                                clientFactory);
@@ -247,7 +247,7 @@ public class ThriftClientFactory<IF> {
                                   String defaultHost,
                                   Integer defaultPort,
                                   GenericKeyedObjectPoolConfig config,
-                                  Function<TBinaryProtocol, IF> clientFactory) {
+                                Function<TProtocol, IF> clientFactory ) {
         this.defaultHost = defaultHost;
         this.defaultPort = defaultPort;
         this.config = config;

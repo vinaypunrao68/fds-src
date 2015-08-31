@@ -102,18 +102,39 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     Module("SvcMgr")
 {
     auto config = MODULEPROVIDER()->get_conf_helper();
+    auto platformPort = config.get_abs<int>("fds.pm.platform_port");
+
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
-    omPort_ = config.get_abs<int>("fds.common.om_port");
-    omSvcUuid_.svc_uuid = static_cast<int64_t>(
-        config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
+    omPort_ = mapToSvcPort( platformPort, fpi::FDSP_ORCH_MGR );
+    omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
 
     fds_assert(omSvcUuid_.svc_uuid != 0);
     fds_assert(omPort_ != 0);
 
     svcRequestHandler_ = handler;
     svcInfo_ = svcInfo;
+
     /* Create the server */
-    svcServer_ = boost::make_shared<SvcServer>(svcInfo_.svc_port, processor);
+    int port = svcInfo_.svc_port;
+
+    // NOTE: Everyone communicates with the OM on port 7004 (platform + 4) and that
+    // is what we advertise in the SvcInfo.  However, when the OM Service
+    // Proxy is enabled 7004 is now the port that the Java-OM listens on.
+    // It forwards info to port 8904 which is now run by the C++ OM.
+    // Port 8904 should be considered internal to the OM and should not
+    // be accessed by any other services.
+    if (config.get_abs<bool>("fds.feature_toggle.om.enable_java_om_svc_proxy", false) &&
+         svcInfo_.svc_type ==  fpi::FDSP_ORCH_MGR) {
+        port += 1900; //(8904)
+
+        LOGNOTIFY << "OM Java Service Proxy enabled.  Java OM process will run on port "
+                <<  svcInfo_.svc_port
+                << " and proxy all operations to OM Native (C++) service at port "
+                << port
+                << ".";
+    }
+
+    svcServer_ = boost::make_shared<SvcServer>(port, processor);
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 

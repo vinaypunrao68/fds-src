@@ -118,7 +118,7 @@ public class HexDump {
     private static void writeHexAndAscii( PrintWriter out, byte[] bytes, int offset, int width ) {
         for ( int index = 0; (index + offset) < bytes.length; index += width ) {
             // for large byte[] may need to format the offset with a larger padding)
-            out.printf( "0x%-4x: ", offset );
+            out.printf( "0x%-4x: ", index + offset );
             writeHex( out, bytes, index + offset, width );
             out.append( " : " );
             writeAscii( out, bytes, index + offset, width );

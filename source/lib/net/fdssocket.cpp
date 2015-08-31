@@ -144,8 +144,9 @@ void Socket::shutDown() {
 }
 
 void Socket::checkConnection() {
-    // LOGWARN << "Not running the check connection thread for now [WIN-92]";
+    // TODO: "Not running the check connection thread for now [WIN-92]";
     return;
+    /*
     LOGDEBUG << "in checkConnection";
     for (; !fShutDown ;) {
         LOGDEBUG << "about to wait";
@@ -161,6 +162,7 @@ void Socket::checkConnection() {
         }
     }
     LOGDEBUG << "end checkConnection";
+    */
 }
 
 Socket::~Socket() {

@@ -111,9 +111,11 @@ void OrchMgr::proc_pre_startup()
     if (ctrl_port_num != 0) {
         control_portnum = ctrl_port_num;
     } else {
-        control_portnum = conf_helper_.get<int>("control_port");
+        // platform + 4...
+        auto platformPort = conf_helper_.get_abs<int>("fds.pm.platform_port");
+        auto svcType = SvcMgr::mapToSvcType(svcName_);
+        control_portnum = SvcMgr::mapToSvcPort(platformPort, svcType);
     }
-    ip_address = conf_helper_.get<std::string>("ip_address");
     
     LOGDEBUG << "Orchestration Manager using config port " << config_portnum
              << " control port " << control_portnum;
