@@ -7,6 +7,7 @@ extern "C" {
 #include <dirent.h>
 }
 
+#include <functional>
 #include <string>
 #include <vector>
 #include <set>
@@ -435,10 +436,15 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
 
-    // serialize on blobId instead of blobName so collision detection is free from races
-    opSynchronizer_.scheduleOnHashKey(DmPersistVolCat::getBlobIdFromName(blobName),
+    opSynchronizer_.scheduleOnHashKey(std::hash<std::string>()(blobName),
                                       std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, blobName, commitLog, txDesc, seq_id, cb));
+                                                this,
+                                                volId,
+                                                blobName,
+                                                commitLog,
+                                                txDesc,
+                                                seq_id,
+                                                cb));
     return ERR_OK;
 }
 

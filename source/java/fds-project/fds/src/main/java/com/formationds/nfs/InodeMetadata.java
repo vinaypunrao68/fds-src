@@ -2,10 +2,12 @@ package com.formationds.nfs;
 
 import com.formationds.protocol.BlobDescriptor;
 import org.dcache.auth.Subjects;
+import org.dcache.nfs.v4.xdr.*;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.security.auth.Subject;
@@ -25,8 +27,13 @@ public class InodeMetadata {
     public static final String NFS_MTIME = "NFS_MTIME";
     public static final String NFS_SIZE = "NFS_SIZE";
     public static final String NFS_GENERATION = "NFS_GENERATION";
-    public static final String NFS_VOLUME_ID = "NFS_VOLUME_ID";
     public static final String NFS_LINKS = "NFS_LINKS";
+    public static final String NFS_ACES = "NFS_ACES";
+
+    public static final String ACE_MASK = "ace_mask";
+    public static final String ACE_FLAG = "ace_flag";
+    public static final String ACE_TYPE = "ace_type";
+    public static final String ACE_WHO = "ace_who";
     private Map<String, String> metadata;
 
     public InodeMetadata(JSONObject o) {
@@ -41,8 +48,8 @@ public class InodeMetadata {
         metadata.put(NFS_MTIME, Long.toString(o.getLong(NFS_MTIME)));
         metadata.put(NFS_SIZE, Long.toString(o.getLong(NFS_SIZE)));
         metadata.put(NFS_GENERATION, Long.toString(o.getLong(NFS_GENERATION)));
-        metadata.put(NFS_VOLUME_ID, Long.toString(o.getLong(NFS_VOLUME_ID)));
         metadata.put(NFS_LINKS, o.getJSONObject(NFS_LINKS).toString());
+        metadata.put(NFS_ACES, o.has(NFS_ACES) ? o.getJSONArray(NFS_ACES).toString() : "[]");
     }
 
     public JSONObject asJsonObject() {
@@ -57,8 +64,8 @@ public class InodeMetadata {
         o.put(NFS_MTIME, getMtime());
         o.put(NFS_SIZE, getSize());
         o.put(NFS_GENERATION, getGeneration());
-        o.put(NFS_VOLUME_ID, getVolumeId());
         o.put(NFS_LINKS, new JSONObject(metadata.get(NFS_LINKS)));
+        o.put(NFS_ACES, new JSONArray(metadata.getOrDefault(NFS_ACES, "[]")));
         return o;
     }
 
@@ -79,7 +86,8 @@ public class InodeMetadata {
         metadata.put(NFS_SIZE, Long.toString(0));
         metadata.put(NFS_GENERATION, Long.toString(0));
         metadata.put(NFS_LINKS, new JSONObject().toString());
-        metadata.put(NFS_VOLUME_ID, Long.toString(volId));
+        metadata.put(NFS_ACES, "[]");
+
     }
 
     public InodeMetadata(Map<String, String> map) {
@@ -133,20 +141,16 @@ public class InodeMetadata {
         return Long.parseLong(metadata.get(NFS_FILE_ID));
     }
 
-    public long getVolumeId() {
-        return Long.parseLong(metadata.get(NFS_VOLUME_ID));
-    }
-
     public boolean isDirectory() {
         return getType().equals(Stat.Type.DIRECTORY);
     }
 
-    public DirectoryEntry asDirectoryEntry(long parentDir) {
+    public DirectoryEntry asDirectoryEntry(long parentDir, long exportId) {
         String name = new JSONObject(metadata.get(NFS_LINKS)).getString(Long.toString(parentDir));
-        return new DirectoryEntry(name, asInode(), asStat());
+        return new DirectoryEntry(name, asInode(exportId), asStat(exportId));
     }
 
-    public Stat asStat() {
+    public Stat asStat(long exportId) {
         Stat stat = new Stat();
         Stat.Type type = getType();
         int mode = Integer.parseInt(metadata.get(NFS_MODE));
@@ -160,7 +164,7 @@ public class InodeMetadata {
         stat.setATime(Long.parseLong(metadata.get(NFS_ATIME)));
         stat.setCTime(Long.parseLong(metadata.get(NFS_CTIME)));
         stat.setMTime(Long.parseLong(metadata.get(NFS_MTIME)));
-        stat.setDev(Integer.parseInt(metadata.get(NFS_VOLUME_ID)));
+        stat.setDev((int) exportId);
         return stat;
     }
 
@@ -250,18 +254,14 @@ public class InodeMetadata {
             metadata.put(NFS_MTIME, Long.toString(stat.getMTime()));
         }
 
-        if (stat.isDefined(Stat.StatAttribute.DEV)) {
-            metadata.put(NFS_VOLUME_ID, Long.toString(stat.getDev()));
-        }
-
         return this;
     }
 
-    public Inode asInode() {
+    public Inode asInode(long exportId) {
         byte[] bytes = new byte[8];
         ByteBuffer buf = ByteBuffer.wrap(bytes);
         buf.putLong(getFileId());
-        return new Inode(new FileHandle((int) getGeneration(), (int) getVolumeId(), getType().toMode(), bytes));
+        return new Inode(new FileHandle((int) getGeneration(), (int) exportId, getType().toMode(), bytes));
     }
 
     public static long fileId(Inode inode) {
@@ -310,5 +310,36 @@ public class InodeMetadata {
             links.put(id, name);
         }
         return links;
+    }
+
+
+    public nfsace4[] getNfsAces() {
+        JSONArray array = new JSONArray(metadata.getOrDefault(NFS_ACES, "[]"));
+        nfsace4[] result = new nfsace4[array.length()];
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject o = array.getJSONObject(i);
+            nfsace4 ace = new nfsace4();
+            ace.access_mask = new acemask4(new uint32_t(o.getInt(ACE_MASK)));
+            ace.flag = new aceflag4(new uint32_t(o.getInt(ACE_FLAG)));
+            ace.type = new acetype4(new uint32_t(o.getInt(ACE_TYPE)));
+            ace.who = new utf8str_mixed(o.getString(ACE_WHO));
+            result[i] = ace;
+        }
+        return result;
+    }
+
+    public InodeMetadata withNfsAces(nfsace4... nfsace4s) {
+        JSONArray array = new JSONArray();
+        for (nfsace4 nfsace4 : nfsace4s) {
+            JSONObject o = new JSONObject();
+            o.put(ACE_MASK, nfsace4.access_mask.value.value);
+            o.put(ACE_FLAG, nfsace4.flag.value.value);
+            o.put(ACE_TYPE, nfsace4.type.value.value);
+            o.put(ACE_WHO, nfsace4.who.value.toString());
+            array.put(o);
+        }
+        Map<String, String> map = new HashMap<>(metadata);
+        map.put(NFS_ACES, array.toString());
+        return new InodeMetadata(map);
     }
 }

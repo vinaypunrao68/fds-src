@@ -422,6 +422,9 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                     boost::make_shared<int64_t>());
                 *offset = 0;
                 boost::shared_ptr<std::string> pattern(new std::string());
+                boost::shared_ptr<std::string> delimiter(new std::string("/"));
+                boost::shared_ptr<fpi::PatternSemantics> patternSems(
+                    boost::make_shared<fpi::PatternSemantics>());
                 boost::shared_ptr<fpi::BlobListOrder> orderBy(
                     boost::make_shared<fpi::BlobListOrder>());
                 *orderBy = fpi::UNSPECIFIED;
@@ -435,8 +438,10 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                              count,
                                              offset,
                                              pattern,
+                                             patternSems,
                                              orderBy,
-                                             descending);
+                                             descending,
+                                             delimiter);
             } else if (opType == SETVOLMETA) {
                 // Always use an empty request ID since we don't track
                 boost::shared_ptr<apis::RequestId> reqId(

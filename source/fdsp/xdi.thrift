@@ -38,7 +38,9 @@ service AsyncXdiServiceRequest {
 
     oneway void volumeContents(1:RequestId requestId, 2:string domainName,
                                3:string volumeName, 4:i32 count, 5:i64 offset, 6:string pattern,
-                               7:common.BlobListOrder orderBy, 8:bool descending),
+                               7:common.PatternSemantics patternSemantics,
+                               8:common.BlobListOrder orderBy, 9:bool descending,
+                               10:string delimiter),
 
     oneway void setVolumeMetadata(1:RequestId requestId, 2:string domainName,
                                   3:string volumeName, 4:map<string, string> metadata),

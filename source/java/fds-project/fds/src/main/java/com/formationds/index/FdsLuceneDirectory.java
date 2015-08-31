@@ -6,6 +6,7 @@ import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.nfs.BlockyVfs;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
 import com.formationds.xdi.AsyncAm;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.log4j.Logger;
@@ -37,7 +38,7 @@ public class FdsLuceneDirectory extends Directory {
         locks = new ConcurrentHashMap<>();
         indexFiles = new HashSet<>();
         try {
-            List<BlobDescriptor> blobs = unwindExceptions(() -> asyncAm.volumeContents(BlockyVfs.DOMAIN, volume, Integer.MAX_VALUE, 0, "^index-.*", BlobListOrder.UNSPECIFIED, false).get());
+            List<BlobDescriptor> blobs = unwindExceptions(() -> asyncAm.volumeContents(BlockyVfs.DOMAIN, volume, Integer.MAX_VALUE, 0, "^index-.*", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get());
             for (BlobDescriptor blob : blobs) {
                 String indexFile = blob.getName().replaceAll("^index-", "");
                 indexFiles.add(indexFile);

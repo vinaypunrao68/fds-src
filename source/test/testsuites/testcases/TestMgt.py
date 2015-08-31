@@ -473,6 +473,32 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 elif service == "am":
                     suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
 
+        if (action.count("stop") > 0):
+            if (action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMStop(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMStop(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMStop(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestAWSOMStop(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMStop(node=node))
+
+        if (action.count("start") > 0):
+            if (action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMStart(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMStart(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMStart(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestAWSOMStart(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMStart(node=node))
+
         if (action.count("verifydown") > 0):
             if service == "pm":
                 if node is None:

@@ -66,23 +66,30 @@ public class MutateService implements RequestHandler {
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
         
         Service service = ObjectModelHelper.toObject( reader, Service.class );
+        
+        ServiceType type = service.getType();
+        if ( (type == ServiceType.PM) || (type == ServiceType.OM) ) {
+            throw new ApiException( "Cannot change state of service:" +  type +
+        			                ". Valid types are: AM,DM,SM", ErrorCode.BAD_REQUEST);
+        }
+        
         service.setId( serviceId );
         
         Node node = (new GetNode()).getNode( nodeId );
         
-        List<Service> curServices = node.getServices().get( service.getType() );
+        List<Service> curServices = node.getServices().get( type );
 		
 		if ( curServices == null || curServices.size() == 0 ){
-        	throw new ApiException( "Could not find service: " + service.getType() + "for node: "
+            throw new ApiException( "Could not find service: " + type + "for node: "
                                     + nodeId + ", try adding first: ",
                                     ErrorCode.MISSING_RESOURCE );
 		}
 		
-        Boolean am = isServiceOnAlready( ServiceType.AM, node );
-        Boolean sm = isServiceOnAlready( ServiceType.SM, node );
-        Boolean dm = isServiceOnAlready( ServiceType.DM, node );
+        Boolean amState = isServiceOnAlready( ServiceType.AM, node );
+        Boolean smState = isServiceOnAlready( ServiceType.SM, node );
+        Boolean dmState = isServiceOnAlready( ServiceType.DM, node );
         
-        Boolean myState = convertState( service.getStatus().getServiceState() );
+        Boolean newState = convertState( service.getStatus().getServiceState() );
         
         // Get the service object so we can access the type
         Service svcObj = (new GetService()).getService(nodeId, serviceId);
@@ -93,19 +100,35 @@ public class MutateService implements RequestHandler {
         
         switch( svcObj.getType() ){
         	case AM:
-        		am = myState;
+        		if ( amState == newState) {
+        		    throw new ApiException( "Service:AM is already in desired state",
+        					                ErrorCode.BAD_REQUEST);
+        		} else {
+        		    amState = newState;
+        		}
         		break;
         	case DM:
-        		dm = myState;
+        		if ( dmState == newState ) {
+        		    throw new ApiException( "Service:DM is already in desired state",
+        					                ErrorCode.BAD_REQUEST);
+        		} else {
+        		    dmState = newState;
+        		}
         		break;
-        	case SM: 
-        		sm = myState;
+        	case SM:
+        		if ( smState == newState) {
+        		    throw new ApiException( "Service:SM is already in desired state",
+        					                ErrorCode.BAD_REQUEST);
+        		} else {
+        		    smState = newState;
+        		}
         		break;
         	default:
         		break;
         }
         
-        logger.debug( "Desired state of services is AM: " + am + " SM: " + sm + " DM: " + dm );
+        logger.debug( "Desired state of services is AM: " + amState +
+        		      " SM: " + smState + " DM: " + dmState );
 
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
@@ -121,7 +144,7 @@ public class MutateService implements RequestHandler {
     	
         int status = -1;
         
-        if ( myState ) {
+        if ( newState ) {
         	// State change desired is from NOT_RUNNING to RUNNING
         	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
         }

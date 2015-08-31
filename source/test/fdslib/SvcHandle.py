@@ -181,7 +181,7 @@ class SvcMap(object):
         """
         l = []
         for k,v in self.svc_tbl.items():
-            if v.svc_name == svc:
+            if v.name == svc:
                 l.append(k)
         return l
 
