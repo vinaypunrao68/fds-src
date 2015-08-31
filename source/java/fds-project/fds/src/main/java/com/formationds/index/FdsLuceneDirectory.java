@@ -38,7 +38,16 @@ public class FdsLuceneDirectory extends Directory {
         locks = new ConcurrentHashMap<>();
         indexFiles = new HashSet<>();
         try {
-            List<BlobDescriptor> blobs = unwindExceptions(() -> asyncAm.volumeContents(BlockyVfs.DOMAIN, volume, Integer.MAX_VALUE, 0, "^index-.*", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get());
+            List<BlobDescriptor> blobs = unwindExceptions(
+                    () -> asyncAm.volumeContents(BlockyVfs.DOMAIN,
+                                                 volume,
+                                                 Integer.MAX_VALUE,
+                                                 0,
+                                                 "^index-.*",
+                                                 PatternSemantics.PCRE,
+                                                 "",
+                                                 BlobListOrder.UNSPECIFIED,
+                                                 false).get());
             for (BlobDescriptor blob : blobs) {
                 String indexFile = blob.getName().replaceAll("^index-", "");
                 indexFiles.add(indexFile);

@@ -61,6 +61,11 @@ public final class S3RateLimitTestWorkload extends Workload
         _targetState = null;
     }
     
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
     @Override
     public Class<?> getEndpointType()
     {

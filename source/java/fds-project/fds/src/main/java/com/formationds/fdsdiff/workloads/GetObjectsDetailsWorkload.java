@@ -37,6 +37,12 @@ public final class GetObjectsDetailsWorkload extends Workload
     }
     
     @Override
+    public boolean doDryRun()
+    {
+        return false;
+    }
+    
+    @Override
     public Class<?> getEndpointType()
     {
         return S3Endpoint.class;

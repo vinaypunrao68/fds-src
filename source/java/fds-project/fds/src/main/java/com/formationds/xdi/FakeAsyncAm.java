@@ -40,7 +40,16 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, BlobListOrder order, boolean descending) {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName,
+                                                                  String volumeName,
+                                                                  int count,
+                                                                  long offset,
+                                                                  String pattern,
+                                                                  PatternSemantics patternSemantics,
+                                                                  String delimiter,
+                                                                  BlobListOrder order,
+                                                                  boolean descending)
+    {
         return CompletableFuture.completedFuture(new ArrayList<BlobDescriptor>());
     }
 

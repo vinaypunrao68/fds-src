@@ -30,7 +30,15 @@ public class DebugWebapp {
         @Override
         public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
             String volumeName = routeParameters.get("volume");
-            List<BlobDescriptor> bds = asyncAm.volumeContents("", volumeName, 100, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+            List<BlobDescriptor> bds = asyncAm.volumeContents("",
+                                                              volumeName,
+                                                              100,
+                                                              0,
+                                                              "",
+                                                              PatternSemantics.PCRE,
+                                                              "",
+                                                              BlobListOrder.UNSPECIFIED,
+                                                              false).get();
             JSONArray array = new JSONArray();
             for (BlobDescriptor bd : bds) {
                 JSONObject o = new JSONObject();

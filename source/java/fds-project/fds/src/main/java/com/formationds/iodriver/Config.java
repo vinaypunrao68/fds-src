@@ -23,6 +23,7 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.RuntimeConfig;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
@@ -192,6 +193,30 @@ public final class Config extends AbstractConfig
         _workloadName = null;
     }
 
+    @Override
+    public void addOptions(Options options)
+    {
+    	if (options == null) throw new NullArgumentException("options");
+    	
+    	super.addOptions(options);
+    	
+        options.addOption("d",
+                          "debug",
+                          true,
+                          "Operations to debug. Available operations are "
+                          + String.join(", ",
+                                        StreamSupport.stream(Arrays.asList(LogTargets.values())
+                                                                   .spliterator(),
+                                                             false)
+                                                     .map(logTarget -> logTarget.toString())
+                                                     .collect(Collectors.toList())));
+        options.addOption("w",
+                          "workload",
+                          true,
+                          "The workload to run. Available options are "
+                          + String.join(", ", getAvailableWorkloadNames()) + ".");
+    }
+
     /**
      * Get the default assured-rate test workload.
      *
@@ -210,12 +235,6 @@ public final class Config extends AbstractConfig
         return new S3AssuredRateTestWorkload(competingBuckets,
                                              systemThrottle,
                                              getOperationLogging());
-    }
-    
-    @WorkloadProvider
-    public RandomFill getRandomFillWorkload() throws ParseException
-    {
-        return new RandomFill(5, "/", 5, 20 * 1024, 20, 3, getOperationLogging());
     }
     
     /**
@@ -346,18 +365,57 @@ public final class Config extends AbstractConfig
     // @eclipseFormat:on
     {
         String workloadName = getSelectedWorkloadName();
-        Class<?> myClass = getClass();
-        Method workloadFactoryMethod;
+        Method workloadFactoryMethod = null;
+        RuntimeConfig workloadFactory = null;
         try
         {
-            // HACK: We should allow the annotation to specify the workload name, and then store
-            //       a map. We definitely shouldn't be adding and removing the pre/suffixes in two
-            //       very different places (see getAvailableWorkloadNames()).
-            workloadFactoryMethod = myClass.getMethod("get" + workloadName + "Workload");
+            Stream<RuntimeConfig> configs = Stream.concat(Stream.of(this),
+                                                          getConfigs().stream());
+            
+        	NoSuchMethodException finalE = null;
+        	for (RuntimeConfig config : configs.toArray(size -> new RuntimeConfig[size]))
+        	{
+        	    Class<?> clazz = config.getClass();
+        		try
+        		{
+                    // HACK: We should allow the annotation to specify the workload name, and then
+        			//       store a map. We definitely shouldn't be adding and removing the
+        			//       pre/suffixes in two very different places (see
+        			//       getAvailableWorkloadNames()).
+        			workloadFactoryMethod = clazz.getMethod("get" + workloadName + "Workload");
+        			workloadFactory = config;
+        		}
+        		catch (NoSuchMethodException e)
+        		{
+        			if (finalE == null)
+        			{
+        				finalE = e;
+        			}
+        			else
+        			{
+        				finalE.addSuppressed(e);
+        			}
+        		}
+        	}
+        	
+            if (workloadFactoryMethod == null)
+            {
+            	if (finalE == null)
+            	{
+            		throw new ConfigurationException("No method get" + workloadName + "Workload() "
+            										 + "found.");
+            	}
+            	else
+            	{
+            		throw new ConfigurationException("Error looking up workload method get"
+            										 + workloadName + "Workload().", finalE);
+            	}
+            }
         }
-        catch (NoSuchMethodException | SecurityException e)
+        catch (SecurityException e)
         {
-            throw new ConfigurationException("No such method " + workloadName + "().");
+            throw new ConfigurationException("Security error looking up method name get"
+            						         + workloadName + "Workload().", e);
         }
 
         Workload workload;
@@ -365,7 +423,7 @@ public final class Config extends AbstractConfig
         {
             try
             {
-                workload = (Workload)workloadFactoryMethod.invoke(this);
+                workload = (Workload)workloadFactoryMethod.invoke(workloadFactory);
             }
             catch (InvocationTargetException e)
             {
@@ -401,30 +459,6 @@ public final class Config extends AbstractConfig
     {
         // TODO: Allow this to be configured.
         return Defaults.getValidator();
-    }
-
-    @Override
-    protected void addOptions(Options options)
-    {
-    	if (options == null) throw new NullArgumentException("options");
-    	
-    	super.addOptions(options);
-    	
-        options.addOption("d",
-                          "debug",
-                          true,
-                          "Operations to debug. Available operations are "
-                          + String.join(", ",
-                                        StreamSupport.stream(Arrays.asList(LogTargets.values())
-                                                                   .spliterator(),
-                                                             false)
-                                                     .map(logTarget -> logTarget.toString())
-                                                     .collect(Collectors.toList())));
-        options.addOption("w",
-                          "workload",
-                          true,
-                          "The workload to run. Available options are "
-                          + String.join(", ", getAvailableWorkloadNames()) + ".");
     }
 
     @Override
@@ -469,8 +503,6 @@ public final class Config extends AbstractConfig
     {
         if (_availableWorkloadNames == null)
         {
-            Class<?> myClass = getClass();
-
             Predicate<Member> memberIsPublic = member -> Modifier.isPublic(member.getModifiers());
             Predicate<AnnotatedElement> memberHasAnnotation =
                     member ->
@@ -490,10 +522,20 @@ public final class Config extends AbstractConfig
                                      .replaceAll("Workload$", "");
                     };
 
-            Stream<Method> myMethods = Stream.of(myClass.getMethods());
-            Stream<Method> myPublicMethods = myMethods.filter(memberIsPublic);
-            Stream<Method> myAnnotatedMethods = myPublicMethods.filter(memberHasAnnotation);
-            Stream<Method> methodsWithNoArguments = myAnnotatedMethods.filter(methodHasNoArguments);
+        	Class<?>[] classes =
+        			Stream.concat(Stream.of(getClass()),
+        			              getConfigs().stream().map(c -> c.getClass()))
+        			      .toArray(size -> new Class[size]);
+        	@SuppressWarnings("unchecked")
+            Class<? extends RuntimeConfig>[] typedClasses =
+        	        (Class<? extends RuntimeConfig>[])classes;
+        	
+        	Stream<Method> methods = Arrays.asList(typedClasses)
+        	                               .stream().flatMap(c -> Arrays.asList(c.getMethods())
+        	                                                            .stream());
+        	Stream<Method> publicMethods = methods.filter(memberIsPublic);
+            Stream<Method> annotatedMethods = publicMethods.filter(memberHasAnnotation);
+            Stream<Method> methodsWithNoArguments = annotatedMethods.filter(methodHasNoArguments);
             Stream<Method> methodsWithCorrectReturnType =
                     methodsWithNoArguments.filter(methodHasCorrectReturnType);
             Stream<String> availableWorkloadNames =

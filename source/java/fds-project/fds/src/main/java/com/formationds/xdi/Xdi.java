@@ -109,9 +109,28 @@ public class Xdi {
         return result;
     }
 
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
+    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token,
+                                                                  String domainName,
+                                                                  String volumeName,
+                                                                  int count,
+                                                                  long offset,
+                                                                  String pattern,
+                                                                  BlobListOrder orderBy,
+                                                                  boolean descending,
+                                                                  PatternSemantics patternSemantics,
+                                                                  String delimiter)
+              throws ApiException, TException
+    {
         attemptVolumeAccess(token, volumeName, Intent.read);
-        return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, PatternSemantics.PCRE, orderBy, descending);
+        return asyncAm.volumeContents(domainName,
+                                      volumeName,
+                                      count,
+                                      offset,
+                                      pattern,
+                                      patternSemantics,
+                                      delimiter,
+                                      orderBy,
+                                      descending);
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {

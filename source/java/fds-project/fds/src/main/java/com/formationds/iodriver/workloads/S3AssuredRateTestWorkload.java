@@ -93,6 +93,12 @@ public final class S3AssuredRateTestWorkload extends Workload
     }
 
     @Override
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
+    @Override
     public Class<?> getEndpointType()
     {
         return FdsEndpoint.class;

@@ -62,6 +62,27 @@ public final class Config extends AbstractConfig
 		_outputBPath = null;
 	}
 	
+    @Override
+    public void addOptions(Options options)
+    {
+        if (options == null) throw new NullArgumentException("options");
+        
+        options.addOption("A", "endpoint-a", true, "The first host to compare.");
+        options.addOption("B", "endpoint-b", true, "The second host to compare.");
+        options.addOption("f",
+                          "format",
+                          true,
+                          "The data format used for comparing systems. Available formats are: "
+                          + Arrays.asList(ComparisonDataFormat.values())
+                                  .stream()
+                                  .<String>map(v -> v.toString())
+                                  .collect(Collectors.joining(", ")));
+        options.addOption(null, "input-a", true, "Read comparison data from the specified file.");
+        options.addOption(null, "input-b", true, "Read comparison data from the specified file.");
+        options.addOption(null, "output-a", true, "Output comparison data to the specified file.");
+        options.addOption(null, "output-b", true, "Output comparison data to the specified file.");
+    }
+    
 	public ComparisonDataFormat getComparisonDataFormat() throws ParseException
 	{
 	    return (_comparisonDataFormat == null
@@ -163,27 +184,6 @@ public final class Config extends AbstractConfig
 	    return _outputBPath == null
 	           ? (_outputBPath = getCommandLinePath(getOutputBFilename()))
 	           : _outputBPath;
-	}
-	
-	@Override
-	protected void addOptions(Options options)
-	{
-		if (options == null) throw new NullArgumentException("options");
-		
-		options.addOption("A", "endpoint-a", true, "The first host to compare.");
-		options.addOption("B", "endpoint-b", true, "The second host to compare.");
-        options.addOption("f",
-                          "format",
-                          true,
-                          "The data format used for comparing systems. Available formats are: "
-                          + Arrays.asList(ComparisonDataFormat.values())
-                                  .stream()
-                                  .<String>map(v -> v.toString())
-                                  .collect(Collectors.joining(", ")));
-        options.addOption(null, "input-a", true, "Read comparison data from the specified file.");
-        options.addOption(null, "input-b", true, "Read comparison data from the specified file.");
-		options.addOption(null, "output-a", true, "Output comparison data to the specified file.");
-		options.addOption(null, "output-b", true, "Output comparison data to the specified file.");
 	}
 	
 	@Override

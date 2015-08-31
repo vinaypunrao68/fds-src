@@ -29,6 +29,12 @@ public final class GetSystemConfigWorkload extends Workload
 		_contentContainer = contentContainer;
 	}
 
+	@Override
+	public boolean doDryRun()
+	{
+	    return false;
+	}
+	
 	public SystemContent getContentContainer()
 	{
 	    return _contentContainer;

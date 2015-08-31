@@ -170,7 +170,16 @@ public class DirectAmIo implements Io {
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
         try {
             long then = System.currentTimeMillis();
-            List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false).get());
+            List<BlobDescriptor> blobDescriptors = unwindExceptions(
+                    () -> asyncAm.volumeContents(domain,
+                                                 volume,
+                                                 Integer.MAX_VALUE,
+                                                 0,
+                                                 blobNamePrefix,
+                                                 PatternSemantics.PREFIX_AND_DELIMITER,
+                                                 "/",
+                                                 BlobListOrder.UNSPECIFIED,
+                                                 false).get());
             long elapsed = System.currentTimeMillis() - then;
             LOG.debug("AM.volumeContents() returned " + blobDescriptors.size() + " entries in " + elapsed + " ms");
             List<T> result = new ArrayList<>(blobDescriptors.size());

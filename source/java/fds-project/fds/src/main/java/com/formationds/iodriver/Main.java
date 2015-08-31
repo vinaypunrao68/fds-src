@@ -17,6 +17,7 @@ import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.NullWorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.formationds.iodriver.workloads.RandomFillConfig;
 import com.formationds.iodriver.workloads.Workload;
 
 /**
@@ -40,6 +41,8 @@ public final class Main
             logger = Config.Defaults.getLogger();
             Config config = new Config(args);
             logger = config.getLogger();
+            
+            config.addConfig(new RandomFillConfig(config, config::getOperationLogging));
 
             if (handleHelp(config))
             {
@@ -161,10 +164,17 @@ public final class Main
             Validator validator = validate
                                   ? workload.getSuggestedValidator().orElse(config.getValidator())
                                   : new NullValidator();
-            
+                                  
             Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
-            driver.runWorkload();
-            return driver.getResult();
+            if (validate || workload.doDryRun())
+            {
+                driver.runWorkload();
+                return driver.getResult();
+            }
+            else
+            {
+                return 0;
+            }
         }
         catch (Exception e)
         {

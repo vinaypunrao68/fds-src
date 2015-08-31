@@ -52,6 +52,12 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
     }
 
     @Override
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
+    @Override
     public Class<?> getEndpointType()
     {
         return S3Endpoint.class;

@@ -37,6 +37,12 @@ public class RandomFill extends Workload
 	}
 
 	@Override
+	public boolean doDryRun()
+	{
+	    return false;
+	}
+	
+	@Override
 	public Class<?> getEndpointType()
 	{
 	    return FdsEndpoint.class;

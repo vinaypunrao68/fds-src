@@ -3,15 +3,16 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.xdi.Xdi;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.PatternSemantics;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.xdi.Xdi;
 
 class MultiPartOperations {
     private Xdi xdi;
@@ -34,7 +35,16 @@ class MultiPartOperations {
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token,
+                                                                  S3Endpoint.FDS_S3_SYSTEM,
+                                                                  systemVolume,
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false,
+                                                                  PatternSemantics.PCRE,
+                                                                  "").get();
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {
@@ -53,7 +63,16 @@ class MultiPartOperations {
 
         // TODO: read this in chunks
         String systemVolume = xdi.getSystemVolumeName(token);
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, Integer.MAX_VALUE, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(token,
+                                                                  S3Endpoint.FDS_S3_SYSTEM,
+                                                                  systemVolume,
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false,
+                                                                  PatternSemantics.PCRE,
+                                                                  "").get();
         for(BlobDescriptor bd : blobDescriptors) {
             Matcher match = p.matcher(bd.getName());
             if(match.matches()) {

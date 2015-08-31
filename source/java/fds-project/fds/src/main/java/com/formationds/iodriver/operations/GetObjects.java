@@ -3,6 +3,7 @@ package com.formationds.iodriver.operations;
 import java.util.function.Consumer;
 
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.formationds.commons.NullArgumentException;
@@ -11,13 +12,20 @@ import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 public final class GetObjects extends S3Operation
 {
-    public GetObjects(String bucketName, Consumer<String> setter)
+    public GetObjects(String bucketName, String prefix, String delimiter, Consumer<String> setter)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
         if (setter == null) throw new NullArgumentException("setter");
         
         _bucketName = bucketName;
+        _prefix = prefix;
+        _delimiter = delimiter;
         _setter = setter;
+    }
+    
+    public GetObjects(String bucketName, Consumer<String> setter)
+    {
+        this(bucketName, null, null, setter);
     }
     
     @Override
@@ -34,7 +42,11 @@ public final class GetObjects extends S3Operation
         {
             if (objects == null)
             {
-                objects = client.listObjects(_bucketName);
+                ListObjectsRequest listObjectsRequest = new ListObjectsRequest();
+                listObjectsRequest.setBucketName(_bucketName);
+                listObjectsRequest.setPrefix(_prefix);
+                listObjectsRequest.setDelimiter(_delimiter);
+                objects = client.listObjects(listObjectsRequest);
             }
             else
             {
@@ -51,5 +63,9 @@ public final class GetObjects extends S3Operation
     
     private final String _bucketName;
     
+    private final String _delimiter;
+    
     private final Consumer<String> _setter;
+    
+    private final String _prefix;
 }

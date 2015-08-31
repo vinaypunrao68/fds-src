@@ -44,6 +44,11 @@ public final class S3QosTestWorkload extends Workload
         this(bucketParams, null, stopTime, logOperations);
     }
     
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
     @Override
     public Class<?> getEndpointType()
     {

@@ -2,7 +2,9 @@ package com.formationds.commons;
 
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -17,7 +19,7 @@ import com.formationds.commons.util.logging.Logger;
 /**
  * Base class for global program configuration.
  */
-public abstract class AbstractConfig
+public abstract class AbstractConfig implements RuntimeConfig
 {
     /**
      * The interactive console.
@@ -132,7 +134,46 @@ public abstract class AbstractConfig
     	
     	_args = args;
     	_commandLine = null;
+    	_configs = new HashSet<>();
     	_replayParseError = null;
+    }
+    
+    public void addConfig(RuntimeConfig config)
+    {
+    	_configs.add(config);
+    }
+    
+    /**
+     * Add supported command-line options.
+     * 
+     * @param options The options object to add to.
+     */
+    @Override
+    public void addOptions(Options options)
+    {
+    	if (options == null) throw new NullArgumentException("options");
+    	
+		options.addOption("r", "fds-root", true, "Set the root folder for the FDS install.");
+		options.addOption("h", "help", false, "Show this help screen.");
+		
+		for (RuntimeConfig config : _configs)
+		{
+			config.addOptions(options);
+		}
+    }
+    
+    public final Optional<String> getCommandLineOptionValue(String longName)
+            throws ParseException
+    {
+        CommandLine commandLine = getCommandLine();
+        if (commandLine.hasOption(longName))
+        {
+            return Optional.of(commandLine.getOptionValue(longName));
+        }
+        else
+        {
+            return Optional.empty();
+        }
     }
     
     /**
@@ -166,11 +207,12 @@ public abstract class AbstractConfig
      *
      * @return Whether help should be shown.
      */
+    @Override
     public boolean isHelpNeeded()
     {
         try
         {
-            return isHelpRequested();
+            return isHelpRequested() || _configs.stream().anyMatch(rc -> rc.isHelpNeeded());
         }
         catch (ParseException e)
         {
@@ -249,19 +291,6 @@ public abstract class AbstractConfig
     }
 
     /**
-     * Add supported command-line options.
-     * 
-     * @param options The options object to add to.
-     */
-    protected void addOptions(Options options)
-    {
-    	if (options == null) throw new NullArgumentException("options");
-    	
-		options.addOption("r", "fds-root", true, "Set the root folder for the FDS install.");
-		options.addOption("h", "help", false, "Show this help screen.");
-    }
-    
-    /**
      * Get the parsed command line.
      *
      * @return The current property value.
@@ -295,18 +324,9 @@ public abstract class AbstractConfig
         return _commandLine;
     }
     
-    protected final Optional<String> getCommandLineOptionValue(String longName)
-    		throws ParseException
+    protected final Set<RuntimeConfig> getConfigs()
     {
-    	CommandLine commandLine = getCommandLine();
-    	if (commandLine.hasOption(longName))
-    	{
-    		return Optional.of(commandLine.getOptionValue(longName));
-    	}
-    	else
-    	{
-    		return Optional.empty();
-    	}
+    	return _configs;
     }
     
     /**
@@ -342,6 +362,8 @@ public abstract class AbstractConfig
      * The parsed command-line. {@code null} prior to {@link #getCommandLine()}.
      */
     private CommandLine _commandLine;
+    
+    private final Set<RuntimeConfig> _configs;
     
     /**
      * The command-line options supported. {@code null} prior to {@link #getOptions()}.

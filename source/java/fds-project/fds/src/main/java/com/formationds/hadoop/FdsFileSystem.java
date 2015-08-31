@@ -287,7 +287,15 @@ public class FdsFileSystem extends FileSystem {
         }
 
         try {
-            return asyncAm.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, PatternSemantics.PCRE, BlobListOrder.LEXICOGRAPHIC, descending).get();
+            return asyncAm.volumeContents(DOMAIN,
+                                          getVolume(),
+                                          Integer.MAX_VALUE,
+                                          0,
+                                          filter,
+                                          PatternSemantics.PCRE,
+                                          "",
+                                          BlobListOrder.LEXICOGRAPHIC,
+                                          descending).get();
         } catch (Exception e) {
             throw new IOException(e);
         }

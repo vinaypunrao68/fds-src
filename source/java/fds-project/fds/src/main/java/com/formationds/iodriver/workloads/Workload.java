@@ -34,6 +34,8 @@ import com.formationds.iodriver.validators.Validator;
  */
 public abstract class Workload
 {
+    public abstract boolean doDryRun();
+    
     public abstract Class<?> getEndpointType();
     
     /**
@@ -63,7 +65,7 @@ public abstract class Workload
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
 
-        ensureInitialized();
+        ensureOperationsInitialized();
 
         Map<Thread, NullableMutableReference<Throwable>> workerThreads =
                 new HashMap<>(_operations.size());
@@ -177,7 +179,7 @@ public abstract class Workload
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
 
-        ensureInitialized();
+        ensureSetupInitialized();
 
         // See comment in runOn().
         ExceptionHelper.<Operation, ExecutionException>tunnel(
@@ -210,7 +212,7 @@ public abstract class Workload
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
 
-        ensureInitialized();
+        ensureTeardownInitialized();
 
         // See comment in runOn().
         ExceptionHelper.<Operation, ExecutionException>tunnel(
@@ -270,27 +272,27 @@ public abstract class Workload
         return Stream.empty();
     }
 
-    /**
-     * Ensure the workload is ready to run.
-     */
-    protected final void ensureInitialized()
+    protected final void ensureOperationsInitialized()
     {
         if (_operations == null)
         {
-            try
-            {
-                _operations = createOperations();
-                _setup = createSetup();
-                _teardown = createTeardown();
-            }
-            catch (Throwable t)
-            {
-                _operations = null;
-                _setup = null;
-                _teardown = null;
-
-                throw t;
-            }
+            _operations = createOperations();
+        }
+    }
+    
+    protected final void ensureSetupInitialized()
+    {
+        if (_setup == null)
+        {
+            _setup = createSetup();
+        }
+    }
+    
+    protected final void ensureTeardownInitialized()
+    {
+        if (_teardown == null)
+        {
+            _teardown = createTeardown();
         }
     }
 
