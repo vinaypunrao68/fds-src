@@ -215,7 +215,7 @@ public final class Config extends AbstractConfig
     @WorkloadProvider
     public RandomFill getRandomFillWorkload() throws ParseException
     {
-        return new RandomFill(5, "/", 5, 20 * 1024, 20, 0, getOperationLogging());
+        return new RandomFill(5, "/", 5, 20 * 1024, 20, 3, getOperationLogging());
     }
     
     /**
