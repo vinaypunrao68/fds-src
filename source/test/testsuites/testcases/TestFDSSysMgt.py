@@ -226,7 +226,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 service.type = service_name
                 add_service = node_service.add_service(node_id,service)
                 if type(add_service).__name__ == 'FdsError':
-                    self.log(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
+                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
                     return False
 
                 self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
@@ -237,10 +237,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
                     self.log.error("Service activation of node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
                     return False
-
-                elif self.passedNode is not None:
-                    # If we were passed a specific node, exit now.
-                    return True
+            if self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                return True
 
         return True
 
