@@ -25,7 +25,7 @@ public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationTok
         String object = ctx.getRouteParameters().get("object");
 
         try {
-            return xdi.getBlobInfo(token, S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
+            return xdi.getBlobInfo(token, S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(object)).thenCompose(blobInfo -> {
 
                 Map<String, String> md = blobInfo.getBlobDescriptor().getMetadata();
                 String contentType = md.getOrDefault("Content-Type", S3Endpoint.S3_DEFAULT_CONTENT_TYPE);

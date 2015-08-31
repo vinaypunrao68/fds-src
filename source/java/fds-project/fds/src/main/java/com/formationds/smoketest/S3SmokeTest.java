@@ -330,7 +330,7 @@ public class S3SmokeTest {
         CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
         CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
         byte[] digest = md5.digest();
-        assertEquals(result.getETag(), Hex.encodeHexString(digest));
+        assertEquals(Hex.encodeHexString(digest), result.getETag());
         ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }

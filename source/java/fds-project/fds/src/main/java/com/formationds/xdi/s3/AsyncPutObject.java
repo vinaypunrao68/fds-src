@@ -42,11 +42,13 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
             }
             final InputStream fInputStream = inputStream;
 
-            return xdi.statBlob(token, S3Endpoint.FDS_S3, bucket, object)
+            String blobName = S3Namespace.user().blobName(object);
+
+            return xdi.statBlob(token, S3Endpoint.FDS_S3, bucket, blobName)
                     .thenApply(bd -> bd.getMetadata())
                     .exceptionally(e -> new HashMap<>())
                     .thenApply(metadata -> updateMetadata(ctx, metadata))
-                    .thenCompose(metadata -> xdi.put(token, S3Endpoint.FDS_S3, bucket, object, fInputStream, metadata))
+                    .thenCompose(metadata -> xdi.put(token, S3Endpoint.FDS_S3, bucket, blobName, fInputStream, metadata))
                     .thenAccept(result -> {
                         String etagValue = formatEtag(Hex.encodeHexString(result.digest));
                         ctx.addResponseHeader("ETag", etagValue);

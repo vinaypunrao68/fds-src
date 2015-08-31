@@ -4,6 +4,7 @@
 
 package com.formationds.xdi;
 
+import com.amazonaws.services.opsworks.model.VolumeConfiguration;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
@@ -17,6 +18,9 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.io.BlobSpecifier;
+import com.formationds.xdi.s3.MultipartUpload;
+import com.formationds.xdi.s3.S3Namespace;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
 
@@ -245,5 +249,12 @@ public class Xdi {
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
         return authorizer.authenticate(login, password);
+    }
+
+    public MultipartUpload multipart(AuthenticationToken token, BlobSpecifier specifier, String txid) throws TException {
+        attemptBlobAccess(token, specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName(), Intent.readWrite);
+        VolumeDescriptor config = volumeConfiguration(token, specifier.getDomainName(), specifier.getVolumeName());
+        return new MultipartUpload(specifier, asyncAm, config.getPolicy().getMaxObjectSizeInBytes(), txid);
+
     }
 }

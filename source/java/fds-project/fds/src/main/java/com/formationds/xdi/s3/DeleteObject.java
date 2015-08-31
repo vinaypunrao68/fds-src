@@ -28,7 +28,7 @@ public class DeleteObject implements SyncRequestHandler {
 
         String bucketName = ctx.getRouteParameter("bucket");
         String objectName = ctx.getRouteParameter("object");
-        xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, objectName).get();
+        xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, S3Namespace.user().blobName(objectName)).get();
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
 }

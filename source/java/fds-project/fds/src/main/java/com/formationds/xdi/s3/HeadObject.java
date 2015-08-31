@@ -30,7 +30,7 @@ public class HeadObject implements SyncRequestHandler {
         String volume = contex.getRouteParameter("bucket");
         String object = contex.getRouteParameter("object");
 
-        BlobDescriptor stat = xdi.statBlob(token, S3Endpoint.FDS_S3, volume, object).get();
+        BlobDescriptor stat = xdi.statBlob(token, S3Endpoint.FDS_S3, volume, S3Namespace.user().blobName(object)).get();
         Map<String, String> metadata = stat.getMetadata();
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));

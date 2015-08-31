@@ -72,7 +72,7 @@ public class PutObject implements SyncRequestHandler {
         }
 
         if(copySource == null) {
-            byte[] digest = xdi.put(token, domain, bucketName, objectName, str, map).get().digest;
+            byte[] digest = xdi.put(token, domain, bucketName, S3Namespace.user().blobName(objectName), str, map).get().digest;
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
             return copy(context, domain, bucketName, objectName, copySource, map);
@@ -86,7 +86,7 @@ public class PutObject implements SyncRequestHandler {
 
         String copySourceBucket = copySourceParts[0];
         String copySourceObject = copySourceParts[1];
-        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject).get();
+        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket,S3Namespace.user().blobName(copySourceObject)).get();
 
         String metadataDirective = context.getRequestHeader("x-amz-metadata-directive");
         if(metadataDirective != null && metadataDirective.equals("COPY")) {
@@ -126,13 +126,13 @@ public class PutObject implements SyncRequestHandler {
                     md.remove(kv.getKey());
                 }
                 md.putAll(S3UserMetadataUtility.extractUserMetadata(metadataMap));
-                xdi.setMetadata(token, targetDomain, targetBucketName, targetBlobName, md).get();
+                xdi.setMetadata(token, targetDomain, targetBucketName, S3Namespace.user().blobName(targetBlobName), md).get();
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
         } else {
-            OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, targetBlobName, metadataMap);
+            OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, S3Namespace.user().blobName(targetBlobName), metadataMap);
             DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
-            BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]).get();
+            BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], S3Namespace.user().blobName(copySourceParts[1])).get();
             xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
             digestOutputStream.close();
             digest = digestOutputStream.getMessageDigest().digest();

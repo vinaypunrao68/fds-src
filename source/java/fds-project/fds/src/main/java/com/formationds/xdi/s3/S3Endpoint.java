@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -51,6 +52,16 @@ public class S3Endpoint {
 
     public static String formatAwsDate(DateTime dateTime) {
         return dateTime.toString(ISODateTimeFormat.dateTime());
+    }
+
+    public static Optional<Long> getContentLength(HttpContext context) {
+        String length = context.getRequestHeader("x-amz-decoded-content-length");
+        if(length == null)
+            length = context.getRequestHeader("Content-Length");
+        if(length == null)
+            return Optional.empty();
+
+        return Optional.of(Long.parseLong(length));
     }
 
     public void start() {
@@ -261,4 +272,7 @@ public class S3Endpoint {
                     return cf;
                 });
     }
+
+
+
 }

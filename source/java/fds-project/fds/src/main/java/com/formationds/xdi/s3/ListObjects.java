@@ -51,10 +51,11 @@ public class ListObjects implements SyncRequestHandler {
                 .withValueElt("IsTruncated", "false");
 
         contents.stream()
+                .filter(c -> S3Namespace.user().isInNamespace(c.getName()))
                 .map(c -> {
                     String etag = c.getMetadata().getOrDefault("etag", "fade004009e9272f22eb90f51619431d");
                     return new XmlElement("Contents")
-                            .withValueElt("Key", c.getName())
+                            .withValueElt("Key", S3Namespace.user().blobName(c.getName()))
                             .withValueElt("LastModified", ServiceUtils.formatIso8601Date(new Date()))
                             .withValueElt("ETag", "&quot;" + etag + "&quot;")
                             .withValueElt("Size", Long.toString(c.getByteCount()))
