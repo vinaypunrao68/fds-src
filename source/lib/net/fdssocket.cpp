@@ -46,7 +46,6 @@ void Socket::close() {
 }
 
 void Socket::open() {
-    LOGDEBUG << "in open";
     if (isOpen()) return;
     att::TSocket::open();
     fConnected = true;
@@ -118,8 +117,7 @@ bool Socket::connect(int retryCount, int backoff) {
         if (numAttempts % 5 == 0) waitTime *= 2;
 
         try {
-            att::TSocket::open();
-            fConnected = true;
+            open();
         } catch(const att::TTransportException& e) {
             LOGDEBUG << "connection attempt [" << numAttempts
                      << "] failed . waiting for [" << waitTime <<"] micros";
@@ -127,10 +125,11 @@ bool Socket::connect(int retryCount, int backoff) {
             if (numAttempts < retryCount)  usleep(waitTime);
         }
     }
+
     if (isOpen()) {
-        if (eventHandler) eventHandler->onSocketConnect();
-        // atc::Synchronized s(monitor);
-        // monitor.notify();
+        LOGDEBUG << "Successfully connected after [" << numAttempts << "] attempts.";
+    } else {
+        LOGDEBUG << "Failed to connect after [" << numAttempts << "] attempts.";
     }
 
     return isOpen();
