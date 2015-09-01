@@ -55,13 +55,13 @@
         - "../../../omnibus/omnibus-fds-deps/pkg/fds-deps_*.deb"
     register: fds_deps_package_stat
     sudo: no
-    when: fds_deploy_local_deps is defined and fds_deploy_local_deps == true
+    when: fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes"
     tags: local_check
 
 -   name: sanity check -> local fds-deps deb is present
     fail:
-        msg: "You are trying to deploy a local fds-deps package that is not present on your workstation! You specified 'fds_deploy_local_deps=True' in your inventory, but I can't find a deb named 'fds-deps_*' in fds-src/omnibus/omnibus-fds-deps/pkg. Exiting."
-    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == true) and fds_deps_package_stat.skipped is defined
+        msg: "You are trying to deploy a local fds-deps package that is not present on your workstation! You specified 'fds_deploy_local_deps=yes' in your inventory, but I can't find a deb named 'fds-deps_*' in fds-src/omnibus/omnibus-fds-deps/pkg. Exiting."
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes") and fds_deps_package_stat.skipped is defined
     tags: local_check
 
 -   name: set up influxdb URL
