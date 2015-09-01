@@ -9,7 +9,8 @@ user_fds_ar_libs  := \
     fds-qos-lib \
     fds-dm-lib \
     fds-dsk-mgnt \
-    fds-fdsp
+    fds-fdsp \
+    fds-lib
 
 user_non_fds_libs := \
     jemalloc \

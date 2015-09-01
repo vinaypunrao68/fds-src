@@ -121,6 +121,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
     if (false == enableMigrationFeature) {
         LOGCRITICAL << "DM Migration is disabled! ignoring start migration msg";
         if (OmStartMigrCb) {
+        	LOGDEBUG << "Sending ERR_OK back to OM";
             OmStartMigrCb(ERR_OK);
         }
         return err;

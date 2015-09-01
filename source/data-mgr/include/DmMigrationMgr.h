@@ -27,6 +27,10 @@ class DmMigrationMgr {
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
+    inline bool isMigrationEnabled() {
+    	return enableMigrationFeature;
+    }
+
     /**
      * Migration State Machine related methods.
      */

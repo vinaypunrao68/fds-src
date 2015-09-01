@@ -381,6 +381,9 @@ AmProcessor_impl::start()
     vol_tok_renewal_freq =
         std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
+    LOGNORMAL << "Features: safe_atomic_write(" << safe_atomic_write
+              << ") volume_open_support("       << volume_open_support << ")";
+
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
     amDispatcher->start();
@@ -593,7 +596,6 @@ AmProcessor_impl::setVolumeMetadata(AmRequest *amReq) {
         return;
     }
     auto volReq = static_cast<SetVolumeMetadataReq*>(amReq);
-    volReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::respond_and_delete, amReq);
     amDispatcher->dispatchSetVolumeMetadata(amReq);
 }
@@ -643,8 +645,8 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
     auto& vol_desc = *vol->voldesc;
     if (!shut_down && err.ok()) {
         GLOGDEBUG << "For volume: " << vol_desc.volUUID
-                  << ", received access token: 0x" << std::hex << volReq->token
-                  << ", sequence id: 0x" << volReq->vol_sequence << std::dec;
+                  << ", received access token: 0x" << std::hex << volReq->token;
+
 
         // If this is a new token, create a access token for the volume
         auto access_token = vol->access_token;
@@ -663,11 +665,6 @@ AmProcessor_impl::attachVolumeCb(AmRequest* amReq, Error const& error) {
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
         }
-
-        // Update the sequence ID for the volume according to DM,
-        // unless this is the first time we are getting an attach
-        // response we _should_ already have this value.
-        vol->setSequenceId(volReq->vol_sequence);
 
         if (err.ok()) {
             // Renew this token at a regular interval
@@ -823,7 +820,6 @@ AmProcessor_impl::putBlob(AmRequest *amReq) {
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::putBlobCb, amReq);
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
         blobReq->setTxId(randNumGen->genNumSafe());
-        blobReq->vol_sequence = vol->getNextSequenceId();
         /**
          * FEATURE TOGGLE: Update object store before making catalog update.
          * This models the transaction update since the commit comes last to DM.
@@ -1076,7 +1072,6 @@ AmProcessor_impl::renameBlob(AmRequest *amReq) {
 
     blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
     blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
-    blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::renameBlobCb, amReq);
     amDispatcher->dispatchRenameBlob(amReq);
 }
@@ -1206,7 +1201,6 @@ AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
         return;
     }
 
-    blobReq->vol_sequence = vol->getNextSequenceId();
     amReq->proc_cb = AMPROCESSOR_CB_HANDLER(AmProcessor_impl::commitBlobTxCb, amReq);
     amDispatcher->dispatchCommitBlobTx(amReq);
 }
@@ -1214,15 +1208,12 @@ AmProcessor_impl::commitBlobTx(AmRequest *amReq) {
 void
 AmProcessor_impl::commitBlobTxCb(AmRequest *amReq, const Error &error) {
     // Push the committed update to the cache and remove from manager
-    // TODO(Andrew): Inserting the entire tx transaction currently
-    // assumes that the tx descriptor has all of the contents needed
-    // for a blob descriptor (e.g., size, version, etc..). Today this
-    // is true for S3/Swift and doesn't get used anyways for block (so
-    // the actual cached descriptor for block will not be correct).
     if (ERR_OK == error) {
         CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(amReq);
         txMgr->updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
         txMgr->commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+    } else {
+        LOGERROR << "Transaction failed to commit: " << error;
     }
 
     respond_and_delete(amReq, error);
