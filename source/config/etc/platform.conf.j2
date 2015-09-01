@@ -536,7 +536,7 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
-		threads=1
+		threads={{ am_nbd_server_threads}}
                 options: {
                     /* Time (seconds) to retry connection to client before disconnect */
                     keep_alive=30
