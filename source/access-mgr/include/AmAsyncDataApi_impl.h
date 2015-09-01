@@ -111,8 +111,10 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        shared_int_type& count,
                                        shared_size_type& offset,
                                        shared_string_type& pattern,
+                                       boost::shared_ptr<fpi::PatternSemantics>& patternSem,
                                        boost::shared_ptr<fpi::BlobListOrder>& orderBy,
-                                       shared_bool_type& descending) {
+                                       shared_bool_type& descending,
+                                       shared_string_type& delimiter) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
         p->volumeContentsResp(e, requestId, cb->vecBlobs);
@@ -125,8 +127,10 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                                *count,
                                                *offset,
                                                *pattern,
+                                               *patternSem,
                                                *orderBy,
                                                *descending,
+                                               *delimiter,
                                                callback);
     amProcessor->enqueueRequest(blobReq);
 }

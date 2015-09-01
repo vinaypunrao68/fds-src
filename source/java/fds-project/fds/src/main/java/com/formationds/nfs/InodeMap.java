@@ -42,8 +42,8 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        return io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (x) -> x)
-                .map(m -> new InodeMetadata(m));
+        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (x) -> x);
+        return currentValue.map(m -> new InodeMetadata(m));
     }
 
     public static String blobName(Inode inode) {
@@ -57,23 +57,21 @@ public class InodeMap {
         try {
             int objectSize = exportResolver.objectSize(volumeName);
             InodeMetadata[] last = new InodeMetadata[1];
-            chunker.write(BlockyVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, new MetadataMutator() {
-                @Override
-                public Map<String, String> mutateOrCreate(Optional<Map<String, String>> om) throws IOException {
-                    if (!om.isPresent()) {
-                        throw new NoEntException();
-                    }
-                    InodeMetadata inodeMetadata = new InodeMetadata(om.get());
-                    long byteCount = inodeMetadata.getSize();
-                    int length = Math.min(data.length, count);
-                    byteCount = Math.max(byteCount, offset + length);
-                    last[0] = inodeMetadata
-                            .withUpdatedAtime()
-                            .withUpdatedMtime()
-                            .withUpdatedCtime()
-                            .withUpdatedSize(byteCount);
-                    return last[0].asMap();
+            chunker.write(BlockyVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, map -> {
+                if (map.isEmpty()) {
+                    throw new NoEntException();
                 }
+                InodeMetadata inodeMetadata = new InodeMetadata(map);
+                long byteCount = inodeMetadata.getSize();
+                int length = Math.min(data.length, count);
+                byteCount = Math.max(byteCount, offset + length);
+                last[0] = inodeMetadata
+                        .withUpdatedAtime()
+                        .withUpdatedMtime()
+                        .withUpdatedCtime()
+                        .withUpdatedSize(byteCount);
+                map.clear();
+                map.putAll(last[0].asMap());
             });
             return last[0];
         } catch (Exception e) {
@@ -82,15 +80,18 @@ public class InodeMap {
         }
     }
 
-    public Inode create(InodeMetadata metadata) throws IOException {
-        return doUpdate(metadata);
+    public Inode create(InodeMetadata metadata, long exportId) throws IOException {
+        return doUpdate(metadata, exportId);
     }
 
-    private Inode doUpdate(InodeMetadata metadata) throws IOException {
-        String volume = exportResolver.volumeName((int) metadata.getVolumeId());
-        String blobName = blobName(metadata.asInode());
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, (x) -> metadata.asMap());
-        return metadata.asInode();
+    private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
+        String volume = exportResolver.volumeName((int) exportId);
+        String blobName = blobName(metadata.asInode(exportId));
+        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, (x) -> {
+            x.clear();
+            x.putAll(metadata.asMap());
+        });
+        return metadata.asInode(exportId);
     }
 
     public int volumeId(Inode inode) {
@@ -105,9 +106,9 @@ public class InodeMap {
         return InodeMetadata.fileId(inode);
     }
 
-    public void update(InodeMetadata... entries) throws IOException {
+    public void update(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry);
+            doUpdate(entry, exportId);
         }
     }
 

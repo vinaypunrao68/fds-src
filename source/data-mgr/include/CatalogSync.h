@@ -235,14 +235,6 @@ namespace fds {
                                OmDMTMsgCbType cb);
 
         /**
-         * Called when DM receives DMT commit so that in-progress catalog syncs
-         * can do delta rsync to DMs.
-         * @return ERR_NOT_READY if called in the middle of initial rsync; returns
-         * ERR_OK if success.
-         */
-        Error startCatalogSyncDelta(OmDMTMsgCbType cb);
-
-        /**
          * Forward catalog update to DM to which we are pushing vol meta for the
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress

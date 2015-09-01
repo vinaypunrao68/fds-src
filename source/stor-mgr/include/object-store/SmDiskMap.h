@@ -113,6 +113,11 @@ class SmDiskMap : public Module, public boost::noncopyable {
     bool isAllDisksSSD() const;
 
     /**
+     * What type of disk is this. SSD or HDD?
+     */
+    diskio::DataTier diskMediaType(const DiskId& diskId) const;
+
+    /**
      * Disk state specific inlines.
      */
     inline void makeDiskOffline(const DiskId& diskId) {
@@ -160,7 +165,6 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * When SmDiskMap sees too many IO errors from the same disk, it declares disk
      * failed and migrates SM tokens from that disk to other disks
      */
-
 
     /**
      * Remove the disk and distribute the tokens over other 'live' disks.

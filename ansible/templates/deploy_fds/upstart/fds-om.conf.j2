@@ -38,6 +38,6 @@ script
   echo ''
   [ "${OM_ENABLED}" = "true" ] || exit 0
 
-  exec ${JAVA_HOME}/bin/java ${OM_JAVA_OPTS} -cp ${CLASSPATH} ${OM_MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1
+  exec ${OM_JAVA_HOME}/bin/java ${OM_JAVA_OPTS} -cp ${CLASSPATH} ${OM_MAIN_CLASS} --foreground --fds-root=${fds_root} >> ${fds_root}/bin/om.out 2>&1
 end script
 {% endblock %}

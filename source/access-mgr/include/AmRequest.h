@@ -27,6 +27,12 @@ class AmRequest : public FDS_IOType {
     PerfContext    dm_perf_ctx;
     PerfContext    sm_perf_ctx;
 
+    // Table version used to message Catalog Service
+    fds_uint64_t   dmt_version;
+
+    // Table version used to message Object Service
+    fds_uint64_t   dlt_version;
+
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
     fds_uint64_t   blob_offset_end;
@@ -120,7 +126,6 @@ struct AmTxReq {
     AmTxReq() : tx_desc(nullptr) {}
     explicit AmTxReq(BlobTxId::ptr _tx_desc) : tx_desc(_tx_desc) {}
     BlobTxId::ptr tx_desc;
-    fds_uint64_t dmt_version;
 };
 
 }  // namespace fds

@@ -2,14 +2,17 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+// Standard includes.
+#include <catalogKeys/BlobObjectKey.h>
 #include <utility>
 #include <string>
 #include <vector>
 #include <map>
 
-#include <fds_process.h>
-#include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmPersistVolCat.h>
+// Internal includes.
+#include "fds_process.h"
+#include "dm-tvc/CommitLog.h"
+#include "dm-vol-cat/DmPersistVolCat.h"
 
 namespace fds {
 
@@ -47,7 +50,6 @@ uint32_t CommitLogTx::write(serialize::Serializer * s) const {
 
 uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     fds_assert(d);
-
     fds_uint64_t txId = 0;
     uint32_t bytes = d->readI64(txId);
     txDesc.reset(new BlobTxId(txId));
@@ -142,11 +144,35 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         ptx->name = blobName;
         ptx->blobMode = blobMode;
         ptx->started = util::getTimeStampNanos();
-        ptx->nameId = DmPersistVolCat::getBlobIdFromName(blobName);
         ptx->dmtVersion = dmtVersion;
     }
 
     return ERR_OK;
+}
+
+Error DmCommitLog::applySerializedTxs(std::vector<std::string> transactions) {
+    Error err;
+
+    auto auto_lock = getTxMapLock(true);
+
+    for (auto tx : transactions) {
+        BlobTxId txId;
+
+        auto ptx = boost::make_shared<CommitLogTx>();
+
+        err = ptx->loadSerialized(tx);
+        if (!err.ok()) {
+            return err;
+        }
+
+        txId = *(ptx->txDesc);
+
+        txMap_[txId] = ptx;
+
+        validateSubsequentTx(txId);
+    }
+
+    return err;
 }
 
 // update blob data (T can be BlobObjList or MetaDataList)
@@ -196,7 +222,8 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, const T & blobData) {
 
 void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectList & data) {
     fds_uint64_t newSize = 0;
-    BlobObjKey objKey(tx.nameId, 0);
+
+    BlobObjectKey objKey(tx.name);
 
     std::lock_guard<std::mutex> guard(tx.lockTx_);
 
@@ -209,9 +236,8 @@ void DmCommitLog::upsertBlobData(CommitLogTx & tx, const fpi::FDSP_BlobObjectLis
             tx.blobSize = newSize;
         }
 
-        objKey.objIndex = objInfo.offset / objSize_;
-        const Record keyRec(reinterpret_cast<const char *>(&objKey), sizeof(BlobObjKey));
-        tx.wb.Put(keyRec, objInfo.data_obj_id.digest);
+        objKey.setObjectIndex(objInfo.offset / objSize_);
+        tx.wb.Put(static_cast<leveldb::Slice>(objKey), objInfo.data_obj_id.digest);
     }
 }
 

@@ -1,10 +1,19 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#include <DataMgr.h>
-#include <net/net_utils.h>
+
+// Standard includes.
+#include <functional>
+
+// Internal includes.
+#include "catalogKeys/ObjectExpungeKey.h"
 #include "fdsp/sm_api_types.h"
-#include <util/stringutils.h>
+#include "net/net_utils.h"
+#include "util/stringutils.h"
+#include "DataMgr.h"
+#include "fds_types.h"
+#include "fds_volume.h"
+
 namespace fds {
 
 ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
@@ -13,7 +22,7 @@ ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
 uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
     uint32_t value = getExpungeCount(volId, objId);
     value++;
-    db.Update(getKey(volId, objId), std::to_string(value));
+    db.Update(ObjectExpungeKey{volId, objId}, std::to_string(value));
     return value;
 }
 
@@ -25,13 +34,13 @@ uint32_t ExpungeDB::decrement(fds_volid_t volId, const ObjectID &objId) {
     }
     value--;
     if (value == 0) discard(volId, objId);
-    else db.Update(getKey(volId, objId), std::to_string(value));
+    else db.Update(ObjectExpungeKey{volId, objId}, std::to_string(value));
     return value;
 }
 
 uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
     std::string value;
-    Error err = db.Query(getKey(volId, objId), &value);
+    Error err = db.Query(ObjectExpungeKey{volId, objId}, &value);
     if (err.ok()) {
         return ((uint32_t)std::stoi(value));
     }
@@ -39,7 +48,7 @@ uint32_t ExpungeDB::getExpungeCount(fds_volid_t volId, const ObjectID &objId) {
 }
 
 void ExpungeDB::discard(fds_volid_t volId, const ObjectID &objId) {
-    if (!db.Delete(getKey(volId, objId))) {
+    if (!db.Delete(ObjectExpungeKey{volId, objId})) {
         LOGWARN << "unable to delete from expungedb vol:" << volId
                 << " obj:" << objId;
     }
@@ -52,6 +61,10 @@ std::string ExpungeDB::getKey(fds_volid_t volId, const ObjectID &objId) {
 ExpungeDB::~ExpungeDB() {
 
 }
+
+const std::hash<fds_volid_t> ExpungeManager::volIdHash;
+
+const ObjectHash ExpungeManager::objHash;
 
 ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
     auto efp = (Error (ExpungeManager::*)(fds_volid_t, const std::vector<ObjectID>&, bool))&ExpungeManager::expunge;
@@ -103,7 +116,7 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
-    const DLT* dlt = dltMgr->getAndLockCurrentDLT();
+    const DLT* dlt = dltMgr->getAndLockCurrentVersion();
     SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
 
     // Assuming the number of primaries is the same as DM (it is for now),
@@ -156,7 +169,7 @@ void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
     }
 
     DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
-    dltMgr->decDLTRefcnt(dltVersion);
+    dltMgr->releaseVersion(dltVersion);
     taskStatus->done();
 }
 

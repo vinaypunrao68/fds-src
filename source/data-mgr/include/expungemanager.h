@@ -1,10 +1,16 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#include <lib/Catalog.h>
-#include <string>
 #ifndef SOURCE_DATA_MGR_INCLUDE_EXPUNGEMANAGER_H_
 #define SOURCE_DATA_MGR_INCLUDE_EXPUNGEMANAGER_H_
+
+// Standard includes.
+#include <string>
+
+// Internal includes.
+#include "lib/Catalog.h"
+#include "fds_types.h"
+#include "fds_volume.h"
 
 namespace fds {
 struct DataMgr;

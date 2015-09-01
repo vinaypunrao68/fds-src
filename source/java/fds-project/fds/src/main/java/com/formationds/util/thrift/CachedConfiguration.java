@@ -1,7 +1,7 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-package com.formationds.xdi;
+package com.formationds.util.thrift;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Tenant;
@@ -42,22 +42,21 @@ public class CachedConfiguration {
 
     private final long version;
 
-    public CachedConfiguration( ConfigurationService.Iface config ) throws Exception {
+    public CachedConfiguration( ConfigurationService.Iface config ) throws TException {
         this.config = config;
 
         version = config.configurationVersion( 0 );
         load();
     }
 
-    void load()
+    public void load()
     {
         loadUsers();
-
         loadTenants();
         loadVolumes();
     }
 
-    void loadTenants( ) {
+    public void loadTenants() {
         try {
             List<Tenant> tenants = config.listTenants( 0 );
             for ( Tenant tenant : tenants ) {
@@ -69,7 +68,7 @@ public class CachedConfiguration {
         }
     }
 
-    void loadVolumes() {
+    public void loadVolumes() {
         List<VolumeDescriptor> volumeDescriptors;
         try {
             volumeDescriptors = config.listVolumes( "" );
@@ -88,7 +87,31 @@ public class CachedConfiguration {
         }
     }
 
-    void loadUsers() {
+    public void loadVolume( String unusedDomain, String volumeName ) {
+
+        try {
+            VolumeDescriptor volumeDescriptor = config.statVolume( unusedDomain, volumeName );
+            volumeLock.lock();
+            try {
+                volumesByName.put( volumeDescriptor.getName(), volumeDescriptor );
+                volumesById.put( volumeDescriptor.getVolId(), volumeDescriptor );
+            } finally {
+                volumeLock.unlock();
+            }
+        } catch ( TException e ) {
+            throw new IllegalStateException( "configuration database is not ready!", e );
+        }
+    }
+
+    public void loadVolume( long volumeId ) {
+        try {
+            String vname = config.getVolumeName( volumeId );
+            loadVolume( "unused", vname );
+        } catch ( TException e ) {
+            throw new IllegalStateException( "configuration database is not ready!", e );
+        }
+    }
+    public void loadUsers() {
         try {
             List<User> users = config.allUsers( 0 );
             usersLock.lock();
@@ -106,7 +129,7 @@ public class CachedConfiguration {
         }
     }
 
-    Collection<User> users() {
+    public Collection<User> users() {
         return new ArrayList<>( usersById.values() );
     }
 
@@ -128,7 +151,7 @@ public class CachedConfiguration {
         }
     }
 
-    void addUser( User user ) {
+    public void addUser( User user ) {
         usersLock.lock();
         try {
             usersById.put( user.getId(), user );
@@ -139,14 +162,36 @@ public class CachedConfiguration {
     }
 
     @SuppressWarnings( "unused" )
-    void removeUser( User user ) {
+    public void removeUser( User user ) {
         usersLock.lock();
         try {
             usersById.remove( user.getId() );
             usersByName.remove( user.getIdentifier() );
+
+            tenantsByUser.remove( user.getId() );
         } finally {
             usersLock.unlock();
         }
+    }
+
+    public void updateUser( long userId,
+                            String identifier,
+                            String passwordHash,
+                            String secret,
+                            boolean isFdsAdmin ) {
+        User user = getUser( userId );
+        if ( user == null ) {
+            loadUsers();
+            user = getUser( userId );
+            if ( user == null ) {
+                // user really doesn't exist
+                return;
+            }
+        }
+        user.setIdentifier( identifier );
+        user.setPasswordHash( passwordHash );
+        user.setSecret( secret );
+        user.setIsFdsAdmin( isFdsAdmin );
     }
 
     public Long tenantId(long userId) {
@@ -181,7 +226,7 @@ public class CachedConfiguration {
         }
     }
 
-    void addVolume(VolumeDescriptor vol) {
+    public void addVolume( VolumeDescriptor vol ) {
         volumeLock.lock();
         try {
             volumesByName.put( vol.getName(), vol );
@@ -192,11 +237,11 @@ public class CachedConfiguration {
     }
 
     @SuppressWarnings( "unused" )
-    void removeVolume(VolumeDescriptor vol) {
+    public void removeVolume( VolumeDescriptor vol ) {
         removeVolume( "", vol.getName() );
     }
 
-    void removeVolume( @SuppressWarnings( "unused" ) String domainName,
+    public void removeVolume( @SuppressWarnings("unused") String domainName,
                        String volumeName) {
         volumeLock.lock();
         try {
@@ -209,14 +254,14 @@ public class CachedConfiguration {
         }
     }
 
-    void addTenant(Tenant tenant) {
+    public void addTenant( Tenant tenant ) {
         synchronized ( tenantsById ) {
             tenantsById.put(tenant.getId(), tenant);
         }
     }
 
     @SuppressWarnings( "unused" )
-    void addTenantUsers(Tenant tenant,  User... users) {
+    public void addTenantUsers( Tenant tenant, User... users ) {
         if (users != null && users.length > 0) {
             addTenantUsers( tenant, Arrays.asList( users ) );
         } else {
@@ -225,7 +270,7 @@ public class CachedConfiguration {
         }
     }
 
-    void addTenantUsers(Tenant tenant,  List<User> tenantUsers) {
+    public void addTenantUsers( Tenant tenant, List<User> tenantUsers ) {
         synchronized ( tenantsById ) {
             tenantsById.put( tenant.getId(), tenant );
             usersByTenant.putAll( tenant.getId(),
@@ -237,7 +282,7 @@ public class CachedConfiguration {
         }
     }
 
-    void addTenantUser(long tid, long uid) {
+    public void addTenantUser( long tid, long uid ) {
         synchronized ( tenantsById ) {
             @SuppressWarnings( "unused" ) Tenant tenant = tenantsById.get( tid );
             usersByTenant.put( tid, uid );
@@ -245,7 +290,7 @@ public class CachedConfiguration {
         }
     }
 
-    void removeTenantUser(long tid, long uid) {
+    public void removeTenantUser( long tid, long uid ) {
         synchronized ( tenantsById ) {
             usersByTenant.remove( tid, uid );
             tenantsByUser.remove( uid, tid );
@@ -253,7 +298,7 @@ public class CachedConfiguration {
     }
 
     @SuppressWarnings( "unused" )
-    void removeTenant(long tid) {
+    public void removeTenant( long tid ) {
         synchronized ( tenantsById ) {
             usersByTenant.removeAll( tid );
             Iterator<Long> titer = tenantsByUser.values().iterator();

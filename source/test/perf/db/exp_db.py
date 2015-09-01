@@ -17,7 +17,7 @@ def write_records(db, series, records):
 def main():
     series = sys.argv[1]
     filein = sys.argv[2]
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     with open(filein, "r") as f:
         records = [ [re.sub(' ','',y) for y in x.split('=')] for x in filter(lambda x : x != "", re.split("[\n;,]+", f.read()))]
     database="experiments"

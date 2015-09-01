@@ -5,8 +5,10 @@ import com.formationds.apis.ObjectOffset;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 // TODO: make it domain/volume aware
 public class MemoryIo implements Io {
@@ -31,14 +33,16 @@ public class MemoryIo implements Io {
     @Override
     public void mutateMetadata(String domain, String volume, String blobName, MetadataMutator mutator) throws IOException {
         Map<String, String> map = metadataCache.get(blobName);
-        Map<String, String> mutated = null;
         if (map == null) {
-            mutated = mutator.mutateOrCreate(Optional.empty());
-        } else {
-            mutated = mutator.mutateOrCreate(Optional.of(map));
+            map = new HashMap<>();
         }
+        mutator.mutate(map);
+        metadataCache.put(blobName, map);
+    }
 
-        metadataCache.put(blobName, mutated);
+    @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        metadataCache.put(blobName, map);
     }
 
     @Override
@@ -70,9 +74,15 @@ public class MemoryIo implements Io {
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
         mapObject(domain, volume, blobName, objectSize, objectOffset, (oov) -> {
-            ObjectView result = mutator.mutateOrCreate(oov);
-            objectCache.put(new ObjectKey(blobName, objectOffset), result.getBuf().array());
-            metadataCache.put(blobName, result.getMetadata());
+            ObjectView objectView = null;
+            if (!oov.isPresent()) {
+                objectView = new ObjectView(new HashMap<String, String>(), ByteBuffer.allocate(objectSize));
+            } else {
+                objectView = oov.get();
+            }
+            mutator.mutate(objectView);
+            objectCache.put(new ObjectKey(blobName, objectOffset), objectView.getBuf().array());
+            metadataCache.put(blobName, objectView.getMetadata());
             return null;
         });
     }
@@ -91,6 +101,22 @@ public class MemoryIo implements Io {
             }
         });
         metadataCache.remove(blobName);
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        return metadataCache.keySet()
+                .stream()
+                .filter(name -> name.startsWith(blobNamePrefix))
+                .map(name -> {
+                    try {
+                        return mapper.map(Optional.of(metadataCache.get(name)));
+                    } catch (Exception e) {
+                        // Java checked exceptions suck
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
 

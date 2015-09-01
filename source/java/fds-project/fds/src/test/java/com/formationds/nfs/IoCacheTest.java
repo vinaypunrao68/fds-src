@@ -24,14 +24,11 @@ public class IoCacheTest {
 
     @Test
     public void testMapAndMutateMetadata() throws Exception {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("foo", "bar");
-        cache.mutateMetadata(domain, volume, blobName, om -> metadata);
+        cache.mutateMetadata(domain, volume, blobName, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", io.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
         assertEquals("bar", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
 
-        metadata.put("foo", "panda");
-        cache.mutateMetadata(domain, volume, blobName, om -> metadata);
+        cache.mutateMetadata(domain, volume, blobName, meta -> meta.put("foo", "panda"));
         assertEquals("panda", io.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
         assertEquals("panda", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
     }
@@ -76,27 +73,25 @@ public class IoCacheTest {
 
         ByteBuffer byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
-        assertEquals(10, byteBuffer.remaining());
+        assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(0, byteBuffer.get());
 
         // Mutate sure we get a sliced ByteBuffer
         byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
-        assertEquals(10, byteBuffer.remaining());
+        assertEquals(objectSize, byteBuffer.remaining());
 
         cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> {
-                    ObjectView objectView = oov.get();
-                    ByteBuffer buf = objectView.getBuf();
+                ov -> {
+                    ByteBuffer buf = ov.getBuf();
                     buf.putInt(42);
                     buf.position(0);
-                    return objectView;
                 });
 
         // Mutate sure we get a sliced ByteBuffer
         byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
-        assertEquals(10, byteBuffer.remaining());
+        assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(42, byteBuffer.getInt());
     }
 
