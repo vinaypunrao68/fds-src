@@ -138,6 +138,11 @@ fds: {
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
 
+        disk_sim: {
+            ssd_count = 4
+            hdd_count = 4
+        }
+
         graphite: {
             /* Graphite server ip */
             ip = "{{ metricsdb_ip }}"
