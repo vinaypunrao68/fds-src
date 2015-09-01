@@ -40,6 +40,12 @@ enum ErrorCode {
     SERVICE_SHUTTING_DOWN,
 }
 
+enum PatternSemantics {
+    PCRE,
+    PREFIX,
+    PREFIX_AND_DELIMITER
+}
+
 exception ApiException {
     1: string message,
     2: ErrorCode errorCode,

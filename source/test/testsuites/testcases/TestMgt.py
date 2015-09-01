@@ -139,7 +139,7 @@ def str_to_obj(astr):
                 raise Exception
 
 
-def queue_up_scenario(suite, scenario, log_dir=None):
+def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
     """
     Given the scenario, queue one or more test cases,
     depending upon the associated script and action,
@@ -189,10 +189,13 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             action = "install-boot-activate"
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
-               (action.count("graceful_restart") > 0):
-            # Start this domain as indicated by the action.
-            domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(domainBootSuite)
+                (action.count("graceful_restart") > 0):
+            if install_done:
+                log.info("FDS is already installed, hence skippping scenario "+scenario.nd_conf_dict['scenario-name'])
+            else:
+                # Start this domain as indicated by the action.
+                domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
+                suite.addTest(domainBootSuite)
         elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
                 (action.count("uninst") > 0):
             # Shutdown the domain as indicated by the action.
@@ -469,6 +472,32 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                     suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
                 elif service == "am":
                     suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+
+        if (action.count("stop") > 0):
+            if (action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMStop(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMStop(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMStop(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestAWSOMStop(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMStop(node=node))
+
+        if (action.count("start") > 0):
+            if (action.count("aws") > 0):
+                if service == "pm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSPMStart(node=node))
+                elif service == "dm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSDMStart(node=node))
+                elif service == "sm":
+                    suite.addTest(TestFDSServiceMgt.TestAWSSMStart(node=node))
+                elif service == "om":
+                    suite.addTest(TestFDSServiceMgt.TestAWSOMStart(node=node))
+                elif service == "am":
+                    suite.addTest(TestFDSServiceMgt.TestAWSAMStart(node=node))
 
         if (action.count("verifydown") > 0):
             if service == "pm":

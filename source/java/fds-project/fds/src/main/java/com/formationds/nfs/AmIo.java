@@ -5,6 +5,7 @@ import com.formationds.xdi.AsyncAm;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 
 public class AmIo implements Io {
@@ -25,6 +26,11 @@ public class AmIo implements Io {
     }
 
     @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+        io.setMetadataOnEmptyBlob(domain, volume, blobName, map);
+    }
+
+    @Override
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         return io.mapObject(domain, volume, blobName, objectSize, objectOffset, objectMapper);
     }
@@ -42,5 +48,10 @@ public class AmIo implements Io {
     @Override
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         io.deleteBlob(domain, volume, blobName);
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        return io.scan(domain, volume, blobNamePrefix, mapper);
     }
 }

@@ -37,6 +37,8 @@ void tokenize(const std::string& data, std::vector<std::string>& tokens, char de
  */
 std::string join(const std::vector<std::string>& tokens, char delim = ' ');
 
+template <class T> std::string join (T const& collection, std::string const& delimiter);
+
 /**
  * return true if the value is "true/yes/on/set/enabled/1"
  */
