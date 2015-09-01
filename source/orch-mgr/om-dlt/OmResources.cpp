@@ -1820,7 +1820,7 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
           }
           else
           {
-              local->om_start_service( svcUuid, svcInfoList );
+              local->om_start_service( svcUuid, svcInfoList, true );
           }
       }
     }
