@@ -25,8 +25,6 @@ struct PutBlobReq
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
     fds_int32_t blob_mode;
-    /** Maintains order of blob updates */
-    fds_uint64_t vol_sequence {0};
 
     /* Final metadata view after catalog update */
     fpi::FDSP_MetaDataList final_meta_data;

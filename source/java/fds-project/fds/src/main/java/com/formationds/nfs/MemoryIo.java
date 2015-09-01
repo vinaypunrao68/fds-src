@@ -5,8 +5,10 @@ import com.formationds.apis.ObjectOffset;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 // TODO: make it domain/volume aware
 public class MemoryIo implements Io {
@@ -35,6 +37,11 @@ public class MemoryIo implements Io {
             map = new HashMap<>();
         }
         mutator.mutate(map);
+        metadataCache.put(blobName, map);
+    }
+
+    @Override
+    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
         metadataCache.put(blobName, map);
     }
 
@@ -94,6 +101,22 @@ public class MemoryIo implements Io {
             }
         });
         metadataCache.remove(blobName);
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        return metadataCache.keySet()
+                .stream()
+                .filter(name -> name.startsWith(blobNamePrefix))
+                .map(name -> {
+                    try {
+                        return mapper.map(Optional.of(metadataCache.get(name)));
+                    } catch (Exception e) {
+                        // Java checked exceptions suck
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
 

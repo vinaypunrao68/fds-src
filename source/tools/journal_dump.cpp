@@ -2,30 +2,38 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
-#include <stdio.h>
+// Standard includes.
+#include <cstdio>
 #include <iostream>
-#include <vector>
+#include <stdexcept>
 #include <string>
-#include "port/port.h"
+#include <vector>
+
+// System includes.
+#include <boost/scoped_ptr.hpp>
+
+// Internal includes.
+#include "catalogKeys/BlobMetadataKey.h"
+#include "catalogKeys/BlobObjectKey.h"
+#include "catalogKeys/CatalogKeyType.h"
 #include "db/dbformat.h"
 #include "db/filename.h"
 #include "db/log_reader.h"
 #include "db/version_edit.h"
 #include "db/write_batch_internal.h"
+#include "dm-vol-cat/DmPersistVolCat.h"
+#include "leveldb/cat_journal.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 #include "leveldb/status.h"
 #include "leveldb/table.h"
 #include "leveldb/write_batch.h"
+#include "port/port.h"
 #include "util/logging.h"
-
-#include <boost/scoped_ptr.hpp>
-#include <DmBlobTypes.h>
-#include <dm-vol-cat/DmPersistVolCat.h>
+#include "DmBlobTypes.h"
 
 #define USE_NEW_LDB_STRUCTURES
-#include <leveldb/cat_journal.h>
 
 namespace leveldb {
 
@@ -61,30 +69,45 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
     virtual void Put(const Slice& key, const Slice& value) {
 #ifdef USE_NEW_LDB_STRUCTURES
-        const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
-        if (0 == objKey->blobId && 0 == objKey->objIndex) {
-            std::cout << "= >Timestamp: '" <<
-                    *reinterpret_cast<const fds_uint64_t *>(value.data()) << "'\n";
-        } else if (objKey->objIndex != fds::BLOB_META_INDEX) {
-            std::cout << "= >put Blob: '" << objKey->blobId << "' [Index: " << objKey->objIndex
-                      << " -> "
-                      << fds::ObjectID(reinterpret_cast<const uint8_t *>(value.data()), value.size()) //NOLINT
+        fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
+        switch (keyType)
+        {
+        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+            std::cout << "= >Timestamp: '" << *reinterpret_cast<fds_uint64_t const*>(value.data())
+                      << "'\n";
+            break;
+        case fds::CatalogKeyType::BLOB_OBJECTS:
+        {
+            BlobObjectKey blobObjectKey { key };
+            std::cout << "= >put Blob: '" << blobObjectKey.getBlobName()
+                      << "' [Index: " << blobObjectKey.getObjectIndex()
+                      << " -> " << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
+                                                                                  value.size())
                       << "]\n";
-        } else {
-            std::string dataStr(value.data(), value.size());
+            break;
+        }
+        case fds::CatalogKeyType::BLOB_METADATA:
+        {
             fds::BlobMetaDesc blobMeta;
-            blobMeta.loadSerialized(dataStr);
+            blobMeta.loadSerialized(std::string{value.data(), value.size()});
 
-            std::cout << "= >put Blob: '" << objKey->blobId
-                      << "' Name: '" << blobMeta.desc.blob_name
+            std::cout << "= >put Blob Name: '" << blobMeta.desc.blob_name
                       << "' Size: '" << blobMeta.desc.blob_size
                       << "' Version: '" << blobMeta.desc.version
                       << "'\n";
+
             std::cout << "  [ ";
-            for (const auto & it : blobMeta.meta_list) {
+            for (auto const& it : blobMeta.meta_list)
+            {
                 std::cout << it.first << ":" << it.second << " ";
             }
             std::cout << "]\n";
+
+            break;
+        }
+        default:
+            throw std::runtime_error{"Unrecognized key type: "
+                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
         }
 #else
         std::string keyStr(key.data(), key.size());
@@ -114,9 +137,29 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
     virtual void Delete(const Slice& key) {
 #ifdef USE_NEW_LDB_STRUCTURES
-        const fds::BlobObjKey * objKey = reinterpret_cast<const fds::BlobObjKey *>(key.data());
-        std::cout << "= >del Blob: '" << objKey->blobId
-                  << "' Index: '" << objKey->objIndex << "'\n";
+        fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
+        switch (keyType)
+        {
+        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+            std::cout << "= >del JournalTimestampKey\n";
+            break;
+        case fds::CatalogKeyType::BLOB_OBJECTS:
+        {
+            BlobObjectKey blobObjectKey { key };
+            std::cout << "= >del BlobObject: '" << blobObjectKey.getBlobName()
+                      << "' Index: '" << blobObjectKey.getObjectIndex() << "'\n";
+            break;
+        }
+        case fds::CatalogKeyType::BLOB_METADATA:
+        {
+            BlobMetadataKey blobMetaKey { key };
+            std::cout << "= >del BlobMeta: '" << blobMetaKey.getBlobName() << "'\n";
+            break;
+        }
+        default:
+            throw std::runtime_error{"Unrecognized key type: "
+                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
+        }
 #else
         std::string keyStr(key.data(), key.size());
         fds::ExtentKey extKey;

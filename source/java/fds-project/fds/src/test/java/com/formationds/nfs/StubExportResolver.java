@@ -1,7 +1,7 @@
 package com.formationds.nfs;
 
 public class StubExportResolver implements ExportResolver {
-    private static final int EXPORT_ID = 1;
+    public static final int EXPORT_ID = 1;
     private String volumeName;
     private int objectSize;
 

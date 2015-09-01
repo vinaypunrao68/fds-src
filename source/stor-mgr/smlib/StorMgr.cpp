@@ -1336,6 +1336,11 @@ ObjectStorMgr::storeCurrentDLT()
     uuidFile <<  myUuid.uuid_get_val();
 }
 
+const std::hash<fds_volid_t> ObjectStorMgr::SmQosCtrl::volIdHash;
+
+const std::hash<int64_t> ObjectStorMgr::SmQosCtrl::svcIdHash;
+
+const ObjectStorMgr::SmQosCtrl::SerialKeyHash ObjectStorMgr::SmQosCtrl::keyHash;
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);

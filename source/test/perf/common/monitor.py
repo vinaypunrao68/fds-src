@@ -7,6 +7,7 @@ import sys
 import os
 from optparse import OptionParser
 import signal
+import socket
 sys.path.append(os.path.join(os.getcwd(), '../common'))
 from push_to_influxdb import InfluxDb
 
@@ -19,7 +20,7 @@ def run(period, influxdb, stop, host_ip):
                 output = subprocess.check_output("ps aux| grep %s | grep -v grep" % v, shell=True).rstrip("\n")
             except:
                 continue
-            logging.info(output)
+            logging.debug(output)
             tokens = output.split()
             cpu = tokens[2]
             mem = tokens[3]
@@ -30,7 +31,6 @@ def run(period, influxdb, stop, host_ip):
 
 def main():
     parser = OptionParser()
-    parser.add_option("-H", "--host-ip", dest = "host_ip", default = "luke", help = "Host IP")
     parser.add_option("-p", "--period", dest = "period", type = "float", default = 1.0,
                       help = "Counter period")
     parser.add_option("", "--influxdb-host", dest = "influxdb_host", default = "han.formationds.com",
@@ -61,7 +61,8 @@ def main():
     print "Config:", config
     influxdb = InfluxDb(config["influxdb_config"], False)
     stop = threading.Event()
-    t = threading.Thread(target = run, args=(options.period, influxdb, stop, options.host_ip))
+    hostname = socket.gethostname()
+    t = threading.Thread(target = run, args=(options.period, influxdb, stop, hostname))
     t.start()
 
     def signal_handler(signal, frame):
