@@ -25,6 +25,7 @@ from fdscli.model.platform.domain import Domain
 
 
 random.seed(time.time())
+
 log = logging.getLogger(__name__)
 
 class AMService(object):
