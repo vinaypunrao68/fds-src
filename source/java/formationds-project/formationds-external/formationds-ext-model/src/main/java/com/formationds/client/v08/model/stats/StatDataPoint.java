@@ -11,6 +11,9 @@ public class StatDataPoint {
 	public static final String COLLECTION_TIME_UNIT = "collectionTimeUnit";
 	public static final String CONTEXT_ID = "contextId";
 	public static final String CONTEXT_TYPE_STR = "contextType";
+	public static final String NUMBER_OF_SAMPLES = "numberOfSamples";
+	public static final String MAXIMUM_VALUE = "maximumValue";
+	public static final String MINIMUM_VALUE = "minimumValue";
 	
 	public enum TIME_UNITS{
 		MILLISECONDS,
@@ -41,6 +44,16 @@ public class StatDataPoint {
 	private Double metricValue = 0.0;
 	
 	/**
+	 * In the case that the value is calculated, this allows for a min value not to be lost.
+	 */
+	private Double minimumValue = 0.0;
+	
+	/**
+	 * In the case that the value is calculated, this allows for a max value not to be lost.
+	 */
+	private Double maximumValue = 0.0;
+	
+	/**
 	 * The period of time it took to collect the value.  In other words,
 	 * if the value is a cumulative value, this would be the amount of time
 	 * over which the summation was done.
@@ -53,6 +66,14 @@ public class StatDataPoint {
 	 * this file as static final members.
 	 */
 	private TIME_UNITS collectionTimePeriod = TIME_UNITS.MILLISECONDS;
+	
+	/**
+	 * This represents how many samples were included in the statistical
+	 * period for which this is reporting.  In the case that the value
+	 * is a sum, this number would give us a better idea of averages that
+	 * are not by nature time based, but sample based.
+	 */
+	private Integer numberOfSamples = 1;
 	
 	/**
 	 * The internal FDS ID for the item that the stat is about.  
@@ -74,6 +95,7 @@ public class StatDataPoint {
 						  Double metricValue,
 						  Long collectionPeriod,
 						  TIME_UNITS collectionTimePeriod,
+						  Integer numberOfSamples,
 						  Long contextId,
 						  ContextType contextType ){
 		
@@ -81,6 +103,7 @@ public class StatDataPoint {
 		this.metricName = metricName;
 		this.metricValue = metricValue;
 		this.collectionPeriod = collectionPeriod;
+		this.numberOfSamples = numberOfSamples;
 		this.contextId = contextId;
 		this.contextType = contextType;
 		this.collectionTimePeriod = collectionTimePeriod;
@@ -109,6 +132,22 @@ public class StatDataPoint {
 	public void setMetricValue( Double metricValue ) {
 		this.metricValue = metricValue;
 	}
+	
+	public Double getMaximumValue(){
+		return maximumValue;
+	}
+	
+	public void setMaximumValue( Double value ){
+		maximumValue = value;
+	}
+	
+	public Double getMinimumValue(){
+		return minimumValue;
+	}
+	
+	public void setMinimumValue( Double value ){
+		minimumValue = value;
+	}
 
 	public Long getCollectionPeriod() {
 		return collectionPeriod;
@@ -116,6 +155,14 @@ public class StatDataPoint {
 
 	public void setCollectionPeriod( Long collectionPeriod ) {
 		this.collectionPeriod = collectionPeriod;
+	}
+	
+	public Integer getNumberOfSamples(){
+		return numberOfSamples;
+	}
+	
+	public void setNumberOfSamples( Integer numberOfSamples ){
+		this.numberOfSamples = numberOfSamples;
 	}
 	
 	public TIME_UNITS getCollectionTimeUnit(){
@@ -157,6 +204,9 @@ public class StatDataPoint {
 		json.put( CONTEXT_ID, getContextId() );
 		json.put( CONTEXT_TYPE_STR, getContextType().name() );
 		json.put( COLLECTION_TIME_UNIT, getCollectionTimeUnit().name() );
+		json.put( NUMBER_OF_SAMPLES, getNumberOfSamples() );
+		json.put( MINIMUM_VALUE, getMinimumValue() );
+		json.put( MAXIMUM_VALUE, getMaximumValue() );
 		
 		String rtn = json.toString();
 		return rtn;
@@ -180,6 +230,9 @@ public class StatDataPoint {
 		datapoint.setMetricName( json.getString( METRIC_NAME ) );
 		datapoint.setMetricValue( json.getDouble( METRIC_VALUE ) );
 		datapoint.setCollectionTimeUnit( TIME_UNITS.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
+		datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
+		datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
+		datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
 		
 		return datapoint;
 	}
