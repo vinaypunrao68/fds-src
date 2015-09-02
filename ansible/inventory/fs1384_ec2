@@ -16,7 +16,7 @@
 10.3.92.122
 10.3.92.121
 #localhost
-#awo-bh-01 fds_deploy_local_deps=False
+#awo-bh-01 fds_deploy_local_deps=no
 
 [fs1384_ec2:vars]
 clean_fds=no
@@ -25,7 +25,7 @@ cluster_location=awo
 deploy_artifact=nightly
 fds_build=release
 fds_default_nic=eth0
-fds_deploy_local_deps=False
+fds_deploy_local_deps=no
 fds_om_host="{{ groups[group_names[0]][0] }}"
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
