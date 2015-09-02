@@ -211,7 +211,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
             # If we're asked to activate nodes, we should be able to spin through our nodes to obtain
             # some useful information about them. 
             # retrying via https://pypi.python.org/pypi/retry/
-            status = retry_call(n.nd_populate_metadata, fkwargs={"om_node" : "om_node"}, tries=10, delay=1, max_delay=5, logger=self.log )
+            status = retry_call(n.nd_populate_metadata, fkwargs={"om_node" : om_node}, tries=10, delay=1, max_delay=5, logger=self.log )
             if status != 0:
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
