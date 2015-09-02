@@ -7,6 +7,7 @@
 #include <fdsp/dm_types_types.h>
 #include <fdsp/dm_api_types.h>
 #include <dmhandler.h>
+#include <DmMigrationBase.h>
 
 #include "fds_module_provider.h"
 #include <net/SvcMgr.h>
@@ -132,19 +133,24 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
-    asyncInitialBlobSetReq->setTimeoutMs(0);
+    asyncInitialBlobSetReq->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    // A hack because g++ doesn't like a bind within a macro that does bind
+    std::function<void()> abortBind = std::bind(&DmMigrationExecutor::abortMigration, this);
+    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
     asyncInitialBlobSetReq->invoke();
 
     return err;
 }
 
 Error
-DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
+DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg,
+										   migrationCb cb)
 {
+	fiu_do_on("abort.dm.migration.processDeltaBlobDescs",\
+        LOGDEBUG << "abort.dm.migration processDeltaBlobDescs.fault point enabled";\
+        sleep(1); return ERR_DM_MIGRATION_ABORTED;);
+
     Error err(ERR_OK);
-	/**
-     * TODO: Need to hold descriptors until all blobs are applied.
-	 */
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
 	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
                << std::hex << msg->volume_id << std::dec
@@ -156,7 +162,6 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
      * Check if all blob offset is applied.  if applyBlobDescList is still
      * false, them queue them up to be applied later.
      */
-    blobDescListMutex.lock();
     if (!deltaBlobsSeqNum.isSeqNumComplete()) {
         /**
          * add to the blob descriptor list while holding lock.
@@ -165,31 +170,31 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                    << std::hex << msg->volume_id << std::dec
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
-        blobDescList.emplace_back(msg);
+        blobDescListMutex.lock();
+        blobDescList.emplace_back(make_pair(msg, cb));
         blobDescListMutex.unlock();
-        return err;
+        err = ERR_NOT_READY;
+    } else {
+		/**
+		 * No need to have lock at this point, since boolean is always set
+		 * one direction from false to true.
+		 */
+		fds_verify(deltaBlobsSeqNum.isSeqNumComplete());
+
+		LOGMIGRATE << "Applying blob descriptor for volume="
+				   << std::hex << volumeUuid << std::dec
+				   << ", sequencId=" << msg->msg_seq_id
+				   << ", lastMsg=" << msg->last_msg_seq_id;
+		err = applyBlobDesc(msg);
+		if (err != ERR_OK) {
+			LOGERROR << "Applying blob descriptor failed on volume="
+					 << std::hex << msg->volume_id << std::dec
+					 << " msgseqid=" << msg->msg_seq_id
+					 << " lastmsgseqid=" << msg->last_msg_seq_id
+					 << " numofblobdesc=" << msg->blob_desc_list.size();
+		}
+		cb(err);
     }
-    blobDescListMutex.unlock();
-
-    /**
-     * No need to have lock at this point, since boolean is always set
-     * one direction from false to true.
-     */
-    fds_verify(deltaBlobsSeqNum.isSeqNumComplete());
-
-    LOGMIGRATE << "Applying blob descriptor for volume="
-               << std::hex << volumeUuid << std::dec
-               << ", sequencId=" << msg->msg_seq_id
-               << ", lastMsg=" << msg->last_msg_seq_id;
-    err = applyBlobDesc(msg);
-    if (err != ERR_OK) {
-        LOGERROR << "Applying blob descriptor failed on volume="
-                 << std::hex << msg->volume_id << std::dec
-                 << " msgseqid=" << msg->msg_seq_id
-                 << " lastmsgseqid=" << msg->last_msg_seq_id
-                 << " numofblobdesc=" << msg->blob_desc_list.size();
-    }
-
 	return err;
 }
 
@@ -197,6 +202,10 @@ Error
 DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 {
 	Error err(ERR_OK);
+
+	fiu_do_on("abort.dm.migration.processDeltaBlobs",\
+        LOGDEBUG << "abort.dm.migration processDeltaBlobs.fault point enabled";\
+        sleep(1); return ERR_NOT_READY;);
 
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
 	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg: "
@@ -266,7 +275,6 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
                    << std::hex << volumeUuid << std::dec
                    << ".  Apply queued blob descriptors.";
         err = applyQueuedBlobDescs();
-        fds_verify(ERR_OK == err);
     }
     blobDescListMutex.unlock();
 
@@ -324,18 +332,21 @@ DmMigrationExecutor::applyQueuedBlobDescs()
     /**
      * process all queued blob descriptors.
      */
-    for (auto & blobDescMsg : blobDescList) {
+    for (auto & blobDescPair : blobDescList) {
+    	fpi::CtrlNotifyDeltaBlobDescMsgPtr blobDescMsg = std::get<0>(blobDescPair);
+    	migrationCb ackDescriptor = std::get<1>(blobDescPair);
         LOGMIGRATE << "Applying queued blob descriptor for volume="
                    << std::hex << volumeUuid << std::dec
                    << ", sequencId=" << blobDescMsg->msg_seq_id
                    << ", lastMsg=" << blobDescMsg->last_msg_seq_id;
         err = applyBlobDesc(blobDescMsg);
+        ackDescriptor(err);
         if (!err.ok()) {
             LOGERROR << "Failed applying queued blob descriptor for vlume="
                      << std::hex << volumeUuid << std::dec
                      << ", sequencId=" << blobDescMsg->msg_seq_id
                      << ", lastMsg=" << blobDescMsg->last_msg_seq_id;
-            return err;
+            break;
         }
     }
 
@@ -372,7 +383,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
-	// TODO - part of error handling (FS-2619)
+	abortMigration();
 }
 
 void
@@ -407,8 +418,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
-            // TODO: Abort migration
-            fds_panic("Not handled");
+        	abortMigration();
             delete dmReq;
             return;
         }
@@ -447,5 +457,20 @@ DmMigrationExecutor::finishActiveMigration()
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
 	return ERR_OK;
+}
+
+void
+DmMigrationExecutor::abortMigration()
+{
+    {
+        fds_scoped_lock lock(progressLock);
+        if (migrationProgress != MIGRATION_ABORTED) {
+        	migrationProgress = MIGRATION_ABORTED;
+        	if (migrDoneCb) {
+        		LOGMIGRATE << "Abort migration called.";
+        		migrDoneCb(volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
+        	}
+        }
+    }
 }
 }  // namespace fds

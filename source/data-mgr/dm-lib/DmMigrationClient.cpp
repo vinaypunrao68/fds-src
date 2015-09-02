@@ -4,6 +4,7 @@
 
 #include <DataMgr.h>
 #include <DmMigrationClient.h>
+#include <DmMigrationBase.h>
 
 namespace fds {
 
@@ -21,7 +22,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
     : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm),
       maxNumBlobs(_maxDeltaBlobs), maxNumBlobDescs(_maxDeltaBlobDescs),
-	  forwardingIO(false)
+	  forwardingIO(false), snapshotTaken(false)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
@@ -159,7 +160,7 @@ DmMigrationClient::processBlobDiff()
     if (ERR_OK != err) {
         LOGERROR << "Failed to get blob update list and blob delete list for volume=" << volId
             << " with error=" << err;
-        return ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+        return err;
     }
 
     LOGMIGRATE << "num blobs update=" << blobUpdateList.size()
@@ -169,9 +170,9 @@ DmMigrationClient::processBlobDiff()
     // blobs to be updated and deleted (blobs + descriptors.
     err = generateBlobDeltaSets(blobUpdateList, blobDeleteList);
     if (ERR_OK != err) {
-        LOGERROR << "Failed go generate blob delta set for volume=" << volId
+        LOGERROR << "Failed to generate blob delta set for volume=" << volId
             << " with error=" << err;
-        return ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+        return err;
     }
 
     return err;
@@ -371,6 +372,11 @@ DmMigrationClient::processBlobFilterSet()
 {
     LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
+    fiu_do_on("abort.dm.migration.processBlobFilter",\
+              LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
+              sleep(1); return ERR_NOT_READY;);
+
+
     // Lookup commit log so we can take a snapshot of the volume while blocking
     // updates
     DmCommitLog::ptr commitLog;
@@ -393,15 +399,18 @@ DmMigrationClient::processBlobFilterSet()
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
         return err;
+    } else {
+    	snapshotTaken = true;
     }
 
     txMsg->volume_id = volId.v;
     auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    txStateMsg->setTimeoutMs(15000);
+    txStateMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
     txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
                            txMsg);
-    /* TODO: set a callback that aborts on error/timeout */
-    //txStateMsg->onResponseCb();
+    // A hack because g++ doesn't like a bind within a macro that does bind
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
+    txStateMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
     txStateMsg->setTaskExecutorId(volId.v);
     txStateMsg->invoke();
 
@@ -414,6 +423,7 @@ DmMigrationClient::processBlobFilterSet()
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
     fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
+    snapshotTaken = false;
     if (ERR_OK != err) {
         LOGERROR << "Failed to process blob diff on volume=" << volId
             << " with error=" << err;
@@ -448,14 +458,14 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     LOGMIGRATE << "Sending blobs to: " << std::hex << destDmUuid << std::dec
         << " " << logString(*blobsMsg);
 
-    /**
-     * Send fire and forget message consisting of blobs to the destination DM.
-     */
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
     auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobsMsg->setTimeoutMs(0);
+    asyncDeltaBlobsMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
+    // A hack because g++ doesn't like a bind within a macro that does bind
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
+    asyncDeltaBlobsMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
 	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobsMsg->invoke();
 
@@ -470,14 +480,14 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     LOGMIGRATE << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
         << " " << logString(*blobDescMsg);
 
-    /**
-     * Send fire and forget message consisting of blob descriptors to the destination DM.
-     */
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
     auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobDescMsg->setTimeoutMs(0);
+    asyncDeltaBlobDescMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
+    // A hack because g++ doesn't like a bind within a macro that does bind
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
+    asyncDeltaBlobDescMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
     asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
     asyncDeltaBlobDescMsg->invoke();
 
@@ -508,7 +518,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
     auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
-    asyncCatUpdReq->setTimeoutMs(5000);
+    asyncCatUpdReq->setTimeoutMs(DMMIGRATION_TIMEOUT);
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
     /**
@@ -534,7 +544,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
     	LOGERROR << "Forwarding failed. Aborting DM Migration.";
-    	// TODO(Neil) - call aborting code - need to do as part of abort card
+    	abortMigration();
         return;
     }
 }
@@ -562,9 +572,13 @@ void DmMigrationClient::turnOnForwarding() {
 	std::atomic_store(&forwardingIO, true);
 }
 
-void DmMigrationClient::turnOffForwarding() {
+void DmMigrationClient::turnOffForwardingInternal() {
 	LOGMIGRATE << "Turning off forwarding for volume: " << volId;
 	std::atomic_store(&forwardingIO, false);
+}
+
+void DmMigrationClient::turnOffForwarding() {
+	turnOffForwardingInternal();
 	sendFinishFwdMsg();
 }
 
@@ -582,10 +596,32 @@ DmMigrationClient::sendFinishFwdMsg()
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
-	thriftMsg->setTimeoutMs(5000);
+    thriftMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
 	thriftMsg->setTaskExecutorId(volId.v);
 	thriftMsg->invoke();
 
 	return (err);
+}
+
+void
+DmMigrationClient::dmMigrationCheckResp(EPSvcRequest *req,
+													 const Error& error,
+													 boost::shared_ptr<std::string> payload)
+{
+	LOGMIGRATE << "Received response for processInitialBlobFilterSet " <<
+			"with error: " << error;
+	if (!error.ok()) {
+		abortMigration();
+	}
+}
+
+void
+DmMigrationClient::abortMigration()
+{
+	/**
+	 * Clean up after processBlobFilterSet()
+	 */
+	turnOffForwardingInternal();
+    if (snapshotTaken) {dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);}
 }
 }  // namespace fds

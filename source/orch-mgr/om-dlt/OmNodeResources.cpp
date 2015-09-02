@@ -668,6 +668,12 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
                                const Error& error,
                                boost::shared_ptr<std::string> payload)
 {
+    if (error == ERR_VOL_NOT_FOUND) {
+    	/* It's ok that the new DM returned ERR_VOL_NOT_FOUND because it's new
+    	 * and doesn't have the volume descriptor.
+    	 */
+    	LOGDEBUG << "NEIL DEBUG HIT ERR_VOL_NOT_FOUND";
+    }
     LOGDEBUG << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
@@ -675,12 +681,14 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
 
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid(req->getPeerEpId().svc_uuid);
-    /**
-     * For now override error code to OK. Removde this hard code once
-     * FS-2214 is fixed.
-     */
-    domain->om_recv_pull_meta_resp(node_uuid, ERR_OK);
-    // domain->om_recv_pull_meta_resp(node_uuid, error);
+    if (error == ERR_VOL_NOT_FOUND) {
+    	/* It's ok that the new DM returned ERR_VOL_NOT_FOUND because it's new
+    	 * and doesn't have the volume descriptor.
+    	 */
+    	domain->om_recv_pull_meta_resp(node_uuid, ERR_OK);
+    } else {
+    	domain->om_recv_pull_meta_resp(node_uuid, error);
+    }
 }
 
 Error
