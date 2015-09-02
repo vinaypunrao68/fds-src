@@ -109,27 +109,41 @@ bool Socket::peek() {
 bool Socket::connect(int retryCount, int backoff) {
     int numAttempts = 0;
     int waitTime = backoff*1000;
+    int maxWaitTime = 30 * 1000 * 1000; // 30 seconds
     if (isOpen()) return true;
 
     while (!isOpen() && numAttempts < retryCount) {
-        ++numAttempts;
-        // double the wait time every 5 attempts
-        if (numAttempts % 5 == 0) waitTime *= 2;
 
+        ++numAttempts;
         try {
+
             open();
+
         } catch(const att::TTransportException& e) {
-            LOGDEBUG << "connection attempt [" << numAttempts
-                     << "] failed . waiting for [" << waitTime <<"] micros";
-            LOGGERPTR->flush();
-            if (numAttempts < retryCount)  usleep(waitTime);
+            if (numAttempts < retryCount)  {
+
+                // double the wait time every 5 attempts
+                if (numAttempts % 5 == 0) {
+                    waitTime *= 2;
+
+                    // reset the wait time if we exceed the max.
+                    if (waitTime > maxWaitTime)
+                        waitTime = backoff*1000;
+                }
+
+                LOGDEBUG << "connection attempt [" << numAttempts
+                         << "] failed . waiting for [" << waitTime <<"] micros";
+                LOGGERPTR->flush();
+
+                usleep(waitTime);
+            }
         }
     }
 
     if (isOpen()) {
         LOGDEBUG << "Successfully connected after [" << numAttempts << "] attempts.";
     } else {
-        LOGDEBUG << "Failed to connect after [" << numAttempts << "] attempts.";
+        LOGWARN << "Failed to connect after [" << numAttempts << "] attempts.";
     }
 
     return isOpen();
