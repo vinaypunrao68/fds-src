@@ -20,7 +20,7 @@ from fdscli.model.platform.service import Service
 from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
-
+from retry.api import retry_call
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -209,8 +209,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 n = self.passedNode
 
             # If we're asked to activate nodes, we should be able to spin through our nodes to obtain
-            # some useful information about them.
-            status = n.nd_populate_metadata(om_node=om_node)
+            # some useful information about them. 
+            # retrying via https://pypi.python.org/pypi/retry/
+            status = retry_call(n.nd_populate_metadata, fkwargs={"om_node" : "om_node"}, tries=10, delay=1, max_delay=5, logger=self.log )
             if status != 0:
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
