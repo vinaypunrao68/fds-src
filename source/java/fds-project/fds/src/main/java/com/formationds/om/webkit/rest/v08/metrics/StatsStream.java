@@ -50,7 +50,7 @@ public class StatsStream implements SubscriptionHandler {
 	public void startListening(){
 		
 		try {
-			subscription = conn.subscribeToContextType( "admin", StatDataPoint.CONTEXT_TYPE.VOLUME, this );
+			subscription = conn.subscribeToContextType( null, StatDataPoint.CONTEXT_TYPE.VOLUME, this );
 		}
 		catch( Exception e ){
 			logger.warn( "Subscription to admin topic failed.  Publishing should work without problems." );
