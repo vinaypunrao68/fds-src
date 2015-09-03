@@ -442,72 +442,28 @@ class FdsNodeConfig(FdsConfig):
     #
     def nd_populate_metadata(self, om_node):
         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+        om_ip = om_node.nd_conf_dict['ip']
 
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
         else:
             port = 7000  # PM default.
+        node_service = TestUtils.get_node_service(self, om_ip)
+        node_list = node_service.list_nodes()
+        status = 0
 
-        # From the listServices output we can determine node name
-        # and node UUID.
-        # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from [fdsconsole.py domain listServices] output
-        # Group 0 = Entire matched expression
-        # Group 1 = node UUID
-        # Group 2 = Node root (not showing up)
-        # Group 3 = Node ID
-        # Group 4 = IPv4
-        # Group 5 = IPv6
-        # Group 6 = Service name
-        # Group 8 = Service Type
-        # Group 9 = Service UUID
-        # Group 10 = Control port
-        # Group 11 = Data port
-        # Group 12 = Migration port
-        # TODO(brian): uncomment this regex when we start capturing node root correctly
-        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
-        #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
-        #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
-        # Use this regex for now
-        svc_re = re.compile(r'(0x[a-f0-9]{16})(\s+)(\d{1})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
-                            '\s+(\d.\d.\d.\d)\s+(\w{2})\s+(\w*)\s+(0x[a-f0-9]{16})\s+'
-                            '([A-Za-z0-9_]*)\s+(\d+)\s+(\d+)\s+(\d+)')
-
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
-                                                    return_stdin=True,
-                                                    fds_tools=True)
-
-        # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from [fdsconsole.py domain listServices] output
-        if status == 0:
-            for line in stdout.split('\n'):
-                res = svc_re.match(line)
-                if res is not None:
-                    # UUID
-                    assigned_uuid = res.group(1)
-                    # IP
-                    hostName = socket.gethostbyaddr(res.group(4))
-                    ourIP = (res.group(4) == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                    # Service name
-                    assigned_name = res.group(6)
-                    # Ports
-                    readPort = int(res.group(11))
-                    if assigned_name.lower() == 'pm' and readPort == int(port):
-                        self.nd_assigned_name = assigned_name
-                        self.nd_uuid = assigned_uuid
-                        break
-
-            if (self.nd_uuid is None):
-                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
-                log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
-                log.error("Results from service list:\n%s." % stdout)
-                status = -1
-            else:
-                log.debug("Node %s has assigned name %s and UUID %s." %
-                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+        for node in node_list:
+            if str(node.services['PM'][0].port) == port:
+                self.nd_assigned_name = 'pm'
+                self.nd_uuid = hex(int(node.id))
+                break
+        if (self.nd_uuid is None):
+            log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+            log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+            status = -1
         else:
-            log.error("status = %s" % status)
-            log.error("Results from service list:\n%s." % stdout)
+            log.debug("Node %s has assigned name %s and UUID %s." %
+                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
 
         return status
 
