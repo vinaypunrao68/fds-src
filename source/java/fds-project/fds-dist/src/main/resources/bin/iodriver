@@ -1,9 +1,8 @@
 #!/bin/bash
-export FDS_JAVA_HOME=/opt/fds-deps/embedded/jre/
 JAVA_LIB=/fds/lib/java
 CLASSPATH="${CLASSPATH}":"${JAVA_LIB}"/\*
 
-$FDS_JAVA_HOME/bin/java -classpath $CLASSPATH \
+${FDS_JAVA_HOME:=/opt/fds-deps/embedded/jre}/bin/java -classpath $CLASSPATH \
      -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4005 \
      com.formationds.iodriver.Main "${@}" \
      || exit 1
