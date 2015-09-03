@@ -17,6 +17,7 @@ import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.NullWorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.formationds.iodriver.workloads.BenchmarkPrefixSearchConfig;
 import com.formationds.iodriver.workloads.RandomFillConfig;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -42,7 +43,8 @@ public final class Main
             Config config = new Config(args);
             logger = config.getLogger();
             
-            config.addConfig(new RandomFillConfig(config, config::getOperationLogging));
+            config.addConfig(new RandomFillConfig(config));
+            config.addConfig(new BenchmarkPrefixSearchConfig(config));
 
             if (handleHelp(config))
             {

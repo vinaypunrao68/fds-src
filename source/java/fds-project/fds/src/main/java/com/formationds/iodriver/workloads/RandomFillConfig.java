@@ -6,23 +6,19 @@ import java.util.Set;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.RuntimeConfig;
-import com.formationds.commons.util.functional.ExceptionThrowingSupplier;
+import com.formationds.iodriver.Config;
 import com.formationds.iodriver.WorkloadProvider;
 
 public class RandomFillConfig implements RuntimeConfig
 {
-	public RandomFillConfig(AbstractConfig baseConfig,
-	                        ExceptionThrowingSupplier<Boolean, ParseException> getOperationLogging)
+	public RandomFillConfig(Config baseConfig)
 	{
 	    if (baseConfig == null) throw new NullArgumentException("baseConfig");
-	    if (getOperationLogging == null) throw new NullArgumentException("getOperationLogging");
 	    
 	    _baseConfig = baseConfig;
 		_configs = new HashSet<>();
-		_getOperationLogging = getOperationLogging;
 		_maxDirectoriesPerLevel = null;
 		_maxDirectoryDepth = null;
 		_maxObjectSize = null;
@@ -34,12 +30,16 @@ public class RandomFillConfig implements RuntimeConfig
 	@Override
 	public void addConfig(RuntimeConfig config)
 	{
+	    if (config == null) throw new NullArgumentException("config");
+	    
 		_configs.add(config);
 	}
 	
 	@Override
 	public void addOptions(Options options)
 	{
+	    if (options == null) throw new NullArgumentException("options");
+	    
 	    _configs.forEach(c -> c.addOptions(options));
 	    
 	    options.addOption(null,
@@ -133,7 +133,7 @@ public class RandomFillConfig implements RuntimeConfig
                               getMaxObjectSize(),
                               getMaxObjectsPerDirectory(),
                               getMaxDirectoryDepth(),
-                              _getOperationLogging.get());
+                              _baseConfig.getOperationLogging());
     }
     
 	@Override
@@ -142,11 +142,9 @@ public class RandomFillConfig implements RuntimeConfig
 		return false;
 	}
 	
-	private AbstractConfig _baseConfig;
+	private Config _baseConfig;
 	
 	private final Set<RuntimeConfig> _configs;
-	
-	private final ExceptionThrowingSupplier<Boolean, ParseException> _getOperationLogging;
     
 	private Integer _maxDirectoriesPerLevel;
 	

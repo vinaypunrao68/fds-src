@@ -3,7 +3,9 @@ package com.formationds.iodriver.operations;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Consumer;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -46,7 +48,13 @@ public final class ListVolumes extends AbstractOmV8Operation
             throw new ExecutionException("Error listing volumes.", e);
         }
 
-        _setter.accept(ObjectModelHelper.toObject(volumes, _VOLUME_LIST_TYPE));
+        List<Volume> rawVolumes = ObjectModelHelper.toObject(volumes, _VOLUME_LIST_TYPE);
+        List<VolumeWrapper> wrappedVolumes = Arrays.asList(
+                rawVolumes.stream()
+                          .map(v -> new VolumeWrapper(v))
+                          .toArray(size -> new VolumeWrapper[size]));
+        
+        _setter.accept(wrappedVolumes);
     }
 
     @Override
