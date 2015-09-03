@@ -47,9 +47,11 @@ TEST(MigrationTrackIOReqs, trackIOReqs1)
     std::thread t3(thrWaitCompleteReqs, std::ref(pendReqs));
 
     t1.join();
-
+    std::cout << "Thread t1 exited" << std::endl;
     pendReqs.finishTrackIOReqs();
+    std::cout << "Finished tracking io" << std::endl;
     t3.join();
+    std::cout << "Thread t3 exited" << std::endl;
 }
 
 }  // namespace fds
