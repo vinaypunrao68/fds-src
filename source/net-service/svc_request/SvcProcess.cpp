@@ -134,14 +134,14 @@ void SvcProcess::registerSvcProcess()
     int numAttempts = 0;
 
     // microseconds
-    int waitTime = 10000;
-    int maxWaitTime = 10000 * 50;
+    int waitTime = 10 * 1000;   // 10 milliseconds
+    int maxWaitTime = 500 * 1000;  // 500 milliseconds
 
     do {
         try {
             ++numAttempts;
 
-            LOGDEBUG << "Attempting connection to OM... [" << numAttempts << "]";
+            LOGDEBUG << "Attempting connection to OM [" << numAttempts << "]";
 
             /* This will block until we get a connection.  All the call below should be
              * idempotent.  In case of failure we just retry until we succeed
@@ -149,7 +149,7 @@ void SvcProcess::registerSvcProcess()
             auto omSvcRpc = svcMgr_->getNewOMSvcClient();
 
             omSvcRpc->registerService(svcInfo_);
-            LOGNOTIFY << "registerService() call completed";
+            LOGNOTIFY << "registerService() call completed: " << fds::logString(svcInfo_);
 
             omSvcRpc->getSvcMap(svcMap, 0);
             LOGNOTIFY << "got service map.  size: " << svcMap.size();
@@ -203,7 +203,19 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
                                                     svcType);
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if", ""));
+
+    // get the service port as an offset from the platform port.
     svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
+
+    // OM port is handled differently than other services.  It is based on fds.common.om_port
+    // configuration (potentially overridden by command line option, but that part is handled
+    // before we get here)
+    // TODO: this would make sense to move to OrchMgr::setupSvcInfo_ but if so the message
+    // logged below would have the mapped OM port instead of the configured OM port and be
+    // potentially confusing if not using the default port value.
+    if ( svcType ==  fpi::FDSP_ORCH_MGR ) {
+        svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port", svcInfo_.svc_port);
+    }
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
     svcInfo_.incarnationNo = util::getTimeStampSeconds();

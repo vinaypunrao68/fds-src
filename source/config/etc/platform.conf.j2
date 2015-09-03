@@ -628,6 +628,13 @@ fds: {
         config_port=9090
         config_cache_update_interval_ms=10000
 
+        /* if om_enabled_java_om_svc_proxy feature toggle is enabled, then
+           this property is used to determine the OM C++ Service port that is
+           proxied from the primary OM service port.  This is considered an
+           internal port to the OM and should not be accessed by any other
+           service */
+        java_svc_proxy_port_offset=1900
+
         token_factor=8
         replica_factor=3
         placement_algo="ConsistHash"

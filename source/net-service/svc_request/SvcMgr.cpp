@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <limits>
 #include <concurrency/Mutex.h>
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -29,8 +30,8 @@ namespace fds {
 /*********************************************************************************
  * Static variables
  ********************************************************************************/
-int32_t SvcMgr::MIN_CONN_RETRIES = 3;
-int32_t SvcMgr::MAX_CONN_RETRIES = 1024;
+const int32_t SvcMgr::MIN_CONN_RETRIES = 3;
+const int32_t SvcMgr::MAX_CONN_RETRIES = 1024;
 
 /*********************************************************************************
  * Free functions
@@ -104,8 +105,14 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     auto config = MODULEPROVIDER()->get_conf_helper();
     auto platformPort = config.get_abs<int>("fds.pm.platform_port");
 
+    // NOTE: OM ip and port are managed differently from other services which are
+    // offsets from the Platform port..  The default OM Port happens to be the same
+    // as is returned by mapToServicePort in the single node case, but it will not work
+    // properly when running multiple nodes on the same host or when the OM is running
+    // on a non-default port.
     omIp_ = config.get_abs<std::string>("fds.common.om_ip_list");
-    omPort_ = mapToSvcPort( platformPort, fpi::FDSP_ORCH_MGR );
+    omPort_ = config.get_abs<int>("fds.common.om_port",
+                                  SvcMgr::mapToSvcPort(platformPort, fpi::FDSP_ORCH_MGR));
     omSvcUuid_.svc_uuid = static_cast<int64_t>(config.get_abs<fds_uint64_t>("fds.common.om_uuid"));
 
     fds_assert(omSvcUuid_.svc_uuid != 0);
@@ -125,7 +132,9 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     // be accessed by any other services.
     if (config.get_abs<bool>("fds.feature_toggle.om.enable_java_om_svc_proxy", false) &&
          svcInfo_.svc_type ==  fpi::FDSP_ORCH_MGR) {
-        port += 1900; //(8904)
+
+        int omSvcProxyPortOffset = config.get_abs<int>("fds.om.java_svc_proxy_port_offset", 1900);
+        port += omSvcProxyPortOffset; //(defaults to 8904)
 
         LOGNOTIFY << "OM Java Service Proxy enabled.  Java OM process will run on port "
                 <<  svcInfo_.svc_port
@@ -133,6 +142,9 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
                 << port
                 << ".";
     }
+
+    LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
+            "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
     svcServer_ = boost::make_shared<SvcServer>(port, processor);
 
@@ -440,9 +452,14 @@ fpi::SvcUuid SvcMgr::getOmSvcUuid() const
 fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
 {
     fpi::OMSvcClientPtr omClient;
+
+    // never surrender.
+    int omRetries = std::numeric_limits<int32_t>::max();
     while (true) {
         try {
-            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, MAX_CONN_RETRIES);
+            LOGNOTIFY << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
+                    "] with max retries of [" << omRetries << "]";
+            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
             break;
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()

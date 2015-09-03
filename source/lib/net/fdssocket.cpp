@@ -108,20 +108,22 @@ bool Socket::peek() {
 
 bool Socket::connect(int retryCount, int backoff) {
     int numAttempts = 0;
-    int waitTime = backoff*1000;
-    int maxWaitTime = 30 * 1000 * 1000; // 30 seconds
+
+    // backoff is in milliseconds so convert to micros.
+    uint waitTime = backoff*1000;
+    uint maxWaitTime = 30 * 1000 * 1000; // 30 seconds
     if (isOpen()) return true;
 
-    while (!isOpen() && numAttempts < retryCount) {
+    LOGDEBUG << "Connecting to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
+            "] with max retries [" << retryCount << "] and backoff of [" << backoff << "ms]";
 
+    while (!isOpen() && numAttempts < retryCount) {
         ++numAttempts;
         try {
-
             open();
-
         } catch(const att::TTransportException& e) {
-            if (numAttempts < retryCount)  {
 
+            if (numAttempts < retryCount)  {
                 // double the wait time every 5 attempts
                 if (numAttempts % 5 == 0) {
                     waitTime *= 2;
@@ -141,9 +143,11 @@ bool Socket::connect(int retryCount, int backoff) {
     }
 
     if (isOpen()) {
-        LOGDEBUG << "Successfully connected after [" << numAttempts << "] attempts.";
+        LOGDEBUG << "Successfully connected to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
+                        "] after [" << numAttempts << "] attempts.";
     } else {
-        LOGWARN << "Failed to connect after [" << numAttempts << "] attempts.";
+        LOGWARN << "Failed to connect to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
+                        "] after [" << numAttempts << "] attempts.";
     }
 
     return isOpen();

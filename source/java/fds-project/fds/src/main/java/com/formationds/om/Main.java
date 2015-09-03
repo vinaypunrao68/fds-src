@@ -5,9 +5,9 @@ package com.formationds.om;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.XdiService;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
@@ -18,8 +18,8 @@ import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
 import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.platform.svclayer.OmSvcHandler;
-import com.formationds.platform.svclayer.SvcServer;
 import com.formationds.platform.svclayer.SvcMgr;
+import com.formationds.platform.svclayer.SvcServer;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
@@ -88,13 +88,19 @@ public class Main {
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
 
-        // the base platform port that is used for determining all of the service default ports
+        // the base platform port that is used for determining all of the service default ports except for the OM
         int pmPort = platformConfig.defaultInt( "fds.pm.platform_port", 7000 );
-        int omPort = SvcMgr.mapToServicePort( pmPort, FDSP_MgrIdType.FDSP_ORCH_MGR );
+
+        // OM port is handled differently.  The default value is still PM + SvcId(4) = 7004, but it
+        // is controlled through the fds.common.om_port setting.
+        int omPort = platformConfig.defaultInt( "fds.common.om_port",
+                                                SvcMgr.mapToServicePort( pmPort,
+                                                                         FDSP_MgrIdType.FDSP_ORCH_MGR ) );
 
         if ( isOMProxyServerEnabled( ) ) {
 
-            int proxyToPort = omPort + 1900;  // 8904 by default
+            int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
+            int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
             proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort ) ) );
             proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
