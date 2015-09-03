@@ -29,6 +29,48 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.function.Function;
 
+/**
+ * Metadata describing a Thrift Service definition.  A valid thrift service class generated
+ * by the thrift compiler contains the outer class definition (unfortunately does not implement
+ * an interface or extend a base class that would make some of these acrobatics unnecessary); an
+ * IFace defining the service methods as declared in the IDL; and AsyncIface; the sync/async
+ * client and factories; and lastly, the processor.
+ * <p>
+ * This implementation is based on Thrift 0.9.0 generated code.
+ * <p>
+ * Usage is
+ * <code>
+ * class Server<T extends PlatNetSvc> {
+ * <p>
+ * public Server(T handler) {
+ * this.serviceDescriptor = ThriftServiceDescriptor.newDescriptor( handler.getClass()
+ * .getInterfaces()[0]
+ * .getEnclosingClass() );
+ * }
+ * <p>
+ * ...
+ * private TNonblockingServer createThriftServer( InetSocketAddress address,
+ * S handler ) throws TTransportException {
+ * TNonblockingServerSocket transport = new TNonblockingServerSocket( address );
+ * TNonblockingServer.Args args = new TNonblockingServer.Args( transport )
+ * .processor( (TProcessor) serviceDescriptor.getProcessorFactory()
+ * .apply( handler ) );
+ * return new TNonblockingServer( args );
+ * }
+ * }
+ * </code>
+ * In the example above I have defined T as an extension of PlatNetSvc but in fact it can represent any
+ * valid Thrift generated service.
+ *
+ * @param <T>
+ * @param <IF>
+ * @param <AIF>
+ * @param <C>
+ * @param <CF>
+ * @param <AC>
+ * @param <ACF>
+ * @param <PF>
+ */
 public class ThriftServiceDescriptor<T,
                                         IF,
                                         AIF,
@@ -38,38 +80,49 @@ public class ThriftServiceDescriptor<T,
                                         ACF extends TAsyncClientFactory<AC>,
                                         PF extends TBaseProcessor<IF>> {
 
+    /**
+     *
+     * @return A ThriftServiceDescriptor for the PlatNetSvc
+     */
     @SuppressWarnings("unchecked")
     public static ThriftServiceDescriptor<PlatNetSvc,
                                              Iface,
                                              AsyncIface,
                                              Client,
-                                             Factory,
-                                             AsyncClient,
-                                             AsyncClient.Factory,
+                                                 Factory,
+                                                 AsyncClient,
+                                                 AsyncClient.Factory,
                                              Processor<Iface>> newPlatNetSvcDescriptor() {
 
         return new ThriftServiceDescriptor( PlatNetSvc.class );
     }
 
+    /**
+     *
+     * @return a ThriftServiceDescriptor for the OMSvc
+     */
     @SuppressWarnings("unchecked")
     public static ThriftServiceDescriptor<OMSvc,
                                              OMSvc.Iface,
                                              OMSvc.AsyncIface,
                                              OMSvc.Client,
-                                             OMSvc.Client.Factory,
-                                             OMSvc.AsyncClient,
+                                                 OMSvc.Client.Factory,
+                                                 OMSvc.AsyncClient,
                                              OMSvc.AsyncClient.Factory,
                                              OMSvc.Processor<OMSvc.Iface>> newOMSvcDescriptor() {
 
         return new ThriftServiceDescriptor( OMSvc.class );
     }
 
+    /**
+     * @return a new ThriftServiceDescriptor for the OM ConfigurationService
+     */
     @SuppressWarnings("unchecked")
     public static ThriftServiceDescriptor<ConfigurationService,
                                              ConfigurationService.Iface,
                                              ConfigurationService.AsyncIface,
-                                             ConfigurationService.Client,
-                                             ConfigurationService.Client.Factory,
+                                                 ConfigurationService.Client,
+                                                 ConfigurationService.Client.Factory,
                                              ConfigurationService.AsyncClient,
                                              ConfigurationService.AsyncClient.Factory,
                                              ConfigurationService.Processor<ConfigurationService.Iface>> newConfigSvcDescriptor() {
@@ -77,6 +130,12 @@ public class ThriftServiceDescriptor<T,
         return new ThriftServiceDescriptor( ConfigurationService.class );
     }
 
+    /**
+     *
+     * @param thriftServiceClass the thrift service class
+     * @param <T> the service type
+     * @return the new ThriftServiceDescriptor
+     */
     public static <T> ThriftServiceDescriptor<T, ?, ?, ?, ?, ?, ?, ?> newDescriptor( Class<T> thriftServiceClass ) {
         return new ThriftServiceDescriptor<>( thriftServiceClass );
     }
@@ -89,15 +148,13 @@ public class ThriftServiceDescriptor<T,
     private CF  serviceClientFactory;
     private ACF asyncServiceClientFactory;
 
+    /**
+     *
+     * @param thriftWrapper the thrift generated service wrapper class
+     *
+     * @throws IllegalArgumentException if the wrapper class is not a valid thrift-generated service class
+     */
     private ThriftServiceDescriptor( Class<T> thriftWrapper ) {
-        //        PlatNetSvc.class,
-        //        PlatNetSvc.Iface.class,
-        //            PlatNetSvc.AsyncIface.class,
-        //            PlatNetSvc.Client.class,
-        //            PlatNetSvc.Client.Factory.class,
-        //            PlatNetSvc.AsyncClient.class,
-        //            PlatNetSvc.AsyncClient.Factory.class,
-        //            PlatNetSvc.Processor.class
         this.thriftWrapper = thriftWrapper;
 
         this.serviceClientFactoryClass = extractClientFactory();
@@ -106,22 +163,38 @@ public class ThriftServiceDescriptor<T,
     }
 
     // these all depend on thriftWrapper
-    protected Class<IF> extractIface() { return (Class<IF>) extractClass( "Iface" ); }
+    @SuppressWarnings("unchecked")
+    private Class<IF> extractIface() { return (Class<IF>) extractClass( "Iface" ); }
 
-    protected Class<AIF> extractAsyncIface() { return (Class<AIF>) extractClass( "AsyncIface" ); }
+    @SuppressWarnings("unchecked")
+    private Class<AIF> extractAsyncIface() { return (Class<AIF>) extractClass( "AsyncIface" ); }
 
-    protected Class<C> extractClient() { return (Class<C>) extractClass( "Client" ); }
+    @SuppressWarnings("unchecked")
+    private Class<C> extractClient() { return (Class<C>) extractClass( "Client" ); }
 
-    protected Class<CF> extractClientFactory() { return (Class<CF>) extractClass( extractClient(), "Factory" ); }
+    @SuppressWarnings("unchecked")
+    private Class<CF> extractClientFactory() { return (Class<CF>) extractClass( extractClient(), "Factory" ); }
 
-    protected Class<AC> extractAsyncClient() { return (Class<AC>) extractClass( "AsyncClient" ); }
+    @SuppressWarnings("unchecked")
+    private Class<AC> extractAsyncClient() { return (Class<AC>) extractClass( "AsyncClient" ); }
 
-    protected Class<ACF> extractAsyncClientFactory() {
+    @SuppressWarnings("unchecked")
+    private Class<ACF> extractAsyncClientFactory() {
         return (Class<ACF>) extractClass( extractAsyncClient(), "Factory" );
     }
 
-    protected Class<PF> extractProcessor() { return (Class<PF>) extractClass( "Processor" ); }
+    @SuppressWarnings("unchecked")
+    private Class<PF> extractProcessor() { return (Class<PF>) extractClass( "Processor" ); }
 
+    /**
+     * Given the simple name of a thrift service inner class, load the class.
+     *
+     * @param simpleName the name: Iface, AsyncIface, Client, Client.Factory, AsyncClient, AsyncClient.Factory, Processor
+     *
+     * @return the thrift service class.
+     *
+     * @throws IllegalArgumentException if an inner class of the Thrift Wrapper service class can not be found.
+     */
     protected Class<?> extractClass( String simpleName ) {
         Preconditions.checkNotNull( thriftWrapper,
                                     "Thrift wrapper class must be defined before extracting internal classes." );
@@ -133,6 +206,18 @@ public class ThriftServiceDescriptor<T,
         return c;
     }
 
+    /**
+     * Given the simple name of a thrift service inner class, load the class.
+     *
+     * @param c the class to search.  For the purposes of the Trift ServiceDescriptor, this is expected
+     *          to be an inner class of the thrift service wrapper
+     * @param simpleName the name: Iface, AsyncIface, Client, Client.Factory, AsyncClient,
+     *                   AsyncClient.Factory, Processor
+     *
+     * @return the thrift service class.
+     *
+     * @throws IllegalArgumentException if an inner class of the Thrift Wrapper service class can not be found.
+     */
     protected Class<?> extractClass( Class<?> c, String simpleName ) {
 
         Class<?> classes[] = c.getDeclaredClasses();
@@ -142,7 +227,8 @@ public class ThriftServiceDescriptor<T,
                 return aClass;
             }
         }
-        return null;
+        throw new IllegalArgumentException( "Unable to locate inner class of " + c.getName() +
+                                            " named '" + simpleName + "'" );
     }
 
     private Function<IF, PF> newProcessorFactory() {
@@ -211,6 +297,14 @@ public class ThriftServiceDescriptor<T,
         return ( tt ) -> (AIF) asyncServiceClientFactory.getAsyncClient( tt );
     }
 
+    /**
+     * Build a new thrift client factory for the service interface connecting to the specified host and port
+     *
+     * @param host the thrift server host
+     * @param port the thrift server port
+     *
+     * @return the new ThriftClientFactory
+     */
     public ThriftClientFactory<IF> newThriftClientFactory( String host,
                                                            Integer port ) {
         return new ThriftClientFactory.Builder<>( extractIface() )
@@ -219,6 +313,18 @@ public class ThriftServiceDescriptor<T,
                    .build();
     }
 
+    /**
+     *
+     * Build a new thrift client factory for the service interface connecting to the specified host and port
+     *
+     * @param host the thrift server host
+     * @param port the thrift server port
+     * @param maxPoolSize the maximum pool size for the client pool
+     * @param minIdle the minimum idle connections to keep in the pool
+     * @param softMinEvictionIdleTimeMillis the minimum idle eviction time
+     *
+     * @return the new ThriftClientFactory
+     */
     public ThriftClientFactory<IF> newThriftClientFactory( String host,
                                                            Integer port,
                                                            int maxPoolSize,
