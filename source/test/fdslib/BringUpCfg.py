@@ -451,15 +451,15 @@ class FdsNodeConfig(FdsConfig):
              port = 7000  # PM default.
 
          try:
-             retry_call(self._findNodeUuid,
+            status, stdout =  retry_call(self._findNodeUuid,
                              fkwargs={"om_node" : om_node, "pm_port" : port},
                              tries=10,
                              delay=1,
                              max_delay=10,
                              jitter=(1, 3),
                              logger=log)
-         except  Exception:
-            log.error("Results from service list:\n%s." % stdout)
+         except  Exception, e:
+            log.exception(e)
             return 1
 
          status = 0
@@ -528,9 +528,10 @@ class FdsNodeConfig(FdsConfig):
                         break
 
         if self.nd_uuid is None:
+            log.error("Results from service list:\n%s." % stdout)
             raise Exception("Failed to find node %s." % self.nd_conf_dict["node-name"])
 
-        return status
+        return status,stdout
 
     ###
     # Kill all fds daemons
