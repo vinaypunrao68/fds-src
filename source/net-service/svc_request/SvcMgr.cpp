@@ -106,7 +106,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     auto platformPort = config.get_abs<int>("fds.pm.platform_port");
 
     // NOTE: OM ip and port are managed differently from other services which are
-    // offsets from the Platform port..  The default OM Port happens to be the same
+    // offsets from the Platform port.  The default OM Port happens to be the same
     // as is returned by mapToServicePort in the single node case, but it will not work
     // properly when running multiple nodes on the same host or when the OM is running
     // on a non-default port.
@@ -126,7 +126,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     // NOTE: Everyone communicates with the OM on port 7004 (platform + 4) and that
     // is what we advertise in the SvcInfo.  However, when the OM Service
-    // Proxy is enabled 7004 is now the port that the Java-OM listens on.
+    // Proxy is enabled 7004 is now the default port that the Java-OM listens on.
     // It forwards info to port 8904 which is now run by the C++ OM.
     // Port 8904 should be considered internal to the OM and should not
     // be accessed by any other services.

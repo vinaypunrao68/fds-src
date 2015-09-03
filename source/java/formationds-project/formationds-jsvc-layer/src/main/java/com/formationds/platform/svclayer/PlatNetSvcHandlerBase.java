@@ -91,12 +91,6 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
 
     private final ThriftClientFactory<S> omNativePlatformClientFactory;
 
-    //    /**
-    //     */
-    //    public PlatNetSvcHandlerBase( String host, int port ) {
-    //        this( new ServiceClientFactory<S>(PlatNetSvc.Client::new).newPlatformService( host, port ) );
-    //    }
-
     /**
      * @param factory
      */
