@@ -1,11 +1,11 @@
-10.3.20.100
-10.3.20.99
-10.3.20.101
-10.3.20.102
-10.3.20.103
-10.3.20.104
-10.3.20.105
-10.3.20.106
+10.3.20.1
+10.3.20.2
+10.3.20.3
+10.3.20.4
+10.3.20.5
+10.3.20.6
+10.3.20.7
+10.3.20.8
 
 
 
@@ -20,7 +20,7 @@ ansible_ssh_pass=ubuntu
 deploy_artifact=nightly
 fds_build=release
 fds_default_nic=eth0
-fds_om_host=10.3.20.100
+fds_om_host=10.3.20.1
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
 fds_ssh_user=root
