@@ -208,8 +208,8 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 n = self.passedNode
 
             # If we're asked to activate nodes, we should be able to spin through our nodes to obtain
-            # some useful information about them. 
-            status = n.nd_populate_metadata(om_node=om_node) 
+            # some useful information about them.
+            status = n.nd_populate_metadata(om_node=om_node)
             if status != 0:
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
