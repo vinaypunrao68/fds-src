@@ -1701,7 +1701,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                                 this,
                                 pmUuid);
                         }));
-                    /* schedule the task to be run on timer thread after 2 seconds */
+                    /* schedule the task to be run on timer thread after 3 seconds */
                     timer->schedule(task, std::chrono::seconds(3));
                 }
                 else
@@ -2251,9 +2251,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
-        /**
-         * schedule the broadcast with a 3s delay.
-         */
         auto timer = MODULEPROVIDER()->getTimer();
         auto task = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(
