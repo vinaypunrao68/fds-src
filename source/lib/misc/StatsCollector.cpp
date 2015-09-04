@@ -373,7 +373,14 @@ void StatsCollector::sendStatStream() {
     std::unordered_map<NodeUuid, fpi::StatStreamMsgPtr, UuidHash> msg_map;
     std::unordered_map<NodeUuid, fpi::StatStreamMsgPtr, UuidHash>::const_iterator msg_cit;
     for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
-        DmtColumnPtr nodes = svcMgr_->getDMTNodesForVolume(cit->first);
+        DmtColumnPtr nodes;
+        try {
+            nodes = svcMgr_->getDMTNodesForVolume(cit->first);
+        } catch (const std::exception& e) {
+            LOGERROR << "Stats Collector encountered exception during sending stats :: "
+                     << e.what();
+            return;
+        }
         NodeUuid dm_uuid = nodes->get(0);
         if (msg_map.count(dm_uuid) == 0) {
             fpi::StatStreamMsgPtr msg(new fpi::StatStreamMsg());
