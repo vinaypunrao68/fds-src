@@ -51,6 +51,8 @@ public class Configuration {
     public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE = "fds.xdi.nfs_thread_pool_queue_size";
     public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
 
+    public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
+
     private final String commandName;
     private Properties properties = new Properties();
     private File fdsRoot;
@@ -70,15 +72,9 @@ public class Configuration {
         }
 
         String logLevel = getPlatformConfig().defaultString("fds.pm.log_severity", "normal").toLowerCase();
-
         if (options.has("console")) {
             initConsoleLogging("DEBUG");
         }
-//        else {
-//            // only append instance name on the am (xdi)
-//            String logName = commandName;
-//            initFileLogging(logName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
-//        }
 
         initDiagnostics(fdsRoot);
 
@@ -174,13 +170,13 @@ public class Configuration {
     }
 
     public Path getPlatformConfigPath() {
-        return Paths.get(getFdsRoot(), "etc", "platform.conf");
+        return Paths.get( getFdsRoot(), "etc", "platform.conf" );
         
     }
     
     public ParsedConfig getPlatformConfig() {
         Path path = getPlatformConfigPath();
-        return getParserFacade(path);
+        return getParserFacade( path );
 
     }
 
@@ -207,6 +203,26 @@ public class Configuration {
             throw new RuntimeException( e );
 
         }
+    }
+
+    /**
+     * The OM currently only supports one address but is intended to eventually support multiples.
+     *
+     * @return the OM IP addresses
+     *
+     * @throws IllegalStateException if the fds.common.om_ip_list configuration contains more than one address
+     */
+    public String getOMIPAddress() {
+        ParsedConfig platformConfig = getPlatformConfig();
+        String omHost = platformConfig.defaultString( FDS_OM_IP_LIST, "localhost" );
+        String[] hosts = omHost.contains( "," ) ? omHost.split( "," ) : new String[] {omHost};
+
+        if ( hosts.length > 1 ) {
+            throw new IllegalStateException( "Unsupported OM IP List (" + FDS_OM_IP_LIST + ") " +
+                                             "configuration.  Multi-OM not currently supported" );
+        }
+
+        return hosts[0];
     }
 
     public NfsConfiguration getNfsConfig() {

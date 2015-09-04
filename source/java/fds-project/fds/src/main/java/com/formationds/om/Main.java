@@ -150,11 +150,10 @@ public class Main {
         int amServicePort = pmPort + amServicePortOffset;
         int omConfigPort = platformConfig.defaultInt( "fds.om.config_port", 9090 );
 
-        String omHost = platformConfig.defaultString("fds.common.om_ip_list", "localhost");
-        String grabFirstOmIpAddress = omHost.contains(",")?omHost.split(",")[0]:omHost;
+        String omHost = configuration.getOMIPAddress();
 
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
-            ConfigServiceClientFactory.newConfigService(grabFirstOmIpAddress, omConfigPort);
+            ConfigServiceClientFactory.newConfigService( omHost, omConfigPort );
 
         // TODO: this retries with a very long timeout.... probably not what we want in the long run
         final OmConfigurationApi configCache = RetryHelper.retry(
@@ -206,7 +205,7 @@ public class Main {
         /*
          * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
          */
-        configCache.createStatStreamRegistrationHandler( grabFirstOmIpAddress,
+        configCache.createStatStreamRegistrationHandler( omHost,
                                                          httpPort );
 
         logger.info( "Starting Web toolkit" );

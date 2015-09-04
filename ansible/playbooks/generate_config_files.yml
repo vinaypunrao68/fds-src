@@ -27,3 +27,9 @@
             src: ../../source/config/etc/formation_env.j2
             dest: ../../source/config/etc/formation_env
             mode: 0754
+
+    -   name: render log4j2.xml
+        template:
+            src: ../../source/config/etc/log4j2.xml.j2
+            dest: ../../source/config/etc/log4j2.xml
+            mode: 0754

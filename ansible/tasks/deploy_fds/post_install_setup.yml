@@ -48,6 +48,16 @@
     tags:
         - post-install
 
+-   name: render /fds/etc/log4j2.xml config file
+    template:
+        src=../../source/config/etc/log4j2.xml.j2
+        dest=/fds/etc/log4j2.xml
+        owner=root
+        group=root
+        mode=0754
+    tags:
+        - post-install
+
 -   name: setup influxdb user and group
     group: name=influxdb
     tags:
