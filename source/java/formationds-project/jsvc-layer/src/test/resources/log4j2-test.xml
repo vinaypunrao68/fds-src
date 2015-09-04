@@ -3,20 +3,19 @@
     <Properties>
         <Property name="project.name">jsvc-layer</Property>
         <Property name="fds_pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c{2.} %t - %m%n</Property>
-        <property name="fds_logs">${env:fds_root}/var/logs</property>
+        <property name="fds_logs">${sys:fds-root}/var/logs</property>
     </Properties>
     <Appenders>
         <RollingRandomAccessFile name="jsvclayer"
                                  fileName="${fds_logs}/${project.name}.log"
                                  filePattern="${fds_logs}/$${date:yyyy-MM}/${project.name}-%d{yyyy-MM-dd}-%i.log.gz"
-                                 immediateFlush="true"
                                  append="false">
 
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="100 MB"/>
             </Policies>
-            <DefaultRolloverStrategy max="100"/>
+            <DefaultRolloverStrategy max="20"/>
 
             <!-- Current code uses 'yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ' date format which
                  is ISO8601 plus greater precision and including timezone offset.

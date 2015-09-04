@@ -22,6 +22,7 @@
         with_items:
             - fds
             - platform
+            - orch_mgr
             - redis
 
     -   name: render formation.conf
