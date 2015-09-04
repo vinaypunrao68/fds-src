@@ -4,13 +4,11 @@ Class to manage the physical processes of an FDS node.
 
 import abc
 import subprocess
-import psutil
 import shlex
 import os
 import paramiko
 import unittest
 import unittest.mock
-import pdb
 
 class ProcessCtrl(abc.ABC):
     """
