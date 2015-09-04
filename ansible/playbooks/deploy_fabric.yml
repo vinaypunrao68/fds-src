@@ -43,7 +43,6 @@
         with_items:
             - fds
             - platform
-            - orch_mgr
             - redis
 
     -   name: render /fds/etc/formation_env config files

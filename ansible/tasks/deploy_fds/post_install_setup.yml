@@ -33,7 +33,6 @@
     with_items:
         - fds
         - platform
-        - orch_mgr
         - redis
     tags:
         - post-install
