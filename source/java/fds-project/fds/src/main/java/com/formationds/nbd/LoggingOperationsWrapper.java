@@ -3,22 +3,25 @@ package com.formationds.nbd;/*
  */
 
 import io.netty.buffer.ByteBuf;
-import org.apache.log4j.Logger;
-import org.apache.log4j.LogManager;
+import org.apache.log4j.*;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public class LoggingOperationsWrapper implements NbdServerOperations {
-    public static final String LOGGER_NAME = LoggingOperationsWrapper.class.getPackage().getName() + ".NBDOperations";
-    private static final Logger log = LogManager.getLogger( LOGGER_NAME );
+    private final Logger log;
     private NbdServerOperations inner;
     private long interactionId;
 
 
-    public LoggingOperationsWrapper(NbdServerOperations inner) throws IOException {
+    public LoggingOperationsWrapper(NbdServerOperations inner, String logFile) throws IOException {
+        log = Logger.getLogger("NBD Operation");
+        log.setLevel(Level.ALL);
+        Layout l = new PatternLayout("%d [%p] - %m %n");
+        log.addAppender(new RollingFileAppender(l, logFile));
         this.inner = inner;
         interactionId = 0L;
+        log.info("LOG START");
     }
 
     private String formatLogMessage(String message, long interactionId) {

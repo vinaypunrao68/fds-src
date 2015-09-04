@@ -111,13 +111,9 @@ void OrchMgr::proc_pre_startup()
     if (ctrl_port_num != 0) {
         control_portnum = ctrl_port_num;
     } else {
-        // platform + 4 is the default, but use fds.common.om_port rather than
-        // SvcMgr::mapToSvcPort
-        auto platformPort = conf_helper_.get_abs<int>("fds.pm.platform_port");
-        auto svcType = SvcMgr::mapToSvcType(svcName_);
-        control_portnum = conf_helper_.get_abs<int>("fds.common.om_port",
-                                                    SvcMgr::mapToSvcPort(platformPort, svcType));
+        control_portnum = conf_helper_.get<int>("control_port");
     }
+    ip_address = conf_helper_.get<std::string>("ip_address");
     
     LOGDEBUG << "Orchestration Manager using config port " << config_portnum
              << " control port " << control_portnum;

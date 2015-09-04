@@ -8,14 +8,9 @@ import com.formationds.nfs.NfsConfiguration;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.Appender;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.ConsoleAppender;
-import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -64,6 +59,7 @@ public class Configuration {
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
         parser.accepts("console");
+        parser.accepts("fds.am.instanceId").withRequiredArg().ofType(Integer.class);
         OptionSet options = parser.parse(commandLineArgs);
         if (options.has("fds-root")) {
             fdsRoot = new File((String) options.valueOf("fds-root"));
@@ -72,8 +68,21 @@ public class Configuration {
         }
 
         String logLevel = getPlatformConfig().defaultString("fds.pm.log_severity", "normal").toLowerCase();
+
+        // Get the instance ID from either the config file or cmd line
+        int amInstanceId = getPlatformConfig().defaultInt("fds.am.instanceId", 0);
+        if (options.has("fds.am.instanceId")) {
+            amInstanceId = (int)options.valueOf("fds.am.instanceId");
+        }
+
         if (options.has("console")) {
             initConsoleLogging("DEBUG");
+        } else {
+            // only append instance name on the am (xdi)
+            String logName = (commandName.startsWith("om") ?
+                              commandName :
+                              commandName + Integer.toString( amInstanceId ));
+            initFileLogging(logName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
 
         initDiagnostics(fdsRoot);
@@ -83,7 +92,7 @@ public class Configuration {
 
     private void initDiagnostics(File fdsRoot)
     {
-        Logger logger = LogManager.getLogger( Configuration.class );
+        Logger logger = LoggerFactory.getLogger( Configuration.class );
         if ( ManagementFactory.getRuntimeMXBean().getVmVendor().toLowerCase().contains( "oracle" ) )
         {
             try
@@ -111,41 +120,24 @@ public class Configuration {
     }
 
     private void initConsoleLogging(String loglevel) {
-        final LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-        final org.apache.logging.log4j.core.config.Configuration config = ctx.getConfiguration();
-        LoggerConfig fdsRootConfig = config.getLoggerConfig( "com.formationds" );
-        Appender consoleAppender = fdsRootConfig.getAppenders().get( "console" );
-        Level level = Level.getLevel( loglevel );
-        if (level == null) level = Level.FATAL;
-        if (consoleAppender == null || ! consoleAppender.getClass().isInstance( ConsoleAppender.class )) {
-            PatternLayout layout = PatternLayout.newBuilder()
-                         .withAlwaysWriteExceptions( true )
-                         .withPattern( "%d{"+TIME_STAMP_FORMAT+"} - %-5p %c %x - %m%n" )
-                         .build();
-            consoleAppender = ConsoleAppender.newBuilder().setName( "console" ).setLayout( layout ).build();
-
-            fdsRootConfig.addAppender( consoleAppender, level, null );
-        }
-        fdsRootConfig.setLevel( level );
-
-//        properties.put("log4j.rootCategory", "INFO, console");
-//        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-//        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-//        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %-5p %c %x - %m%n");
-//        properties.put("log4j.category.com.formationds", loglevel);
-//        PropertyConfigurator.configure(properties);
+        properties.put("log4j.rootCategory", "INFO, console");
+        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
+        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %-5p %c %x - %m%n");
+        properties.put("log4j.category.com.formationds", loglevel);
+        PropertyConfigurator.configure(properties);
     }
 
     private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
-//        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
-//        properties.put("log4j.rootLogger", "ERROR, rolling");
-//        properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
-//        properties.put("log4j.appender.rolling.File", logPath.toString());
-//        properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
-//        properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
-//        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %5p %c %t - %m%n");
-//        properties.put("log4j.category.com.formationds", loglevel);
-//        PropertyConfigurator.configure(properties);
+        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
+        properties.put("log4j.rootLogger", "ERROR, rolling");
+        properties.put("log4j.appender.rolling", "org.apache.log4j.DailyRollingFileAppender");
+        properties.put("log4j.appender.rolling.File", logPath.toString());
+        properties.put("log4j.appender.rolling.DatePattern","'-'yyyy-MM-dd'T'HH");
+        properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{"+TIME_STAMP_FORMAT+"} - %5p %c %t - %m%n");
+        properties.put("log4j.category.com.formationds", loglevel);
+        PropertyConfigurator.configure(properties);
     }
 
     private void initJaas(File fdsRoot) {
@@ -171,9 +163,8 @@ public class Configuration {
 
     public Path getPlatformConfigPath() {
         return Paths.get( getFdsRoot(), "etc", "platform.conf" );
-        
     }
-    
+
     public ParsedConfig getPlatformConfig() {
         Path path = getPlatformConfigPath();
         return getParserFacade( path );

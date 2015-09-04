@@ -504,12 +504,11 @@ struct SvcMgr : HasModuleProvider, Module {
     /**
     * @brief Minimum connection retries
     */
-    static const int32_t MIN_CONN_RETRIES;
-
+    static int32_t MIN_CONN_RETRIES;
     /**
     * @brief Max connection retries
     */
-    static const int32_t MAX_CONN_RETRIES;
+    static int32_t MAX_CONN_RETRIES;
 
  protected:
     /**

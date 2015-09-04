@@ -102,8 +102,6 @@
     <formationds.project.version>2015.08.14-SNAPSHOT</formationds.project.version>
     <formationds.thrift.client.util.version>2015.08.14-SNAPSHOT</formationds.thrift.client.util.version>
     <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
-    <formationds.jsvc.layer.version>2015.08.14-SNAPSHOT</formationds.jsvc.layer.version>
-    <formationds.commons.version>2015.08.14-SNAPSHOT</formationds.commons.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -340,19 +338,11 @@
         <artifactId>log4j-api</artifactId>
         <version>${apache.log4j.v2.version}</version>
       </dependency>
-
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-core</artifactId>
         <version>${apache.log4j.v2.version}</version>
       </dependency>
-
-       <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-1.2-api</artifactId>
-        <version>${apache.log4j.v2.version}</version>
-      </dependency>
-
       <dependency>
         <groupId>org.apache.thrift</groupId>
         <artifactId>libthrift</artifactId>

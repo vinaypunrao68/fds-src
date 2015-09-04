@@ -7,7 +7,6 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.XdiService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
@@ -17,11 +16,6 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
 import com.formationds.om.webkit.WebKitImpl;
-import com.formationds.platform.svclayer.OmSvcHandler;
-import com.formationds.platform.svclayer.SvcMgr;
-import com.formationds.platform.svclayer.SvcServer;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.security.DumbAuthorizer;
@@ -38,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
@@ -47,32 +40,26 @@ public class Main {
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
 
-    // OM Service Layer proxy server is enabled based on the OM_SERVICE_PROXY
-    // feature toggle, but also depends on the platform.conf feature toggle (that
-    // the C++ side uses).
-    private Optional<SvcServer<Iface>> proxyServer = Optional.empty();
-
-    public static void main( String[] args ) {
+    public static void main(String[] args) {
 
         try {
 
+
             Configuration cfg = new Configuration( "om-xdi", args );
-            new Main( cfg ).start( args );
-        } catch ( Throwable t ) {
+            new Main(cfg).start(args);
+
+        } catch (Throwable t) {
 
             logger.error( "Error starting OM", t );
-            System.out.println( t.getMessage() );
+            System.out.println(t.getMessage());
             System.out.flush();
-            System.exit( -1 );
+            System.exit(-1);
+
         }
     }
 
-    public Main( Configuration cfg ) {
-        SingletonConfiguration.instance().setConfig( cfg );
-    }
-
-    protected boolean isOMProxyServerEnabled( ) {
-        return FdsFeatureToggles.OM_SERVICE_PROXY.isActive();
+    public Main(Configuration cfg) {
+        SingletonConfiguration.instance().setConfig(cfg);
     }
 
     public void start( String[] args )
@@ -82,47 +69,28 @@ public class Main {
             SingletonConfiguration.instance()
                                   .getConfig();
 
-        System.setProperty( "fds-root", configuration.getFdsRoot() );
+        System.setProperty("fds-root", configuration.getFdsRoot());
         logger.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
+
+        logger.trace("Starting native OM");
+        NativeOm.startOm( args );
 
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
-
-        // the base platform port that is used for determining all of the service default ports except for the OM
-        int pmPort = platformConfig.defaultInt( "fds.pm.platform_port", 7000 );
-
-        // OM port is handled differently.  The default value is still PM + SvcId(4) = 7004, but it
-        // is controlled through the fds.common.om_port setting.
-        int omPort = platformConfig.defaultInt( "fds.common.om_port",
-                                                SvcMgr.mapToServicePort( pmPort,
-                                                                         FDSP_MgrIdType.FDSP_ORCH_MGR ) );
-
-        if ( isOMProxyServerEnabled( ) ) {
-
-            int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
-            int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
-            logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
-            proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort ) ) );
-            proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
-
-        }
-
-        logger.trace( "Starting native OM" );
-        NativeOm.startOm( args );
 
         logger.trace( "Initializing the repository manager." );
         SingletonRepositoryManager.instance().initializeRepositories();
 
         logger.trace( "Initializing repository event notifier." );
         EventManager.INSTANCE
-            .initEventNotifier(
-                                  eventMgrKey,
-                                  ( e ) -> {
+                    .initEventNotifier(
+                                        eventMgrKey,
+                                        ( e ) -> {
 
-                                      Assignment snmpTarget =
-                                          platformConfig.lookup( TrapSend.SNMP_TARGET_KEY );
-                                      if ( snmpTarget.getValue().isPresent() ) {
-                                          System.setProperty( TrapSend.SNMP_TARGET_KEY,
+                                            Assignment snmpTarget =
+                                                platformConfig.lookup( TrapSend.SNMP_TARGET_KEY );
+                                            if( snmpTarget.getValue().isPresent() ) {
+                                                System.setProperty( TrapSend.SNMP_TARGET_KEY,
                                                                     snmpTarget.stringValue() );
                                                 SnmpManager.instance()
                                                            .notify( e );
@@ -144,11 +112,15 @@ public class Main {
         // TODO: should there be an OM property for the am host?
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
 
+        // TODO: the base service port needs to configurable in platform.conf
         // TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
         // port of another node (but this is the same functionality as was before with instanceID)
+        int pmPort = platformConfig.defaultInt("fds.pm.platform_port", 7000);
         int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
         int amServicePort = pmPort + amServicePortOffset;
-        int omConfigPort = platformConfig.defaultInt( "fds.om.config_port", 9090 );
+
+        // TODO: this needs to be configurable in platform.conf
+        int omConfigPort = 9090;
 
         String omHost = configuration.getOMIPAddress();
 
@@ -209,7 +181,7 @@ public class Main {
                                                          httpPort );
 
         logger.info( "Starting Web toolkit" );
-
+    		
         WebKitImpl originalImpl = new WebKitImpl( authenticator,
                     authorizer,
                     webDir,
