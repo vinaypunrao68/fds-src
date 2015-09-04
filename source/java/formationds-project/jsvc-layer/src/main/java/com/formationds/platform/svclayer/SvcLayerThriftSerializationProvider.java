@@ -15,7 +15,7 @@ import java.nio.ByteBuffer;
  * C++ ServiceLayer currently performs its own custom serialization of thrift objects,
  * as implemented in fds-src/source/include/fdsp_utils.h, rather than using thrift's
  * built-in serialization.  In reality, it's implementation is just converting/mapping
- * the thrift struct on to a byte array.
+ * the thrift struct on to a byte array and then converting it to a string.
  */
 public class SvcLayerThriftSerializationProvider implements SvcLayerSerializationProvider {
 
@@ -50,10 +50,12 @@ public class SvcLayerThriftSerializationProvider implements SvcLayerSerializatio
         // while we don't expect anyone to ever modify the buffer underneath us,
         // this at least isolates us from changes to position/limit etc.
         // (but not changes to underlying data)
-        // NOTE: the incoming buffer may contain data before the current position that is
-        // not actually part of the payload.
-        ByteBuffer fd = from.slice();
-        byte[] bytes = new byte[fd.remaining()];
+        ByteBuffer fd = from.duplicate();
+
+        // TODO: should this use current position and remaining?
+        fd.rewind();
+        byte[] bytes = new byte[fd.limit()];
+
         fd.get( bytes );
 
         TDeserializer deserializer = new TDeserializer( serializationProtocol.newFactory() );

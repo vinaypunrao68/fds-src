@@ -46,6 +46,7 @@ void Socket::close() {
 }
 
 void Socket::open() {
+    LOGDEBUG << "in open";
     if (isOpen()) return;
     att::TSocket::open();
     fConnected = true;
@@ -108,46 +109,28 @@ bool Socket::peek() {
 
 bool Socket::connect(int retryCount, int backoff) {
     int numAttempts = 0;
-
-    // backoff is in milliseconds so convert to micros.
-    uint waitTime = backoff*1000;
-    uint maxWaitTime = 30 * 1000 * 1000; // 30 seconds
+    int waitTime = backoff*1000;
     if (isOpen()) return true;
-
-    LOGDEBUG << "Connecting to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
-            "] with max retries [" << retryCount << "] and backoff of [" << backoff << "ms]";
 
     while (!isOpen() && numAttempts < retryCount) {
         ++numAttempts;
+        // double the wait time every 5 attempts
+        if (numAttempts % 5 == 0) waitTime *= 2;
+
         try {
-            open();
+            att::TSocket::open();
+            fConnected = true;
         } catch(const att::TTransportException& e) {
-
-            if (numAttempts < retryCount)  {
-                // double the wait time every 5 attempts
-                if (numAttempts % 5 == 0) {
-                    waitTime *= 2;
-
-                    // reset the wait time if we exceed the max.
-                    if (waitTime > maxWaitTime)
-                        waitTime = backoff*1000;
-                }
-
-                LOGDEBUG << "connection attempt [" << numAttempts
-                         << "] failed . waiting for [" << waitTime <<"] micros";
-                LOGGERPTR->flush();
-
-                usleep(waitTime);
-            }
+            LOGDEBUG << "connection attempt [" << numAttempts
+                     << "] failed . waiting for [" << waitTime <<"] micros";
+            LOGGERPTR->flush();
+            if (numAttempts < retryCount)  usleep(waitTime);
         }
     }
-
     if (isOpen()) {
-        LOGDEBUG << "Successfully connected to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
-                        "] after [" << numAttempts << "] attempts.";
-    } else {
-        LOGWARN << "Failed to connect to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
-                        "] after [" << numAttempts << "] attempts.";
+        if (eventHandler) eventHandler->onSocketConnect();
+        // atc::Synchronized s(monitor);
+        // monitor.notify();
     }
 
     return isOpen();
@@ -161,9 +144,8 @@ void Socket::shutDown() {
 }
 
 void Socket::checkConnection() {
-    // TODO: "Not running the check connection thread for now [WIN-92]";
+    // LOGWARN << "Not running the check connection thread for now [WIN-92]";
     return;
-    /*
     LOGDEBUG << "in checkConnection";
     for (; !fShutDown ;) {
         LOGDEBUG << "about to wait";
@@ -179,7 +161,6 @@ void Socket::checkConnection() {
         }
     }
     LOGDEBUG << "end checkConnection";
-    */
 }
 
 Socket::~Socket() {

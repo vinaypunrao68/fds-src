@@ -7,12 +7,7 @@ import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.transport.TFramedTransport;
-import org.apache.thrift.transport.TNonblockingSocket;
-import org.apache.thrift.transport.TNonblockingTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransportException;
+import org.apache.thrift.transport.*;
 
 import java.io.IOException;
 import java.util.function.Function;
@@ -37,13 +32,13 @@ public class ThriftClientConnectionFactory<T>
         return new ThriftClientConnection<T>(transport, constructor.apply(transport));
     }
 
-    private final Function<TProtocol, T> makeClient;
+    private final Function<TBinaryProtocol, T> makeClient;
 
     /**
      * Create connection factory for synchronous connections
      * @param makeClient
      */
-    public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient ) {
+    public ThriftClientConnectionFactory(Function<TBinaryProtocol, T> makeClient) {
         this.makeClient = makeClient;
     }
 

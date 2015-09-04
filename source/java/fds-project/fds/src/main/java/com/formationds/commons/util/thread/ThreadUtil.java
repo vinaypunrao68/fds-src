@@ -7,10 +7,13 @@ package com.formationds.commons.util.thread;
 import com.formationds.commons.util.i18n.CommonsUtilResource;
 
 import java.io.PrintWriter;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.text.MessageFormat;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author ptinius
@@ -20,7 +23,62 @@ public class ThreadUtil
 {
   static private ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
 
-    /**
+  /**
+   * @param prefix
+   * @return a new ThreadFactory that creates new daemon threads with the specified prefix and sequential counter.
+   */
+  public static ThreadFactory newThreadFactory( String prefix ) {
+    return newThreadFactory( null,
+                             prefix,
+                             true,
+                             Thread.NORM_PRIORITY,
+                             Thread.getDefaultUncaughtExceptionHandler() );
+  }
+
+  /**
+   * @param prefix
+   * @param daemon
+   * @return a new thread factory that creates new threads with the specified prefix
+   */
+  public static ThreadFactory newThreadFactory( String prefix,
+                                                boolean daemon ) {
+      return newThreadFactory( null,
+                               prefix,
+                               daemon,
+                               Thread.NORM_PRIORITY,
+                               Thread.getDefaultUncaughtExceptionHandler() );
+  }
+
+  /**
+   *
+   * @param group
+   * @param prefix
+   * @param daemon
+   * @param priority
+   * @param uncaughtExceptionHandler
+   * @return a new thread factory that creates new threads with the specified prefix
+   */
+  public static ThreadFactory newThreadFactory( ThreadGroup group,
+                                                String prefix,
+                                                boolean daemon,
+                                                int priority,
+                                                UncaughtExceptionHandler uncaughtExceptionHandler ) {
+      final AtomicInteger seq = new AtomicInteger( 1 );
+      return (r) -> {
+          String threadName = String.format( "%s-%d", prefix, seq.getAndIncrement() );
+          final Thread t = new Thread( group, r, threadName );
+          t.setDaemon( daemon );
+          if ( t.getPriority() != priority ) {
+              t.setPriority( priority );
+          }
+          if (uncaughtExceptionHandler != null ) {
+              t.setUncaughtExceptionHandler( uncaughtExceptionHandler );
+          }
+          return t;
+      };
+  }
+
+  /**
    * @param val the boolean flag
    */
   public static void setContentionTracing(boolean val)
