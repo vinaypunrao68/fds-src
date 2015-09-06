@@ -1,0 +1,659 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import optparse
+import subprocess
+import logging
+import os.path
+import pyudev
+import shelve
+import types
+import re
+
+# -- setup logging
+logging.basicConfig(level=logging.INFO,format="%(levelname)s : %(message)s")
+log = logging.getLogger('fdsdisk')
+
+# -- system funcs
+def command(cmd, **kwargs):
+    if type(cmd) == types.ListType:
+        cmd = join(cmd)
+    log.debug('running command: {}'.format(cmd))
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        **kwargs)
+    out, _ = process.communicate()
+    return out, process.returncode
+
+def run_command(cmd, **kwargs):
+    log.debug('execing command: {}'.format(cmd))
+    res = subprocess.call(cmd, stdout = None, stderr = None)
+    if res != 0:
+        log.warn('command returned error: {}'.format(cmd))
+    return res
+
+def shell_command(cmd):
+    log.debug('running shell command : {}'.format(cmd))
+    try:
+        return subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError as e:
+        log.warn('command returned error: {}'.format(cmd))
+        return None
+    
+def check_root():
+    return os.geteuid() == 0
+
+def force_root():
+    if not check_root():
+        raise Exception('need root privileges to run this')
+
+def check_boot_disk(path):
+    out = shell_command('parted -m ' + path +' print | grep boot | cut -d: -f1')
+    return len(out.strip()) > 0
+
+def which(cmdname):
+    out = shell_command('which {}'.format(cmdname))
+    if out != None:
+        return out.strip()
+    else:
+        return None
+
+def verify_needed_binaries(bins):
+    if type(bins) == types.StringType:
+        bins = [bins]
+
+    success = True
+    for b in bins:
+        if which(b) == None:
+            log.error('unable to locate needed executable [{}]'.format(b))
+            success = False
+    return success
+
+def human_size(bytes):
+    # http://stackoverflow.com/a/1094933
+    for unit in [' ','K','M','G','T','P','E','Z']:
+        if abs(bytes) < 1024.0:
+            return "%3.1f %s%s" % (bytes, unit, 'B')
+        bytes /= 1024.0
+    return "%.1f %s%s" % (bytes, 'Y', 'B')
+
+def to_bytes(num):
+    if type(num) == types.IntType:
+        return num
+
+    if type(num) == types.StringType:
+        if num.isdigit(): return int(num)
+        m = re.search(r'[A-Za-z]', num)
+        if m==None or m.start() <=0:
+            return int(float(num))
+
+        n = float(num[0:m.start()])
+        c = num[m.start()].upper()
+        mult=1
+        for u in ['K','M','G','T','P','E','Z']:
+            mult = mult *1024
+            if u == c:
+                return int(n * mult)
+
+def is_simple_regex(data):
+    chars='[(|.+*?)]'
+    p=re.compile('|'.join(['\\'+c for c in chars]))
+    return p.search(data) != None
+
+class Udev:
+    def __init__(self):
+        self.re_init()
+    
+    def re_init(self):
+        self.context = pyudev.Context()
+        self.disks=[d for d in self.context.list_devices(subsystem='block', DEVTYPE='disk')]
+
+    def get_device(self, path):
+        ls = [d for d in self.context.list_devices(DEVNAME=path)]
+        return ls[0] if len(ls) > 0 else None
+
+    def get_disks(self, onlyvalid=True, dups=False, device=None):
+        selectedDisks = [d for d in self.disks]
+
+        if onlyvalid:
+            # select only sensible disks
+            selectedDisks = [ d for d in selectedDisks if 'ID_BUS' in d or 'ID_SERIAL' in d ]
+            
+        if device!=None:
+            attrname = 'DEVNAME'
+            attrvalue  = device
+            # check if the attrvalue has a name
+            if '=' in attrvalue:
+                parts=attrvalue.split('=')
+                attrname=parts[0]
+                attrvalue=parts[1]
+                if len(parts) > 2:
+                    log.warn('invalid attribute value : {} : some data will be ignored'.format(parts[2:]))
+                    
+            log.debug('parsed name:{} and value:{}'.format(attrname,attrvalue))
+
+            # check if the attrvalue is a regex
+            if is_simple_regex(attrvalue):
+                if not attrvalue.startswith('^') : attrvalue = '^' + attrvalue
+                if not attrvalue.endswith('$') : attrvalue = attrvalue + '$'
+                pattern=re.compile(attrvalue)
+                selectedDisks = [ d for d in selectedDisks if attrname in d and pattern.match(d.get(attrname))!=None ]
+            else:
+                selectedDisks = [ d for d in selectedDisks if attrname in d and d.get(attrname) == attrvalue ]
+
+        selectedDisks.sort(key=lambda x: x.get('DEVNAME'))
+        
+        # return disks with dups
+        if dups:
+            return selectedDisks
+
+        # dup out disks
+        serialMap = {}
+        for d in selectedDisks:
+            serial=d.get('ID_SERIAL',None)
+            if serial != None:
+                if serial in serialMap:
+                    log.debug('collision {} of {} and {}'.format(serial, serialMap[serial], d.get('DEVNAME')))
+                else:
+                    serialMap[serial] = d.get('DEVNAME')
+
+        return [d for d in selectedDisks if d.get('ID_SERIAL',None) not in serialMap or serialMap[d.get('ID_SERIAL')] == d.get('DEVNAME')]
+        
+#
+# Disk
+#
+class Disk:
+    def __init__(self):
+        self.clear()
+
+    def clear(self):
+        self.deviceType=None
+        self.mounted = False
+        self.boot    = False
+        self.path    = None
+        self.rotational = False
+        self.capacity = None
+        self.partitions = []
+        self.filesystem = None
+        self.fdsdisk = False
+        self.activated = False
+        self.uuid = None
+        self.bus = None
+
+    def __str__(self):
+        out = '{:<5} {:<5} {:<7} {:<6}  {:<20} {:>10}   {:<8} {}'.format(
+            'disk' if self.deviceType == 'disk' else '----',
+            ('HDD' if self.rotational else 'SSD') + ('*' if self.boot else ''),
+            self.bus,
+            '{}{}'.format('[FDS]' if self.fdsdisk else '', '*' if self.activated else ''),
+            self.path,
+            human_size(self.capacity),
+            self.filesystem,
+            self.uuid)
+        return out
+
+
+class StoredData:
+    def __init__(self):
+        self.datafile = '/var/fds/disk.data'
+        d = os.path.dirname(self.datafile)
+        if not os.path.exists(d):
+            os.makedirs(d)
+        self.data = shelve.open(self.datafile,writeback=True)
+
+    def save(self):
+        self.data.sync()
+
+    def close(self):
+        self.data.close()
+
+    def norm(self, key):
+        if type(key) == types.UnicodeType:
+            return key.encode('ascii','replace')
+        return key
+
+    def has(self,key):
+        return self.norm(key) in self.data
+
+    def put(self,key, value = 1):
+        self.data[self.norm(key)] = value
+
+    def get(self, key):
+        return self.data.get(self.norm(key), None)
+
+    def remove(self, key):
+        del self.data[self.norm(key)]
+
+#
+# DiskTool
+#
+class DiskTool:
+
+    def __init__(self):
+        self.udev = Udev()
+        self.db   = StoredData()
+        self.disks= []
+        self.mountedDisks = self.get_all_mounts()
+
+    '''
+    List all the devices that have been mounted
+    '''
+    @staticmethod
+    def get_all_mounts():
+        mountlist={}
+        with file('/proc/mounts', 'rb') as mounts:
+            for line in mounts:
+                fields = line.split()
+                if len(fields) < 3:
+                    continue
+                dev = fields[0]
+                path = fields[1]
+                if dev.startswith('/') and os.path.exists(dev):
+                    dev = os.path.realpath(dev)
+                    if dev not in mountlist:
+                        mountlist[dev] = []
+                    mountlist[dev].append(path)
+        return mountlist
+
+    @staticmethod
+    def is_boot_disk(path):
+        out=''
+        try:
+            out=shell_command('parted -sm ' + path +' print | grep boot | cut -d: -f1')
+        except subprocess.CalledProcessError:
+            log.error('problem getting boot info from parted for [{}]'.format(path))
+
+        return len(out.strip()) > 0
+
+    @staticmethod
+    def get_disk_size(path):
+        out = None
+        try:
+            out=shell_command('parted -sm ' + path +' print | grep ^' + path + ':')
+        except subprocess.CalledProcessError:
+            log.debug('problem getting size from parted for [{}]'.format(path))
+
+        if out == None or len(out) == 0:
+            return 0
+        return to_bytes(out.split(':')[1])
+
+    # is hdd or ssd..
+    @staticmethod
+    def is_rotational_disk(path):
+        dev = path.split('/')
+        rotation=''
+        try:
+            fname = '/sys/block/' + dev[-1] + '/queue/rotational'
+            log.debug
+            with open(fname, 'r') as fp:
+                rotation = fp.read().strip()
+        except:
+            pass
+        #log.debug('checking rotational for {} : {} : {}'.format(path,fname,rotation))
+
+        return rotation == '1'
+
+    # get a Disk structure from a udev.Device
+    @staticmethod
+    def get_disk_from_udev_device(dev):
+        disk = Disk()
+        disk.path = dev.get('DEVNAME').encode('ascii','replace')
+        log.debug('processing : ' + disk.path)
+        disk.deviceType = dev.get('DEVTYPE',None)
+        disk.mounted = disk.path in DiskTool.get_all_mounts()
+        if disk.deviceType == 'partition':
+            disk.uuid     = dev.get('ID_PART_ENTRY_UUID',None)
+        else:
+            disk.uuid     = dev.get('ID_SERIAL',None)
+
+        disk.bus      = dev.get('ID_BUS',None)
+        disk.activated = dev.get('FDS_DISK','0') == '1'
+        disk.capacity = DiskTool.get_disk_size(disk.path)
+        if disk.capacity == 0:
+            disk.capacity  = int(dev.attributes['size'])
+        disk.filesystem = dev.get('ID_FS_TYPE', None)
+
+        # if device is disk , get the partitions
+        if disk.deviceType == 'disk':
+            disk.fdsdisk  = dev.get('FDS_DISK','0') == '1'
+            disk.boot = DiskTool.is_boot_disk(disk.path)
+            disk.rotational = DiskTool.is_rotational_disk(disk.path)
+            log.debug('processing partitions for: ' + disk.path)
+            for part in dev.children:
+                if part.get('DEVTYPE','') == 'partition':
+                    diskPart = DiskTool.get_disk_from_udev_device(part)
+                    diskPart.boot = disk.boot
+                    diskPart.rotational = disk.rotational
+                    disk.partitions.append(diskPart)
+            if disk.filesystem == None:
+                disk.filesystem = '{}-parts'.format(len(disk.partitions))
+
+        return disk
+
+    # get the list of disks from the system
+    def init_disk_infos(self, onlyValid=True, dups=False, device=None, fdsonly=False):
+        self.disks = []
+        udevDisks = self.udev.get_disks(onlyValid, dups, device)
+
+        for dev in udevDisks:
+            disk = DiskTool.get_disk_from_udev_device(dev)
+            disk.fdsdisk = self.db.has(disk.path)
+            if fdsonly and not disk.fdsdisk:
+                continue
+            self.disks.append(disk)
+
+        if len(self.disks) == 0:
+            log.warn('no disks matched criteria [valid:{}] [dups:{}] [device:{}] [fdsonly:{}]'.format(onlyValid, dups, device, fdsonly))
+
+    # return a list of fds disks
+    def get_fds_disks(self):
+        return [disk.path for disk in self.disks if disk.fdsdisk]
+
+    # get the Disk structure for a given path
+    def get_disk(self, path):
+        for disk in self.disks:
+            if disk.path == path:
+                return disk
+        return None
+
+    # mark certain paths as fds disks
+    def select_disks(self, paths):
+        if type(paths) == types.StringType:
+            paths = [paths]
+
+        for path in paths:
+            disk = self.get_disk(path)
+            if disk == None:
+                log.error('unable to locate disk : {}'.format(path))
+                continue
+            if disk.boot:
+                log.error('cannot select boot disk : {}'.format(path))
+                continue
+            disk.fdsdisk = True
+            self.db.put(path, disk.uuid)
+
+    # unmark certain paths as fds disks
+    def unselect_disks(self, paths):
+        if type(paths) == types.StringType:
+            paths = [paths]
+        for path in paths:
+            disk = self.get_disk(path)
+
+            if disk == None:
+                log.error('unable to locate disk : {}'.format(path))
+            else:
+                disk.fdsdisk = False
+                self.db.remove(path)
+
+    def make_partitions(self, disk):
+        # Wipe out FDS label.
+        cmd = ['dd', 'if=/dev/zero', 'of=' + disk.path, 'seek=64', 'bs=512', 'count=1']
+        log.info("Wipe out the label with {}".format(cmd))
+        run_command(cmd)
+
+        if disk.boot:
+            log.error('cannot partition boot disk: {}'.format(disk.path))
+            return False
+
+        if disk.mounted:
+            log.error("disk [{}] is mounted and inuse".format(disk.path))
+            return False
+
+        # Blindly remove any outstanding partitions.
+        cmd = ['parted', '-s', disk.path, 'rm', '1', ' ', 'rm', '2', ' ', 'rm', '3', ' ', 'rm', '4']
+        log.info("Remove any old partition: {}".format(cmd))
+        res = run_command(cmd)
+
+        cmd = ['parted', '-s', disk.path, 'mklabel', 'gpt']
+        if 0!= run_command(cmd):
+            return False
+
+        if disk.rotational:
+            print "Partition using HDD parition for ", disk.path
+            cmd = ['parted', '-s', '-a', 'opt', disk.path,'\"', 'mkpart', 'primary', 'xfs', '8MB', '8GB', '\"']
+            if 0 != run_command(cmd):
+                return False
+
+            cmd = ['parted', '-s', '-a', 'none', disk.path, '\"', 'mkpart', 'primary', 'xfs', '8GB', '48GB', '\"']            
+            if 0 != run_command(cmd):
+                return False
+
+            # use shell=True for -1 argument
+            cmd = "parted -s -a none " + disk.path + " \"mkpart primary xfs 48GB -1\""
+            res = subprocess.call(cmd, shell=True)
+            if res != 0:
+                return res
+        else:
+            print "Partitioning using SSD partition for ", disk.path
+            cmd = "parted -s -a none " + disk.path + " \"mkpart primary xfs 8MB -1\""
+            if 0!= subprocess.call(cmd, shell=True):
+                return False
+
+        log.info("successfully partition disk {}".format(disk.path))
+        self.select_disks(disk.path)
+        return True
+
+    def format(self, disk):
+        if disk.boot:
+            log.error('cannot format boot disk: {}'.format(disk.path))
+            return None
+
+        res = {}
+        res['path'] = disk.path
+        num_partitions = 3 if disk.rotational else 1
+
+        cmd = ['mkfs.xfs', disk.path + str(num_partitions), '-f', '-q']
+        log.info('making filesystem: {}'.format(cmd))
+        res['pipe'] = subprocess.Popen(cmd)
+        return res
+
+    def mount(self):
+        count=0
+        for disk in self.disks:
+            if not disk.fdsdisk:
+                log.warn('will not mount non-fds disk : {}'.format(disk.path))
+                continue
+            if disk.boot:
+                log.warn('will not mount boot disk : {}'.format(disk.path))
+                continue
+
+            if disk.mounted:
+                log.warn("device [{}] already mounted".format(self.dsk_path))
+                continue
+
+            count = count + 1
+
+            mount_name = '/fds/dev/{}-{}'.format('hdd' if disk.rotational else 'ssd', count)
+            num_partitions = len(disk.partitions)
+
+            run_command(['mkdir', '-p', mount_name])
+            device_name = '{}{}'.format(disk.path, num_partitions)
+            log.info('mounting {} @ {}'.format(device_name, mount_name))
+            run_command(['mount', device_name, mount_name])
+
+        return None
+
+
+    ########################################################################
+    # These rules will enable udev to expose a kv pair FDS_DISK=1
+    # PM can lookup that value and identify the particular device 
+    # as fds disk.
+    ########################################################################
+    def gen_udev_rules(self):
+        rulefile = '/etc/udev/rules.d/001-fds-disks.rules'
+        log.info('writing udev rules file: {}'.format(rulefile))
+        with open(rulefile,'w') as rules:
+            rules.write('###########################################################\n')
+            rules.write('####  Auto Generated by fds-disk tool. DO NOT EDIT !!! ####\n')
+            rules.write('###########################################################\n')
+            for disk in self.disks:
+                if disk.fdsdisk:
+                    num_partitions = len(disk.partitions)
+                    dev_name = disk.path.split('/')[-1]
+                    if num_partitions > 0:
+                        rules.write('KERNEL=="{}", ENV{{FDS_DISK}}="1"\n'.format(dev_name))
+                    else:
+                        log.error('disk [{}] is a fds disk. but no partitions found. skipping'.format(disk.path))
+
+        # now trigger udev
+        log.info('reloading udev rules')
+        run_command(['udevadm','control','--reload'])
+        log.info('sending udev trigger')
+        run_command(['udevadm','trigger'])
+
+
+    def list_disks(self , parts=False):
+        print '-' * 90
+        print '{:<5} {:<5} {:<7} {:<6}  {:<20} {:>10}   {:<8} {}'.format(
+            'type','rota','cxn/bus','fds', 'path','size','filesys', 'uuid/serial')
+        print '-' * 90
+
+        for d in self.disks:
+            print str(d)
+            if not parts:
+                continue
+            partitions=''
+            for part in d.partitions:
+                partitions += str(part)
+                partitions += '\n'
+            if len(d.partitions) > 0:
+                print partitions
+        print '-' * 90
+
+    def extended_info(self):
+        allinfos = []
+        count = 0
+        total = len(self.disks)
+        maxlen=0
+        for disk in self.disks:
+            infos=[]
+            count = count + 1
+            dev = self.udev.get_device(disk.path)
+            infos.append(('{} of {}'.format(count,total),disk.path))
+            infos.append(('bootdisk',disk.boot))
+            infos.append(('bus',disk.bus))
+            infos.append(('capacity',human_size(disk.capacity)))
+            infos.append(('fds.activated',dev.get('FDS_DISK','0') == '1'))
+            infos.append(('fds.selected',disk.fdsdisk))
+            infos.append(('mounted',disk.mounted))
+            infos.append(('num paritions',len(disk.partitions)))
+            infos.append(('path',disk.path))
+            infos.append(('rotational','HDD' if disk.rotational else 'SSD'))
+            infos.append(('type',disk.deviceType))
+            infos.append(('uuid',disk.uuid))
+
+            for info in infos:
+                if len(info[0]) > maxlen : maxlen = len(info[0])
+
+            uinfos = []
+            for key in sorted(dev.keys()):
+                if key in dev:
+                    uinfos.append((key, dev[key]))
+                    if len(key) > maxlen: maxlen = len(key)
+
+            allinfos.append((infos, uinfos))
+
+        print '-' * 50
+        print '-- Extended Disk Information'
+        print '-' * 50
+
+        for item in allinfos:
+            for info in item[0]:
+                print '{key:>{width}} : {value}'.format(key=info[0], width=maxlen+2 , value=info[1])
+            print
+            print '-' * 50
+            print '-- Udev Properties'
+            print '-' * 50
+            for info in item[1]:
+                print '{key:>{width}} : {value}'.format(key=info[0], width=maxlen+2 , value=info[1])
+            print '=' * 50
+            print
+
+        print '-' * 90
+
+    def main(self, argv):
+        parser = optparse.OptionParser("usage: %prog [options]")
+        parser.add_option('-d', '--dev',     dest = 'device',    help = 'restrict operations to specific device or regex e.g. /dev/sdb or /dev/sd[bcd]')
+        parser.add_option('-l', '--ls',      dest = 'ls',      action = 'store_true', default=False, help = 'list disks')
+        parser.add_option('-p', '--parts',   dest = 'parts',   action = 'store_true', default=False, help = 'list partitions also')
+        parser.add_option(      '--onlyfds', dest = 'onlyfds', action = 'store_true', default=False, help = 'consider only fds disks')
+        parser.add_option(      '--dupes',   dest = 'dupes',   action = 'store_true', default=False, help = 'consider duplicate disks')
+        parser.add_option(      '--all',     dest = 'all',     action = 'store_true', default=False, help = 'consider all devices. By default only non-virtual disks will be dealt with')
+        parser.add_option('-D', '--debug',   dest = 'debug',   action = 'store_true', default=False, help = 'turn on debugging')
+        parser.add_option(      '--mount',   dest = 'mount',   action = 'store_true', default=False, help = 'mount fds disks')
+        parser.add_option(      '--info',    dest = 'info',    action = 'store_true', default=False, help = 'print extended info about the disk')
+        parser.add_option(      '--format',  dest = 'format',  action = 'store_true', default=False, help = 'parition and format the device')
+        parser.add_option(      '--activate',dest = 'activate',action = 'store_true', default=False, help = 'activate via udev rules and trigger')
+        parser.add_option('-s', '--select',  dest = 'select',  action = 'store_true', default=False, help = 'select disks for fds')
+        parser.add_option(      '--unselect',dest = 'unselect',action = 'store_true', default=False, help = 'unselect disks off fds')
+
+        (args, other) = parser.parse_args(argv)
+
+        if not (args.format or args.activate or args.select or args.unselect or args.info or args.mount):
+            # list disks when no other operation is specified
+            args.ls = True
+
+        if args.debug:
+            log.setLevel(logging.DEBUG)
+
+        self.init_disk_infos(not args.all, args.dupes, args.device, args.onlyfds)
+
+        if args.select:
+            if arg.device == None:
+                log.error('no devices[-d/--dev] specified to select')
+            else:
+                self.select_disks()
+
+        if args.unselect:
+            if arg.device == None:
+                log.error('no devices[-d/--dev] specified to unselect')
+            else:
+                self.unselect_disks()
+
+        if args.activate:
+            log.info('activating all fds disks')
+            self.list_disks(False)
+            self.gen_udev_rules()
+
+        if args.ls:
+            self.list_disks(args.parts)
+
+        if args.info:
+            self.extended_info()
+
+        if args.format:
+            if args.device == None and not args.onlyfds:
+                self.init_disk_infos(False, True, None, True)
+                log.warn('no devices specified explicitly. Will format all fds disks')
+
+            waitfor = []
+            for disk in self.disks:
+                log.info('-' * 40)
+                log.info('-- formatting [{}]'.format(disk.path))
+                log.info('-' * 40)
+                if self.make_partitions(disk):
+                    waitfor.append(self.format(disk))
+                print
+
+            for item in waitfor:
+                if item != None:
+                    log.info('waiting for [{}] formatting to complete'.format(item['path']))
+                    item['pipe'].wait()
+
+        if args.mount:
+            self.init_disk_infos(False, True, None, True)
+            self.mount()
+
+if  __name__ == '__main__':
+    if not check_root():
+        log.warn('this tool needs root privileges. please become [root] or use [sudo]')
+        sys.exit(0)
+
+        if not verify_needed_binaries(['dd','parted','mkfs.xfs','udevadm']):
+            log.warn('oops!!! please fix the binaries issue :(')
+
+    tool = DiskTool()
+    tool.main(sys.argv[1:])
+
