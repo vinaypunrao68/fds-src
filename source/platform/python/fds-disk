@@ -31,7 +31,7 @@ def run_command(cmd, **kwargs):
     log.debug('execing command: {}'.format(cmd))
     res = subprocess.call(cmd, stdout = None, stderr = None)
     if res != 0:
-        log.warn('command returned error: {}'.format(cmd))
+        log.debug('command returned error: {}'.format(cmd))
     return res
 
 def shell_command(cmd):
@@ -39,7 +39,7 @@ def shell_command(cmd):
     try:
         return subprocess.check_output(cmd, shell=True)
     except subprocess.CalledProcessError as e:
-        log.warn('command returned error: {}'.format(cmd))
+        log.debug('command returned error: {}'.format(cmd))
         return None
     
 def check_root():
@@ -359,33 +359,24 @@ class DiskTool:
         return None
 
     # mark certain paths as fds disks
-    def select_disks(self, paths):
-        if type(paths) == types.StringType:
-            paths = [paths]
-
-        for path in paths:
-            disk = self.get_disk(path)
-            if disk == None:
-                log.error('unable to locate disk : {}'.format(path))
-                continue
+    def select_disks(self,disklist = None):
+        if disklist == None:
+            disklist = self.disks
+        for disk in disklist:
             if disk.boot:
                 log.error('cannot select boot disk : {}'.format(path))
                 continue
             disk.fdsdisk = True
-            self.db.put(path, disk.uuid)
+            self.db.put(disk.path, disk.uuid)
 
-    # unmark certain paths as fds disks
-    def unselect_disks(self, paths):
-        if type(paths) == types.StringType:
-            paths = [paths]
-        for path in paths:
-            disk = self.get_disk(path)
+    # unmark certain disklist as fds disks
+    def unselect_disks(self, disklist = None):
+        if disklist == None:
+            disklist = self.disks
 
-            if disk == None:
-                log.error('unable to locate disk : {}'.format(path))
-            else:
-                disk.fdsdisk = False
-                self.db.remove(path)
+        for disk in disklist:
+            disk.fdsdisk = False
+            self.db.remove(disk.path)
 
     def make_partitions(self, disk):
         # Wipe out FDS label.
@@ -432,7 +423,7 @@ class DiskTool:
                 return False
 
         log.info("successfully partition disk {}".format(disk.path))
-        self.select_disks(disk.path)
+        self.select_disks([disk])
         return True
 
     def format(self, disk):
@@ -601,13 +592,13 @@ class DiskTool:
         self.init_disk_infos(not args.all, args.dupes, args.device, args.onlyfds)
 
         if args.select:
-            if arg.device == None:
+            if args.device == None:
                 log.error('no devices[-d/--dev] specified to select')
             else:
                 self.select_disks()
 
         if args.unselect:
-            if arg.device == None:
+            if args.device == None:
                 log.error('no devices[-d/--dev] specified to unselect')
             else:
                 self.unselect_disks()
@@ -651,8 +642,8 @@ if  __name__ == '__main__':
         log.warn('this tool needs root privileges. please become [root] or use [sudo]')
         sys.exit(0)
 
-        if not verify_needed_binaries(['dd','parted','mkfs.xfs','udevadm']):
-            log.warn('oops!!! please fix the binaries issue :(')
+    if not verify_needed_binaries(['dd','parted','mkfs.xfs','udevadm']):
+        log.warn('oops!!! please fix the binaries issue :(')
 
     tool = DiskTool()
     tool.main(sys.argv[1:])
