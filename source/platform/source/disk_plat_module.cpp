@@ -197,8 +197,8 @@ void DiskPlatModule::dsk_rescan()
     udev_enumerate_scan_devices(dsk_enum);
 
     devices = udev_enumerate_get_list_entry(dsk_enum);
-    bool fDiskActivationEnabled = g_fdsprocess->get_fds_config().get_abs<fds_bool_t>("fds.feature_toggle.pm.use_new_superblock", false);
-    LOGINFO << "disk activation : " << (fDiskActivationEnabled?"enabled":"disabled");
+    bool fDiskActivationEnabled = g_fdsprocess->get_fds_config()->get<fds_bool_t>("fds.feature_toggle.pm.enable_disk_activation", false);
+    LOGNORMAL << "disk activation : " << (fDiskActivationEnabled?"enabled":"disabled");
 
     dsk_devices->dsk_discovery_begin();
 
