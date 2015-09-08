@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.commons.util.thread.ThreadFactories;
 import com.formationds.commons.util.thread.ThreadUtil;
 import com.formationds.util.Configuration;
 import com.formationds.util.DebugWebapp;
@@ -63,7 +64,7 @@ public class NfsServer {
         VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
 
         // create the RPC service which will handle NFS requests
-        ThreadFactory factory = ThreadUtil.newThreadFactory("nfs-rpcsvc", true);
+        ThreadFactory factory = ThreadFactories.newThreadFactory( "nfs-rpcsvc", true );
         ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
                 nfsConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,
