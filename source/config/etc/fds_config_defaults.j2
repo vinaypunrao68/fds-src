@@ -124,11 +124,16 @@
 {% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true'  %}
 {% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
 {% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
+{% set ft_enable_java_om_svc_proxy               = fds_ft_enable_java_om_svc_proxy               if fds_ft_enable_java_om_svc_proxy               is defined else 'false' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
+    Defaults are:
+       OM_JAVA_OPTS="-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi"
+       XDI_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi"
+    The Logging and service name configuration is important.  Without it, the logging may not be configured properly.
 #}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Xms20M' %}
-{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi' %}
+{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi' %}
 {#
 #}
 {% block content %}{% endblock %}
