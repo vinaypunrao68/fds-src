@@ -76,7 +76,8 @@ class FdsNodeConfig(FdsConfig):
 
                 ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
                 if (ips_array.__len__() < (nodeId+1)):
-                    raise Exception ("Number of ips give in inventory are less than nodes in cfg file")
+                    #TODO POOJA: for now just give warning to user, instead of raising exception
+                    log.warning ("Number of ips give in inventory are less than nodes in cfg file")
 
                 if 'om' in self.nd_conf_dict:
                     #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
