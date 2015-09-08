@@ -13,7 +13,8 @@
     apt: name=fds-deps
         state=absent
         purge=yes
-    when: fds_deploy_local_deps is defined and fds_deploy_local_deps == True
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
+      and (uninstall_local_deps is defined and uninstall_local_deps == "yes")
     tags:
         - uninstall
 
