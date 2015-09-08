@@ -9,9 +9,6 @@
 
 namespace fds {
 
-// This is a hack because somehow the setTimeoutMs() doesn't like reading from a uint...
-// It only likes hard-coded numbers.
-#define DMMIGRATION_TIMEOUT 3000
 class DmMigrationBase {
 public:
     using migrationCb = std::function<void(const Error& e)>;

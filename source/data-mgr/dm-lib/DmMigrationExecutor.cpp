@@ -133,7 +133,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
-    asyncInitialBlobSetReq->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
     std::function<void()> abortBind = std::bind(&DmMigrationExecutor::abortMigration, this);
     asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));

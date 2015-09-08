@@ -405,7 +405,7 @@ DmMigrationClient::processBlobFilterSet()
 
     txMsg->volume_id = volId.v;
     auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    txStateMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    txStateMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
                            txMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
@@ -460,7 +460,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
 
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
     auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobsMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    asyncDeltaBlobsMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
@@ -482,7 +482,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
 
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
     auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobDescMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
@@ -518,7 +518,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
     auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
-    asyncCatUpdReq->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    asyncCatUpdReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
     /**
@@ -596,7 +596,7 @@ DmMigrationClient::sendFinishFwdMsg()
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
-    thriftMsg->setTimeoutMs(DMMIGRATION_TIMEOUT);
+    thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
 	thriftMsg->setTaskExecutorId(volId.v);
 	thriftMsg->invoke();
 
