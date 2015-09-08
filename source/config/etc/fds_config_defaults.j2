@@ -128,11 +128,11 @@
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
     Defaults are:
-       OM_JAVA_OPTS="-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-java"
+       OM_JAVA_OPTS="-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi"
        XDI_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi"
     The Logging and service name configuration is important.  Without it, the logging may not be configured properly.
 #}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-java' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi' %}
 {#
 #}

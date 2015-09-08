@@ -50,7 +50,7 @@ if [[ ! -z "${DEBUG_PORT}" ]]; then
 fi
 
 # JAVA dependencies
-export OM_JAVA_OPTS="${OM_JAVA_OPTS:=-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-java}"
+export OM_JAVA_OPTS="${OM_JAVA_OPTS:=-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi}"
 
 # JAVA CLASSPATH dependencies
 export CLASSPATH=${CLASSPATH}:../lib/java/\*
