@@ -1,5 +1,7 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
+import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.net.URLDecoder;
 import java.util.Map;
 
@@ -29,10 +31,14 @@ public class MessageBusForwarder implements RequestHandler {
 		
 		switch( request.getMethod() ){
 			case "POST":
-				method = new PostMethod( url );
+				PostMethod pMethod = new PostMethod( url );
+				pMethod.setRequestBody( request.getInputStream() );
+				method = pMethod;
 				break;
 			case "PUT":
-				method = new PutMethod( url );
+				PutMethod putMethod = new PutMethod( url );
+				putMethod.setRequestBody( request.getInputStream() );
+				method = putMethod;
 				break;
 			case "DELETE":
 				method = new DeleteMethod( url );
@@ -48,7 +54,7 @@ public class MessageBusForwarder implements RequestHandler {
 		int statusCode = client.executeMethod( method );
 		String body = new String( method.getResponseBody() );
 		
-		TextResource resource = new TextResource( body );
+		TextResource resource = new TextResource( statusCode, body );
 		
 		return resource;
 	}
