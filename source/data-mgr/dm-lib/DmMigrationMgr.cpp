@@ -145,11 +145,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               sleep(1); abortMigration(); return (ERR_NOT_READY););
 
-
-    // TODO(Neil) fix this
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
-
-    // TODO: add injection here
 
     if (err != ERR_OK) {
         return err;
@@ -211,14 +207,6 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
              * Abort everything
              */
             err = ERR_DM_MIGRATION_ABORTED;
-            /**
-             * TODO(Neil) -
-             * Right now we only support DM Add node migration that is initiated by the OM.
-             * In the future, when we have multiple ways to do migration, we may have
-             * sub sets of executors. This executorMap blow-away will not work then.
-             * So once that happens, write a new error handling method to handle removing
-             * the correct subset of executors from the executor map.
-             */
             abortMigration();
             break;
         } else if (loopFireNext) {
@@ -303,11 +291,6 @@ DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
     fds_verify(OmStartMigrCb != NULL);
     fds_assert(status == ERR_OK);
 
-    /**
-     * TODO(Neil) : Two things need to be done: (FS-2539)
-     * 1. DmMigrationMgr needs to have a monitor for all the executors to be finished.
-     * 2. Once all executors are finished, clear the executorMap below and ack to OM.
-     */
     LOGMIGRATE << "Telling OM that DM Migrations have all been fired";
     OmStartMigrCb(status);
 }
@@ -330,8 +313,6 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
      * Make sure we're in a state able to dispatch migration.
      */
     err = activateStateMachine(MIGR_CLIENT);
-
-    // TODO: add injection here
 
     if (err != ERR_OK) {
     	abortMigration();
@@ -439,9 +420,6 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         << std::hex << volId << std::dec
         << " with error=" << result;
 
-    /**
-     * TODO(Neil): error handling
-     */
     if (!result.OK()) {
         fds_verify(isMigrationInProgress() || isMigrationAborted());
         LOGERROR << "Volume=" << volId << " failed migration with error: " << result;
@@ -584,6 +562,5 @@ DmMigrationMgr::abortMigration() {
     }
 
     std::atomic_store(&migrState, MIGR_IDLE);
-    // TODO: do we need to send a msg to OM?
 }
 }  // namespace fds

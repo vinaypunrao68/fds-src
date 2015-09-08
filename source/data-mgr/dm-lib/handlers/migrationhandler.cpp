@@ -126,11 +126,8 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    LOGDEBUG << "NEIL DEBUG sending response";
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetRspMsg),
                        fpi::CtrlNotifyInitialBlobFilterSetRspMsg());
-
-    LOGDEBUG << "NEIL DEBUG Finished sending response";
 
     delete dmRequest;
 }
@@ -148,7 +145,6 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
 
-    // TODO CONTINUE
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
     							this,
 								asyncHdr,
@@ -162,8 +158,6 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
 void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    // We skip the callback because the message is queued up and being buffered
-    // helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
     helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
 }
@@ -180,8 +174,6 @@ void DmMigrationDeltaBlobDescHandler::handleResponseReal(boost::shared_ptr<fpi::
                         Error const& e)
 {
 	asyncHdr->msg_code = e.GetErrno();
-
-	LOGMIGRATE << "NEIL DEBUG : sending handleReponseReal with error ... " << e;
 
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescRspMsg),
                        fpi::CtrlNotifyDeltaBlobDescRspMsg());

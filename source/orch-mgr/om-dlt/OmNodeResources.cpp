@@ -672,7 +672,6 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
     	/* It's ok that the new DM returned ERR_VOL_NOT_FOUND because it's new
     	 * and doesn't have the volume descriptor.
     	 */
-    	LOGDEBUG << "NEIL DEBUG HIT ERR_VOL_NOT_FOUND";
     }
     LOGDEBUG << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec

@@ -622,6 +622,9 @@ DmMigrationClient::abortMigration()
 	 * Clean up after processBlobFilterSet()
 	 */
 	turnOffForwardingInternal();
-    if (snapshotTaken) {dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);}
+    if (snapshotTaken) {
+    	dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
+    	snapshotTaken = false;
+    }
 }
 }  // namespace fds
