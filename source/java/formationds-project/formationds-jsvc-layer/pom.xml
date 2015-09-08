@@ -11,7 +11,7 @@
     </parent>
 
     <name>${formationds.project.name} Java Service Layer</name>
-    <artifactId>jsvc-layer</artifactId>
+    <artifactId>formationds-jsvc-layer</artifactId>
 
     <dependencies>
 
@@ -28,13 +28,29 @@
         </dependency>
 
         <dependency>
+            <groupId>com.formationds</groupId>
+            <artifactId>formationds-commons-util</artifactId>
+            <version>${formationds.commons.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
         </dependency>
 
         <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
     </dependencies>
