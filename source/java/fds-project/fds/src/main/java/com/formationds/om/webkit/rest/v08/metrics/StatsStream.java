@@ -5,10 +5,11 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.formationds.client.v08.model.stats.ContextType;
+import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.stats_client.StatsConnection;
 import com.formationds.stats_client.Subscription;
 import com.formationds.stats_client.SubscriptionHandler;
-import com.formationds.stats_client.model.StatDataPoint;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -50,7 +51,7 @@ public class StatsStream implements SubscriptionHandler {
 	public void startListening(){
 		
 		try {
-			subscription = conn.subscribeToContextType( null, StatDataPoint.CONTEXT_TYPE.VOLUME, this );
+			subscription = conn.subscribeToContextType( null, ContextType.VOLUME, this );
 		}
 		catch( Exception e ){
 			logger.warn( "Subscription to admin topic failed.  Publishing should work without problems." );

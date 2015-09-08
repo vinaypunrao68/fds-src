@@ -8,7 +8,7 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.formationds.stats_client.model.StatDataPoint;
+import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
