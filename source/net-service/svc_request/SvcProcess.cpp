@@ -131,15 +131,25 @@ void SvcProcess::registerSvcProcess()
     LOGNOTIFY << "register service process ( parent )" << fds::logDetailedString(svcInfo_);
     std::vector<fpi::SvcInfo> svcMap;
 
+    int numAttempts = 0;
+
+    // microseconds
+    int waitTime = 10 * 1000;   // 10 milliseconds
+    int maxWaitTime = 500 * 1000;  // 500 milliseconds
+
     do {
         try {
+            ++numAttempts;
+
+            LOGDEBUG << "Attempting connection to OM [" << numAttempts << "]";
+
             /* This will block until we get a connection.  All the call below should be
              * idempotent.  In case of failure we just retry until we succeed
              */
             auto omSvcRpc = svcMgr_->getNewOMSvcClient();
 
             omSvcRpc->registerService(svcInfo_);
-            LOGNOTIFY << "registerService() call completed";
+            LOGNOTIFY << "registerService() call completed: " << fds::logString(svcInfo_);
 
             omSvcRpc->getSvcMap(svcMap, 0);
             LOGNOTIFY << "got service map.  size: " << svcMap.size();
@@ -147,9 +157,24 @@ void SvcProcess::registerSvcProcess()
             break;
         } catch (Exception &e) {
             LOGWARN << "Failed to register: " << e.what() << ".  Retrying...";
-        } catch (...) {
-            LOGWARN << "Failed to register: unknown excpeption" << ".  Retrying...";
+        } catch(const std::runtime_error& re) {
+            // specific handling for runtime_error
+            LOGWARN << "Runtime error: " << re.what() << std::endl;
+        }  catch(const std::exception& ex) {
+            // specific handling for all exceptions extending std::exception, except
+            // std::runtime_error which is handled explicitly
+            LOGWARN << "Error occurred: " << ex.what() << std::endl;
+        }catch (...) {
+            LOGWARN << "Failed to register: unknown exception" << ".  Retrying...";
         }
+
+        if (numAttempts % 5 == 0) {
+            waitTime *= 2;
+            if (waitTime > maxWaitTime)
+                waitTime = maxWaitTime;
+        }
+        usleep(waitTime);
+
     } while (true);
 
     svcMgr_->updateSvcMap(svcMap);
@@ -178,7 +203,19 @@ void SvcProcess::setupSvcInfo_()
     svcInfo_.svc_id.svc_uuid = SvcMgr::mapToSvcUuid(platformUuid,
                                                     svcType);
     svcInfo_.ip = net::get_local_ip(config.get_abs<std::string>("fds.nic_if", ""));
+
+    // get the service port as an offset from the platform port.
     svcInfo_.svc_port = SvcMgr::mapToSvcPort(platformPort, svcType);
+
+    // OM port is handled differently than other services.  It is based on fds.common.om_port
+    // configuration (potentially overridden by command line option, but that part is handled
+    // before we get here)
+    // TODO: this would make sense to move to OrchMgr::setupSvcInfo_ but if so the message
+    // logged below would have the mapped OM port instead of the configured OM port and be
+    // potentially confusing if not using the default port value.
+    if ( svcType ==  fpi::FDSP_ORCH_MGR ) {
+        svcInfo_.svc_port = config.get_abs<int>("fds.common.om_port", svcInfo_.svc_port);
+    }
     svcInfo_.svc_status = fpi::SVC_STATUS_ACTIVE;
 
     svcInfo_.incarnationNo = util::getTimeStampSeconds();

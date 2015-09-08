@@ -21,7 +21,6 @@ from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
 
-
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
 # services on each node.
