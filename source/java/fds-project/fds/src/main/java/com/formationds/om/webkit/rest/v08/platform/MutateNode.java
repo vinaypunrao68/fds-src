@@ -26,6 +26,8 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -99,13 +101,15 @@ public class MutateNode implements RequestHandler {
         	logger.debug("Request to shutdown node, uuid:" + nodeUuid);
         	// Note: This action will *not* change the state of the node to "down"
         	// It will however shutdown any existing am/dm/sm services on the node
-        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
+        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList, true));
         	
         	if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.CHANGE_NODE_STATE_FAILED,
                                           nodeUuid );
+                throw new ApiException( "Error encountered while shutting down node: "
+                        + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
             }
             else 
             {
@@ -122,6 +126,8 @@ public class MutateNode implements RequestHandler {
                 status= HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.CHANGE_NODE_STATE_FAILED,
                                           nodeUuid );
+                throw new ApiException( "Error encountered while starting node: "
+                        + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
             }
             else 
             {

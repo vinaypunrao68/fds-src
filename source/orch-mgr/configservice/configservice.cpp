@@ -486,6 +486,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             bool stop_sm = false;
             bool stop_dm = false;
             bool stop_am = false;
+            bool shutdownNode = stop_svc_msg->isActionNodeShutdown;
             std::vector<fpi::SvcInfo> svcInfos = stop_svc_msg->services;
 
             // We need to know which services are being stopped
@@ -508,7 +509,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 }
             }
 
-            err = local->om_stop_service(pmUuid, svcInfos, stop_sm, stop_dm, stop_am);
+            err = local->om_stop_service(pmUuid, svcInfos, stop_sm, stop_dm, stop_am, shutdownNode);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -530,6 +531,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             bool remove_sm = false;
             bool remove_dm = false;
             bool remove_am = false;
+            bool removeNode = rm_svc_msg->isActionNodeRemove;
             std::vector<fpi::SvcInfo> svcInfos = rm_svc_msg->services;
 
             // We need to know which services are being removed
@@ -552,7 +554,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 }
             }
 
-            err = local->om_remove_service(pmUuid, svcInfos, remove_sm, remove_dm, remove_am);
+            err = local->om_remove_service(pmUuid, svcInfos, remove_sm, remove_dm, remove_am, removeNode);
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "

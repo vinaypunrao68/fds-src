@@ -150,7 +150,7 @@ public class MutateService implements RequestHandler {
         }
         else
         {   // State change desired is from RUNNING to NOT_RUNNING
-        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
+        	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList, false));
         }
 
         if ( status != 0 ){
