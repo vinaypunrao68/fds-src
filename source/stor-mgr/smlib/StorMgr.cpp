@@ -111,7 +111,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           this,
                                                           volTbl,
                                                           std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                    std::placeholders::_1),
+                                                                    std::placeholders::_1,
+                                                                    std::placeholders::_2),
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
@@ -140,16 +141,29 @@ void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
-void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync) {
-    if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-        const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-        if (startResync) {
-            objStorMgr->migrationMgr->startResync(curDlt,
-                                                  getUuid(),
-                                                  curDlt->getNumBitsForToken(),
-                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                            std::placeholders::_1));
+void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone) {
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+
+    if (resyncDone) {
+        if (objStorMgr->migrationMgr->primaryTokensReady(curDlt, getUuid())) {
+            LOGNOTIFY << "Resync on restart completed SUCCESSFULLY! All DLT tokens for which "
+                      << " this SM is primary synced successfully";
+        } else {
+            LOGWARN << "At least one DLT token for which this SM is primary did not sync "
+                    << " successfully; Since we don't have fine-grained handling of this in OM,"
+                    << " sending health msg to OM with error to set this SM in failed state; "
+                    << " so that OM can rotate DLT and make all tokens that this SM owns secondary.";
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_TOKEN_NOT_READY,
+                                   "Some DLT tokens (for which this SM is primary) are not available ");
         }
+    }
+
+    if (startResync && g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+        objStorMgr->migrationMgr->startResync(curDlt,
+                                              getUuid(),
+                                              curDlt->getNumBitsForToken(),
+                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                        std::placeholders::_1, std::placeholders::_2));
     }
 }
 
@@ -440,7 +454,7 @@ Error ObjectStorMgr::handleDltUpdate() {
                                                         getUuid(),
                                                         curDlt->getNumBitsForToken(),
                                                         std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1));
+                                                                  std::placeholders::_1, std::placeholders::_2));
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->notifyDltUpdate(curDlt,

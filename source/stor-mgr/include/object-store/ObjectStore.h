@@ -21,7 +21,7 @@
 
 namespace fds {
 
-typedef std::function <void(fds_bool_t)> StartResyncFnObj;
+typedef std::function <void(fds_bool_t, fds_bool_t)> StartResyncFnObj;
 typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
 
 typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;

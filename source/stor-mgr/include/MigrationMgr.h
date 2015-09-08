@@ -17,7 +17,7 @@ namespace fds {
  * Callback for Migration Start Ack
  */
 typedef std::function<void (const Error&)> OmStartMigrationCbType;
-typedef std::function<void (fds_bool_t)> ResyncDoneOrPendingCb;
+typedef std::function<void (fds_bool_t, fds_bool_t)> ResyncDoneOrPendingCb;
 
 /*
  * Class responsible for migrating tokens between SMs
@@ -222,6 +222,13 @@ class MigrationMgr {
                          const NodeUuid& mySvcUuid);
 
     fds_bool_t isDltTokenReady(const ObjectID& objId);
+
+    /**
+     * Returns true if all DLT tokens for which is SM is responsible for
+     * are in 'ready' state (resync successed); otherwise returns false
+     */
+    fds_bool_t primaryTokensReady(const fds::DLT *dlt,
+                                  const NodeUuid& mySvcUuid);
 
     /**
      * Reset all the dlt tokens assigned to this SM.
@@ -524,10 +531,7 @@ class MigrationMgr {
 
     /// SM token id -> [ source SM -> MigrationExecutor ]
     //
-    /// so far we don't need a lock for the migrExecutors, because the actions
-    /// to update this map are serialized, and protected by migrState
     MigrExecutorMap migrExecutors;
-
     fds_rwlock migrExecutorLock;
 
     /// executorId -> MigrationClient
@@ -538,6 +542,8 @@ class MigrationMgr {
     fds_bool_t enableMigrationFeature;
     /// number of parallel thread -- from platform.conf
     uint32_t parallelMigration;
+    /// number of primary SMs
+    fds_uint32_t numPrimaries;
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed
@@ -553,11 +559,9 @@ class MigrationMgr {
 
     /**
      * Source SMs which are marked as failed for some executors during migration.
-     * TODO(Gurpreet) Still has to figure out how to mark a SM as failed. It could depend
-     * upon the type of error encountered. If the error seen when this SM was a source
-     * is fatal error(SM is down or something of that severity), it can be marked as
-     * failed. Using this will stop us from choosing failed SMs as newly elected
-     * source. Basically a small optimization.
+     * We also keep uuid of this SM (destination) in the list with flag false, so that
+     * we don't pick this SM as a source as well.
+     * Protected by migrExecutorLock
      */
     std::map<NodeUuid, bool> failedSMsAsSource;
 
