@@ -11,6 +11,7 @@ import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 
 import com.formationds.web.toolkit.RequestHandler;
@@ -28,16 +29,17 @@ public class MessageBusForwarder implements RequestHandler {
 		
 		HttpMethod method;
 		String url = "http://localhost:15672/" + mbRoute;
+		String data = IOUtils.toString( request.getInputStream() );
 		
 		switch( request.getMethod() ){
 			case "POST":
 				PostMethod pMethod = new PostMethod( url );
-				pMethod.setRequestBody( request.getInputStream() );
+				pMethod.setRequestBody( data );
 				method = pMethod;
 				break;
 			case "PUT":
 				PutMethod putMethod = new PutMethod( url );
-				putMethod.setRequestBody( request.getInputStream() );
+				putMethod.setRequestBody( data );
 				method = putMethod;
 				break;
 			case "DELETE":
