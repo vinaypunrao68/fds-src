@@ -25,6 +25,7 @@ pyUnitDryrun = False
 pyUnitInstall = False
 pyUnitSudoPw = None
 pyUnitTCFailure = False
+pyUnitInventory = None
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.
@@ -84,7 +85,9 @@ def setUpModule():
         print "pyUnitDrynrun: ", pyUnitDryrun
         print "pyUnitInstall: ", pyUnitInstall
         print "pyUnitSudoPw: ", pyUnitSudoPw
-        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw)
+        print "pyUnitInventory", pyUnitInventory
+
+        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw, pyUnitInventory)
 
         # Set up logging. We wait to do it here after we've parsed
         # the qaautotest.ini file (also used for PyUnit runs)
@@ -288,12 +291,13 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitDryrun
         global pyUnitInstall
         global pyUnitSudoPw
+        global pyUnitInventory
 
         log_dir = None
         failfast = False
 
         # We must have the -i option but that will be checked later.
-        options, args = getopt.getopt(_argv[1:], 'q:l:d:vrif', ['qat-file', 'log-dir', 'sudo-password', 'verbose',
+        options, args = getopt.getopt(_argv[1:], 'q:l:d:z:vrif', ['qat-file', 'log-dir', 'sudo-password', 'inventory-file', 'verbose',
                                                                 'dryrun', 'install', 'failfast'])
 
         idx = 1
@@ -325,6 +329,10 @@ class FDSTestCase(unittest.TestCase):
             elif opt in ('-f','--failfast'):
                 failfast = True
                 _argv.pop(idx)
+            elif opt in ('-z', '--inventory-file'):
+                pyUnitInventory = value
+                _argv.pop(idx)
+                _argv.pop(idx)
             else:
                 idx += 1
 
@@ -345,4 +353,4 @@ class FDSTestCase(unittest.TestCase):
             _parameters["stop_on_fail"] = True
 
         #print "Parameters: ", _parameters
-        return log_dir, failfast
+        return log_dir, failfast, pyUnitInstall

@@ -191,7 +191,7 @@
           - install-local
 
     -   name: stage local fds-deps deb on awo-bh-01
-        when: fds_deploy_local_deps is defined and fds_deploy_local_deps == true
+        when: fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes"
         copy: src={{ item }}
           dest=/home/deploy/deb_staging/{{ instance_name_tag }}/fds-deps.deb
         with_fileglob:

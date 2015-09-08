@@ -22,11 +22,8 @@ function update_bucket
 
 function range_counter
 {
-   # 0 to  100KB  1MB     10MB     100MB     1GB        2GB        3GB        4GB        5GB        6GB        7GB        8GB        9GB        10GB
-   ranges="100000 1000000 10000000 100000000 1000000000 2000000000 3000000000 4000000000 5000000000 6000000000 7000000000 8000000000 9000000000 10000000000"
-
-   # 0 to  20MB     30MB      50MB    100MB     200MB     400MB     700MB     1GB        2GB        4GB        7GB        10GB
-   ranges="20000000 30000000 50000000 100000000 200000000 400000000 700000000 1000000000 2000000000 4000000000 7000000000 10000000000"
+   #  0 to 1KB  10KB  20KB  40KB  70KB  100KB  200KB  400KB  700KB  1MB     2MB     4MB     7MB     10MB     20MB     30MB      50MB    100MB     200MB     400MB     700MB     1GB        2GB        4GB        7GB        10GB        20GB        40GB        70GB
+   ranges="1000 10000 20000 40000 70000 100000 200000 400000 700000 1000000 2000000 4000000 7000000 10000000 20000000 40000000 70000000 100000000 200000000 400000000 700000000 1000000000 2000000000 4000000000 7000000000 10000000000 20000000000 40000000000 70000000000"
 
    range_counts=""
    old_range=0
@@ -83,7 +80,7 @@ function help
    echo "    --skip-empty will not display directories with no files"
    echo "    directory, path to report on, defaults to './' (optional)" 
 
-   exit 0
+   exit
 }
 
 [[ "${1}" == "-h" || "${1}" == "-help" || "${1}" == "--help" || "${1}" == "help" ]] && help
@@ -104,14 +101,14 @@ fi
 
 dir_list=$( find ${search_path} -type d | sort )
 
-printf "files    dirSz   smlFsz     lrgFsz   Ranged file Counts                      Path\n"
+printf " files    dirSz   smlFsz     lrgFsz   Ranged file Counts                      Path\n"
 
 dir_count=0
 
 for d in ${dir_list}
 do
    dir_count=$(( ${dir_count} + 1 ))
-   file_count=$( find ${d} -maxdepth 1 -type f |wc -l )
+   file_count=$( find ${d} -maxdepth 1 -type f |grep -v "\/\." |wc -l )
 
    [[ ${file_count} -eq 0 && ${skip_empty} -eq 1 ]] && continue
 
@@ -128,7 +125,7 @@ do
 
    range_counter ${d}
 
-   printf "%5s %8s %8s %10s   %-39s %s \n" ${file_count} ${directory_size}"mb" ${small_file} ${large_file} ${range_counts} ${d}
+   printf "%6s %8s %8s %10s   %-39s %s \n" ${file_count} ${directory_size}"mb" ${small_file} ${large_file} ${range_counts} ${d}
 done
 
 total_file_count=0

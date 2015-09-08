@@ -4,6 +4,7 @@
 #define BOOST_LOG_DYN_LINK 1
 
 #include <boost/log/expressions.hpp>
+#include <boost/log/utility/exception_handler.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/attributes/current_process_name.hpp>
@@ -191,46 +192,19 @@ void fds_log::init(const std::string& logfile,
     sink->locked_backend()->set_open_handler(&writeHeader);
 
     /*
+     * If we are a DEBUG build we want a core dump if we get an exception,
+     * otherwise let's just keep going without logging...?
+     */
+#ifdef DEBUG
+    boost::log::core::get()->set_exception_handler([] { abort(); });
+#else
+    boost::log::core::get()->set_exception_handler(boost::log::make_exception_suppressor());
+#endif
+
+    /*
      * Add the sink to the core.
      */
     boost::log::core::get()->add_sink(sink);
-}
-
-fds_log::fds_log() {
-    init("fds",
-         "",
-         true,   // timestamp
-         true,   // severity
-         normal,  // minimum sev level
-         false,  // process name
-         false,  // process id
-         true,   // thread id
-         false);  // record id
-}
-
-fds_log::fds_log(const std::string& logfile) {
-    init(logfile,
-         "",
-         true,   // timestamp
-         true,   // severity
-         normal, // minimum sev level
-         false,  // process name
-         false,  // process id
-         true,   // thread id
-         false); // record id
-}
-
-fds_log::fds_log(const std::string& logfile,
-                 const std::string& logloc) {
-    init(logfile,
-         logloc,
-         true,   // timestamp
-         true,   // severity
-         normal, // minimum sev level
-         false,  // process name
-         false,  // process id
-         true,   // thread id
-         false); // record id
 }
 
 fds_log::fds_log(const std::string& logfile,

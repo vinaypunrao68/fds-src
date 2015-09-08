@@ -41,7 +41,7 @@ fds: {
         }
         am: {
             serialization = "{{ am_req_serialization }}"
-            safe_atomic_write = "{{ am_safe_atomic_write }}"
+            safe_atomic_write = {{ am_safe_atomic_write }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -137,6 +137,11 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
+        disk_sim: {
+            ssd_count = 4
+            hdd_count = 4
+        }
 
         graphite: {
             /* Graphite server ip */
@@ -531,7 +536,7 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
-		threads=1
+		threads={{ am_nbd_server_threads}}
                 options: {
                     /* Time (seconds) to retry connection to client before disconnect */
                     keep_alive=30
