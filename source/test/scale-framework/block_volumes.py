@@ -11,7 +11,7 @@ import config
 import s3
 import samples
 import users
-import utils
+import lib
 
 class BlockVolumes(object):
 
@@ -25,7 +25,7 @@ class BlockVolumes(object):
     def create_volumes(self, quantity_int, volume_prefix_str, size_str, unit_str, userToken_str=None):
         if userToken_str == None:
             # Get the user token
-            userToken_str = str(utils.get_user_token("admin", "admin",
+            userToken_str = str(lib.get_user_token("admin", "admin",
                 self.om_ip_address, config.FDS_REST_PORT, 0, 1))
 
         # Create the volumes
@@ -78,7 +78,7 @@ class BlockVolumes(object):
         port = config.FDS_REST_PORT
         try:
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                  self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 
