@@ -25,7 +25,7 @@ import logging
 
 log_dir = None
 
-def suiteConstruction(self):
+def suiteConstruction(self, install):
     """
     Construct the ordered set of test cases that comprise the
     test suite defined by the input FDS scenario config file.
@@ -51,7 +51,7 @@ def suiteConstruction(self):
         sys.exit(1)
 
     for scenario in scenarios:
-        testcases.TestMgt.queue_up_scenario(suite=suite, scenario=scenario, log_dir=log_dir)
+        testcases.TestMgt.queue_up_scenario(suite=suite, scenario=scenario, log_dir=log_dir, install_done = install)
 
     return suite
 
@@ -59,14 +59,13 @@ def suiteConstruction(self):
 if __name__ == '__main__':
 
     # Handle FDS specific commandline arguments.
-    log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
-
+    log_dir, failfast, install = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.
     if log_dir is None:
         log_dir = 'test-reports'
 
-    test_suite = suiteConstruction(self=None)
+    test_suite = suiteConstruction(self=None, install= install)
 
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not

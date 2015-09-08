@@ -25,7 +25,6 @@ class CounterMonitor(object):
             self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         except thrift.transport.TTransport.TTransportException:
             time.sleep(1)
-            print "Exception getting SvcMap... waiting"
             return []
         table = []
         for e in self.svc_map.list():
@@ -36,10 +35,6 @@ class CounterMonitor(object):
                     "port" : e[4],
                     "status":e[5],
                 })
-        for e in table:
-            for k, v in e.iteritems():
-                print k + ":" + str(v),
-            print ""
         return table
     
     def run(self):
@@ -87,7 +82,7 @@ class CounterMonitor(object):
                     else:
                         records.append((k, v))
                 records.append(("time", timestamp))
-                self.print_records(records)
+                # self.print_records(records)
                 self.influxdb.write_records(series, records)
 
     def terminate(self):

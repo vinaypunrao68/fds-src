@@ -22,10 +22,7 @@ thrStartReqs(MigrationTrackIOReqs& migTrackReqs, uint32_t numReqs)
 {
     for (uint32_t i = 0; i < numReqs; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        bool ret = migTrackReqs.startTrackIOReqs();
-        if (ret) {
-            migTrackReqs.finishTrackIOReqs();
-        }
+        MigrationTrackIOReqs::scopedTrackIOReqs scopedReq(migTrackReqs);
     }
 }
 
@@ -50,9 +47,11 @@ TEST(MigrationTrackIOReqs, trackIOReqs1)
     std::thread t3(thrWaitCompleteReqs, std::ref(pendReqs));
 
     t1.join();
-
+    std::cout << "Thread t1 exited" << std::endl;
     pendReqs.finishTrackIOReqs();
+    std::cout << "Finished tracking io" << std::endl;
     t3.join();
+    std::cout << "Thread t3 exited" << std::endl;
 }
 
 }  // namespace fds
