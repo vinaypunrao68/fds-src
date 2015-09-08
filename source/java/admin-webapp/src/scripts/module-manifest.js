@@ -1,4 +1,5 @@
 angular.module( 'base', [] );
+angular.module( 'debug', ['base'] );
 angular.module( 'user-management', ['base'] );
 angular.module( 'tenant-management', ['base'] );
 angular.module( 'volume-management', ['base'] );

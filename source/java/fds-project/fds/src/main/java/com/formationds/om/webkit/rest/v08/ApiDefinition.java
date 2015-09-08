@@ -12,6 +12,7 @@ import com.formationds.om.webkit.rest.v08.domain.MutateLocalDomain;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
+import com.formationds.om.webkit.rest.v08.metrics.MessageBusForwarder;
 import com.formationds.om.webkit.rest.v08.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.v08.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.v08.metrics.StatsSocketHandler;
@@ -136,6 +137,11 @@ public class ApiDefinition extends AbstractApiDefinition{
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );
+    	
+    	getWebApp().route( HttpMethod.GET, "/mb", () -> new MessageBusForwarder() );
+    	getWebApp().route( HttpMethod.POST, "/mb", () -> new MessageBusForwarder() );
+    	getWebApp().route( HttpMethod.PUT, "/mb", () -> new MessageBusForwarder() );
+    	getWebApp().route( HttpMethod.DELETE, "/mb", () -> new MessageBusForwarder() );
     }
     
     /**
