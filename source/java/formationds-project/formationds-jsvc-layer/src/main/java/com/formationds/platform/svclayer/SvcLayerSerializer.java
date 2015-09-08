@@ -9,6 +9,7 @@ import org.apache.thrift.TBase;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 /**
@@ -36,6 +37,49 @@ public class SvcLayerSerializer {
         }
     }
 
+    private static final String[] packages = {
+                                                 "com.formationds.apis",
+                                                 "com.formationds.protocol",
+                                                 "com.formationds.protocol.am",
+                                                 "com.formationds.protocol.am.types",
+                                                 "com.formationds.protocol.dm",
+                                                 "com.formationds.protocol.dm.types",
+                                                 "com.formationds.protocol.om",
+                                                 "com.formationds.protocol.om.event",
+                                                 "com.formationds.protocol.om.event.types",
+                                                 "com.formationds.protocol.om.types",
+                                                 "com.formationds.protocol.pm",
+                                                 "com.formationds.protocol.pm.types",
+                                                 "com.formationds.protocol.sm",
+                                                 "com.formationds.protocol.sm.types",
+                                                 "com.formationds.protocol.svc",
+                                                 "com.formationds.protocol.svc.types",
+                                                 "com.formationds.streaming",
+                                                 "FDS_ProtocolInterface"
+    };
+
+    // All we know is the message type name.  We have no idea what namespace the message is in.
+    // We could use the FDSMsgTypeId enum and create a giant switch statement that returns the
+    // package based on a set of message types that are defined, but that is susceptible to
+    // changes and would need to be updated any time there is a message added/removed.  Instead,
+    // i'm going to use a set of packages, which is also susceptible to changes, but perhaps less so.
+    // We *could* be smarter about our use of reflection on the packages to build up the package tree.
+    public static Optional<Class<?>> findMessageClass( FDSPMsgTypeId typeId ) {
+        ClassLoader classLoader = typeId.getClass().getClassLoader();
+
+        int typeIdIndex = typeId.name().indexOf( "TypeId" );
+        String typeName = typeId.name().substring( 0, typeIdIndex );
+        for ( String pkg : packages ) {
+            String candidateClass = String.format( "%s.%s", pkg, typeName );
+            try {
+                return Optional.of( classLoader.loadClass( candidateClass ) );
+            } catch ( ClassNotFoundException cnfe ) {
+                continue;
+            }
+        }
+        return Optional.empty();
+    }
+
     /**
      * @param object the object to serialize
      *
@@ -60,10 +104,9 @@ public class SvcLayerSerializer {
     @SuppressWarnings("unchecked")
     public static <T extends TBase<?, ?>> Class<T> loadFDSPMessageClass( FDSPMsgTypeId typeId ) throws
                                                                                                 ClassNotFoundException {
-        int typeIdIndex = typeId.name().indexOf( "TypeId" );
-        String typeName = typeId.name().substring( 0, typeIdIndex - 1 );
-        String className = typeId.getClass().getPackage().getName() + "." + typeName;
-        return (Class<T>) Class.forName( className );
+        return (Class<T>) findMessageClass( typeId )
+                              .orElseThrow( () -> new ClassNotFoundException( "Failed to load generated thrift class for " +
+                                                                              typeId ) );
     }
 
     @SuppressWarnings("unchecked")
@@ -73,10 +116,7 @@ public class SvcLayerSerializer {
             Class<? extends TBase<?, ?>> c = loadFDSPMessageClass( typeId );
             return (T) deserialize( c, payload );
         } catch ( ClassNotFoundException cnfe ) {
-            String msg = String.format( "Failed to load generated thrift class for %s ",
-                                        typeId.name() );
-
-            throw new SerializationException( msg, cnfe );
+            throw new SerializationException( cnfe.getMessage(), cnfe );
         }
     }
 }

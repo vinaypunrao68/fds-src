@@ -14,7 +14,9 @@ import FdsSetup as inst
 import socket
 import requests
 from requests.adapters import HTTPAdapter
+from retry.api import retry_call
 import TestUtils
+
 ###
 # Base config class, which is key/value dictionary.
 #
@@ -441,13 +443,41 @@ class FdsNodeConfig(FdsConfig):
     # Capture the node's assigned name and UUID.
     #
     def nd_populate_metadata(self, om_node):
-        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
 
-        if 'fds_port' in self.nd_conf_dict:
-            port = self.nd_conf_dict['fds_port']
-        else:
-            port = 7000  # PM default.
+         if 'fds_port' in self.nd_conf_dict:
+             port = self.nd_conf_dict['fds_port']
+         else:
+             port = 7000  # PM default.
 
+         try:
+            status, stdout =  retry_call(self._findNodeUuid,
+                             fkwargs={"om_node" : om_node, "pm_port" : port},
+                             tries=10,
+                             delay=1,
+                             max_delay=10,
+                             jitter=(1, 3),
+                             logger=log)
+         except  Exception, e:
+            log.exception(e)
+            return 1
+
+         status = 0
+         if (self.nd_uuid is None):
+             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+             log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+             log.error("Results from service list:\n%s." % stdout)
+             status = -1
+         else:
+            log.debug("Node %s has assigned name %s and UUID %s." %
+                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+
+         return status
+
+     # ##
+     # Find the node uuid for the current node.
+     # Raises an exception if not found.  Intended to be used in a retry
+    def _findNodeUuid(self, om_node, pm_port=7000):
         # From the listServices output we can determine node name
         # and node UUID.
         # Figure out the platform uuid.  Platform has 'pm' as the name
@@ -465,7 +495,7 @@ class FdsNodeConfig(FdsConfig):
         # Group 11 = Data port
         # Group 12 = Migration port
         # TODO(brian): uncomment this regex when we start capturing node root correctly
-        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+        # svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
         #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
         #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
         # Use this regex for now
@@ -492,24 +522,16 @@ class FdsNodeConfig(FdsConfig):
                     assigned_name = res.group(6)
                     # Ports
                     readPort = int(res.group(11))
-                    if assigned_name.lower() == 'pm' and readPort == int(port):
+                    if assigned_name.lower() == 'pm' and readPort == int(pm_port):
                         self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
                         break
 
-            if (self.nd_uuid is None):
-                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
-                log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
-                log.error("Results from service list:\n%s." % stdout)
-                status = -1
-            else:
-                log.debug("Node %s has assigned name %s and UUID %s." %
-                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
-        else:
-            log.error("status = %s" % status)
+        if self.nd_uuid is None:
             log.error("Results from service list:\n%s." % stdout)
+            raise Exception("Failed to find node %s." % self.nd_conf_dict["node-name"])
 
-        return status
+        return status,stdout
 
     ###
     # Kill all fds daemons
