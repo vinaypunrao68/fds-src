@@ -55,13 +55,15 @@ public class MessageBusForwarder implements RequestHandler {
 		method.setRequestHeader( "Content-Type", "application/json" );
 		
 		int statusCode = client.executeMethod( method );
-		
+		String body = "";
+				
 		// our code doesn't see a 204 as a success ... but for the message bus it is.
 		if ( statusCode == 204 ){
 			statusCode = 200;
 		}
-		
-		String body = new String( method.getResponseBody() );
+		else {
+			body = method.getResponseBodyAsString();
+		}
 		
 		TextResource resource = new TextResource( statusCode, body );
 		
