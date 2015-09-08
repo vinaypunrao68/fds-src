@@ -5,9 +5,11 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.getStat = function(){
         
         var authStr = $base64.encode( 'admin:admin' );
+        var route = '/api/queues';
+        route = encodeURI( route );
         
         var req = {
-            url: 'http://localhost:15672/api/queues',
+            url: '/fds/config/v08/mb/' + route,
             headers: {
                 Authorization: 'Basic ' + authStr
             },

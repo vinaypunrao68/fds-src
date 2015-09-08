@@ -1,5 +1,6 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
+import java.net.URLDecoder;
 import java.util.Map;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -21,7 +22,7 @@ public class MessageBusForwarder implements RequestHandler {
 			throws Exception {
 		
 		HttpClient client = new HttpClient();
-		String mbRoute = requiredString( routeParameters, "route" );
+		String mbRoute = URLDecoder.decode( requiredString( routeParameters, "route" ), "UTF-8" );
 		
 		HttpMethod method;
 		String url = "http://localhost:15672/" + mbRoute;

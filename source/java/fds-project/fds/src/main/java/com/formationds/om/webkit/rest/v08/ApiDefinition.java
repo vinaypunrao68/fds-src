@@ -138,10 +138,10 @@ public class ApiDefinition extends AbstractApiDefinition{
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );
     	
-    	getWebApp().route( HttpMethod.GET, "/mb", () -> new MessageBusForwarder() );
-    	getWebApp().route( HttpMethod.POST, "/mb", () -> new MessageBusForwarder() );
-    	getWebApp().route( HttpMethod.PUT, "/mb", () -> new MessageBusForwarder() );
-    	getWebApp().route( HttpMethod.DELETE, "/mb", () -> new MessageBusForwarder() );
+    	authenticate( HttpMethod.GET, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	authenticate( HttpMethod.POST, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	authenticate( HttpMethod.DELETE, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
     }
     
     /**
