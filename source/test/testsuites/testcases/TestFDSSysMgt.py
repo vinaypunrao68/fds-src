@@ -21,7 +21,6 @@ from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
 
-
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
 # services on each node.
@@ -202,6 +201,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
         fds_dir = om_node.nd_conf_dict['fds_root']
         log_dir = om_node.nd_agent.get_log_dir()
         nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
 
         for n in nodes:
             # If we were provided a node, activate that one and exit.
@@ -215,22 +215,28 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 self.log.error("Getting meta-data for node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
                 return False
+            #To activate node we need to add all the services listed and then manually start each service
+            node_id = int(n.nd_uuid, 16)
+            services = n.nd_services.split(",")
+            for service_name in services:
+                service_name = service_name.upper()
+                node_service = get_node_service(self,om_ip)
+                service = Service()
+                service.type = service_name
+                add_service = node_service.add_service(node_id,service)
+                if type(add_service).__name__ == 'FdsError':
+                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
+                    return False
 
-            services = n.nd_services
-
-            if services != '':
-                self.log.info("Activate services %s for node %s." % (services, n.nd_conf_dict['node-name']))
-
-                status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
-                                                    'addService {} {} > {}/cli.out 2>&1) \"'.format(
-                    int(n.nd_uuid, 16), services, log_dir,), fds_tools=True)
-
-            if status != 0:
-                self.log.error("Service activation of node %s returned status %d." %
+                self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
+                start_service = node_service.start_service(node_id,add_service.id)
+                time.sleep(3)
+                get_service = node_service.get_service(node_id,start_service.id)
+                if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
+                    self.log.error("Service activation of node %s returned status %d." %
                                (n.nd_conf_dict['node-name'], status))
-                return False
-
-            elif self.passedNode is not None:
+                    return False
+            if self.passedNode is not None:
                 # If we were passed a specific node, exit now.
                 return True
 
@@ -258,12 +264,11 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
 
         nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
         for n in nodes:
-            # If we were provided a node, remove that one and exit.
+        # If we were provided a node, activate that one and exit.
             if self.passedNode is not None:
                 n = self.passedNode
 #            else: Should we skip the OM's node?
@@ -271,16 +276,14 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 #                    self.log.info("Skipping OM's node on %s." % n.nd_conf_dict['node-name'])
 #                    continue
 
-            self.log.info("Remove services for node %s." % n.nd_conf_dict['node-name'])
+            self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
+            node_id = int(n.nd_uuid, 16)
+            node_service = get_node_service(self,om_ip)
+            node_remove = node_service.remove_node(node_id)
 
-            self.log.warn("Remove services call currently unimplemented. THIS CALL WILL FAIL!")
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} {} > '
-                                                '{}/cli.out 2>&1) \"'.format(n.nd_uuid, n.nd_services, log_dir),
-                                                fds_tools=True)
-
-            if status != 0:
-                self.log.error("Service removal of node %s returned status %d." %
-                               (n.nd_conf_dict['node-name'], status))
+            if isinstance(node_remove, FdsError) :
+                self.log.error("Removal of node %s returned status %s." %
+                               (n.nd_conf_dict['node-name'], node_remove))
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, exit now.

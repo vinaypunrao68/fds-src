@@ -83,7 +83,7 @@ public enum ServiceType {
             if( service.isPresent() ) {
 
                 service.get().setAutoName( serviceType.name() );
-                service.get().setPort( fdspNodeInfoType.getControl_port() );
+                service.get().setPort( fdspNodeInfoType.getData_port() );
                 service.get().setUuid( fdspNodeInfoType.getService_uuid() );
                 service.get()
                        .setStatus(

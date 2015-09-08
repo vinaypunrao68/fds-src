@@ -42,7 +42,7 @@ static inline std::size_t fds_disk_sector_to_byte(std::size_t sector)
  */
 const uint32_t DISK_ALPHA_COUNT_SSD     = 2;
 const uint32_t DISK_ALPHA_COUNT_HDD     = 12;
-const uint32_t DISK_ALPHA_COUNT_HDD_MIN = 4;
+const uint32_t DISK_ALPHA_COUNT_HDD_MIN = 2;
 
 constexpr uint32_t DISK_MINIMUM_CAPACITY_GB   = 10;
 

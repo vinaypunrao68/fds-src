@@ -313,9 +313,8 @@ Error SmDiskMap::handleNewDlt(const DLT* dlt, NodeUuid& mySvcUuid)
         fds_verify(firstDlt);
     }
     if (dlt_toks.empty()) {
-        LOGDEBUG << "First DLT received does not contain this SM, not updating"
+        LOGNOTIFY << "DLT received does not contain this SM, not updating"
                  << " token ownership in superblock";
-        fds_verify(firstDlt);
         return ERR_SM_NOERR_NOT_IN_DLT;
     }
 

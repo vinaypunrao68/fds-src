@@ -10,16 +10,16 @@ import org.togglz.core.annotation.Label;
 import org.togglz.core.repository.FeatureState;
 
 /**
+ * feature togglz annotation
+ *
+ * Togglz annotation are used to group features together in "feature groups".
+ *
  * @author ptinius
  */
-public enum FdsFeatureToggles
-  implements Feature {
+public enum FdsFeatureToggles implements Feature {
 
-  /*
-   * feature togglz annotation
-   *
-   * Togglz annotation are used to group features together in "feature groups".
-   */
+    @Label( "OM Service Proxy Feature" )
+    OM_SERVICE_PROXY("fds.feature_toggle.om.enable_java_om_svc_proxy"),
 
     @Label( "REST 0.7 API Implementation" )
     REST_07( "fds.feature_toggle.om.rest_07_feature" ),
