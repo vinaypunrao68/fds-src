@@ -52,6 +52,7 @@ public class MessageBusForwarder implements RequestHandler {
 		}
 		
 		method.setRequestHeader( "Authorization", request.getHeader( "Authorization") );
+		method.setRequestHeader( "Content-Type", "application/json" );
 		
 		int statusCode = client.executeMethod( method );
 		String body = new String( method.getResponseBody() );
