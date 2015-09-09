@@ -7,21 +7,28 @@ import re
 sys.path.append("../common")
 import utils
 
-millis = lambda: int(round(time.time() * 1000))
-
 class RabbitMQClient(object):
     def __init__(self, period):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
                'localhost'))
         self.channel = self.connection.channel()
-        self.channel.queue_declare(queue='hello')
+        self.channel.queue_declare(queue='stats.work')
         self.period = period
     # service, node
     # name, volume_id, cntr_type
-    def publish(self, name, period, value, volume_id, timestamp):
+    def publish(self, name, period, value, volume_id, service, node, cntr_type, timestamp):
+        if not 'min_value' in vars(self):
+            self.min_value = value
+        else:
+            self.min_value = min(value, self.min_value)
+        if not 'max_value' in vars(self):
+            self.max_value = value
+        else:
+            self.max_value = max(value, self.max_value)
         data = [
                 {
-                "minimumValue":0, 
+                "minimumValue"          :   self.min_value, 
+                "maximumValue"          :   self.max_value,
                 "collectionTimeUnit"    :   "SECONDS",
                 "metricName"            :   name,
                 "collectionPeriod"      :   period,
@@ -29,13 +36,17 @@ class RabbitMQClient(object):
                 "metricValue"           :   value,
                 "contextId"             :   volume_id,
                 "numberOfSamples"       :   1,
-                "maximumValue"          :   0,
+                "relatedContexts"       :   [
+                                                {"contextType": "SERVICE", "contextId" : service}, 
+                                                {"contextType": "NODE", "contextId" : node}, 
+                                                {"contextType": "CNTR_TYPE", "contextId" : cntr_type}
+                                            ],
                 "reportTime"            :   timestamp
                 }
         ]
         json_data = json.dumps(data)
         self.channel.basic_publish(exchange='',
-                      routing_key='metrics',
+                      routing_key='stats.work',
                       body=json_data)
         print " [x] Sent ->", json_data
     def close(self):
@@ -44,26 +55,26 @@ class RabbitMQClient(object):
         # series: <service>.<node>
         service, node = series.split('.', 1)
         print service, node
+        print series, records
         # records: lost of (name.<volume_id>[.<cntr_type>], value)
         cols, vals = [list(x) for x in  zip(*records)]
         vals = [utils.dyn_cast(x) for x in vals]
         n = len(cols)
         for i in range(n):
             m = re.match("(\w*)\.(\w*)(?:\.(\w*))?", cols[i])
-            assert m != None, cols[i]
-            tokens = m.groups()
-            print cols[i], tokens
-            name = tokens[0]
-            volume_id = int(tokens[1])
-            cntr_type = tokens[2]
-            timestamp = millis()
-            self.publish("AM_GET_REQ", self.period, vals[i], volume_id, timestamp)
+            if m != None:
+                tokens = m.groups()
+                print cols[i], tokens
+                name = tokens[0]
+                volume_id = int(tokens[1])
+                cntr_type = tokens[2]
+                timestamp = int(round(time.time() * 1000))
+                self.publish(name, self.period, vals[i], volume_id, service, node, cntr_type, timestamp)
         
 
 def main():
     client = RabbitMQClient(5)
-    timestamp = millis()
-    client.publish("AM_GET_REQ", 5, 33300, 22, timestamp)
+    client.publish("AM_GET_REQ", 5, 33300, 22, "am", "mynode", "count", int(round(time.time() * 1000)))
     series = "am.10.1.10.34"
     records = [ 
                 ("AM_GET_REQ.5.count", 33), 
@@ -78,21 +89,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-#    public String toJson(){
-#        
-#        JSONObject json = new JSONObject();
-#        
-#        json.put( REPORT_TIME, getReportTime() );
-#        json.put( METRIC_NAME, getMetricName() );
-#        json.put( METRIC_VALUE, getMetricValue() );
-#        json.put( COLLECTION_PERIOD, getCollectionPeriod() );
-#        json.put( CONTEXT_ID, getContextId() );
-#        json.put( CONTEXT_TYPE_STR, getContextType().name() );
-#        json.put( COLLECTION_TIME_UNIT, getCollectionTimeUnit().name() );
-#        json.put( NUMBER_OF_SAMPLES, getNumberOfSamples() );
-#        json.put( MINIMUM_VALUE, getMinimumValue() );
-#        json.put( MAXIMUM_VALUE, getMaximumValue() );
-#        
-#        String rtn = json.toString();
-#        return rtn;
-#    }
+
