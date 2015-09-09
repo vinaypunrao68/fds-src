@@ -9,6 +9,10 @@
 
 namespace fds {
 
+/**
+ * Common base class that provides functionality that DmMigrationMgr, Executor, and client
+ * may use.
+ */
 class DmMigrationBase {
 public:
     using migrationCb = std::function<void(const Error& e)>;

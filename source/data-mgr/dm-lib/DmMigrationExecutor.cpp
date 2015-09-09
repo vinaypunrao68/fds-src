@@ -148,7 +148,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
 {
 	fiu_do_on("abort.dm.migration.processDeltaBlobDescs",\
         LOGDEBUG << "abort.dm.migration processDeltaBlobDescs.fault point enabled";\
-        sleep(1); return ERR_DM_MIGRATION_ABORTED;);
+        return ERR_DM_MIGRATION_ABORTED;);
 
     Error err(ERR_OK);
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
@@ -205,7 +205,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 
 	fiu_do_on("abort.dm.migration.processDeltaBlobs",\
         LOGDEBUG << "abort.dm.migration processDeltaBlobs.fault point enabled";\
-        sleep(1); return ERR_NOT_READY;);
+        return ERR_NOT_READY;);
 
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
 	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg: "

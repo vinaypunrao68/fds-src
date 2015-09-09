@@ -211,6 +211,11 @@ class DmMigrationMgr : public DmMigrationBase {
     uint32_t deltaBlobTimeout;
 
     /**
+     * DMT version undergoing migration
+     */
+    int64_t DMT_version;
+
+    /**
      * Throttles the number of max concurrent migrations
      * Below are protected by migrExecutorLock.
      */
@@ -297,6 +302,15 @@ class DmMigrationMgr : public DmMigrationBase {
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
+
+    /**
+     * For debugging
+     */
+    void dumpDmIoMigrationDeltaBlobs(DmIoMigrationDeltaBlobs *deltaBlobReq);
+    void dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+    void dumpDmIoMigrationDeltaBlobDesc(DmIoMigrationDeltaBlobDesc *deltaBlobReq);
+    void dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+
 };  // DmMigrationMgr
 
 }  // namespace fds

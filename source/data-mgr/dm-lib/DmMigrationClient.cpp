@@ -374,7 +374,7 @@ DmMigrationClient::processBlobFilterSet()
 
     fiu_do_on("abort.dm.migration.processBlobFilter",\
               LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
-              sleep(1); return ERR_NOT_READY;);
+              return ERR_NOT_READY;);
 
 
     // Lookup commit log so we can take a snapshot of the volume while blocking
@@ -390,17 +390,20 @@ DmMigrationClient::processBlobFilterSet()
     fpi::CtrlNotifyTxStateMsgPtr txMsg(new fpi::CtrlNotifyTxStateMsg());
     // Block commit log and get snapshot for the volume.
     {
-        auto auto_lock = commitLog->getCommitLock(true);
-        err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
-        turnOnForwarding();
-        commitLog->snapshotOutstandingTx(txMsg->transactions);
-    }
-    if (ERR_OK != err) {
-        LOGERROR << "Failed to get snapshot volume=" << volId
-                 << " with error=" << err;
-        return err;
-    } else {
-    	snapshotTaken = true;
+        fds_scoped_lock lock(ssTakenScopeLock);
+		{
+			auto auto_lock = commitLog->getCommitLock(true);
+			err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
+			turnOnForwarding();
+			commitLog->snapshotOutstandingTx(txMsg->transactions);
+		}
+		if (ERR_OK != err) {
+			LOGERROR << "Failed to get snapshot volume=" << volId
+					 << " with error=" << err;
+			return err;
+		} else {
+			snapshotTaken = true;
+		}
     }
 
     txMsg->volume_id = volId.v;
@@ -422,8 +425,12 @@ DmMigrationClient::processBlobFilterSet()
      */
     err = processBlobDiff();
     // free the in-memory snapshot diff after completion.
-    fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
-    snapshotTaken = false;
+    {
+        fds_scoped_lock lock(ssTakenScopeLock);
+    	fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
+    	snapshotTaken = false;
+    }
+
     if (ERR_OK != err) {
         LOGERROR << "Failed to process blob diff on volume=" << volId
             << " with error=" << err;
@@ -622,9 +629,12 @@ DmMigrationClient::abortMigration()
 	 * Clean up after processBlobFilterSet()
 	 */
 	turnOffForwardingInternal();
-    if (snapshotTaken) {
-    	dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
-    	snapshotTaken = false;
-    }
+	{
+        fds_scoped_lock lock(ssTakenScopeLock);
+		if (snapshotTaken) {
+			dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
+			snapshotTaken = false;
+		}
+	}
 }
 }  // namespace fds

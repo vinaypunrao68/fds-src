@@ -199,6 +199,7 @@ class DmMigrationClient : public DmMigrationBase {
     std::atomic<fds_bool_t> forwardingIO;
 
     // Used for abort cleanup
+    fds_mutex  ssTakenScopeLock;
     fds_bool_t snapshotTaken;
 
 };  // DmMigrationClient

@@ -10,7 +10,7 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-    maxConcurrency(1), firedMigrations(0), mit(NULL),
+    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID),
     migrState(MIGR_IDLE)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
@@ -143,13 +143,18 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
     // Test error return code
     fiu_do_on("abort.dm.migration",\
               LOGDEBUG << "abort.dm.migration fault point enabled";\
-              sleep(1); abortMigration(); return (ERR_NOT_READY););
+              abortMigration(); return (ERR_NOT_READY););
 
+    // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
     if (err != ERR_OK) {
         return err;
     }
+
+    // Store DMT version for debugging
+    DMT_version = migrationMsg->DMT_version;
+    LOGMIGRATE << "Starting Migration executors with DMT version = " << DMT_version;
 
     firedMigrations = 0;
     for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
@@ -239,6 +244,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     	err = ERR_OK;
     } else {
     	LOGERROR << "Error applying blob descriptor";
+    	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
     	abortMigration();
     }
 
@@ -263,6 +269,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
 
     if (!err.ok()) {
     	LOGERROR << "Processing deltaBlobs failed";
+    	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
     	abortMigration();
     }
 
@@ -290,6 +297,8 @@ DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
 {
     fds_verify(OmStartMigrCb != NULL);
     fds_assert(status == ERR_OK);
+
+    DMT_version = DMT_VER_INVALID;
 
     LOGMIGRATE << "Telling OM that DM Migrations have all been fired";
     OmStartMigrCb(status);
@@ -540,7 +549,7 @@ DmMigrationMgr::abortMigration() {
 		return;
 	}
 
-	LOGERROR << "DM Migration aborting Migration";
+	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
 	DmMigrationClientMap::const_iterator citer (clientMap.begin());
 	DmMigrationExecMap::const_iterator eiter (executorMap.begin());
@@ -562,5 +571,53 @@ DmMigrationMgr::abortMigration() {
     }
 
     std::atomic_store(&migrState, MIGR_IDLE);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(DmIoMigrationDeltaBlobs *deltaBlobReq)
+{
+	if (!deltaBlobReq) {return;}
+	fpi::CtrlNotifyDeltaBlobsMsgPtr ptr = deltaBlobReq->deltaBlobsMsg;
+	LOGMIGRATE << "Dumping DmIoMigrationDeltaBlobs msg: " << deltaBlobReq;
+	dumpDmIoMigrationDeltaBlobs(ptr);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+{
+	std::string blobInfo;
+	for (auto obj : msg->blob_obj_list) {
+		std::string blobObjInfo = "Blob name: ";
+		blobObjInfo.append(obj.blob_name);
+		blobInfo.append(blobObjInfo);
+	}
+
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
+			<< " " << blobInfo;
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(DmIoMigrationDeltaBlobDesc *deltaBlobReq)
+{
+	if (!deltaBlobReq) {return;}
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr ptr = deltaBlobReq->deltaBlobDescMsg;
+	LOGMIGRATE << "Dumping DmIoMigrationDeltaBlobDesc msg: " << deltaBlobReq;
+	dumpDmIoMigrationDeltaBlobDesc(ptr);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
+{
+	std::string blobInfo;
+	for (auto obj : msg->blob_desc_list) {
+		std::string blobObjInfo = "Blob name: ";
+		blobObjInfo.append(obj.vol_blob_name);
+		blobInfo.append(blobObjInfo);
+	}
+
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
+			<< " " << blobInfo;
 }
 }  // namespace fds
