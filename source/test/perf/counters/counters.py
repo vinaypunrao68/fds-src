@@ -9,6 +9,7 @@ sys.path.append(os.path.join(os.getcwd(), '../common'))
 from push_to_influxdb import InfluxDb
 import tabulate
 import thrift
+from rabbitmq import RabbitMQClient
 
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib'))
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib/pyfdsp'))
@@ -18,6 +19,7 @@ class CounterMonitor(object):
     def __init__(self, config):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
+        self.rmq_client = RabbitMQClient(self.config["period"])
         self.stop = threading.Event()
 
     def get_svc_table(self):    
@@ -83,7 +85,10 @@ class CounterMonitor(object):
                         records.append((k, v))
                 records.append(("time", timestamp))
                 # self.print_records(records)
-                self.influxdb.write_records(series, records)
+                if self.config["influxdb_enable"]:
+                    self.influxdb.write_records(series, records)
+                if self.config["rabbitmq_enable"]:
+                    self.rmq_client.write_records(series, records)
 
     def terminate(self):
         self.stop.set()
@@ -98,6 +103,10 @@ def main():
                       help = "Host port")
     parser.add_option("-p", "--period", dest = "period", type = "float", default = 1.0,
                       help = "Counter period")
+    parser.add_option("-i", "--influxdb-enable", dest = "influxdb_enable", default = False,
+                       action="store_true", help = "Influxdb enable")
+    parser.add_option("-r", "--rabbitmq-enable", dest = "rabbitmq_enable", default = False,
+                       action="store_true", help = "Rabbitmq enable")
     parser.add_option("-f", "--counter-filter", dest = "counter_filter", default = None,
                       help = "Filter counters based on name")
     parser.add_option("", "--ip-filter", dest = "ip_filter", default = None,
@@ -130,6 +139,8 @@ def main():
         "ip" : options.host_ip,
         "port" : options.host_port,
         "period" : options.period,
+        "influxdb_enable" : options.influxdb_enable,
+        "rabbitmq_enable" : options.rabbitmq_enable,
         "cntr_filter" : options.counter_filter.split(',') if options.counter_filter else None,
         "agent_filter" : options.agent_filter.split(',') if options.agent_filter else None,
         "ip_filter" : options.ip_filter.split(',') if options.ip_filter else None,
