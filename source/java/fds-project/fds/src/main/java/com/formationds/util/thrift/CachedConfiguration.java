@@ -330,8 +330,18 @@ public class CachedConfiguration {
     public Optional<Tenant> tenantFor(long userId) {
         synchronized (tenantsById) {
             if ( tenantsByUser.containsKey( userId ) ) {
+            	
                 long tenantId = tenantsByUser.get( userId );
-                return Optional.of( tenantsById.get( tenantId ) );
+                Tenant tenant = tenantsById.get( tenantId );
+                
+                // cannot set an optional to null
+                if ( tenant == null ){
+                	return Optional.empty();
+                }
+                else {
+                	return Optional.of( tenantsById.get( tenantId ) );
+                }
+                
             } else {
                 return Optional.empty();
             }
