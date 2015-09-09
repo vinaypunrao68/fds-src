@@ -1760,6 +1760,13 @@ OM_PmAgent::send_remove_service
     TRACEFUNC;
     Error err(ERR_OK);
 
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+    if (domain->om_local_domain_down()) {
+        LOGERROR<<"Cannot remove node or services when domain is down";
+        return Error(ERR_INVALID_ARG);
+    }
+
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
@@ -1777,43 +1784,9 @@ OM_PmAgent::send_remove_service
         // 2. Attempt to remove "a" service on a shutdown node/domain:INVALID
         // The following logic tries to filter the valid/invalid actions
 
-        std::vector<fpi::SvcInfo> existingSvcs;
-
-        if (configDB->getNodeServices(node_uuid, services)) {
-
-            int32_t removeSvcCount  = 0;
-            int32_t presentSvcCount = 0;
-
-            if (remove_sm) { ++removeSvcCount; }
-            if (remove_dm) { ++removeSvcCount; }
-            if (remove_am) { ++removeSvcCount; }
-
-            if (services.sm.uuid_get_val() != 0) { ++presentSvcCount; }
-            if (services.dm.uuid_get_val() != 0) { ++presentSvcCount; }
-            if (services.am.uuid_get_val() != 0) { ++presentSvcCount; }
-
-            if ((removeSvcCount == 0) && (presentSvcCount == 0)) {
-                if (node_state() == FDS_ProtocolInterface::FDS_Node_Down) {
-                LOGDEBUG << "No services to remove, node is down, no action taken";
-                return Error(ERR_OK);
-                } else {
-                    LOGERROR<<"No services found, node is in incorrect state";
-                    return Error(ERR_INVALID_ARG);
-                }
-
-            }
-
-            // The logic here being that if the number of services
-            // being requested to be removed is the same as the #
-            // present for the node, the scenario is (1)
-            if (removeSvcCount != presentSvcCount) {
-                LOGDEBUG <<"Remove count:" << removeSvcCount << " Present count:" << presentSvcCount;
-                LOGERROR << "Attempting to remove a service on a node that is not up";
-                return ERR_INVALID_ARG;
-            }
-        } else {
-            LOGERROR <<"No node services found!";
-            return ERR_NOT_FOUND;
+        if (!removeNode) {
+            LOGERROR<<"Cannot remove service when node is down";
+            return Error(ERR_INVALID_ARG);
         }
     }
 
@@ -1822,8 +1795,6 @@ OM_PmAgent::send_remove_service
                     << " remove sm ? " << remove_sm
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
-
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     err = domain->om_del_services(node_uuid,
                                   get_node_name(),
@@ -1939,6 +1910,9 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
             } else {
+                LOGDEBUG <<"Removed service from node"
+                         << std::hex << nodeUuid.uuid_get_val()
+                         << std::dec << " successfully";
                 LOGDEBUG <<"Changing PM state to STANDBY";
                 set_node_state(FDS_ProtocolInterface::FDS_Node_Standby);
                 fds::change_service_state( configDB,
@@ -2279,7 +2253,9 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
             {
                 // Since these are known services, we should not need
                 // to add service. Do only start
-                agent->send_start_service(svcUuid, svcInfoList, false, true);
+                bool domainRestart = false;
+                bool startNode     = true;
+                agent->send_start_service(svcUuid, svcInfoList, domainRestart, startNode);
             }
         }
     }
@@ -2626,11 +2602,13 @@ om_prepare_services_start
     err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_add_service(pmSvcUuid,
                                                                  svcInfoList);
     if (err == ERR_OK) {
+        bool domainRestart = false;
+        bool startNode     = true;
         // Now start the services
         err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_start_service(pmSvcUuid,
                                                                        svcInfoList,
-                                                                       false,
-                                                                       true);
+                                                                       domainRestart,
+                                                                       startNode);
         if (err != ERR_OK)
             LOGNOTIFY << "Starting of services in domain failed";
     }
@@ -2957,11 +2935,13 @@ om_prepare_services_stop(fds_bool_t stop_sm,
 
             fpi::SvcUuid pmSvcUuid;
             pmSvcUuid.svc_uuid = node->get_uuid().uuid_get_val();
+            bool shutdownNode = true;
             err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_stop_service(pmSvcUuid,
                                                                           svcInfoList,
                                                                           stop_sm,
                                                                           stop_dm,
-                                                                          stop_am, true);
+                                                                          stop_am,
+                                                                          shutdownNode);
 
         } else {
             /**

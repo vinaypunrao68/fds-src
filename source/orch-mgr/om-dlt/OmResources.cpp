@@ -1820,7 +1820,9 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
           }
           else
           {
-              local->om_start_service( svcUuid, svcInfoList, true, true );
+              bool domainRestart = true;
+              bool startNode     = true;
+              local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
       }
     }
