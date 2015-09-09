@@ -12,14 +12,16 @@ import java.util.concurrent.ExecutionException;
 
 public class IoCache implements Io {
     private Io io;
+    private Counters counters;
     private Cache<MetadataCacheKey, Optional<Map<String, String>>> metadataCache;
     private Cache<ObjectCacheKey, ByteBuffer> objectCache;
 
     private Cache<MetadataCacheKey, Object> metadataCacheLocks;
     private Cache<ObjectCacheKey, Object> objectCacheLocks;
 
-    public IoCache(Io io) {
+    public IoCache(Io io, Counters counters) {
         this.io = io;
+        this.counters = counters;
         metadataCache = CacheBuilder.newBuilder().maximumSize(20000).build();
         objectCache = CacheBuilder.newBuilder().maximumSize(500).build();
         objectCacheLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
@@ -34,6 +36,9 @@ public class IoCache implements Io {
             if (value == null) {
                 value = io.mapMetadata(domain, volumeName, blobName, om -> om);
                 metadataCache.put(key, value);
+                counters.increment(Counters.Key.metadataCacheMiss);
+            } else {
+                counters.increment(Counters.Key.metadataCacheHit);
             }
 
             // Map a copy
@@ -50,6 +55,9 @@ public class IoCache implements Io {
             Optional<Map<String, String>> oldValue = metadataCache.getIfPresent(key);
             if (oldValue == null) {
                 oldValue = io.mapMetadata(domain, volume, blobName, om -> om);
+                counters.increment(Counters.Key.metadataCacheMiss);
+            } else {
+                counters.increment(Counters.Key.metadataCacheHit);
             }
             if (oldValue.isPresent()) {
                 updatedValue.putAll(oldValue.get());
@@ -85,6 +93,9 @@ public class IoCache implements Io {
                 cacheEntry = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
                         oov -> oov.get().getBuf().slice());
                 objectCache.put(key, cacheEntry);
+                counters.increment(Counters.Key.objectCacheMiss);
+            } else {
+                counters.increment(Counters.Key.objectCacheHit);
             }
             return objectMapper.map(Optional.of(new ObjectView(metadata.get(), cacheEntry.duplicate())));
         }
@@ -100,6 +111,7 @@ public class IoCache implements Io {
         synchronized (objectLock(objectKey)) {
             ByteBuffer[] buf = new ByteBuffer[]{objectCache.getIfPresent(objectKey)};
             if (buf[0] == null) {
+                counters.increment(Counters.Key.objectCacheMiss);
                 buf[0] = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
                         oov -> {
                             if (oov.isPresent()) {
@@ -109,6 +121,8 @@ public class IoCache implements Io {
                             }
                         });
                 objectCache.put(objectKey, buf[0]);
+            } else {
+                counters.increment(Counters.Key.objectCacheHit);
             }
 
             mapMetadata(domain, volume, blobName, om -> {

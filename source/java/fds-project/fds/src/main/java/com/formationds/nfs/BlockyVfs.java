@@ -32,9 +32,10 @@ public class BlockyVfs implements VirtualFileSystem {
     private SimpleIdMap idMap;
     private ExecutorService executor;
     private Chunker chunker;
+    private final Counters counters;
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver) {
-        AmIo amIo = new AmIo(asyncAm);
+    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters) {
+        AmIo amIo = new AmIo(asyncAm, counters);
         inodeMap = new InodeMap(amIo, resolver);
         allocator = new InodeAllocator(amIo);
         this.exportResolver = resolver;
@@ -42,10 +43,12 @@ public class BlockyVfs implements VirtualFileSystem {
         idMap = new SimpleIdMap();
         chunker = new Chunker(amIo);
         executor = Executors.newCachedThreadPool();
+        this.counters = counters;
     }
 
     @Override
     public int access(Inode inode, int mode) throws IOException {
+        counters.increment(Counters.Key.inodeAccess);
         Optional<InodeMetadata> stat = inodeMap.stat(inode);
         if (!stat.isPresent()) {
             throw new NoEntException();
@@ -55,6 +58,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Inode create(Inode parent, Stat.Type type, String name, Subject subject, int mode) throws IOException {
+        counters.increment(Counters.Key.inodeCreate);
         Optional<InodeMetadata> parentMetadata = inodeMap.stat(parent);
         if (!parentMetadata.isPresent()) {
             throw new NoEntException();
@@ -92,6 +96,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Inode lookup(Inode parent, String path) throws IOException {
+        counters.increment(Counters.Key.lookupFile);
         if (InodeMap.isRoot(parent)) {
             String volumeName = path;
             if (!exportResolver.exists(volumeName)) {
@@ -132,6 +137,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Inode link(Inode parent, Inode link, String path, Subject subject) throws IOException {
+        counters.increment(Counters.Key.link);
         Optional<InodeMetadata> parentMetadata = inodeMap.stat(parent);
         if (!parentMetadata.isPresent()) {
             throw new NoEntException();
@@ -156,6 +162,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public List<DirectoryEntry> list(Inode inode) throws IOException {
+        counters.increment(Counters.Key.listDirectory);
         if (InodeMap.isRoot(inode)) {
             LOG.error("Can't list root inode");
             throw new IOException("Can't list root inode");
@@ -171,6 +178,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException {
+        counters.increment(Counters.Key.mkdir);
         Inode inode = create(parent, Stat.Type.DIRECTORY, path, subject, mode);
         link(inode, inode, ".", subject);
         link(inode, parent, "..", subject);
@@ -179,6 +187,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public boolean move(Inode source, String oldName, Inode destination, String newName) throws IOException {
+        counters.increment(Counters.Key.move);
         Optional<InodeMetadata> sourceMetadata = inodeMap.stat(source);
         if (!sourceMetadata.isPresent()) {
             throw new NoEntException();
@@ -221,6 +230,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public int read(Inode inode, byte[] data, long offset, int count) throws IOException {
+        counters.increment(Counters.Key.read);
         Optional<InodeMetadata> target = inodeMap.stat(inode);
         if (!target.isPresent()) {
             throw new NoEntException();
@@ -229,7 +239,9 @@ public class BlockyVfs implements VirtualFileSystem {
         String volumeName = exportResolver.volumeName(inode.exportIndex());
         String blobName = InodeMap.blobName(inode);
         try {
-            return chunker.read(DOMAIN, volumeName, blobName, exportResolver.objectSize(volumeName), data, offset, count);
+            int read = chunker.read(DOMAIN, volumeName, blobName, exportResolver.objectSize(volumeName), data, offset, count);
+            counters.increment(Counters.Key.bytesRead, read);
+            return read;
         } catch (Exception e) {
             LOG.error("Error reading blob " + blobName, e);
             throw new IOException(e);
@@ -238,6 +250,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public String readlink(Inode inode) throws IOException {
+        counters.increment(Counters.Key.readLink);
         Optional<InodeMetadata> stat = inodeMap.stat(inode);
         if (!stat.isPresent()) {
             throw new NoEntException();
@@ -249,6 +262,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public void remove(Inode parentInode, String path) throws IOException {
+        counters.increment(Counters.Key.remove);
         Optional<InodeMetadata> parent = inodeMap.stat(parentInode);
         if (!parent.isPresent()) {
             throw new NoEntException();
@@ -280,6 +294,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Inode symlink(Inode parent, String path, String link, Subject subject, int mode) throws IOException {
+        counters.increment(Counters.Key.symlink);
         Optional<InodeMetadata> parentMd = inodeMap.stat(parent);
         if (!parentMd.isPresent()) {
             throw new NoEntException();
@@ -293,6 +308,8 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+        counters.increment(Counters.Key.write);
+        counters.increment(Counters.Key.bytesWritten, count);
         InodeMetadata updated = inodeMap.write(inode, data, offset, count);
         inodeIndex.index(inode.exportIndex(), updated);
         return new WriteResult(stabilityLevel, Math.max(data.length, count));
@@ -305,6 +322,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public Stat getattr(Inode inode) throws IOException {
+        counters.increment(Counters.Key.getAttr);
         if (inodeMap.isRoot(inode)) {
             return InodeMap.ROOT_METADATA.asStat(inode.exportIndex());
         }
@@ -318,6 +336,7 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public void setattr(Inode inode, Stat stat) throws IOException {
+        counters.increment(Counters.Key.setAttr);
         Optional<InodeMetadata> metadata = inodeMap.stat(inode);
         if (!metadata.isPresent()) {
             throw new NoEntException();
