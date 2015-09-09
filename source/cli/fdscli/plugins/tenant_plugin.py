@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 
 from services.tenant_service import TenantService
 import json
@@ -126,7 +126,7 @@ class TenantPlugin( AbstractPlugin):
             return
         
         if len(tenants) == 0:
-            print "\nNo tenancies were found."
+            print("\nNo tenancies were found.")
             return
         
         if args[AbstractPlugin.format_str] == "json":

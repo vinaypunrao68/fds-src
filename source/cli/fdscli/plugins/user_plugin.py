@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 import getpass
 
 from services.users_service import UsersService
@@ -124,7 +124,7 @@ class UserPlugin(AbstractPlugin):
             return
         
         if len(users) == 0:
-            print "\nNo users found in the system."
+            print("\nNo users found in the system.")
             return
         
         if args[AbstractPlugin.format_str] == "json":
@@ -188,7 +188,7 @@ class UserPlugin(AbstractPlugin):
         response = self.get_user_service().change_password(user.id, user)
         
         if not isinstance( response, FdsError ):
-            print "\nPassword changed successfully."
+            print("\nPassword changed successfully.")
 
             
     def reissue_token(self, args):
@@ -199,4 +199,4 @@ class UserPlugin(AbstractPlugin):
         response = self.get_user_service().reissue_user_token(args[AbstractPlugin.user_id_str])
         
         if not isinstance( response, FdsError ):
-            print "\nToken re-issued successfully."
+            print("\nToken re-issued successfully.")

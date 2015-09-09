@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 
 from utils.converters.admin.user_converter import UserConverter
 from model.fds_error import FdsError

@@ -132,26 +132,13 @@ class fds_log {
               bool record);
 
   public:
-    /*
-     * New log with all defaults.
-     */
-    fds_log();
-    /*
-     * Constructs a new log with the file name and
-     * all other defaults.
-     */
-    explicit fds_log(const std::string& logfile);
+
     /*
      * Constructs new log in specific location.
      */
-    fds_log(const std::string& logfile,
-            const std::string& logloc);
-    /*
-     * Constructs new log in specific location.
-     */
-    fds_log(const std::string& logfile,
-            const std::string& logloc,
-            severity_level level);
+    explicit fds_log(const std::string& logfile = "fds",
+                     const std::string& logloc  = "",
+                     severity_level level       = normal);
 
     ~fds_log();
 
