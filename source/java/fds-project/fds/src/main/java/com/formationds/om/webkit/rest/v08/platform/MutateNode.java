@@ -119,7 +119,7 @@ public class MutateNode implements RequestHandler {
         else
         {
         	logger.debug("Request to start node, uuid:" + nodeUuid);
-        	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+        	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList, true));
         	
         	if( status != 0 )
             {

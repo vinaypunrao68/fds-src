@@ -1198,7 +1198,7 @@ OM_PmAgent::send_add_service
     if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
         (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
         LOGERROR << "Node is in invalid state";
-        return Error(ERR_NOT_READY);
+        return Error(ERR_INVALID_ARG);
     }
 
     bool add_sm = false;
@@ -1357,12 +1357,19 @@ OM_PmAgent::send_start_service
     (
     const fpi::SvcUuid svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
-    bool domainRestart
+    bool domainRestart, // set if the domain is being restarted
+    bool startNode      // set if the call is from a req to start all services on node
     )
 {
     TRACEFUNC;
     Error err(ERR_OK);
 
+    kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
+
+    if (!configDB->nodeExists(get_uuid())) {
+        LOGDEBUG << "Attempting to start a node that has not been added!";
+        return Error(ERR_INVALID_ARG);
+    }
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     // If the domain is down, check if the domainStart flag is set.
@@ -1374,7 +1381,6 @@ OM_PmAgent::send_start_service
         LOGERROR << "Cannot start any service when domain is down";
         return ERR_INVALID_ARG;
     }
-    kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
 
     fds_mutex::scoped_lock l(dbNodeInfoLock);
 
@@ -1402,6 +1408,9 @@ OM_PmAgent::send_start_service
                          << std::dec
                          << " will transition to STANDBY";
                 return Error(ERR_OK);
+            } else if (!startNode) {
+                    LOGERROR<<"Cannot start service when node is down";
+                    return Error(ERR_INVALID_ARG);
             }
         } else {
             LOGERROR <<"No node services found in configDB, returning..";
@@ -1536,6 +1545,10 @@ OM_PmAgent::send_stop_service
 
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
+    if (!configDB->nodeExists(get_uuid())) {
+        LOGDEBUG << "Attempting to shutdown node that has not been added!";
+        return Error(ERR_INVALID_ARG);
+    }
     // Corner case: shutting down a node with no associated services
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Standby) {
         LOGDEBUG << "No services present to stop, setting node to down";
@@ -1584,7 +1597,7 @@ OM_PmAgent::send_stop_service
             return Error(ERR_OK);
         } else {
             // Removing a node that is already down
-            LOGDEBUG << "No services present to stop, node is down, return OK";
+            LOGDEBUG << "No services present to stop, node is down, no action taken";
             return Error(ERR_OK);
         }
 
@@ -1759,11 +1772,9 @@ OM_PmAgent::send_remove_service
     }
     else
     {
-        // There are 3 possibilities of the source action at this point:
+        // There are 2 possibilities of the source action at this point:
         // 1. Node is shutdown and being removed:VALID
-        // 2. The last service on the node(AM/DM/SM) has been
-        //    stopped(causing the node to go down) and that svc is being removed:VALID
-        // 3. Attempt to remove "a" service on a shutdown node/domain:INVALID
+        // 2. Attempt to remove "a" service on a shutdown node/domain:INVALID
         // The following logic tries to filter the valid/invalid actions
 
         std::vector<fpi::SvcInfo> existingSvcs;
@@ -1794,7 +1805,7 @@ OM_PmAgent::send_remove_service
 
             // The logic here being that if the number of services
             // being requested to be removed is the same as the #
-            // present for the node, the scenario is (1) or (2)
+            // present for the node, the scenario is (1)
             if (removeSvcCount != presentSvcCount) {
                 LOGDEBUG <<"Remove count:" << removeSvcCount << " Present count:" << presentSvcCount;
                 LOGERROR << "Attempting to remove a service on a node that is not up";
@@ -2268,7 +2279,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
             {
                 // Since these are known services, we should not need
                 // to add service. Do only start
-                agent->send_start_service(svcUuid, svcInfoList, false);
+                agent->send_start_service(svcUuid, svcInfoList, false, true);
             }
         }
     }
@@ -2618,7 +2629,8 @@ om_prepare_services_start
         // Now start the services
         err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_start_service(pmSvcUuid,
                                                                        svcInfoList,
-                                                                       false);
+                                                                       false,
+                                                                       true);
         if (err != ERR_OK)
             LOGNOTIFY << "Starting of services in domain failed";
     }
@@ -2707,7 +2719,8 @@ OM_NodeContainer::om_start_service
     (
     const fpi::SvcUuid& svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
-    bool domainRestart
+    bool domainRestart,
+    bool startNode
     )
 {
     TRACEFUNC;
@@ -2726,7 +2739,7 @@ OM_NodeContainer::om_start_service
        return Error(ERR_NOT_FOUND);
     }
 
-    return agent->send_start_service(svc_uuid, svcInfos, domainRestart);
+    return agent->send_start_service(svc_uuid, svcInfos, domainRestart, startNode);
 }
 
 /**

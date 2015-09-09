@@ -232,7 +232,7 @@ class OM_PmAgent : public OM_NodeAgent
      * Send 'start service' message to Platform
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
-                             bool domainRestart);
+                             bool domainRestart, bool startNode);
     /**
      * Send 'stop service' message to Platform
      */
@@ -653,7 +653,8 @@ class OM_NodeContainer : public DomainContainer
 
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
                                    std::vector<fpi::SvcInfo> svcInfos,
-                                   bool domainRestart);
+                                   bool domainRestart,
+                                   bool startNode);
 
     virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
                                   std::vector<fpi::SvcInfo> svcInfos,

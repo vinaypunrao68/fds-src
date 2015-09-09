@@ -459,13 +459,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
             std::vector<fpi::SvcInfo> svcInfos = start_svc_msg->services;
 
+            bool startNode = start_svc_msg->isActionNodeStart;
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
                 }
             }
 
-            err = local->om_start_service(pmUuid, svcInfos, false);
+            err = local->om_start_service(pmUuid, svcInfos, false, startNode);
         }
         catch(...){
             LOGERROR <<"Orch Mgr encountered exception while "
