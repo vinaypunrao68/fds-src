@@ -3,6 +3,7 @@ package com.formationds.om.webkit.rest.v08.metrics;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.net.URLDecoder;
+import java.util.Base64;
 import java.util.Map;
 
 import org.apache.commons.httpclient.HttpClient;
@@ -51,7 +52,7 @@ public class MessageBusForwarder implements RequestHandler {
 				break;
 		}
 		
-		method.setRequestHeader( "Authorization", request.getHeader( "Authorization") );
+		method.setRequestHeader( "Authorization", new String( Base64.getEncoder().encode( "admin:admin".getBytes() ) ) );
 		method.setRequestHeader( "Content-Type", "application/json" );
 		
 		int statusCode = client.executeMethod( method );
