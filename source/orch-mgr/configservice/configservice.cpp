@@ -466,7 +466,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 }
             }
 
-            err = local->om_start_service(pmUuid, svcInfos, false, startNode);
+            bool domainRestart = false;
+            err = local->om_start_service(pmUuid, svcInfos, domainRestart, startNode);
         }
         catch(...){
             LOGERROR <<"Orch Mgr encountered exception while "

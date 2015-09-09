@@ -1372,7 +1372,7 @@ OM_PmAgent::send_start_service
     }
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
-    // If the domain is down, check if the domainStart flag is set.
+    // If the domain is down, check if the domainRestart flag is set.
     // This flag will be set when we come through the om_startup_domain
     // code; implying that we are trying to start up a previously down
     // domain. Only in this case, we will allow services to be started
@@ -1888,7 +1888,6 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    // If there are no services present
     if (configDB->getNodeServices(nodeUuid, services))
     {
         if ((services.sm.uuid_get_val() == 0) &&
