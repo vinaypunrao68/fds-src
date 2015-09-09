@@ -294,11 +294,6 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        # Prevent scenario where we try to take down/verify a node that was never online
-                        if not hasattr(node, 'selected') or node.selected is False:
-                            log.info("Selected node {} was never started. Ignoring "
-                                     "command to remove/kill/uninstall".format(node.nd_conf_dict['node-name']))
-                            continue
 
                         if (action.count("remove") > 0):
                             suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
