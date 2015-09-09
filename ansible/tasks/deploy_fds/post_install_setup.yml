@@ -33,7 +33,6 @@
     with_items:
         - fds
         - platform
-        - orch_mgr
         - redis
     tags:
         - post-install
@@ -43,6 +42,16 @@
     template:
         src=../../source/config/etc/formation_env.j2
         dest=/fds/etc/formation_env
+        owner=root
+        group=root
+        mode=0754
+    tags:
+        - post-install
+
+-   name: render /fds/etc/log4j2.xml config file
+    template:
+        src=../../source/config/etc/log4j2.xml.j2
+        dest=/fds/etc/log4j2.xml
         owner=root
         group=root
         mode=0754

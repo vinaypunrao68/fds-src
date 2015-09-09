@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Properties>
+        <property name="fds.service.name">${sys:fds.service.name}</property>
+        <!--<Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c{2.} %t - %m%n</Property> -->
+        <Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c %t - %m%n</Property>
+        <property name="fds.logs">${env:fds_root}/var/logs</property>
+    </Properties>
+    <Appenders>
+        <RollingRandomAccessFile name="fds-${fds.service.name}"
+                                 fileName="${fds.logs}/${fds.service.name}.log"
+                                 filePattern="${fds.logs}/$${date:yyyy-MM}/${fds.service.name}-%d{yyyy-MM-dd}-%i.log.gz"
+                                 immediateFlush="true"
+                                 append="true">
+
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+
+            <!-- Current code uses 'yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ' date format which
+                 is ISO8601 plus greater precision and including timezone offset.
+                 docs claim using a pattern instead of the predefined defaults (ISO8601)
+                 negatively impact performance.  Something to consider if logging is
+                 ever identified as a bottleneck.-->
+            <PatternLayout pattern="${fds.pattern}"/>
+        </RollingRandomAccessFile>
+
+        <RollingRandomAccessFile name="jsvclayer"
+                                 fileName="${fds.logs}/jsvclayer.log"
+                                 filePattern="${fds.logs}/$${date:yyyy-MM}/jsvclayer-%d{yyyy-MM-dd}-%i.log.gz"
+                                 immediateFlush="true"
+                                 append="true">
+
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+
+            <!-- Current code uses 'yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ' date format which
+                 is ISO8601 plus greater precision and including timezone offset.
+                 docs claim using a pattern instead of the predefined defaults (ISO8601)
+                 negatively impact performance.  Something to consider if logging is
+                 ever identified as a bottleneck.-->
+            <PatternLayout pattern="${fds.pattern}"/>
+        </RollingRandomAccessFile>
+
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p [%t] %C{2} (%F:%L) - %m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="FATAL">
+            <AppenderRef ref="console"/>
+        </Root>
+        <Logger name="com.formationds" level="trace" additivity="false">
+            <AppenderRef ref="fds-${fds.service.name}"/>
+        </Logger>
+        <Logger name="com.formationds.platform" level="trace" additivity="false">
+            <AppenderRef ref="jsvclayer"/>
+        </Logger>
+    </Loggers>
+</Configuration>
+

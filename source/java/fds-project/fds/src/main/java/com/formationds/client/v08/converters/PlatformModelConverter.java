@@ -129,7 +129,7 @@ public class PlatformModelConverter
   {
 
     Long extId = nodeInfoType.getService_uuid( );
-    int extControlPort = nodeInfoType.getControl_port( );
+    int extControlPort = nodeInfoType.getData_port( );
     Optional<ServiceType> optType
             = convertToExternalServiceType( nodeInfoType.getNode_type( ) );
     

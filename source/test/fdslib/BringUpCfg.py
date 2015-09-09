@@ -14,13 +14,15 @@ import FdsSetup as inst
 import socket
 import requests
 from requests.adapters import HTTPAdapter
+from retry.api import retry_call
+import TestUtils
 
 ###
 # Base config class, which is key/value dictionary.
 #
 class FdsConfig(object):
-    def __init__(self, items, verbose):
-        self.nd_verbose   = verbose
+    def __init__(self, items, cmd_line_options):
+        self.nd_cmd_line_options   = cmd_line_options
         self.nd_conf_dict = {}
         if items is not None:
             for it in items:
@@ -30,18 +32,18 @@ class FdsConfig(object):
         return self.nd_conf_dict[key]
 
     def debug_print(self, mesg):
-        if self.nd_verbose['verbose'] or self.nd_verbose['dryrun']:
+        if self.nd_cmd_line_options['verbose'] or self.nd_cmd_line_options['dryrun']:
             print mesg
-        return self.nd_verbose['dryrun']
+        return self.nd_cmd_line_options['dryrun']
 
 ###
 # Handle node config section
 #
 class FdsNodeConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
+    def __init__(self, name, items, cmd_line_options, nodeId = 0, rt_env = None):
         log = logging.getLogger(self.__class__.__name__ + '.' + '__init__')
 
-        super(FdsNodeConfig, self).__init__(items, verbose)
+        super(FdsNodeConfig, self).__init__(items, cmd_line_options)
         self.nd_conf_dict['node-name'] = name
         self.nd_host  = None
         self.nd_agent = None
@@ -50,6 +52,7 @@ class FdsNodeConfig(FdsConfig):
         self.nd_assigned_name = None
         self.nd_uuid = None
         self.nd_services = None
+        self.rt_env = rt_env
 
         # Is the node local or remote?
         if 'ip' not in self.nd_conf_dict:
@@ -62,11 +65,27 @@ class FdsNodeConfig(FdsConfig):
             else:
                 hostName = self.nd_conf_dict['ip']
 
-            if (hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1'):
+            if (cmd_line_options['install'] is None or cmd_line_options['install'] == False) and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
                 self.nd_local = True
-            else:
+
+            elif cmd_line_options['install']== True: #it's definately remote env as command line argument was passed
                 # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
+
+                if cmd_line_options['inventory_file']is None:
+                    log.error("Need to provide inventory file name to run tests against deployed nodes")
+                    sys.exit(1)
+
+                ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
+                if (ips_array.__len__() < (nodeId+1)):
+                    #TODO POOJA: for now just give warning to user, instead of raising exception
+                    log.warning ("Number of ips give in inventory are less than nodes in cfg file")
+
+                if 'om' in self.nd_conf_dict:
+                    #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
+                    self.nd_conf_dict['ip'] = ips_array[nodeId]
+                else:
+                    self.nd_conf_dict['ip'] = ips_array[nodeId]
 
                 # In this case, the deployment scripts always sets "/fds" as fds_root
                 # regardless of test configuration.
@@ -111,10 +130,10 @@ class FdsNodeConfig(FdsConfig):
         # Create the "node agent", the object used to execute shell commands on the node.
         if env.env_test_harness:
             if self.nd_local:
-                self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_verbose, install=env.env_install,
+                self.nd_agent = inst.FdsLocalEnv(root, verbose=self.nd_cmd_line_options, install=env.env_install,
                                                  test_harness=env.env_test_harness)
             else:
-                self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+                self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_cmd_line_options, test_harness=env.env_test_harness)
 
             # Set the default user ID from the Environment.
             self.nd_agent.env_user = env.env_user
@@ -131,7 +150,7 @@ class FdsNodeConfig(FdsConfig):
             if 'sudo_password' in self.nd_conf_dict:
                 self.nd_agent.env_sudo_password = self.nd_conf_dict['sudo_password']
         else:
-            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_verbose, test_harness=env.env_test_harness)
+            self.nd_agent = inst.FdsRmtEnv(root, verbose=self.nd_cmd_line_options, test_harness=env.env_test_harness)
 
             self.nd_agent.env_user = env.env_user
             self.nd_agent.env_password = env.env_password
@@ -424,13 +443,41 @@ class FdsNodeConfig(FdsConfig):
     # Capture the node's assigned name and UUID.
     #
     def nd_populate_metadata(self, om_node):
-        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
 
-        if 'fds_port' in self.nd_conf_dict:
-            port = self.nd_conf_dict['fds_port']
-        else:
-            port = 7000  # PM default.
+         if 'fds_port' in self.nd_conf_dict:
+             port = self.nd_conf_dict['fds_port']
+         else:
+             port = 7000  # PM default.
 
+         try:
+            status, stdout =  retry_call(self._findNodeUuid,
+                             fkwargs={"om_node" : om_node, "pm_port" : port},
+                             tries=10,
+                             delay=1,
+                             max_delay=10,
+                             jitter=(1, 3),
+                             logger=log)
+         except  Exception, e:
+            log.exception(e)
+            return 1
+
+         status = 0
+         if (self.nd_uuid is None):
+             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+             log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+             log.error("Results from service list:\n%s." % stdout)
+             status = -1
+         else:
+            log.debug("Node %s has assigned name %s and UUID %s." %
+                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+
+         return status
+
+     # ##
+     # Find the node uuid for the current node.
+     # Raises an exception if not found.  Intended to be used in a retry
+    def _findNodeUuid(self, om_node, pm_port=7000):
         # From the listServices output we can determine node name
         # and node UUID.
         # Figure out the platform uuid.  Platform has 'pm' as the name
@@ -448,7 +495,7 @@ class FdsNodeConfig(FdsConfig):
         # Group 11 = Data port
         # Group 12 = Migration port
         # TODO(brian): uncomment this regex when we start capturing node root correctly
-        #svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
+        # svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
         #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
         #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
         # Use this regex for now
@@ -475,24 +522,16 @@ class FdsNodeConfig(FdsConfig):
                     assigned_name = res.group(6)
                     # Ports
                     readPort = int(res.group(11))
-                    if assigned_name.lower() == 'pm' and readPort == int(port):
+                    if assigned_name.lower() == 'pm' and readPort == int(pm_port):
                         self.nd_assigned_name = assigned_name
                         self.nd_uuid = assigned_uuid
                         break
 
-            if (self.nd_uuid is None):
-                log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
-                log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
-                log.error("Results from service list:\n%s." % stdout)
-                status = -1
-            else:
-                log.debug("Node %s has assigned name %s and UUID %s." %
-                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
-        else:
-            log.error("status = %s" % status)
+        if self.nd_uuid is None:
             log.error("Results from service list:\n%s." % stdout)
+            raise Exception("Failed to find node %s." % self.nd_conf_dict["node-name"])
 
-        return status
+        return status,stdout
 
     ###
     # Kill all fds daemons
@@ -621,8 +660,8 @@ class FdsNodeConfig(FdsConfig):
 # Handle AM config section
 #
 class FdsAMConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsAMConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsAMConfig, self).__init__(items, cmd_line_options)
         self.nd_am_node = None
         self.nd_conf_dict['am-name'] = name
 
@@ -656,8 +695,8 @@ class FdsAMConfig(FdsConfig):
 # Handle Volume config section
 #
 class FdsVolConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsVolConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsVolConfig, self).__init__(items, cmd_line_options)
         self.nd_am_conf = None
         self.nd_am_node = None
         self.nd_conf_dict['vol-name'] = name
@@ -730,8 +769,8 @@ class FdsVolConfig(FdsConfig):
 # Handle Volume Policy Config
 #
 class FdsVolPolicyConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsVolPolicyConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsVolPolicyConfig, self).__init__(items, cmd_line_options)
         self.nd_conf_dict['pol-name'] = name
 
     def policy_apply_cfg(self, cli):
@@ -757,15 +796,15 @@ class FdsVolPolicyConfig(FdsConfig):
 # Handler user setup
 #
 class FdsUserConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsUserConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsUserConfig, self).__init__(items, cmd_line_options)
 
 ###
 # Handle cli related
 #
 class FdsCliConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsCliConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsCliConfig, self).__init__(items, cmd_line_options)
         self.nd_om_node = None
         self.nd_conf_dict['cli-name'] = name
 
@@ -800,8 +839,8 @@ class FdsCliConfig(FdsConfig):
 # Run a specific test step
 #
 class FdsScenarioConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsScenarioConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsScenarioConfig, self).__init__(items, cmd_line_options)
         self.nd_conf_dict['scenario-name'] = name
         self.cfg_sect_user    = []
         self.cfg_sect_nodes   = []
@@ -821,7 +860,7 @@ class FdsScenarioConfig(FdsConfig):
         if 'wait_completion' in self.nd_conf_dict:
             wait  = self.nd_conf_dict['wait_completion']
         else:
-            wait  = 'false' 
+            wait  = 'false'
         if re.match('\[node.+\]', script) != None:
             for s in self.cfg_sect_nodes:
                 if '[' + s.nd_conf_dict['node-name'] + ']' == script:
@@ -853,7 +892,7 @@ class FdsScenarioConfig(FdsConfig):
                 script_args = self.nd_conf_dict['script_args']
             else:
                 script_args = ''
-            print "Running external script: ", script, script_args 
+            print "Running external script: ", script, script_args
             args = script_args.split()
             p1 = subprocess.Popen([script] + args)
             if wait == 'true':
@@ -873,13 +912,13 @@ class FdsScenarioConfig(FdsConfig):
         self.cfg_om           = om
 
 class FdsIOBlockConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsIOBlockConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsIOBlockConfig, self).__init__(items, cmd_line_options)
         self.nd_conf_dict['io-block-name'] = name
 
 class FdsDatagenConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsDatagenConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsDatagenConfig, self).__init__(items, cmd_line_options)
         self.nd_conf_dict['datagen-name'] = name
 
     def dg_parse_blocks(self):
@@ -893,17 +932,18 @@ class FdsDatagenConfig(FdsConfig):
 # Handle install section
 #
 class FdsPkgInstallConfig(FdsConfig):
-    def __init__(self, name, items, verbose):
-        super(FdsPkgInstallConfig, self).__init__(items, verbose)
+    def __init__(self, name, items, cmd_line_options):
+        super(FdsPkgInstallConfig, self).__init__(items, cmd_line_options)
 
 ###
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False, dryrun = False):
+    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, rt_env=None):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
+        self.cfg_install   = []
         self.cfg_am        = []
         self.cfg_user      = []
         self.cfg_nodes     = []
@@ -912,16 +952,20 @@ class FdsConfigFile(object):
         self.cfg_scenarios = []
         self.cfg_io_blocks = []
         self.cfg_datagen   = []
-        self.cfg_install   = []
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = None
         self.cfg_localHost = None
+        self.inventory = inventory_file
+        self.cfg_is_fds_installed = install
+        self.rt_env = rt_env
 
     def config_parse(self):
-        verbose = {
+        cmd_line_options = {
             'verbose': self.cfg_verbose,
-            'dryrun' : self.cfg_dryrun
+            'dryrun' : self.cfg_dryrun,
+            'install': self.cfg_is_fds_installed,
+            'inventory_file' : self.inventory
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
@@ -933,21 +977,21 @@ class FdsConfigFile(object):
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
-                self.cfg_user.append(FdsUserConfig('user', items, verbose))
+                self.cfg_user.append(FdsUserConfig('user', items, cmd_line_options))
 
             elif re.match('node', section) != None:
                 n = None
                 items_d = dict(items)
                 if 'enable' in items_d:
                     if items_d['enable'] == 'true':
-                        n = FdsNodeConfig(section, items, verbose)
+                        n = FdsNodeConfig(section, items, cmd_line_options, nodeID, self.rt_env)
                 else:
                     # Store OM ip address to pass to PMs during scenarios
                     if 'om' in items_d:
                         if items_d['om'] == 'true':
                             self.cfg_om = items_d['ip']
 
-                    n = FdsNodeConfig(section, items, verbose)
+                    n = FdsNodeConfig(section, items, cmd_line_options, nodeID, self.rt_env)
 
                 if n is not None:
                     n.nd_nodeID = nodeID
@@ -961,26 +1005,26 @@ class FdsConfigFile(object):
                     nodeID = nodeID + 1
 
             elif (re.match('sh', section) != None) or (re.match('am', section) != None):
-                self.cfg_am.append(FdsAMConfig(section, items, verbose))
+                self.cfg_am.append(FdsAMConfig(section, items, cmd_line_options))
 
             elif re.match('policy', section) != None:
-                self.cfg_vol_pol.append(FdsVolPolicyConfig(section, items, verbose))
+                self.cfg_vol_pol.append(FdsVolPolicyConfig(section, items, cmd_line_options))
 
             elif re.match('volume', section) != None:
-                self.cfg_volumes.append(FdsVolConfig(section, items, verbose))
+                self.cfg_volumes.append(FdsVolConfig(section, items, cmd_line_options))
             elif re.match('scenario', section)!= None:
-                self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
+                self.cfg_scenarios.append(FdsScenarioConfig(section, items, cmd_line_options))
             elif re.match('io_block', section) != None:
-                self.cfg_io_blocks.append(FdsIOBlockConfig(section, items, verbose))
+                self.cfg_io_blocks.append(FdsIOBlockConfig(section, items, cmd_line_options))
             elif re.match('datagen', section) != None:
-                self.cfg_datagen.append(FdsDatagenConfig(section, items, verbose))
+                self.cfg_datagen.append(FdsDatagenConfig(section, items, cmd_line_options))
             elif re.match('install', section) != None:
-                self.cfg_install.append(FdsPkgInstallConfig(section, items, verbose))
+                self.cfg_install.append(FdsPkgInstallConfig(section, items, cmd_line_options))
             else:
                 print "Unknown section", section
 
         if self.cfg_cli is None:
-            self.cfg_cli = FdsCliConfig("fdscli", None, verbose)
+            self.cfg_cli = FdsCliConfig("fdscli", None, cmd_line_options)
             self.cfg_cli.bind_to_om(self.cfg_nodes)
 
         for am in self.cfg_am:
@@ -1001,7 +1045,7 @@ class FdsConfigFile(object):
         # Generate a localhost node instance so that we have a
         # node agent to execute commands locally when necessary.
         items = [('enable', True), ('ip','localhost'), ('fds_root', '/fds')]
-        self.cfg_localhost = FdsNodeConfig("localhost", items, verbose)
+        self.cfg_localhost = FdsNodeConfig("localhost", items, cmd_line_options, rt_env=self.rt_env)
 
 
 ###
@@ -1020,7 +1064,7 @@ class FdsConfigRun(object):
             self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
-        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file, self.rt_env )
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.
@@ -1040,10 +1084,10 @@ class FdsConfigRun(object):
                     self.rt_env.env_sudo_password = usr.get_config_val('sudo_password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
-        
+
         if hasattr (opt, 'target') and opt.target:
             print "Target specified.  Applying commands against target: {}".format (opt.target)
-            self.rt_obj.cfg_nodes  = [node for node in self.rt_obj.cfg_nodes 
+            self.rt_obj.cfg_nodes  = [node for node in self.rt_obj.cfg_nodes
                 if node.nd_conf_dict['node-name'] == opt.target]
             if len (self.rt_obj.cfg_nodes) is 0:
                 print "No matching nodes for the target '%s'" %(opt.target)
