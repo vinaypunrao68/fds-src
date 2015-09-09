@@ -50,6 +50,17 @@ public class GetUser implements RequestHandler{
     	return externalUser;
     }
     
+    public User getUser( String username ) {
+    	
+    	logger.debug( "Trying to find user: {}.", username );
+    	
+    	com.formationds.apis.User internalUser = getConfigApi().getUser( username );
+    	
+    	User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
+    	
+    	return externalUser;
+    }
+    
     private ConfigurationApi getConfigApi(){
     	
     	if ( configApi == null ){
