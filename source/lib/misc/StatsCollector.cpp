@@ -376,6 +376,10 @@ void StatsCollector::sendStatStream() {
         DmtColumnPtr nodes;
         try {
             nodes = svcMgr_->getDMTNodesForVolume(cit->first);
+            if (nodes == nullptr) {
+                LOGERROR << "Invalid DMT for volume id " << cit->first;
+                return;
+            }
         } catch (const std::exception& e) {
             LOGERROR << "Stats Collector encountered exception during sending stats :: "
                      << e.what();
