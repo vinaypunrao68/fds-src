@@ -913,16 +913,14 @@ class OM_NodeDomainMod : public Module
                                      const FdspNodeRegPtr msg );
 
     void setupNewNode(const NodeUuid&      uuid,
-                       const FdspNodeRegPtr msg,
-                       NodeAgent::pointer   newNode,
-                      fds_uint32_t delayTime,
+                      const FdspNodeRegPtr msg,
+                      NodeAgent::pointer   newNode,
                       bool fPrevRegistered);
 
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services( const NodeUuid& node_uuid,
-                                      fds_uint32_t delayTime );
+    void om_activate_known_services(const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service
