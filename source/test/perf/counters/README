@@ -6,6 +6,10 @@ Prerequisites:
 You need to have the python fdslib built, 
 since the monitor still use thrift to get the counters from FDS
 
+Also you'll need pika:
+
+pip install pika==0.9.8
+
 Usage:
 
 From source/test/perf/counters
