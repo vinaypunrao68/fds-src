@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@' },
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@', lineType: '@' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -37,6 +37,10 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             
             if ( !angular.isDefined( $scope.axisColor ) ){
                 $scope.axisColor = 'black';
+            }
+            
+            if ( !angular.isDefined( $scope.lineType ) ){
+                $scope.lineType = 'basis';
             }
             
             var el = d3.select( $element[0] ).select( '.line-chart' );
@@ -208,7 +212,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y );
                     })
-                    .interpolate( 'basis' );
+                    .interpolate( $scope.lineType );
                 
                 $svg.selectAll( '.line' )
 //                    .transition()

@@ -4,9 +4,9 @@
     </div>
     
     <button class="btn btn-primary skinny" ng-click="start()">Start Profiling</button>
-    <button class="btn btn-primary skinny" ng-click="getMessages()">Get Messages</button>
+    <button class="btn btn-primary skinny" ng-click="stop()">Stop Profiling</button>
     
-    <div>
-        <line-chart data="listVolStats" colors="listVolColors" y-axis-label-function="listVolXLabels" axis-color="#A0A0A0" line-colors="listVolLineColors" domain-labels="listVolLabels" background-color="#f7f7f7"></line-chart>
+    <div style="width: 650px; height: 400px;margin-top: 24px;">
+        <line-chart data="listVolStats" colors="listVolColors" y-axis-label-function="listVolXLabels" axis-color="#A0A0A0" line-colors="listVolLineColors" domain-labels="listVolLabels" background-color="#f7f7f7" line-type="linear"></line-chart>
     </div>
 </div>

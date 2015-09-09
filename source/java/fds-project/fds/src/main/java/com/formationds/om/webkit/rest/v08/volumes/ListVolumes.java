@@ -10,7 +10,7 @@ import com.formationds.client.v08.model.stats.ContextType;
 import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.webkit.rest.v08.metrics.StatsStream;
+import com.formationds.om.webkit.rest.v08.metrics.StatsHelper;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -99,7 +99,7 @@ public class ListVolumes implements RequestHandler {
         	String caller = stackElems[2].getClassName();
         	
         	if ( !caller.equals( GetVolume.class.getName() ) ){
-        		StatsStream.getInstance().getConnection().publishStatistic( data );
+        		StatsHelper.getInstance().getConnection().publishStatistic( data );
         	}
         }
         catch( Exception e ){
