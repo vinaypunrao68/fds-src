@@ -634,13 +634,11 @@ ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaDa
 
     fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
-        if (assoc_entry[i].ref_cnt > 0UL) {
-            fds_verify(assoc_entry[i].vol_uuid != 0);
-            fpi::MetaDataVolumeAssoc volAssoc;
-            volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;
-            volAssoc.volumeRefCnt = assoc_entry[i].ref_cnt;
-            objMetaData.objectVolumeAssoc.push_back(volAssoc);
-        }
+        fds_verify(assoc_entry[i].vol_uuid != 0);
+        fpi::MetaDataVolumeAssoc volAssoc;
+        volAssoc.volumeAssoc = assoc_entry[i].vol_uuid;
+        volAssoc.volumeRefCnt = assoc_entry[i].ref_cnt;
+        objMetaData.objectVolumeAssoc.push_back(volAssoc);
     }
 }
 
