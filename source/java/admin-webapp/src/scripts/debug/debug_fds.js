@@ -144,7 +144,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
             encoding: 'auto'
         };
         
-        makeBusCall( 'POST', route, data ).then( handleStats );
+        makeBusCall( 'POST', route, data ).then( handleStats, function(){} );
     };
     
     $scope.$on("$destroy", $scope.stop );
