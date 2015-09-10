@@ -8,14 +8,15 @@ sys.path.append("../common")
 import utils
 
 class RabbitMQClient(object):
-    def __init__(self, period):
+
+    def __init__(self, host='localhost', period=5):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-               'localhost'))
+               host))
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue='stats.work')
         self.period = period
-    # service, node
-    # name, volume_id, cntr_type
+
+    # publish a data point
     def publish(self, name, period, value, volume_id, service, node, cntr_type, timestamp):
         if not 'min_value' in vars(self):
             self.min_value = value
@@ -48,14 +49,16 @@ class RabbitMQClient(object):
         self.channel.basic_publish(exchange='',
                       routing_key='stats.work',
                       body=json_data)
-        print " [x] Sent ->", json_data
+        # print " [x] Sent ->", json_data
+
+    # close connection    
     def close(self):
         self.connection.close()
+
+    # write a series of metrics    
     def write_records(self, series, records):
         # series: <service>.<node>
         service, node = series.split('.', 1)
-        print service, node
-        print series, records
         # records: lost of (name.<volume_id>[.<cntr_type>], value)
         cols, vals = [list(x) for x in  zip(*records)]
         vals = [utils.dyn_cast(x) for x in vals]
@@ -64,7 +67,6 @@ class RabbitMQClient(object):
             m = re.match("(\w*)\.(\w*)(?:\.(\w*))?", cols[i])
             if m != None:
                 tokens = m.groups()
-                print cols[i], tokens
                 name = tokens[0]
                 volume_id = int(tokens[1])
                 cntr_type = tokens[2]
@@ -73,7 +75,10 @@ class RabbitMQClient(object):
         
 
 def main():
-    client = RabbitMQClient(5)
+
+    # testing stuff 
+
+    client = RabbitMQClient()
     client.publish("AM_GET_REQ", 5, 33300, 22, "am", "mynode", "count", int(round(time.time() * 1000)))
     series = "am.10.1.10.34"
     records = [ 
