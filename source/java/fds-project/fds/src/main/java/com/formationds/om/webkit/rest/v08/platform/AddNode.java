@@ -102,7 +102,7 @@ public class AddNode
         else
         {   
             // Now that we have added the services, go start them
-            status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList));
+            status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList, true));
        
             if( status != 0 )
             {
