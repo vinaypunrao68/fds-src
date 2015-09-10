@@ -1,0 +1,35 @@
+How to use the counter monitor
+-----------------------------
+
+Prerequisites: 
+
+You need to have the python fdslib built, 
+since the monitor still use thrift to get the counters from FDS
+
+Also you'll need pika:
+
+pip install pika==0.9.8
+
+Usage:
+
+From source/test/perf/counters
+
+To push to a rabbitmq server
+
+./counters.py --period PERIOD_IN_SECONDS -H FDS_OM_HOST --rabbitmq-enable --rabbitmq-host RABBITMQ_HOST
+
+
+To push to influxdb
+
+./counters.py -H <FDS OM hostname> --influxdb-enable \
+    --influxdb-enable \
+    --influxdb-host=INFLUXDB_HOST \
+    --influxdb-port=INFLUXDB_PORT \
+    --influxdb-db=INFLUXDB_DB \
+    --influxdb-user=INFLUXDB_USER \
+    --influxdb-password=INFLUXDB_PASSWORD
+
+
+For more options:
+
+./counters.py --help
