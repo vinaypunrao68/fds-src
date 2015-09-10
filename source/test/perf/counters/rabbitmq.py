@@ -17,7 +17,7 @@ class RabbitMQClient(object):
                                                             pika.credentials.PlainCredentials(username, passwd))
                                                         )
         self.channel = self.connection.channel()
-        self.channel.queue_declare(queue='stats.work')
+        self.channel.queue_declare(queue='stats.work',durable=False,auto_delete=True,exclusive=False)
         self.period = period
 
     # publish a data point
@@ -30,8 +30,7 @@ class RabbitMQClient(object):
             self.max_value = value
         else:
             self.max_value = max(value, self.max_value)
-        data = [
-                {
+        data = {
                 "minimumValue"          :   self.min_value, 
                 "maximumValue"          :   self.max_value,
                 "collectionTimeUnit"    :   "SECONDS",
@@ -48,7 +47,7 @@ class RabbitMQClient(object):
                                             ],
                 "reportTime"            :   timestamp
                 }
-        ]
+        
         json_data = json.dumps(data)
         self.channel.basic_publish(exchange='',
                       routing_key='stats.work',
