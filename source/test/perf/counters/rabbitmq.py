@@ -9,9 +9,13 @@ import utils
 
 class RabbitMQClient(object):
 
-    def __init__(self, host='localhost', period=5):
+    def __init__(self, host='localhost', port=5672, username='guest', passwd='guest', period=5):
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-               host))
+                                                        host=host, 
+                                                        port=port, 
+                                                        credentials=
+                                                            pika.credentials.PlainCredentials(username, passwd))
+                                                        )
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue='stats.work')
         self.period = period
