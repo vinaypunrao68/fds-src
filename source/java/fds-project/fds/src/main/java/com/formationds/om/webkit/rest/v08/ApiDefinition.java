@@ -15,7 +15,6 @@ import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
 import com.formationds.om.webkit.rest.v08.metrics.MessageBusForwarder;
 import com.formationds.om.webkit.rest.v08.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.v08.metrics.QueryMetrics;
-import com.formationds.om.webkit.rest.v08.metrics.StatsHelper;
 import com.formationds.om.webkit.rest.v08.metrics.SystemHealthStatus;
 import com.formationds.om.webkit.rest.v08.platform.AddNode;
 import com.formationds.om.webkit.rest.v08.platform.AddService;
@@ -124,13 +123,6 @@ public class ApiDefinition extends AbstractApiDefinition{
     }
     
     private void configureTestSocketEndpoint(){
-    	
-    	// start listening
-    	try {
-			StatsHelper.getInstance();
-		} catch (Exception e) {
-			logger.warn( "Could not connect to stats service yet." );
-		}
     	
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );

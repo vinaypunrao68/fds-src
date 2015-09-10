@@ -2,10 +2,10 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     $scope.stats = [];
     
-    $scope.listVolColors = [ 'blue' ];
-    $scope.listVolLineColor = [ 'black' ];
-    $scope.listVolLabels = [ '15 minutes ago', 'Now' ];
-    $scope.listVolStats = { metadata: [], series: [{ datapoints:[], type: 'LIST_VOLUME_TIME'}]};
+    $scope.colors = [ 'blue' ];
+    $scope.lineColors = [ 'blue' ];
+    $scope.timeLabels = [ '15 minutes ago', 'Now' ];
+    $scope.amPutReqs = { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]};
     
     var pollId = -1;
     var myQueue = '';
@@ -14,14 +14,14 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     var interval = 3;
     
     // duration to show in hours
-    var duration = 0.25;
+    $scope.duration = 0.25;
     
     var initData = function(){
         
-        var points = Math.round( 60*60*duration / interval );
+        var points = Math.round( 60*60*$scope.duration / interval );
         
         for ( var i = 0; i < points; i++ ){
-            $scope.listVolStats.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*duration - (i*interval*1000)), y: 0} );
+            $scope.amPutReqs.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
         }
     };
     
@@ -39,6 +39,11 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         };
         
         return $http( req );
+    };
+    
+    $scope.amPutLabel = function( value ){
+        
+        return value + ' ms';
     };
     
     $scope.start = function(){
@@ -127,39 +132,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     // take the messages and put them in the right stat arrays
     var handleStats = function( response ){
-        
-        var tempStats = { series: [] };
-        tempStats.series = $scope.listVolStats.series;
-        var timeSum = 0;
-        var numListVols = 0;
-        
-        for ( var i = 0; i < response.data.length; i++ ){
-            var data = response.data[i].payload;
-            data = JSON.parse( data );
-            
-            if ( data.metricName === 'LIST_VOLUME_TIME' ){
-                timeSum += data.metricValue;
-                numListVols++;
-            }
-        }
-        
-        if ( numListVols === 0 ){
-            numListVols = 1;
-        }
-        
-        tempStats.series[0].datapoints.push( { x: (new Date()).getTime(), y: timeSum / numListVols } );
-        
-        // get rid of old points.
-        for ( var j = 0; j < tempStats.series[0].datapoints.length; j++ ){
-            
-            var t = tempStats.series[0].datapoints[j].x;
-            
-            if ( t < (new Date()).getTime() - 1000*60*60*duration ){
-                tempStats.series[0].datapoints.splice( j, 1 );
-            }
-        }
-        
-        $scope.listVolStats = tempStats;
+        $scope.$broadcast( 'fds::new_stats', response.data );
     };
     
     $scope.getMessages = function(){

@@ -6,11 +6,8 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Volume;
-import com.formationds.client.v08.model.stats.ContextType;
-import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.webkit.rest.v08.metrics.StatsHelper;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -22,7 +19,6 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,8 +48,6 @@ public class ListVolumes implements RequestHandler {
     public List<Volume> listVolumes() throws Exception {
 
         logger.debug( "Listing all volumes." );
-        
-        Long time = (new Date()).getTime();
 
         String domain = "";
         List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
@@ -82,30 +76,6 @@ public class ListVolumes implements RequestHandler {
 
         logger.debug( "Found {} volumes.", externalVolumes.size() );
 
-        Long now = (new Date()).getTime();
-        Long diff = now - time;
-        
-        StatDataPoint data = new StatDataPoint();
-        data.setCollectionPeriod( diff );
-        data.setContextId( -1L );
-        data.setContextType( ContextType.VOLUME );
-        data.setMetricName( "LIST_VOLUME_TIME" );
-        data.setMetricValue( new Double( diff ) );
-        data.setReportTime( now );
-        
-        try {
-        	
-        	StackTraceElement[] stackElems = Thread.currentThread().getStackTrace();
-        	String caller = stackElems[2].getClassName();
-        	
-        	if ( !caller.equals( GetVolume.class.getName() ) ){
-        		StatsHelper.getInstance().getConnection().publishStatistic( data );
-        	}
-        }
-        catch( Exception e ){
-        	logger.warn( "Could not connect to messaging service." );
-        }
-        
         return externalVolumes;
     }
 
