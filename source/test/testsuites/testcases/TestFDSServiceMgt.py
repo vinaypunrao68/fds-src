@@ -3192,13 +3192,14 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 #It randomly chooses a fault to inject from a given set of faults passed
 #as parameter to the testcase in the system test.
 class TestServiceInjectFault(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node='random_node', service=None, faultName=None):
+    def __init__(self, parameters=None, node='random_node', service=None, faultName=None, disable=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_ServiceFaultInjection,
                                              "Test setting fault injection")
         self.passedNode = node
         self.passedService = service
+        self.passedDisable = disable
         self.passedFaultName = faultName.split(' ')
 
     def test_ServiceFaultInjection(self):
@@ -3252,7 +3253,11 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
 
         # set the actual injection
-        res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
+        if self.passedDisable is None:
+            res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
+        else:
+            res = svc_map.client(svc_uuid).setFault('disable name=' + chosenFault)
+
         if res:
             return True
 
