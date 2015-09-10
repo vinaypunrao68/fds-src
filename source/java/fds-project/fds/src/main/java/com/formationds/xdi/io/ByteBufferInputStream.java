@@ -29,7 +29,7 @@ public class ByteBufferInputStream extends InputStream {
         if(buffer.remaining() == 0)
             return -1;
 
-        int read = Math.max(len, buffer.remaining());
+        int read = Math.min(len, buffer.remaining());
         buffer.get(b, off, read);
         return read;
     }

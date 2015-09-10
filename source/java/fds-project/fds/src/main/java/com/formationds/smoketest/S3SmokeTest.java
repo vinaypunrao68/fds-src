@@ -238,7 +238,8 @@ public class S3SmokeTest {
         int partCount = 10;
         AtomicInteger expectedLength = new AtomicInteger(0);
 
-        List<PartETag> etags = IntStream.range(0, partCount)
+        List<PartETag> etags = IntStream.range(1, partCount + 1)
+                .map(new ConsoleProgress("Uploading parts", partCount))
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     byte[] buf = new byte[50 * (1024 * 1024)];
@@ -311,7 +312,7 @@ public class S3SmokeTest {
         InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
         MessageDigest md5 = MessageDigest.getInstance("MD5");
-        List<PartETag> etags = IntStream.range(0, partCount)
+        List<PartETag> etags = IntStream.range(1, partCount + 1)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
                     UploadPartRequest request = new UploadPartRequest()
@@ -330,7 +331,7 @@ public class S3SmokeTest {
         CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
         CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
         byte[] digest = md5.digest();
-        assertEquals(Hex.encodeHexString(digest), result.getETag());
+        assertTrue(result.getETag().endsWith("-" + Integer.toString(partCount)));
         ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
     }

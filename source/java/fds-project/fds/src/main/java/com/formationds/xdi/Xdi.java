@@ -248,8 +248,8 @@ public class Xdi {
         return authorizer.authenticate(login, password);
     }
 
-    public MultipartUpload multipart(AuthenticationToken token, BlobSpecifier specifier, String txid) throws TException {
-        attemptBlobAccess(token, specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName(), Intent.readWrite);
+    public MultipartUpload multipart(AuthenticationToken token, BlobSpecifier specifier, String txid) throws TException, ExecutionException, InterruptedException {
+        attemptBlobAccess(token, specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName(), Intent.readWrite).get();
         VolumeDescriptor config = volumeConfiguration(token, specifier.getDomainName(), specifier.getVolumeName());
         return new MultipartUpload(specifier, asyncAm, config.getPolicy().getMaxObjectSizeInBytes(), txid);
 

@@ -14,6 +14,7 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.swift.SwiftUtility;
 import org.joda.time.DateTime;
 
+import java.util.List;
 import java.util.Map;
 
 public class HeadObject implements SyncRequestHandler {
@@ -32,13 +33,20 @@ public class HeadObject implements SyncRequestHandler {
 
         BlobDescriptor stat = xdi.statBlob(token, S3Endpoint.FDS_S3, volume, S3Namespace.user().blobName(object)).get();
         Map<String, String> metadata = stat.getMetadata();
+
+        List<MultipartUpload.PartInfo> partInfoList = MultipartUpload.getPartInfoList(stat);
+        long length;
+        if(partInfoList != null)
+            length = MultipartUpload.PartInfo.computeLength(partInfoList);
+        else
+            length = stat.byteCount;
+
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
         String etag = "\"" + metadata.getOrDefault("etag", "") + "\"";
-        long byteCount = stat.getByteCount();
         Resource result = new TextResource("")
                 .withContentType(contentType)
-                .withHeader("Content-Length", Long.toString(byteCount))
+                .withHeader("Content-Length", Long.toString(length))
                 .withHeader("Last-Modified", lastModified)
                 .withHeader("ETag", etag);
 

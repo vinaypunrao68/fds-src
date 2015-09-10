@@ -140,9 +140,8 @@ public class S3Endpoint {
                         .withHeader(S3Endpoint.X_AMZ_COPY_SOURCE),
                 (t) -> new PutObject(xdi, t));
 
-        syncObjectRoute(path.clone().withMethod(HttpMethod.PUT)
-                        .withUrlParam("uploadId"),
-                (t) -> new PutObject(xdi, t));
+        webApp.route(path.clone().withMethod(HttpMethod.PUT)
+                        .withUrlParam("uploadId"), ctx -> executeAsync(mergeObjectPath(ctx), new MultipartUploadPart(xdi)));
 
         syncObjectRoute(path.clone().withMethod(HttpMethod.PUT)
                         .withUrlParam("acl")

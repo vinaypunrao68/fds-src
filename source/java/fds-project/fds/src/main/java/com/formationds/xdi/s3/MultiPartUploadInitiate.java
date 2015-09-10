@@ -32,7 +32,7 @@ public class MultiPartUploadInitiate implements SyncRequestHandler {
         String objectName = ctx.getRouteParameter("object");
         UUID txid = UUID.randomUUID();
 
-        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.fds().blobName(objectName));
+        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(objectName));
         xdi.multipart(token, specifier, txid.toString()).initiate().get();
 
         XmlElement response = new XmlElement("InitiateMultipartUploadResult")
