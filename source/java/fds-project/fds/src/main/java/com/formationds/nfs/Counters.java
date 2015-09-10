@@ -28,7 +28,16 @@ public class Counters {
         write,
         bytesWritten,
         getAttr,
-        setAttr, metadataCacheMiss, metadataCacheHit, objectCacheMiss, objectCacheHit, AM_statBlob, AM_updateMetadataTx, AM_updateBlobOnce_metadataOnly, AM_getBlobWithMeta, AM_updateBlobOnce_objectAndMetadata;
+        setAttr,
+        metadataCacheMiss,
+        metadataCacheHit,
+        objectCacheMiss,
+        objectCacheHit,
+        AM_statBlob,
+        AM_updateMetadataTx,
+        AM_updateBlobOnce_metadataOnly,
+        AM_getBlobWithMeta,
+        AM_updateBlobOnce_objectAndMetadata;
     }
 
     public long reset(Key key) {
