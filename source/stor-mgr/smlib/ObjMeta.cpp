@@ -633,6 +633,7 @@ ObjMetaData::propagateObjectMetaData(fpi::CtrlObjectMetaDataPropagate &objMetaDa
     objMetaData.objectExpireTime = obj_map.expire_time;
 
     fds_verify(obj_map.obj_num_assoc_entry == assoc_entry.size());
+
     for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; ++i) {
         fds_verify(assoc_entry[i].vol_uuid != 0);
         fpi::MetaDataVolumeAssoc volAssoc;
