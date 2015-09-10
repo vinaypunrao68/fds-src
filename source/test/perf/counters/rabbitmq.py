@@ -49,9 +49,11 @@ class RabbitMQClient(object):
                 }
         
         json_data = json.dumps(data)
+	props = pika.spec.BasicProperties(expiration="15000")
         self.channel.basic_publish(exchange='',
                       routing_key='stats.work',
-                      body=json_data)
+                      body=json_data,
+		      properties=props)
         # print " [x] Sent ->", json_data
 
     # close connection    
