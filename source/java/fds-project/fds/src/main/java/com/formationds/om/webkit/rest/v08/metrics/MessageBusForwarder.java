@@ -1,7 +1,5 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
-import java.io.InputStreamReader;
-import java.io.StringWriter;
 import java.net.URLDecoder;
 import java.util.Base64;
 import java.util.Map;

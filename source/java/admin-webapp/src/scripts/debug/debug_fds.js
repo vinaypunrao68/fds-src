@@ -1,14 +1,29 @@
-angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', function( $scope, $http, $base64 ){
+angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', '$interval', function( $scope, $http, $base64, $interval ){
     
     $scope.stats = [];
     
     $scope.listVolColors = [ 'blue' ];
     $scope.listVolLineColor = [ 'black' ];
-    $scope.listVolLabels = [ '2 hours ago', 'Now' ];
-    $scope.listVolStats = [];
+    $scope.listVolLabels = [ '15 minutes ago', 'Now' ];
+    $scope.listVolStats = { metadata: [], series: [{ datapoints:[], type: 'LIST_VOLUME_TIME'}]};
     
     var pollId = -1;
     var myQueue = '';
+    
+    // interval in seconds
+    var interval = 3;
+    
+    // duration to show in hours
+    var duration = 0.25;
+    
+    var initData = function(){
+        
+        var points = Math.round( 60*60*duration / interval );
+        
+        for ( var i = 0; i < points; i++ ){
+            $scope.listVolStats.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*duration - (i*interval*1000)), y: 0} );
+        }
+    };
     
     var makeBusCall = function( method, route, data ){
         
@@ -57,7 +72,8 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
                     function( response ){ 
                         alert( 'Successfully bound.' );
                         
-                        pollId = $interval( $scope.getMessages, 2 );
+                        initData();
+                        pollId = $interval( $scope.getMessages, interval*1000 );
     
                     },
                     function( response ){
@@ -93,16 +109,57 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     // stop the poller for stats.
     $scope.stop = function(){
+        
+        if ( pollId === -1 ){
+            return;
+        }
+        
         $interval.cancel( pollId );
-        makeBusCall( 'DELETE', 'api/queueus/%2F/' + myQueue );
+        
+        var data = {
+            mode: "delete",
+            name: myQueue,
+            vhost: "/"
+        };
+        
+        makeBusCall( 'DELETE', 'api/queues/%2F/' + myQueue, data );
     };
     
     // take the messages and put them in the right stat arrays
     var handleStats = function( response ){
         
+        var tempStats = { series: [] };
+        tempStats.series = $scope.listVolStats.series;
+        var timeSum = 0;
+        var numListVols = 0;
+        
         for ( var i = 0; i < response.data.length; i++ ){
-            alert( 'Msg: ' + i );
+            var data = response.data[i].payload;
+            data = JSON.parse( data );
+            
+            if ( data.metricName === 'LIST_VOLUME_TIME' ){
+                timeSum += data.metricValue;
+                numListVols++;
+            }
         }
+        
+        if ( numListVols === 0 ){
+            numListVols = 1;
+        }
+        
+        tempStats.series[0].datapoints.push( { x: (new Date()).getTime(), y: timeSum / numListVols } );
+        
+        // get rid of old points.
+        for ( var j = 0; j < tempStats.series[0].datapoints.length; j++ ){
+            
+            var t = tempStats.series[0].datapoints[j].x;
+            
+            if ( t < (new Date()).getTime() - 1000*60*60*duration ){
+                tempStats.series[0].datapoints.splice( j, 1 );
+            }
+        }
+        
+        $scope.listVolStats = tempStats;
     };
     
     $scope.getMessages = function(){

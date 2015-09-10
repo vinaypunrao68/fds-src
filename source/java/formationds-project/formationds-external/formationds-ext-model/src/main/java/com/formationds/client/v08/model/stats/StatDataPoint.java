@@ -1,5 +1,10 @@
 package com.formationds.client.v08.model.stats;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class StatDataPoint {
@@ -14,6 +19,7 @@ public class StatDataPoint {
 	public static final String NUMBER_OF_SAMPLES = "numberOfSamples";
 	public static final String MAXIMUM_VALUE = "maximumValue";
 	public static final String MINIMUM_VALUE = "minimumValue";
+	public static final String RELATED_CONTEXTS = "relatedContexts";
 	
 	public enum TIME_UNITS{
 		MILLISECONDS,
@@ -79,6 +85,11 @@ public class StatDataPoint {
 	 * The internal FDS ID for the item that the stat is about.  
 	 */
 	private Long contextId = -1L;
+	
+	/**
+	 * A list of related entities - this is optional
+	 */
+	private List<ContextDef> relatedContexts;
 	
 	/**
 	 * The type (or system noun) that describes what the stat is about
@@ -189,6 +200,15 @@ public class StatDataPoint {
 		this.contextType = contextType;
 	}
 	
+	public List<ContextDef> getRelatedContexts(){
+		
+		if ( this.relatedContexts == null ){
+			this.relatedContexts = new ArrayList<ContextDef>();
+		}
+		
+		return this.relatedContexts;
+	}
+	
 	/**
 	 * Built in marshaling to json
 	 * @return
@@ -207,6 +227,15 @@ public class StatDataPoint {
 		json.put( NUMBER_OF_SAMPLES, getNumberOfSamples() );
 		json.put( MINIMUM_VALUE, getMinimumValue() );
 		json.put( MAXIMUM_VALUE, getMaximumValue() );
+		
+		JSONArray contextArray = new JSONArray();
+		
+		getRelatedContexts().stream().forEach( (cp) -> {
+			
+			contextArray.put( cp.toJsonObject() );
+		});
+		
+		json.put( RELATED_CONTEXTS, contextArray );
 		
 		String rtn = json.toString();
 		return rtn;
@@ -233,6 +262,17 @@ public class StatDataPoint {
 		datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
 		datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
 		datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
+		
+		try {
+			JSONArray array = json.getJSONArray( RELATED_CONTEXTS );
+			
+			for ( int i = 0; i < array.length(); i++ ){
+				datapoint.getRelatedContexts().add( ContextDef.buildFromJson( array.getJSONObject( i ).toString() ) );
+			}
+		}
+		catch( Exception e ){
+			
+		}
 		
 		return datapoint;
 	}
