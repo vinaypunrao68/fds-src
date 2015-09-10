@@ -16,15 +16,18 @@ import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 public class DirectAmIo implements Io {
     private static final Logger LOG = Logger.getLogger(DirectAmIo.class);
     private AsyncAm asyncAm;
+    private Counters counters;
 
-    public DirectAmIo(AsyncAm asyncAm) {
+    public DirectAmIo(AsyncAm asyncAm, Counters counters) {
         this.asyncAm = asyncAm;
+        this.counters = counters;
     }
 
     @Override
     public <T> T mapMetadata(String domain, String volumeName, String blobName, MetadataMapper<T> mapper) throws IOException {
         try {
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(domain, volumeName, blobName).get());
+            counters.increment(Counters.Key.AM_statBlob);
             return mapper.map(Optional.of(blobDescriptor.getMetadata()));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
@@ -46,6 +49,7 @@ public class DirectAmIo implements Io {
             mutator.mutate(meta);
             try {
                 unwindExceptions(() -> {
+                    counters.increment(Counters.Key.AM_updateMetadataTx);
                     TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
                     asyncAm.updateMetadata(domain, volume, blobName, tx, meta).get();
                     asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
@@ -63,6 +67,7 @@ public class DirectAmIo implements Io {
     public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
         try {
             unwindExceptions(() -> {
+                counters.increment(Counters.Key.AM_updateBlobOnce_metadataOnly);
                 asyncAm.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), map).get();
                 return null;
             });
@@ -78,6 +83,7 @@ public class DirectAmIo implements Io {
     public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         Optional<BlobWithMetadata> blobWithMeta = null;
         try {
+            counters.increment(Counters.Key.AM_getBlobWithMeta);
             blobWithMeta = Optional.of(unwindExceptions(() -> asyncAm.getBlobWithMeta(BlockyVfs.DOMAIN, volume, blobName, objectSize, objectOffset).get()));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
@@ -113,6 +119,7 @@ public class DirectAmIo implements Io {
             mutator.mutate(ov);
             ByteBuffer buf = ov.getBuf();
             try {
+                counters.increment(Counters.Key.AM_updateBlobOnce_objectAndMetadata);
                 unwindExceptions(() -> {
                     return asyncAm.updateBlobOnce(domain,
                             volume,
@@ -172,7 +179,6 @@ public class DirectAmIo implements Io {
             long then = System.currentTimeMillis();
             List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false).get());
             long elapsed = System.currentTimeMillis() - then;
-            LOG.debug("AM.volumeContents() returned " + blobDescriptors.size() + " entries in " + elapsed + " ms");
             List<T> result = new ArrayList<>(blobDescriptors.size());
             for (BlobDescriptor bd : blobDescriptors) {
                 result.add(mapper.map(Optional.of(bd.getMetadata())));
