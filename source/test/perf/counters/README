@@ -16,7 +16,16 @@ From source/test/perf/counters
 
 To push to a rabbitmq server
 
-./counters.py --period PERIOD_IN_SECONDS -H FDS_OM_HOST --rabbitmq-enable --rabbitmq-host RABBITMQ_HOST
+./counters.py --period PERIOD_IN_SECONDS -H FDS_OM_HOST 
+  --rabbitmq-enable
+  --rabbitmq-host=RABBITMQ_HOST
+                        RabbitMQ host
+  --rabbitmq-port=RABBITMQ_PORT
+                        RabbitMQ port
+  --rabbitmq-user=RABBITMQ_USER
+                        RabbitMQ user
+  --rabbitmq-password=RABBITMQ_PASSWORD
+                        RabbitMQ password
 
 
 To push to influxdb
