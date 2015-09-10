@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 from model.fds_error import FdsError
 
 class EventService( AbstractService ):

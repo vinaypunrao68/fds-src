@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 
 from utils.converters.platform.domain_converter import DomainConverter
 from model.fds_error import FdsError

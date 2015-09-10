@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 
 from utils.converters.volume.snapshot_policy_converter import SnapshotPolicyConverter
 from model.fds_error import FdsError
