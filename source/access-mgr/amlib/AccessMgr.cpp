@@ -11,7 +11,7 @@
 #include <net/SvcMgr.h>
 
 #include "connector/xdi/AmAsyncService.h"
-#include "connector/block/NbdConnector.h"
+#include "connector/nbd/NbdConnector.h"
 
 namespace fds {
 

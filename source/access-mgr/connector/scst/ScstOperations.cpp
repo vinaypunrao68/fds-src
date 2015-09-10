@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 
-#include "connector/block/common.h"
-#include "connector/block/NbdOperations.h"
+#include "connector/scst/common.h"
+#include "connector/scst/ScstOperations.h"
 
 #include "AmAsyncDataApi_impl.h"
 
@@ -24,7 +24,7 @@ static std::mutex assoc_map_lock {};
 
 
 void
-NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
+ScstResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
                                       fds_uint32_t len) {
     static boost::shared_ptr<std::string> const empty_buffer =
         boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
@@ -68,7 +68,7 @@ NbdResponseVector::handleReadResponse(std::vector<boost::shared_ptr<std::string>
 }
 
 std::pair<Error, boost::shared_ptr<std::string>>
-NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
+ScstResponseVector::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
                                  fds_uint32_t len,
                                  fds_uint32_t seqId,
                                  const Error& err) {
@@ -104,10 +104,10 @@ NbdResponseVector::handleRMWResponse(boost::shared_ptr<std::string> const& retBu
     return std::make_pair(ERR_OK, fauxBytes);
 }
 
-NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
+ScstOperations::ScstOperations(ScstOperationsResponseIface* respIface)
         : amAsyncDataApi(nullptr),
           volumeName(nullptr),
-          nbdResp(respIface),
+          scstResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
@@ -117,9 +117,9 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 }
 
 // We can't initialize this in the constructor since we want to pass
-// a shared pointer to ourselves (and NbdConnection already started one).
+// a shared pointer to ourselves (and ScstConnection already started one).
 void
-NbdOperations::init(boost::shared_ptr<std::string> vol_name,
+ScstOperations::init(boost::shared_ptr<std::string> vol_name,
                     std::shared_ptr<AmProcessor> processor)
 {
     amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
@@ -136,7 +136,7 @@ NbdOperations::init(boost::shared_ptr<std::string> vol_name,
 }
 
 void
-NbdOperations::attachVolumeResp(const Error& error,
+ScstOperations::attachVolumeResp(const Error& error,
                                 handle_type& requestId,
                                 boost::shared_ptr<VolumeDesc>& volDesc,
                                 boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
@@ -144,7 +144,7 @@ NbdOperations::attachVolumeResp(const Error& error,
     if (ERR_OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
-            return nbdResp->attachResp(ERR_INVALID_VOL_ID, nullptr);
+            return scstResp->attachResp(ERR_INVALID_VOL_ID, nullptr);
         }
         maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
 
@@ -152,11 +152,11 @@ NbdOperations::attachVolumeResp(const Error& error,
         std::unique_lock<std::mutex> lk(assoc_map_lock);
         ++assoc_map[volDesc->name];
     }
-    nbdResp->attachResp(error, volDesc);
+    scstResp->attachResp(error, volDesc);
 }
 
 void
-NbdOperations::detachVolume() {
+ScstOperations::detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
@@ -171,7 +171,7 @@ NbdOperations::detachVolume() {
 }
 
 void
-NbdOperations::detachVolumeResp(const Error& error,
+ScstOperations::detachVolumeResp(const Error& error,
                                 handle_type& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "Volume detach response: " << error;
@@ -179,7 +179,7 @@ NbdOperations::detachVolumeResp(const Error& error,
 }
 
 void
-NbdOperations::read(fds_uint32_t length,
+ScstOperations::read(fds_uint32_t length,
                     fds_uint64_t offset,
                     fds_int64_t handle) {
     fds_assert(amAsyncDataApi);
@@ -188,15 +188,15 @@ NbdOperations::read(fds_uint32_t length,
              << " handle 0x" << handle << std::dec;
 
     // we will wait for responses
-    NbdResponseVector* resp = new NbdResponseVector(handle,
-                                                    NbdResponseVector::READ,
+    ScstResponseVector* resp = new ScstResponseVector(handle,
+                                                    ScstResponseVector::READ,
                                                     offset, length, maxObjectSizeInBytes);
 
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
         if (false == responses.emplace(std::make_pair(handle, resp)).second)
-            { throw NbdError::connection_closed; }
+            { throw ScstError::connection_closed; }
     }
 
     // Determine how much data we need to read, we need
@@ -221,7 +221,7 @@ NbdOperations::read(fds_uint32_t length,
 
 
 void
-NbdOperations::write(boost::shared_ptr<std::string>& bytes,
+ScstOperations::write(boost::shared_ptr<std::string>& bytes,
                      fds_uint32_t length,
                      fds_uint64_t offset,
                      fds_int64_t handle) {
@@ -230,15 +230,15 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
     fds_uint32_t objCount = getObjectCount(length, offset);
 
     // we will wait for write response for all objects we chunk this request into
-    NbdResponseVector* resp = new NbdResponseVector(handle,
-                                                    NbdResponseVector::WRITE,
+    ScstResponseVector* resp = new ScstResponseVector(handle,
+                                                    ScstResponseVector::WRITE,
                                                     offset, length,
                                                     maxObjectSizeInBytes, objCount);
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
         if (false == responses.emplace(std::make_pair(handle, resp)).second)
-            { throw NbdError::connection_closed; }
+            { throw ScstError::connection_closed; }
     }
 
     size_t amBytesWritten = 0;
@@ -304,11 +304,11 @@ NbdOperations::write(boost::shared_ptr<std::string>& bytes,
 }
 
 void
-NbdOperations::getBlobResp(const Error &error,
+ScstOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            int& length) {
-    NbdResponseVector* resp = NULL;
+    ScstResponseVector* resp = NULL;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
@@ -332,8 +332,8 @@ NbdOperations::getBlobResp(const Error &error,
 
     fds_verify(resp);
     if (!resp->isRead()) {
-        static NbdResponseVector::buffer_ptr_type const null_buff(nullptr);
-        // this is a response for read during a write operation from NBD connector
+        static ScstResponseVector::buffer_ptr_type const null_buff(nullptr);
+        // this is a response for read during a write operation from SCST connector
         LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
 
         // RMW only operates on a single buffer...
@@ -354,8 +354,8 @@ NbdOperations::getBlobResp(const Error &error,
 }
 
 void
-NbdOperations::updateBlobResp(const Error &error, handle_type& requestId) {
-    NbdResponseVector* resp = nullptr;
+ScstOperations::updateBlobResp(const Error &error, handle_type& requestId) {
+    ScstResponseVector* resp = nullptr;
     fds_int64_t handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
@@ -398,8 +398,8 @@ NbdOperations::updateBlobResp(const Error &error, handle_type& requestId) {
 }
 
 void
-NbdOperations::drainUpdateChain(fds_uint64_t const offset,
-                                NbdResponseVector::buffer_ptr_type buf,
+ScstOperations::drainUpdateChain(fds_uint64_t const offset,
+                                ScstResponseVector::buffer_ptr_type buf,
                                 handle_type* queued_handle_ptr,
                                 Error const error) {
     // The first call to handleRMWResponse will create a null buffer if this is
@@ -407,8 +407,8 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
     auto err = error;
     bool update_queued {true};
     handle_type queued_handle;
-    NbdResponseVector* last_chained = nullptr;
-    std::deque<NbdResponseVector*> chain;
+    ScstResponseVector* last_chained = nullptr;
+    std::deque<ScstResponseVector*> chain;
 
     //  Either we explicitly are handling a RMW or checking to see if there are
     //  any new ones in the queue
@@ -419,7 +419,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
     }
 
     while (update_queued) {
-        NbdResponseVector* queued_resp = nullptr;
+        ScstResponseVector* queued_resp = nullptr;
         {
             fds_mutex::scoped_lock l(respLock);
             auto it = responses.find(queued_handle.handle);
@@ -481,8 +481,8 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
 
 
 void
-NbdOperations::finishResponse(NbdResponseVector* response) {
-    // nbd connector will free resp, just accounting here
+ScstOperations::finishResponse(ScstResponseVector* response) {
+    // scst connector will free resp, just accounting here
     bool done_responding, response_removed;
     {
         fds_mutex::scoped_lock l(respLock);
@@ -490,7 +490,7 @@ NbdOperations::finishResponse(NbdResponseVector* response) {
         done_responding = responses.empty();
     }
     if (response_removed) {
-        nbdResp->readWriteResp(response);
+        scstResp->readWriteResp(response);
     } else {
         LOGNOTIFY << "Handle 0x" << std::hex << response->getHandle() << std::dec
                   << " was missing from the response map!";
@@ -499,13 +499,13 @@ NbdOperations::finishResponse(NbdResponseVector* response) {
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
     if (shutting_down && done_responding) {
-        LOGDEBUG << "Nbd responses drained, finalizing detach from: " << *volumeName;
+        LOGDEBUG << "Scst responses drained, finalizing detach from: " << *volumeName;
         detachVolume();
     }
 }
 
 void
-NbdOperations::shutdown()
+ScstOperations::shutdown()
 {
     fds_mutex::scoped_lock l(respLock);
     shutting_down = true;
@@ -520,7 +520,7 @@ NbdOperations::shutdown()
  * 'length' at offset 'offset'
  */
 fds_uint32_t
-NbdOperations::getObjectCount(fds_uint32_t length,
+ScstOperations::getObjectCount(fds_uint32_t length,
                               fds_uint64_t offset) {
     fds_uint32_t objCount = length / maxObjectSizeInBytes;
     fds_uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);

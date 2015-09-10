@@ -15,8 +15,8 @@ extern "C" {
 #include <ev++.h>
 #include <boost/shared_ptr.hpp>
 
-#include "connector/block/NbdConnector.h"
-#include "connector/block/NbdConnection.h"
+#include "connector/nbd/NbdConnector.h"
+#include "connector/nbd/NbdConnection.h"
 #include "fds_process.h"
 
 namespace fds {
@@ -80,9 +80,14 @@ void NbdConnector::initialize() {
     }
 
     // Setup event loop
-    if (!evIoWatcher) {
+    if (!evLoop && !evIoWatcher) {
         LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
+        evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
+        if (!evLoop || !evIoWatcher) {
+            LOGERROR << "Failed to initialize lib_ev...";
+            return;
+        }
         evIoWatcher->set<NbdConnector, &NbdConnector::nbdAcceptCb>(this);
     }
     evIoWatcher->set(nbdSocket, ev::READ);
@@ -235,9 +240,7 @@ NbdConnector::lead() {
     if (0 != pthread_sigmask(SIG_BLOCK, &set, nullptr)) {
         LOGWARN << "Failed to enable SIGPIPE mask on NBD server.";
     }
-
-    ev::default_loop loop;
-    loop.run(0);
+    evLoop->run(0);
 }
 
 }  // namespace fds

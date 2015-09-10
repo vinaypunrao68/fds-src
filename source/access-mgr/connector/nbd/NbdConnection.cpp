@@ -2,7 +2,7 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#include "connector/block/NbdConnection.h"
+#include "connector/nbd/NbdConnection.h"
 
 #include <cerrno>
 #include <string>
@@ -18,7 +18,7 @@ extern "C" {
 
 #include <ev++.h>
 
-#include "connector/block/NbdConnector.h"
+#include "connector/nbd/NbdConnector.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"

@@ -2,8 +2,8 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_COMMON_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_COMMON_H_
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -16,11 +16,11 @@ class async;
 namespace fds
 {
 
-    enum class NbdError : uint8_t {
+    enum class ScstError : uint8_t {
         connection_closed,
         shutdown_requested,
     };
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_COMMON_H_
