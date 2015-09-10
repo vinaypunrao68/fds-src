@@ -1617,7 +1617,6 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                 LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                            << " DLT token " << dltToken << " SM token " << smToken;
                 SCOPEDWRITE(migrExecutorLock);
-                failedSMsAsSource[sourceSmUuid] = true;
                 if ((migrExecutors.count(smToken) == 0) ||
                     (migrExecutors.count(smToken) > 0 && migrExecutors[smToken].count(srcSmUuid) == 0)) {
                     fds_uint8_t curInstanceNum = migrExecutor->getInstanceNum() + 1;
