@@ -22,7 +22,8 @@ import re
 import os
 import fdslib.platformservice as plat_svc
 import fdslib.FDSServiceUtils as FDSServiceUtils
-
+from fdslib.TestUtils import get_node_service
+from fdscli.model.fds_error import FdsError
 sm_killed_pid = -1
 
 def getSvcPIDforNode(svc, node, javaClass=None):
@@ -532,9 +533,7 @@ class TestDMRemove(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
-
+        om_ip = om_node.nd_conf_dict['ip']
         nodes = fdscfg.rt_obj.cfg_nodes
         for node in nodes:
             # If we were passed a node, check that one and exit.
@@ -553,35 +552,26 @@ class TestDMRemove(TestCase.FDSTestCase):
                                (node.nd_conf_dict['node-name'], status))
                 return False
 
-            self.log.info("Shutting DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+            self.log.info("Removing DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
-
             self.log.debug("DM's Node UUID should be: " + node.nd_uuid + " and in decimal: " + str(int(node.nd_uuid, 16)))
-            output_buf = om_node.nd_agent.fds_cli_exec(cmd="service list")
-            self.log.debug(output_buf)
-            lined_output = output_buf.splitlines()
-            # See if UUID is found
-            status = 1
-            dm_service_id = ""
-            node_id_int = str(int(node.nd_uuid, 16))
-            for line in lined_output:
-                if node_id_int in line:
-                    if "DM" in line and "RUNNING" in line:
-                        status = 0
-                        split_columns = line.split()
-                        dm_service_id = split_columns[3]
-                        self.log.debug("DM service ID: " + dm_service_id)
+            node_service = get_node_service(self, om_ip)
+            node_cli = node_service.get_node(int(node.nd_uuid, 16))
+            try:
+                dm_state = node_cli.services['DM'][0].status.state
+                if dm_state == 'RUNNING':
+                    #if dm is running then only stop it
+                    dm_service = node_service.stop_service(node_cli.id,node_cli.services['DM'][0].id)
+                    dm_state = dm_service.status.state
+                assert(dm_state, "NOT_RUNNING")
+                status = node_service.remove_service(node_cli.id,node_cli.services['DM'][0].id)
+                if type(status).__name__ == 'FdsError' or isinstance(status, FdsError):
+                    self.log.error('Failed to remove DM %s'%status)
+                    return False
 
-            self.log.debug("Output buffer: " + output_buf)
-
-            if status != 0:
-                self.log.error("Active DM service not found on node %s - returned status %d." % (node.nd_conf_dict['node-name'], status))
+            except IndexError:
+                self.log.error("Active DM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
-            else:
-                output_buf = om_node.nd_agent.fds_cli_exec(cmd="service stop -node_id " + node_id_int + " -service_id " + dm_service_id)
-
-            self.log.debug(output_buf)
-
             if self.passedNode is not None:
                 break
 
