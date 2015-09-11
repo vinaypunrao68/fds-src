@@ -122,7 +122,7 @@ function configure_limits
 
     ulimit -c unlimited
     [[ ! -d /corefiles ]] && mkdir -p /corefiles
-    sysctl -w "kernel.core_pattern=/corefiles/%e-%p.core"
+    sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"
     ulimit -n 400000
 
     message "CURRENT ulimit settings"
@@ -143,13 +143,14 @@ function clean_up_environment
    sudo source/tools/redis.sh stop
 
    # Clean remove the old /fds
-   message "CLEAN exising /fds"
+   message "CLEAN existing /fds"
    rm -rf /fds || true
 
    message "CLEAN existing core files (prebuild)"
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
    find /corefiles -type f -name "*.core" -print -delete
-
+   find /corefiles -type f -name "*.hprof" -print -delete
+        
    capture_process_list ${FUNCNAME}
 }
 
