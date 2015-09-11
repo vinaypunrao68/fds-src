@@ -150,6 +150,7 @@ function clean_up_environment
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
    find /corefiles -type f -name "*.core" -print -delete
    find /corefiles -type f -name "*.hprof" -print -delete
+   find /corefiles -type f -name "*hs_err_pid*.log" -print -delete
         
    capture_process_list ${FUNCNAME}
 }
