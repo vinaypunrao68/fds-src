@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_COMMON_H_

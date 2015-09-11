@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2015 by Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
@@ -25,20 +25,17 @@ struct ScstConnector
     void lead() override;
 
  private:
-    int32_t scstDev {-1};
-    bool cfg_no_delay {true};
-    uint32_t cfg_keep_alive {0};
+    int scstDev {-1};
 
     std::unique_ptr<ev::dynamic_loop> evLoop;
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
     std::weak_ptr<AmProcessor> amProcessor;
 
-    int createScstSocket();
-    void configureSocket(int fd) const;
+    int openScst();
     void initialize();
     void reset();
-    void scstAcceptCb(ev::io &watcher, int revents);
+    void scstEvent(ev::io &watcher, int revents);
 
     ScstConnector(std::weak_ptr<AmProcessor> processor,
                  size_t const followers);
@@ -46,8 +43,6 @@ struct ScstConnector
     ScstConnector& operator=(ScstConnector const& rhs) = delete;
 
     static std::unique_ptr<ScstConnector> instance_;
-
-  public:
 };
 
 }  // namespace fds

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 
 #include "connector/scst/ScstConnection.h"
@@ -9,10 +9,8 @@
 #include <type_traits>
 
 extern "C" {
-#include <fcntl.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/uio.h>
 }
 
@@ -38,14 +36,6 @@ constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
 static constexpr bool ensure(bool b)
 { return (!b ? throw fds::ScstError::connection_closed : true); }
 
-static std::array<std::string, 5> const io_to_string = {
-    { "READ", "WRITE", "DISCONNECT", "FLUSH", "TRIM" }
-};
-
-static std::array<std::string, 6> const state_to_string = {
-    { "INVALID", "PREINIT", "POSTINIT", "AWAITOPTS", "SENDOPTS", "DOREQS" }
-};
-
 namespace fds
 {
 
@@ -56,12 +46,12 @@ template<typename M>
 bool get_message_payload(int fd, M& message);
 
 ScstConnection::ScstConnection(ScstConnector* server,
-                             int clientsd,
+                             int scst_dev,
                              std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           scst_server(server),
           scstOps(boost::make_shared<ScstOperations>(this)),
-          clientSocket(clientsd),
+          scstDev(scst_dev),
           volume_size{0},
           object_size{0},
           scst_state(ScstProtoState::PREINIT),
@@ -81,19 +71,17 @@ ScstConnection::ScstConnection(ScstConnector* server,
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set<ScstConnection, &ScstConnection::ioEvent>(this);
-    ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
+    ioWatcher->start(scstDev, ev::READ | ev::WRITE);
 
     asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
     asyncWatcher->set<ScstConnection, &ScstConnection::wakeupCb>(this);
     asyncWatcher->start();
 
-    LOGNORMAL << "New SCST client connection for " << clientSocket;
+    LOGNORMAL << "New SCST client connection for " << scstDev;
 }
 
 ScstConnection::~ScstConnection() {
-    LOGNORMAL << "SCST client disconnected for " << clientSocket;
-    shutdown(clientSocket, SHUT_RDWR);
-    close(clientSocket);
+    LOGNORMAL << "SCST client disconnected for " << scstDev;
 }
 
 void
@@ -144,7 +132,7 @@ ScstConnection::write_response() {
     if (to_write != nwritten) {
         if (nwritten < 0) {
             if (EAGAIN != errno) {
-                LOGERROR << "Socket write error: [" << strerror(errno) << "]";
+                LOGERROR << "File write error: [" << strerror(errno) << "]";
                 throw ScstError::connection_closed;
             }
         } else {
@@ -276,12 +264,6 @@ bool ScstConnection::io_request(ev::io &watcher) {
 //    }
     request.header_off = 0;
     request.data_off = -1;
-
-    LOGIO << " op " << io_to_string[request.header.opType]
-          << " handle 0x" << std::hex << request.header.handle
-          << " offset 0x" << request.header.offset
-          << " length 0x" << request.header.length << std::dec
-          << " ahead of you: " <<  resp_needed++;
 
     Error err = dispatchOp();
     request.data.reset();
@@ -422,13 +404,11 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
                 option_request(watcher);
                 break;
             case ScstProtoState::DOREQS:
-                // Read all the requests off the socket
+                // Read all the requests off the file
                 while (io_request(watcher))
                     { continue; }
                 break;
             default:
-                LOGDEBUG << "Asked to read in state: "
-                         << state_to_string[static_cast<uint32_t>(scst_state)];
                 // We could have read and writes waiting and are not in the
                 // correct state to handle more requests...yet
                 break;
@@ -505,18 +485,18 @@ ssize_t retry_read(int fd, void* buf, size_t count) {
 }
 
 template<typename M>
-ssize_t read_from_socket(int fd, M& buffer, ssize_t off, ssize_t len);
+ssize_t read_from_file(int fd, M& buffer, ssize_t off, ssize_t len);
 
 template<>
-ssize_t read_from_socket(int fd, uint8_t*& buffer, ssize_t off, ssize_t len)
+ssize_t read_from_file(int fd, uint8_t*& buffer, ssize_t off, ssize_t len)
 { return retry_read(fd, buffer + off, len); }
 
 template<>
-ssize_t read_from_socket(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
+ssize_t read_from_file(int fd, std::array<char, 1024>& buffer, ssize_t off, ssize_t len)
 { return retry_read(fd, buffer.data() + off, len); }
 
 template<>
-ssize_t read_from_socket(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
+ssize_t read_from_file(int fd, boost::shared_ptr<std::string>& buffer, ssize_t off, ssize_t len)
 { return retry_read(fd, &(*buffer)[0] + off, len); }
 
 template<typename D>
@@ -527,7 +507,7 @@ bool scst_read(int fd, D& data, ssize_t& off, ssize_t const len)
     fds_assert(0 != len); // Know about this in DEBUG...logic error?
     if (0 == len) return true;
 
-    ssize_t nread = read_from_socket(fd, data, off, len);
+    ssize_t nread = read_from_file(fd, data, off, len);
     if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
@@ -536,7 +516,7 @@ bool scst_read(int fd, D& data, ssize_t& off, ssize_t const len)
             case EPIPE:
                 LOGNOTIFY << "Client disconnected";
             default:
-                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+                LOGERROR << "File read error: [" << strerror(errno) << "]";
                 throw ScstError::shutdown_requested;
         }
     } else if (0 == nread) {

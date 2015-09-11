@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
@@ -53,7 +53,7 @@ struct message {
 
 struct ScstConnection : public ScstOperationsResponseIface {
     ScstConnection(ScstConnector* server,
-                  int clientsd,
+                  int scst_dev,
                   std::shared_ptr<AmProcessor> processor);
     ScstConnection(ScstConnection const& rhs) = delete;
     ScstConnection(ScstConnection const&& rhs) = delete;
@@ -79,7 +79,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
      ConnectionState state_ { ConnectionState::RUNNING };
 
-    int clientSocket;
+    int scstDev;
     size_t volume_size;
     size_t object_size;
 

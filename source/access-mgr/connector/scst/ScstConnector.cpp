@@ -1,14 +1,13 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <set>
 #include <string>
 #include <thread>
 
 extern "C" {
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/uio.h>
 }
 
@@ -18,6 +17,7 @@ extern "C" {
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
 #include "fds_process.h"
+#include "connector/scst/scst_user.h"
 
 namespace fds {
 
@@ -53,14 +53,12 @@ ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
 }
 
 void ScstConnector::initialize() {
-    // Shutdown the socket if we are reinitializing
+    // Close the SCST device if we are re-initializing
     if (0 <= scstDev)
         { reset(); }
 
-    // Bind to SCST listen port
-    scstDev = createScstSocket();
-    if (scstDev < 0) {
-        LOGERROR << "Could not bind to SCST port. No Scst attachments can be made.";
+    // Open the SCST user device
+    if (0 > (scstDev = openScst())) {
         return;
     }
 
@@ -80,7 +78,7 @@ void ScstConnector::initialize() {
             return;
         }
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
-        evIoWatcher->set<ScstConnector, &ScstConnector::scstAcceptCb>(this);
+        evIoWatcher->set<ScstConnector, &ScstConnector::scstEvent>(this);
     }
     evIoWatcher->set(scstDev, ev::READ);
     evIoWatcher->start(scstDev, ev::READ);
@@ -95,107 +93,41 @@ void ScstConnector::reset() {
     }
 }
 
-void ScstConnector::configureSocket(int fd) const {
-    // Enable Non-Blocking mode
-    if (0 > fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK)) {
-        LOGWARN << "Failed to set NON-BLOCK on SCST connection";
-    }
-}
-
 void
-ScstConnector::scstAcceptCb(ev::io &watcher, int revents) {
+ScstConnector::scstEvent(ev::io &watcher, int revents) {
     if (EV_ERROR & revents) {
         LOGERROR << "Got invalid libev event";
         return;
     }
 
+    // TODO(bszmyd): Fri 11 Sep 2015 05:32:03 AM MDT
+    // IMPLEMENT SCST event handler
+
     /** First see if we even have a processing layer */
-    auto processor = amProcessor.lock();
-    if (!processor) {
-        LOGNORMAL << "No processing layer, shutdown.";
-        reset();
-        return;
-    }
+//    auto processor = amProcessor.lock();
+//    if (!processor) {
+//        LOGNORMAL << "No processing layer, shutdown.";
+//        reset();
+//        return;
+//    }
 
-    int clientsd = 0;
-    while (0 <= clientsd) {
-        socklen_t client_len = sizeof(sockaddr_in);
-        sockaddr_in client_addr;
-
-        // Accept a new SCST client connection
-        do {
-            clientsd = accept(watcher.fd,
-                              (sockaddr *)&client_addr,
-                              &client_len);
-        } while ((0 > clientsd) && (EINTR == errno));
-
-        if (0 <= clientsd) {
-            // Setup some TCP options on the socket
-            configureSocket(clientsd);
-
-            // Create a handler for this SCST connection
-            // Will delete itself when connection dies
-            ScstConnection *client = new ScstConnection(this, clientsd, processor);
-            LOGNORMAL << "Created client connection...";
-        } else {
-            switch (errno) {
-            case ENOTSOCK:
-            case EOPNOTSUPP:
-            case EINVAL:
-            case EBADF:
-                // Reinitialize server
-                LOGWARN << "Accept error: " << strerror(errno)
-                        << " resetting server.";
-                scstDev = -1;
-                initialize();
-                break;
-            default:
-                break; // Nothing special, no more clients
-            }
-        }
-    };
+    // Create a handler for this SCST connection
+    // Will delete itself when connection dies
+//    ScstConnection *client = new ScstConnection(this, clientsd, processor);
+//    LOGNORMAL << "Created client connection...";
 }
 
 int
-ScstConnector::createScstSocket() {
-    sockaddr_in serv_addr;
-    memset(&serv_addr, '0', sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenfd < 0) {
-        LOGERROR << "Failed to create SCST socket";
-        return listenfd;
+ScstConnector::openScst() {
+    int dev = open(DEV_USER_PATH DEV_USER_NAME, O_RDWR | O_NONBLOCK);
+    if (0 > dev) {
+        LOGERROR << "Opening the SCST device failed: " << strerror(errno);
     }
-
-    // If we crash this allows us to reuse the socket before it's fully closed
-    int optval = 1;
-    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        LOGWARN << "Failed to set REUSEADDR on SCST socket";
-    }
-
-    if (bind(listenfd,
-             (sockaddr*)&serv_addr,
-             sizeof(serv_addr)) == 0) {
-        fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
-        listen(listenfd, 10);
-    } else {
-        LOGERROR << "Bind to listening socket failed: " << strerror(errno);
-        listenfd = -1;
-    }
-
-    return listenfd;
+    return dev;
 }
 
 void
 ScstConnector::lead() {
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGPIPE);
-    if (0 != pthread_sigmask(SIG_BLOCK, &set, nullptr)) {
-        LOGWARN << "Failed to enable SIGPIPE mask on SCST server.";
-    }
     evLoop->run(0);
 }
 
