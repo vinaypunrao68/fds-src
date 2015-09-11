@@ -24,6 +24,7 @@ import fdslib.platformservice as plat_svc
 import fdslib.FDSServiceUtils as FDSServiceUtils
 from fdslib.TestUtils import get_node_service
 from fdscli.model.fds_error import FdsError
+from fdscli.model.platform.service import Service
 sm_killed_pid = -1
 
 def getSvcPIDforNode(svc, node, javaClass=None):
@@ -469,41 +470,50 @@ class TestDMActivate(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
+        om_ip = om_node.nd_conf_dict['ip']
+        node_service = get_node_service(self,om_ip)
+        node_list = node_service.list_nodes()
 
-        # Do all DMs in the domain or just the DM for the passed node?
-        if self.passedNode is None:
-            self.log.info("Activate domain DMs from OM node %s." % om_node.nd_conf_dict['node-name'])
+        for each_node in node_list:
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local dm > '
-                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
-                                                fds_tools=True)
-        else:
-            node = self.passedNode
+            # If we were provided a node, activate that one and exit.
+            if self.passedNode is not None:
+                self.log.info("Activate DM for node %s" % each_node.id)
 
-            # Make sure this node is configured for an DM service.
-            if node.nd_services.count("dm") == 0:
-                self.log.error("Node %s is not configured to host a DM service." % node.nd_conf_dict['node-name'])
+                # Make sure this node is configured for an DM service.
+                if self.passedNode.nd_services.count("dm") == 0:
+                    self.log.error("Node %s is not configured to host a DM service." % self.passedNode.nd_conf_dict['node-name'])
+                    return False
+
+                # Make sure we have the node's meta-data.
+                status = self.passedNode.nd_populate_metadata(om_node=om_node)
+                if status != 0:
+                    self.log.error("Getting meta-data for node %s returned status %d." %
+                               (each_node.nd_conf_dict['node-name'], status))
+                    return False
+
+                node_id = int(self.passedNode.nd_uuid, 16)
+                each_node = node_service.get_node(node_id)
+
+            service = Service()
+            service.type = 'DM'
+            add_service = node_service.add_service(each_node.id,service)
+            if type(add_service).__name__ == 'FdsError':
+                self.log.error(" Add DM service failed on node %s"%(each_node.id))
                 return False
 
-            # Make sure we have the node's meta-data.
-            status = node.nd_populate_metadata(om_node=om_node)
-            if status != 0:
-                self.log.error("Getting meta-data for node %s returned status %d." %
-                               (node.nd_conf_dict['node-name'], status))
+            self.log.info("Activate service DM for node %s." % (each_node.id))
+            start_service = node_service.start_service(each_node.id,add_service.id)
+            time.sleep(3)
+            get_service = node_service.get_service(each_node.id,start_service.id)
+            if type(get_service).__name__ == 'FdsError' or get_service.status.state == "NOT_RUNNING":
+                self.log.error("Service activation of node %s returned status %s." %
+                        (each_node.id))
                 return False
 
-            self.log.info("Activate DM for node %s from OM node %s." % (node.nd_conf_dict['node-name'],
-                                                                        om_node.nd_conf_dict['node-name']))
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
-                                                'addService {} dm > {}/cli.out 2>&1) \"'.format(
-                                                int(node.nd_uuid, 16), log_dir,), fds_tools=True)
-
-        if status != 0:
-            self.log.error("DM activation on %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
-            return False
+            if self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                break
 
         return True
 
