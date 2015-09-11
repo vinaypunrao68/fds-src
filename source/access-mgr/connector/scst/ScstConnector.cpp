@@ -17,7 +17,9 @@ extern "C" {
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
 #include "fds_process.h"
+extern "C" {
 #include "connector/scst/scst_user.h"
+}
 
 namespace fds {
 
@@ -62,32 +64,64 @@ void ScstConnector::initialize() {
         return;
     }
 
-    // This is our async event watcher for shutdown
-    if (!asyncWatcher) {
-        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
-        asyncWatcher->set<ScstConnector, &ScstConnector::reset>(this);
-        asyncWatcher->start();
+    // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
+    // REGISTER a device
+    static scst_user_dev_desc const scst_descriptor {
+        (unsigned long)DEV_USER_VERSION, // Constant
+        (unsigned long)"GPL",       // License string
+        TYPE_DISK,                  // Device type
+        0, 0, 0, 0,                 // SGV options
+        {                           // SCST options
+                SCST_USER_PARSE_STANDARD,                   // parse type
+                SCST_USER_ON_FREE_CMD_IGNORE,               // command on-free type
+                SCST_USER_MEM_REUSE_ALL,                    // command reuse type
+                SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
+                0,                                          // partial transfer length
+                SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
+                0,                                          // task mgmt only (on fault)
+                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // reordering however
+                SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
+                0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
+        },
+        4096,                       // Block size
+        0,                          // PR cmd Notifications
+        "scst_vol",
+        "scst_vol_sgv",
+    };
+    auto res = ioctl(scstDev, SCST_USER_REGISTER_DEVICE, &scst_descriptor);
+    if (0 > res) {
+        LOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
+        return;
     }
 
     // Setup event loop
     if (!evLoop && !evIoWatcher) {
-        LOGNORMAL << "Accepting SCST connections";
+        LOGNORMAL << "Accepting SCST commands";
         evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
+        evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
         if (!evLoop || !evIoWatcher) {
             LOGERROR << "Failed to initialize lib_ev...";
             return;
         }
-        evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
+        evIoWatcher->set(*evLoop);
         evIoWatcher->set<ScstConnector, &ScstConnector::scstEvent>(this);
     }
     evIoWatcher->set(scstDev, ev::READ);
     evIoWatcher->start(scstDev, ev::READ);
+
+    // This is our async event watcher for shutdown
+    if (!asyncWatcher) {
+        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+        asyncWatcher->set(*evLoop);
+        asyncWatcher->set<ScstConnector, &ScstConnector::reset>(this);
+        asyncWatcher->start();
+    }
+
 }
 
 void ScstConnector::reset() {
     if (0 <= scstDev) {
         evIoWatcher->stop();
-        shutdown(scstDev, SHUT_RDWR);
         close(scstDev);
         scstDev = -1;
     }

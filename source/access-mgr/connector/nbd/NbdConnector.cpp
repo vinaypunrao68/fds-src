@@ -77,11 +77,11 @@ void NbdConnector::initialize() {
         LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
         evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
-        evIoWatcher->set(*evLoop);
         if (!evLoop || !evIoWatcher) {
             LOGERROR << "Failed to initialize lib_ev...";
             return;
         }
+        evIoWatcher->set(*evLoop);
         evIoWatcher->set<NbdConnector, &NbdConnector::nbdAcceptCb>(this);
     }
     evIoWatcher->set(nbdSocket, ev::READ);
