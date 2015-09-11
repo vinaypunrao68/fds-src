@@ -539,15 +539,15 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 for node in fdsNodes:
                     for service in selectedServices:
                         if service == "pm":
-                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
                         elif service == "dm":
-                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
                         elif service == "sm":
-                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
                         elif service == "om":
-                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
                         elif service == "am":
-                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
 
             else:
                 for service in selectedServices:
