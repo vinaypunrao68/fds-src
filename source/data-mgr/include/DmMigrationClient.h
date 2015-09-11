@@ -19,7 +19,7 @@ class DataMgr;
 typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
-class DmMigrationClient {
+class DmMigrationClient : public DmMigrationBase {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
     		DataMgr& _dataMgr,
@@ -51,6 +51,7 @@ class DmMigrationClient {
     /* Forwarding Modifiers */
     void turnOnForwarding();
     void turnOffForwarding();
+    void turnOffForwardingInternal(); // No sending of finish messages
 
     /**
      * Sends a msg to say that we're done with forwarding.
@@ -80,6 +81,14 @@ class DmMigrationClient {
                                const std::map<std::string, int64_t>& source,
                                std::vector<std::string>& update_list,
                                std::vector<std::string>& delete_list);
+
+    /**
+     * Response handler - no-op for OK, otherwise fail migration.
+     */
+    void dmMigrationCheckResp(EPSvcRequest*, const Error&, boost::shared_ptr<std::string>);
+
+    // Called by MigrationMgr to clean up any ongoing residue due to migration
+    void abortMigration();
 
  private:
     /**
@@ -188,6 +197,10 @@ class DmMigrationClient {
      * Whether or not we're forwarding I/O during Active Migration
      */
     std::atomic<fds_bool_t> forwardingIO;
+
+    // Used for abort cleanup
+    fds_mutex  ssTakenScopeLock;
+    fds_bool_t snapshotTaken;
 
 };  // DmMigrationClient
 

@@ -445,9 +445,10 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         }
     }
 
-    // Tell the DMT manager
-    /* TODO(Neil): disable sending to OM until feature is complete */
-    // err = dataManager_.catSyncMgr->abortMigration();
+    // Tell the DM Migration Mgr
+    dataManager_.dmMigrationMgr->abortMigration();
+
+    LOGNOTIFY << "DM Migration Manager aborted and cleaned up";
 
     // TODO(xxx): make abort cb
     fpi::CtrlNotifyDMAbortMigrationPtr msg(new fpi::CtrlNotifyDMAbortMigration());
