@@ -52,12 +52,6 @@
 
     <dependency>
       <groupId>com.formationds</groupId>
-      <artifactId>stats-client</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.formationds</groupId>
       <artifactId>formationds-jsvc-layer</artifactId>
       <version>${formationds.jsvc.layer.version}</version>
     </dependency>

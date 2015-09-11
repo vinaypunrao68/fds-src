@@ -167,7 +167,7 @@ class SnapshotPolicyPlugin( AbstractPlugin):
         policy = SnapshotPolicy()
         
         if ( args[AbstractPlugin.data_str] is None and args[AbstractPlugin.name_str] is None ):
-            print "Either -data or -name must be present"
+            print("Either -data or -name must be present")
             return
         
         if ( args[AbstractPlugin.data_str] is not None ):

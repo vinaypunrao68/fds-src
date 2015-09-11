@@ -117,13 +117,12 @@ public class ApiDefinition extends AbstractApiDefinition{
         configureEventsEndpoints( configApi );
         configureDomainEndpoints();
         configurePresetEndpoints();
-        
-        configureTestSocketEndpoint();
+        configureMessageBusAuthEndpoint();
         
     }
     
-    private void configureTestSocketEndpoint(){
-    	
+    private void configureMessageBusAuthEndpoint(){
+	
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );

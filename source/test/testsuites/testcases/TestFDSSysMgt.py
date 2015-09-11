@@ -20,6 +20,7 @@ from fdscli.model.platform.service import Service
 from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
+from fdslib.TestUtils import node_is_up
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -43,53 +44,34 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
-
-
-        am_in_list = 'am' in self.passedServices
-
-        if am_in_list:
-            services = self.passedServices.replace(',am', '')
-        else:
-            services = self.passedServices
-
-        self.log.info("Activate domain starting %s services on each node." % services)
-
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
-                                            '{}/fdsconsole.out 2>&1) \"'.format(services, log_dir),
-                                            fds_tools=True)
-
-        if status != 0:
-            self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
-            return False
-
-        if am_in_list:
-            self.log.info("Sleeping 30 seconds to let DM and SM settle down. (AUTH HACK)")
-            time.sleep(30)
-
-            services = "am"
-            self.log.info("Activate domain starting %s services on each node." % services)
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local {} > '
-                                                '{}/fdsconsole.out 2>&1) \"'.format(services, log_dir),
-                                                fds_tools=True)
-
-            if status != 0:
-                self.log.error("Domain activation on %s returned status %d." % (om_node.nd_conf_dict['node-name'], status))
-                return False
-
-        # After activation we should be able to spin through our nodes to obtain
-        # some useful information about them.
-        for n in fdscfg.rt_obj.cfg_nodes:
+        #TODO:POOJA once we re done with fs-3007 , fdscli can be used ot activate the domain, this is temp work around
+        nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
+        for n in nodes:
             status = n.nd_populate_metadata(om_node=om_node)
             if status != 0:
-                break
-
-        if status != 0:
-            self.log.error("Node meta-data lookup for %s returned status %d." % (n.nd_conf_dict['node-name'], status))
-            return False
-
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                    (n.nd_conf_dict['node-name'], status))
+                return False
+            node_id = int(n.nd_uuid, 16)
+            services = self.passedServices.split(",")
+            for service_name in services:
+                service_name = service_name.upper()
+                node_service = get_node_service(self,om_ip)
+                service = Service()
+                service.type = service_name
+                add_service = node_service.add_service(node_id,service)
+                if type(add_service).__name__ == 'FdsError':
+                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
+                    return False
+                self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
+                start_service = node_service.start_service(node_id,add_service.id)
+                time.sleep(3)
+                get_service = node_service.get_service(node_id,start_service.id)
+                if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
+                    self.log.error("Service activation of node %s returned status %d." %
+                        (n.nd_conf_dict['node-name'], status))
+                    return False
         return True
 
 
@@ -268,16 +250,17 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
         nodes = fdscfg.rt_obj.cfg_nodes
         om_ip = om_node.nd_conf_dict['ip']
         for n in nodes:
-        # If we were provided a node, activate that one and exit.
+        # If we were provided a node, deactivate that one and exit.
             if self.passedNode is not None:
                 n = self.passedNode
-#            else: Should we skip the OM's node?
-#                if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-#                    self.log.info("Skipping OM's node on %s." % n.nd_conf_dict['node-name'])
-#                    continue
-
             self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
             node_id = int(n.nd_uuid, 16)
+            # Prevent scenario where we try to take remove a node that was never online
+            if not node_is_up(self,om_ip,node_id):
+                self.log.info("Selected node {} is not UP. Ignoring "
+                                     "command to remove node".format(n.nd_conf_dict['node-name']))
+                continue
+
             node_service = get_node_service(self,om_ip)
             node_remove = node_service.remove_node(node_id)
 
@@ -287,7 +270,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, exit now.
-                return True
+                break
 
         return True
 

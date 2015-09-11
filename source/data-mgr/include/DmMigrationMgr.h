@@ -16,12 +16,10 @@ namespace fds {
 class DmIoReqHandler;
 
 
-class DmMigrationMgr {
+class DmMigrationMgr : public DmMigrationBase {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
-    // Callbacks for migration handlers
-	using OmStartMigrationCBType = std::function<void (const Error& e)>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -38,6 +36,15 @@ class DmMigrationMgr {
         MIGR_IDLE,         // MigrationMgr is ready to receive work.
         MIGR_IN_PROGRESS,  // MigrationMgr has received a job and has dispatched work.
         MIGR_ABORTED       // If any of the jobs dispatched failed.
+    };
+
+    /**
+     * The role of this current migration role
+     */
+    enum MigrationRole {
+    	MIGR_UNKNOWN,
+    	MIGR_EXECUTOR,
+		MIGR_CLIENT
     };
 
     enum MigrationType {
@@ -147,6 +154,20 @@ class DmMigrationMgr {
      */
     Error finishActiveMigration(fds_volid_t volId);
 
+    /**
+     * Both DMs:
+     * Abort and clean up current ongoing migration and reset state machine to IDLE
+     * The Destination DM is in charge of telling the OM that DM Migration has failed.
+     * If the Source DM has any error, it will first fail the migration, then tell the
+     * Destination DM that an error has occurred. The Destination DM will then tell the OM.
+     */
+    void abortMigration();
+
+    // Get timeout for messages between clients and executors
+    inline uint32_t getTimeoutValue() {
+    	return static_cast<uint32_t>(deltaBlobTimeout);
+    }
+
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
@@ -156,13 +177,18 @@ class DmMigrationMgr {
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> migrState;
-    std::atomic<fds_bool_t> cleanUpInProgress;
+    MigrationRole myRole;
 
     DataMgr& dataManager;
 
     /** check if the feature is enabled or not.
      */
     bool enableMigrationFeature;
+
+    /**
+     * Seconds to sleep prior to starting migration
+     */
+    unsigned delayStart;
 
     /**
      * check if resync on restart feature is enabled.
@@ -183,6 +209,11 @@ class DmMigrationMgr {
      * timeout for delta blob set
      */
     uint32_t deltaBlobTimeout;
+
+    /**
+     * DMT version undergoing migration
+     */
+    int64_t DMT_version;
 
     /**
      * Throttles the number of max concurrent migrations
@@ -221,7 +252,7 @@ class DmMigrationMgr {
      * Makes sure that the state machine is idle, and activate it.
      * Returns ERR_OK if that's the case, otherwise returns something else.
      */
-    Error activateStateMachine();
+    Error activateStateMachine(MigrationRole role);
 
    /**
      * Destination side DM:
@@ -231,7 +262,7 @@ class DmMigrationMgr {
 
     /**
      * Destination side DM:
-     * Wrapper around calling OmStartMigrCb
+     * Wrapper around calling OmStartMigrCb with a ERR_OK
      */
     void ackStaticMigrationComplete(const Error &status);
 
@@ -241,7 +272,7 @@ class DmMigrationMgr {
      * This is called only when the migration completes or aborts.  The error
      * stuffed in the asynchdr determines if the migration completed successfully or not.
      */
-    OmStartMigrationCBType OmStartMigrCb;
+    migrationCb OmStartMigrCb;
 
     /**
      * Destination side DM:
@@ -271,6 +302,15 @@ class DmMigrationMgr {
      * Callback for migrationClient.
      */
     void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
+
+    /**
+     * For debugging
+     */
+    void dumpDmIoMigrationDeltaBlobs(DmIoMigrationDeltaBlobs *deltaBlobReq);
+    void dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+    void dumpDmIoMigrationDeltaBlobDesc(DmIoMigrationDeltaBlobDesc *deltaBlobReq);
+    void dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+
 };  // DmMigrationMgr
 
 }  // namespace fds

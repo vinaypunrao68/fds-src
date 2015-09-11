@@ -11,8 +11,8 @@ import java.util.Map;
 public class AmIo implements Io {
     private Io io;
 
-    public AmIo(AsyncAm am) {
-        io = new IoCache(new DirectAmIo(am));
+    public AmIo(AsyncAm am, Counters counters) {
+        io = new IoCache(new DirectAmIo(am, counters), counters);
     }
 
     @Override

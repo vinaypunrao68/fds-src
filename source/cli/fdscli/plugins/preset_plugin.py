@@ -91,12 +91,12 @@ class PresetPlugin(AbstractPlugin):
         else:
             
             if len(qos_presets) != 0:
-                print "\nQuality of Service preset policies:"
+                print("\nQuality of Service preset policies:")
                 prepped = ResponseWriter.prep_qos_presets( qos_presets )
                 ResponseWriter.writeTabularData( prepped )
                     
             if len(timeline_presets) != 0:
-                print "\nTimeline preset policies:"
+                print("\nTimeline preset policies:")
                 for timeline_preset in timeline_presets:
                     self.print_timeline_preset(timeline_preset)
             

@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 
 from services.node_service import NodeService
 from services.response_writer import ResponseWriter
@@ -175,7 +175,7 @@ class NodePlugin( AbstractPlugin ):
             show_list = nodes
             
         if ( len( show_list ) == 0 ):
-            print "\nNo nodes matching the request were found."
+            print("\nNo nodes matching the request were found.")
             
         if args[AbstractPlugin.format_str] == "json":
             j_nodes = []
@@ -226,7 +226,7 @@ class NodePlugin( AbstractPlugin ):
                 failures.append( node.id )
             
         if ( len( failures ) > 0 ):
-            print "The following IDs were not added due to errors: {}\n".format( failures )
+            print("The following IDs were not added due to errors: {}\n".format( failures ))
             
         self.list_nodes(args)
         

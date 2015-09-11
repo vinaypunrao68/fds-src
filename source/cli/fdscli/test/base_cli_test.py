@@ -20,13 +20,13 @@ class BaseCliTest( unittest.TestCase ):
     
     @classmethod
     def setUpClass(self):
-        print "Setting up the test..."
+        print("Setting up the test...")
         
         auth = MockFdsAuth()
         auth.login()
         self.__auth = auth
         self.__cli = FDSShell( auth ) 
-        print "Done with setup\n\n"
+        print("Done with setup\n\n")
         
     def callMessageFormatter(self, args):
         
@@ -35,7 +35,7 @@ class BaseCliTest( unittest.TestCase ):
         for arg in args:
             message += arg + " "
             
-        print "Making call: " + message
+        print("Making call: " + message)
         
     @property
     def cli(self):

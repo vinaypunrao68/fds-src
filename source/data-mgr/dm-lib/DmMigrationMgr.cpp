@@ -10,8 +10,8 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-    maxConcurrency(1), firedMigrations(0), mit(NULL),
-    migrState(MIGR_IDLE), cleanUpInProgress(false)
+    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID),
+    migrState(MIGR_IDLE)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                       get<int>("fds.dm.migration.migration_max_concurrency"));
@@ -30,6 +30,9 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 
         deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                     get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
+
+        delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
+        							get<int32_t>("fds.dm.testing.test_delay_start"));
 
     }
 
@@ -127,17 +130,31 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         return err;
     }
 
-    // TODO(Neil) fix this
-    MigrationType localMigrationType(MIGR_DM_ADD_NODE);
+    if (delayStart) {
+        LOGNOTIFY << "Delaying creation of DM Migration Manager by " << delayStart << " seconds.";
+        sleep(delayStart);
+    }
 
     /**
      * Make sure we're in a state able to dispatch migration.
      */
-    err = activateStateMachine();
+    err = activateStateMachine(MIGR_EXECUTOR);
+
+    // Test error return code
+    fiu_do_on("abort.dm.migration",\
+              LOGDEBUG << "abort.dm.migration fault point enabled";\
+              abortMigration(); return (ERR_NOT_READY););
+
+    // For now, only node addition is supported.
+    MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
     if (err != ERR_OK) {
         return err;
     }
+
+    // Store DMT version for debugging
+    DMT_version = migrationMsg->DMT_version;
+    LOGMIGRATE << "Starting Migration executors with DMT version = " << DMT_version;
 
     firedMigrations = 0;
     for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
@@ -195,15 +212,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
              * Abort everything
              */
             err = ERR_DM_MIGRATION_ABORTED;
-            /**
-             * TODO(Neil) -
-             * Right now we only support DM Add node migration that is initiated by the OM.
-             * In the future, when we have multiple ways to do migration, we may have
-             * sub sets of executors. This executorMap blow-away will not work then.
-             * So once that happens, write a new error handling method to handle removing
-             * the correct subset of executors from the executor map.
-             */
-            executorMap.clear();
+            abortMigration();
             break;
         } else if (loopFireNext) {
             mit++;
@@ -217,6 +226,9 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
     DmMigrationExecutor::shared_ptr executor =
         getMigrationExecutor(fds_volid_t(deltaBlobDescMsg->volume_id));
+    Error err(ERR_OK);
+    migrationCb descCb = deltaBlobDescReq->localCb;
+
     if (executor == nullptr) {
         LOGERROR << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id;
         // this is an race cond error that needs to be fixed in dev env.
@@ -224,8 +236,19 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
         fds_assert(0);
         return ERR_NOT_FOUND;
     }
-    executor->processDeltaBlobDescs(deltaBlobDescMsg);
-    return ERR_OK;
+
+    err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
+    if (err == ERR_NOT_READY) {
+    	LOGDEBUG << "Blobs descriptor not applied yet.";
+    	// This means that the blobs have not been applied yet. Override this to ERR_OK.
+    	err = ERR_OK;
+    } else {
+    	LOGERROR << "Error applying blob descriptor";
+    	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
+    	abortMigration();
+    }
+
+    return err;
 }
 
 // process the deltaObject request
@@ -243,6 +266,12 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
         return ERR_NOT_FOUND;
     }
     err = executor->processDeltaBlobs(deltaBlobsMsg);
+
+    if (!err.ok()) {
+    	LOGERROR << "Processing deltaBlobs failed";
+    	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
+    	abortMigration();
+    }
 
     return err;
 }
@@ -267,15 +296,12 @@ void
 DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
 {
     fds_verify(OmStartMigrCb != NULL);
-    /**
-     * TODO(Neil) : Two things need to be done: (FS-2539)
-     * 1. DmMigrationMgr needs to have a monitor for all the executors to be finished.
-     * 2. Once all executors are finished, clear the executorMap below and ack to OM.
-     */
+    fds_assert(status == ERR_OK);
+
+    DMT_version = DMT_VER_INVALID;
+
     LOGMIGRATE << "Telling OM that DM Migrations have all been fired";
-                    OmStartMigrCb(status);
-                    // For now, not clearing map because waiting isn't implemented yet.
-                    // executorMap.clear();
+    OmStartMigrCb(status);
 }
 
 // See note in header file for design decisions
@@ -290,7 +316,24 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
+    MigrationType localMigrationType(MIGR_DM_ADD_NODE);
+
+    /**
+     * Make sure we're in a state able to dispatch migration.
+     */
+    err = activateStateMachine(MIGR_CLIENT);
+
+    if (err != ERR_OK) {
+    	abortMigration();
+        return err;
+    }
+
     err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
+
+    if (err != ERR_OK) {
+    	abortMigration();
+        return err;
+    }
 
     return err;
 }
@@ -339,13 +382,18 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 }
 
 Error
-DmMigrationMgr::activateStateMachine()
+DmMigrationMgr::activateStateMachine(DmMigrationMgr::MigrationRole role)
 {
     Error err(ERR_OK);
 
     MigrationState expectedState(MIGR_IDLE);
+    myRole = role;
 
     if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
+    	if (expectedState == MIGR_IN_PROGRESS) {
+    		// This is fine
+    		return err;
+    	}
         // If not ABORTED state, then something wrong with OM FSM sending this migration msg
         fds_verify(isMigrationAborted());
         if (isMigrationAborted()) {
@@ -354,7 +402,6 @@ DmMigrationMgr::activateStateMachine()
              * Once the cleanup is done, the state should go back to MIGR_IDLE.
              * In the meantime, do not serve anymore migrations.
              */
-            fds_verify(cleanUpInProgress);
             LOGMIGRATE << "DM MigrationMgr cannot receive new requests as it is "
                 << "currently in an error state and being cleaned up.";
             err = ERR_NOT_READY;
@@ -382,13 +429,10 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         << std::hex << volId << std::dec
         << " with error=" << result;
 
-    /**
-     * TODO(Neil): error handling
-     */
     if (!result.OK()) {
         fds_verify(isMigrationInProgress() || isMigrationAborted());
-        fds_verify(std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED));
         LOGERROR << "Volume=" << volId << " failed migration with error: " << result;
+        abortMigration();
     } else {
         /**
          * Normal exit. Really doesn't do much as we're waiting for the clients to come back.
@@ -494,5 +538,86 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     err = executor->processTxState(txStateMsg);
 
     return err;
+}
+
+void
+DmMigrationMgr::abortMigration() {
+
+	MigrationState expectedState(MIGR_IN_PROGRESS);
+	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED)) {
+		// If not the first client or first executor, don't worry about the rest.
+		return;
+	}
+
+	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
+
+	DmMigrationClientMap::const_iterator citer (clientMap.begin());
+	DmMigrationExecMap::const_iterator eiter (executorMap.begin());
+	while (citer != clientMap.end()) {
+		citer->second->abortMigration();
+		++citer;
+	}
+	while (eiter != executorMap.end()) {
+		eiter->second->abortMigration();
+		++eiter;
+	}
+	clientMap.clear();
+	executorMap.clear();
+
+    fds_assert(myRole != MIGR_UNKNOWN);
+    if ((myRole == MIGR_EXECUTOR) && OmStartMigrCb) {
+    	LOGDEBUG << "Sending migration abort to OM";
+    	OmStartMigrCb(ERR_DM_MIGRATION_ABORTED);
+    }
+
+    std::atomic_store(&migrState, MIGR_IDLE);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(DmIoMigrationDeltaBlobs *deltaBlobReq)
+{
+	if (!deltaBlobReq) {return;}
+	fpi::CtrlNotifyDeltaBlobsMsgPtr ptr = deltaBlobReq->deltaBlobsMsg;
+	LOGMIGRATE << "Dumping DmIoMigrationDeltaBlobs msg: " << deltaBlobReq;
+	dumpDmIoMigrationDeltaBlobs(ptr);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg)
+{
+	std::string blobInfo;
+	for (auto obj : msg->blob_obj_list) {
+		std::string blobObjInfo = "Blob name: ";
+		blobObjInfo.append(obj.blob_name);
+		blobInfo.append(blobObjInfo);
+	}
+
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
+			<< " " << blobInfo;
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(DmIoMigrationDeltaBlobDesc *deltaBlobReq)
+{
+	if (!deltaBlobReq) {return;}
+	fpi::CtrlNotifyDeltaBlobDescMsgPtr ptr = deltaBlobReq->deltaBlobDescMsg;
+	LOGMIGRATE << "Dumping DmIoMigrationDeltaBlobDesc msg: " << deltaBlobReq;
+	dumpDmIoMigrationDeltaBlobDesc(ptr);
+}
+
+void
+DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
+{
+	std::string blobInfo;
+	for (auto obj : msg->blob_desc_list) {
+		std::string blobObjInfo = "Blob name: ";
+		blobObjInfo.append(obj.vol_blob_name);
+		blobInfo.append(blobObjInfo);
+	}
+
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
+			<< " " << blobInfo;
 }
 }  // namespace fds
