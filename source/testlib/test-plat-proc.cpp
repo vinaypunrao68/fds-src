@@ -49,7 +49,7 @@ FdsService::plf_load_node_data()
     plf_node_data.nd_magic       = 0xcafecaaf;
     plf_node_data.nd_node_number = 0;
     plf_node_data.nd_plat_port   = plf_mgr->plf_get_my_node_port();
-    plf_node_data.nd_om_port     = plf_mgr->plf_get_om_ctrl_port();
+    plf_node_data.nd_om_port     = plf_node_data.nd_plat_port + 4;
     plf_node_data.nd_flag_run_sm = 1;
     plf_node_data.nd_flag_run_dm = 1;
     plf_node_data.nd_flag_run_am = 1;

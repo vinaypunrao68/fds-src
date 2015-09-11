@@ -83,6 +83,9 @@ Error
 DataPlacement::computeDlt() {
     // Currently always create a new empty DLT.
     // Will change to be relative to the current.
+
+    fds_mutex::scoped_lock l(placementMutex);
+
     fds_uint64_t version;
     Error err(ERR_OK);
     
@@ -110,7 +113,6 @@ DataPlacement::computeDlt() {
     }
 
     // Allocate and compute new DLT
-    fds_mutex::scoped_lock l(placementMutex);
     newDlt = new DLT(curDltWidth,
                      depth,
                      version,
@@ -397,8 +399,10 @@ DataPlacement::commitDlt() {
 }
 void
 DataPlacement::commitDlt( const bool unsetTarget ) {
-    fds_verify(newDlt != NULL);
+
     fds_mutex::scoped_lock l(placementMutex);
+    
+    fds_verify(newDlt != NULL);
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();

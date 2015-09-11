@@ -101,14 +101,14 @@ class FDSShell( cmd.Cmd ):
                 try:
                     self.__session.login()
                     self.loadmodules()
-                    print "Connected to: {}\n".format(self.__session.get_hostname()) 
+                    print("Connected to: {}\n".format(self.__session.get_hostname()))
         
                 except FdsAuthError as f:
-                    print str(f.error_code) + ":" + f.message
+                    print(str(f.error_code) + ":" + f.message)
                     self.__session.logout()
                     return
                 except Exception as ex:
-                    print "Unknown error occurred."
+                    print("Unknown error occurred.")
                     self.__session.logout()
                     return
             
@@ -118,7 +118,7 @@ class FDSShell( cmd.Cmd ):
         
         # a connection error occurs later
         except ConnectionError:
-            print "Lost connection to OM.  Please verify that it is up and responsive."
+            print("Lost connection to OM.  Please verify that it is up and responsive.")
             self.__session.logout()
             return
             
@@ -148,7 +148,7 @@ class FDSShell( cmd.Cmd ):
         '''
         Just one method to exit the program so we can link a few commands to it
         '''
-        print 'Bye!'
+        print('Bye!')
         sys.exit()
         
 

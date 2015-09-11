@@ -381,6 +381,9 @@ AmProcessor_impl::start()
     vol_tok_renewal_freq =
         std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
+    LOGNORMAL << "Features: safe_atomic_write(" << safe_atomic_write
+              << ") volume_open_support("       << volume_open_support << ")";
+
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
     amDispatcher->start();
