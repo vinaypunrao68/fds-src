@@ -1061,41 +1061,50 @@ class TestSMActivate(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
+        om_ip = om_node.nd_conf_dict['ip']
+        node_service = get_node_service(self,om_ip)
+        node_list = node_service.list_nodes()
 
-        # Do all SMs in the domain or just the SM for the passed node?
-        if self.passedNode is None:
-            self.log.info("Activate domain SMs from OM node %s." % om_node.nd_conf_dict['node-name'])
+        for each_node in node_list:
 
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain activateServices local sm > '
-                                                '{}/fdsconsole.out 2>&1) \"'.format(log_dir),
-                                                fds_tools=True)
-        else:
-            node = self.passedNode
+            # Do all SMs in the domain or just the SM for the passed node?
+            if self.passedNode is not None:
+                self.log.info("Activate SM for node %s" % each_node.id)
 
-            # Make sure this node is configured for an SM service.
-            if node.nd_services.count("sm") == 0:
-                self.log.error("Node %s is not configured to host an SM service." % node.nd_conf_dict['node-name'])
+                # Make sure this node is configured for an DM service.
+                if self.passedNode.nd_services.count("sm") == 0:
+                    self.log.error("Node %s is not configured to host a SM service." % self.passedNode.nd_conf_dict['node-name'])
+                    return False
+
+                # Make sure we have the node's meta-data.
+                status = self.passedNode.nd_populate_metadata(om_node=om_node)
+                if status != 0:
+                    self.log.error("Getting meta-data for node %s returned status %d." %
+                               (each_node.nd_conf_dict['node-name'], status))
+                    return False
+
+                node_id = int(self.passedNode.nd_uuid, 16)
+                each_node = node_service.get_node(node_id)
+
+            service = Service()
+            service.type = 'SM'
+            add_service = node_service.add_service(each_node.id,service)
+            if type(add_service).__name__ == 'FdsError':
+                self.log.error(" Add SM service failed on node %s"%(each_node.id))
                 return False
 
-            # Make sure we have the node's meta-data.
-            status = node.nd_populate_metadata(om_node=om_node)
-            if status != 0:
-                self.log.error("Getting meta-data for node %s returned status %d." %
-                               (node.nd_conf_dict['node-name'], status))
+            self.log.info("Activate service SM for node %s." % (each_node.id))
+            start_service = node_service.start_service(each_node.id,add_service.id)
+            time.sleep(3)
+            get_service = node_service.get_service(each_node.id,start_service.id)
+            if type(get_service).__name__ == 'FdsError' or get_service.status.state == "NOT_RUNNING":
+                self.log.error("SM Service activation of node %s returned status %s." %
+                        (each_node.id))
                 return False
 
-            self.log.info("Activate SM for node %s from OM node %s." % (node.nd_conf_dict['node-name'],
-                                                                        om_node.nd_conf_dict['node-name']))
-
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service '
-                                                'addService {} sm > {}/cli.out 2>&1) \"'.format(
-                                                int(node.nd_uuid, 16), log_dir,), fds_tools=True)
-
-        if status != 0:
-            self.log.error("SM activation on %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
-            return False
+            if self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                break
 
         return True
 
@@ -1127,9 +1136,7 @@ class TestSMRemove(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        fds_dir = om_node.nd_conf_dict['fds_root']
-        log_dir = om_node.nd_agent.get_log_dir()
-
+        om_ip = om_node.nd_conf_dict['ip']
         nodes = fdscfg.rt_obj.cfg_nodes
         for node in nodes:
             # If we were passed a node, check that one and exit.
@@ -1148,16 +1155,19 @@ class TestSMRemove(TestCase.FDSTestCase):
                                (node.nd_conf_dict['node-name'], status))
                 return False
 
-            self.log.info("Remove SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+            self.log.info("Stopping SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
-
-            self.log.warn("Remove services call currently not implemented. THIS CALL WILL FAIL!")
-            status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py service removeService {} sm > '
-                                                '{}/cli.out 2>&1) \"'.format(node.nd_uuid, log_dir),
-                                                fds_tools=True)
-
-            if status != 0:
-                self.log.error("SM removal from %s returned status %d." % (self.passedNode.nd_conf_dict['node-name'], status))
+            node_service = get_node_service(self, om_ip)
+            node_cli = node_service.get_node(int(node.nd_uuid, 16))
+            try:
+                sm_state = node_cli.services['SM'][0].status.state
+                if sm_state == 'RUNNING':
+                    #if dm is running then only stop it
+                    sm_service = node_service.stop_service(node_cli.id,node_cli.services['SM'][0].id)
+                    sm_state = sm_service.status.state
+                assert(sm_state, "NOT_RUNNING")
+            except IndexError:
+                self.log.error("Active SM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
 
             if self.passedNode is not None:
