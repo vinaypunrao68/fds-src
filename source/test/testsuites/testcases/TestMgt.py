@@ -202,7 +202,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainShutdownSuite)
         else:
-            log.error("Unrecognized domain action '%s' for scenario %s" %
+            log.error("Unrecognized domain action '%s' for scenario %s" %TestDMActivate
                       (action, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
@@ -494,7 +494,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                   (scenario.nd_conf_dict['scenario-name']))
                         raise Exception
                     elif service == "dm":
-                        suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestDMStop(node=node))
                     elif service == "sm":
                         suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
                     elif service == "om":

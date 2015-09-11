@@ -520,7 +520,7 @@ class TestDMActivate(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # removing Data Manager (DM) services on a domain.
-class TestDMRemove(TestCase.FDSTestCase):
+class TestDMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -529,11 +529,11 @@ class TestDMRemove(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_DMRemove,
+                                             self.test_DMStop,
                                              "DM service removal")
 
         self.passedNode = node
-    def test_DMRemove(self):
+    def test_DMStop(self):
         """
         Test Case:
         Attempt to remove the DM service(s)
@@ -574,11 +574,6 @@ class TestDMRemove(TestCase.FDSTestCase):
                     dm_service = node_service.stop_service(node_cli.id,node_cli.services['DM'][0].id)
                     dm_state = dm_service.status.state
                 assert(dm_state, "NOT_RUNNING")
-                status = node_service.remove_service(node_cli.id,node_cli.services['DM'][0].id)
-                if type(status).__name__ == 'FdsError' or isinstance(status, FdsError):
-                    self.log.error('Failed to remove DM %s'%status)
-                    return False
-
             except IndexError:
                 self.log.error("Active DM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
