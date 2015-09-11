@@ -53,6 +53,7 @@ struct message {
 
 struct NbdConnection : public NbdOperationsResponseIface {
     NbdConnection(NbdConnector* server,
+                  std::shared_ptr<ev::dynamic_loop> loop,
                   int clientsd,
                   std::shared_ptr<AmProcessor> processor);
     NbdConnection(NbdConnection const& rhs) = delete;

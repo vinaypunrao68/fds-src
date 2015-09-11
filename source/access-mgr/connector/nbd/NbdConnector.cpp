@@ -72,18 +72,12 @@ void NbdConnector::initialize() {
         return;
     }
 
-    // This is our async event watcher for shutdown
-    if (!asyncWatcher) {
-        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
-        asyncWatcher->set<NbdConnector, &NbdConnector::reset>(this);
-        asyncWatcher->start();
-    }
-
     // Setup event loop
     if (!evLoop && !evIoWatcher) {
         LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
         evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
+        evIoWatcher->set(*evLoop);
         if (!evLoop || !evIoWatcher) {
             LOGERROR << "Failed to initialize lib_ev...";
             return;
@@ -92,6 +86,14 @@ void NbdConnector::initialize() {
     }
     evIoWatcher->set(nbdSocket, ev::READ);
     evIoWatcher->start(nbdSocket, ev::READ);
+
+    // This is our async event watcher for shutdown
+    if (!asyncWatcher) {
+        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+        asyncWatcher->set(*evLoop);
+        asyncWatcher->set<NbdConnector, &NbdConnector::reset>(this);
+        asyncWatcher->start();
+    }
 }
 
 void NbdConnector::reset() {
@@ -178,7 +180,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
 
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(this, clientsd, processor);
+            NbdConnection *client = new NbdConnection(this, evLoop, clientsd, processor);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {

@@ -30,7 +30,7 @@ struct NbdConnector
     bool cfg_no_delay {true};
     uint32_t cfg_keep_alive {0};
 
-    std::unique_ptr<ev::dynamic_loop> evLoop;
+    std::shared_ptr<ev::dynamic_loop> evLoop;
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
     std::weak_ptr<AmProcessor> amProcessor;
