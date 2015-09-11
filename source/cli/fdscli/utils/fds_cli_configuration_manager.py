@@ -1,5 +1,8 @@
 import os
-from ConfigParser import SafeConfigParser
+try:
+    from configparser import SafeConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser
 
 class FdsCliConfigurationManager(object):
     '''
@@ -29,7 +32,8 @@ class FdsCliConfigurationManager(object):
         '''
         
         if not cls.__instance:
-            cls.__instance = super(FdsCliConfigurationManager, cls).__new__(cls, *args, **kwargs)
+            cls.__instance = object.__new__(cls)
+            cls.__instance.__init__(*args, **kwargs)
         
         return cls.__instance
     

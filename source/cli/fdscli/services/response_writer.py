@@ -16,23 +16,23 @@ class ResponseWriter():
     
     @staticmethod
     def write_not_implemented(args=None):
-        print "\nThis feature is not yet available, but the fine people at Formation Data System are working tirelessly to make this a reality in the near future.\n"
+        print("\nThis feature is not yet available, but the fine people at Formation Data System are working tirelessly to make this a reality in the near future.\n")
     
     @staticmethod
     def writeTabularData( data, headers="keys" ):
         
-        print "\n"
+        print("\n")
         
         if ( len(data) == 0 ):
             return
         else:
-            print tabulate.tabulate( data, headers=headers )
-            print "\n"
+            print(tabulate.tabulate( data, headers=headers ))
+            print("\n")
 
         
     @staticmethod
     def writeJson( data ):
-        print "\n" + json.dumps( data, indent=4, sort_keys=True ) + "\n"
+        print("\n" + json.dumps( data, indent=4, sort_keys=True ) + "\n")
         
     @staticmethod
     def prep_volume_for_table( session, response ):

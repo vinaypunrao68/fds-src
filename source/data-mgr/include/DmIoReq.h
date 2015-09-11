@@ -769,6 +769,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 };
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {
+    std::function<void(const Error& e)> localCb = NULL;
     explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
              deltaBlobDescMsg(msg)

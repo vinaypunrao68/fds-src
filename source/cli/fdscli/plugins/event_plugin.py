@@ -1,4 +1,4 @@
-import abstract_plugin
+from . import abstract_plugin
 
 '''
 Created on Apr 13, 2015

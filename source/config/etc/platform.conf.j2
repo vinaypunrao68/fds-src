@@ -307,6 +307,9 @@ fds: {
             coarse_slots = 6
             longslot_sec = 900
             long_slots = 6
+
+            /* Delay the start the of the DM x seconds for testing migration injections */
+            test_delay_start = 0
         }
     }
 
@@ -690,6 +693,7 @@ fds: {
     	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
     	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
     	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
+	nfs_stats = true
     }
 
     test: {

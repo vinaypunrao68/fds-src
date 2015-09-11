@@ -76,6 +76,8 @@ public class ExternalModelConverter {
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
         Long roleId = 1L;
+        
+        logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
         if ( internalUser.isFdsAdmin ) {
             roleId = 0L;
