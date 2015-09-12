@@ -20,6 +20,7 @@ from fdscli.model.platform.service import Service
 from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
+from fdslib.TestUtils import node_is_up
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -249,16 +250,17 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
         nodes = fdscfg.rt_obj.cfg_nodes
         om_ip = om_node.nd_conf_dict['ip']
         for n in nodes:
-        # If we were provided a node, activate that one and exit.
+        # If we were provided a node, deactivate that one and exit.
             if self.passedNode is not None:
                 n = self.passedNode
-#            else: Should we skip the OM's node?
-#                if n.nd_conf_dict['node-name'] == om_node.nd_conf_dict['node-name']:
-#                    self.log.info("Skipping OM's node on %s." % n.nd_conf_dict['node-name'])
-#                    continue
-
             self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
             node_id = int(n.nd_uuid, 16)
+            # Prevent scenario where we try to take remove a node that was never online
+            if not node_is_up(self,om_ip,node_id):
+                self.log.info("Selected node {} is not UP. Ignoring "
+                                     "command to remove node".format(n.nd_conf_dict['node-name']))
+                continue
+
             node_service = get_node_service(self,om_ip)
             node_remove = node_service.remove_node(node_id)
 
@@ -268,7 +270,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, exit now.
-                return True
+                break
 
         return True
 

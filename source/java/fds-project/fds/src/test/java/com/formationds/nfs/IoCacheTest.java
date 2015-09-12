@@ -102,6 +102,6 @@ public class IoCacheTest {
         blobName = UUID.randomUUID().toString();
         objectSize = 42;
         io = new MemoryIo();
-        cache = new IoCache(io);
+        cache = new IoCache(io, new Counters());
     }
 }

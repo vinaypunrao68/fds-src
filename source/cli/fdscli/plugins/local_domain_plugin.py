@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 from services.local_domain_service import LocalDomainService
 from services.response_writer import ResponseWriter
 from utils.converters.platform.domain_converter import DomainConverter
@@ -113,7 +113,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         
         if domain is None:
-            print "The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list"
+            print("The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list")
             return
         
         response = self.get_local_domain_service().shutdown(domain)
@@ -128,7 +128,7 @@ class LocalDomainPlugin( AbstractPlugin):
         domain = self.get_local_domain_service().find_domain_by_id(args[AbstractPlugin.domain_id_str])
         
         if domain is None:
-            print "The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list"
+            print("The Domain ID entered does not exist.  Please use an ID found from the command: local_domain list")
             return
         
         response = self.get_local_domain_service().start(domain)
