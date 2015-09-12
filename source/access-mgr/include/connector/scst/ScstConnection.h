@@ -22,39 +22,11 @@ namespace fds
 struct AmProcessor;
 struct ScstConnector;
 
-#pragma pack(push)
-#pragma pack(1)
-struct attach_header {
-    uint8_t magic[8];
-    fds_int32_t optSpec, length;
-};
-
-struct handshake_header {
-    uint32_t ack;
-};
-
-struct request_header {
-    uint8_t magic[4];
-    fds_int32_t opType;
-    fds_int64_t handle;
-    fds_int64_t offset;
-    fds_int32_t length;
-};
-#pragma pack(pop)
-
-template<typename H, typename D>
-struct message {
-    typedef D data_type;
-    typedef H header_type;
-    header_type header;
-    ssize_t header_off, data_off;
-    data_type data;
-};
-
 struct ScstConnection : public ScstOperationsResponseIface {
-    ScstConnection(ScstConnector* server,
-                  int scst_dev,
-                  std::shared_ptr<AmProcessor> processor);
+    ScstConnection(std::string const& vol_name,
+                   ScstConnector* server,
+                   std::shared_ptr<ev::dynamic_loop> loop,
+                   std::shared_ptr<AmProcessor> processor);
     ScstConnection(ScstConnection const& rhs) = delete;
     ScstConnection(ScstConnection const&& rhs) = delete;
     ScstConnection operator=(ScstConnection const& rhs) = delete;
@@ -79,7 +51,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
      ConnectionState state_ { ConnectionState::RUNNING };
 
-    int scstDev;
+    int scstDev {-1};
     size_t volume_size;
     size_t object_size;
 
@@ -88,10 +60,6 @@ struct ScstConnection : public ScstOperationsResponseIface {
     ScstOperations::shared_ptr scstOps;
 
     size_t resp_needed;
-
-    message<attach_header, std::array<char, 1024>> attach;
-    message<handshake_header, std::nullptr_t> handshake;
-    message<request_header, boost::shared_ptr<std::string>> request;
 
     resp_vector_type response;
     size_t total_blocks;
@@ -106,6 +74,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     /** Indicates to ev loop if it's safe to handle events on this connection */
     bool processing_ {false};
 
+    int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
 

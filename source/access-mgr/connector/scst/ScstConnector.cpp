@@ -17,9 +17,6 @@ extern "C" {
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
 #include "fds_process.h"
-extern "C" {
-#include "connector/scst/scst_user.h"
-}
 
 namespace fds {
 
@@ -41,9 +38,8 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
 }
 
 void ScstConnector::stop() {
-    if (instance_ && instance_->asyncWatcher) {
-       instance_->asyncWatcher->send();
-    }
+    // TODO(bszmyd): Sat 12 Sep 2015 03:56:58 PM GMT
+    // Implement
 }
 
 ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
@@ -51,117 +47,26 @@ ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
         : LeaderFollower(followers, false),
           amProcessor(processor) {
     LOGDEBUG << "Initialized server with: " << followers << " followers.";
-    initialize();
-}
-
-void ScstConnector::initialize() {
-    // Close the SCST device if we are re-initializing
-    if (0 <= scstDev)
-        { reset(); }
-
-    // Open the SCST user device
-    if (0 > (scstDev = openScst())) {
-        return;
-    }
-
-    // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
-    // REGISTER a device
-    static scst_user_dev_desc const scst_descriptor {
-        (unsigned long)DEV_USER_VERSION, // Constant
-        (unsigned long)"GPL",       // License string
-        TYPE_DISK,                  // Device type
-        0, 0, 0, 0,                 // SGV options
-        {                           // SCST options
-                SCST_USER_PARSE_STANDARD,                   // parse type
-                SCST_USER_ON_FREE_CMD_IGNORE,               // command on-free type
-                SCST_USER_MEM_REUSE_ALL,                    // command reuse type
-                SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
-                0,                                          // partial transfer length
-                SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
-                0,                                          // task mgmt only (on fault)
-                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // reordering however
-                SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
-                0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
-        },
-        4096,                       // Block size
-        0,                          // PR cmd Notifications
-        "scst_vol",
-        "scst_vol_sgv",
-    };
-    auto res = ioctl(scstDev, SCST_USER_REGISTER_DEVICE, &scst_descriptor);
-    if (0 > res) {
-        LOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
-        return;
-    }
-
-    // Setup event loop
-    if (!evLoop && !evIoWatcher) {
-        LOGNORMAL << "Accepting SCST commands";
-        evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
-        evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
-        if (!evLoop || !evIoWatcher) {
-            LOGERROR << "Failed to initialize lib_ev...";
-            return;
-        }
-        evIoWatcher->set(*evLoop);
-        evIoWatcher->set<ScstConnector, &ScstConnector::scstEvent>(this);
-    }
-    evIoWatcher->set(scstDev, ev::READ);
-    evIoWatcher->start(scstDev, ev::READ);
-
-    // This is our async event watcher for shutdown
-    if (!asyncWatcher) {
-        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
-        asyncWatcher->set(*evLoop);
-        asyncWatcher->set<ScstConnector, &ScstConnector::reset>(this);
-        asyncWatcher->start();
-    }
-
-}
-
-void ScstConnector::reset() {
-    if (0 <= scstDev) {
-        evIoWatcher->stop();
-        close(scstDev);
-        scstDev = -1;
-    }
-}
-
-void
-ScstConnector::scstEvent(ev::io &watcher, int revents) {
-    if (EV_ERROR & revents) {
-        LOGERROR << "Got invalid libev event";
-        return;
-    }
-
-    // TODO(bszmyd): Fri 11 Sep 2015 05:32:03 AM MDT
-    // IMPLEMENT SCST event handler
-
-    /** First see if we even have a processing layer */
-//    auto processor = amProcessor.lock();
-//    if (!processor) {
-//        LOGNORMAL << "No processing layer, shutdown.";
-//        reset();
-//        return;
-//    }
-
-    // Create a handler for this SCST connection
-    // Will delete itself when connection dies
-//    ScstConnection *client = new ScstConnection(this, clientsd, processor);
-//    LOGNORMAL << "Created client connection...";
-}
-
-int
-ScstConnector::openScst() {
-    int dev = open(DEV_USER_PATH DEV_USER_NAME, O_RDWR | O_NONBLOCK);
-    if (0 > dev) {
-        LOGERROR << "Opening the SCST device failed: " << strerror(errno);
-    }
-    return dev;
 }
 
 void
 ScstConnector::lead() {
+    if (!evLoop) {
+        evLoop = std::make_shared<ev::dynamic_loop>();
+        if (!evLoop) {
+            LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
+            return;
+        }
+
+        // XXX(bszmyd): Sat 12 Sep 2015 10:18:54 AM MDT
+        // Create a phony device at startup for testing
+        auto processor = amProcessor.lock();
+        if (!processor) {
+            LOGNORMAL << "No processing layer, shutdown.";
+            return;
+        }
+        auto client = new ScstConnection("scst_vol", this, evLoop, processor);
+    }
     evLoop->run(0);
 }
 

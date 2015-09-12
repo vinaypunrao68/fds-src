@@ -25,17 +25,9 @@ struct ScstConnector
     void lead() override;
 
  private:
-    int scstDev {-1};
 
-    std::unique_ptr<ev::dynamic_loop> evLoop;
-    std::unique_ptr<ev::io> evIoWatcher;
-    std::unique_ptr<ev::async> asyncWatcher;
+    std::shared_ptr<ev::dynamic_loop> evLoop;
     std::weak_ptr<AmProcessor> amProcessor;
-
-    int openScst();
-    void initialize();
-    void reset();
-    void scstEvent(ev::io &watcher, int revents);
 
     ScstConnector(std::weak_ptr<AmProcessor> processor,
                  size_t const followers);

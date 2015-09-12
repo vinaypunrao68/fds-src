@@ -11,6 +11,7 @@
 namespace ev {
 class io;
 class async;
+class dynamic_loop;
 }  // namespace ev
 
 namespace fds
