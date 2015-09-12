@@ -17,6 +17,9 @@ extern "C" {
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
 #include "fds_process.h"
+extern "C" {
+#include "connector/scst/scst_user.h"
+}
 
 namespace fds {
 
@@ -31,6 +34,7 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
         FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
         auto threads = conf.get<uint32_t>("threads", 1);
         instance_.reset(new ScstConnector(processor, threads - 1));
+        instance_->initializeTarget();
         // Start the main server thread
         auto t = std::thread(&ScstConnector::follow, instance_.get());
         t.detach();
@@ -50,23 +54,48 @@ ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
 }
 
 void
-ScstConnector::lead() {
+ScstConnector::initializeTarget() {
+    evLoop = std::make_shared<ev::dynamic_loop>();
     if (!evLoop) {
-        evLoop = std::make_shared<ev::dynamic_loop>();
-        if (!evLoop) {
-            LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
-            return;
-        }
-
-        // XXX(bszmyd): Sat 12 Sep 2015 10:18:54 AM MDT
-        // Create a phony device at startup for testing
-        auto processor = amProcessor.lock();
-        if (!processor) {
-            LOGNORMAL << "No processing layer, shutdown.";
-            return;
-        }
-        auto client = new ScstConnection("scst_vol", this, evLoop, processor);
+        LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
+        return;
     }
+
+    // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
+    // We can support other target-drivers than iSCSI...TBD
+    // Create an iSCSI target in the SCST mid-ware for our handler
+    LOGDEBUG << "Creating iSCSI target for connector.";
+    auto scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/mgmt", O_WRONLY);
+    if (0 > scstTgtMgmt) {
+        LOGERROR << "Could not create target, no iSCSI devices will be presented!";
+    } else {
+        static std::string const add_tgt_cmd = "add_target fds.iscsi:tgt";
+        auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
+        close(scstTgtMgmt);
+    }
+    // XXX(bszmyd): Sat 12 Sep 2015 10:18:54 AM MDT
+    // Create a phony device at startup for testing
+    auto processor = amProcessor.lock();
+    if (!processor) {
+        LOGNORMAL << "No processing layer, shutdown.";
+        return;
+    }
+    LOGDEBUG << "Creating Device for connector.";
+    auto client = new ScstConnection("scst_vol", this, evLoop, processor);
+
+    LOGDEBUG << "Enabling iSCSI target.";
+    scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/fds.iscsi:tgt/enabled", O_WRONLY);
+    if (0 > scstTgtMgmt) {
+        LOGERROR << "Could not enable target, no iSCSI devices will be presented!";
+    } else {
+        auto i = write(scstTgtMgmt, "1", 1);
+        close(scstTgtMgmt);
+    }
+    LOGNORMAL << "Scst Connector is running...";
+}
+
+void
+ScstConnector::lead() {
     evLoop->run(0);
 }
 

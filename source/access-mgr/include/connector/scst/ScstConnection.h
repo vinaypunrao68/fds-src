@@ -77,32 +77,6 @@ struct ScstConnection : public ScstOperationsResponseIface {
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
-
-    enum class ScstProtoState {
-        INVALID   = 0,
-        PREINIT   = 1,
-        POSTINIT  = 2,
-        AWAITOPTS = 3,
-        SENDOPTS  = 4,
-        DOREQS    = 5
-    };
-
-    ScstProtoState scst_state;
-
-    // Handshake State
-    bool handshake_start(ev::io &watcher);
-    bool handshake_complete(ev::io &watcher);
-
-    // Option Negotiation State
-    bool option_request(ev::io &watcher);
-    bool option_reply(ev::io &watcher);
-
-    // Data IO State
-    bool io_request(ev::io &watcher);
-    bool io_reply(ev::io &watcher);
-
-    Error dispatchOp();
-    bool write_response();
 };
 
 }  // namespace fds

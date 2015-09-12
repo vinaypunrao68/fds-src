@@ -20,12 +20,11 @@ struct ScstConnector
 
     static void start(std::weak_ptr<AmProcessor> processor);
     static void stop();
- protected:
 
+ protected:
     void lead() override;
 
  private:
-
     std::shared_ptr<ev::dynamic_loop> evLoop;
     std::weak_ptr<AmProcessor> amProcessor;
 
@@ -33,6 +32,8 @@ struct ScstConnector
                  size_t const followers);
     ScstConnector(ScstConnector const& rhs) = delete;
     ScstConnector& operator=(ScstConnector const& rhs) = delete;
+
+    void initializeTarget();
 
     static std::unique_ptr<ScstConnector> instance_;
 };

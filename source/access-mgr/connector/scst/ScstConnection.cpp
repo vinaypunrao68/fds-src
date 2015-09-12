@@ -51,7 +51,6 @@ ScstConnection::ScstConnection(std::string const& vol_name,
           scstOps(boost::make_shared<ScstOperations>(this)),
           volume_size{0},
           object_size{0},
-          scst_state(ScstProtoState::PREINIT),
           resp_needed(0u),
           response(nullptr),
           total_blocks(0ull),
@@ -96,6 +95,18 @@ ScstConnection::ScstConnection(std::string const& vol_name,
     if (0 > res) {
         LOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
         throw ScstError::connection_closed;
+    }
+
+    // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
+    // We can support other target-drivers than iSCSI...TBD
+    // Create an iSCSI target in the SCST mid-ware for our handler
+    auto scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/fds.iscsi:tgt/luns/mgmt", O_WRONLY);
+    if (0 > scstTgtMgmt) {
+        LOGERROR << "Could not map lun, no iSCSI devices will be presented!";
+    } else {
+        static std::string add_tgt_cmd = "add " + vol_name + " 0";
+        auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
+        close(scstTgtMgmt);
     }
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
@@ -144,8 +155,7 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
     }
 
     // It's ok to keep writing responses if we've been shutdown
-    auto writting = (scst_state == ScstProtoState::SENDOPTS ||
-                     current_response ||
+    auto writting = (current_response ||
                      !readyResponses.empty()) ? ev::WRITE : ev::NONE;
 
     ioWatcher->set(writting | ev::READ);
@@ -207,7 +217,6 @@ ScstConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> con
         object_size = volDesc->maxObjSizeInBytes;
         volume_size = __builtin_bswap64(volDesc->capacity * Mi);
     }
-    scst_state = ScstProtoState::SENDOPTS;
     asyncWatcher->send();
 }
 
