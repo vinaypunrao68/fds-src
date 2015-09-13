@@ -62,6 +62,8 @@ class TestUsers( BaseCliTest):
         
         self.auth.remove_feature( FdsAuth.USER_MGMT )
         
+        self.cli.loadmodules()
+        
         args = ["user", "change_password"]
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -70,6 +72,7 @@ class TestUsers( BaseCliTest):
         assert mockChange.call_count == 0
         
         self.auth.add_feature( FdsAuth.USER_MGMT )
+        self.cli.loadmodules()
         
         args = ["user", "change_password", "-user_id=3"]
         self.callMessageFormatter(args)
@@ -88,6 +91,7 @@ class TestUsers( BaseCliTest):
         Test that we request the token reissue correctly
         '''
         self.auth.add_feature( FdsAuth.USER_MGMT )
+        self.cli.loadmodules()
                 
         #no user ID
         args = ["user", "reissue_token"]

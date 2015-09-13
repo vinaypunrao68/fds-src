@@ -539,6 +539,12 @@ struct CtrlNotifyDeltaBlobsMsg {
   4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
+struct CtrlNotifyDeltaBlobsRspMsg {
+    /**
+     * empty response msg
+     */
+}
+
 
 struct CtrlNotifyDeltaBlobDescRspMsg {
   /* An empty reply from the Destination DM to the source DM after
@@ -667,7 +673,7 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
       map<blob Name, sequence number> */
   2: map<string, i64>      blobFilterMap;
 }
-struct ResyncInitialBlobFilterSetRspMsg {
+struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }
 
 /* ------------------------------------------------------------

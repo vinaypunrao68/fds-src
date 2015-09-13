@@ -85,7 +85,7 @@ class VolumeTest1( BaseCliTest ):
         assert volume.name == "Franklin"
         assert volume.qos_policy.iops_min == 0
         assert volume.qos_policy.iops_max == 0
-        assert volume.media_policy == "HDD"
+        assert volume.media_policy == "HYBRID"
         assert volume.qos_policy.priority == 7
         assert volume.settings.type == "OBJECT"
         
