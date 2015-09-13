@@ -77,6 +77,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
+    void getAndRespond();
 };
 
 }  // namespace fds

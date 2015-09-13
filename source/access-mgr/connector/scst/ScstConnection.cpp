@@ -173,15 +173,12 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     processing_ = true;
     // Unblocks the next thread to listen on the ev loop
     scst_server->process();
+    LOGDEBUG << "Got SCST event!";
 
+    // We are guaranteed to be the only thread acting on this file descriptor
     try {
-    if (revents & EV_READ) {
-        LOGDEBUG << "Got Read event from SCST!";
-    }
-
-    if (revents & EV_WRITE) {
-        LOGDEBUG << "Got Write event from SCST!";
-    }
+        // Get the next command, and/or reply to any existing finished commands
+        getAndRespond();
     } catch(ScstError const& e) {
         state_ = ConnectionState::STOPPING;
         if (e == ScstError::connection_closed) {
@@ -194,6 +191,68 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     asyncWatcher->send();
     scst_server->follow();
 }
+
+void
+ScstConnection::getAndRespond() {
+    scst_user_get_cmd cmd { 0, 0, 0ull };
+
+    int res = 0;
+    do {
+    auto res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
+    } while ((0 > res) && (EINTR == errno));
+
+    if (0 > res) {
+        switch (errno) {
+            case ENOTTY:
+            case EBADF:
+                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
+                throw ScstError::connection_closed;
+            case EFAULT:
+            case EINVAL:
+                fds_panic("Invalid Scst argument!");
+            default:
+                return;
+        }
+    }
+
+    switch (cmd.subcode) {
+        case SCST_USER_ATTACH_SESS:
+        case SCST_USER_DETACH_SESS:
+            {
+                LOGDEBUG << "Session "
+                         << ((cmd.subcode == SCST_USER_ATTACH_SESS) ? "attachment" : "detachment")
+                         << " requested," << std::hex
+                         << " handle [0x" << cmd.sess.sess_h
+                         << "] lun [0x" << cmd.sess.lun
+                         << "] R/O [" << (cmd.sess.rd_only == 0 ? "false" : "true")
+                         << "] Init [" << cmd.sess.initiator_name
+                         << "] Targ [" << cmd.sess.target_name << "]";
+                scst_user_reply_cmd reply { cmd.cmd_h, cmd.subcode, 0ull };
+                auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+            }
+            break;
+        case SCST_USER_ALLOC_MEM:
+            LOGDEBUG << "Memory allocation requested.";
+            break;
+        case SCST_USER_EXEC:
+            LOGDEBUG << "SCSI command received.";
+            break;
+        case SCST_USER_ON_FREE_CMD:
+            LOGDEBUG << "Command responded.";
+            break;
+        case SCST_USER_TASK_MGMT_RECEIVED:
+            LOGDEBUG << "Task Management request.";
+            break;
+        case SCST_USER_TASK_MGMT_DONE:
+            LOGDEBUG << "Task Management completed.";
+            break;
+        case SCST_USER_ON_CACHED_MEM_FREE:
+        case SCST_USER_PARSE:
+        default:
+            fds_panic("Did not expect these commands!");
+    }
+}
+
 
 void
 ScstConnection::readWriteResp(ScstResponseVector* response) {
