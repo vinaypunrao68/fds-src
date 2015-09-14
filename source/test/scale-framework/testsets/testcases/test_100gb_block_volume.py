@@ -5,7 +5,7 @@
 # email: philippe@formationds.com
 # file: test_100gb_volume.py
 
-import utils
+import lib
 import config
 import unittest
 import requests
@@ -16,7 +16,7 @@ import shutil
 
 import ssh
 import os
-import utils
+import lib
 
 nbd_path = os.path.abspath(os.path.join('..', ''))
 sys.path.append(nbd_path)
@@ -26,9 +26,9 @@ print sys.path
 from boto.s3.key import Key
 
 import testsets.testcase as testcase
-# import the testlib utils
-import testlib.utils.nbd as nbd
-import utils
+# import the testlib lib
+import testlib.lib.nbd as nbd
+import lib
 import file_generator
 
 class Test100GBBlockVolume(testcase.FDSTestCase):
@@ -57,7 +57,7 @@ class Test100GBBlockVolume(testcase.FDSTestCase):
         try:
 
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                  self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 
