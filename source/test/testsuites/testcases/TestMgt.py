@@ -202,7 +202,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainShutdownSuite)
         else:
-            log.error("Unrecognized domain action '%s' for scenario %s" %TestDMActivate
+            log.error("Unrecognized domain action '%s' for scenario %s" %
                       (action, scenario.nd_conf_dict['scenario-name']))
             raise Exception
 

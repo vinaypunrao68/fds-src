@@ -519,7 +519,7 @@ class TestDMActivate(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# removing Data Manager (DM) services on a domain.
+# stopping Data Manager (DM) services on a domain.
 class TestDMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -573,7 +573,7 @@ class TestDMStop(TestCase.FDSTestCase):
                     #if dm is running then only stop it
                     dm_service = node_service.stop_service(node_cli.id,node_cli.services['DM'][0].id)
                     dm_state = dm_service.status.state
-                assert(dm_state, "NOT_RUNNING")
+                assert dm_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active DM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
@@ -1165,7 +1165,7 @@ class TestSMRemove(TestCase.FDSTestCase):
                     #if dm is running then only stop it
                     sm_service = node_service.stop_service(node_cli.id,node_cli.services['SM'][0].id)
                     sm_state = sm_service.status.state
-                assert(sm_state, "NOT_RUNNING")
+                assert sm_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active SM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
@@ -2722,7 +2722,7 @@ class TestAMRemove(TestCase.FDSTestCase):
                     #if am is running then only stop it
                     am_service = node_service.stop_service(node_cli.id,node_cli.services['SM'][0].id)
                     am_state = am_service.status.state
-                assert(am_state, "NOT_RUNNING")
+                assert am_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active AM service not found on %s ." % (node.nd_conf_dict['node-name']))
                 return False
