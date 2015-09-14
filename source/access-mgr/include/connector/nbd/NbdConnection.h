@@ -2,8 +2,8 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTION_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTION_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTION_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTION_H_
 
 #include <array>
 #include <memory>
@@ -13,8 +13,8 @@
 #include <boost/lockfree/queue.hpp>
 
 #include "fds_types.h"
-#include "connector/block/common.h"
-#include "connector/block/NbdOperations.h"
+#include "connector/nbd/common.h"
+#include "connector/nbd/NbdOperations.h"
 
 namespace fds
 {
@@ -53,6 +53,7 @@ struct message {
 
 struct NbdConnection : public NbdOperationsResponseIface {
     NbdConnection(NbdConnector* server,
+                  std::shared_ptr<ev::dynamic_loop> loop,
                   int clientsd,
                   std::shared_ptr<AmProcessor> processor);
     NbdConnection(NbdConnection const& rhs) = delete;
@@ -138,4 +139,4 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_NBDCONNECTION_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTION_H_
