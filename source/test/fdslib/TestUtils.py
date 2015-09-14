@@ -492,3 +492,11 @@ def get_ips_from_inventory(inventory_file_name,rt_env):
             else:
                 ips_array.append(line.rstrip('\n'))
     return ips_array
+
+def node_is_up(self,om_ip,node_id):
+    node_service = get_node_service(self,om_ip)
+    node = node_service.get_node(node_id)
+    if node.state == 'UP':
+        return True
+    else:
+        return False

@@ -75,15 +75,15 @@ class AMService(object):
                 if eachnode.address.ipv4address== node_ip:
                     #if (eachnode.services['AM'][0].status.state ==  'ACTIVE' or eachnode.services['AM'][0].status.state ==  'RUNNING') and int(am_pid) > 0:
                     if (eachnode.services['AM'][0].status.state ==  'RUNNING'):
-                         log.info('PASS - AM service has started on node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - AM service has started on node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - AM service has NOT started on node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - AM service has NOT started on node {}'.format(eachnode.address.ipv4address))
                          return False 
 
         except NameError:
-            log.warn('FAIL = AM service has not started  - unable to locate node.')
+            log.warn('FAILED = AM service has not started  - unable to locate node.')
             return False
                 
 
@@ -121,11 +121,11 @@ class AMService(object):
                 if eachnode.address.ipv4address == node_ip:
                     try:
                         if eachnode.services['AM'][0].status.state ==  'INACTIVE' or eachnode.services['AM'][0].status.state ==  'DOWN' or eachnode.services['AM'][0].status.state ==  'NOT_RUNNING':
-                             log.info('PASS - AM service is no longer running on node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - AM service is no longer running on node {}'.format(eachnode.address.ipv4address))
                              return True
 
                         else:
-                             log.warn('FAIL - AM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - AM service is STILL running on node {}'.format(eachnode.address.ipv4address))
                              return False
 
                     except IndexError:
@@ -163,11 +163,11 @@ class AMService(object):
             if eachnode.address.ipv4address == node_ip:
                 #if eachnode.services['AM'][0].status ==  'ACTIVE':
                 if am_pid_before ==  am_pid_after:
-                    log.warn('FAIL - Failed to kill bare_am service on node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to kill bare_am service on node {}'.format(eachnode.address.ipv4address))
                     return False 
 
                 else:
-                    log.info('PASS - bare_am service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    log.info('PASSED - bare_am service has been killed on node {}'.format(eachnode.address.ipv4address))
                     return True
 
     def add(self, node_ip):
@@ -208,15 +208,15 @@ class AMService(object):
             if eachnode.address.ipv4address == node_ip:
                 try:
                     if eachnode.services['AM'][0].status.state ==  'NOT_RUNNING':
-                         log.info('PASS - Added AM service to node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - Added AM service to node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - Failed to add AM service to node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - Failed to add AM service to node {}'.format(eachnode.address.ipv4address))
                          return False 
 
                 except IndexError:
-                    log.warn('FAIL - Failed to add AM service to node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to add AM service to node {}'.format(eachnode.address.ipv4address))
                     return False
 
     def remove(self, node_ip):
@@ -258,15 +258,15 @@ class AMService(object):
                         if eachnode.services['AM'][0].status.state ==  'INACTIVE' or \
                             eachnode.services['AM'][0].status.state ==  'NOT_RUNNING' or \
                             eachnode.services['AM'][0].status.state == 'RUNNING':
-                             log.warn('FAIL - Failed to remove AM service from node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - Failed to remove AM service from node {}'.format(eachnode.address.ipv4address))
                              return False 
 
                     except IndexError:
-                             log.info('PASS - Removed AM service from node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - Removed AM service from node {}'.format(eachnode.address.ipv4address))
                              return True
 
         else:
-            log.warn('FAIL - AM service has not been removed - unable to locate node')
+            log.warn('FAILED - AM service has not been removed - unable to locate node')
             return False
 
 class DMService(object):
@@ -316,15 +316,15 @@ class DMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address== node_ip:
                     if (eachnode.services['DM'][0].status.state ==  'RUNNING'):
-                         log.info('PASS - DM service has started on node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - DM service has started on node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - DM service has NOT started on node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - DM service has NOT started on node {}'.format(eachnode.address.ipv4address))
                          return False 
 
         except NameError:
-            log.warn('FAIL = DM service has not started  - unable to locate node.')
+            log.warn('FAILED = DM service has not started  - unable to locate node.')
             return False
                 
 
@@ -362,11 +362,11 @@ class DMService(object):
                 if eachnode.address.ipv4address == node_ip:
                     try:
                         if eachnode.services['DM'][0].status.state ==  'INACTIVE' or eachnode.services['DM'][0].status.state ==  'DOWN' or eachnode.services['DM'][0].status.state ==  'NOT_RUNNING':
-                             log.info('PASS - DM service is no longer running on node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - DM service is no longer running on node {}'.format(eachnode.address.ipv4address))
                              return True
 
                         else:
-                             log.warn('FAIL - DM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - DM service is STILL running on node {}'.format(eachnode.address.ipv4address))
                              return False
 
                     except IndexError:
@@ -404,11 +404,11 @@ class DMService(object):
             if eachnode.address.ipv4address == node_ip:
                 #if eachnode.services['DM'][0].status ==  'ACTIVE':
                 if dm_pid_before ==  dm_pid_after:
-                    log.warn('FAIL - Failed to kill DataMgr service on node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to kill DataMgr service on node {}'.format(eachnode.address.ipv4address))
                     return False 
 
                 else:
-                    log.info('PASS - DataMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    log.info('PASSED - DataMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
                     return True
 
     def add(self, node_ip):
@@ -449,15 +449,15 @@ class DMService(object):
             if eachnode.address.ipv4address == node_ip:
                 try:
                     if eachnode.services['DM'][0].status.state ==  'NOT_RUNNING':
-                         log.info('PASS - Added DM service to node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - Added DM service to node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - Failed to add DM service to node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - Failed to add DM service to node {}'.format(eachnode.address.ipv4address))
                          return False 
 
                 except IndexError:
-                    log.warn('FAIL - Failed to add DM service to node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to add DM service to node {}'.format(eachnode.address.ipv4address))
                     return False
 
     def remove(self, node_ip):
@@ -499,15 +499,15 @@ class DMService(object):
                         if eachnode.services['DM'][0].status.state ==  'INACTIVE' or \
                             eachnode.services['DM'][0].status.state ==  'NOT_RUNNING' or \
                             eachnode.services['DM'][0].status.state == 'RUNNING':
-                             log.warn('FAIL - Failed to remove DM service from node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - Failed to remove DM service from node {}'.format(eachnode.address.ipv4address))
                              return False 
 
                     except IndexError:
-                             log.info('PASS - Removed DM service from node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - Removed DM service from node {}'.format(eachnode.address.ipv4address))
                              return True
 
         else:
-            log.warn('FAIL - DM service has not been removed - unable to locate node')
+            log.warn('FAILED - DM service has not been removed - unable to locate node')
             return False
 
 class SMService(object):
@@ -557,15 +557,15 @@ class SMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address== node_ip:
                     if (eachnode.services['SM'][0].status.state ==  'RUNNING'):
-                         log.info('PASS - SM service has started on node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - SM service has started on node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - SM service has NOT started on node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - SM service has NOT started on node {}'.format(eachnode.address.ipv4address))
                          return False 
 
         except NameError:
-            log.warn('FAIL = SM service has not started  - unable to locate node.')
+            log.warn('FAILED = SM service has not started  - unable to locate node.')
             return False
                 
 
@@ -603,11 +603,11 @@ class SMService(object):
                 if eachnode.address.ipv4address == node_ip:
                     try:
                         if eachnode.services['SM'][0].status.state ==  'INACTIVE' or eachnode.services['SM'][0].status.state ==  'DOWN' or eachnode.services['SM'][0].status.state ==  'NOT_RUNNING':
-                             log.info('PASS - SM service is no longer running on node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - SM service is no longer running on node {}'.format(eachnode.address.ipv4address))
                              return True
 
                         else:
-                             log.warn('FAIL - SM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - SM service is STILL running on node {}'.format(eachnode.address.ipv4address))
                              return False
 
                     except IndexError:
@@ -644,11 +644,11 @@ class SMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if sm_pid_before ==  sm_pid_after:
-                    log.warn('FAIL - Failed to kill StorMgr service on node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to kill StorMgr service on node {}'.format(eachnode.address.ipv4address))
                     return False 
 
                 else:
-                    log.info('PASS - StorMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    log.info('PASSED - StorMgr service has been killed on node {}'.format(eachnode.address.ipv4address))
                     return True
 
     def add(self, node_ip):
@@ -688,15 +688,15 @@ class SMService(object):
             if eachnode.address.ipv4address == node_ip:
                 try:
                     if eachnode.services['SM'][0].status.state ==  'NOT_RUNNING':
-                         log.info('PASS - Added SM service to node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - Added SM service to node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - Failed to add SM service to node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - Failed to add SM service to node {}'.format(eachnode.address.ipv4address))
                          return False 
 
                 except IndexError:
-                    log.warn('FAIL - Failed to add SM service to node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to add SM service to node {}'.format(eachnode.address.ipv4address))
                     return False
 
     def remove(self, node_ip):
@@ -738,15 +738,15 @@ class SMService(object):
                         if eachnode.services['SM'][0].status.state ==  'INACTIVE' or \
                             eachnode.services['SM'][0].status.state ==  'NOT_RUNNING' or \
                             eachnode.services['SM'][0].status.state == 'RUNNING':
-                             log.warn('FAIL - Failed to remove SM service from node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - Failed to remove SM service from node {}'.format(eachnode.address.ipv4address))
                              return False 
 
                     except IndexError:
-                             log.info('PASS - Removed SM service from node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - Removed SM service from node {}'.format(eachnode.address.ipv4address))
                              return True
 
         else:
-            log.warn('FAIL - SM service has not been removed - unable to locate node')
+            log.warn('FAILED - SM service has not been removed - unable to locate node')
             return False
 
 class PMService(object):
@@ -796,15 +796,15 @@ class PMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address== node_ip:
                     if (eachnode.services['PM'][0].status.state ==  'RUNNING'):
-                         log.info('PASS - PM service has started on node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - PM service has started on node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - PM service has NOT started on node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - PM service has NOT started on node {}'.format(eachnode.address.ipv4address))
                          return False 
 
         except NameError:
-            log.warn('FAIL = PM service has not started  - unable to locate node.')
+            log.warn('FAILED = PM service has not started  - unable to locate node.')
             return False
                 
 
@@ -823,7 +823,6 @@ class PMService(object):
 
         '''
         log.info(PMService.stop.__name__)
-        env.host_string = node_ip
         nodeNewState = Node()
         nodeNewState.pm=False
         NodeFound = False
@@ -831,9 +830,12 @@ class PMService(object):
         #stop PM service
         for eachnode in self.node_list:
             if eachnode.address.ipv4address == node_ip:
-                self.nservice.stop_service(eachnode.id, eachnode.services['PM'][0].id)
-                sudo('service fds-pm stop')
-                time.sleep(7)
+                #depracated
+                #self.nservice.stop_service(eachnode.id, eachnode.services['PM'][0].id)
+                env.host_string = node_ip
+                status = sudo('service fds-pm stop')
+                #sleeping more than five minutes for state to get updated correctly
+                time.sleep(600)
                 NodeFound = True
 
         #check updated node state 
@@ -842,17 +844,19 @@ class PMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address == node_ip:
                     try:
-                        if eachnode.services['PM'][0].status.state ==  'STANDBY' or eachnode.services['PM'][0].status.state ==  'DOWN' or eachnode.services['PM'][0].status.state ==  'NOT_RUNNING':
-                             log.info('PASS - PM service is no longer running on node {}'.format(eachnode.address.ipv4address))
-                             return True
+                        #Currently, we have to wait 5 minutes for the state to get updated
+                        #OM team is creating a card to make this configurable
+                        if eachnode.services['PM'][0].status.state ==  'STANDBY':
+                             log.warn('PASSED - PM service is not running on node {}'.format(eachnode.address.ipv4address))
+                             return True 
 
                         else:
-                             log.warn('FAIL - PM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - PM service is no running on node {}'.format(eachnode.address.ipv4address))
                              return False
 
-                    except IndexError:
-                             log.warn('WARNING - PM service is not available on node {}'.format(eachnode.address.ipv4address))
-                             return True
+                    except NameError:
+                             log.warn('FAILED - PM service is still running on node {}'.format(eachnode.address.ipv4address))
+                             return False
 
         else:
             log.warn('Fail - PM service has not started - unable to locate node')
@@ -884,11 +888,11 @@ class PMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if pm_pid_before ==  pm_pid_after:
-                    log.warn('FAIL - Failed to kill platformd service on node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to kill platformd service on node {}'.format(eachnode.address.ipv4address))
                     return False 
 
                 else:
-                    log.info('PASS - platformd service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    log.info('PASSED - platformd service has been killed on node {}'.format(eachnode.address.ipv4address))
                     return True
 
     def add(self, node_ip):
@@ -928,15 +932,15 @@ class PMService(object):
             if eachnode.address.ipv4address == node_ip:
                 try:
                     if eachnode.services['PM'][0].status.state ==  'NOT_RUNNING':
-                         log.info('PASS - Added PM service to node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - Added PM service to node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - Failed to add PM service to node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - Failed to add PM service to node {}'.format(eachnode.address.ipv4address))
                          return False 
 
                 except IndexError:
-                    log.warn('FAIL - Failed to add PM service to node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to add PM service to node {}'.format(eachnode.address.ipv4address))
                     return False
 
     def remove(self, node_ip):
@@ -978,15 +982,15 @@ class PMService(object):
                         if eachnode.services['PM'][0].status.state ==  'INACTIVE' or \
                             eachnode.services['PM'][0].status.state ==  'NOT_RUNNING' or \
                             eachnode.services['PM'][0].status.state == 'RUNNING':
-                             log.warn('FAIL - Failed to remove PM service from node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - Failed to remove PM service from node {}'.format(eachnode.address.ipv4address))
                              return False 
 
                     except IndexError:
-                             log.info('PASS - Removed PM service from node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - Removed PM service from node {}'.format(eachnode.address.ipv4address))
                              return True
 
         else:
-            log.warn('FAIL - PM service has not been removed - unable to locate node')
+            log.warn('FAILED - PM service has not been removed - unable to locate node')
             return False
 
 class OMService(object):
@@ -1019,7 +1023,6 @@ class OMService(object):
 	    oolean
         '''
         log.info(OMService.start.__name__)
-        env.host_string = node_ip
         nodeNewState = Node()
         nodeNewState.om=True
 
@@ -1037,15 +1040,15 @@ class OMService(object):
             for eachnode in node_list:
                 if eachnode.address.ipv4address== node_ip:
                     if (eachnode.services['OM'][0].status.state ==  'RUNNING'):
-                         log.info('PASS - OM service has started on node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - OM service has started on node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - OM service has NOT started on node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - OM service has NOT started on node {}'.format(eachnode.address.ipv4address))
                          return False 
 
         except NameError:
-            log.warn('FAIL = OM service has not started  - unable to locate node.')
+            log.warn('FAILED = OM service has not started  - unable to locate node.')
             return False
                 
 
@@ -1073,7 +1076,8 @@ class OMService(object):
         #stop OM service
         for eachnode in self.node_list:
             if eachnode.address.ipv4address == node_ip:
-                self.nservice.stop_service(eachnode.id, eachnode.services['OM'][0].id)
+                #depracated
+                #self.nservice.stop_service(eachnode.id, eachnode.services['OM'][0].id)
                 sudo('service fds-om stop')
                 time.sleep(7)
                 om_pid_after = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
@@ -1086,11 +1090,11 @@ class OMService(object):
                 if eachnode.address.ipv4address == node_ip:
                     try:
                         if eachnode.services['OM'][0].status.state ==  'INACTIVE' or eachnode.services['OM'][0].status.state ==  'DOWN' or eachnode.services['OM'][0].status.state ==  'NOT_RUNNING':
-                             log.info('PASS - OM service is no longer running on node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - OM service is no longer running on node {}'.format(eachnode.address.ipv4address))
                              return True
 
                         else:
-                             log.warn('FAIL - OM service is STILL running on node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - OM service is STILL running on node {}'.format(eachnode.address.ipv4address))
                              return False
 
                     except IndexError:
@@ -1127,11 +1131,11 @@ class OMService(object):
         for eachnode in node_list:
             if eachnode.address.ipv4address == node_ip:
                 if om_pid_before == om_pid_after:
-                    log.warn('FAIL - Failed to kill OM service on node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to kill OM service on node {}'.format(eachnode.address.ipv4address))
                     return False 
 
                 else:
-                    log.info('PASS - OM service has been killed on node {}'.format(eachnode.address.ipv4address))
+                    log.info('PASSED - OM service has been killed on node {}'.format(eachnode.address.ipv4address))
                     return True
 
     def add(self, node_ip):
@@ -1171,15 +1175,15 @@ class OMService(object):
             if eachnode.address.ipv4address == node_ip:
                 try:
                     if eachnode.services['OM'][0].status.state ==  'NOT_RUNNING':
-                         log.info('PASS - Added OM service to node {}'.format(eachnode.address.ipv4address))
+                         log.info('PASSED - Added OM service to node {}'.format(eachnode.address.ipv4address))
                          return True
 
                     else:
-                         log.warn('FAIL - Failed to add OM service to node {}'.format(eachnode.address.ipv4address))
+                         log.warn('FAILED - Failed to add OM service to node {}'.format(eachnode.address.ipv4address))
                          return False 
 
                 except IndexError:
-                    log.warn('FAIL - Failed to add OM service to node {}'.format(eachnode.address.ipv4address))
+                    log.warn('FAILED - Failed to add OM service to node {}'.format(eachnode.address.ipv4address))
                     return False
 
     def remove(self, node_ip):
@@ -1221,13 +1225,13 @@ class OMService(object):
                         if eachnode.services['OM'][0].status.state ==  'INACTIVE' or \
                             eachnode.services['OM'][0].status.state ==  'NOT_RUNNING' or \
                             eachnode.services['OM'][0].status.state == 'RUNNING':
-                             log.warn('FAIL - Failed to remove OM service from node {}'.format(eachnode.address.ipv4address))
+                             log.warn('FAILED - Failed to remove OM service from node {}'.format(eachnode.address.ipv4address))
                              return False 
 
                     except IndexError:
-                             log.info('PASS - Removed OM service from node {}'.format(eachnode.address.ipv4address))
+                             log.info('PASSED - Removed OM service from node {}'.format(eachnode.address.ipv4address))
                              return True
 
         else:
-            log.warn('FAIL - OM service has not been removed - unable to locate node')
+            log.warn('FAILED - OM service has not been removed - unable to locate node')
             return False

@@ -14,9 +14,7 @@ import FdsSetup as inst
 import socket
 import requests
 from requests.adapters import HTTPAdapter
-from retry.api import retry_call
 import TestUtils
-
 ###
 # Base config class, which is key/value dictionary.
 #
@@ -443,95 +441,31 @@ class FdsNodeConfig(FdsConfig):
     # Capture the node's assigned name and UUID.
     #
     def nd_populate_metadata(self, om_node):
-         log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+        log = logging.getLogger(self.__class__.__name__ + '.' + 'nd_populate_metadata')
+        om_ip = om_node.nd_conf_dict['ip']
 
-         if 'fds_port' in self.nd_conf_dict:
-             port = self.nd_conf_dict['fds_port']
-         else:
-             port = 7000  # PM default.
+        if 'fds_port' in self.nd_conf_dict:
+            port = self.nd_conf_dict['fds_port']
+        else:
+            port = 7000  # PM default.
+        node_service = TestUtils.get_node_service(self, om_ip)
+        node_list = node_service.list_nodes()
+        status = 0
 
-         try:
-            status, stdout =  retry_call(self._findNodeUuid,
-                             fkwargs={"om_node" : om_node, "pm_port" : port},
-                             tries=10,
-                             delay=1,
-                             max_delay=10,
-                             jitter=(1, 3),
-                             logger=log)
-         except  Exception, e:
-            log.exception(e)
-            return 1
-
-         status = 0
-         if (self.nd_uuid is None):
-             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
-             log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
-             log.error("Results from service list:\n%s." % stdout)
-             status = -1
-         else:
+        for node in node_list:
+            if str(node.services['PM'][0].port) == port:
+                self.nd_assigned_name = 'pm'
+                self.nd_uuid = hex(int(node.id))
+                break
+        if (self.nd_uuid is None):
+            log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
+            log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
+            status = -1
+        else:
             log.debug("Node %s has assigned name %s and UUID %s." %
-                      (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
+                          (self.nd_conf_dict["node-name"], self.nd_assigned_name, self.nd_uuid))
 
-         return status
-
-     # ##
-     # Find the node uuid for the current node.
-     # Raises an exception if not found.  Intended to be used in a retry
-    def _findNodeUuid(self, om_node, pm_port=7000):
-        # From the listServices output we can determine node name
-        # and node UUID.
-        # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from [fdsconsole.py domain listServices] output
-        # Group 0 = Entire matched expression
-        # Group 1 = node UUID
-        # Group 2 = Node root (not showing up)
-        # Group 3 = Node ID
-        # Group 4 = IPv4
-        # Group 5 = IPv6
-        # Group 6 = Service name
-        # Group 8 = Service Type
-        # Group 9 = Service UUID
-        # Group 10 = Control port
-        # Group 11 = Data port
-        # Group 12 = Migration port
-        # TODO(brian): uncomment this regex when we start capturing node root correctly
-        # svc_re = re.compile(r'(0x[a-f0-9]{16})\s*([\[a-zA-z]\\]*)\s*(\d{1})\s*(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
-        #                    '\s*(\d.\d.\d.\d)\s*(\w{2})\s*(\w*)\s*(0x[a-f0-9]{16})\s*'
-        #                    '([A-Za-z0-9_]*)\s*(\d*)\s*(\d*)\s*(\d*)')
-        # Use this regex for now
-        svc_re = re.compile(r'(0x[a-f0-9]{16})(\s+)(\d{1})\s+(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})'
-                            '\s+(\d.\d.\d.\d)\s+(\w{2})\s+(\w*)\s+(0x[a-f0-9]{16})\s+'
-                            '([A-Za-z0-9_]*)\s+(\d+)\s+(\d+)\s+(\d+)')
-
-        status, stdout = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain listServices local) \"',
-                                                    return_stdin=True,
-                                                    fds_tools=True)
-
-        # Figure out the platform uuid.  Platform has 'pm' as the name
-        # port should match the read port from [fdsconsole.py domain listServices] output
-        if status == 0:
-            for line in stdout.split('\n'):
-                res = svc_re.match(line)
-                if res is not None:
-                    # UUID
-                    assigned_uuid = res.group(1)
-                    # IP
-                    hostName = socket.gethostbyaddr(res.group(4))
-                    ourIP = (res.group(4) == self.nd_conf_dict["ip"]) or (hostName == self.nd_conf_dict["ip"])
-                    # Service name
-                    assigned_name = res.group(6)
-                    # Ports
-                    readPort = int(res.group(11))
-                    if assigned_name.lower() == 'pm' and readPort == int(pm_port):
-                        self.nd_assigned_name = assigned_name
-                        self.nd_uuid = assigned_uuid
-                        break
-
-        if self.nd_uuid is None:
-            log.error("Results from service list:\n%s." % stdout)
-            raise Exception("Failed to find node %s." % self.nd_conf_dict["node-name"])
-
-        return status,stdout
+        return status
 
     ###
     # Kill all fds daemons
@@ -587,25 +521,17 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + bin_dir)
             if status == 0:
                 log.info("Cleanup cores in: %s" % bin_dir)
-                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/core')
-                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/*.core')
+                self.nd_agent.exec_wait('cd ' + bin_dir + '&& rm -f  core *.core *.hprof *hs_err_pid*.log')
 
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
-                log.info("Cleanup logs,db and stats in: %s" % var_dir)
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/db')
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
+                log.info("Cleanup logs,db and stats in: %s" % var_dir)                
+                self.nd_agent.exec_wait('cd ' + var_dir + ' && rm -rf logs/ db/ stats/ core/')
 
             status = self.nd_agent.exec_wait('ls /corefiles')
             if status == 0:
-                log.info("Cleanup cores in: %s" % '/corefiles')
-                self.nd_agent.exec_wait('rm -f /corefiles/*.core')
-
-            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
-            if status == 0:
-                log.info("Cleanup cores in: %s" % var_dir + '/core')
-                self.nd_agent.exec_wait('rm -f ' + var_dir + '/core/*.core')
+                log.info("Cleanup cores and java dump reports in: %s" % '/corefiles')
+                self.nd_agent.exec_wait('cd /corefiles && rm -f core *.core *.hprof *hs_err_pid*.log')
 
             status = self.nd_agent.exec_wait('ls ' + tools_dir)
             if status == 0:
@@ -616,14 +542,12 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/hdd-*')
-                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/ssd-*')
+                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -f hdd-* ssd-*')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
                 log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
-                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/sys-repo')
-                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/user-repo')
+                self.nd_agent.exec_wait('cd ' + fds_dir + ' && rm -rf /sys-repo /user-repo')
 
             status = self.nd_agent.exec_wait('ls /dev/shm')
             if status == 0:
@@ -634,10 +558,12 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_clean_influxdb()
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
+            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core *.hprof *hs_err_pid*.log); ' % bin_dir +
                 '(cd %s && rm -rf logs db stats); ' % var_dir +
-                '(rm -f /corefiles/*.core); '  +
+                '(rm -f /corefiles/*.core /corefiles/*.hprof /corefiles/*hs_err_pid*.log); '  +
                 '(rm -f %s/core/*.core); ' % var_dir +
+                '(rm -f %s/core/*.hprof); ' % var_dir +
+                '(rm -f %s/core/*hs_err_pid*.log); ' % var_dir +
                 '([ -f "%s/fds" ] && %s/fds clean -i) 2>&1>>/dev/null; ' % (tools_dir, tools_dir) +
                 '(rm -rf %s/hdd-*/*); ' % dev_dir +
                 '(rm -rf %s/ssd-*/*); ' % dev_dir +

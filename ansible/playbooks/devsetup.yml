@@ -18,7 +18,7 @@
       sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
       with_dict:
         kernel.core_pattern:
-            value: /corefiles
+            value: /corefiles/%e-%p-%u-%t.core
             state: present
         fs.file-max:
             value: 400000

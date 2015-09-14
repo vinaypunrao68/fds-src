@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 
 from utils.converters.admin.tenant_converter import TenantConverter
 from utils.converters.admin.user_converter import UserConverter

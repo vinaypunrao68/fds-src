@@ -20,8 +20,8 @@ class VolumeEditTest( BaseCliTest ):
         Testing a basic volume edit with argument data
         '''
         
-        print "Editing a volume by name with arguments"
-        
+        print("Editing a volume by name with arguments")
+
         args = ["volume", "edit", "-volume_id=MyVol", "-iops_max=13", "-iops_min=2", "-priority=9", "-continuous_protection=300000"]
         
         self.callMessageFormatter(args)
@@ -41,8 +41,8 @@ class VolumeEditTest( BaseCliTest ):
         assert volume.qos_policy.priority == 9
         assert volume.data_protection_policy.commit_log_retention == 300000
         
-        print "Edit volume by name was successful.\n\n"
-        
+        print("Edit volume by name was successful.\n\n")
+
     @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
     @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
     @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
@@ -51,8 +51,8 @@ class VolumeEditTest( BaseCliTest ):
         Testing a basic volume edit by ID with argument data
         '''
         
-        print "Editing a volume by ID with arguments"
-        
+        print("Editing a volume by ID with arguments")
+
         args = ["volume", "edit", "-volume_id=5", "-iops_max=100", "-iops_min=2000", "-priority=1", "-continuous_protection=90000"]
         
         self.callMessageFormatter(args)
@@ -72,8 +72,8 @@ class VolumeEditTest( BaseCliTest ):
         assert volume.qos_policy.priority == 1
         assert volume.data_protection_policy.commit_log_retention == 90000
         
-        print "Edit volume by ID was successful.\n\n"    
-        
+        print("Edit volume by ID was successful.\n\n")
+
     @patch( "services.volume_service.VolumeService.list_volumes", side_effect=mock_functions.listVolumes)         
     @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)
     @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
@@ -82,8 +82,8 @@ class VolumeEditTest( BaseCliTest ):
         Testing a basic volume edit with JSON data
         '''            
         
-        print "Editing a volume with JSON data"
-        
+        print("Editing a volume with JSON data")
+
         volume = Volume()
         volume.qos_policy.iops_min = 100
         volume.qos_policy.iops_max = 2000
@@ -109,8 +109,8 @@ class VolumeEditTest( BaseCliTest ):
         assert volume.qos_policy.iops_max == 2000
         assert volume.data_protection_policy.commit_log_retention == 100000
         
-        print "Edit volume by JSON string was successful.\n\n"
-        
+        print("Edit volume by JSON string was successful.\n\n")
+
     @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
     @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume )
     def test_edit_by_data_and_id(self, mockEdit, mockGet ):
@@ -118,8 +118,8 @@ class VolumeEditTest( BaseCliTest ):
         Test that it fails if you include data and an ID or Name
         '''
         
-        print "Testing edit volume argument exclusivity"
-        
+        print("Testing edit volume argument exclusivity")
+
         args = ["volume", "edit", "-data=SomeString", "-volume_id=5"]
         
         self.callMessageFormatter(args)
@@ -134,8 +134,8 @@ class VolumeEditTest( BaseCliTest ):
         
         assert mockEdit.call_count == 0
         
-        print "Edit volume by JSON string and ID successfully failed.\n\n"
-        
+        print("Edit volume by JSON string and ID successfully failed.\n\n")
+
     @patch( "services.volume_service.VolumeService.get_volume", side_effect=mock_functions.findVolumeById)        
     @patch( "services.volume_service.VolumeService.edit_volume", side_effect=mock_functions.editVolume) 
     def test_edit_boundaries(self, mockEdit, mockGet):
@@ -147,32 +147,33 @@ class VolumeEditTest( BaseCliTest ):
         
         self.callMessageFormatter(args)
         
-        print "Testing bad priority"        
+        print("Testing bad priority")
+
         self.cli.run( args )
         assert mockEdit.call_count == 0
         
-        print "Testing bad iops_guarantee"
+        print("Testing bad iops_guarantee")
+
         args[2] = "-priority=1"
         args[3] = "-iops_min=-1"
         
         self.cli.run( args )
         assert mockEdit.call_count == 0
         
-        print "Testing bad iops_limit"
+        print("Testing bad iops_limit")
+
         args[3] = "-iops_min=4000"
         args[4] = "-iops_max=100000"
         
         self.cli.run( args )
         assert mockEdit.call_count == 0
         
-        print "Testing bad continuous protection"
+        print("Testing bad continuous protection")
+
         args[4] = "-iops_max=1000"
         args[5] = "-continuous_protection=1000"
         
         self.cli.run( args )
         assert mockEdit.call_count == 0
         
-        print "Testing edit boundary conditions passed.\n\n"
-
-
-        
+        print("Testing edit boundary conditions passed.\n\n")

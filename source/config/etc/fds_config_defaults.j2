@@ -55,7 +55,7 @@
 {% set dm_migration_max_concurrency = fds_dm_migration_max_concurrency if fds_dm_migration_max_concurrency is defined else '1' %}
 {% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
 {% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
-{% set dm_migration_max_delta_blobs_to = fds_dm_migration_max_delta_blobs_to if fds_dm_migration_delta_blobs_to is defined else '180' %}
+{% set dm_migration_max_delta_blobs_to = fds_dm_migration_max_delta_blobs_to if fds_dm_migration_delta_blobs_to is defined else '5000' %}
 {% set dm_migration_max_delta_blob_desc = fds_dm_migration_max_delta_desc if fds_dm_migration_delta_desc is defined else '4096' %}
 {#
    fds.sm. specific entries
@@ -131,9 +131,10 @@
        OM_JAVA_OPTS="-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi"
        XDI_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi"
     The Logging and service name configuration is important.  Without it, the logging may not be configured properly.
+    -XX:ErrorFile=/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
 #}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi' %}
-{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi -XX:ErrorFile=/corefiles/om_hs_err_pid-%p.log' %}
+{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi -XX:ErrorFile=/corefiles/xdi_hs_err_pid-%p.log' %}
 {#
 #}
 {% block content %}{% endblock %}
