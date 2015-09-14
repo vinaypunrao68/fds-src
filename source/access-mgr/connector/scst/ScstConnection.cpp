@@ -281,8 +281,14 @@ ScstConnection::getAndRespond() {
                         break;
                     case INQUIRY:
                         {
-                            scst_user_reply_cmd reply = { cmd.cmd_h, cmd.subcode, 0ull };
                             uint8_t* buffer = reinterpret_cast<uint8_t*>(malloc(36));
+                            scst_user_reply_cmd reply = { cmd.cmd_h, cmd.subcode, 0ull };
+                            reply.exec_reply.pbuf = (unsigned long)buffer;
+                            reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
+                            reply.exec_reply.status = GOOD;
+                            reply.exec_reply.sense_len = 0;
+                            reply.exec_reply.psense_buffer = 0ull;
+
                             memset(buffer, 0, 36);
                             buffer[0] = TYPE_DISK;
                             // Check EVPD bit
@@ -310,6 +316,20 @@ ScstConnection::getAndRespond() {
                                         break;
                                     default:
                                         LOGERROR << "Request for unsupported page code.";
+                                        memset(buffer, 0, 18);
+                                        int key, asc, ascq;
+                                        std::tie(key, asc, ascq) = std::forward_as_tuple(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+                                        buffer[0] = 0x70;
+                                        buffer[2] = key;
+                                        buffer[7] = 0x0a;
+                                        buffer[12] = asc;
+                                        buffer[13] = ascq;
+
+                                        reply.exec_reply.status = SAM_STAT_CHECK_CONDITION;
+                                        reply.exec_reply.resp_data_len = 0;
+                                        reply.exec_reply.psense_buffer = (unsigned long)buffer;
+                                        reply.exec_reply.sense_len = 18;
+                                        reply.exec_reply.pbuf = 0ull;
                                         break;
                                 }
                                 reply.exec_reply.resp_data_len = buffer[3] + 4;
@@ -326,11 +346,6 @@ ScstConnection::getAndRespond() {
                                 memcpy(buffer+32, "BETA",              4);
                                 reply.exec_reply.resp_data_len = 36;
                             }
-                            reply.exec_reply.pbuf = (unsigned long)buffer;
-                            reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
-                            reply.exec_reply.status = GOOD;
-                            reply.exec_reply.sense_len = 0;
-                            reply.exec_reply.psense_buffer = 0ull;
                             auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
                         }
                         break;
