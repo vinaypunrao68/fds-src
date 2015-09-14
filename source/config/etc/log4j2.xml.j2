@@ -5,11 +5,19 @@
         <!--<Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c{2.} %t - %m%n</Property> -->
         <Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c %t - %m%n</Property>
         <property name="fds.logs">${env:fds_root}/var/logs</property>
+
     </Properties>
     <Appenders>
+
+        <!-- log4j2 docs show filePattern using variables like 
+            "filePattern="logs/$${date:yyyy-MM}/app-%d{yyyy-MM-dd}-%i.log.gz"
+            to archive files.  The $${date:yyyy-MM} portion of that is supposed to create
+            a directory based on the month, but is instead creating a directory named "${date:yyyy-MM}".
+            Replacing with a fixed name for now -->
+
         <RollingRandomAccessFile name="fds-${fds.service.name}"
                                  fileName="${fds.logs}/${fds.service.name}.log"
-                                 filePattern="${fds.logs}/$${date:yyyy-MM}/${fds.service.name}-%d{yyyy-MM-dd}-%i.log.gz"
+                                 filePattern="${fds.logs}/archive/${fds.service.name}-%d{yyyy-MM-dd}-%i.log.gz"
                                  immediateFlush="true"
                                  append="true">
 
@@ -29,7 +37,7 @@
 
         <RollingRandomAccessFile name="jsvclayer"
                                  fileName="${fds.logs}/jsvclayer.log"
-                                 filePattern="${fds.logs}/$${date:yyyy-MM}/jsvclayer-%d{yyyy-MM-dd}-%i.log.gz"
+                                 filePattern="${fds.logs}/archive/jsvclayer-%d{yyyy-MM-dd}-%i.log.gz"
                                  immediateFlush="true"
                                  append="true">
 
@@ -48,7 +56,7 @@
         </RollingRandomAccessFile>
 
         <Console name="console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d %-5p [%t] %C{2} (%F:%L) - %m%n"/>
+            <PatternLayout pattern="%d %-5p [%t] %c{2} (%F:%L) - %m%n"/>
         </Console>
     </Appenders>
 
