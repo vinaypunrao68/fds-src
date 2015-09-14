@@ -31,6 +31,7 @@ namespace fds
                 bool fDumpDiskMap = get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
 
                 if (fDumpDiskMap) {
+                    GLOGWARN << "exiting as fds.pm.dump_diskmap is true";
                     exit(0);
                 }
 
