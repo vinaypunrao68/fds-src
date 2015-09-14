@@ -171,6 +171,7 @@ class Disk:
     def clear(self):
         self.deviceType=None
         self.mounted = False
+        self.mountPath = None
         self.boot    = False
         self.path    = None
         self.rotational = False
@@ -183,13 +184,14 @@ class Disk:
         self.bus = None
 
     def __str__(self):
-        out = '{:<5} {:<5} {:<7} {:<6}  {:<20} {:>10}   {:<8} {}'.format(
+        out = '{:<5} {:<5} {:<7} {:<6}  {:<11} {:>10}  {:<18} {:<11} {}'.format(
             'disk' if self.deviceType == 'disk' else '----',
             ('HDD' if self.rotational else 'SSD') + ('*' if self.boot else ''),
             self.bus,
             '{}{}'.format('[FDS]' if self.fdsdisk else '', '*' if self.activated else ''),
             self.path,
             human_size(self.capacity),
+            self.mountPath if self.mounted else '',
             self.filesystem,
             self.uuid)
         return out
@@ -214,17 +216,22 @@ class StoredData:
             return key.encode('ascii','replace')
         return key
 
-    def has(self,key):
-        return self.norm(key) in self.data
+    def has(self,key, ns='default'):
+        return ns in self.data and self.norm(key) in self.data[ns]
 
-    def put(self,key, value = 1):
-        self.data[self.norm(key)] = value
+    def put(self,key, value=1, ns='default'):
+        if ns not in self.data:
+            self.data[ns] = {}
+        self.data[ns][self.norm(key)] = value
 
-    def get(self, key):
+    def get(self, key, ns='default'):
+        if ns not in self.data:
+            return None
         return self.data.get(self.norm(key), None)
 
-    def remove(self, key):
-        del self.data[self.norm(key)]
+    def remove(self, key, ns='default'):
+        if ns in self.data and self.norm(key) in self.data[ns]:
+            del self.data[ns][self.norm(key)]
 
 #
 # DiskTool
@@ -302,7 +309,11 @@ class DiskTool:
         disk.path = dev.get('DEVNAME').encode('ascii','replace')
         log.debug('processing : ' + disk.path)
         disk.deviceType = dev.get('DEVTYPE',None)
-        disk.mounted = disk.path in DiskTool.get_all_mounts()
+        mountList = DiskTool.get_all_mounts()
+        if disk.path in mountList:
+            disk.mountPath = mountList[disk.path][0]
+            disk.mounted = True
+
         if disk.deviceType == 'partition':
             disk.uuid     = dev.get('ID_PART_ENTRY_UUID',None)
         else:
@@ -339,7 +350,7 @@ class DiskTool:
 
         for dev in udevDisks:
             disk = DiskTool.get_disk_from_udev_device(dev)
-            disk.fdsdisk = self.db.has(disk.path)
+            disk.fdsdisk = self.is_fds_disk(disk)
             if fdsonly and not disk.fdsdisk:
                 continue
             self.disks.append(disk)
@@ -347,9 +358,15 @@ class DiskTool:
         if len(self.disks) == 0:
             log.warn('no disks matched criteria [valid:{}] [dups:{}] [device:{}] [fdsonly:{}]'.format(onlyValid, dups, device, fdsonly))
 
-    # return a list of fds disks
-    def get_fds_disks(self):
-        return [disk.path for disk in self.disks if disk.fdsdisk]
+    # check if the disk is fds disk
+    def is_fds_disk(self, disk):
+        return self.db.has(disk.uuid, 'uuid')
+
+    def set_fds_disk(self, disk, select=True):
+        if select:
+            self.db.put(disk.uuid, disk.path, 'uuid')
+        else:
+            self.db.remove(disk.uuid, 'uuid')
 
     # get the Disk structure for a given path
     def get_disk(self, path):
@@ -364,10 +381,10 @@ class DiskTool:
             disklist = self.disks
         for disk in disklist:
             if disk.boot:
-                log.error('cannot select boot disk : {}'.format(path))
+                log.error('cannot select boot disk : {}'.format(disk.path))
                 continue
             disk.fdsdisk = True
-            self.db.put(disk.path, disk.uuid)
+            self.set_fds_disk(disk)
 
     # unmark certain disklist as fds disks
     def unselect_disks(self, disklist = None):
@@ -376,7 +393,7 @@ class DiskTool:
 
         for disk in disklist:
             disk.fdsdisk = False
-            self.db.remove(disk.path)
+            self.set_fds_disk(disk, False)
 
     def make_partitions(self, disk):
         # Wipe out FDS label.
@@ -442,6 +459,7 @@ class DiskTool:
 
     def mount(self):
         count=0
+        mountInfos = DiskTool.get_all_mounts()
         for disk in self.disks:
             if not disk.fdsdisk:
                 log.warn('will not mount non-fds disk : {}'.format(disk.path))
@@ -458,6 +476,15 @@ class DiskTool:
 
             mount_name = '/fds/dev/{}-{}'.format('hdd' if disk.rotational else 'ssd', count)
             num_partitions = len(disk.partitions)
+            
+            # check if the mount_name has already been used for mounting
+            hasMount = None
+            for path,mounts in mountInfos.items():
+                if mount_name in mounts:
+                    hasMount = path
+                    break;
+            if hasMount:
+                log.warn('{} has already been mounted at {}'.format(path, mount_name))
 
             run_command(['mkdir', '-p', mount_name])
             device_name = '{}{}'.format(disk.path, num_partitions)
@@ -497,20 +524,20 @@ class DiskTool:
 
     def list_disks(self , parts=False):
         print '-' * 90
-        print '{:<5} {:<5} {:<7} {:<6}  {:<20} {:>10}   {:<8} {}'.format(
-            'type','rota','cxn/bus','fds', 'path','size','filesys', 'uuid/serial')
+        print '{:>4} {:<5} {:<5} {:<7} {:<6}  {:<11} {:>10}  {:<18} {:<11} {}'.format(
+            'num','type','rota','cxn/bus','fds', 'path','size','mount', 'filesys', 'uuid/serial')
         print '-' * 90
-
+        count = 0
         for d in self.disks:
-            print str(d)
+            count = count + 1
+            print '{:>4} {}'.format(count, str(d))
             if not parts:
                 continue
             partitions=''
             for part in d.partitions:
-                partitions += str(part)
-                partitions += '\n'
+                print '{:>4} {}'.format('', str(part))
             if len(d.partitions) > 0:
-                print partitions
+                print 
         print '-' * 90
 
     def extended_info(self):
@@ -528,7 +555,7 @@ class DiskTool:
             infos.append(('capacity',human_size(disk.capacity)))
             infos.append(('fds.activated',dev.get('FDS_DISK','0') == '1'))
             infos.append(('fds.selected',disk.fdsdisk))
-            infos.append(('mounted',disk.mounted))
+            infos.append(('mounted',disk.mountPath))
             infos.append(('num paritions',len(disk.partitions)))
             infos.append(('path',disk.path))
             infos.append(('rotational','HDD' if disk.rotational else 'SSD'))
@@ -603,11 +630,6 @@ class DiskTool:
             else:
                 self.unselect_disks()
 
-        if args.activate:
-            log.info('activating all fds disks')
-            self.list_disks(False)
-            self.gen_udev_rules()
-
         if args.ls:
             self.list_disks(args.parts)
 
@@ -616,7 +638,7 @@ class DiskTool:
 
         if args.format:
             if args.device == None and not args.onlyfds:
-                self.init_disk_infos(False, True, None, True)
+                self.init_disk_infos(False, False, None, True)
                 log.warn('no devices specified explicitly. Will format all fds disks')
 
             waitfor = []
@@ -633,8 +655,13 @@ class DiskTool:
                     log.info('waiting for [{}] formatting to complete'.format(item['path']))
                     item['pipe'].wait()
 
+        if args.activate:
+            log.info('activating all fds disks')
+            self.list_disks(False)
+            self.gen_udev_rules()
+
         if args.mount:
-            self.init_disk_infos(False, True, None, True)
+            self.init_disk_infos(False, False, None, True)
             self.mount()
 
 if  __name__ == '__main__':
@@ -647,4 +674,3 @@ if  __name__ == '__main__':
 
     tool = DiskTool()
     tool.main(sys.argv[1:])
-
