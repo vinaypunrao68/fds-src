@@ -296,10 +296,7 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
 
         while (!foundSrcSM && newSrcIdx != curSrcIdx) {
             NodeUuid newSrcSmId = getNode(*tokenIter, newSrcIdx);
-            if (newSrcIdx != sm1PIdx && newSrcIdx != sm2PIdx) {
-                // must be one of the primaries
-                ++newSrcIdx %= getDepth();
-            } else if (failedSMs.find(newSrcSmId) == failedSMs.end()) {
+            if (failedSMs.find(newSrcSmId) == failedSMs.end()) {
                 // Found a healthy source for migration of this dlt token.
                 newTokenGroups[newSrcSmId].push_back(*tokenIter);
                 foundSrcSM = true;
