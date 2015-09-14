@@ -365,8 +365,8 @@ class FdsLocalEnv(FdsEnv):
 
         # Removed this for [WIN-1081], this doesn't work anyway.
         #self.local_exec(cmd +
-            #' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
-            #'; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            #' echo "/corefiles/%e-%p-%u-%t.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            #'; sudo sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"' +
             #'; sysctl -p' +
             #'; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
             #'; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
@@ -553,8 +553,8 @@ class FdsRmtEnv(FdsEnv):
 
         # Removed this for [WIN-1081], this doesn't work anyway.
         # self.ssh_exec(cmd +
-            # ' echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
-            # '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
+            # ' echo "/corefiles/%e-%p-%u-%t.core" | sudo tee /proc/sys/kernel/core_pattern ' +
+            # '; sudo sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"' +
             # '; sysctl -p' +
             # '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
             # '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
