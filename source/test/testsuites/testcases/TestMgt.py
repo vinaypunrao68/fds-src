@@ -496,13 +496,13 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                     elif service == "dm":
                         suite.addTest(TestFDSServiceMgt.TestDMStop(node=node))
                     elif service == "sm":
-                        suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestSMStop(node=node))
                     elif service == "om":
                         log.error("Remove action not valid for OM service for scenario '%s'" %
                                   (scenario.nd_conf_dict['scenario-name']))
                         raise Exception
                     elif service == "am":
-                        suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestAMStop(node=node))
 
         if (action.count("add") > 0):
             if selectedServices == None:

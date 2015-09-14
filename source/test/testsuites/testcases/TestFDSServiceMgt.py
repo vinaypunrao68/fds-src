@@ -520,6 +520,7 @@ class TestDMActivate(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # stopping Data Manager (DM) services on a domain.
+# We don't have test case that remove DM yet, as the need for it has not arisen.
 class TestDMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
@@ -530,13 +531,13 @@ class TestDMStop(TestCase.FDSTestCase):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_DMStop,
-                                             "DM service removal")
+                                             "DM service stopping")
 
         self.passedNode = node
     def test_DMStop(self):
         """
         Test Case:
-        Attempt to remove the DM service(s)
+        Attempt to stop the DM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -562,7 +563,7 @@ class TestDMStop(TestCase.FDSTestCase):
                                (node.nd_conf_dict['node-name'], status))
                 return False
 
-            self.log.info("Removing DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+            self.log.info("Stopping DM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
                                                                         om_node.nd_conf_dict['node-name']))
             self.log.debug("DM's Node UUID should be: " + node.nd_uuid + " and in decimal: " + str(int(node.nd_uuid, 16)))
             node_service = get_node_service(self, om_ip)
@@ -1110,8 +1111,9 @@ class TestSMActivate(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# removing Storage Manager (SM) services on a domain.
-class TestSMRemove(TestCase.FDSTestCase):
+# stopping Storage Manager (SM) services on a domain.
+# We don't have test cases that remove AM yet, as the need for it has not arisen.
+class TestSMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -1120,16 +1122,16 @@ class TestSMRemove(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_SMRemove,
-                                             "SM service removal")
+                                             self.test_SMStop,
+                                             "SM service Stopping")
 
         self.passedNode = node
 
     @TestCase.expectedFailure
-    def test_SMRemove(self):
+    def test_SMStop(self):
         """
         Test Case:
-        Attempt to remove the SM service(s)
+        Attempt to stop the SM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
@@ -2667,8 +2669,9 @@ class TestAMActivate(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# removing Access Manager (AM) services on a domain.
-class TestAMRemove(TestCase.FDSTestCase):
+# stopping Access Manager (AM) services on a domain.
+# We don't currently have test cases that remove AM yet, as the need for it has not arisen.
+class TestAMStop(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -2677,16 +2680,16 @@ class TestAMRemove(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AMRemove,
-                                             "AM service removal")
+                                             self.test_AMStop,
+                                             "AM service stopping")
 
         self.passedNode = node
 
     @TestCase.expectedFailure
-    def test_AMRemove(self):
+    def test_AMStop(self):
         """
         Test Case:
-        Attempt to remove the AM service(s)
+        Attempt to stop the AM service(s)
         """
 
         # Get the FdsConfigRun object for this test.
