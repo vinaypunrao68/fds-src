@@ -172,8 +172,8 @@ public abstract class Workload
      * @throws ExecutionException when there is an error running the setup commands.
      */
     // @eclipseFormat:off
-    public final void setUp(Endpoint endpoint,
-                            AbstractWorkloadEventListener listener) throws ExecutionException
+    public void setUp(Endpoint endpoint,
+                      AbstractWorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");

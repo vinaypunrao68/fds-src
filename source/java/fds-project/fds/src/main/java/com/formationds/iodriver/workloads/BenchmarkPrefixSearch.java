@@ -10,10 +10,13 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CallChildWorkload;
+import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
 public class BenchmarkPrefixSearch extends Workload
 {
@@ -38,6 +41,44 @@ public class BenchmarkPrefixSearch extends Workload
     }
     
     @Override
+    public final void setUp(Endpoint endpoint,
+                            AbstractWorkloadEventListener listener) throws ExecutionException
+    {
+        super.setUp(endpoint, listener);
+        
+        for (String volumeName : _volumes)
+        {
+            final String lambdaVolumeName = volumeName;
+            
+            com.formationds.iodriver.workloads.GetObjects getVolumeObjects =
+                    new com.formationds.iodriver.workloads.GetObjects(
+                            objName ->
+                            {
+                                Set<String> volumeDirectories = _directories.get(lambdaVolumeName);
+                                if (volumeDirectories == null)
+                                {
+                                    volumeDirectories = new HashSet<>();
+                                    _directories.put(lambdaVolumeName, volumeDirectories);
+                                }
+
+                                int lastSlash = objName.lastIndexOf('/');
+                                if (lastSlash > -1)
+                                {
+                                    volumeDirectories.add(objName.substring(0, lastSlash));
+                                }
+                            },
+                            volumeName,
+                            null,
+                            null,
+                            getLogOperations());
+            
+            getVolumeObjects.setUp(endpoint, listener);
+            getVolumeObjects.runOn(endpoint, listener);
+            getVolumeObjects.tearDown(endpoint, listener);
+        }
+    }
+    
+    @Override
     protected List<Stream<Operation>> createOperations()
     {
         return Arrays.asList(
@@ -50,25 +91,7 @@ public class BenchmarkPrefixSearch extends Workload
     @Override
     protected Stream<Operation> createSetup()
     {
-        return Stream.<Operation>concat(
-                Stream.of(new CallChildWorkload(new GetVolumes(_volumes::add, getLogOperations()))),
-                _volumes.stream().map(v -> new CallChildWorkload(
-                        new com.formationds.iodriver.workloads.GetObjects(objName ->
-                        {
-                            if (objName.endsWith("/"))
-                            {
-                                Set<String> volumeDirectories = _directories.get(v);
-                                if (volumeDirectories == null)
-                                {
-                                    volumeDirectories = new HashSet<>();
-                                    _directories.put(v, volumeDirectories);
-                                }
-                            }
-                        },
-                        v,
-                        null,
-                        null,
-                        getLogOperations()))));
+        return Stream.of(new CallChildWorkload(new GetVolumes(_volumes::add, getLogOperations())));
     }
     
     private Stream<Operation> _createVolumeOperations(Entry<String, Set<String>> directories)
