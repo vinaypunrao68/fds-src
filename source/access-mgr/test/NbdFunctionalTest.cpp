@@ -9,7 +9,7 @@
 #include <thread>
 #include <condition_variable>
 #include <util/fds_stat.h>
-#include "connector/block/NbdOperations.h"
+#include "connector/nbd/NbdOperations.h"
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 

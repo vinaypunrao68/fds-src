@@ -18,7 +18,7 @@ import java.util.Objects;
 public class Node extends AbstractResource<Long> {
 
     // TODO: what are the supported node states.
-    public enum NodeState { UNKNOWN, UP, DOWN, REMOVED, DISCOVERED, MIGRATION  }
+    public enum NodeState { UNKNOWN, UP, DOWN, REMOVED, DISCOVERED, MIGRATION, STANDBY  }
 
     /**
      *

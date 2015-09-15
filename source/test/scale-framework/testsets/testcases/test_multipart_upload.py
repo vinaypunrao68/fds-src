@@ -33,7 +33,7 @@ import s3
 import s3_volumes
 import samples
 import testsets.testcase as testcase
-import utils
+import lib
 
 
 class TestMultipartUpload(testcase.FDSTestCase):
@@ -55,7 +55,7 @@ class TestMultipartUpload(testcase.FDSTestCase):
         self.f_ops = file_ops.FileOps(gb_size_files=True)
         
     def runTest(self):
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
         # lets create 10 buckets, and try to upload the data files to them
         self.buckets = self.s3_volume.create_volumes(10, "multipart_upload")
         bucket_sample = random.choice(self.buckets)

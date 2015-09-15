@@ -34,10 +34,11 @@ import static org.junit.Assert.*;
 public class AsyncAmTest extends BaseAmTest {
 
     public static final int NFS_EXPORT_ID = 42;
+    private Counters counters;
 
     @Test
     public void testUpdate() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm, counters), counters), new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
@@ -51,7 +52,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testLookup() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm, counters), new Counters()), new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
 
@@ -71,7 +72,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testListDirectory() throws Exception {
-        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm)), new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(new IoCache(new DirectAmIo(asyncAm, counters), new Counters()), new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
 
@@ -513,6 +514,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Before
     public void setUp() throws Exception {
+        counters = new Counters();
         volumeName = UUID.randomUUID().toString();
         domainName = UUID.randomUUID().toString();
         blobName = UUID.randomUUID().toString();

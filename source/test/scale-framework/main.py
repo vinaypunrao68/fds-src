@@ -21,7 +21,7 @@ import fds
 import multinode
 import testsets.test_set as test_set
 import s3
-import utils
+import lib
 import httplib
 import boto
 
@@ -79,7 +79,7 @@ class Operation(object):
         # create the test suit runner
         self.runner = xmlrunner.XMLTestRunner(output=self.log_dir)
 
-        utils.create_test_files_dir()
+        lib.create_test_files_dir()
 
         # Get the ip address of the OM
         if self.args.test == "single":
@@ -105,7 +105,7 @@ class Operation(object):
 
 
         # always check if the ip address is a valid one
-        if not utils.is_valid_ip(self.om_ip_address):
+        if not lib.is_valid_ip(self.om_ip_address):
             raise ValueError, "Ip address %s is invalid." % self.om_ip_address
             sys.exit(2)
 

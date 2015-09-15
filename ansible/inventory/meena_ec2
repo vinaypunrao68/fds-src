@@ -1,5 +1,5 @@
 localhost ec2_root_volume_size_GB=100 ec2_instance_type="t2.medium" ec2_vpc_subnet_id="subnet-195bac40" ec2_image="ami-0f114a3f"
-awo-bh-01 fds_deploy_local_deps=False fds_build=debug
+awo-bh-01 fds_deploy_local_deps=no fds_build=debug
 
 [meena_ec2:vars]
 clean_fds=no
@@ -7,7 +7,7 @@ ansible_ssh_user=deploy
 cluster_location=awo
 fds_build=debug
 fds_default_nic=eth0
-fds_deploy_local_deps=False
+fds_deploy_local_deps=no
 fds_om_host="{{ groups[group_names[0]][0] }}"
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1

@@ -10,7 +10,7 @@ import config
 import config_parser
 import s3
 import os
-import utils
+import lib
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -50,7 +50,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
         self.buckets = []
 	self.hash_table = {}
 	self.sample_files = {}
-	utils.create_dir(config.DOWNLOAD_DIR)
+	lib.create_dir(config.DOWNLOAD_DIR)
 
     def runTest(self):
 	'''
@@ -72,7 +72,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
 	self.delete_volumes(s3conn)
 
 	#remove directory where the downloaded files are kept
-	utils.remove_dir(config.DOWNLOAD_DIR)
+	lib.remove_dir(config.DOWNLOAD_DIR)
 
 
     def connect_s3(self):
@@ -96,7 +96,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
 	Create MAX_NUMBER_BLOBS of xK blob sizes to test on config.TEST_DIR directory
 	'''
 
-	utils.create_dir(config.TEST_DIR)
+	lib.create_dir(config.TEST_DIR)
 
 	for eachBlob in self.all_blob_sizes:
 
@@ -110,7 +110,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
 			self.log.info("Created file %s of size %sK" %(fileName, eachBlob))
 
 			#get hash for each file created and store it in self.hash_table
-			encode = utils.hash_file_content(path)
+			encode = lib.hash_file_content(path)
 			self.hash_table[fileName] = encode
 				
 
@@ -125,7 +125,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
             # hash the current file, and compare with the key
             self.log.info("Hashing for file %s" % k)
             path = os.path.join(config.DOWNLOAD_DIR, k)
-            hashcode = utils.hash_file_content(path)
+            hashcode = lib.hash_file_content(path)
             if v != hashcode:
                 self.log.warning("%s != %s" % (v, hashcode))
                 self.test_passed = False
@@ -181,7 +181,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
 	Download file for each blob size S3 bucket.
 	'''
 
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
 
         path = os.path.join(config.DOWNLOAD_DIR, filename)
         self.log.info("Downloading %s" % path)
@@ -202,7 +202,7 @@ class TestS3LargeNumberBlobs(testcase.FDSTestCase):
                 #k.key = sample
                 k.key =  filename
                 k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
+                                             cb=lib.percent_cb,
                                              num_cb=10)
                 self.log.info("Uploaded file %s to bucket %s" %
                              (filename, bucket.name))

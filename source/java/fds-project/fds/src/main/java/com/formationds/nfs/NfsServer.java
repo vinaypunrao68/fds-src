@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.commons.util.thread.ThreadFactories;
 import com.formationds.commons.util.thread.ThreadUtil;
 import com.formationds.util.Configuration;
 import com.formationds.util.DebugWebapp;
@@ -39,20 +40,20 @@ public class NfsServer {
         Configuration platformConfig = new Configuration("NFS", new String[]{"--console"});
         NfsConfiguration nfsConfiguration = platformConfig.getNfsConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-//        XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService("localhost", 9090));
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, 9090));
         config.startCacheUpdaterThread(1000);
 
-//        AsyncAm asyncAm = new RealAsyncAm("localhost", 8899, new ServerPortFinder().findPort("NFS", 10000));
         AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000));
         asyncAm.start();
         new NfsServer().start(nfsConfiguration, config, asyncAm, 2049);
-        new DebugWebapp().start(5555, asyncAm, config);
         System.in.read();
     }
 
     public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
-        // specify file with export entries
+        Counters counters = new Counters();
+        if (nfsConfiguration.activateStats()) {
+            new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters)).start();
+        }
         LOG.info("Starting NFS server - " + nfsConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
@@ -60,10 +61,10 @@ public class NfsServer {
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
 //        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
-        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports);
+        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters);
 
         // create the RPC service which will handle NFS requests
-        ThreadFactory factory = ThreadUtil.newThreadFactory("nfs-rpcsvc", true);
+        ThreadFactory factory = ThreadFactories.newThreadFactory( "nfs-rpcsvc", true );
         ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
                 nfsConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,

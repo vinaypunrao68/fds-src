@@ -3,7 +3,7 @@ from services import response_writer
 from model.volume.volume import Volume
 from model.volume.snapshot import Snapshot
 from utils.converters.volume.volume_converter import VolumeConverter
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 import json
 import time
 from utils.volume_validator import VolumeValidator
@@ -227,7 +227,7 @@ class VolumePlugin( AbstractPlugin):
             return
         
         if len( response ) == 0:
-            print "No volumes found."
+            print("No volumes found.")
         
         #write the volumes out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":
@@ -278,7 +278,7 @@ class VolumePlugin( AbstractPlugin):
         volume = Volume()
         
         if ( args[AbstractPlugin.data_str] is None and args[AbstractPlugin.name_str] is None ):
-            print "Either -data or -name must be present"
+            print("Either -data or -name must be present")
             return
         
         #if -data exists all other arguments will be ignored!
@@ -298,28 +298,28 @@ class VolumePlugin( AbstractPlugin):
                 volume.settings.capacity = Size( size=args[AbstractPlugin.size_str], unit=args[AbstractPlugin.size_unit_str] )
                 
                 if args[AbstractPlugin.max_obj_size_str] is not None:
-                    print "The argument " + AbstractPlugin.max_obj_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.block_size_str + " instead."
+                    print("The argument " + AbstractPlugin.max_obj_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.block_size_str + " instead.")
                     return
                 
                 if args[AbstractPlugin.block_size_str] is not None:
                     block_size = Size( size=args[AbstractPlugin.block_size_str], unit=args[AbstractPlugin.block_size_unit_str])
                     
                     if block_size.get_bytes() < (4*1024) or block_size.get_bytes() > (8*pow(1024,2)):
-                        print "Warning: The block size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 128KB)"
+                        print("Warning: The block size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 128KB)")
                 
                     volume.settings.block_size = block_size
             else:
                 volume.settings = ObjectSettings()
                 
                 if args[AbstractPlugin.block_size_str] is not None:
-                    print "The argument " + AbstractPlugin.block_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.max_obj_size_str + " instead."
+                    print("The argument " + AbstractPlugin.block_size_str + " is not applicable to block volumes.  Use " + AbstractPlugin.max_obj_size_str + " instead.")
                     return
 
                 if args[AbstractPlugin.max_obj_size_str] is not None:
                     obj_size = Size( size=args[AbstractPlugin.max_obj_size_str], unit=args[AbstractPlugin.max_obj_size_unit_str])
                 
                     if obj_size.get_bytes() < (4*1024) or obj_size.get_bytes() > (8*pow(1024,2)):
-                        print "Warning: The maximum object size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 2MB)"
+                        print("Warning: The maximum object size you entered is outside the bounds of 4KB and 8MB.  The actual value will be the system default (typically 2MB)")
                 
                     volume.settings.max_object_size = obj_size
             
@@ -373,7 +373,7 @@ class VolumePlugin( AbstractPlugin):
             volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
                
         if ( volume.id is None ):
-            print "Could not find a volume that matched your entry.\n"
+            print("Could not find a volume that matched your entry.\n")
             return       
            
         if ( args[AbstractPlugin.iops_guarantee_str] is not None and isFromData is False ):
@@ -446,7 +446,7 @@ class VolumePlugin( AbstractPlugin):
         volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
         
         if ( volume is None ):
-            print "Could not find a volume associated with the input parameters."
+            print("Could not find a volume associated with the input parameters.")
             return
         
         iops_guarantee = volume.qos_policy.iops_min
@@ -528,7 +528,7 @@ class VolumePlugin( AbstractPlugin):
                     
                 volume.data_protection_policy.preset_id = t_preset.id               
             
-            print "Volume cloned successfully."
+            print("Volume cloned successfully.")
             args = [args[AbstractPlugin.format_str]]
             self.list_volumes( args );
     
@@ -545,7 +545,7 @@ class VolumePlugin( AbstractPlugin):
         response = self.get_volume_service().delete_volume( vol_id )
         
         if not isinstance( response, FdsError ):
-            print 'Deletion request completed successfully.'
+            print('Deletion request completed successfully.')
             args = [args[AbstractPlugin.format_str]]
             self.list_volumes(args)
             
@@ -557,7 +557,7 @@ class VolumePlugin( AbstractPlugin):
         volume = self.get_volume_service().get_volume( args[AbstractPlugin.volume_id_str] )
             
         if ( volume is None ):
-            print "No volume found with the specified identification.\n"
+            print("No volume found with the specified identification.\n")
             return
         
         snapshot = Snapshot()
@@ -583,7 +583,7 @@ class VolumePlugin( AbstractPlugin):
             return
         
         if ( len( response ) == 0 ):
-            print "No snapshots found for volume with ID " + volId;
+            print("No snapshots found for volume with ID " + volId)
         
         #print it all out
         if "format" in args  and args[AbstractPlugin.format_str] == "json":
