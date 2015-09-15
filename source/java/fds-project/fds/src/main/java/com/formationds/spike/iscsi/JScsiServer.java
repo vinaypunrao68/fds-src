@@ -51,6 +51,8 @@ public class JScsiServer {
                 }
             });
 
+            serverThread.setName("JSCSI server thread");
+
             serverThread.start();
         }
     }
