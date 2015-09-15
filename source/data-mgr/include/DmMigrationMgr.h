@@ -15,10 +15,6 @@ namespace fds {
 // Forward declaration
 class DmIoReqHandler;
 
-// Pair has nullary_always first the order of operation is 1st argument's constructor is called first
-using DmMigrationExecutorPair = std::pair<nullary_always, DmMigrationExecutor::shared_ptr>;
-using DmMigrationClientPair = std::pair<nullary_always, DmMigrationClient::shared_ptr>;
-
 class DmMigrationMgr : public DmMigrationBase {
 
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
@@ -241,7 +237,6 @@ class DmMigrationMgr : public DmMigrationBase {
     /**
      * Destination side DM:
      * Gets an ptr to the migration executor. Used internally.
-     * Use the pair method beneath for thread safety.
      */
     DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
 
@@ -317,29 +312,12 @@ class DmMigrationMgr : public DmMigrationBase {
 
 
     /**
-     * The followings are used to ensure we do correct ref counting for
+     * The followings are used to ensure we do correct accounting for
      * the number of accesses to executors and clients.
+     * So that we don't blow away things when there are still threads accessing them.
      */
     fds_rwlock executorAccessLock;
     fds_rwlock clientAccessLock;
-
-    /**
-     * Lives and dies with whoever checks out a pair
-     */
-    nullary_always getMigrationExecNullary(bool exclusive)
-    {
-    	exclusive ? executorAccessLock.write_lock() : executorAccessLock.read_lock();
-    	return nullary_always([this, exclusive] {exclusive ? executorAccessLock.write_unlock() : executorAccessLock.read_unlock();});
-    }
-
-    /**
-     * Lives and dies with whoever checks out a pair
-     */
-    nullary_always getMigrationClientNullary(bool exclusive)
-    {
-    	exclusive ? clientAccessLock.write_lock() : clientAccessLock.read_lock();
-    	return nullary_always([this, exclusive] {exclusive ? clientAccessLock.write_unlock() : clientAccessLock.read_unlock();});
-    }
 
 
 };  // DmMigrationMgr
