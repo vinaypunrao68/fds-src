@@ -1,8 +1,8 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2015 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTOPERATIONS_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTOPERATIONS_H_
 
 #include <deque>
 #include <map>
@@ -92,15 +92,15 @@ struct SectorLockMap {
     map_type sector_map;
 };
 
-struct NbdResponseVector {
+struct ScstResponseVector {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
-    enum NbdOperation {
+    enum ScstOperation {
         READ = 0,
         WRITE = 1
     };
 
-    NbdResponseVector(int64_t hdl, NbdOperation op,
+    ScstResponseVector(int64_t hdl, ScstOperation op,
                       uint64_t off, uint32_t len, uint32_t maxOSize,
                       uint32_t objCnt = 1)
       : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
@@ -110,8 +110,8 @@ struct NbdResponseVector {
         offVec.reserve(objCount);
     }
 
-    ~NbdResponseVector() {}
-    typedef boost::shared_ptr<NbdResponseVector> shared_ptr;
+    ~ScstResponseVector() {}
+    typedef boost::shared_ptr<ScstResponseVector> shared_ptr;
 
     fds_bool_t isRead() const { return (operation == READ); }
     inline fds_int64_t getHandle() const { return handle; }
@@ -177,10 +177,10 @@ struct NbdResponseVector {
 
     // These are the responses we are also in charge of responding to, in order
     // with ourselves being last.
-    std::unordered_map<fds_uint32_t, std::deque<NbdResponseVector*>> chained_responses;
+    std::unordered_map<fds_uint32_t, std::deque<ScstResponseVector*>> chained_responses;
 
   private:
-    NbdOperation operation;
+    ScstOperation operation;
     std::atomic_uint doneCount;
     fds_uint32_t objCount;
 
@@ -198,16 +198,16 @@ struct NbdResponseVector {
     fds_uint32_t maxObjectSizeInBytes;
 };
 
-// Response interface for NbdOperations
-struct NbdOperationsResponseIface {
-    NbdOperationsResponseIface() = default;
-    NbdOperationsResponseIface(NbdOperationsResponseIface const&) = delete;
-    NbdOperationsResponseIface& operator=(NbdOperationsResponseIface const&) = delete;
-    NbdOperationsResponseIface(NbdOperationsResponseIface const&&) = delete;
-    NbdOperationsResponseIface& operator=(NbdOperationsResponseIface const&&) = delete;
-    virtual ~NbdOperationsResponseIface() = default;
+// Response interface for ScstOperations
+struct ScstOperationsResponseIface {
+    ScstOperationsResponseIface() = default;
+    ScstOperationsResponseIface(ScstOperationsResponseIface const&) = delete;
+    ScstOperationsResponseIface& operator=(ScstOperationsResponseIface const&) = delete;
+    ScstOperationsResponseIface(ScstOperationsResponseIface const&&) = delete;
+    ScstOperationsResponseIface& operator=(ScstOperationsResponseIface const&&) = delete;
+    virtual ~ScstOperationsResponseIface() = default;
 
-    virtual void readWriteResp(NbdResponseVector* response) = 0;
+    virtual void readWriteResp(ScstResponseVector* response) = 0;
     virtual void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
     virtual void terminate() = 0;
 };
@@ -217,8 +217,8 @@ struct HandleSeqPair {
     uint32_t seq;
 };
 
-class NbdOperations
-    :   public boost::enable_shared_from_this<NbdOperations>,
+class ScstOperations
+    :   public boost::enable_shared_from_this<ScstOperations>,
         public AmAsyncResponseApi<HandleSeqPair>
 {
     using req_api_type = AmAsyncDataApi<HandleSeqPair>;
@@ -226,14 +226,14 @@ class NbdOperations
 
     typedef resp_api_type::handle_type handle_type;
     typedef SectorLockMap<handle_type, 1024> sector_type;
-    typedef std::unordered_map<fds_int64_t, NbdResponseVector*> response_map_type;
+    typedef std::unordered_map<fds_int64_t, ScstResponseVector*> response_map_type;
   public:
-    explicit NbdOperations(NbdOperationsResponseIface* respIface);
-    explicit NbdOperations(NbdOperations const& rhs) = delete;
-    NbdOperations& operator=(NbdOperations const& rhs) = delete;
-    ~NbdOperations() = default;
+    explicit ScstOperations(ScstOperationsResponseIface* respIface);
+    explicit ScstOperations(ScstOperations const& rhs) = delete;
+    ScstOperations& operator=(ScstOperations const& rhs) = delete;
+    ~ScstOperations() = default;
 
-    typedef boost::shared_ptr<NbdOperations> shared_ptr;
+    typedef boost::shared_ptr<ScstOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
               std::shared_ptr<AmProcessor> processor);
 
@@ -260,10 +260,10 @@ class NbdOperations
     void shutdown();
 
   private:
-    void finishResponse(NbdResponseVector* response);
+    void finishResponse(ScstResponseVector* response);
 
     void drainUpdateChain(fds_uint64_t const offset,
-                          NbdResponseVector::buffer_ptr_type buf,
+                          ScstResponseVector::buffer_ptr_type buf,
                           handle_type* queued_handle_ptr,
                           Error const error);
 
@@ -277,8 +277,8 @@ class NbdOperations
     boost::shared_ptr<std::string> volumeName;
     fds_uint32_t maxObjectSizeInBytes;
 
-    // interface to respond to nbd passed down in constructor
-    std::unique_ptr<NbdOperationsResponseIface> nbdResp;
+    // interface to respond to scst passed down in constructor
+    std::unique_ptr<ScstOperationsResponseIface> scstResp;
     bool shutting_down {false};
 
     // for all reads/writes to AM
@@ -312,4 +312,4 @@ class NbdOperations
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_NBDOPERATIONS_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTOPERATIONS_H_

@@ -27,7 +27,7 @@ import s3
 import fds_engine
 import samples
 import testsets.testcase as testcase
-import utils
+import lib
 
 class TestAMProcessConsistency(testcase.FDSTestCase):
     
@@ -126,7 +126,7 @@ class TestAMProcessConsistency(testcase.FDSTestCase):
             k.key = self.sample_file
             self.log.info("Uploading file %s" % k.key)
             k.set_contents_from_filename(path,
-                                         cb=utils.percent_cb,
+                                         cb=lib.percent_cb,
                                          num_cb=10)
             self.log.info("Uploaded file %s to bucket %s" % 
                          (self.sample_file, bucket.name))

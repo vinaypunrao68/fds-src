@@ -1,12 +1,12 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTOR_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTOR_H_
 
 #include <memory>
 
-#include "connector/block/common.h"
+#include "connector/nbd/common.h"
 #include "concurrency/LeaderFollower.h"
 
 namespace fds {
@@ -30,6 +30,7 @@ struct NbdConnector
     bool cfg_no_delay {true};
     uint32_t cfg_keep_alive {0};
 
+    std::shared_ptr<ev::dynamic_loop> evLoop;
     std::unique_ptr<ev::io> evIoWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
     std::weak_ptr<AmProcessor> amProcessor;
@@ -52,4 +53,4 @@ struct NbdConnector
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_NBDCONNECTOR_H_

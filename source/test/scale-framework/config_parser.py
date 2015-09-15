@@ -5,7 +5,7 @@ import os
 import re
 import sys
  
-import utils
+import lib
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -47,9 +47,9 @@ def get_om_ipaddress_from_inventory(inventory_file):
         raise KeyError, "fds_om_host not present in %s" % inventory_file
         sys.exit(1)
     else:
-        if not utils.is_valid_ip(fds_om_host):
+        if not lib.is_valid_ip(fds_om_host):
             # convert the hostname to ip address
-            fds_om_host = utils.hostname_to_ip(fds_om_host)
+            fds_om_host = lib.hostname_to_ip(fds_om_host)
             if fds_om_host:
                 return fds_om_host
             else:
@@ -83,7 +83,7 @@ def get_ips_from_inventory(inventory_file):
             if records[i].startswith('[') and not seen:
                 i += 1
                 while not records[i].startswith('['):
-                    ip = utils.hostname_to_ip(records[i].strip())
+                    ip = lib.hostname_to_ip(records[i].strip())
                     if ip != "0.0.0.0":
                         ip_addresses.append(ip)
                     i += 1

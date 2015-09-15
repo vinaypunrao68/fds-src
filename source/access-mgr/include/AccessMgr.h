@@ -17,7 +17,6 @@ namespace fds {
 struct AmDataApi;
 struct AmProcessor;
 struct AsyncDataServer;
-struct NbdConnector;
 
 /**
  * AM module class.
@@ -60,6 +59,12 @@ class AccessMgr : public Module, public boost::noncopyable {
     bool shutting_down;
 
     bool standalone_mode;
+
+    /**
+     * FEATURE TOGGLE: Scst connector
+     * Fri 11 Sep 2015 09:33:33 AM MDT
+     */
+    bool scst_enabled {false};
 };
 
 }  // namespace fds
