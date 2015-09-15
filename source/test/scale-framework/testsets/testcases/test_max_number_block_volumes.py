@@ -5,7 +5,7 @@
 # email: philippe@formationds.com
 # file: test_100gb_volume.py
 
-import utils
+import lib
 import config
 import unittest
 import requests
@@ -32,14 +32,14 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
         
     def runTest(self):
         '''
-        Use the utils do_work multithreaded utility
+        Use the lib do_work multithreaded utility
         '''
         # make sure cluster is cleaned and restart before
         self.engine.stop_all_nodes_processes()
         self.engine.start_all_nodes_processes()
         mylist = list(xrange(config.MAX_NUM_VOLUMES))
-        utils.do_work(self.create_volumes, mylist)
-        utils.do_work(self.block_volume.delete_block_volume, self.volumes)
+        lib.do_work(self.create_volumes, mylist)
+        lib.do_work(self.block_volume.delete_block_volume, self.volumes)
     
     def create_volumes(self, index):
         '''
@@ -57,7 +57,7 @@ class TestMaxNumberBlockVolumes(testcase.FDSTestCase):
         try:
 
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                  self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 

@@ -3,7 +3,7 @@ import random
 import time
 
 import s3
-import utils
+import lib
 import testsets.testcase as testcase
 
 class TestS3Conn(testcase.FDSTestCase):
@@ -12,23 +12,23 @@ class TestS3Conn(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3Conn, self).__init__(parameters)
         self.conn = self.s3conn.get_s3_connection()
-        self.param.bucket_name = utils.get_new_name_helper(self.param.bucket_prefix)
+        self.param.bucket_name = lib.get_new_name_helper(self.param.bucket_prefix)
 
     def tearDown(self):
         pass
 
     def test_create_bucket(self):
-        utils.create_buckets_helper(self.conn, self.param,
+        lib.create_buckets_helper(self.conn, self.param,
                                     self.param.bucket_name)
 
     def test_get_bucket(self):
-        utils.create_buckets_helper(self.conn, self.param,
+        lib.create_buckets_helper(self.conn, self.param,
                                     self.param.bucket_name)
         bucket = self.conn.get_bucket(self.param.bucket_name)
         self.assertTrue(bucket)
 
     def test_delete_bucket(self):
-        bucket_name = utils.create_buckets_helper(self.conn, self.param,
+        bucket_name = lib.create_buckets_helper(self.conn, self.param,
                                                   count=1)
 
         # Cannot delete a bucket right after create
@@ -38,7 +38,7 @@ class TestS3Conn(testcase.FDSTestCase):
         time.sleep(5)
 
     def test_get_all_buckets(self):
-        utils.create_buckets_helper(self.conn, self.param,
+        lib.create_buckets_helper(self.conn, self.param,
                                     self.param.bucket_name,
                                     count=1)
         buckets_list = self.conn.get_all_buckets()
@@ -61,8 +61,8 @@ class TestS3Bucket(testcase.FDSTestCase):
         super(TestS3Bucket, self).__init__(parameters)
         self.conn = self.s3conn.get_s3_connection()
         self.log.info(self.conn)
-        self.param.bucket_name = utils.get_new_name_helper(self.param.bucket_prefix)
-        utils.create_buckets_helper(self.conn, self.param,
+        self.param.bucket_name = lib.get_new_name_helper(self.param.bucket_prefix)
+        lib.create_buckets_helper(self.conn, self.param,
                                     self.param.bucket_name, count=1)
 
     def tearDown(self):
@@ -108,7 +108,7 @@ class TestS3Bucket(testcase.FDSTestCase):
         # Do some checking here
     # Delete the bucket
     def test_bucket_delete(self):
-        bucket_name = utils.create_buckets_helper(self.conn, self.param,
+        bucket_name = lib.create_buckets_helper(self.conn, self.param,
                                                   count=1)
         self.log.info("Creating and deleting %s" % bucket_name[0])
 
@@ -123,7 +123,7 @@ class TestS3Bucket(testcase.FDSTestCase):
 
 
     def test_bucket_delete_key(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 1,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 1)
@@ -139,7 +139,7 @@ class TestS3Bucket(testcase.FDSTestCase):
         self.assertTrue(res_key is None)
 
     def test_bucket_delete_keys(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 6,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 6)
@@ -155,7 +155,7 @@ class TestS3Bucket(testcase.FDSTestCase):
         self.assertTrue(len(res_list.errors) == 0)
 
     def test_bucket_get_all_keys(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 6,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 6)
@@ -170,7 +170,7 @@ class TestS3Bucket(testcase.FDSTestCase):
         self.assertTrue(found == len(res_keys))
 
     def test_bucket_list(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 6,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 6)
@@ -186,14 +186,14 @@ class TestS3Bucket(testcase.FDSTestCase):
 
     # Last test to run, cleanup test bucket.
     def test_z_delete_all_keys(self):
-        utils.delete_all_keys_helper(self.conn, self.param.bucket_name)
+        lib.delete_all_keys_helper(self.conn, self.param.bucket_name)
         
 class TestS3Key(testcase.FDSTestCase):
     def __init__(self, parameters=None):
         super(TestS3Key, self).__init__(parameters)
         self.conn = self.s3conn.get_s3_connection()
-        self.param.bucket_name = utils.get_new_name_helper(self.param.bucket_prefix)
-        utils.create_buckets_helper(self.conn, self.param,
+        self.param.bucket_name = lib.get_new_name_helper(self.param.bucket_prefix)
+        lib.create_buckets_helper(self.conn, self.param,
                                     self.param.bucket_name, count=1)
 
     def tearDown(self):
@@ -221,7 +221,7 @@ class TestS3Key(testcase.FDSTestCase):
         self.assertTrue(key1.encrypted == key2.encrypted)
 
     def test_key_copy(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 1,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 1)
@@ -230,7 +230,7 @@ class TestS3Key(testcase.FDSTestCase):
         self.assertTrue(res_key is not None)
 
         # copy to new key
-        new_key_name = utils.get_new_name_helper(self.param.key_name)
+        new_key_name = lib.get_new_name_helper(self.param.key_name)
         res_key.copy(bucket.name, new_key_name, preserve_acl=True)
         new_key = bucket.get_key(new_key_name)
 
@@ -247,7 +247,7 @@ class TestS3Key(testcase.FDSTestCase):
         self.assertTrue(res_key.metadata == new_metadata)
 
     def test_key_delete(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -258,7 +258,7 @@ class TestS3Key(testcase.FDSTestCase):
             self.assertTrue(res_key is None)
 
     def test_key_exists(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -266,7 +266,7 @@ class TestS3Key(testcase.FDSTestCase):
             self.assertTrue(key.exists())
 
     def test_key_get_contents_as_string(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -280,7 +280,7 @@ class TestS3Key(testcase.FDSTestCase):
                              hashlib.sha1(data_str).hexdigest())
 
     def test_key_get_contents_to_file(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -289,7 +289,7 @@ class TestS3Key(testcase.FDSTestCase):
             data_str = data_fp.read()
 
         for key in res_keys:
-            tmp_file = utils.get_new_name_helper("/tmp/boto_test_file")
+            tmp_file = lib.get_new_name_helper("/tmp/boto_test_file")
             with open(tmp_file, 'w+') as fp:
                 key.get_contents_to_file(fp)
 
@@ -303,7 +303,7 @@ class TestS3Key(testcase.FDSTestCase):
 
 
     def test_key_get_contents_to_filename(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -312,7 +312,7 @@ class TestS3Key(testcase.FDSTestCase):
             data_str = data_fp.read()
 
         for key in res_keys:
-            tmp_file = utils.get_new_name_helper("/tmp/boto_test_file")
+            tmp_file = lib.get_new_name_helper("/tmp/boto_test_file")
             key.get_contents_to_filename(tmp_file)
 
             with open(tmp_file, 'r') as fp:
@@ -324,7 +324,7 @@ class TestS3Key(testcase.FDSTestCase):
                 os.system('rm ' + tmp_file)
 
     def test_key_get_file(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -333,7 +333,7 @@ class TestS3Key(testcase.FDSTestCase):
             data_str = data_fp.read()
 
         for key in res_keys:
-            tmp_file = utils.get_new_name_helper("/tmp/boto_test_file")
+            tmp_file = lib.get_new_name_helper("/tmp/boto_test_file")
             with open(tmp_file, 'w+') as fp:
                 key.get_file(fp)
 
@@ -349,7 +349,7 @@ class TestS3Key(testcase.FDSTestCase):
         md = { 'test_meta1' : 'test_value1',
                'test_meta2' : 'test_value2'
         }
-        res_keys = utils.create_keys_helper(self.conn,
+        res_keys = lib.create_keys_helper(self.conn,
                                             self.param.bucket_name,
                                             self.param.key_name,
                                             10,
@@ -364,7 +364,7 @@ class TestS3Key(testcase.FDSTestCase):
             self.assertTrue(md_val == 'test_value2')
 
     def failed_test_key_send_file(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -400,7 +400,7 @@ class TestS3Key(testcase.FDSTestCase):
         self.get_verify_remote_content_str(key, tmp_f.read())
 
     def test_key_set_contents_from_file(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -418,7 +418,7 @@ class TestS3Key(testcase.FDSTestCase):
             f.close()
 
     def test_key_set_contents_from_filename(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -435,7 +435,7 @@ class TestS3Key(testcase.FDSTestCase):
             f.close()
 
     def failed_test_key_set_contents_from_stream(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -452,7 +452,7 @@ class TestS3Key(testcase.FDSTestCase):
             f.close()
 
     def test_key_set_content_from_string(self):
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -465,7 +465,7 @@ class TestS3Key(testcase.FDSTestCase):
     def test_key_set_metadata(self):
         md1 = { 'new_meta' : 'new_meta_value' }
 
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -483,7 +483,7 @@ class TestS3Key(testcase.FDSTestCase):
                 'meta4' : 'value4'
         }
 
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)
@@ -504,7 +504,7 @@ class TestS3Key(testcase.FDSTestCase):
                 'meta2' : 'value2'
         }
 
-        res_keys = utils.create_keys_helper(self.conn, self.param.bucket_name,
+        res_keys = lib.create_keys_helper(self.conn, self.param.bucket_name,
                                             self.param.key_name, 10,
                                             self.param.file_path)
         self.assertTrue(len(res_keys) == 10)

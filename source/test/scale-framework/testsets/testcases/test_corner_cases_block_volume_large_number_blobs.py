@@ -10,7 +10,7 @@ import config
 import config_parser
 import s3
 import os
-import utils
+import lib
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -49,7 +49,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
         self.all_blob_sizes = [0] 
         self.filesystem_types = ['mkfs.ext2', 'mkfs.ext3', 'mkfs.ext4'] #not sure if we need ext2
         #self.filesystem_types = ['mkfs.ext4'] #not sure if we need ext2
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
 
 	self.bv = block_volumes.BlockVolumes(self.om_ip_address)
 
@@ -165,7 +165,7 @@ class TestBlockVolumeLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 
 		#compare hashes for small blob of files moved to /fdsmount with local file hashes
 		#If hashes don't match for even a single file, test fails
-		if utils.compare_hashes(self.hash_table, self.hash_table_fdsmount):
+		if lib.compare_hashes(self.hash_table, self.hash_table_fdsmount):
 			test_passed=True
 
 		else:
