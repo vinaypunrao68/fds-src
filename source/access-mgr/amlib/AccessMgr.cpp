@@ -11,7 +11,8 @@
 #include <net/SvcMgr.h>
 
 #include "connector/xdi/AmAsyncService.h"
-#include "connector/block/NbdConnector.h"
+#include "connector/nbd/NbdConnector.h"
+#include "connector/scst/ScstConnector.h"
 
 namespace fds {
 
@@ -32,6 +33,8 @@ int
 AccessMgr::mod_init(SysParams const *const param) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     standalone_mode = conf.get<bool>("testing.standalone");
+    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    scst_enabled = features.get<bool>("am.scst_connector", scst_enabled);
     return Module::mod_init(param);
 }
 
@@ -79,9 +82,20 @@ void AccessMgr::initilizeConnectors() {
     asyncServer->start();
 
     /**
-     * Initialize the block connector
+     * Initialize the Nbd block connector
      */
     NbdConnector::start(weakProcessor);
+
+    /**
+     * FEATURE TOGGLE: Scst Connector
+     * Fri 11 Sep 2015 09:31:21 AM MDT
+     */
+    if (scst_enabled) {
+        /**
+         * Initialize the Scst connector
+         */
+        ScstConnector::start(weakProcessor);
+    }
 }
 
 void AccessMgr::mod_disable_service() {
@@ -98,6 +112,13 @@ AccessMgr::run() {
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
     NbdConnector::stop();
+    /**
+     * FEATURE TOGGLE: Scst Connector
+     * Fri 11 Sep 2015 09:31:21 AM MDT
+     */
+    if (scst_enabled) {
+        ScstConnector::stop();
+    }
 }
 
 }  // namespace fds

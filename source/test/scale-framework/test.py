@@ -4,7 +4,7 @@ from filechunkio import FileChunkIO
 from boto.s3.key import Key
 import config
 import config_parser
-import utils
+import lib
 import select
 import s3
 import ssh
@@ -18,8 +18,8 @@ def percent_cb(complete, total):
     sys.stdout.flush()
 
 def test_download_file():
-    fname = utils.download_file(config.REPOSITORY_URL)
-    utils.untar_file(fname)
+    fname = lib.download_file(config.REPOSITORY_URL)
+    lib.untar_file(fname)
 
 def test_ssh_connection():
     local_ssh = ssh.SSHConn('10.2.10.200', config.SSH_USER,
@@ -36,7 +36,7 @@ def test_ssh_connection():
     print local_ssh.channel.recv(1024)
 
 def test_hostname_to_ip():
-    print utils.hostname_to_ip('fre-lxcnode-01')
+    print lib.hostname_to_ip('fre-lxcnode-01')
 
 def test_get_ips_from_inventory():
     print config_parser.get_ips_from_inventory('integration-framework-cluster')
@@ -44,11 +44,11 @@ def test_get_ips_from_inventory():
 
 def test_hash_file_content():
     path = "./downloads/test_sample_1M"
-    print utils.hash_file_content(path)
+    print lib.hash_file_content(path)
 
 def test_concurrency():
     numbers = [1,2,3,4,5]
-    utils.do_work(calculate_sqrt, numbers)
+    lib.do_work(calculate_sqrt, numbers)
     
 def calculate_sqrt(x):
     return x*x
@@ -86,8 +86,8 @@ def test_file_generator():
 
 def test_mount_point():
     device ="/fds_100gb_block_volume"
-    print utils.is_device_mounted(device)
-    print utils.is_device_mounted("/filesystem")
+    print lib.is_device_mounted(device)
+    print lib.is_device_mounted("/filesystem")
 
 def test_ssh_file():
     path = os.path.join(config.ANSIBLE_ROOT, "")

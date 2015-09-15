@@ -21,5 +21,6 @@ angular.module( 'system', ['node-management', 'user-management', 'utility-direct
 angular.module( 'tenant', ['tenant-management', 'user-management', 'utility-directives', 'form-directives'] );
 angular.module( 'admin-settings', ['user-management'] );
 angular.module( 'status', ['activity-management', 'statistics', 'display-widgets', 'charts'] );
+angular.module( 'debug', ['base', 'charts'] );
 angular.module( 'inbox', [] );
 angular.module( 'user-page', ['user-management','tenant-management'] );

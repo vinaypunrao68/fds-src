@@ -6,7 +6,7 @@
 # email: philippe@formationds.com
 # file: test_100gb_volume.py
 ###############################################################################
-import utils
+import lib
 import config
 import unittest
 import requests
@@ -18,7 +18,7 @@ import shutil
 
 import ssh
 import os
-import utils
+import lib
 
 nbd_path = os.path.abspath(os.path.join('..', ''))
 sys.path.append(nbd_path)
@@ -28,7 +28,7 @@ from boto.s3.key import Key
 import testsets.testcase as testcase
 #import testlib.SM as sm
 #import testlib.DM as dm
-import utils
+import lib
 import file_generator
 import s3_volumes
 

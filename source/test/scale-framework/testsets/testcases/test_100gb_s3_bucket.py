@@ -5,7 +5,7 @@
 # email: philippe@formationds.com
 # file: test_100gb_s3_bucket.py
 
-import utils
+import lib
 import config
 import unittest
 import requests
@@ -33,9 +33,9 @@ class Test100GBS3Bucket(testcase.FDSTestCase):
         self.upload_s3_volume()
     
     def upload_s3_volume(self):
-        utils.create_dir(config.TEST_DIR)
-        # utils.create_dir(config.DOWNLOAD_DIR)
-        s3conn = utils.create_s3_connection(self.om_ip_address, self.om_ip_address)
+        lib.create_dir(config.TEST_DIR)
+        # lib.create_dir(config.DOWNLOAD_DIR)
+        s3conn = lib.create_s3_connection(self.om_ip_address, self.om_ip_address)
         """
         Test is in debug mode due to the issue #FS-1384
         Once that issue is updated, test will be modified to write up to 100GB
@@ -56,7 +56,7 @@ class Test100GBS3Bucket(testcase.FDSTestCase):
         # Delete the bucket
         # self.destroy_volume(bucket, s3conn)
         # remove the existing file
-        utils.remove_dir(config.DOWNLOAD_DIR)
+        lib.remove_dir(config.DOWNLOAD_DIR)
         
     def store_file_to_volume(self, bucket):
         '''
@@ -76,7 +76,7 @@ class Test100GBS3Bucket(testcase.FDSTestCase):
         if os.path.exists(path):
             k.key = sample
             k.set_contents_from_filename(path,
-                                         cb=utils.percent_cb,
+                                         cb=lib.percent_cb,
                                          num_cb=10)
             self.log.info("Uploaded file %s to bucket %s" % 
                          (sample, bucket.name))
