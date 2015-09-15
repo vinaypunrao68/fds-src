@@ -362,6 +362,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 
     if (!err.ok()) {
         LOGERROR << "Error getting commit log for vol: " << volumeUuid;
+    	abortMigration();
         return err;
     }
 
@@ -374,7 +375,8 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
         }
         testStaticMigrationComplete();
     } else {
-        /*XXX: trigger abort... be sure to call migrDoneCb with an error code */
+    	LOGMIGRATE << "Error trying to apply forwarded commit logs content.";
+    	abortMigration();
     }
 
     return err;
@@ -383,6 +385,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
+	LOGMIGRATE << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
 	abortMigration();
 }
 
