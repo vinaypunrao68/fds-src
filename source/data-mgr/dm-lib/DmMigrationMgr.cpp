@@ -546,7 +546,8 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 Error
 DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 {
-    SCOPEDREAD(migrExecutorLock);
+    SCOPEDWRITE(migrExecutorLock);
+    Error err(ERR_OK);
     DmMigrationExecutor::shared_ptr dmExecutor = getMigrationExecutor(volId);
     if (dmExecutor == nullptr) {
     	if (isMigrationAborted()) {
@@ -560,7 +561,11 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
         return ERR_NOT_FOUND;
     }
 
-	return (dmExecutor->finishActiveMigration());
+    err = dmExecutor->finishActiveMigration();
+    if (err.ok()) {
+    	executorMap.erase(volId);
+    }
+	return (err);
 }
 
 // process the TxState request
