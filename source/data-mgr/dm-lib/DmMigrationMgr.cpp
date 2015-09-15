@@ -247,7 +247,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     	LOGDEBUG << "Blobs descriptor not applied yet.";
     	// This means that the blobs have not been applied yet. Override this to ERR_OK.
     	err = ERR_OK;
-    } else {
+    } else if (!err.ok()) {
     	LOGERROR << "Error applying blob descriptor";
     	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
     	abortMigration();
