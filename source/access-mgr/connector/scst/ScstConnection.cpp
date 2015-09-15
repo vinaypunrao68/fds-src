@@ -25,6 +25,8 @@ extern "C" {
 #include "connector/scst/scst_user.h"
 }
 
+#include "connector/scst/ScstTask.h"
+
 /// Some useful constants for us
 /// ******************************************
 static constexpr size_t Ki = 1024;
@@ -54,7 +56,6 @@ ScstConnection::ScstConnection(std::string const& vol_name,
           volume_size{0},
           object_size{0},
           resp_needed(0u),
-          response(nullptr),
           total_blocks(0ull),
           write_offset(-1ll),
           readyResponses(4000)
@@ -158,16 +159,228 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
     }
 
     // It's ok to keep writing responses if we've been shutdown
-    auto responding = ((ConnectionState::ATTACHING == state_) ||
-                     !readyResponses.empty());
-
-    if (responding) {
-        LOGDEBUG << "Wokeup asyncronously. Need to reply";
+    if (!readyResponses.empty()) {
         ioEvent(*ioWatcher, ev::WRITE);
     } else {
-        LOGDEBUG << "Wokeup asyncronously. No need to reply";
         ioWatcher->start();
     }
+}
+
+void ScstConnection::execAllocCmd() {
+    LOGDEBUG << "Allocation command received.";
+    fds_panic("Should not be here!");
+    auto task = new ScstTask(cmd->cmd_h, SCST_USER_ALLOC_MEM);
+    readyResponses.push(task);
+}
+
+void ScstConnection::execCompleteCmd() {
+    LOGTRACE << "Command responded.";
+
+    auto it = repliedResponses.find(cmd->cmd_h);
+    fds_assert(repliedResponses.end() != it);
+    repliedResponses.erase(it);
+    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
+    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+}
+
+void ScstConnection::execParseCmd() {
+    LOGDEBUG << "Need parsing help.";
+    fds_panic("Should not be here!");
+    auto task = new ScstTask(cmd->cmd_h, SCST_USER_PARSE);
+    readyResponses.push(task);
+}
+
+void ScstConnection::execTaskMgmtCmd() {
+    LOGDEBUG << "Task Management request.";
+    fds_panic("Should not be here!");
+    auto task = new ScstTask(cmd->cmd_h, SCST_USER_TASK_MGMT_RECEIVED);
+    readyResponses.push(task);
+}
+
+void
+ScstConnection::execSessionCmd() {
+    auto attaching = (SCST_USER_ATTACH_SESS == cmd->subcode) ? true : false;
+    auto& sess = cmd->sess;
+    LOGDEBUG << "Session "
+        << (attaching ? "attachment" : "detachment")
+        << " requested," << std::hex
+        << " handle [0x" << sess.sess_h
+        << "] lun [0x" << sess.lun
+        << "] R/O [" << (sess.rd_only == 0 ? "false" : "true")
+        << "] Init [" << sess.initiator_name
+        << "] Targ [" << sess.target_name << "]";
+    auto volName = boost::make_shared<std::string>(volumeName);
+    if (attaching) {
+        // Attach the volume to AM
+        auto task = new ScstTask(cmd->cmd_h, SCST_USER_ATTACH_SESS);
+        scstOps->init(volName, amProcessor, task);
+    } else {
+        auto task = new ScstTask(cmd->cmd_h, SCST_USER_DETACH_SESS);
+        readyResponses.push(task);
+    }
+}
+
+void ScstConnection::execUserCmd() {
+    auto& scsi_cmd = cmd->exec_cmd;
+    auto task = new ScstTask(cmd->cmd_h, SCST_USER_EXEC);
+
+    switch (scsi_cmd.cdb[0]) {
+        case TEST_UNIT_READY:
+            LOGDEBUG << "Test Unit Ready received.";
+            break;
+        case INQUIRY:
+            {
+                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[36] {});
+
+                buffer[0] = TYPE_DISK;
+                // Check EVPD bit
+                if (scsi_cmd.cdb[1] & 0x01) {
+                    LOGDEBUG << "Inquiry request for page: [0x" << std::hex << (uint32_t)(scsi_cmd.cdb[2])
+                        << "] requested.";
+                    buffer[1] = scsi_cmd.cdb[2];
+                    switch (scsi_cmd.cdb[2]) {
+                        case 0x00: // Supported pages
+                            buffer[3] = 3;
+                            buffer[4] = 0; // This page
+                            buffer[5] = 0x80; // unit serial number
+                            buffer[6] = 0x83; // device id
+                            break;
+                        case 0x80: // Serial Number
+                            buffer[3] = 1;
+                            buffer[4] = ' ';
+                            break;
+                        case 0x83: // Device ID
+                            buffer[3] = 12;
+                            buffer[4] = 0x02; // ASCII
+                            buffer[5] = 0x01; // Vendor ID
+                            buffer[7] = 8;
+                            memcpy(buffer.get() + 8, "FDS     ", 8);
+                            break;
+                        default:
+                            LOGERROR << "Request for unsupported page code.";
+                            task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                            return;
+                    }
+                    task->setResponseBuffer(buffer, buffer[3] + 4);
+                } else {
+                    LOGDEBUG << "Standard inquiry requested.";
+                    buffer[2] = 0x06;
+                    buffer[3] = 0x12;
+                    buffer[4] = 31;
+                    buffer[5] = 0x00;
+                    buffer[6] = 0x10;
+                    buffer[7] = 0x02;
+                    memcpy( &buffer[8], "FDS     ",          8);
+                    memcpy(&buffer[16], "SCST_VOL        ", 16);
+                    memcpy(&buffer[32], "BETA",              4);
+                    task->setResponseBuffer(buffer, buffer[4] + 5);
+                }
+            }
+            break;
+        case READ_10:
+        case READ_12:
+            {
+                uint32_t lba = be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 2));
+                uint32_t blocks = (READ_10 == scsi_cmd.cdb[0]) ?
+                                    be16toh(*reinterpret_cast<uint16_t*>(scsi_cmd.cdb + 7)) :
+                                    be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 6));
+
+                LOGIO << "Read received for "
+                      << "LBA[0x" << std::hex << lba
+                      << "] Blocks[0x" << blocks << "]";
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+            }
+            break;
+        case READ_CAPACITY_16:  // READ_CAPACITY(16)
+            {
+                LOGDEBUG << "Read Capacity received.";
+                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
+
+                uint64_t num_blocks = volume_size / 4096;
+                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(4096ul); // 4k
+                buffer[13] = 0x20; // 32 LBs per PB
+                task->setResponseBuffer(buffer, 32);
+            }
+            break;
+        default:
+            LOGNOTIFY << "Unsupported SCSI command received " << std::hex
+                << "OPCode [0x" << (uint32_t)(scsi_cmd.cdb[0])
+                << "] CDB length [" << std::dec << scsi_cmd.cdb_len
+                << "]";
+            task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+            break;
+    }
+    readyResponses.push(task);
+}
+
+bool
+ScstConnection::getAndRespond() {
+    if (!cmd) {
+        cmd.reset(new scst_user_get_cmd {});
+    }
+
+    // If we do not have response then clear reply, otherwise read one into it
+    if (readyResponses.empty()) {
+        cmd->preply = 0ull;
+    } else {
+        ScstTask* resp {nullptr};
+        ensure(readyResponses.pop(resp));
+        cmd->preply = resp->getReply();
+        repliedResponses[resp->getHandle()].reset(resp);
+    }
+
+    int res = 0;
+    cmd->cmd_h = 0x00;
+    cmd->subcode = 0x00;
+    do {
+    auto res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, cmd.get());
+    } while ((0 > res) && (EINTR == errno));
+
+    if (0 != res || 0x00 == cmd->subcode) {
+        switch (errno) {
+            case ENOTTY:
+            case EBADF:
+                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
+                throw ScstError::connection_closed;
+            case EFAULT:
+            case EINVAL:
+                fds_panic("Invalid Scst argument!");
+            default:
+                return false;
+        }
+    }
+
+    LOGTRACE << "Received SCST command: "
+             << "[0x" << std::hex << cmd->cmd_h
+             << "] sc [0x" << cmd->subcode << "]";
+    switch (cmd->subcode) {
+        case SCST_USER_ATTACH_SESS:
+        case SCST_USER_DETACH_SESS:
+            execSessionCmd();
+            break;
+        case SCST_USER_ON_FREE_CMD:
+            execCompleteCmd();
+            break;
+        case SCST_USER_TASK_MGMT_RECEIVED:
+        case SCST_USER_TASK_MGMT_DONE:
+            execTaskMgmtCmd();
+            break;
+        case SCST_USER_ALLOC_MEM:
+        case SCST_USER_ON_CACHED_MEM_FREE:
+            execAllocCmd();
+            break;
+        case SCST_USER_PARSE:
+            execParseCmd();
+            break;
+        case SCST_USER_EXEC:
+            execUserCmd();
+            break;
+        default:
+            LOGNOTIFY << "Received unknown Scst subcommand: [" << cmd->subcode << "]";
+            return false;
+    }
+    return true;
 }
 
 void
@@ -187,7 +400,6 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
         // Get the next command, and/or reply to any existing finished commands
         while (getAndRespond()) {
         }
-        LOGDEBUG << "Back to sleep";
     } catch(ScstError const& e) {
         state_ = ConnectionState::STOPPING;
         if (e == ScstError::connection_closed) {
@@ -201,215 +413,10 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     scst_server->follow();
 }
 
-bool
-ScstConnection::getAndRespond() {
-    scst_user_reply_cmd reply { 0ul, 0ul, 0ul };
-    scst_user_get_cmd cmd { 0, 0, 0ull };
-    // If we are in the attach mode then we build a response for that and move
-    // the state
-    if (ConnectionState::ATTACHING == state_) {
-        state_ = ConnectionState::ATTACHED;
-        reply.cmd_h = attach_cmd_h;
-        reply.subcode = SCST_USER_ATTACH_SESS;
-        cmd.preply = (unsigned long)&reply;
-    }
-
-    int res = 0;
-    do {
-    auto res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
-    } while ((0 > res) && (EINTR == errno));
-
-    if (0 != res) {
-        switch (errno) {
-            case ENOTTY:
-            case EBADF:
-                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                throw ScstError::connection_closed;
-            case EFAULT:
-            case EINVAL:
-                fds_panic("Invalid Scst argument!");
-            default:
-                return false;
-        }
-    }
-
-    LOGDEBUG << "Received SCST command: [0x" << std::hex << cmd.cmd_h << "]";
-    switch (cmd.subcode) {
-        case SCST_USER_ATTACH_SESS:
-        case SCST_USER_DETACH_SESS:
-            {
-                auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
-                auto& sess = cmd.sess;
-                LOGDEBUG << "Session "
-                         << (attaching ? "attachment" : "detachment")
-                         << " requested," << std::hex
-                         << " handle [0x" << sess.sess_h
-                         << "] lun [0x" << sess.lun
-                         << "] R/O [" << (sess.rd_only == 0 ? "false" : "true")
-                         << "] Init [" << sess.initiator_name
-                         << "] Targ [" << sess.target_name << "]";
-                auto volName = boost::make_shared<std::string>(volumeName);
-                if (attaching) {
-                    // Attach the volume to AM
-                    attach_cmd_h = cmd.cmd_h;
-                    scstOps->init(volName, amProcessor);
-                } else {
-                    scst_user_reply_cmd reply { cmd.cmd_h, cmd.subcode, 0ul };
-                    auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
-                }
-            }
-            break;
-        case SCST_USER_ALLOC_MEM:
-            LOGDEBUG << "Memory allocation requested.";
-            break;
-        case SCST_USER_EXEC:
-            {
-                auto& scsi_cmd = cmd.exec_cmd;
-                switch (scsi_cmd.cdb[0]) {
-                    case TEST_UNIT_READY:
-                        {
-                            LOGDEBUG << "Test Unit Ready received.";
-                            scst_user_reply_cmd reply = { cmd.cmd_h, cmd.subcode, 0ull };
-                            reply.exec_reply.resp_data_len = 0ul;
-                            reply.exec_reply.pbuf = 0ull;
-                            reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
-                            reply.exec_reply.status = GOOD;
-                            reply.exec_reply.sense_len = 0;
-                            reply.exec_reply.psense_buffer = 0ull;
-                            auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
-                        }
-                        break;
-                    case INQUIRY:
-                        {
-                            uint8_t* buffer = reinterpret_cast<uint8_t*>(malloc(36));
-                            scst_user_reply_cmd reply = { cmd.cmd_h, cmd.subcode, 0ull };
-                            reply.exec_reply.pbuf = (unsigned long)buffer;
-                            reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
-                            reply.exec_reply.status = GOOD;
-                            reply.exec_reply.sense_len = 0;
-                            reply.exec_reply.psense_buffer = 0ull;
-
-                            memset(buffer, 0, 36);
-                            buffer[0] = TYPE_DISK;
-                            // Check EVPD bit
-                            if (scsi_cmd.cdb[1] & 0x01) {
-                                LOGDEBUG << "Inquiry request for page: [0x" << std::hex << (uint32_t)(scsi_cmd.cdb[2])
-                                         << "] requested.";
-                                buffer[1] = scsi_cmd.cdb[2];
-                                switch (scsi_cmd.cdb[2]) {
-                                    case 0x00: // Supported pages
-                                        buffer[3] = 3;
-                                        buffer[4] = 0; // This page
-                                        buffer[5] = 0x80; // unit serial number
-                                        buffer[6] = 0x83; // device id
-                                        break;
-                                    case 0x80: // Serial Number
-                                        buffer[3] = 1;
-                                        buffer[4] = ' ';
-                                        break;
-                                    case 0x83: // Device ID
-                                        buffer[3] = 12;
-                                        buffer[4] = 0x02; // ASCII
-                                        buffer[5] = 0x01; // Vendor ID
-                                        buffer[7] = 8;
-                                        memcpy(buffer + 8, "FDS     ", 8);
-                                        break;
-                                    default:
-                                        LOGERROR << "Request for unsupported page code.";
-                                        memset(buffer, 0, 18);
-                                        int key, asc, ascq;
-                                        std::tie(key, asc, ascq) = std::forward_as_tuple(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
-                                        buffer[0] = 0x70;
-                                        buffer[2] = key;
-                                        buffer[7] = 0x0a;
-                                        buffer[12] = asc;
-                                        buffer[13] = ascq;
-
-                                        reply.exec_reply.status = SAM_STAT_CHECK_CONDITION;
-                                        reply.exec_reply.resp_data_len = 0;
-                                        reply.exec_reply.psense_buffer = (unsigned long)buffer;
-                                        reply.exec_reply.sense_len = 18;
-                                        reply.exec_reply.pbuf = 0ull;
-                                        break;
-                                }
-                                reply.exec_reply.resp_data_len = buffer[3] + 4;
-                            } else {
-                                LOGDEBUG << "Standard inquiry requested.";
-                                buffer[2] = 0x06;
-                                buffer[3] = 0x12;
-                                buffer[4] = 31;
-                                buffer[5] = 0x00;
-                                buffer[6] = 0x10;
-                                buffer[7] = 0x02;
-                                memcpy( buffer+8, "FDS     ",          8);
-                                memcpy(buffer+16, "SCST_VOL        ", 16);
-                                memcpy(buffer+32, "BETA",              4);
-                                reply.exec_reply.resp_data_len = 36;
-                            }
-                            auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
-                        }
-                        break;
-                    case 0x9E:  // READ_CAPACITY(16)
-                        {
-                            LOGDEBUG << "Read Capacity received.";
-                            uint8_t* buffer = reinterpret_cast<uint8_t*>(malloc(36));
-                            memset(buffer, 0, 32);
-                            uint64_t num_blocks = volume_size / 4096;
-                            *reinterpret_cast<uint64_t*>(buffer) = htobe64(num_blocks);
-                            *reinterpret_cast<uint32_t*>(buffer+8) = htobe32(4096ul); // 4k
-                            buffer[13] = 0x20; // 32 LBs per PB
-                            scst_user_reply_cmd reply = { cmd.cmd_h, cmd.subcode, 0ull };
-                            reply.exec_reply.resp_data_len = 32;
-                            reply.exec_reply.pbuf = (unsigned long)buffer;
-                            reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
-                            reply.exec_reply.status = GOOD;
-                            reply.exec_reply.sense_len = 0;
-                            reply.exec_reply.psense_buffer = 0ull;
-                            auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
-                        }
-                        break;
-                    default:
-                        LOGNOTIFY << "Unsupported SCSI command received " << std::hex
-                                  << "OPCode [0x" << (uint32_t)(scsi_cmd.cdb[0])
-                                  << "] CDB length [" << std::dec << scsi_cmd.cdb_len
-                                  << "]";
-                        break;
-                }
-            }
-            break;
-        case SCST_USER_ON_FREE_CMD:
-            {
-                LOGDEBUG << "Command responded.";
-                free((void*)cmd.on_free_cmd.pbuf);
-                scst_user_reply_cmd reply { cmd.cmd_h, cmd.subcode, 0ull };
-                auto res = ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
-            }
-            break;
-        case SCST_USER_TASK_MGMT_RECEIVED:
-            LOGDEBUG << "Task Management request.";
-            break;
-        case SCST_USER_TASK_MGMT_DONE:
-            LOGDEBUG << "Task Management completed.";
-            break;
-        case SCST_USER_ON_CACHED_MEM_FREE:
-            LOGDEBUG << "Free cached memory.";
-            break;
-        case SCST_USER_PARSE:
-            LOGDEBUG << "Need parsing help.";
-            break;
-        default:
-            LOGNOTIFY << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
-            return false;
-    }
-    return true;
-}
-
-
 void
-ScstConnection::readWriteResp(ScstResponseVector* response) {
-    LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
-              << " response from ScstOperations handle: 0x" << std::hex << response->handle
-              << " " << response->getError();
+ScstConnection::respondTask(ScstTask* response) {
+    LOGDEBUG << " response from ScstOperations handle: 0x" << std::hex << response->getHandle()
+             << " " << response->getError();
 
     // add to quueue
     readyResponses.push(response);
@@ -419,16 +426,12 @@ ScstConnection::readWriteResp(ScstResponseVector* response) {
 }
 
 void
-ScstConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) {
-    if (ERR_OK == error) {
-        // capacity is in MB
-        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-                  << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-        object_size = volDesc->maxObjSizeInBytes;
-        volume_size = (volDesc->capacity * Mi);
-    }
-    state_ = ConnectionState::ATTACHING;
-    asyncWatcher->send();
+ScstConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
+    // capacity is in MB
+    LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
+        << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+    object_size = volDesc->maxObjSizeInBytes;
+    volume_size = (volDesc->capacity * Mi);
 }
 
 }  // namespace fds
