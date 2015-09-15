@@ -59,6 +59,7 @@ Catalog::Catalog(const std::string& _file,
                  const std::string& logDirName /* = empty */,
                  const std::string& logFilePrefix /* = empty */,
                  fds_uint32_t maxLogFiles /* = 0 */,
+                 fds_bool_t timelineEnable,
                  leveldb::Comparator * cmp /* = 0 */) : backing_file(_file)
 {
     filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
@@ -83,6 +84,7 @@ Catalog::Catalog(const std::string& _file,
         env->logDirName() = logDirName;
         env->logFilePrefix() = logFilePrefix;
         env->maxLogFiles() = maxLogFiles;
+        env->timelineEnable() = timelineEnable;
 
         env->logRotate() = !logFilePrefix.empty();
     }
