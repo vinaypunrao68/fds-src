@@ -83,6 +83,7 @@ DmMigrationExecutor::startMigration()
     	 */
     	LOGMIGRATE << "Stopping De-queing IO for volume " << volumeUuid;
     	dataMgr.qosCtrl->stopDequeue(volumeUuid);
+    	// Note: in error cases, abortMigration() gets called, as well as resumeIO().
 
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
@@ -418,6 +419,7 @@ DmMigrationExecutor::testStaticMigrationComplete() {
 
 Error
 DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+	Error err(ERR_OK);
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
@@ -440,15 +442,23 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     };
 
     fds_scoped_lock lock(progressLock);
-    if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
-        forwardedMsgs.push_back(fwdCatReq);
-    } else if (migrationProgress  == APPLYING_FORWARDS_IN_PROGRESS) {
-        fds_assert(forwardedMsgs.size() == 0);
-        msgHandler.addToQueue(fwdCatReq);
-    } else {
-        fds_panic("Unexpected state encountered");
+    switch (migrationProgress) {
+    	case STATICMIGRATION_IN_PROGRESS:
+    		forwardedMsgs.push_back(fwdCatReq);
+    		break;
+    	case APPLYING_FORWARDS_IN_PROGRESS:
+    		fds_assert(forwardedMsgs.size() == 0);
+    		msgHandler.addToQueue(fwdCatReq);
+    		break;
+    	case MIGRATION_ABORTED:
+    		LOGERROR "Migration aborted so dropping forward request for " << fwdCatReq;
+    		err = ERR_DM_MIGRATION_ABORTED;
+    		break;
+    	default:
+    		fds_panic("Unexpected state encountered");
     }
-    return ERR_OK;
+
+    return err;
 }
 
 Error
@@ -465,6 +475,8 @@ DmMigrationExecutor::finishActiveMigration()
 void
 DmMigrationExecutor::abortMigration()
 {
+	// It's possible that the IO was stopped earlier during static migration
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
     {
         fds_scoped_lock lock(progressLock);
         if (migrationProgress != MIGRATION_ABORTED) {

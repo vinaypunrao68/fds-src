@@ -81,7 +81,6 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
     return err;
 }
 
-
 DmMigrationExecutor::shared_ptr
 DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 {
@@ -97,7 +96,6 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 DmMigrationClient::shared_ptr
 DmMigrationMgr::getMigrationClient(fds_volid_t uniqueId)
 {
-   SCOPEDREAD(migrExecutorLock);
    auto search = clientMap.find(uniqueId);
    if (search == clientMap.end()) {
        return nullptr;
@@ -224,17 +222,18 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 Error
 DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(deltaBlobDescMsg->volume_id));
+    fds_volid_t volId(deltaBlobDescMsg->volume_id);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
     Error err(ERR_OK);
     migrationCb descCb = deltaBlobDescReq->localCb;
 
     if (executor == nullptr) {
     	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id
+			LOGMIGRATE << "Unable to find executor for volume " << volId
 					<< " during migration abort";
     	} else {
-			LOGERROR << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id;
+			LOGERROR << "Unable to find executor for volume " << volId;
 			// this is an race cond error that needs to be fixed in dev env.
 			// Only panic in debug build.
 			fds_assert(0);
@@ -261,14 +260,16 @@ Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(deltaBlobsMsg->volume_id));
+    fds_volid_t volId(deltaBlobsMsg->volume_id);
+    // DmMigrationExecutorPair execPair(getMigrationExecutorPair(volId));
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
     if (executor == nullptr) {
     	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << deltaBlobsMsg->volume_id
+			LOGMIGRATE << "Unable to find executor for volume " << volId
 					<< " during migration abort";
     	} else {
-			LOGERROR << "Unable to find executor for volume " << deltaBlobsMsg->volume_id;
+			LOGERROR << "Unable to find executor for volume " << volId;
 			// this is an race cond error that needs to be fixed in dev env.
 			// Only panic in debug build.
 			fds_assert(0);
@@ -289,13 +290,19 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
 Error
 DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
     auto fwdCatMsg = fwdCatReq->fwdCatMsg;
-    DmMigrationExecutor::shared_ptr executor =
-    		getMigrationExecutor(fds_volid_t(fwdCatMsg->volume_id));
+    fds_volid_t volId(fwdCatMsg->volume_id);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
     if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << fwdCatMsg->volume_id;
-        // this is an race cond error that needs to be fixed in dev env.
-        // Only panic in debug build.
-    	fds_panic("Unhandled case");
+    	if (isMigrationAborted()) {
+			LOGMIGRATE << "Unable to find executor for volume " << volId
+					<< " during migration abort";
+    	} else {
+			LOGERROR << "Unable to find executor for volume " << volId;
+			// this is an race cond error that needs to be fixed in dev env.
+			// Only panic in debug build.
+			fds_assert(0);
+    	}
     	return ERR_NOT_FOUND;
     }
     executor->processForwardedCommits(fwdCatReq);
@@ -461,7 +468,6 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    // SCOPEDWRITE(migrClientThrMapLock);
     SCOPEDWRITE(migrClientLock);
     LOGMIGRATE << "Client done with volume " << uniqueId;
     clientMap.erase(fds_volid_t(uniqueId));
@@ -470,6 +476,7 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 fds_bool_t
 DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion)
 {
+    SCOPEDREAD(migrClientLock);
     auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
         // Not in the status of migration
@@ -492,7 +499,8 @@ DmMigrationMgr::stopAllClientForwarding()
 Error
 DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
 {
-	auto dmClient = getMigrationClient(volId);
+    SCOPEDREAD(migrClientLock);
+    auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
     	if (isMigrationAborted()) {
 			LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
@@ -516,7 +524,8 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const MetaDataList::const_ptr& meta_list)
 {
 	Error err(ERR_NOT_FOUND);
-	auto dmClient = getMigrationClient(volId);
+    SCOPEDREAD(migrClientLock);
+    auto dmClient = getMigrationClient(volId);
     if (dmClient == nullptr) {
     	if (isMigrationAborted()) {
 			LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
@@ -537,7 +546,8 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 Error
 DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 {
-	auto dmExecutor = getMigrationExecutor(volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr dmExecutor = getMigrationExecutor(volId);
     if (dmExecutor == nullptr) {
     	if (isMigrationAborted()) {
 			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
@@ -557,13 +567,14 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 Error
 DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(txStateMsg->volume_id));
+    fds_volid_t volId(txStateMsg->volume_id);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(volId);
     if (executor == nullptr) {
     	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << txStateMsg->volume_id << " during migration abort";
+			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
     	} else {
-			LOGERROR << "Unable to find executor for volume " << txStateMsg->volume_id;
+			LOGERROR << "Unable to find executor for volume " << volId;
 			// this is an race cond error that needs to be fixed in dev env.
 			// Only panic in debug build.
 			fds_assert(0);
@@ -585,6 +596,8 @@ DmMigrationMgr::abortMigration() {
 
 	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
+	migrExecutorLock.write_lock();
+	migrClientLock.write_lock();
 	DmMigrationClientMap::const_iterator citer (clientMap.begin());
 	DmMigrationExecMap::const_iterator eiter (executorMap.begin());
 	while (citer != clientMap.end()) {
@@ -597,6 +610,8 @@ DmMigrationMgr::abortMigration() {
 	}
 	clientMap.clear();
 	executorMap.clear();
+	migrClientLock.write_unlock();
+	migrExecutorLock.write_unlock();
 
     fds_assert(myRole != MIGR_UNKNOWN);
     if ((myRole == MIGR_EXECUTOR) && OmStartMigrCb) {
