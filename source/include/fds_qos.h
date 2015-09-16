@@ -172,14 +172,14 @@ namespace fds {
         virtual void ioProcessForEnqueue(fds_qid_t queue_id, FDS_IOType *io)
         {
             // preprocess before enqueuing in the input queue
-            LOGDEBUG << "Request " << io->io_req_id << " being enqueued at queue " << queue_id;
+            LOGTRACE << "Request " << io->io_req_id << " being enqueued at queue " << queue_id;
         }
 
         // Assumes caller has the qda read lock
         virtual void ioProcessForDispatch(fds_qid_t queue_id, FDS_IOType *io)
         {
             // do necessary processing before dispatching the io
-            LOGDEBUG << "Dispatching " << io->io_req_id << " from queue "
+            LOGTRACE << "Dispatching " << io->io_req_id << " from queue "
                      << std::hex << queue_id << std::dec;
         }
 
@@ -255,7 +255,7 @@ namespace fds {
                 ioProcessForEnqueue(queue_id, io);
 
                 n_pios = atomic_fetch_add(&(num_pending_ios), (unsigned int)1);
-                LOGDEBUG << "Dispatcher: enqueueIO at queue - 0x"
+                LOGTRACE << "Dispatcher: enqueueIO at queue - 0x"
                          << std::hex << queue_id << std::dec
                          <<  " : # of pending ios = " << n_pios+1;
                 assert(n_pios >= 0);
@@ -373,7 +373,7 @@ namespace fds {
                     // they are only in inactive queues, so there are no queues
                     // to dispatch from
 
-                    LOGDEBUG << "Dispatcher: All active queues empty, retry later";
+                    LOGTRACE << "Dispatcher: All active queues empty, retry later";
 
                     boost::this_thread::sleep(boost::posix_time::microseconds(100));
                     continue;
@@ -397,7 +397,7 @@ namespace fds {
                 n_oios = 0;
                 n_oios = atomic_fetch_add(&(num_outstanding_ios), (unsigned int)1);
 
-                LOGDEBUG << "Dispatcher: dispatchIO from queue 0x"
+                LOGTRACE << "Dispatcher: dispatchIO from queue 0x"
                          << std::hex << queue_id << std::dec
                          << " : # of outstanding ios = " << n_oios+1
                          << " : # of pending ios = " << n_pios-1;
@@ -436,7 +436,7 @@ namespace fds {
             io->io_service_time = static_cast<double>(service_nano) / 1000.0;
             io->io_total_time = static_cast<double>(total_nano) / 1000.0;
 
-            LOGDEBUG << "Dispatcher: IO Request " << io->io_req_id
+            LOGTRACE << "Dispatcher: IO Request " << io->io_req_id
                    << " for vol id [" << io->io_vol_id << "]"
                    << " completed in " << io->io_service_time
                    << " usecs with a wait time of " << io->io_wait_time

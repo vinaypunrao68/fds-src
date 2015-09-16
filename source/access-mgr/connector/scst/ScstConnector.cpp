@@ -55,7 +55,7 @@ ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
 
 void
 ScstConnector::initializeTarget() {
-    evLoop = std::make_shared<ev::dynamic_loop>();
+    evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
         LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
         return;

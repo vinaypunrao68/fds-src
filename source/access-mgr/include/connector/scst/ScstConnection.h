@@ -45,12 +45,16 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
     bool standalone_mode { false };
 
-    enum class ConnectionState { RUNNING,
+    enum class ConnectionState { DETACHED,
+                                 ATTACHING,
+                                 ATTACHED,
                                  STOPPING,
                                  STOPPED };
 
-     ConnectionState state_ { ConnectionState::RUNNING };
+     ConnectionState state_ { ConnectionState::DETACHED };
 
+    std::string volumeName;
+    uint32_t attach_cmd_h {0};
     int scstDev {-1};
     size_t volume_size;
     size_t object_size;
@@ -66,7 +70,6 @@ struct ScstConnection : public ScstOperationsResponseIface {
     ssize_t write_offset;
 
     boost::lockfree::queue<ScstResponseVector*> readyResponses;
-    std::unique_ptr<ScstResponseVector> current_response;
 
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;
@@ -77,7 +80,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
-    void getAndRespond();
+    bool getAndRespond();
 };
 
 }  // namespace fds
