@@ -101,6 +101,8 @@ public class PlatformModelConverter
         return NodeState.DOWN;
       case FDS_Node_Up:
         return NodeState.UP;
+      case FDS_Node_Standby:
+    	return NodeState.STANDBY;
       case FDS_Start_Migration:
       case FDS_Node_Rmvd:
       default:
@@ -129,7 +131,7 @@ public class PlatformModelConverter
   {
 
     Long extId = nodeInfoType.getService_uuid( );
-    int extControlPort = nodeInfoType.getControl_port( );
+    int extControlPort = nodeInfoType.getData_port( );
     Optional<ServiceType> optType
             = convertToExternalServiceType( nodeInfoType.getNode_type( ) );
     
@@ -322,10 +324,7 @@ public class PlatformModelConverter
     switch( internalState )
     {
       case FDS_Node_Down:
-    	if (type != ServiceType.PM)
-            externalState = Optional.of( ServiceState.NOT_RUNNING );
-    	else
-    		externalState = Optional.of( ServiceState.STANDBY );  
+    	externalState = Optional.of( ServiceState.NOT_RUNNING );  
         break;
       case FDS_Node_Discovered:
       case FDS_Node_Up:
@@ -337,6 +336,9 @@ public class PlatformModelConverter
       case FDS_Start_Migration:
         externalState = Optional.of( ServiceState.INITIALIZING );
         break;
+      case FDS_Node_Standby:
+    	externalState = Optional.of( ServiceState.STANDBY );
+    	break;
       default:
         externalState = Optional.of( ServiceState.RUNNING );
     }
@@ -355,7 +357,6 @@ public class PlatformModelConverter
       case LIMITED:
       case NOT_RUNNING:
       case ERROR:
-      case STANDBY:
       case UNEXPECTED_EXIT:
         internalState = Optional.of( FDSP_NodeState.FDS_Node_Down );
         break;
@@ -365,6 +366,8 @@ public class PlatformModelConverter
       case INITIALIZING:
         internalState = Optional.of( FDSP_NodeState.FDS_Start_Migration );
         break;
+      case STANDBY:
+    	internalState = Optional.of( FDSP_NodeState.FDS_Node_Standby);
       default:
         internalState = Optional.of( FDSP_NodeState.FDS_Node_Up );
         break;

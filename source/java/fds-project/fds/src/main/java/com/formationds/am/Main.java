@@ -8,7 +8,12 @@ import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.nfs.NfsServer;
-import com.formationds.security.*;
+import com.formationds.security.Authenticator;
+import com.formationds.security.Authorizer;
+import com.formationds.security.DumbAuthorizer;
+import com.formationds.security.FdsAuthenticator;
+import com.formationds.security.FdsAuthorizer;
+import com.formationds.security.NullAuthenticator;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
@@ -18,7 +23,13 @@ import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
 import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
-import com.formationds.xdi.*;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.AsyncStreamer;
+import com.formationds.xdi.FakeAsyncAm;
+import com.formationds.xdi.RealAsyncAm;
+import com.formationds.xdi.Xdi;
+import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import joptsimple.OptionParser;
@@ -101,17 +112,16 @@ public class Main {
         XdiClientFactory clientFactory = new XdiClientFactory();
 
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
-        boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", 
-                                                           false );
-        String omHost = platformConfig.defaultString( "fds.am.om_ip",
-                                                      "localhost" );
-        Integer omHttpPort = platformConfig.defaultInt( "fds.om.http_port",
-                                                        7777 );
+        boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+
+        String omHost = configuration.getOMIPAddress();
+        // TODO: we should probably be using https port
+        int omHttpPort = platformConfig.defaultInt( "fds.om.http_port", 7777 );
+        int omConfigPort = platformConfig.defaultInt( "fds.om.config_port", 9090 );
+
         int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
         int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 1911);
 
-        // TODO: this needs to be configurable in platform.conf
-        int omConfigPort = 9090;
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.

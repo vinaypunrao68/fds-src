@@ -13,7 +13,8 @@ namespace java com.formationds.protocol.pm
  * @return nothing
  */
 struct NotifyStartServiceMsg {
-    1: list<svc_types.SvcInfo> services;
+    1: list<svc_types.SvcInfo> services,
+    2: bool isActionNodeStart;
 }
 
 /**
@@ -22,7 +23,8 @@ struct NotifyStartServiceMsg {
  * @return nothing
  */
 struct NotifyStopServiceMsg {
-    1: list<svc_types.SvcInfo> services;
+    1: list<svc_types.SvcInfo> services,
+    2: bool isActionNodeShutdown;
 }
 
 /**
@@ -40,5 +42,6 @@ struct NotifyAddServiceMsg {
  * @return nothing
  */
 struct NotifyRemoveServiceMsg {
-    1: list<svc_types.SvcInfo> services;
+    1: list<svc_types.SvcInfo> services,
+    2: bool isActionNodeRemove;
 }

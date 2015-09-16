@@ -49,17 +49,11 @@
       <artifactId>formationds-commons-util</artifactId>
       <version>${formationds.commons.util.version}</version>
     </dependency>
-    
-    <dependency>
-	  <groupId>com.formationds</groupId>
-	  <artifactId>stats-service</artifactId>
-	  <version>0.0.1-SNAPSHOT</version>
-    </dependency>
 
     <dependency>
       <groupId>com.formationds</groupId>
-      <artifactId>stats-client</artifactId>
-      <version>0.0.1-SNAPSHOT</version>
+      <artifactId>formationds-jsvc-layer</artifactId>
+      <version>${formationds.jsvc.layer.version}</version>
     </dependency>
 
     <!-- third party dependencies -->
@@ -162,8 +156,8 @@
     </dependency>
 
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
     </dependency>
 
     <dependency>
@@ -198,6 +192,10 @@
         <exclusion>
           <groupId>javax.servlet</groupId>
           <artifactId>servlet-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

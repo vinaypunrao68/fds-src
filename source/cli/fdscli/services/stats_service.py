@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 from utils.converters.statistics.metric_query_converter import MetricQueryConverter
 from utils.converters.statistics.statistics_converter import StatisticsConverter
 from utils.converters.health.system_health_converter import SystemHealthConverter

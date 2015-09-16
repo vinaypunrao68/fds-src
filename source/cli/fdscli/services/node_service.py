@@ -1,4 +1,4 @@
-from abstract_service import AbstractService
+from .abstract_service import AbstractService
 
 from utils.converters.platform.node_converter import NodeConverter
 from utils.converters.platform.service_converter import ServiceConverter

@@ -67,7 +67,6 @@ namespace fds
         switch ( svcinfo.svc_status )
         {
             case fpi::SVC_STATUS_INACTIVE:
-            case fpi::SVC_STATUS_STANDBY:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
@@ -81,7 +80,12 @@ namespace fds
                 break;
             case fpi::SVC_STATUS_DISCOVERED:
                 nodeInfo.node_state = fpi::FDS_Node_Discovered;
-                break;    
+                break;
+            case fpi::SVC_STATUS_STANDBY:
+                nodeInfo.node_state = fpi::FDS_Node_Standby;
+                break;
+            default:
+                LOGERROR <<"Unexpected service status!";
         }
 
         return nodeInfo;
@@ -92,7 +96,6 @@ namespace fds
         switch ( svcStatus )
         {
             case fpi::SVC_STATUS_INACTIVE:
-            case fpi::SVC_STATUS_STANDBY:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
                 retNodeState = fpi::FDS_Node_Down;
@@ -106,6 +109,9 @@ namespace fds
                 break;
             case fpi::SVC_STATUS_DISCOVERED:
                 retNodeState = fpi::FDS_Node_Discovered;
+                break;
+            case fpi::SVC_STATUS_STANDBY:
+                retNodeState = fpi::FDS_Node_Standby;
                 break;
             default:
                 LOGERROR << "Unexpected service status, fix this method!";

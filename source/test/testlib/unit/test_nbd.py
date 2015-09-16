@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 
-nbd_path = os.path.abspath(os.path.join('..', 'utils'))
+nbd_path = os.path.abspath(os.path.join('..', 'lib'))
 sys.path.append(nbd_path)
 
 import nbd as nbd

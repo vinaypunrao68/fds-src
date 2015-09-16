@@ -10,8 +10,6 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.stats_client.StatsConnection;
-import com.formationds.stats_client.model.StatDataPoint;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -21,8 +19,6 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,7 +29,6 @@ public class ListVolumes implements RequestHandler {
     private ConfigurationApi    configApi;
     private Authorizer          authorizer;
     private AuthenticationToken token;
-    private StatsConnection 	statConnection;
 
     public ListVolumes( Authorizer authorizer, AuthenticationToken token ) {
         this.authorizer = authorizer;
@@ -53,8 +48,6 @@ public class ListVolumes implements RequestHandler {
     public List<Volume> listVolumes() throws Exception {
 
         logger.debug( "Listing all volumes." );
-        
-        Long time = (new Date()).getTime();
 
         String domain = "";
         List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
@@ -83,29 +76,7 @@ public class ListVolumes implements RequestHandler {
 
         logger.debug( "Found {} volumes.", externalVolumes.size() );
 
-        Long now = (new Date()).getTime();
-        Long diff = now - time;
-        
-        StatDataPoint data = new StatDataPoint();
-        data.setCollectionPeriod( diff );
-        data.setContextId( 0L );
-        data.setContextType( 0 );
-        data.setMetricName( "LIST_VOLUME_TIME" );
-        data.setMetricValue( new Double( diff ) );
-        data.setReportTime( now );
-        
-        getStatsConnection().publishStatistic( data );
-        
         return externalVolumes;
-    }
-    
-    private StatsConnection getStatsConnection() throws IOException, InterruptedException{
-    	
-    	if ( statConnection == null ){
-    		statConnection = StatsConnection.newConnection( "localhost", 4242, "guest", "guest" );
-    	}
-    	
-    	return statConnection;
     }
 
     private Authorizer getAuthorizer() {

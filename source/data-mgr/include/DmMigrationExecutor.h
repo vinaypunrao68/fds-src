@@ -7,6 +7,7 @@
 
 #include <MigrationUtility.h>
 #include <fds_timer.h>
+#include <DmMigrationBase.h>
 
 namespace fds {
 
@@ -20,7 +21,7 @@ class DataMgr;
 typedef std::function<void (fds_volid_t volumeId,
                             const Error& error)> DmMigrationExecutorDoneCb;
 
-class DmMigrationExecutor {
+class DmMigrationExecutor : public DmMigrationBase {
   public:
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
     							 const NodeUuid& _srcDmUuid,
@@ -50,13 +51,13 @@ class DmMigrationExecutor {
      * Step 2.1:
      * Process the incoming delta blobs set coming from the source DM.
      */
-    Error processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+    Error processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 
     /**
      * Step 2.2:
      * Process the incoming delta blob descriptors set coming from the source DM.
      */
-    Error processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+    Error processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg, migrationCb cb);
 
     /**
      * Step 3:
@@ -102,6 +103,11 @@ class DmMigrationExecutor {
      * of the state machine change.
      */
     Error finishActiveMigration();
+
+    /**
+     * Called by MigrationMgr to clean up any mess that this executor has caused
+     */
+    void abortMigration();
 
   private:
     /** Reference to the DataManager
@@ -177,23 +183,30 @@ class DmMigrationExecutor {
      * List of blob descriptors that have been queued waiting for
      * blob offsets to be written out to disk.
      */
-    std::vector<fpi::CtrlNotifyDeltaBlobDescMsgPtr> blobDescList;
+    std::vector<std::pair<fpi::CtrlNotifyDeltaBlobDescMsgPtr, migrationCb>> blobDescList;
 
     /* enum to track migration progress */
     enum {
-        INIT,
         /* In this state forwared io is buffered util static migratio ops are applied
          * to leveldb
          */
-        STATICMIGRATION_IN_PROGRESS,
+        INIT,
         /* In this state forwared io is applied as it arrives from the wire.  Any active IO
          * assumed to be quiesced
          */
-        APPLYING_FORWARDS_IN_PROGRESS,
+        STATICMIGRATION_IN_PROGRESS,
         /* In this state we shouldn't receive any migration related ops.  Client IO quiesce is
          * lifted
          */
-        MIGRATION_COMPLETE
+        APPLYING_FORWARDS_IN_PROGRESS,
+		/**
+		 * This state means migration is completed and waiting to be cleaned up.
+		 */
+        MIGRATION_COMPLETE,
+		/**
+		 * This state is in case migration aborted
+		 */
+		MIGRATION_ABORTED
     } migrationProgress;
     dm::Handler                                     msgHandler;
     /* Queue to buffer forwarded messages */

@@ -18,6 +18,8 @@ class TestRoles(BaseCliTest):
         auth = self.auth
         auth.set_features([FdsAuth.VOL_MGMT, FdsAuth.USER_MGMT])
         
+        self.cli.loadmodules()
+        
         args = ["service", "list"]
         self.callMessageFormatter(args)
         self.cli.run(args)
@@ -46,6 +48,8 @@ class TestRoles(BaseCliTest):
         
         auth.add_feature(FdsAuth.SYS_MGMT)
         
+        self.cli.loadmodules()
+        
         args = ["service", "list"]
         
         self.callMessageFormatter(args)
@@ -61,6 +65,8 @@ class TestRoles(BaseCliTest):
         
         #adding tenant mgmt
         auth.add_feature(FdsAuth.TENANT_MGMT)
+        
+        self.cli.loadmodules()
         
         args = ["tenant", "list"]
         

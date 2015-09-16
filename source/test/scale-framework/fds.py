@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 import config
-import utils 
+import lib 
 
 class FDS(object):
     
@@ -55,7 +55,7 @@ class FDS(object):
             if self.check_status() is not False:
                 raise Exception("FDS failed to stop")
         except Exception, e:
-            utils.log.exception(e)
+            lib.log.exception(e)
             sys.exit(1)
     
     def start_single_node(self):
@@ -71,7 +71,7 @@ class FDS(object):
             if not self.check_status():
                 raise Exception("FDS multinode cluster failed to start")
         except Exception, e:
-            utils.log.exception(e)
+            lib.log.exception(e)
             sys.exit(1)
 
 if __name__ == "__main__":

@@ -79,7 +79,7 @@ public class RemoveService implements RequestHandler {
         svcInfList.add(pmSvcInfo);
         
 
-       int status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
+       int status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList, false));
         
        if ( status != 0 ){
 

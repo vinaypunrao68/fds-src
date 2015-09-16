@@ -9,6 +9,7 @@ sys.path.append(os.path.join(os.getcwd(), '../common'))
 from push_to_influxdb import InfluxDb
 import tabulate
 import thrift
+from rabbitmq import RabbitMQClient
 
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib'))
 sys.path.append(os.path.join(os.getcwd(), '../../fdslib/pyfdsp'))
@@ -18,6 +19,12 @@ class CounterMonitor(object):
     def __init__(self, config):
         self.config  = config
         self.influxdb = InfluxDb(config["influxdb_config"], False)
+        self.rmq_client = RabbitMQClient(
+                                self.config["rabbitmq_host"], 
+                                self.config["rabbitmq_port"], 
+                                self.config["rabbitmq_user"], 
+                                self.config["rabbitmq_password"], 
+                                self.config["period"])
         self.stop = threading.Event()
 
     def get_svc_table(self):    
@@ -25,7 +32,6 @@ class CounterMonitor(object):
             self.svc_map = SvcMap(self.config["ip"], self.config["port"])
         except thrift.transport.TTransport.TTransportException:
             time.sleep(1)
-            print "Exception getting SvcMap... waiting"
             return []
         table = []
         for e in self.svc_map.list():
@@ -36,10 +42,6 @@ class CounterMonitor(object):
                     "port" : e[4],
                     "status":e[5],
                 })
-        for e in table:
-            for k, v in e.iteritems():
-                print k + ":" + str(v),
-            print ""
         return table
     
     def run(self):
@@ -87,8 +89,11 @@ class CounterMonitor(object):
                     else:
                         records.append((k, v))
                 records.append(("time", timestamp))
-                self.print_records(records)
-                self.influxdb.write_records(series, records)
+                # self.print_records(records)
+                if self.config["influxdb_enable"]:
+                    self.influxdb.write_records(series, records)
+                if self.config["rabbitmq_enable"]:
+                    self.rmq_client.write_records(series, records)
 
     def terminate(self):
         self.stop.set()
@@ -103,12 +108,24 @@ def main():
                       help = "Host port")
     parser.add_option("-p", "--period", dest = "period", type = "float", default = 1.0,
                       help = "Counter period")
+    parser.add_option("-i", "--influxdb-enable", dest = "influxdb_enable", default = False,
+                       action="store_true", help = "Influxdb enable")
+    parser.add_option("-r", "--rabbitmq-enable", dest = "rabbitmq_enable", default = False,
+                       action="store_true", help = "Rabbitmq enable")
     parser.add_option("-f", "--counter-filter", dest = "counter_filter", default = None,
                       help = "Filter counters based on name")
     parser.add_option("", "--ip-filter", dest = "ip_filter", default = None,
                       help = "Filter counters based on the ip")
     parser.add_option("", "--agent-filter", dest = "agent_filter", default = None,
                       help = "Filter counters based on the agent")
+    parser.add_option("", "--rabbitmq-host", dest = "rabbitmq_host", default = "localhost",
+                      help = "RabbitMQ host")
+    parser.add_option("", "--rabbitmq-port", dest = "rabbitmq_port", default = 5672, type = "int",
+                      help = "RabbitMQ port")
+    parser.add_option("", "--rabbitmq-user", dest = "rabbitmq_user", default = "guest",
+                      help = "RabbitMQ user")
+    parser.add_option("", "--rabbitmq-password", dest = "rabbitmq_password", default = "guest",
+                      help = "RabbitMQ password")
     parser.add_option("", "--influxdb-host", dest = "influxdb_host", default = "c3po.formationds.com",
                       help = "Influxdb host")
     parser.add_option("", "--influxdb-port", dest = "influxdb_port", default = 8086, type = "int",
@@ -121,6 +138,9 @@ def main():
                       help = "Influxdb password")
 
     (options, args) = parser.parse_args()
+    if not options.influxdb_enable and not options.rabbitmq_enable:
+        print >> sys.stderr, "Need to enable at least one backend -i or -r"
+        sys.exit(1)
 
     influx_db_config = {
         "ip" : options.influxdb_host,
@@ -135,6 +155,12 @@ def main():
         "ip" : options.host_ip,
         "port" : options.host_port,
         "period" : options.period,
+        "influxdb_enable" : options.influxdb_enable,
+        "rabbitmq_enable" : options.rabbitmq_enable,
+        "rabbitmq_host" : options.rabbitmq_host,
+        "rabbitmq_port" : options.rabbitmq_port,
+        "rabbitmq_user" : options.rabbitmq_user,
+        "rabbitmq_password" : options.rabbitmq_password,
         "cntr_filter" : options.counter_filter.split(',') if options.counter_filter else None,
         "agent_filter" : options.agent_filter.split(',') if options.agent_filter else None,
         "ip_filter" : options.ip_filter.split(',') if options.ip_filter else None,

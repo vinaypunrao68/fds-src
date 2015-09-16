@@ -116,19 +116,18 @@ void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 
-    dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
+    helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
 }
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
 			Error const& e, DmRequest* dmRequest) {
+	asyncHdr->msg_code = e.GetErrno();
 
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    // Do nothing for now.  Filter set was sent by the destination SM as a fire/forget message.
-    // If we need to responde for some reason in the future, we can send back a message, but
-    // no need to send back a entire message back again -- just need an empty message with
-    // error code stuffed in the async header.
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetRspMsg),
+                       fpi::CtrlNotifyInitialBlobFilterSetRspMsg());
 
     delete dmRequest;
 }
@@ -144,8 +143,12 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
-    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse,
-    								asyncHdr, message);
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
+
+    dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
+    							this,
+								asyncHdr,
+								std::placeholders::_1);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
@@ -155,18 +158,27 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
 void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
-    helper.skipImplicitCb = true;
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
-    dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+    helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
 }
 
 void DmMigrationDeltaBlobDescHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
                         Error const& e, DmRequest* dmRequest)
 {
-    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+	// Don't do anything until the blobs descriptors are applied. Cleaned up in handleResponseReal.
     delete dmRequest;
 }
+
+void DmMigrationDeltaBlobDescHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e)
+{
+	asyncHdr->msg_code = e.GetErrno();
+
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescRspMsg),
+                       fpi::CtrlNotifyDeltaBlobDescRspMsg());
+}
+
 
 DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)
     : Handler(dataManager)
@@ -196,15 +208,17 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoMigrationDeltaBlobs* typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
 
     LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
-    /*
-     *  revisit this - Migration Migration executor integration
-     */
-    dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
+    helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
 }
 
 void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
                         Error const& e, DmRequest* dmRequest) {
+	asyncHdr->msg_code = e.GetErrno();
+
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
+                       fpi::CtrlNotifyDeltaBlobsRspMsg());
+
 	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
 	delete dmRequest;
 }

@@ -338,6 +338,8 @@ struct DmMigrationDeltaBlobDescHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e);
 };
 
 struct DmMigrationDeltaBlobHandler : Handler {

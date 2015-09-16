@@ -139,7 +139,7 @@ def str_to_obj(astr):
                 raise Exception
 
 
-def queue_up_scenario(suite, scenario, log_dir=None):
+def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
     """
     Given the scenario, queue one or more test cases,
     depending upon the associated script and action,
@@ -189,10 +189,13 @@ def queue_up_scenario(suite, scenario, log_dir=None):
             action = "install-boot-activate"
 
         if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or\
-               (action.count("graceful_restart") > 0):
-            # Start this domain as indicated by the action.
-            domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
-            suite.addTest(domainBootSuite)
+                (action.count("graceful_restart") > 0):
+            if install_done:
+                log.info("FDS is already installed, hence skippping scenario "+scenario.nd_conf_dict['scenario-name'])
+            else:
+                # Start this domain as indicated by the action.
+                domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
+                suite.addTest(domainBootSuite)
         elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
                 (action.count("uninst") > 0):
             # Shutdown the domain as indicated by the action.
@@ -291,11 +294,6 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 for node in scenario.cfg_sect_nodes:
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
-                        # Prevent scenario where we try to take down/verify a node that was never online
-                        if not hasattr(node, 'selected') or node.selected is False:
-                            log.info("Selected node {} was never started. Ignoring "
-                                     "command to remove/kill/uninstall".format(node.nd_conf_dict['node-name']))
-                            continue
 
                         if (action.count("remove") > 0):
                             suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
@@ -355,9 +353,21 @@ def queue_up_scenario(suite, scenario, log_dir=None):
         else:
             action = "boot"
 
-        # Find the node in question
+        # Find the node(s) in question
         node = None
-        if "fds_node" in scenario.nd_conf_dict:
+        if "fds_nodes" in scenario.nd_conf_dict:
+            if scenario.nd_conf_dict['fds_nodes'] == '*':
+                fdsNodeNames = [x for x in scenario.cfg_sect_nodes
+                                if hasattr(x, 'selected') and x.selected is True]
+            else:
+                fdsNodeNames = scenario.nd_conf_dict['fds_nodes'].split(',')
+
+            fdsNodes = []
+            for node in scenario.cfg_sect_nodes:
+                if node.nd_conf_dict['node-name'] in fdsNodeNames:
+                    fdsNodes.append(node)
+
+        elif "fds_node" in scenario.nd_conf_dict:
             found = False
             for node in scenario.cfg_sect_nodes:
                 if node.nd_conf_dict['node-name'] == scenario.nd_conf_dict['fds_node']:
@@ -368,12 +378,20 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 log.error("Node not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
                 raise Exception
+
+            fdsNodes = None
+            
         else:
             # Perform action for given service on all nodes in the domain.
             node = None
+            fdsNodes = None
 
         # Validate the service in question
-        if "service" in scenario.nd_conf_dict:
+        selectedServices = None
+        if "services" in scenario.nd_conf_dict:
+            selectedServices = scenario.nd_conf_dict['services'].split(',')
+
+        elif "service" in scenario.nd_conf_dict:
             if scenario.nd_conf_dict['service'] not in ['pm', 'dm', 'sm', 'om', 'am']:
                 log.error("Service %s is not valid for scenario '%s'." %
                           (scenario.nd_conf_dict['service'], scenario.nd_conf_dict['scenario-name']))
@@ -398,20 +416,43 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSServiceMgt.TestAMBringUp(node=node))
 
         if (action.count("verifyup") > 0):
-            if service == "pm":
-                if node is None:
-                    # When checking all PM's in the domain, we have to call out the
-                    # PM for the OM's node specifically.
-                    suite.addTest((TestFDSServiceMgt.TestPMForOMWait(node=node)))
-                suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
-            elif service == "dm":
-                suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
-            elif service == "sm":
-                suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
-            elif service == "om":
-                suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
-            elif service == "am":
-                suite.addTest(TestFDSServiceMgt.TestAMWait(node=node))
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            if node is None:
+                                # When checking all PM's in the domain, we have to call out the
+                                # PM for the OM's node specifically.
+                                suite.addTest((TestFDSServiceMgt.TestPMForOMWait(node=node)))
+                            suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAMWait(node=node))
+
+            else:
+                for service in selectedServices:
+                    if service == "pm":
+                        if node is None:
+                            # When checking all PM's in the domain, we have to call out the
+                            # PM for the OM's node specifically.
+                            suite.addTest((TestFDSServiceMgt.TestPMForOMWait(node=node)))
+                        suite.addTest(TestFDSServiceMgt.TestPMWait(node=node))
+                    elif service == "dm":
+                        suite.addTest(TestFDSServiceMgt.TestDMWait(node=node))
+                    elif service == "sm":
+                        suite.addTest(TestFDSServiceMgt.TestSMWait(node=node))
+                    elif service == "om":
+                        suite.addTest(TestFDSServiceMgt.TestOMWait(node=node))
+                    elif service == "am":
+                        suite.addTest(TestFDSServiceMgt.TestAMWait(node=node))
 
         if (action.count("activate") > 0):
             if service == "pm":
@@ -430,87 +471,198 @@ def queue_up_scenario(suite, scenario, log_dir=None):
                 suite.addTest(TestFDSServiceMgt.TestAMActivate(node=node))
 
         if (action.count("remove") > 0):
-            if service == "pm":
-                log.error("Remove action not valid for PM service for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-            elif service == "dm":
-                suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
-            elif service == "sm":
-                suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
-            elif service == "om":
-                log.error("Remove action not valid for OM service for scenario '%s'" %
-                          (scenario.nd_conf_dict['scenario-name']))
-                raise Exception
-            elif service == "am":
-                suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
+            if selectedServices == None:
+                selectedServices = service.split(',')
 
-        if (action.count("kill") > 0):
-            if (action.count("aws") > 0):
-                if service == "pm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
-                elif service == "dm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
-                elif service == "sm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
-                elif service == "om":
-                    suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
-                elif service == "am":
-                    suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMRemove(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMRemove(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMRemove(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMRemove(node=node))
+
 
             else:
-                if service == "pm":
-                    suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
-                elif service == "dm":
-                    suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
-                elif service == "sm":
-                    suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
-                elif service == "om":
-                    suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
-                elif service == "am":
-                    suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+                for service in selectedServices:
+                    if service == "pm":
+                        log.error("Remove action not valid for PM service for scenario '%s'" %
+                                  (scenario.nd_conf_dict['scenario-name']))
+                        raise Exception
+                    elif service == "dm":
+                        suite.addTest(TestFDSServiceMgt.TestDMStop(node=node))
+                    elif service == "sm":
+                        suite.addTest(TestFDSServiceMgt.TestSMStop(node=node))
+                    elif service == "om":
+                        log.error("Remove action not valid for OM service for scenario '%s'" %
+                                  (scenario.nd_conf_dict['scenario-name']))
+                        raise Exception
+                    elif service == "am":
+                        suite.addTest(TestFDSServiceMgt.TestAMStop(node=node))
+
+        if (action.count("add") > 0):
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node))
+            else:
+                for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node))
+
+
+        if (action.count("kill") > 0):
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
+
+            else:
+                for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
 
         if (action.count("stop") > 0):
-            if (action.count("aws") > 0):
-                if service == "pm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSPMStop(node=node))
-                elif service == "dm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSDMStop(node=node))
-                elif service == "sm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSSMStop(node=node))
-                elif service == "om":
-                    suite.addTest(TestFDSServiceMgt.TestAWSOMStop(node=node))
-                elif service == "am":
-                    suite.addTest(TestFDSServiceMgt.TestAWSAMStop(node=node))
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMStop(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMStop(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMStop(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMStop(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMStop(node=node))
+
+            else:
+                for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMStop(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMStop(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMStop(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMStop(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMStop(node=node))
+
 
         if (action.count("start") > 0):
-            if (action.count("aws") > 0):
-                if service == "pm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSPMStart(node=node))
-                elif service == "dm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSDMStart(node=node))
-                elif service == "sm":
-                    suite.addTest(TestFDSServiceMgt.TestAWSSMStart(node=node))
-                elif service == "om":
-                    suite.addTest(TestFDSServiceMgt.TestAWSOMStart(node=node))
-                elif service == "am":
-                    suite.addTest(TestFDSServiceMgt.TestAWSAMStart(node=node))
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMStart(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMStart(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMStart(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMStart(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMStart(node=node))
+            else:
+                for service in selectedServices:
+                        if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMStart(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMStart(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMStart(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMStart(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMStart(node=node))
+
 
         if (action.count("verifydown") > 0):
-            if service == "pm":
-                if node is None:
-                    # When checking all PM's in the domain, we have to call out the
-                    # PM for the OM's node specifically.
-                    suite.addTest((TestFDSServiceMgt.TestPMForOMVerifyDown(node=node)))
-                suite.addTest(TestFDSServiceMgt.TestPMVerifyDown(node=node))
-            elif service == "dm":
-                suite.addTest(TestFDSServiceMgt.TestDMVerifyDown(node=node))
-            elif service == "sm":
-                suite.addTest(TestFDSServiceMgt.TestSMVerifyDown(node=node))
-            elif service == "om":
-                suite.addTest(TestFDSServiceMgt.TestOMVerifyDown(node=node))
-            elif service == "am":
-                suite.addTest(TestFDSServiceMgt.TestAMVerifyDown(node=node))
+            if selectedServices == None:
+                selectedServices = service.split(',')
+
+            if fdsNodes is not None:
+                for node in fdsNodes:
+                    for service in selectedServices:
+                        if service == "pm":
+                            if node is None:
+                                # When checking all PM's in the domain, we have to call out the
+                                # PM for the OM's node specifically.
+                                suite.addTest((TestFDSServiceMgt.TestPMForOMVerifyDown(node=node)))
+                            suite.addTest(TestFDSServiceMgt.TestPMVerifyDown(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestDMVerifyDown(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestSMVerifyDown(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestOMVerifyDown(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAMVerifyDown(node=node))
+
+            else:
+                for service in selectedServices:
+                        if service == "pm":
+                            if node is None:
+                                # When checking all PM's in the domain, we have to call out the
+                                # PM for the OM's node specifically.
+                                suite.addTest((TestFDSServiceMgt.TestPMForOMVerifyDown(node=node)))
+                            suite.addTest(TestFDSServiceMgt.TestPMVerifyDown(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestDMVerifyDown(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestSMVerifyDown(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestOMVerifyDown(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAMVerifyDown(node=node))
 
         # Give the service action some time to complete if requested.
         if 'delay_wait' in scenario.nd_conf_dict:

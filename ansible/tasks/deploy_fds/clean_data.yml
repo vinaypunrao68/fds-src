@@ -14,23 +14,6 @@
         - /fds/dev/ssd-*/*
         - /fds/sys-repo
         - /fds/user-repo/*
-    tags:
-        - clean
-
--   name: start redis for clean
-    shell: ./redis.sh start chdir=/fds/sbin
-    when: fds_installed|success
-    tags:
-        - clean
-
--   name: clean redis
-    shell: ./redis.sh clean chdir=/fds/sbin
-    when: fds_installed|success
-    tags:
-        - clean
-
--   name: stop redis after clean
-    shell: ./redis.sh stop chdir=/fds/sbin
-    when: fds_installed|success
+        - /fds/var/redis/appendonly.aof
     tags:
         - clean
