@@ -49,7 +49,7 @@ ScstTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffer
     // semantic to PAD the read to the required length.
     uint32_t iOff = offset % maxObjectSizeInBytes;
     if (len < (length + iOff)) {
-        for (auto zero_data = (length + iOff) - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
+        for (ssize_t zero_data = (length + iOff) - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
             bufVec.push_back(empty_buffer);
         }
     }

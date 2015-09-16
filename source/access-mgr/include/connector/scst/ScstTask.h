@@ -34,7 +34,6 @@ struct ScstTask {
     ScstTask(uint32_t hdl, uint32_t sc);
     ~ScstTask() = default;
 
-    /** Old...to be cleaned up **/
     bool isRead() const { return (operation == READ); }
     inline uint32_t getHandle() const { return reply.cmd_h; }
     inline uint32_t getSubcode() const { return reply.subcode; }
@@ -43,6 +42,14 @@ struct ScstTask {
     inline uint32_t getLength() const { return length; }
     inline uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
     inline void setObjectCount(size_t const count) { bufVec.reserve(count); offVec.reserve(count); }
+
+    void setRead(uint64_t const off, uint32_t const bytes) {
+        operation = READ;
+        offset = off;
+        length = bytes;
+    }
+
+    void setMaxObjectSize(uint32_t const size) { maxObjectSizeInBytes = size; };
 
     void checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq)
     {
@@ -64,7 +71,8 @@ struct ScstTask {
         reply.exec_reply.pbuf = (unsigned long)exec_buffer.get();
         reply.exec_reply.resp_data_len = buf_len;
     }
-    unsigned long setResult(int32_t result) { return reply.result = result; }
+
+    void setResult(int32_t result) { reply.result = result; }
 
     unsigned long getReply() { return (unsigned long)&reply; } 
 

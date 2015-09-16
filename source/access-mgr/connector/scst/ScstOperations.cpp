@@ -125,13 +125,12 @@ ScstOperations::detachVolumeResp(const Error& error,
 }
 
 void
-ScstOperations::read(uint32_t length,
-                    uint64_t offset,
-                    ScstTask* resp) {
+ScstOperations::read(ScstTask* resp) {
     fds_assert(amAsyncDataApi);
 
-    LOGDEBUG << "Want 0x" << std::hex << length << " bytes from 0x" << offset
-             << " handle 0x" << resp->getHandle() << std::dec;
+    resp->setMaxObjectSize(maxObjectSizeInBytes);
+    auto length = resp->getLength();
+    auto offset = resp->getOffset();
 
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);

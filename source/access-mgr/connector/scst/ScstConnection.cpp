@@ -226,7 +226,7 @@ void ScstConnection::execUserCmd() {
 
     switch (scsi_cmd.cdb[0]) {
         case TEST_UNIT_READY:
-            LOGDEBUG << "Test Unit Ready received.";
+            LOGTRACE << "Test Unit Ready received.";
             break;
         case INQUIRY:
             {
@@ -277,6 +277,25 @@ void ScstConnection::execUserCmd() {
                 }
             }
             break;
+        case MODE_SENSE:
+            {
+                bool dbd = (0x00 != (scsi_cmd.cdb[1] & 0x08));
+                uint8_t pc = scsi_cmd.cdb[2] / 0x40;
+                uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
+                uint8_t& subpage = scsi_cmd.cdb[3];
+                LOGIO << "Mode Sense: "
+                      << " dbd[" << std::hex << dbd
+                      << "] pc[" << std::hex << (uint32_t)pc
+                      << "] page_code[" << (uint32_t)page_code
+                      << "] subpage[" << (uint32_t)subpage << "]";
+
+                // We do not support any subpages
+                if (0x00 != subpage) {
+                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                }
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+            }
+            break;
         case READ_10:
         case READ_12:
             {
@@ -287,8 +306,12 @@ void ScstConnection::execUserCmd() {
 
                 LOGIO << "Read received for "
                       << "LBA[0x" << std::hex << lba
-                      << "] Blocks[0x" << blocks << "]";
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+                      << "] Blocks[0x" << blocks
+                      << "] Handle[0x" << cmd->cmd_h << "]";
+                uint64_t offset = lba * 4096;
+                uint32_t read_length = blocks * 4096;
+                task->setRead(offset, read_length);
+                return scstOps->read(task);
             }
             break;
         case READ_CAPACITY_16:  // READ_CAPACITY(16)
@@ -417,6 +440,27 @@ void
 ScstConnection::respondTask(ScstTask* response) {
     LOGDEBUG << " response from ScstOperations handle: 0x" << std::hex << response->getHandle()
              << " " << response->getError();
+
+    if (response->isRead()) {
+        if (!response->getError().ok()) {
+            response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
+        } else {
+            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[response->getLength()]);
+            fds_uint32_t i = 0, context = 0;
+            boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
+            while (buf != NULL) {
+                LOGDEBUG << "Handle 0x" << std::hex << response->getHandle()
+                         << "...Size 0x" << buf->length() << "B"
+                         << "...Buffer # " << std::dec << context;
+                memcpy(buffer.get() + i, buf->c_str(), buf->length());
+                i += buf->length();
+                buf = response->getNextReadBuffer(context);
+            }
+            response->setResponseBuffer(buffer, response->getLength());
+        }
+    } else if (!response->getError().ok()) {
+        response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+    }
 
     // add to quueue
     readyResponses.push(response);

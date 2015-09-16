@@ -135,7 +135,7 @@ class ScstOperations
               std::shared_ptr<AmProcessor> processor,
               ScstTask* resp);
 
-    void read(uint32_t length, uint64_t offset, ScstTask* resp);
+    void read(ScstTask* resp);
 
     void write(req_api_type::shared_buffer_type& bytes, uint32_t length, uint64_t offset, ScstTask* resp);
 
