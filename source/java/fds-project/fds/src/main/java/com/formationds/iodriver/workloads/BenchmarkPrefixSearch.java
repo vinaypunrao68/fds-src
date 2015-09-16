@@ -84,7 +84,7 @@ public class BenchmarkPrefixSearch extends Workload
         return Arrays.asList(
                 _directories.entrySet()
                             .stream()
-                            .flatMap(volumeDirectories -> _createVolumeOperations(volumeDirectories))
+                            .map(volumeDirectories -> _createVolumeOperations(volumeDirectories))
                             .toArray(size -> new Stream[size]));
     }
     
