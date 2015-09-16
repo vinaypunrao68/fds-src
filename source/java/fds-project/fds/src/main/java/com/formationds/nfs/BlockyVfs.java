@@ -42,8 +42,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     private Chunker chunker;
     private final Counters counters;
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters) {
-        AmIo amIo = new AmIo(asyncAm, counters);
+    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
+        AmIo amIo = new AmIo(asyncAm, counters, deferMetadataWrites);
         inodeMap = new InodeMap(amIo, resolver);
         allocator = new InodeAllocator(amIo);
         this.exportResolver = resolver;

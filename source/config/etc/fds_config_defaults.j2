@@ -30,7 +30,7 @@
 {#
    Redis Deployment defaults
     fds.pm.redis_host == om_ip above
-#}
+[6~#}
 {% set redis_port = fds_redis_port if fds_redis_port is defined else '6379' %}
 {#
    fds.pm. specific entries
@@ -98,6 +98,7 @@
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
 {% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
+{% set nfs_defer_metadata_updates = nfs_defer_metadata_updates if nfs_defer_metadata_updates is defined else 'true' %}
 {#
    fds.checker. specific entries
 #}

@@ -62,7 +62,7 @@ public class NfsServer {
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
 //        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
-        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters);
+        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters, nfsConfiguration.deferMetadataUpdates());
 
         // create the RPC service which will handle NFS requests
         ThreadFactory factory = ThreadFactories.newThreadFactory("nfs-rpcsvc", true);
