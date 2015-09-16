@@ -3,8 +3,12 @@ package com.formationds.iodriver.endpoints;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
+import org.apache.log4j.Appender;
+import org.apache.log4j.Layout;
 import org.apache.log4j.LogManager;
-import org.apache.log4j.varia.NullAppender;
+import org.apache.log4j.spi.ErrorHandler;
+import org.apache.log4j.spi.Filter;
+import org.apache.log4j.spi.LoggingEvent;
 
 import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -135,7 +139,46 @@ public final class S3Endpoint implements Endpoint
             
             // TODO: Logging should be configurable, but for now, we need this to be quiet.
             LogManager.getRootLogger().removeAllAppenders();
-            LogManager.getRootLogger().addAppender(new NullAppender());
+            LogManager.getRootLogger().addAppender(new Appender()
+            {
+                @Override public void addFilter(Filter newFilter) { }
+                @Override public void clearFilters() { }
+                @Override public void close() { }
+                @Override public void doAppend(LoggingEvent event) { }
+                @Override public void setErrorHandler(ErrorHandler errorHandler) { }
+                @Override public void setLayout(Layout layout) { }
+                @Override public void setName(String name) { }
+
+                @Override
+                public ErrorHandler getErrorHandler()
+                {
+                    return null;
+                }
+
+                @Override
+                public Filter getFilter()
+                {
+                    return null;
+                }
+
+                @Override
+                public Layout getLayout()
+                {
+                    return null;
+                }
+
+                @Override
+                public String getName()
+                {
+                    return "FdsNullAppender";
+                }
+
+                @Override
+                public boolean requiresLayout()
+                {
+                    return false;
+                }
+            });
             
 //            @SuppressWarnings("unchecked")
 //            List<org.apache.log4j.Logger> loggers =
