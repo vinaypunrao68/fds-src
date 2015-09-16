@@ -20,7 +20,7 @@ class FDSTrace:
         self.apps["dm"] = "DataMgr"
         self.apps["xdi"] = "java"
 
-        #T 127.0.0.1:49917 -> 127.0.0.1:8904 [AP]
+        #T 127.0.0.1:49917 -> 127.0.0.1:7004 [AP]
         self.infoLine = re.compile(r'T [0-9\.:]+:\d+ -> [0-9\.:]+:\d+ \[\w+\]')
         self.ports = {}
         self.portMap = {}
@@ -34,7 +34,6 @@ class FDSTrace:
             (7003, 'am'),
             (7004, 'om'),
             (9090, 'om.config.api'),
-            (8904, 'om.ctrl.path'),
             (7777, 'om.ui'),
             (7443, 'om.ui.ssl'),
             (9988, 'am.sync'),
@@ -91,13 +90,13 @@ class FDSTrace:
         psname=ps[0].split()[10]
         if '/' in psname:
             psname = psname.split('/')[-1]
-            
+
         if psname == 'java':
             if 'com.formationds.am.Main' in ps[0]:
                 psname = 'am'
             elif 'com.formationds.om.Main' in ps[0]:
                 psname = 'om'
-        
+
         return self.getName(psname)
 
     def getPortOwner(self,port):
@@ -140,7 +139,7 @@ class FDSTrace:
                 toport=tohp.split(':')[1]
                 if int(toport) == port :
                     print port , 'has a connection from',fromport
-                
+
     def getAsList(self,data):
         if type(data)==types.ListType:
             return data
@@ -170,7 +169,7 @@ class FDSTrace:
     def test(self):
         ompid = f.getPid('om')
         print 'pid of om ',ompid
-        omport = 8904
+        omport = 7004
         f.getPortInfo(omport)
         omport = 50139
         print f.getPortOwner(omport)
@@ -181,13 +180,13 @@ class FDSTrace:
         return (hp[0:index], hp[index+1:])
 
     def runNgrep(self, match='', invert=False):
-        
+
         if os.geteuid() != 0 :
             print "error : you need root privileges - mebbe try with sudo !!"
             return
 
         portstr=""
-        
+
         for port in self.ports.keys():
             if len(portstr)>0:
                 portstr += " or "
@@ -203,7 +202,7 @@ class FDSTrace:
             cmd += ['-v']
         cmd += [match,portstr]
         #print cmd
-        
+
         try :
             proc=subprocess.Popen(cmd,stdout=subprocess.PIPE)
             processLine = None
@@ -225,15 +224,13 @@ class FDSTrace:
                         toproc = 'om-java'
                     elif toproc == 'om.config.api' and fromproc == 'om':
                         fromproc = 'om-java'
-                    
+
                     print "[%s:%s -> %s:%s] : [%s]" % (fromproc,fromport,toproc,toport,time.asctime())
                 else:
                     if len(line)>2:
                         print(re.sub(r'\.{7}\.*','....',line)),
                     else:
                         print "\n"
-                        
-
 
                 #print proc.stdout.closed
         except KeyboardInterrupt :
@@ -242,10 +239,10 @@ class FDSTrace:
         except:
             traceback.print_exc();
             pass;
-        
+
         sys.stdout.flush()
         sys.stderr.flush()
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -268,7 +265,7 @@ if __name__ == "__main__":
     for proc in ['om', 'sm', 'am', 'pm', 'dm', 'xdi']:
         if getattr(args, proc) == None:
             setattr(args, proc, not args.none)
-                
+
     #print args
     #sys.exit(0)
     f = FDSTrace()

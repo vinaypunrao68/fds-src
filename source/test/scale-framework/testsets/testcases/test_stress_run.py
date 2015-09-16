@@ -6,7 +6,7 @@ import ConfigParser
 import os
 import shutil
 import random
-import utils
+import lib
 import config
 import unittest
 import json

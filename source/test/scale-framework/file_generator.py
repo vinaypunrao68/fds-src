@@ -4,7 +4,7 @@ import shutil
 import subprocess
 
 import config
-import utils
+import lib
 
 class FileGenerator(object):
     '''
@@ -25,7 +25,7 @@ class FileGenerator(object):
         self.size = size
         self.quantity = quantity
         self.unit = unit.upper()
-        utils.create_dir(config.RANDOM_DATA)
+        lib.create_dir(config.RANDOM_DATA)
 
     def get_files(self):
         '''

@@ -5,7 +5,7 @@
 # email: philippe@formationds.com
 # file: test_multiple_block_mount_points.py
 
-import utils
+import lib
 import config
 import unittest
 import random

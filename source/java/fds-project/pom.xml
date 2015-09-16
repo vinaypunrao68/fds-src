@@ -28,7 +28,6 @@
     <dcache.nfs4j.core.version>0.10.2</dcache.nfs4j.core.version>
     <dcache.onrpc4j.core.version>2.3.3</dcache.onrpc4j.core.version>
     <io.netty.version>5.0.0.Alpha2</io.netty.version>
-    <log4j.version>1.2.17</log4j.version>
     <jetty.version>9.2.9.v20150224</jetty.version>
     <jode.time.version>2.7</jode.time.version>
     <reflections.version>0.9.10</reflections.version>
@@ -61,12 +60,6 @@
         <groupId>joda-time</groupId>
         <artifactId>joda-time</artifactId>
         <version>${jode.time.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>${log4j.version}</version>
       </dependency>
 
       <dependency>

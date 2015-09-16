@@ -7,7 +7,7 @@ import os
 import time
 
 import config
-import utils
+import lib
 
 class TestParameters():
     def __init__(self, bucket_name, bucket_prefix, key_name, keys_count, file_path, verbose):
@@ -58,7 +58,7 @@ class S3Connection():
             return
         if (self.secret_access_key == None or self.secret_access_key == ""):
             #Get the user token
-            self.secret_access_key = str(utils.get_user_token(self.access_key_id,
+            self.secret_access_key = str(lib.get_user_token(self.access_key_id,
                 config.FDS_DEFAULT_ADMIN_PASS,
                 self.om_ip_address,
                 config.FDS_REST_PORT, 0, 1))

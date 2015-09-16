@@ -1,4 +1,4 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', '$state', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope, $state ){
 
     $scope.healthStatus = [{number: 'Excellent'}];
     
@@ -34,6 +34,11 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
+    
+    $scope.goToDebug = function(){
+        
+        $state.transitionTo( 'homepage.debug' );
+    };
     
     $scope.healthReturned = function( data ){
     

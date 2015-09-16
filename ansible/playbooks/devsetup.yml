@@ -18,7 +18,7 @@
       sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
       with_dict:
         kernel.core_pattern:
-            value: /corefiles
+            value: /corefiles/%e-%p-%u-%t.core
             state: present
         fs.file-max:
             value: 400000
@@ -220,6 +220,7 @@
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables
+        - retry
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
