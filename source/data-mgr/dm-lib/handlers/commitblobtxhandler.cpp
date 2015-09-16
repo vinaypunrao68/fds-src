@@ -62,6 +62,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
+    fds_assert(typedRequest->ioBlobTxDesc != nullptr);
     LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
     helper.err = dataManager
                 .timeVolCat_->commitBlobTx(typedRequest->volId,
@@ -81,6 +82,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
         helper.cancel();
+        fds_assert(typedRequest->ioBlobTxDesc != nullptr);
     }
 }
 
@@ -98,6 +100,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           fds_uint64_t const blobSize,
                                           DmIoCommitBlobTx* commitBlobReq) {
     QueueHelper helper(dataManager, commitBlobReq);
+    fds_assert(typedRequest->ioBlobTxDesc != nullptr);
     // If this is a piggy-back request, do not notify QoS
     if (!commitBlobReq->orig_request) {
         helper.ioIsMarkedAsDone = true;
@@ -119,10 +122,12 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // forwarding, the main time goes to waiting for response
     // from another DM, which is not really consuming local
     // DM resources
+    fds_assert(typedRequest->ioBlobTxDesc != nullptr);
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
     fds_volid_t volId(commitBlobReq->volId);
+    fds_assert(typedRequest->ioBlobTxDesc != nullptr);
 	if (!(dataManager.features.isTestModeEnabled()) &&
 			(dataManager.dmMigrationMgr->shouldForwardIO(volId,
 														 commitBlobReq->dmt_version))) {
@@ -146,6 +151,8 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
+    fds_assert(typedRequest->ioBlobTxDesc != nullptr);
+    LOGDEBUG << "NEIL DEBUG freeing " << logString(*asyncHdr);
     delete dmRequest;
 }
 
