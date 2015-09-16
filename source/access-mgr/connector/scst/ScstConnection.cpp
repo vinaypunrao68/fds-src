@@ -54,14 +54,18 @@ ScstConnection::ScstConnection(std::string const& vol_name,
           scstOps(boost::make_shared<ScstOperations>(this)),
           volumeName(vol_name),
           volume_size{0},
-          object_size{0},
           resp_needed(0u),
-          total_blocks(0ull),
-          write_offset(-1ll),
+          logical_block_size(512ul),
           readyResponses(4000)
 {
-    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
+    {
+        FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+        standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
+    }
+    {
+        FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
+        logical_block_size = conf.get<uint32_t>("default_block_size", logical_block_size);
+    }
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
@@ -87,7 +91,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
                 0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
         },
-        4096,                       // Block size
+        logical_block_size,         // Block size
         0,                          // PR cmd Notifications
         {},
         "bare_am",
@@ -123,7 +127,8 @@ ScstConnection::ScstConnection(std::string const& vol_name,
 
     LOGNORMAL << "New SCST device [" << volumeName
               << "] Tgt [fds.iscsi:tgt"
-              << "] LUN [0]";
+              << "] LUN [0"
+              << "] BlockSize[" << logical_block_size << "]";
 }
 
 ScstConnection::~ScstConnection() {
@@ -308,8 +313,8 @@ void ScstConnection::execUserCmd() {
                       << "LBA[0x" << std::hex << lba
                       << "] Blocks[0x" << blocks
                       << "] Handle[0x" << cmd->cmd_h << "]";
-                uint64_t offset = lba * 4096;
-                uint32_t read_length = blocks * 4096;
+                uint64_t offset = lba * logical_block_size;
+                uint32_t read_length = blocks * logical_block_size;
                 task->setRead(offset, read_length);
                 return scstOps->read(task);
             }
@@ -319,10 +324,13 @@ void ScstConnection::execUserCmd() {
                 LOGDEBUG << "Read Capacity received.";
                 auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
 
-                uint64_t num_blocks = volume_size / 4096;
+                uint64_t num_blocks = volume_size / logical_block_size;
+                uint32_t blocks_per_object = physical_block_size / logical_block_size;
                 *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
-                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(4096ul); // 4k
-                buffer[13] = 0x20; // 32 LBs per PB
+                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
+
+                // Number of logic blocks per object as a power of 2
+                buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
                 task->setResponseBuffer(buffer, 32);
             }
             break;
@@ -474,7 +482,7 @@ ScstConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
     LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
         << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-    object_size = volDesc->maxObjSizeInBytes;
+    physical_block_size = volDesc->maxObjSizeInBytes;
     volume_size = (volDesc->capacity * Mi);
 }
 

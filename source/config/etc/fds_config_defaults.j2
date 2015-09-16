@@ -82,6 +82,8 @@
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
 {% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'true' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
+{% set am_scst_server_threads = fds_am_scst_server_threads if fds_am_scst_server_threads is defined else '1' %}
+{% set am_scst_default_block_size = fds_am_scst_default_block_size if fds_am_scst_default_block_size is defined else '512' %}
 {#
    fds.om. specific entries
 #}
