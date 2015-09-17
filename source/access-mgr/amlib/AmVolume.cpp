@@ -33,15 +33,4 @@ AmVolume::getMode() const {
                           access_token->cacheAllowed());
 }
 
-void
-AmVolume::setSequenceId(fds_uint64_t const sequence_id) {
-    // FIXME(bszmyd): Mon 15 Jun 2015 11:36:01 AM MDT
-    // This only works if we can assume only one AM will be
-    // using the volume at a time...we don't expect to set this
-    // other than the initial volume open
-    if (vol_sequence_id.load(std::memory_order_relaxed) < sequence_id) {
-        vol_sequence_id.store(sequence_id, std::memory_order_relaxed);
-    }
-}
-
 }  // namespace fds

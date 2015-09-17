@@ -11,7 +11,7 @@
   <name>${company.base.name} Company POM</name>
   <groupId>com.formationds</groupId>
   <artifactId>company-pom</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
   <packaging>pom</packaging>
 
   <inceptionYear>2013</inceptionYear>
@@ -47,6 +47,9 @@
     <java.target.version>1.8</java.target.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+    <user>builder</user>
+    <user.passwd>h7qgA3fYr0P3</user.passwd>
+
     <!-- artifact dependency version -->
     <antlr.runtime.version>3.5.2</antlr.runtime.version>
     <apache.commons.cli.version>1.2</apache.commons.cli.version>
@@ -59,6 +62,7 @@
     <apache.hadoop.version>2.6.0</apache.hadoop.version>
     <apache.httpcomponents.version>4.4.1</apache.httpcomponents.version>
     <apache.log4j.v2.version>2.3</apache.log4j.v2.version>
+    <asyncretry.version>0.0.7</asyncretry.version>
     <!-- issue with latest version, junit security failure -->
     <aws.version>1.7.9</aws.version>
     <bcprov.ext.jdk15on.version>1.52</bcprov.ext.jdk15on.version>
@@ -99,6 +103,8 @@
     <formationds.project.version>2015.08.14-SNAPSHOT</formationds.project.version>
     <formationds.thrift.client.util.version>2015.08.14-SNAPSHOT</formationds.thrift.client.util.version>
     <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
+    <formationds.jsvc.layer.version>2015.08.14-SNAPSHOT</formationds.jsvc.layer.version>
+    <formationds.commons.version>2015.08.14-SNAPSHOT</formationds.commons.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -124,18 +130,18 @@
     <module>fds-project</module>
   </modules>
 
-  <!--<distributionManagement>-->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
-    <!--<snapshotRepository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</snapshotRepository>-->
-  <!--</distributionManagement>-->
+  <distributionManagement>
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <pluginRepositories>
     <pluginRepository>
@@ -152,17 +158,17 @@
     -->
 
     <!-- Formation Data System, INC. maven repo -->
-    <!--<repository>-->
-      <!--<id>release</id>-->
-      <!--<name>artifacts-releases</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
-    <!--<repository>-->
-      <!--<id>snapshot</id>-->
-      <!--<name>artifacts-snapshots</name>-->
-      <!--<url>http://artifacts.artifactoryonline.com/artifacts/maven-formation</url>-->
-    <!--</repository>-->
+    <repository>
+      <id>snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
 
     <repository>
       <id>central</id>
@@ -213,6 +219,12 @@
         <artifactId>jackson-databind</artifactId>
         <version>${jackson.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>com.nurkiewicz.asyncretry</groupId>
+        <artifactId>asyncretry</artifactId>
+        <version>${asyncretry.version}</version>
+       </dependency>
 
       <dependency>
         <groupId>com.google.code.gson</groupId>
@@ -335,11 +347,19 @@
         <artifactId>log4j-api</artifactId>
         <version>${apache.log4j.v2.version}</version>
       </dependency>
+
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-core</artifactId>
         <version>${apache.log4j.v2.version}</version>
       </dependency>
+
+       <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-1.2-api</artifactId>
+        <version>${apache.log4j.v2.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>org.apache.thrift</groupId>
         <artifactId>libthrift</artifactId>
@@ -550,6 +570,19 @@
                   <action>
                     <execute/>
                   </action>
+                </pluginExecution>
+                <pluginExecution>
+                	<pluginExecutionFilter>
+                		<groupId>org.apache.thrift.tools</groupId>
+                		<artifactId>maven-thrift-plugin</artifactId>
+                		<versionRange>[0.1.11,)</versionRange>
+                		<goals>
+                			<goal>compile</goal>
+                		</goals>
+                	</pluginExecutionFilter>
+                	<action>
+                		<execute/>
+                	</action>
                 </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>

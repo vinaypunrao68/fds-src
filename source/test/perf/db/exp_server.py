@@ -89,7 +89,7 @@ def main():
                       help = "Host port")
 
     (options, args) = parser.parse_args()
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     logging.info("Options:" + str(options))
     
     s = MyServer(options)

@@ -71,8 +71,10 @@ class AmAsyncDataApi {
                         shared_int_type& count,
                         shared_size_type& offset,
                         shared_string_type& pattern,
+                        boost::shared_ptr<fpi::PatternSemantics>& patternSems,
                         boost::shared_ptr<fpi::BlobListOrder>& orderBy,
-                        shared_bool_type& descending);
+                        shared_bool_type& descending,
+                        shared_string_type& delimiter);
 
     void setVolumeMetadata(handle_type& requestId,
                            shared_string_type& domainName,

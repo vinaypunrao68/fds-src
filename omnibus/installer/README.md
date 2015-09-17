@@ -20,8 +20,11 @@ for this installation. Below is an example inventory file:
 		# fds_default_nic must be accurate for all hosts - if it is different
 		# on some hosts you may define this per-host in the above section
     fds_default_nic=eth0
-		# This MUST be True, not true, not TRUE, not "true"
-    fds_deploy_local_deps=True
+		# This MUST be "yes"
+    fds_deploy_local_deps=yes
+		# If you are deploying from a node in the domain you MUST set this
+		# to "no"
+    fds_uninstall_local_deps=no
 		# fds_om_host must match a host in the top section
     fds_om_host=10.2.10.75
     fds_metrics_enables=false

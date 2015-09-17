@@ -54,7 +54,7 @@ public class DynamicExports implements ExportResolver {
 
         Files.deleteIfExists(path);
         PrintStream pw = new PrintStream(new FileOutputStream(EXPORTS));
-        exportableVolumes.forEach(v -> pw.println("/" + v + " *(rw,no_root_squash)"));
+        exportableVolumes.forEach(v -> pw.println("/" + v + " *(rw,no_root_squash,acl)"));
         pw.close();
         knownVolumes = new HashSet<>(exportableVolumes);
         if (exportFile == null) {

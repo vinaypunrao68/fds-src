@@ -2,33 +2,32 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.*;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.BlobWithMetadata;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class DirectAmIo implements Io {
     private static final Logger LOG = Logger.getLogger(DirectAmIo.class);
     private AsyncAm asyncAm;
+    private Counters counters;
 
-    public DirectAmIo(AsyncAm asyncAm) {
+    public DirectAmIo(AsyncAm asyncAm, Counters counters) {
         this.asyncAm = asyncAm;
+        this.counters = counters;
     }
 
     @Override
     public <T> T mapMetadata(String domain, String volumeName, String blobName, MetadataMapper<T> mapper) throws IOException {
         try {
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(domain, volumeName, blobName).get());
+            counters.increment(Counters.Key.AM_statBlob);
             return mapper.map(Optional.of(blobDescriptor.getMetadata()));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
@@ -49,11 +48,12 @@ public class DirectAmIo implements Io {
             Map<String, String> meta = om.orElse(new HashMap<>());
             mutator.mutate(meta);
             try {
-                TxDescriptor desc = unwindExceptions(() -> {
+                unwindExceptions(() -> {
+                    counters.increment(Counters.Key.AM_updateMetadataTx);
                     TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
                     asyncAm.updateMetadata(domain, volume, blobName, tx, meta).get();
                     asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                    return tx;
+                    return null;
                 });
             } catch (Exception e) {
                 LOG.error("AM.updateMetadata() failed, volume=" + volume + ", blobName=" + blobName, e);
@@ -63,11 +63,29 @@ public class DirectAmIo implements Io {
         });
     }
 
+    @Override
+    public void mutateMetadata(String domain, String volume, String blobName, Map<String, String> map, boolean deferrable) throws IOException {
+        try {
+            unwindExceptions(() -> {
+                counters.increment(Counters.Key.AM_updateMetadataTx);
+                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                asyncAm.updateMetadata(domain, volume, blobName, tx, map).get();
+                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                return null;
+            });
+        } catch (Exception e) {
+            LOG.error("AM.updateMetadata() failed, volume=" + volume + ", blobName=" + blobName, e);
+            throw new IOException(e);
+        }
+
+    }
+
     // Objects will be either non-existent or have 'objectSize' bytes
     @Override
-    public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
+    public <T> T mapObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         Optional<BlobWithMetadata> blobWithMeta = null;
         try {
+            counters.increment(Counters.Key.AM_getBlobWithMeta);
             blobWithMeta = Optional.of(unwindExceptions(() -> asyncAm.getBlobWithMeta(BlockyVfs.DOMAIN, volume, blobName, objectSize, objectOffset).get()));
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
@@ -98,11 +116,12 @@ public class DirectAmIo implements Io {
 
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
-        mapObject(domain, volume, blobName, objectSize, objectOffset, (x) -> {
+        mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset, (x) -> {
             ObjectView ov = x.orElseGet(() -> new ObjectView(new HashMap<>(), ByteBuffer.allocate(objectSize)));
             mutator.mutate(ov);
             ByteBuffer buf = ov.getBuf();
             try {
+                counters.increment(Counters.Key.AM_updateBlobOnce_objectAndMetadata);
                 unwindExceptions(() -> {
                     return asyncAm.updateBlobOnce(domain,
                             volume,
@@ -152,6 +171,23 @@ public class DirectAmIo implements Io {
             throw new IOException(e);
         } catch (Exception e) {
             LOG.error("AM.deleteBlob() failed, volume=" + volume + ", blobName=" + blobName, e);
+            throw new IOException(e);
+        }
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        try {
+            long then = System.currentTimeMillis();
+            List<BlobDescriptor> blobDescriptors = unwindExceptions(() -> asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false).get());
+            long elapsed = System.currentTimeMillis() - then;
+            List<T> result = new ArrayList<>(blobDescriptors.size());
+            for (BlobDescriptor bd : blobDescriptors) {
+                result.add(mapper.map(Optional.of(bd.getMetadata())));
+            }
+            return result;
+        } catch (Exception e) {
+            LOG.error("AM.volumeContents() failed, volume=" + volume + ", keyPrefix=" + blobNamePrefix, e);
             throw new IOException(e);
         }
     }

@@ -1,4 +1,5 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
+
 import time
 from model.statistics.metric_query_criteria import MetricQueryCriteria
 from model.statistics.date_range import DateRange

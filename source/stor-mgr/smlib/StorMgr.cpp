@@ -138,6 +138,10 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
+    std::vector<nullary_always> token_locks;
+    for (auto& tokenDiskPair: tokenDiskPairs) {
+        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
+    }
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
@@ -1351,6 +1355,11 @@ ObjectStorMgr::storeCurrentDLT()
     uuidFile <<  myUuid.uuid_get_val();
 }
 
+const std::hash<fds_volid_t> ObjectStorMgr::SmQosCtrl::volIdHash;
+
+const std::hash<int64_t> ObjectStorMgr::SmQosCtrl::svcIdHash;
+
+const ObjectStorMgr::SmQosCtrl::SerialKeyHash ObjectStorMgr::SmQosCtrl::keyHash;
 
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);

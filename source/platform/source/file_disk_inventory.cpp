@@ -4,6 +4,7 @@
 
 #include <shared/fds-constants.h>         // TODO(donavan) these need to be evaluated for
                                           // removal from global shared space to PM only space
+#include "fds_process.h"
 #include "fds_module.h"
 #include "file_disk_inventory.h"
 #include "file_disk_obj.h"
@@ -66,8 +67,25 @@ namespace fds
     //
     void FileDiskInventory::dsk_admit_all()
     {
-        dsk_file_create("hdd-", DISK_ALPHA_COUNT_HDD, &dsk_files);
-        dsk_file_create("ssd-", DISK_ALPHA_COUNT_SSD, &dsk_files);
+        int ssd_sim_count = DISK_ALPHA_COUNT_SSD;
+        int hdd_sim_count = DISK_ALPHA_COUNT_HDD;
+
+        FdsConfigAccessor    conf(g_fdsprocess->get_conf_helper());
+
+        try
+        {
+            ssd_sim_count = conf.get_abs <int> ("fds.pm.disk_sim.ssd_count");   // NOLINT
+            hdd_sim_count = conf.get_abs <int> ("fds.pm.disk_sim.hdd_count");   // NOLINT
+
+            LOGDEBUG << "Overriding default simulation disk counts:  HDD count = " << hdd_sim_count << ", SSD count = " << ssd_sim_count;
+        }
+        catch (fds::Exception e)
+        {
+            LOGDEBUG << "Failure loading disk counts:  " << e.what();
+        }
+
+        dsk_file_create("hdd-", hdd_sim_count, &dsk_files);
+        dsk_file_create("ssd-", ssd_sim_count, &dsk_files);
     }
 
     // disk_read_label

@@ -40,6 +40,12 @@ enum ErrorCode {
     SERVICE_SHUTTING_DOWN,
 }
 
+enum PatternSemantics {
+    PCRE,
+    PREFIX,
+    PREFIX_AND_DELIMITER
+}
+
 exception ApiException {
     1: string message,
     2: ErrorCode errorCode,
@@ -98,7 +104,8 @@ enum FDSP_NodeState {
      FDS_Node_Down,
      FDS_Node_Rmvd,
      FDS_Node_Discovered,
-     FDS_Start_Migration
+     FDS_Start_Migration,
+     FDS_Node_Standby
 }
 
 enum FDSP_MgrIdType {

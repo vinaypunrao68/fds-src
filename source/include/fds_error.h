@@ -83,6 +83,7 @@ namespace fds {
     ADD(ERR_DM_NOT_TOP_PRIMARY,= 63,"Not the first primary"), \
     ADD(ERR_SERVICE_CAPACITY_FULL,= 64,"Service ran out of disk capacity"), \
     ADD(ERR_SERVICE_CAPACITY_DANGEROUS,= 65,"Service is at dangerous used disk capacity level"), \
+    ADD(ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS,= 66,"Pattern semantics not recognized"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

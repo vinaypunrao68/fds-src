@@ -1539,7 +1539,7 @@ OM_NodeDomainMod::om_startup_domain()
         if ((cur != NULL) &&
             (om_locDomain->om_pm_nodes()->rs_get_resource(cur->get_uuid()))) {
             // above check is because apparently we can have NULL pointer in RsArray
-            om_activate_known_services(cur->get_uuid(), 0);
+            om_activate_known_services(cur->get_uuid());
         }
     }
 
@@ -1690,11 +1690,19 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     NodeUuid pmUuid;
                     pmUuid.uuid_set_type( ( svcInfo->svc_id).svc_uuid.svc_uuid, 
                                             fpi::FDSP_PLATFORM );
-                    MODULEPROVIDER()->proc_thrpool()->schedule(
-                        &OM_NodeDomainMod::om_activate_known_services,
-                        this,
-                        pmUuid,
-                        3000 );
+                    auto timer = MODULEPROVIDER()->getTimer();
+                    auto task = boost::shared_ptr<FdsTimerTask>(
+                        new FdsTimerFunctionTask(
+                            *timer,
+                            [this, pmUuid] () {
+                            /* Immediately post to threadpool so we don't hold up timer thread */
+                            MODULEPROVIDER()->proc_thrpool()->schedule(
+                                &OM_NodeDomainMod::om_activate_known_services,
+                                this,
+                                pmUuid);
+                        }));
+                    /* schedule the task to be run on timer thread after 3 seconds */
+                    timer->schedule(task, std::chrono::seconds(3));
                 }
                 else
                 {
@@ -1768,14 +1776,8 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     return err;
 }
 
-void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
-                                                    fds_uint32_t delayTime )
+void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid)
 {
-    if ( delayTime )
-    {
-        usleep( delayTime * 1000 );
-    }
-
 
     NodeServices services;
     if ( configDB->getNodeServices( node_uuid, services ) )
@@ -1820,7 +1822,9 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid,
           }
           else
           {
-              local->om_start_service( svcUuid, svcInfoList );
+              bool domainRestart = true;
+              bool startNode     = true;
+              local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
       }
     }
@@ -2180,9 +2184,8 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 LOGERROR << "Cannot find platform agent for node UUID ( "
                          << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
-        } 
+        }
             
-        om_locDomain->om_update_node_list( nodeAgent, msg );
         LOGNOTIFY << "OM Restart, spoof registration for"
              << " Platform UUID:: "
              << std::hex << ( msg->node_uuid ).uuid << std::dec 
@@ -2250,17 +2253,22 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
-        /**
-         * schedule the broadcast with a 3s delay.
-         */
-        MODULEPROVIDER()->proc_thrpool()->schedule(
-            &OM_NodeDomainMod::setupNewNode,
-            this, 
-            uuid, 
-            msg, 
-            newNode, 
-            3000, 
-            fPrevRegistered );
+        auto timer = MODULEPROVIDER()->getTimer();
+        auto task = boost::shared_ptr<FdsTimerTask>(
+            new FdsTimerFunctionTask(
+                *timer,
+                [this, uuid, msg, newNode, fPrevRegistered] () {
+                /* Immediately post to threadpool so we don't hold up timer thread */
+                MODULEPROVIDER()->proc_thrpool()->schedule(
+                    &OM_NodeDomainMod::setupNewNode,
+                    this, 
+                    uuid, 
+                    msg, 
+                    newNode, 
+                    fPrevRegistered );
+                }));
+        /* schedule the task to be run on timer thread after 3 seconds */
+        timer->schedule(task, std::chrono::seconds(3));
     }
     return err;
 }
@@ -2268,13 +2276,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     const FdspNodeRegPtr msg,
                                     NodeAgent::pointer   newNode,
-                                    fds_uint32_t delayTime,
                                     bool fPrevRegistered) {
 
-    if (delayTime) {
-        usleep(delayTime * 1000);
-    }
-    
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
 
@@ -2318,8 +2321,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     // Vy: we could get duplicate if the agent already registered by platform lib.
     // fds_verify(err.ok());
 
-    om_locDomain->om_bcast_new_node(newNode, msg);
-
         if ( fpi::FDSP_CONSOLE == msg->node_type || 
              fpi::FDSP_TEST_APP == msg->node_type ) {
             return;
@@ -2342,7 +2343,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
         om_locDomain->om_bcast_stream_reg_list(newNode);
     }
-    om_locDomain->om_update_node_list(newNode, msg);
 
     // Let this new node know about existing DLT if this is not SM or AM node
     // DLT deploy state machine will take care of SMs

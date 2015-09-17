@@ -16,6 +16,15 @@
 #include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
+#define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
+        auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
+        if (seq_ev_a >= seq_ev_b) { \
+            LOGERROR << "Rejecting request to overwrite blob with older sequence id on vol:" \
+                     << (volId) << " blob: " << (blobName) << " old seq_id: " \
+                     << seq_ev_a << " new seq_id: "<< seq_ev_b; \
+            return ERR_BLOB_SEQUENCE_ID_REGRESSION; \
+        }
+
 #define GET_VOL(volId) \
         DmPersistVolCat::ptr vol; \
         synchronized(volMapLock_) { \
@@ -445,6 +454,36 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
     return rc;
 }
 
+Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
+                                            std::string const& prefix,
+                                            std::string const& delimiter,
+                                            fpi::BlobDescriptorListType& results)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    std::vector<BlobMetaDesc> blobMetaList;
+    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList);
+    if (!rc.ok())
+    {
+        LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
+                 << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    for (auto const& blobMetadata : blobMetaList)
+    {
+        fpi::BlobDescriptor descriptor;
+        descriptor.name = blobMetadata.desc.blob_name;
+        descriptor.byteCount = blobMetadata.desc.blob_size;
+        descriptor.metadata = blobMetadata.meta_list;
+
+        results.push_back(descriptor);
+    }
+
+    return rc;
+}
+
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
         const sequence_id_t seq_id) {
@@ -459,17 +498,12 @@ Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobNam
             mergeMetaList(blobMeta.meta_list, *metaList);
         }
 
-        if (blobMeta.desc.sequence_id >= seq_id) {
-            LOGERROR << "Rejecting request to overwrite blob with older sequence id on vol:"
-                     << volId << " blob: " << blobName << " old seq_id: "
-                     << blobMeta.desc.sequence_id << " new seq_id: "<< seq_id;
-
-            fds_assert(blobMeta.desc.sequence_id < seq_id);
-            return ERR_BLOB_SEQUENCE_ID_REGRESSION;
-        }
+        // TODO(bszmyd): Sat 29 Aug 2015 10:46:52 AM MDT
+        // Renable this when the working
+        // ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
         blobMeta.desc.version += 1;
-        blobMeta.desc.sequence_id = seq_id;
+        blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
         if (ERR_CAT_ENTRY_NOT_FOUND == rc) {
             blobMeta.desc.blob_name = blobName;
         }
@@ -493,7 +527,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     LOGDEBUG << "Will commit blob: '" << blobName << "' to volume: '" << std::hex << volId
             << std::dec << "'; " << *blobObjList;
     // do not use this method if blob_obj_list is empty
-    fds_verify(0 < blobObjList->size());
+    fds_assert(0 < blobObjList->size());
 
     bool newBlob = false;
 
@@ -511,9 +545,16 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     }
 
     GET_VOL_N_CHECK_DELETED(volId);
+    // TODO(bszmyd): Sat 29 Aug 2015 10:46:52 AM MDT
+    // Renable this when the working
+    // ENSURE_SEQUENCE_ADV(blobMeta.desc.sequence_id, seq_id, volId, blobName);
 
     // verify object size assumption holds
-    blobObjList->verify(vol->getObjSize());
+    rc = blobObjList->verify(vol->getObjSize());
+    if (!rc.ok()) {
+        LOGERROR << "Failed to verify updated object list for blob update: " << rc;
+        return rc;
+    }
 
     std::vector<ObjectID> expungeList;
 
@@ -610,7 +651,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     mergeMetaList(blobMeta.meta_list, *metaList);
     blobMeta.desc.version += 1;
-    blobMeta.desc.sequence_id = seq_id;
+    blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
     blobMeta.desc.blob_size = newBlobSize;
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;

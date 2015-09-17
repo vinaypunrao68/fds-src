@@ -50,6 +50,12 @@
       <version>${formationds.commons.util.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>formationds-jsvc-layer</artifactId>
+      <version>${formationds.jsvc.layer.version}</version>
+    </dependency>
+
     <!-- third party dependencies -->
     <dependency>
       <groupId>com.amazonaws</groupId>
@@ -68,6 +74,11 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.nurkiewicz.asyncretry</groupId>
+      <artifactId>asyncretry</artifactId>
     </dependency>
 
     <dependency>
@@ -150,8 +161,8 @@
     </dependency>
 
     <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
     </dependency>
 
     <dependency>
@@ -186,6 +197,10 @@
         <exclusion>
           <groupId>javax.servlet</groupId>
           <artifactId>servlet-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -305,6 +320,41 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>org.jscsi</groupId>
+      <artifactId>commons</artifactId>
+      <version>2.5.2</version>
+
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-core</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jscsi</groupId>
+      <artifactId>target</artifactId>
+      <version>2.5.2</version>
+
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-core</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
   </dependencies>
+
 
 </project>

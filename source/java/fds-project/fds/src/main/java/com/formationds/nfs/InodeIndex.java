@@ -10,11 +10,11 @@ import java.util.Optional;
 public interface InodeIndex {
     Optional<InodeMetadata> lookup(Inode parent, String name) throws IOException;
 
-    List<DirectoryEntry> list(InodeMetadata inodeMetadata) throws IOException;
+    List<DirectoryEntry> list(InodeMetadata inodeMetadata, long exportId) throws IOException;
 
-    void index(InodeMetadata... entries) throws IOException;
+    void index(long exportId, InodeMetadata... entries) throws IOException;
 
-    void remove(InodeMetadata inodeMetadata) throws IOException;
+    void remove(long exportId, InodeMetadata inodeMetadata) throws IOException;
 
-    void unlink(Inode parentInode, String path) throws IOException;
+    void unlink(long exportId, long parentId, String linkName) throws IOException;
 }

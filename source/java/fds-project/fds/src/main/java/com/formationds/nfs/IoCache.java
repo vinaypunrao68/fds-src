@@ -6,28 +6,26 @@ import com.google.common.cache.CacheBuilder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
 public class IoCache implements Io {
     private Io io;
+    private Counters counters;
     private Cache<MetadataCacheKey, Optional<Map<String, String>>> metadataCache;
     private Cache<ObjectCacheKey, ByteBuffer> objectCache;
 
     private Cache<MetadataCacheKey, Object> metadataCacheLocks;
     private Cache<ObjectCacheKey, Object> objectCacheLocks;
 
-
-    public IoCache(Io io) {
+    public IoCache(Io io, Counters counters) {
         this.io = io;
-        metadataCache = CacheBuilder.newBuilder().maximumSize(10000).build();
-        objectCache = CacheBuilder.newBuilder().maximumSize(200).build();
-        objectCacheLocks = CacheBuilder.newBuilder().maximumSize(10000).build();
-        metadataCacheLocks = CacheBuilder.newBuilder().maximumSize(10000).build();
+        this.counters = counters;
+        metadataCache = CacheBuilder.newBuilder().maximumSize(20000).build();
+        objectCache = CacheBuilder.newBuilder().maximumSize(500).build();
+        objectCacheLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
+        metadataCacheLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
     }
 
     @Override
@@ -38,6 +36,9 @@ public class IoCache implements Io {
             if (value == null) {
                 value = io.mapMetadata(domain, volumeName, blobName, om -> om);
                 metadataCache.put(key, value);
+                counters.increment(Counters.Key.metadataCacheMiss);
+            } else {
+                counters.increment(Counters.Key.metadataCacheHit);
             }
 
             // Map a copy
@@ -54,6 +55,9 @@ public class IoCache implements Io {
             Optional<Map<String, String>> oldValue = metadataCache.getIfPresent(key);
             if (oldValue == null) {
                 oldValue = io.mapMetadata(domain, volume, blobName, om -> om);
+                counters.increment(Counters.Key.metadataCacheMiss);
+            } else {
+                counters.increment(Counters.Key.metadataCacheHit);
             }
             if (oldValue.isPresent()) {
                 updatedValue.putAll(oldValue.get());
@@ -69,7 +73,13 @@ public class IoCache implements Io {
     }
 
     @Override
-    public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
+    public void mutateMetadata(String domain, String volume, String blobName, Map<String, String> map, boolean deferrable) throws IOException {
+        metadataCache.put(new MetadataCacheKey(domain, volume, blobName), Optional.of(map));
+        io.mutateMetadata(domain, volume, blobName, map, deferrable);
+    }
+
+    @Override
+    public <T> T mapObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         ObjectCacheKey key = new ObjectCacheKey(domain, volume, blobName, objectOffset);
 
         synchronized (objectLock(key)) {
@@ -80,9 +90,12 @@ public class IoCache implements Io {
 
             ByteBuffer cacheEntry = objectCache.getIfPresent(key);
             if (cacheEntry == null) {
-                cacheEntry = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
+                cacheEntry = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset,
                         oov -> oov.get().getBuf().slice());
                 objectCache.put(key, cacheEntry);
+                counters.increment(Counters.Key.objectCacheMiss);
+            } else {
+                counters.increment(Counters.Key.objectCacheHit);
             }
             return objectMapper.map(Optional.of(new ObjectView(metadata.get(), cacheEntry.duplicate())));
         }
@@ -96,26 +109,33 @@ public class IoCache implements Io {
         ObjectView[] objectView = new ObjectView[1];
 
         synchronized (objectLock(objectKey)) {
+            ByteBuffer[] buf = new ByteBuffer[]{objectCache.getIfPresent(objectKey)};
+            if (buf[0] == null) {
+                counters.increment(Counters.Key.objectCacheMiss);
+                buf[0] = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset,
+                        oov -> {
+                            if (oov.isPresent()) {
+                                return oov.get().getBuf().slice();
+                            } else {
+                                return ByteBuffer.allocate(objectSize);
+                            }
+                        });
+                objectCache.put(objectKey, buf[0]);
+            } else {
+                counters.increment(Counters.Key.objectCacheHit);
+            }
+
             mapMetadata(domain, volume, blobName, om -> {
                 if (!om.isPresent()) {
                     Map<String, String> metadata = new HashMap<>();
-                    ByteBuffer buf = ByteBuffer.allocate(objectSize);
-                    mutator.mutate(new ObjectView(metadata, buf.duplicate()));
+                    mutator.mutate(new ObjectView(metadata, buf[0].duplicate()));
                     metadataCache.put(metaKey, Optional.of(metadata));
-                    objectCache.put(objectKey, buf);
-                    objectView[0] = new ObjectView(new HashMap<>(metadata), buf.duplicate());
+                    objectView[0] = new ObjectView(new HashMap<>(metadata), buf[0].duplicate());
                 } else {
-                    ByteBuffer buf = objectCache.getIfPresent(objectKey);
-                    if (buf == null) {
-                        buf = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
-                                oov -> oov.get().getBuf().slice());
-                        objectCache.put(objectKey, buf);
-                    }
-
-                    ObjectView ov = new ObjectView(om.get(), buf.duplicate());
+                    ObjectView ov = new ObjectView(om.get(), buf[0].duplicate());
                     mutator.mutate(ov);
                     metadataCache.put(metaKey, Optional.of(ov.getMetadata()));
-                    objectView[0] = new ObjectView(new HashMap<String, String>(om.get()), buf.duplicate());
+                    objectView[0] = new ObjectView(new HashMap<String, String>(om.get()), buf[0].duplicate());
                 }
                 return null;
             });
@@ -158,6 +178,11 @@ public class IoCache implements Io {
         }
 
         io.deleteBlob(domain, volume, blobName);
+    }
+
+    @Override
+    public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
+        return io.scan(domain, volume, blobNamePrefix, mapper);
     }
 
     private Object metadataLock(MetadataCacheKey key) {

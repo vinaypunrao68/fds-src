@@ -82,15 +82,6 @@ class OM_NodeAgent : public NodeAgent
     }
 
     /**
-     * Send this node agent info as an event to notify the peer node.
-     * TODO(Vy): it would be a cleaner interface to:
-     * - Formalized messages in inheritance tree.
-     * - API to format a message.
-     * - API to send a message.
-     */
-    virtual void om_send_myinfo(NodeAgent::pointer peer);
-
-    /**
      * Call this method when service is successfully deployed in the domain
      * (SM/DM is in DLT/DMT). Sets service state to active.
      */
@@ -240,16 +231,18 @@ class OM_PmAgent : public OM_NodeAgent
     /**
      * Send 'start service' message to Platform
      */
-    Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
+    Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
+                             bool domainRestart, bool startNode);
     /**
      * Send 'stop service' message to Platform
      */
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
-                            bool stop_sm, bool stop_dm, bool stop_am);
+                            bool stop_sm, bool stop_dm, bool stop_am, bool shutdownNode);
 
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
                                  fds_bool_t stop_am,
+                                 fds_bool_t shutdownNode,
                                  EPSvcRequest* req,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
@@ -257,9 +250,10 @@ class OM_PmAgent : public OM_NodeAgent
      * Send 'remove service' message to Platform
      */
     Error send_remove_service(const NodeUuid& uuid, std::vector<fpi::SvcInfo> svcInfos,
-                              bool remove_sm, bool remove_dm, bool remove_am);
+                              bool remove_sm, bool remove_dm, bool remove_am, bool removeNode);
 
     void send_remove_service_resp(NodeUuid nodeUuid,
+                                  bool removeNode,
                                   EPSvcRequest* req,
                                   const Error& error,
                                   boost::shared_ptr<std::string> payload);
@@ -658,16 +652,19 @@ class OM_NodeContainer : public DomainContainer
                                  std::vector<fpi::SvcInfo> svcInfos);
 
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
-                                   std::vector<fpi::SvcInfo> svcInfos);
+                                   std::vector<fpi::SvcInfo> svcInfos,
+                                   bool domainRestart,
+                                   bool startNode);
 
     virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
                                   std::vector<fpi::SvcInfo> svcInfos,
-                                  bool stop_sm, bool stop_dm, bool stop_am);
+                                  bool stop_sm, bool stop_dm, bool stop_am,
+                                  bool shutdownNode);
 
     virtual Error om_remove_service(const fpi::SvcUuid& svc_uuid,
                                     std::vector<fpi::SvcInfo> svcInfos,
                                     bool remove_sm, bool remove_dm,
-                                    bool remove_am);
+                                    bool remove_am, bool removeNode);
 
     virtual Error om_heartbeat_check(const fpi::SvcUuid& svc_uuid);
 
@@ -706,8 +703,6 @@ class OM_NodeContainer : public DomainContainer
     friend class OM_NodeDomainMod;
 
     virtual void om_update_capacity(OM_PmAgent::pointer pm_agent, fds_bool_t b_add);
-    virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
-    virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
@@ -924,16 +919,14 @@ class OM_NodeDomainMod : public Module
                                      const FdspNodeRegPtr msg );
 
     void setupNewNode(const NodeUuid&      uuid,
-                       const FdspNodeRegPtr msg,
-                       NodeAgent::pointer   newNode,
-                      fds_uint32_t delayTime,
+                      const FdspNodeRegPtr msg,
+                      NodeAgent::pointer   newNode,
                       bool fPrevRegistered);
 
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services( const NodeUuid& node_uuid,
-                                      fds_uint32_t delayTime );
+    void om_activate_known_services(const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service

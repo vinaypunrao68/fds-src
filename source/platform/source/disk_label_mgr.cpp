@@ -254,10 +254,11 @@ namespace fds
         {
             char const *const    name = disk->rs_get_name();
 
-            if (strstr(name, "/dev/sda") != NULL)
+            if (0 == strcmp(name, "/dev/sda"))
             {
                 return;
             }
+
             *dl_map << disk->rs_get_name() << " " << idx << " " << std::hex <<
             disk->rs_get_uuid().uuid_get_val() << std::dec << " " <<
             disk->dsk_get_mount_point().c_str()  << "\n";

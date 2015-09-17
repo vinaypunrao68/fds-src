@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 
 from services.node_service import NodeService
 from utils.converters.platform.node_converter import NodeConverter

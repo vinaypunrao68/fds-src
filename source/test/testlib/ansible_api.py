@@ -34,7 +34,7 @@ reload(callbacks)
 
 inventory = """
 localhost
-awo-bh-01 fds_deploy_local_deps=False
+awo-bh-01 fds_deploy_local_deps=no
 
 [testapi:vars]
 clean_fds=no
@@ -43,7 +43,7 @@ cluster_location=awo
 deploy_artifact=nightly
 fds_build=release
 fds_default_nic=eth0
-fds_deploy_local_deps=false
+fds_deploy_local_deps=no
 fds_om_host={{ om_ip_address }}
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1

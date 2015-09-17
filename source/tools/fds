@@ -13,6 +13,29 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 
+# If run from source dir
+TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
+SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
+CONFIG_ETC=${SOURCEDIR}/config/etc
+
+source ${TOOLSDIR}/loghelper.sh
+init_loghelper /tmp/fds_tool.${UID}.log
+
+BUILDMODE="debug"
+RELEASEMODEFILE="${SOURCEDIR}/Build/.build-mode-release.chk"
+if [[ -e $RELEASEMODEFILE ]]; then
+    BUILDMODE="release"
+fi
+RUNMODE="nomemchk"
+RUNMODEFILE="${SOURCEDIR}/Build/.run-mode-memchk.chk"
+if [[ -e $RUNMODEFILE ]]; then
+    RUNMODE="memchk"
+fi
+
+BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
+TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
+KODIR="${SOURCEDIR}/fds_client/blk_dev"
+
 ########################################################################
 
 REDIS_ARG=
@@ -70,7 +93,7 @@ function usage() {
 function printRunMode() {
     case "${RUNMODE}" in
         nomemchk)
-            logwarn "$(blue current run mode) : $(green ${RUNMODE})"
+            loginfo "$(blue current run mode) : $(green ${RUNMODE})"
             ;;
         memchk)
             logwarn "$(blue current run mode) : $(red ${RUNMODE})"
@@ -84,10 +107,10 @@ function printRunMode() {
 function printBuildMode() {
     case "${BUILDMODE}" in
         release)
-            logwarn "$(blue current build mode) : $(green ${BUILDMODE})"
+            loginfo "$(blue current build mode) : $(green ${BUILDMODE})"
             ;;
         debug)
-            logwarn "$(blue current build mode) : $(red ${BUILDMODE})"
+            loginfo "$(blue current build mode) : $(red ${BUILDMODE})"
             ;;
         *)
             logerror "unknown build mode : ${BUILDMODE}"
@@ -574,6 +597,7 @@ function clean() {
                 rm -rf /${node}/memcheck/*.memcheck
 
 		rm -rf /${node}/var/logs/*.log*
+		rm -rf /${node}/var/logs/archive
 		rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
@@ -605,18 +629,15 @@ function cleanlogs() {
     ) 2>/dev/null
 }
 
-function source_lib() {
-    export LD_LIBRARY_PATH=${FDSROOT}/lib:/usr/local/lib:/usr/lib/jvm/java-8-oracle/jre/lib/amd64;
-    ulimit -c unlimited; ulimit -n 12800;
-}
-
 ########################################################################
 # Main Program
 ########################################################################
 
 # parse input
-# parse out the options & leave the rest is saved
 args=( "$@" )
+CMD=
+APP=
+
 for ((n=0; n<$#; n++ ))
 do
     opt="${args[$n]}"
@@ -639,9 +660,6 @@ do
             ;;
         --om-debug-port=*)
             OM_DEBUG_PORT="${opt#*=}"
-            ;;
-        -i|--from-install-dir)
-            run_from_install_dir=1
             ;;
         -h|--help)
             usage
@@ -675,65 +693,30 @@ do
             echo $TESTDIR
             exit 0
             ;;
+        # detect commands
+        kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*)
+            CMD=$opt
+            ;;
+        # detect app
+        om|am|dm|sm|pm|all|redis) 
+            APP=$opt
+            ;;
         *)
-            if [[ -z $CMD ]] ; then CMD=$opt
-            elif [[ -z $APP ]] ; then APP=$opt
-            else
-                logerror "unknown option [$opt] "
-                usage
-            fi
+            logerror "unknown argument [$opt] "
+            usage
     esac
 done
 
-# If run from source dir
-TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
-SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
-CONFIG_ETC=${SOURCEDIR}/config/etc
-
-BUILDMODE="debug"
-RELEASEMODEFILE="${SOURCEDIR}/Build/.build-mode-release.chk"
-if [[ -e $RELEASEMODEFILE ]]; then
-    BUILDMODE="release"
-fi
-
-RUNMODE="nomemchk"
-RUNMODEFILE="${SOURCEDIR}/Build/.run-mode-memchk.chk"
-if [[ -e $RUNMODEFILE ]]; then
-    RUNMODE="memchk"
-fi
-
 # TODO: modify fds script to use same variable names as formation_env  i.e. fds_root -> FDSROOT
 # for now, if fds_root is set via command-line, set fds_root before sourcing formation_env
-echo FDSROOT: $FDSROOT
 [[ ! -z "${FDSROOT}" ]] && export fds_root=${FDSROOT}
-echo fds_root: ${fds_root}
-echo FDSROOT2: $FDSROOT
 source $CONFIG_ETC/formation_env
 
-BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
-TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
-KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=${fds_root:=/fds}
 FDSLOGROOT=${FDSROOT}/var/logs
 FDSTEST_ROOT=/fds-test
 
 VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
-
-# else run from install dir
-run_from_install_dir=0
-
-source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/fds_tool.${UID}.log
-# else run from install dir
-if [ $run_from_install_dir -eq 1 ]; then
-    SOURCEDIR="$( cd ${TOOLSDIR}/../.. && pwd)"
-    CONFIG_ETC=${SOURCEDIR}/etc
-    BINDIR=${SOURCEDIR}/bin
-    FDSROOT=${SOURCEDIR}
-    REDIS_ARG=-i
-    source_lib
-fi
-
 
 if [[ $CMD == "test" ]]; then
     TEST=$APP
@@ -747,26 +730,15 @@ FDSROOT=${FDSROOT:=/fds}
 TESTNAME=""
 FDSLOGROOT=${FDSROOT}/var/logs
 
-
-#echo "CMD=${CMD} APP=${APP} ROOT=${FDSROOT} SOURCEDIR=${SOURCEDIR} " \
-#     "TOOLSDIR=${TOOLSDIR} CONFIG_ETC=${CONFIG_ETC} BINDIR=${BINDIR}"
-
-#echo "args: ${args[@]}"
+#echo CMD:               ${CMD} 
+#echo APP:                ${APP} 
+#echo FDSROOT:      ${FDSROOT} 
+#echo SOURCEDIR:   ${SOURCEDIR} 
+#echo TOOLSDIR:     ${TOOLSDIR} 
+#echo CONFIG_ETC:  ${CONFIG_ETC} 
+#echo BINDIR:           ${BINDIR}
+#echo args:                ${args[@]}
 #exit 0
-
-case "${CMD}" in
-    kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*) ;;
-    *)
-        logerror "unknown cmd [$CMD] "
-        usage ;;
-esac
-
-case "${APP}" in
-    om|am|dm|sm|pm|all|redis) ;;
-    *)
-        logerror "unknown app [$APP]"
-        usage ;;
-esac
 
 printBuildMode
 printRunMode

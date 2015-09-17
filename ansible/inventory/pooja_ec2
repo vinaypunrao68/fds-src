@@ -11,7 +11,7 @@
 # The 'awo-bh-01' is necessary for now, as Ansible's wait_for and
 #  delegate_to modules don't play nice together at this time.
 localhost
-awo-bh-01 fds_deploy_local_deps=False fds_build=debug
+awo-bh-01 fds_deploy_local_deps=no fds_build=debug
 
 [pooja_ec2:vars]
 clean_fds=yes
@@ -20,7 +20,7 @@ cluster_location=awo
 deploy_artifact=nightly
 fds_build=debug
 fds_default_nic=eth0
-fds_deploy_local_deps=False
+fds_deploy_local_deps=no
 fds_om_host="{{ groups[group_names[0]][0] }}"
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1

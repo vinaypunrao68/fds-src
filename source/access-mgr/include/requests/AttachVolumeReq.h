@@ -22,7 +22,6 @@ namespace fds
 struct AttachVolumeReq : public AmRequest {
     fpi::VolumeAccessMode mode;
     fds_int64_t token {invalid_vol_token};
-    fds_uint64_t vol_sequence {0};
 
     /**
      * Request constructor. Some of the fields

@@ -55,7 +55,7 @@
 {% set dm_migration_max_concurrency = fds_dm_migration_max_concurrency if fds_dm_migration_max_concurrency is defined else '1' %}
 {% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
 {% set dm_migration_max_delta_blobs = fds_dm_migration_max_delta_blobs if fds_dm_migration_delta_blobs is defined else '4096' %}
-{% set dm_migration_max_delta_blobs_to = fds_dm_migration_max_delta_blobs_to if fds_dm_migration_delta_blobs_to is defined else '180' %}
+{% set dm_migration_max_delta_blobs_to = fds_dm_migration_max_delta_blobs_to if fds_dm_migration_delta_blobs_to is defined else '5000' %}
 {% set dm_migration_max_delta_blob_desc = fds_dm_migration_max_delta_desc if fds_dm_migration_delta_desc is defined else '4096' %}
 {#
    fds.sm. specific entries
@@ -80,7 +80,10 @@
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
-{% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'false' %}
+{% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'true' %}
+{% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
+{% set am_scst_server_threads = fds_am_scst_server_threads if fds_am_scst_server_threads is defined else '1' %}
+{% set am_scst_default_block_size = fds_am_scst_default_block_size if fds_am_scst_default_block_size is defined else '512' %}
 {#
    fds.om. specific entries
 #}
@@ -97,6 +100,7 @@
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
 {% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
+{% set nfs_defer_metadata_updates = nfs_defer_metadata_updates if nfs_defer_metadata_updates is defined else 'true' %}
 {#
    fds.checker. specific entries
 #}
@@ -116,6 +120,7 @@
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
+{% set ft_am_scst_enabled                         = fds_ft_am_scst_enabled                         if fds_ft_am_scst_enabled                         is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}
 {% set ft_platform_use_new_superblock             = fds_ft_platform_use_new_superblock             if fds_ft_platform_use_new_superblock             is defined else 'false' %}
@@ -123,11 +128,17 @@
 {% set ft_allow_service_reregistration            = fds_ft_allow_service_reregistration            if fds_ft_allow_service_reregistration            is defined else 'true'  %}
 {% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
 {% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
+{% set ft_enable_java_om_svc_proxy               = fds_ft_enable_java_om_svc_proxy               if fds_ft_enable_java_om_svc_proxy               is defined else 'false' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
+    Defaults are:
+       OM_JAVA_OPTS="-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi"
+       XDI_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi"
+    The Logging and service name configuration is important.  Without it, the logging may not be configured properly.
+    -XX:ErrorFile=/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
 #}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Xms20M' %}
-{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M -Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=om-xdi -XX:ErrorFile=/corefiles/om_hs_err_pid-%p.log' %}
+{% set xdi_java_opts = fds_xdi_java_opts if fds_om_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -Dfds.service.name=xdi -XX:ErrorFile=/corefiles/xdi_hs_err_pid-%p.log' %}
 {#
 #}
 {% block content %}{% endblock %}

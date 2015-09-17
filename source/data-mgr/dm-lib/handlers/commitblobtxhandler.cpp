@@ -119,33 +119,21 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // forwarding, the main time goes to waiting for response
     // from another DM, which is not really consuming local
     // DM resources
-    // FIXME(DAC): Is it okay that the caller isn't notified of errors after this point? Wouldn't
-    //             it make more sense to wait to respond until after the request is successfully
-    //             forwarded to another DM in the case that that's necessary?
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-        fds_volid_t volId(commitBlobReq->volId);
-
-        if (!(dataManager.features.isTestModeEnabled()) &&
-        		(dataManager.dmMigrationMgr->shouldForwardIO(volId,
-        													 commitBlobReq->dmt_version))) {
-            // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                           << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
-                helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
-                                                                              commitBlobReq,
-                                                                              blob_version,
-                                                                              blob_obj_list,
-                                                                              meta_list);
-            }
-        } else {
-            // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
-        }
-    }
+    fds_volid_t volId(commitBlobReq->volId);
+	if (!(dataManager.features.isTestModeEnabled()) &&
+			(dataManager.dmMigrationMgr->shouldForwardIO(volId,
+														 commitBlobReq->dmt_version))) {
+		LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+		helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
+																	  commitBlobReq,
+																	  blob_version,
+																	  blob_obj_list,
+																	  meta_list);
+	}
 }
 
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

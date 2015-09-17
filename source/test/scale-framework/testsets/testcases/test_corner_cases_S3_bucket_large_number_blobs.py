@@ -10,7 +10,7 @@ import config
 import config_parser
 import s3
 import os
-import utils
+import lib
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -51,7 +51,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 	self.hash_table_download = {}
 	self.hash_table = {}
 	self.sample_files = {}
-	utils.create_dir(config.DOWNLOAD_DIR)
+	lib.create_dir(config.DOWNLOAD_DIR)
 
     @unittest.expectedFailure
     def runTest(self):
@@ -74,7 +74,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 	self.delete_volumes(s3conn)
 
 	#remove directory where the downloaded files are kept
-	utils.remove_dir(config.DOWNLOAD_DIR)
+	lib.remove_dir(config.DOWNLOAD_DIR)
 
 	self.clean_up_generated_files()
 
@@ -124,7 +124,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 	hash code, the test fails.
         '''
 
-	if not utils.compare_hashes(self.hash_table, self.hash_table_download):
+	if not lib.compare_hashes(self.hash_table, self.hash_table_download):
 		self.test_passed = False
 
 	else:
@@ -178,7 +178,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
 	Download files for each blob size to S3 bucket.
 	'''
 
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
 
         path = os.path.join(config.DOWNLOAD_DIR, filename)
         self.log.info("Downloading %s" % path)
@@ -199,7 +199,7 @@ class TestS3BucketLargeNumberBlobsForCornerCases(testcase.FDSTestCase):
                 #k.key = sample
                 k.key =  filename
                 k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
+                                             cb=lib.percent_cb,
                                              num_cb=10)
                 self.log.info("Uploaded file %s to bucket %s" %
                              (filename, bucket.name))

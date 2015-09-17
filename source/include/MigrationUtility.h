@@ -224,6 +224,25 @@ class MigrationTrackIOReqs {
 
     void waitForTrackIOReqs();
 
+    class scopedTrackIOReqs : boost::noncopyable {
+      public:
+        MigrationTrackIOReqs * scopedReq;
+        bool success = {false};
+        explicit scopedTrackIOReqs(MigrationTrackIOReqs &req)
+                                  : scopedReq(&req) {
+          if (scopedReq) {
+            success = scopedReq->startTrackIOReqs();
+          }
+        }
+
+        ~scopedTrackIOReqs() {
+          if (scopedReq && success) {
+            scopedReq->finishTrackIOReqs();
+            scopedReq = nullptr;
+          }
+        }
+    };
+
   private:
     std::mutex  trackReqsMutex;
     std::condition_variable trackReqsCondVar;
