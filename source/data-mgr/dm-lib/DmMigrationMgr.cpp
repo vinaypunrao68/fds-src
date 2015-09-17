@@ -470,7 +470,7 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
     SCOPEDWRITE(migrClientLock);
     LOGMIGRATE << "Client done with volume " << uniqueId;
-    clientMap.erase(fds_volid_t(uniqueId));
+    // clientMap.erase(fds_volid_t(uniqueId));
 }
 
 fds_bool_t
@@ -544,27 +544,65 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 }
 
 Error
+DmMigrationMgr::finishActiveMigration()
+{
+	Error err(ERR_OK);
+	if (myRole == MIGR_CLIENT) {
+		SCOPEDWRITE(migrClientLock);
+		MigrationState expectedState(MIGR_IN_PROGRESS);
+		if (std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IDLE)) {
+			clientMap.clear();
+			LOGMIGRATE << "Migration clients cleared and state reset";
+		}
+	} else if (myRole == MIGR_EXECUTOR) {
+		// Not implemented yet
+	} else {
+		// Not in migration
+	}
+	return err;
+}
+
+Error
 DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 {
-    SCOPEDWRITE(migrExecutorLock);
-    Error err(ERR_OK);
-    DmMigrationExecutor::shared_ptr dmExecutor = getMigrationExecutor(volId);
-    if (dmExecutor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
+	Error err(ERR_OK);
+	if (myRole == MIGR_EXECUTOR) {
+		{
+			SCOPEDREAD(migrExecutorLock);
+			DmMigrationExecutor::shared_ptr dmExecutor = getMigrationExecutor(volId);
+			if (dmExecutor == nullptr) {
+				if (isMigrationAborted()) {
+					LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
+				} else {
+					LOGERROR << "Unable to find executor for volume " << volId;
+					// this is an race cond error that needs to be fixed in dev env.
+					// Only panic in debug build.
+					fds_assert(0);
+				}
+				return ERR_NOT_FOUND;
+			}
 
-    err = dmExecutor->finishActiveMigration();
-    if (err.ok()) {
-    	executorMap.erase(volId);
-    }
+			err = dmExecutor->finishActiveMigration();
+			if (err.ok()) {
+				// executorMap.erase(volId);
+			}
+
+			// Check to see if all migration clients are finished
+			bool allExecutorsDone(true);
+			for (auto it = executorMap.begin(); it != executorMap.end(); ++it) {
+				if (!it->second->isMigrationComplete()) {
+					allExecutorsDone = false;
+					break;
+				}
+			}
+			if (allExecutorsDone) {
+				// erase here?
+			}
+		}
+	} else {
+		// Not implemented yet
+		fds_assert(0);
+	}
 	return (err);
 }
 

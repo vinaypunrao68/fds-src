@@ -136,7 +136,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationExecutor::abortMigration, this);
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::abortMigration, std::ref(dataMgr.dmMigrationMgr));
     asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
     asyncInitialBlobSetReq->invoke();
 
@@ -453,6 +453,9 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     	case MIGRATION_ABORTED:
     		LOGERROR "Migration aborted so dropping forward request for " << fwdCatReq;
     		err = ERR_DM_MIGRATION_ABORTED;
+    		break;
+    	case MIGRATION_COMPLETE:
+    		// Do nothing
     		break;
     	default:
     		fds_panic("Unexpected state encountered");

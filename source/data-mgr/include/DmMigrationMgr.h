@@ -16,7 +16,6 @@ namespace fds {
 class DmIoReqHandler;
 
 class DmMigrationMgr : public DmMigrationBase {
-
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
 
@@ -152,6 +151,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * In the case no forwards is sent, this will finish the migration
      */
     Error finishActiveMigration(fds_volid_t volId);
+    Error finishActiveMigration();
 
     /**
      * Both DMs:

@@ -109,6 +109,10 @@ class DmMigrationExecutor : public DmMigrationBase {
      */
     void abortMigration();
 
+    inline bool isMigrationComplete() {
+    	return (migrationProgress == MIGRATION_COMPLETE);
+    }
+
   private:
     /** Reference to the DataManager
      */
