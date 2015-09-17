@@ -253,9 +253,16 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
         # If we were provided a node, deactivate that one and exit.
             if self.passedNode is not None:
                 n = self.passedNode
+
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
+
             self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
             node_id = int(n.nd_uuid, 16)
-            # Prevent scenario where we try to take remove a node that was never online
+            # Prevent scenario where we try to remove a node that was never online
             if not node_is_up(self,om_ip,node_id):
                 self.log.info("Selected node {} is not UP. Ignoring "
                                      "command to remove node".format(n.nd_conf_dict['node-name']))

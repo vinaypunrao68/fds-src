@@ -159,7 +159,7 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
 template<class PayloadT> boost::shared_ptr<PayloadT>
 deserializeFdspMsg(Error &e, boost::shared_ptr<std::string> payloadBuf)
 {
-    DBG(GLOGDEBUG);
+    DBG(GLOGTRACE);
 
     if (e != ERR_OK) {
         return nullptr;

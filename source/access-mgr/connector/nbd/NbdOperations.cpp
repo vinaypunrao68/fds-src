@@ -413,7 +413,7 @@ NbdOperations::drainUpdateChain(fds_uint64_t const offset,
     //  Either we explicitly are handling a RMW or checking to see if there are
     //  any new ones in the queue
     if (nullptr == queued_handle_ptr) {
-        std::tie(update_queued, queued_handle) = sector_map.pop_and_delete(offset);
+        std::tie(update_queued, queued_handle) = sector_map.pop(offset, true);
     } else {
         queued_handle = *queued_handle_ptr;
     }

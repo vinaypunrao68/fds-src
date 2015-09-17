@@ -73,13 +73,13 @@ public class IoCache implements Io {
     }
 
     @Override
-    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+    public void mutateMetadata(String domain, String volume, String blobName, Map<String, String> map, boolean deferrable) throws IOException {
         metadataCache.put(new MetadataCacheKey(domain, volume, blobName), Optional.of(map));
-        io.setMetadataOnEmptyBlob(domain, volume, blobName, map);
+        io.mutateMetadata(domain, volume, blobName, map, deferrable);
     }
 
     @Override
-    public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
+    public <T> T mapObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         ObjectCacheKey key = new ObjectCacheKey(domain, volume, blobName, objectOffset);
 
         synchronized (objectLock(key)) {
@@ -90,7 +90,7 @@ public class IoCache implements Io {
 
             ByteBuffer cacheEntry = objectCache.getIfPresent(key);
             if (cacheEntry == null) {
-                cacheEntry = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
+                cacheEntry = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset,
                         oov -> oov.get().getBuf().slice());
                 objectCache.put(key, cacheEntry);
                 counters.increment(Counters.Key.objectCacheMiss);
@@ -112,7 +112,7 @@ public class IoCache implements Io {
             ByteBuffer[] buf = new ByteBuffer[]{objectCache.getIfPresent(objectKey)};
             if (buf[0] == null) {
                 counters.increment(Counters.Key.objectCacheMiss);
-                buf[0] = io.mapObject(domain, volume, blobName, objectSize, objectOffset,
+                buf[0] = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset,
                         oov -> {
                             if (oov.isPresent()) {
                                 return oov.get().getBuf().slice();

@@ -17,12 +17,7 @@ import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.ConsoleAppender;
 import org.apache.logging.log4j.core.appender.RollingRandomAccessFileAppender;
-import org.apache.logging.log4j.core.appender.rolling.CompositeTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.DefaultRolloverStrategy;
-import org.apache.logging.log4j.core.appender.rolling.RolloverStrategy;
-import org.apache.logging.log4j.core.appender.rolling.SizeBasedTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.TimeBasedTriggeringPolicy;
-import org.apache.logging.log4j.core.appender.rolling.TriggeringPolicy;
+import org.apache.logging.log4j.core.appender.rolling.*;
 import org.apache.logging.log4j.core.config.AppenderRef;
 import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.config.Property;
@@ -42,63 +37,114 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 public class Configuration {
     public static final String KEYSTORE_PATH = "fds.ssl.keystore_path";
     public static final String KEYSTORE_PASSWORD = "fds.ssl.keystore_password";
     public static final String KEYMANAGER_PASSWORD = "fds.ssl.keymanager_password";
-    private static final Map<String, String> LOGLEVELS = new HashMap<>();
     public static final String TIME_STAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ";
+    public static final String FDS_ROOT_SYS_PROP = "fds-root";
+    public static final String FDS_ROOT_ENV = "fds_root";
 
     //trace/debug/normal/info/notify/notification/crit/critical,warn/warning/error
+    private static final Map<String, String> LOGLEVELS = new HashMap<>();
     static {
         LOGLEVELS.put("trace", "TRACE");
         LOGLEVELS.put("debug", "DEBUG");
         LOGLEVELS.put("normal", "INFO");
         LOGLEVELS.put("notification", "INFO");
         LOGLEVELS.put("warning", "WARN");
-        LOGLEVELS.put( "error", "ERROR" );
+        LOGLEVELS.put("error", "ERROR");
         LOGLEVELS.put("critical", "FATAL");
     }
 
-    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE = "fds.xdi.nfs_thread_pool_size";
-    public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE = "fds.xdi.nfs_thread_pool_queue_size";
+    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE                 = "fds.xdi.nfs_thread_pool_size";
+    public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE           = "fds.xdi.nfs_thread_pool_queue_size";
     public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
-    public static final String FDS_XDI_NFS_STATS = "fds.xdi.nfs_stats";
+    public static final String FDS_XDI_NFS_STATS                            = "fds.xdi.nfs_stats";
+    public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES           = "fds.xdi.nfs_defer_metatada_updates";
 
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
 
     private final String commandName;
-    private Properties properties = new Properties();
-    private File fdsRoot;
+    private final File   fdsRoot;
     private FdsLogConfig logConfig;
 
-    public Configuration(String commandName, String[] commandLineArgs) {
+    /**
+     * Create a new configuration for the named command with its arguments.  Supported
+     * arguments processed by this class include
+     * <ul>
+     *     <li>fds-root</li>
+     *     <li>console</li>
+     * </ul>
+     * Any other arguments are ignored.
+     * </p>
+     * If the system property "fds.service.name" is not set, it will be set based on the
+     * command name.  The fds_root and fds.service.name system property are used for configuration of the
+     * logging system.
+     * </p>
+     * If the "fds-root" command-line argument is not specified, the FDS root is determined
+     * first based on the presence of the "fds_root" environment variable, followed by the
+     * "fds-root" system property, and finally by the "fds_root" system property (Yes, we need
+     * to make this more consistent!)
+     *
+     * @param commandName the name of the command for the log name if the fds.service.name property is not set.
+     * @param commandLineArgs
+     */
+    public Configuration( String commandName, String... commandLineArgs ) {
         this.commandName = commandName;
+
+        // if fds.service.name property is not set, update it with the command name.
+        // this is intended to happen before any logging configurations are initialized, but
+        // when the -DconfigurationFile is used, it is possible this is already initialized
+        // before we get here.
+        if ( System.getProperty( "fds.service.name" ) == null ) {
+            System.setProperty( "fds.service.name", commandName );
+        }
 
         OptionParser parser = new OptionParser();
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
         parser.accepts("console");
         OptionSet options = parser.parse(commandLineArgs);
-        if (options.has("fds-root")) {
-            fdsRoot = new File((String) options.valueOf("fds-root"));
-        } else {
-            fdsRoot = new File("/fds");
-        }
+
+        fdsRoot = resolveFdsRoot( options );
+
+        // set the fds-root system property based on the resolved root
+        System.setProperty( FDS_ROOT_SYS_PROP, fdsRoot.getAbsolutePath() );
 
         String logLevel = getPlatformConfig().defaultString("fds.pm.log_severity", "normal").toLowerCase();
 
         logConfig = new FdsLogConfig();
         if (options.has("console")) {
             logConfig.initConsoleLogging("DEBUG");
+        } else {
+            logConfig.initFileLogging(commandName, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
-        logConfig.initFileLogging(commandName, LOGLEVELS.getOrDefault(logLevel, "INFO"));
 
         initDiagnostics(fdsRoot);
 
         initJaas(fdsRoot);
+    }
+
+    private File resolveFdsRoot( OptionSet options ) {
+        File root = null;
+        if (options.has("fds-root")) {
+            root = new File((String) options.valueOf("fds-root"));
+
+            // todo: validate that fdsRoot matches the env setting for "fds_root".  The logging config
+            // depends on the setting of fds_root.
+        } else {
+
+            String envFdsRoot = System.getenv( FDS_ROOT_ENV );
+            if ( envFdsRoot == null || envFdsRoot.isEmpty() ) {
+                String sysFdsRoot = System.getProperty( FDS_ROOT_SYS_PROP, System.getProperty( FDS_ROOT_ENV, "/fds" ) );
+                root = new File( sysFdsRoot );
+            } else {
+                root = new File( envFdsRoot );
+            }
+        }
+        return root;
     }
 
     /**
@@ -569,6 +615,7 @@ public class Configuration {
                 platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_SIZE).intValue(),
                 platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE).intValue(),
                 platformConfig.lookup(FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS).longValue(),
-                platformConfig.lookup(FDS_XDI_NFS_STATS).booleanValue());
+                platformConfig.lookup(FDS_XDI_NFS_STATS).booleanValue(),
+                platformConfig.lookup(FDS_XDI_NFS_DEFER_METADATA_UPDATES).booleanValue());
     }
 }
