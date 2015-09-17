@@ -355,7 +355,6 @@ void ScstConnection::execUserCmd() {
                       << "] FUA[" << fua
                       << "] Handle[0x" << cmd->cmd_h << "]";
                 uint64_t offset = scsi_cmd.lba * logical_block_size;
-                auto buffer = boost::make_shared<std::string>((char*)scsi_cmd.pbuf, scsi_cmd.bufflen);
                 task->setWrite(offset, scsi_cmd.bufflen);
                 return scstOps->write((char*) scsi_cmd.pbuf, task);
             }
