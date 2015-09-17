@@ -103,12 +103,24 @@ class TestS3GetConn(TestCase.FDSTestCase):
         else:
             self.log.info("Get an S3 connection on %s." %
                                om_node.nd_conf_dict['node-name'])
-
-            s3conn = boto.connect_s3(aws_access_key_id='admin',
-                                            aws_secret_access_key=om_node.auth_token,
-                                            host=om_node.nd_conf_dict['ip'],
-                                            port=8443,
-                                            calling_format=boto.s3.connection.OrdinaryCallingFormat())
+            s3conn = None
+            retryCount = 0
+            maxRetries = 20;
+            backoff_factor = 0.5
+            while retryCount < maxRetires:
+              s3conn = boto.connect_s3(aws_access_key_id='admin',
+                                       aws_secret_access_key=om_node.auth_token,
+                                       host=om_node.nd_conf_dict['ip'],
+                                       port=8443,
+                                       calling_format=boto.s3.connection.OrdinaryCallingFormat())
+              if not s3conn:
+                 retryCount += 1
+                 self.log.warn( "boto.connect_s3() on %s still isn't available, retry %d." % (om_node.nd_conf_dict['node-name'], count))
+                 if retryCount < maxRetries:
+                   retryTime = 1 + ( (retryCount - 1) * backoff_factor )
+                   time.sleep(retryTime)
+                 else:
+                   break
 
             if not s3conn:
                 self.log.error("boto.connect_s3() on %s did not return an S3 connection." %
