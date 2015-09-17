@@ -2268,8 +2268,19 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                     fPrevRegistered );
                 }));
         /* schedule the task to be run on timer thread after 3 seconds */
-        timer->schedule(task, std::chrono::seconds(3));
+        if ( timer->schedule( task, std::chrono::seconds( 3 ) ) )
+        {
+            LOGDEBUG << "Successfully scheduled 'setupNewNode' for uuid " 
+                     << std::hex << uuid << std::dec;
+        }
+        else
+        {
+            LOGERROR << "Failed to schedule 'setupNewNode' for "
+                     << std::hex << uuid << std::dec;
+            err = Error( ERR_TIMER_TASK_NOT_SCHEDULED );    
+        }
     }
+
     return err;
 }
 
@@ -2277,6 +2288,9 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     const FdspNodeRegPtr msg,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
+
+    LOGDEBUG << "Scheduled task 'setupNewNode' started, uuid "
+             << std::hex << uuid << std::dec
 
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
@@ -2391,6 +2405,9 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             LOGDEBUG << "bcasting vol as domain is NOT up :" << msg->node_type;
         }
     }
+
+    LOGDEBUG << "Scheduled task 'setupNewNode' finished, uuid " 
+             << std::hex << uuid << std::dec;
 }
 
 // om_del_services
