@@ -485,17 +485,15 @@ def getAuth(self, om_ip):
     while retryCount < maxRetries:
       retryCount += 1
       try:
-        print "Authentcation [Attempt %s] to %s" % (retryCount, om_ip)
         self.__om_auth.login()
         break
 
       except Exception as e:
         if retryCount < maxRetries:
           retryTime = 1 + ( (retryCount - 1) * 0.5 )
-          print "Authenticate [Attempy %s] failed - Retrying in %s seconds" % (retryCount, retryTime)
           time.sleep(retryTime)
         else:
-          raise ExceptionToThrow(e)
+          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
 
         continue
 
