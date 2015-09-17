@@ -479,7 +479,7 @@ def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
-    print "Attempting to authenticate to" % (om_ip)
+    print "Attempting to authenticate to %s" % (om_ip)
     retryCount = 0
     maxRetries = 20
     while retryCount < maxRetries:
