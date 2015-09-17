@@ -172,50 +172,47 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
 }
 
 void ScstConnection::execAllocCmd() {
-    auto& length = cmd->alloc_cmd.alloc_len;
+    auto& length = cmd.alloc_cmd.alloc_len;
     LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
 
     // Allocate a page aligned memory buffer for Scst usage
-    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
-    auto buffer = posix_memalign((void**)&reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length);
-    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+    auto buf = posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length);
+    fastReply();
 }
 
 void ScstConnection::execMemFree() {
     LOGTRACE << "Deallocation requested.";
-    free((void*)cmd->on_cached_mem_free.pbuf);
-    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
-    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+    free((void*)cmd.on_cached_mem_free.pbuf);
+    scst_user_reply_cmd reply { cmd.cmd_h, cmd.subcode, 0ull };
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstConnection::execCompleteCmd() {
-    LOGTRACE << "Command complete: [0x" << std::hex << cmd->cmd_h << "]";
+    LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
 
-    auto it = repliedResponses.find(cmd->cmd_h);
+    auto it = repliedResponses.find(cmd.cmd_h);
     fds_assert(repliedResponses.end() != it);
     repliedResponses.erase(it);
-    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
-    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstConnection::execParseCmd() {
     LOGDEBUG << "Need parsing help.";
     fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd->cmd_h, SCST_USER_PARSE);
+    auto task = new ScstTask(cmd.cmd_h, SCST_USER_PARSE);
     readyResponses.push(task);
 }
 
 void ScstConnection::execTaskMgmtCmd() {
     LOGDEBUG << "Task Management request.";
-    fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd->cmd_h, SCST_USER_TASK_MGMT_RECEIVED);
-    readyResponses.push(task);
+    // We do not support Aborts/Resets/etc. at this point, so do nothing.
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void
 ScstConnection::execSessionCmd() {
-    auto attaching = (SCST_USER_ATTACH_SESS == cmd->subcode) ? true : false;
-    auto& sess = cmd->sess;
+    auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
+    auto& sess = cmd.sess;
     LOGDEBUG << "Session "
         << (attaching ? "attachment" : "detachment")
         << " requested," << std::hex
@@ -227,17 +224,15 @@ ScstConnection::execSessionCmd() {
     auto volName = boost::make_shared<std::string>(volumeName);
     if (attaching) {
         // Attach the volume to AM
-        auto task = new ScstTask(cmd->cmd_h, SCST_USER_ATTACH_SESS);
-        scstOps->init(volName, amProcessor, task);
-    } else {
-        auto task = new ScstTask(cmd->cmd_h, SCST_USER_DETACH_SESS);
-        readyResponses.push(task);
+        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+        return scstOps->init(volName, amProcessor, task); // Defer
     }
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstConnection::execUserCmd() {
-    auto& scsi_cmd = cmd->exec_cmd;
-    auto task = new ScstTask(cmd->cmd_h, SCST_USER_EXEC);
+    auto& scsi_cmd = cmd.exec_cmd;
+    auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
 
     switch (scsi_cmd.cdb[0]) {
         case TEST_UNIT_READY:
@@ -332,7 +327,7 @@ void ScstConnection::execUserCmd() {
                 LOGIO << "Read received for "
                       << "LBA[0x" << std::hex << scsi_cmd.lba
                       << "] Length[0x" << scsi_cmd.bufflen
-                      << "] Handle[0x" << cmd->cmd_h << "]";
+                      << "] Handle[0x" << cmd.cmd_h << "]";
                 uint64_t offset = scsi_cmd.lba * logical_block_size;
                 task->setRead(offset, scsi_cmd.bufflen);
                 return scstOps->read(task);
@@ -373,7 +368,7 @@ void ScstConnection::execUserCmd() {
                       << "LBA[0x" << std::hex << scsi_cmd.lba
                       << "] Length[0x" << scsi_cmd.bufflen
                       << "] FUA[" << fua
-                      << "] Handle[0x" << cmd->cmd_h << "]";
+                      << "] Handle[0x" << cmd.cmd_h << "]";
                 uint64_t offset = scsi_cmd.lba * logical_block_size;
                 task->setWrite(offset, scsi_cmd.bufflen);
                 return scstOps->write((char*) scsi_cmd.pbuf, task);
@@ -390,75 +385,72 @@ void ScstConnection::execUserCmd() {
     readyResponses.push(task);
 }
 
-bool
+void
 ScstConnection::getAndRespond() {
-    if (!cmd) {
-        cmd.reset(new scst_user_get_cmd {});
-    }
-
-    // If we do not have response then clear reply, otherwise read one into it
-    if (readyResponses.empty()) {
-        cmd->preply = 0ull;
-    } else {
-        ScstTask* resp {nullptr};
-        ensure(readyResponses.pop(resp));
-        cmd->preply = resp->getReply();
-        repliedResponses[resp->getHandle()].reset(resp);
-    }
-
-    int res = 0;
-    cmd->cmd_h = 0x00;
-    cmd->subcode = 0x00;
+    cmd.preply = 0ull;
     do {
-    auto res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, cmd.get());
-    } while ((0 > res) && (EINTR == errno));
-
-    if (0 != res || 0x00 == cmd->subcode) {
-        switch (errno) {
-            case ENOTTY:
-            case EBADF:
-                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                throw ScstError::connection_closed;
-            case EFAULT:
-            case EINVAL:
-                fds_panic("Invalid Scst argument!");
-            default:
-                return false;
+        // If we do not have reply read a response it
+        if (0ull == cmd.preply && !readyResponses.empty()) {
+            ScstTask* resp {nullptr};
+            ensure(readyResponses.pop(resp));
+            cmd.preply = resp->getReply();
+            repliedResponses[resp->getHandle()].reset(resp);
         }
-    }
 
-    LOGTRACE << "Received SCST command: "
-             << "[0x" << std::hex << cmd->cmd_h
-             << "] sc [0x" << cmd->subcode << "]";
-    switch (cmd->subcode) {
-        case SCST_USER_ATTACH_SESS:
-        case SCST_USER_DETACH_SESS:
-            execSessionCmd();
-            break;
-        case SCST_USER_ON_FREE_CMD:
-            execCompleteCmd();
-            break;
-        case SCST_USER_TASK_MGMT_RECEIVED:
-        case SCST_USER_TASK_MGMT_DONE:
-            execTaskMgmtCmd();
-            break;
-        case SCST_USER_ON_CACHED_MEM_FREE:
-            execMemFree();
-            break;
-        case SCST_USER_ALLOC_MEM:
-            execAllocCmd();
-            break;
-        case SCST_USER_PARSE:
-            execParseCmd();
-            break;
-        case SCST_USER_EXEC:
-            execUserCmd();
-            break;
-        default:
-            LOGNOTIFY << "Received unknown Scst subcommand: [" << cmd->subcode << "]";
-            return false;
-    }
-    return true;
+        int res = 0;
+        cmd.cmd_h = 0x00;
+        cmd.subcode = 0x00;
+        do { // Make sure and finish the ioctl
+        res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
+        } while ((0 > res) && (EINTR == errno));
+
+        if (0 != res) {
+            switch (errno) {
+                case ENOTTY:
+                case EBADF:
+                    LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
+                    throw ScstError::connection_closed;
+                case EFAULT:
+                case EINVAL:
+                    fds_panic("Invalid Scst argument!");
+                default:
+                    return;
+            }
+        }
+        cmd.preply = 0ull;
+
+        LOGTRACE << "Received SCST command: "
+                 << "[0x" << std::hex << cmd.cmd_h
+                 << "] sc [0x" << cmd.subcode << "]";
+        switch (cmd.subcode) {
+            case SCST_USER_ATTACH_SESS:
+            case SCST_USER_DETACH_SESS:
+                execSessionCmd();
+                break;
+            case SCST_USER_ON_FREE_CMD:
+                execCompleteCmd();
+                break;
+            case SCST_USER_TASK_MGMT_RECEIVED:
+            case SCST_USER_TASK_MGMT_DONE:
+                execTaskMgmtCmd();
+                break;
+            case SCST_USER_ON_CACHED_MEM_FREE:
+                execMemFree();
+                break;
+            case SCST_USER_ALLOC_MEM:
+                execAllocCmd();
+                break;
+            case SCST_USER_PARSE:
+                execParseCmd();
+                break;
+            case SCST_USER_EXEC:
+                execUserCmd();
+                break;
+            default:
+                LOGTRACE << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
+                break;
+        }
+    } while (true); // Keep replying while we have responses or requests
 }
 
 void
@@ -476,8 +468,7 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     // We are guaranteed to be the only thread acting on this file descriptor
     try {
         // Get the next command, and/or reply to any existing finished commands
-        while (getAndRespond()) {
-        }
+        getAndRespond();
     } catch(ScstError const& e) {
         state_ = ConnectionState::STOPPING;
         if (e == ScstError::connection_closed) {
