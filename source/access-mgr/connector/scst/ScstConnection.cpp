@@ -311,21 +311,17 @@ void ScstConnection::execUserCmd() {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
             }
             break;
+        case READ_6:
         case READ_10:
         case READ_12:
+        case READ_16:
             {
-                uint32_t lba = be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 2));
-                uint32_t blocks = (READ_10 == scsi_cmd.cdb[0]) ?
-                                    be16toh(*reinterpret_cast<uint16_t*>(scsi_cmd.cdb + 7)) :
-                                    be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 6));
-
                 LOGIO << "Read received for "
-                      << "LBA[0x" << std::hex << lba
-                      << "] Blocks[0x" << blocks
+                      << "LBA[0x" << std::hex << scsi_cmd.lba
+                      << "] Length[0x" << scsi_cmd.bufflen
                       << "] Handle[0x" << cmd->cmd_h << "]";
-                uint64_t offset = lba * logical_block_size;
-                uint32_t read_length = blocks * logical_block_size;
-                task->setRead(offset, read_length);
+                uint64_t offset = scsi_cmd.lba * logical_block_size;
+                task->setRead(offset, scsi_cmd.bufflen);
                 return scstOps->read(task);
             }
             break;
@@ -344,20 +340,23 @@ void ScstConnection::execUserCmd() {
                 task->setResponseBuffer(buffer, 32);
             }
             break;
+        case WRITE_6:
         case WRITE_10:
+        case WRITE_12:
+        case WRITE_16:
             {
-                bool fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
-                uint32_t lba = be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 2));
-                uint32_t blocks = be16toh(*reinterpret_cast<uint16_t*>(scsi_cmd.cdb + 7));
+                // If we are anything but WRITE_6 read the FUA bit
+                bool fua = (WRITE_6 == scsi_cmd.cdb[0]) ?
+                                false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
 
                 LOGIO << "Write received for "
-                      << "LBA[0x" << std::hex << lba
-                      << "] Blocks[0x" << blocks
+                      << "LBA[0x" << std::hex << scsi_cmd.lba
+                      << "] Length[0x" << scsi_cmd.bufflen
+                      << "] FUA[" << fua
                       << "] Handle[0x" << cmd->cmd_h << "]";
-                uint64_t offset = lba * logical_block_size;
-                uint32_t write_length = blocks * logical_block_size;
-                auto buffer = boost::make_shared<std::string>((char*)scsi_cmd.pbuf, write_length);
-                task->setWrite(offset, write_length);
+                uint64_t offset = scsi_cmd.lba * logical_block_size;
+                auto buffer = boost::make_shared<std::string>((char*)scsi_cmd.pbuf, scsi_cmd.bufflen);
+                task->setWrite(offset, scsi_cmd.bufflen);
                 return scstOps->write((char*) scsi_cmd.pbuf, task);
             }
             break;
