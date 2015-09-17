@@ -9,6 +9,11 @@
    fun:_ZN5boost8lockfree5queueIPN3fds17NbdResponseVectorENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
 }
 {
+   Scst Response Queue
+   Memcheck:Cond
+   fun:_ZN5boost8lockfree5queueIPN3fds8ScstTaskENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
+}
+{
    Service Layer Queue
    Memcheck:Cond
    fun:_ZN5boost8lockfree5queueIPSt8functionIFvvEENS_9parameter5void_ES7_S7_E7do_pushILb0EEEbRKS5_

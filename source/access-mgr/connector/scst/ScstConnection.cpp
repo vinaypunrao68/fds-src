@@ -54,14 +54,18 @@ ScstConnection::ScstConnection(std::string const& vol_name,
           scstOps(boost::make_shared<ScstOperations>(this)),
           volumeName(vol_name),
           volume_size{0},
-          object_size{0},
           resp_needed(0u),
-          total_blocks(0ull),
-          write_offset(-1ll),
+          logical_block_size(512ul),
           readyResponses(4000)
 {
-    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
+    {
+        FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
+        standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
+    }
+    {
+        FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
+        logical_block_size = conf.get<uint32_t>("default_block_size", logical_block_size);
+    }
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
@@ -78,7 +82,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
         {                           // SCST options
                 SCST_USER_PARSE_STANDARD,                   // parse type
                 SCST_USER_ON_FREE_CMD_CALL,                 // command on-free type
-                SCST_USER_MEM_NO_REUSE,                     // command reuse type
+                SCST_USER_MEM_REUSE_WRITE,                  // command reuse type
                 SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
                 0,                                          // partial transfer length
                 SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
@@ -87,7 +91,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
                 0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
         },
-        4096,                       // Block size
+        logical_block_size,         // Block size
         0,                          // PR cmd Notifications
         {},
         "bare_am",
@@ -123,7 +127,8 @@ ScstConnection::ScstConnection(std::string const& vol_name,
 
     LOGNORMAL << "New SCST device [" << volumeName
               << "] Tgt [fds.iscsi:tgt"
-              << "] LUN [0]";
+              << "] LUN [0"
+              << "] BlockSize[" << logical_block_size << "]";
 }
 
 ScstConnection::~ScstConnection() {
@@ -167,14 +172,24 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
 }
 
 void ScstConnection::execAllocCmd() {
-    LOGDEBUG << "Allocation command received.";
-    fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd->cmd_h, SCST_USER_ALLOC_MEM);
-    readyResponses.push(task);
+    auto& length = cmd->alloc_cmd.alloc_len;
+    LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
+
+    // Allocate a page aligned memory buffer for Scst usage
+    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
+    auto buffer = posix_memalign((void**)&reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length);
+    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+}
+
+void ScstConnection::execMemFree() {
+    LOGTRACE << "Deallocation requested.";
+    free((void*)cmd->on_cached_mem_free.pbuf);
+    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
+    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
 }
 
 void ScstConnection::execCompleteCmd() {
-    LOGTRACE << "Command responded.";
+    LOGTRACE << "Command complete: [0x" << std::hex << cmd->cmd_h << "]";
 
     auto it = repliedResponses.find(cmd->cmd_h);
     fds_assert(repliedResponses.end() != it);
@@ -228,6 +243,19 @@ void ScstConnection::execUserCmd() {
         case TEST_UNIT_READY:
             LOGTRACE << "Test Unit Ready received.";
             break;
+        case FORMAT_UNIT:
+            {
+                LOGTRACE << "Format Unit received.";
+                bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
+                bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
+
+                // Mutually exclusive (and not supported)
+                if (fmtdata || fmtpinfo) {
+                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                }
+                // Nothing to do as we don't support data patterns...done!
+                break;
+            }
         case INQUIRY:
             {
                 auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[36] {});
@@ -283,11 +311,11 @@ void ScstConnection::execUserCmd() {
                 uint8_t pc = scsi_cmd.cdb[2] / 0x40;
                 uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
                 uint8_t& subpage = scsi_cmd.cdb[3];
-                LOGIO << "Mode Sense: "
-                      << " dbd[" << std::hex << dbd
-                      << "] pc[" << std::hex << (uint32_t)pc
-                      << "] page_code[" << (uint32_t)page_code
-                      << "] subpage[" << (uint32_t)subpage << "]";
+                LOGTRACE << "Mode Sense: "
+                         << " dbd[" << std::hex << dbd
+                         << "] pc[" << std::hex << (uint32_t)pc
+                         << "] page_code[" << (uint32_t)page_code
+                         << "] subpage[" << (uint32_t)subpage << "]";
 
                 // We do not support any subpages
                 if (0x00 != subpage) {
@@ -296,34 +324,59 @@ void ScstConnection::execUserCmd() {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
             }
             break;
+        case READ_6:
         case READ_10:
         case READ_12:
+        case READ_16:
             {
-                uint32_t lba = be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 2));
-                uint32_t blocks = (READ_10 == scsi_cmd.cdb[0]) ?
-                                    be16toh(*reinterpret_cast<uint16_t*>(scsi_cmd.cdb + 7)) :
-                                    be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 6));
-
                 LOGIO << "Read received for "
-                      << "LBA[0x" << std::hex << lba
-                      << "] Blocks[0x" << blocks
+                      << "LBA[0x" << std::hex << scsi_cmd.lba
+                      << "] Length[0x" << scsi_cmd.bufflen
                       << "] Handle[0x" << cmd->cmd_h << "]";
-                uint64_t offset = lba * 4096;
-                uint32_t read_length = blocks * 4096;
-                task->setRead(offset, read_length);
+                uint64_t offset = scsi_cmd.lba * logical_block_size;
+                task->setRead(offset, scsi_cmd.bufflen);
                 return scstOps->read(task);
             }
             break;
-        case READ_CAPACITY_16:  // READ_CAPACITY(16)
+        case READ_CAPACITY:     // READ_CAPACITY(10)
+        case READ_CAPACITY_16:
             {
                 LOGDEBUG << "Read Capacity received.";
                 auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
 
-                uint64_t num_blocks = volume_size / 4096;
-                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
-                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(4096ul); // 4k
-                buffer[13] = 0x20; // 32 LBs per PB
-                task->setResponseBuffer(buffer, 32);
+                uint64_t num_blocks = volume_size / logical_block_size;
+                uint32_t blocks_per_object = physical_block_size / logical_block_size;
+
+                if (READ_CAPACITY == scsi_cmd.cdb[0]) {
+                    *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                    *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
+                    task->setResponseBuffer(buffer, 8);
+                } else {
+                    *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                    *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
+                    // Number of logic blocks per object as a power of 2
+                    buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
+                    task->setResponseBuffer(buffer, 32);
+                }
+            }
+            break;
+        case WRITE_6:
+        case WRITE_10:
+        case WRITE_12:
+        case WRITE_16:
+            {
+                // If we are anything but WRITE_6 read the FUA bit
+                bool fua = (WRITE_6 == scsi_cmd.cdb[0]) ?
+                                false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
+
+                LOGIO << "Write received for "
+                      << "LBA[0x" << std::hex << scsi_cmd.lba
+                      << "] Length[0x" << scsi_cmd.bufflen
+                      << "] FUA[" << fua
+                      << "] Handle[0x" << cmd->cmd_h << "]";
+                uint64_t offset = scsi_cmd.lba * logical_block_size;
+                task->setWrite(offset, scsi_cmd.bufflen);
+                return scstOps->write((char*) scsi_cmd.pbuf, task);
             }
             break;
         default:
@@ -389,8 +442,10 @@ ScstConnection::getAndRespond() {
         case SCST_USER_TASK_MGMT_DONE:
             execTaskMgmtCmd();
             break;
-        case SCST_USER_ALLOC_MEM:
         case SCST_USER_ON_CACHED_MEM_FREE:
+            execMemFree();
+            break;
+        case SCST_USER_ALLOC_MEM:
             execAllocCmd();
             break;
         case SCST_USER_PARSE:
@@ -474,7 +529,7 @@ ScstConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
     LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
         << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-    object_size = volDesc->maxObjSizeInBytes;
+    physical_block_size = volDesc->maxObjSizeInBytes;
     volume_size = (volDesc->capacity * Mi);
 }
 

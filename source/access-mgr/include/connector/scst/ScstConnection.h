@@ -57,7 +57,6 @@ struct ScstConnection : public ScstOperationsResponseIface {
     std::string volumeName;
     int scstDev {-1};
     size_t volume_size;
-    size_t object_size;
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstConnector* scst_server;
@@ -66,8 +65,8 @@ struct ScstConnection : public ScstOperationsResponseIface {
     size_t resp_needed;
 
     cmd_type cmd;
-    size_t total_blocks;
-    ssize_t write_offset;
+    uint32_t logical_block_size;
+    uint32_t physical_block_size {0};
 
     boost::lockfree::queue<ScstTask*> readyResponses;
     std::unordered_map<uint32_t, unique<ScstTask>> repliedResponses;
@@ -84,6 +83,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     bool getAndRespond();
 
     void execAllocCmd();
+    void execMemFree();
     void execSessionCmd();
     void execUserCmd();
     void execCompleteCmd();

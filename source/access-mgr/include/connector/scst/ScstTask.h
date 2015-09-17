@@ -41,10 +41,20 @@ struct ScstTask {
     inline uint64_t getOffset() const { return offset; }
     inline uint32_t getLength() const { return length; }
     inline uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
-    inline void setObjectCount(size_t const count) { bufVec.reserve(count); offVec.reserve(count); }
+    inline void setObjectCount(size_t const count) {
+        objCount = count;
+        bufVec.reserve(count);
+        offVec.reserve(count);
+    }
 
     void setRead(uint64_t const off, uint32_t const bytes) {
         operation = READ;
+        offset = off;
+        length = bytes;
+    }
+
+    void setWrite(uint64_t const off, uint32_t const bytes) {
+        operation = WRITE;
         offset = off;
         length = bytes;
     }
@@ -67,8 +77,8 @@ struct ScstTask {
     void setResponseBuffer(std::unique_ptr<uint8_t[]>& buf, size_t buf_len)
     {
         fds_assert(buf);
-        exec_buffer.swap(buf);
-        reply.exec_reply.pbuf = (unsigned long)exec_buffer.get();
+        pbuffer.swap(buf);
+        reply.exec_reply.pbuf = (unsigned long)pbuffer.get();
         reply.exec_reply.resp_data_len = buf_len;
     }
 
@@ -145,7 +155,7 @@ struct ScstTask {
 
     // pbuf pointer for cmds (RAII)
     uint8_t sense_buffer[18] {};
-    std::unique_ptr<uint8_t[]> exec_buffer;
+    std::unique_ptr<uint8_t[]> pbuffer;
 
     // to collect read responses or first and last buffer for write op
     std::vector<buffer_ptr_type> bufVec;
