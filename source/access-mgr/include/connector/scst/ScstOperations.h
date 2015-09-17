@@ -21,79 +21,11 @@
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "connector/scst/scst_user.h"
+#include "connector/SectorLockMap.h"
 
 namespace fds {
 
 struct ScstTask;
-
-// This class offers a way to "lock" a sector of the blob
-// and queue operations modifying the same offset to maintain
-// consistency for < maxObjectSize writes.
-template <typename E, size_t N>
-struct SectorLockMap {
-    typedef E entry_type;
-    static constexpr size_t size = N;
-    typedef std::mutex lock_type;
-    typedef uint64_t key_type;
-    typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
-    typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
-    typedef typename map_type::iterator map_it;
-
-    enum class QueueResult { FirstEntry, AddedEntry, Failure };
-
-    SectorLockMap() :
-        map_lock(), sector_map()
-    {}
-    ~SectorLockMap() {}
-
-    QueueResult queue_update(key_type const& k, entry_type e) {
-        QueueResult result = QueueResult::Failure;
-        std::lock_guard<lock_type> g(map_lock);
-        map_it it = sector_map.find(k);
-        if (sector_map.end() != it) {
-            if ((*it).second->push(e)) result = QueueResult::AddedEntry;
-        } else {
-            auto r = sector_map.insert(
-                std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
-            fds_assert(r.second);
-            result = QueueResult::FirstEntry;
-        }
-        return result;
-    }
-
-    std::pair<bool, entry_type> pop(key_type const& k, bool and_delete = false)
-    {
-        static std::pair<bool, entry_type> const no = {false, entry_type()};
-        std::lock_guard<lock_type> g(map_lock);
-        map_it it = sector_map.find(k);
-        if (sector_map.end() != it) {
-            entry_type entry;
-            if ((*it).second->pop(entry)) {
-                return std::make_pair(true, entry);
-            } else {
-                // No more queued requests, return nullptr
-                if (and_delete) {
-                    sector_map.erase(it);
-                }
-            }
-        } else {
-            fds_assert(false);  // This shouldn't happen, let's know in debug
-        }
-        return no;
-    }
-
-    std::pair<bool, entry_type> pop_and_delete(key_type const& k)
-    {
-        return pop(k, true);
-    }
-
- private:
-    explicit SectorLockMap(SectorLockMap const& rhs) = delete;  // Non-copyable
-    SectorLockMap& operator=(SectorLockMap const& rhs) = delete;  // Non-assignable
-
-    lock_type map_lock;
-    map_type sector_map;
-};
 
 // Response interface for ScstOperations
 struct ScstOperationsResponseIface {
@@ -109,21 +41,21 @@ struct ScstOperationsResponseIface {
     virtual void terminate() = 0;
 };
 
-struct HandleSeqPair {
+struct ScstSequencePair {
     uint32_t handle;
     uint32_t seq;
 };
 
 class ScstOperations
     :   public boost::enable_shared_from_this<ScstOperations>,
-        public AmAsyncResponseApi<HandleSeqPair>
+        public AmAsyncResponseApi<ScstSequencePair>
 {
-    using req_api_type = AmAsyncDataApi<HandleSeqPair>;
-    using resp_api_type = AmAsyncResponseApi<HandleSeqPair>;
+    using req_api_type = AmAsyncDataApi<ScstSequencePair>;
+    using resp_api_type = AmAsyncResponseApi<ScstSequencePair>;
 
     typedef resp_api_type::handle_type handle_type;
     typedef SectorLockMap<handle_type, 1024> sector_type;
-    typedef std::unordered_map<int64_t, ScstTask*> response_map_type;
+    typedef std::unordered_map<uint32_t, ScstTask*> response_map_type;
   public:
     explicit ScstOperations(ScstOperationsResponseIface* respIface);
     explicit ScstOperations(ScstOperations const& rhs) = delete;
@@ -137,7 +69,7 @@ class ScstOperations
 
     void read(ScstTask* resp);
 
-    void write(req_api_type::shared_buffer_type& bytes, uint32_t length, uint64_t offset, ScstTask* resp);
+    void write(char* bytes, ScstTask* resp);
 
     void attachVolumeResp(const resp_api_type::error_type &error,
                           handle_type& requestId,

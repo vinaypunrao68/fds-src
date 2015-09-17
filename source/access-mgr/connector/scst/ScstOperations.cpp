@@ -160,14 +160,14 @@ ScstOperations::read(ScstTask* resp) {
 
 
 void
-ScstOperations::write(boost::shared_ptr<std::string>& bytes,
-                     uint32_t length,
-                     uint64_t offset,
-                     ScstTask* resp) {
+ScstOperations::write(char* bytes, ScstTask* resp) {
     fds_assert(amAsyncDataApi);
     // calculate how many FDS objects we will write
+    auto length = resp->getLength();
+    auto offset = resp->getOffset();
     uint32_t objCount = getObjectCount(length, offset);
 
+    resp->setMaxObjectSize(maxObjectSizeInBytes);
     resp->setObjectCount(objCount);
 
     {   // add response that we will fill in with data
@@ -191,8 +191,7 @@ ScstOperations::write(boost::shared_ptr<std::string>& bytes,
         LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
                   << " for length: 0x" << iLength;
 
-        auto objBuf = (iLength == bytes->length()) ?
-            bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
+        auto objBuf = boost::make_shared<std::string>(bytes, iLength);
 
         // write an object
         boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
@@ -348,7 +347,7 @@ ScstOperations::drainUpdateChain(uint64_t const offset,
     //  Either we explicitly are handling a RMW or checking to see if there are
     //  any new ones in the queue
     if (nullptr == queued_handle_ptr) {
-        std::tie(update_queued, queued_handle) = sector_map.pop_and_delete(offset);
+        std::tie(update_queued, queued_handle) = sector_map.pop(offset, true);
     } else {
         queued_handle = *queued_handle_ptr;
     }

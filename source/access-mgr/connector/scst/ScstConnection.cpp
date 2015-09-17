@@ -82,7 +82,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
         {                           // SCST options
                 SCST_USER_PARSE_STANDARD,                   // parse type
                 SCST_USER_ON_FREE_CMD_CALL,                 // command on-free type
-                SCST_USER_MEM_NO_REUSE,                     // command reuse type
+                SCST_USER_MEM_REUSE_WRITE,                  // command reuse type
                 SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
                 0,                                          // partial transfer length
                 SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
@@ -172,14 +172,24 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
 }
 
 void ScstConnection::execAllocCmd() {
-    LOGDEBUG << "Allocation command received.";
-    fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd->cmd_h, SCST_USER_ALLOC_MEM);
-    readyResponses.push(task);
+    auto& length = cmd->alloc_cmd.alloc_len;
+    LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
+
+    // Allocate a page aligned memory buffer for Scst usage
+    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
+    auto buffer = posix_memalign((void**)&reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length);
+    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
+}
+
+void ScstConnection::execMemFree() {
+    LOGTRACE << "Deallocation requested.";
+    free((void*)cmd->on_cached_mem_free.pbuf);
+    scst_user_reply_cmd reply { cmd->cmd_h, cmd->subcode, 0ull };
+    (void) ioctl(scstDev, SCST_USER_REPLY_CMD, &reply);
 }
 
 void ScstConnection::execCompleteCmd() {
-    LOGTRACE << "Command responded.";
+    LOGTRACE << "Command complete: [0x" << std::hex << cmd->cmd_h << "]";
 
     auto it = repliedResponses.find(cmd->cmd_h);
     fds_assert(repliedResponses.end() != it);
@@ -288,11 +298,11 @@ void ScstConnection::execUserCmd() {
                 uint8_t pc = scsi_cmd.cdb[2] / 0x40;
                 uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
                 uint8_t& subpage = scsi_cmd.cdb[3];
-                LOGIO << "Mode Sense: "
-                      << " dbd[" << std::hex << dbd
-                      << "] pc[" << std::hex << (uint32_t)pc
-                      << "] page_code[" << (uint32_t)page_code
-                      << "] subpage[" << (uint32_t)subpage << "]";
+                LOGTRACE << "Mode Sense: "
+                         << " dbd[" << std::hex << dbd
+                         << "] pc[" << std::hex << (uint32_t)pc
+                         << "] page_code[" << (uint32_t)page_code
+                         << "] subpage[" << (uint32_t)subpage << "]";
 
                 // We do not support any subpages
                 if (0x00 != subpage) {
@@ -332,6 +342,23 @@ void ScstConnection::execUserCmd() {
                 // Number of logic blocks per object as a power of 2
                 buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
                 task->setResponseBuffer(buffer, 32);
+            }
+            break;
+        case WRITE_10:
+            {
+                bool fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
+                uint32_t lba = be32toh(*reinterpret_cast<uint32_t*>(scsi_cmd.cdb + 2));
+                uint32_t blocks = be16toh(*reinterpret_cast<uint16_t*>(scsi_cmd.cdb + 7));
+
+                LOGIO << "Write received for "
+                      << "LBA[0x" << std::hex << lba
+                      << "] Blocks[0x" << blocks
+                      << "] Handle[0x" << cmd->cmd_h << "]";
+                uint64_t offset = lba * logical_block_size;
+                uint32_t write_length = blocks * logical_block_size;
+                auto buffer = boost::make_shared<std::string>((char*)scsi_cmd.pbuf, write_length);
+                task->setWrite(offset, write_length);
+                return scstOps->write((char*) scsi_cmd.pbuf, task);
             }
             break;
         default:
@@ -397,8 +424,10 @@ ScstConnection::getAndRespond() {
         case SCST_USER_TASK_MGMT_DONE:
             execTaskMgmtCmd();
             break;
-        case SCST_USER_ALLOC_MEM:
         case SCST_USER_ON_CACHED_MEM_FREE:
+            execMemFree();
+            break;
+        case SCST_USER_ALLOC_MEM:
             execAllocCmd();
             break;
         case SCST_USER_PARSE:

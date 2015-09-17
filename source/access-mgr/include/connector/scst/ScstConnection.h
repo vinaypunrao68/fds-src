@@ -83,6 +83,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     bool getAndRespond();
 
     void execAllocCmd();
+    void execMemFree();
     void execSessionCmd();
     void execUserCmd();
     void execCompleteCmd();
