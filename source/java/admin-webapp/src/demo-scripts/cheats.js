@@ -43,7 +43,7 @@ var setFirebreak = function( volumeName, state ){
     
     var fb = { time: time };
     
-    window.localStorage.setItem( volume.id + '_fb', JSON.stringify( fb ) );
+    window.localStorage.setItem( volume.uid + '_fb', JSON.stringify( fb ) );
     
 };
 
@@ -157,7 +157,7 @@ var listNodes = function( full ){
     var nodes = JSON.parse( window.localStorage.getItem( 'nodes' ) );
     
     for ( var i = 0; i < nodes.length; i++ ){
-        var str = nodes[i].id.uuid + ': ' + nodes[i].id.name;
+        var str = nodes[i].uid + ': ' + nodes[i].name;
         
         if ( full === true ){
             str = nodes[i];
@@ -176,7 +176,7 @@ var listDetachedNodes = function( full ){
     var nodes = JSON.parse( window.localStorage.getItem( 'detachedNodes' ) );
 
     for ( var i = 0; i < nodes.length; i++ ){
-        var str = nodes[i].id.uuid + ': ' + nodes[i].id.name;
+        var str = nodes[i].uid + ': ' + nodes[i].name;
         
         if ( full === true ){
             str = nodes[i];
