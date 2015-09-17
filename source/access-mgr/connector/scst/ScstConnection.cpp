@@ -243,6 +243,19 @@ void ScstConnection::execUserCmd() {
         case TEST_UNIT_READY:
             LOGTRACE << "Test Unit Ready received.";
             break;
+        case FORMAT_UNIT:
+            {
+                LOGTRACE << "Format Unit received.";
+                bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
+                bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
+
+                // Mutually exclusive (and not supported)
+                if (fmtdata || fmtpinfo) {
+                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                }
+                // Nothing to do as we don't support data patterns...done!
+                break;
+            }
         case INQUIRY:
             {
                 auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[36] {});
@@ -325,19 +338,26 @@ void ScstConnection::execUserCmd() {
                 return scstOps->read(task);
             }
             break;
-        case READ_CAPACITY_16:  // READ_CAPACITY(16)
+        case READ_CAPACITY:     // READ_CAPACITY(10)
+        case READ_CAPACITY_16:
             {
                 LOGDEBUG << "Read Capacity received.";
                 auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
 
                 uint64_t num_blocks = volume_size / logical_block_size;
                 uint32_t blocks_per_object = physical_block_size / logical_block_size;
-                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
-                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
 
-                // Number of logic blocks per object as a power of 2
-                buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
-                task->setResponseBuffer(buffer, 32);
+                if (READ_CAPACITY == scsi_cmd.cdb[0]) {
+                    *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                    *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
+                    task->setResponseBuffer(buffer, 8);
+                } else {
+                    *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                    *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
+                    // Number of logic blocks per object as a power of 2
+                    buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
+                    task->setResponseBuffer(buffer, 32);
+                }
             }
             break;
         case WRITE_6:
