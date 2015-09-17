@@ -119,8 +119,8 @@ class TestS3GetConn(TestCase.FDSTestCase):
                  if retryCount < maxRetries:
                    retryTime = 1 + ( (retryCount - 1) * backoff_factor )
                    time.sleep(retryTime)
-                 else:
-                   break
+              else:
+                break
 
             if not s3conn:
                 self.log.error("boto.connect_s3() on %s did not return an S3 connection." %
