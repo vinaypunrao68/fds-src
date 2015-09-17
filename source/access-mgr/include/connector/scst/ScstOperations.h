@@ -20,8 +20,11 @@
 #include "concurrency/Mutex.h"
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
+#include "connector/scst/scst_user.h"
 
 namespace fds {
+
+struct ScstTask;
 
 // This class offers a way to "lock" a sector of the blob
 // and queue operations modifying the same offset to maintain
@@ -92,112 +95,6 @@ struct SectorLockMap {
     map_type sector_map;
 };
 
-struct ScstResponseVector {
-    using buffer_type = std::string;
-    using buffer_ptr_type = boost::shared_ptr<buffer_type>;
-    enum ScstOperation {
-        READ = 0,
-        WRITE = 1
-    };
-
-    ScstResponseVector(int64_t hdl, ScstOperation op,
-                      uint64_t off, uint32_t len, uint32_t maxOSize,
-                      uint32_t objCnt = 1)
-      : handle(hdl), operation(op), doneCount(0), offset(off), length(len),
-        maxObjectSizeInBytes(maxOSize), objCount(objCnt), opError(ERR_OK)
-    {
-        bufVec.reserve(objCount);
-        offVec.reserve(objCount);
-    }
-
-    ~ScstResponseVector() {}
-    typedef boost::shared_ptr<ScstResponseVector> shared_ptr;
-
-    fds_bool_t isRead() const { return (operation == READ); }
-    inline fds_int64_t getHandle() const { return handle; }
-    inline Error getError() const { return opError; }
-    inline fds_uint64_t getOffset() const { return offset; }
-    inline fds_uint32_t getLength() const { return length; }
-    inline fds_uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
-
-    buffer_ptr_type getNextReadBuffer(fds_uint32_t& context) {
-        if (context >= bufVec.size()) {
-            return nullptr;
-        }
-        return bufVec[context++];
-    }
-
-    void keepBufferForWrite(fds_uint32_t const seqId,
-                            fds_uint64_t const objectOff,
-                            buffer_ptr_type& buf) {
-        fds_assert(WRITE == operation);
-        bufVec.emplace_back(buf);
-        offVec.emplace_back(objectOff);
-    }
-
-    fds_uint64_t getOffset(fds_uint32_t const seqId) const {
-        return offVec[seqId];
-    }
-
-    buffer_ptr_type getBuffer(fds_uint32_t const seqId) const {
-        return bufVec[seqId];
-    }
-
-    /**
-     * \return true if all responses were received or operation error
-     */
-    void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
-                            fds_uint32_t len);
-
-    /**
-     * \return true if all responses were received
-     */
-    fds_bool_t handleWriteResponse(const Error& err) {
-        fds_verify(operation == WRITE);
-        if (!err.ok()) {
-            // Note, we're always setting the most recent
-            // responses's error code.
-            opError = err;
-        }
-        uint32_t doneCnt = doneCount.fetch_add(1);
-        return ((doneCnt + 1) == objCount);
-    }
-
-    /**
-     * Handle read response for read-modify-write
-     * \return true if all responses were received or operation error
-     */
-    std::pair<Error, buffer_ptr_type>
-        handleRMWResponse(buffer_ptr_type const& retBuf,
-                          fds_uint32_t len,
-                          fds_uint32_t seqId,
-                          const Error& err);
-
-    fds_int64_t handle;
-
-    // These are the responses we are also in charge of responding to, in order
-    // with ourselves being last.
-    std::unordered_map<fds_uint32_t, std::deque<ScstResponseVector*>> chained_responses;
-
-  private:
-    ScstOperation operation;
-    std::atomic_uint doneCount;
-    fds_uint32_t objCount;
-
-    // error of the operation
-    Error opError;
-
-    // to collect read responses or first and last buffer for write op
-    std::vector<buffer_ptr_type> bufVec;
-    // when writing, we need to remember the object offsets for rwm buffers
-    std::vector<fds_uint64_t> offVec;
-
-    // offset
-    fds_uint64_t offset;
-    fds_uint32_t length;
-    fds_uint32_t maxObjectSizeInBytes;
-};
-
 // Response interface for ScstOperations
 struct ScstOperationsResponseIface {
     ScstOperationsResponseIface() = default;
@@ -207,13 +104,13 @@ struct ScstOperationsResponseIface {
     ScstOperationsResponseIface& operator=(ScstOperationsResponseIface const&&) = delete;
     virtual ~ScstOperationsResponseIface() = default;
 
-    virtual void readWriteResp(ScstResponseVector* response) = 0;
-    virtual void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
+    virtual void respondTask(ScstTask* response) = 0;
+    virtual void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
     virtual void terminate() = 0;
 };
 
 struct HandleSeqPair {
-    int64_t handle;
+    uint32_t handle;
     uint32_t seq;
 };
 
@@ -226,7 +123,7 @@ class ScstOperations
 
     typedef resp_api_type::handle_type handle_type;
     typedef SectorLockMap<handle_type, 1024> sector_type;
-    typedef std::unordered_map<fds_int64_t, ScstResponseVector*> response_map_type;
+    typedef std::unordered_map<int64_t, ScstTask*> response_map_type;
   public:
     explicit ScstOperations(ScstOperationsResponseIface* respIface);
     explicit ScstOperations(ScstOperations const& rhs) = delete;
@@ -235,11 +132,12 @@ class ScstOperations
 
     typedef boost::shared_ptr<ScstOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
-              std::shared_ptr<AmProcessor> processor);
+              std::shared_ptr<AmProcessor> processor,
+              ScstTask* resp);
 
-    void read(fds_uint32_t length, fds_uint64_t offset, fds_int64_t handle);
+    void read(ScstTask* resp);
 
-    void write(req_api_type::shared_buffer_type& bytes, fds_uint32_t length, fds_uint64_t offset, fds_int64_t handle);
+    void write(req_api_type::shared_buffer_type& bytes, uint32_t length, uint64_t offset, ScstTask* resp);
 
     void attachVolumeResp(const resp_api_type::error_type &error,
                           handle_type& requestId,
@@ -260,22 +158,22 @@ class ScstOperations
     void shutdown();
 
   private:
-    void finishResponse(ScstResponseVector* response);
+    void finishResponse(ScstTask* response);
 
-    void drainUpdateChain(fds_uint64_t const offset,
-                          ScstResponseVector::buffer_ptr_type buf,
+    void drainUpdateChain(uint64_t const offset,
+                          boost::shared_ptr<std::string> buf,
                           handle_type* queued_handle_ptr,
                           Error const error);
 
-    fds_uint32_t getObjectCount(fds_uint32_t length,
-                                fds_uint64_t offset);
+    uint32_t getObjectCount(uint32_t length,
+                                uint64_t offset);
 
     void detachVolume();
 
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
-    fds_uint32_t maxObjectSizeInBytes;
+    uint32_t maxObjectSizeInBytes;
 
     // interface to respond to scst passed down in constructor
     std::unique_ptr<ScstOperationsResponseIface> scstResp;
