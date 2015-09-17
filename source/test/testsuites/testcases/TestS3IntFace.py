@@ -107,7 +107,7 @@ class TestS3GetConn(TestCase.FDSTestCase):
             retryCount = 0
             maxRetries = 20;
             backoff_factor = 0.5
-            while retryCount < maxRetires:
+            while retryCount < maxRetries:
               s3conn = boto.connect_s3(aws_access_key_id='admin',
                                        aws_secret_access_key=om_node.auth_token,
                                        host=om_node.nd_conf_dict['ip'],
