@@ -494,15 +494,15 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                   (scenario.nd_conf_dict['scenario-name']))
                         raise Exception
                     elif service == "dm":
-                        suite.addTest(TestFDSServiceMgt.TestDMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestDMStop(node=node))
                     elif service == "sm":
-                        suite.addTest(TestFDSServiceMgt.TestSMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestSMStop(node=node))
                     elif service == "om":
                         log.error("Remove action not valid for OM service for scenario '%s'" %
                                   (scenario.nd_conf_dict['scenario-name']))
                         raise Exception
                     elif service == "am":
-                        suite.addTest(TestFDSServiceMgt.TestAMRemove(node=node))
+                        suite.addTest(TestFDSServiceMgt.TestAMStop(node=node))
 
         if (action.count("add") > 0):
             if selectedServices == None:
@@ -539,15 +539,15 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 for node in fdsNodes:
                     for service in selectedServices:
                         if service == "pm":
-                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
                         elif service == "dm":
-                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
                         elif service == "sm":
-                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
                         elif service == "om":
-                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
                         elif service == "am":
-                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+                            suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
 
             else:
                 for service in selectedServices:

@@ -10,7 +10,7 @@ import config
 import config_parser
 import s3
 import os
-import utils
+import lib
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -49,7 +49,7 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
         random_samples = random.sample(samples, 10)
         self.all_blob_sizes = self.blob_sizes.union(random_samples)
 	self.filesystem_types = ['mkfs.ext2', 'mkfs.ext4', 'mkfs.ext3'] #not sure if we need ext2
-	utils.create_dir(config.DOWNLOAD_DIR)
+	lib.create_dir(config.DOWNLOAD_DIR)
 
     def runTest(self):
 	'''
@@ -103,7 +103,7 @@ class TestBlockVolumeLargeNumberBlobs(testcase.FDSTestCase):
         try:
 
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                  self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 

@@ -453,10 +453,18 @@ class FdsNodeConfig(FdsConfig):
         status = 0
 
         for node in node_list:
-            if str(node.services['PM'][0].port) == port:
-                self.nd_assigned_name = 'pm'
-                self.nd_uuid = hex(int(node.id))
-                break
+            if self.nd_local is True:
+                # For local machine cluster each node ip is same but port is diff, so use port number
+                if str(node.services['PM'][0].port) == port:
+                    self.nd_assigned_name = 'pm'
+                    self.nd_uuid = hex(int(node.id))
+                    break
+            else:
+                #For AWS cluster each node port is same but ip addr is diff, so use ipaddress
+                if self.nd_conf_dict['ip'] == node.address.ipv4address:
+                    self.nd_assigned_name = 'pm'
+                    self.nd_uuid = hex(int(node.id))
+
         if (self.nd_uuid is None):
             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
             log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))

@@ -15,8 +15,8 @@ extern "C" {
 #include <ev++.h>
 #include <boost/shared_ptr.hpp>
 
-#include "connector/block/NbdConnector.h"
-#include "connector/block/NbdConnection.h"
+#include "connector/nbd/NbdConnector.h"
+#include "connector/nbd/NbdConnection.h"
 #include "fds_process.h"
 
 namespace fds {
@@ -72,21 +72,28 @@ void NbdConnector::initialize() {
         return;
     }
 
-    // This is our async event watcher for shutdown
-    if (!asyncWatcher) {
-        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
-        asyncWatcher->set<NbdConnector, &NbdConnector::reset>(this);
-        asyncWatcher->start();
-    }
-
     // Setup event loop
-    if (!evIoWatcher) {
+    if (!evLoop && !evIoWatcher) {
         LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
+        evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
+        if (!evLoop || !evIoWatcher) {
+            LOGERROR << "Failed to initialize lib_ev...";
+            return;
+        }
+        evIoWatcher->set(*evLoop);
         evIoWatcher->set<NbdConnector, &NbdConnector::nbdAcceptCb>(this);
     }
     evIoWatcher->set(nbdSocket, ev::READ);
     evIoWatcher->start(nbdSocket, ev::READ);
+
+    // This is our async event watcher for shutdown
+    if (!asyncWatcher) {
+        asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+        asyncWatcher->set(*evLoop);
+        asyncWatcher->set<NbdConnector, &NbdConnector::reset>(this);
+        asyncWatcher->start();
+    }
 }
 
 void NbdConnector::reset() {
@@ -173,7 +180,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
 
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(this, clientsd, processor);
+            NbdConnection *client = new NbdConnection(this, evLoop, clientsd, processor);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {
@@ -235,9 +242,7 @@ NbdConnector::lead() {
     if (0 != pthread_sigmask(SIG_BLOCK, &set, nullptr)) {
         LOGWARN << "Failed to enable SIGPIPE mask on NBD server.";
     }
-
-    ev::default_loop loop;
-    loop.run(0);
+    evLoop->run(0);
 }
 
 }  // namespace fds

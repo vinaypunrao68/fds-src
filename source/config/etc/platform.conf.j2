@@ -40,6 +40,7 @@ fds: {
 
         }
         am: {
+            scst_connector = {{ ft_am_scst_enabled }}
             serialization = "{{ am_req_serialization }}"
             safe_atomic_write = {{ am_safe_atomic_write }}
         }
@@ -694,6 +695,7 @@ fds: {
     	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
     	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
 	nfs_stats = true
+	nfs_defer_metatada_updates = {{ nfs_defer_metadata_updates }}
     }
 
     test: {

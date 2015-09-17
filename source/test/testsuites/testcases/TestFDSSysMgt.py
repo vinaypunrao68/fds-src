@@ -255,7 +255,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
                 n = self.passedNode
             self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
             node_id = int(n.nd_uuid, 16)
-            # Prevent scenario where we try to take remove a node that was never online
+            # Prevent scenario where we try to remove a node that was never online
             if not node_is_up(self,om_ip,node_id):
                 self.log.info("Selected node {} is not UP. Ignoring "
                                      "command to remove node".format(n.nd_conf_dict['node-name']))

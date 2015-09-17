@@ -10,7 +10,7 @@ from boto.s3.key import Key
 import config
 import s3
 import samples
-import utils
+import lib
 import file_generator
 import testsets.testcase as testcase
 
@@ -55,7 +55,7 @@ class Test5GBS3Put(testcase.FDSTestCase):
         # Delete the bucket
         self.destroy_volume(bucket, s3conn)
         # remote the 5GB file created
-        utils.remove_dir(config.RANDOM_DATA)
+        lib.remove_dir(config.RANDOM_DATA)
 
     def check_file_hash(self):
         '''
@@ -66,7 +66,7 @@ class Test5GBS3Put(testcase.FDSTestCase):
             # hash the file and compare with the key
             self.log.info("Hashing for file %s" % k)
             path = os.path.join(config.RANDOM_DATA, k)
-            hashcode = utils.hash_file_content(path)
+            hashcode = lib.hash_file_content(path)
             if v != hashcode:
                 self.log.warning("%s != %s" % (v, hashcode))
                 self.test_passed = False
@@ -97,7 +97,7 @@ class Test5GBS3Put(testcase.FDSTestCase):
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
+                                             cb=lib.percent_cb,
                                              num_cb=10)
                 self.log.info("Uploaded file %s to bucket %s" %
                              (sample, bucket.name))

@@ -51,7 +51,7 @@ public class NfsTest extends BaseAmTest {
         asyncAm.start();
         resolver = mock(ExportResolver.class);
         when(resolver.exportId(anyString())).thenReturn(0);
-        amVfs = new BlockyVfs(asyncAm, resolver, new Counters());
+        amVfs = new BlockyVfs(asyncAm, resolver, new Counters(), true);
     }
 
     @Before

@@ -2,8 +2,8 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_COMMON_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_COMMON_H_
 
 // Forward declare so we can hide the ev++.h include
 // in the cpp file so that it doesn't conflict with
@@ -11,6 +11,7 @@
 namespace ev {
 class io;
 class async;
+struct dynamic_loop;
 }  // namespace ev
 
 namespace fds
@@ -23,4 +24,4 @@ namespace fds
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCK_COMMON_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_COMMON_H_

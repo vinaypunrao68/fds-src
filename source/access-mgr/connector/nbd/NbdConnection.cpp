@@ -2,7 +2,7 @@
  * Copyright 2013-2015 Formation Data Systems, Inc.
  */
 
-#include "connector/block/NbdConnection.h"
+#include "connector/nbd/NbdConnection.h"
 
 #include <cerrno>
 #include <string>
@@ -18,7 +18,7 @@ extern "C" {
 
 #include <ev++.h>
 
-#include "connector/block/NbdConnector.h"
+#include "connector/nbd/NbdConnector.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"
@@ -79,6 +79,7 @@ template<typename M>
 bool get_message_payload(int fd, M& message);
 
 NbdConnection::NbdConnection(NbdConnector* server,
+                             std::shared_ptr<ev::dynamic_loop> loop,
                              int clientsd,
                              std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
@@ -103,10 +104,12 @@ NbdConnection::NbdConnection(NbdConnector* server,
     standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
+    ioWatcher->set(*loop);
     ioWatcher->set<NbdConnection, &NbdConnection::ioEvent>(this);
     ioWatcher->start(clientSocket, ev::READ | ev::WRITE);
 
     asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+    asyncWatcher->set(*loop);
     asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
     asyncWatcher->start();
 

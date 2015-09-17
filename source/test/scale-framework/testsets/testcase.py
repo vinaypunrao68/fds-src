@@ -11,7 +11,7 @@ import unittest
 import config
 import config_parser
 import s3
-import utils
+import lib
 
 class FDSTestCase(unittest.TestCase):
 
@@ -48,7 +48,7 @@ class FDSTestCase(unittest.TestCase):
         if 'inventory_file' in parameters:
              self.inventory_file = parameters['inventory_file']
 
-        auth_token = str(utils.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
+        auth_token = str(lib.get_user_token(config.FDS_DEFAULT_ADMIN_USER,
                                               config.FDS_DEFAULT_ADMIN_PASS,
                                               self.om_ip_address, config.FDS_REST_PORT, 0, 1))
         self.s3conn = s3.S3Connection(

@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 
-#include "connector/block/common.h"
-#include "connector/block/NbdOperations.h"
+#include "connector/nbd/common.h"
+#include "connector/nbd/NbdOperations.h"
 
 #include "AmAsyncDataApi_impl.h"
 

@@ -3,8 +3,14 @@ package com.formationds.nfs;
 import com.formationds.xdi.AsyncAm;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
+import org.dcache.acl.ACE;
+import org.dcache.acl.enums.AceFlags;
+import org.dcache.acl.enums.AceType;
+import org.dcache.acl.enums.Who;
 import org.dcache.auth.GidPrincipal;
+import org.dcache.auth.Subjects;
 import org.dcache.auth.UidPrincipal;
+import org.dcache.nfs.status.BadOwnerException;
 import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.status.NotDirException;
@@ -22,7 +28,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class BlockyVfs implements VirtualFileSystem {
+import static org.dcache.nfs.v4.xdr.nfs4_prot.ACE4_INHERIT_ONLY_ACE;
+
+public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final String DOMAIN = "nfs";
     private static final Logger LOG = Logger.getLogger(BlockyVfs.class);
     private InodeMap inodeMap;
@@ -34,8 +42,8 @@ public class BlockyVfs implements VirtualFileSystem {
     private Chunker chunker;
     private final Counters counters;
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters) {
-        AmIo amIo = new AmIo(asyncAm, counters);
+    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
+        AmIo amIo = new AmIo(asyncAm, counters, deferMetadataWrites);
         inodeMap = new InodeMap(amIo, resolver);
         allocator = new InodeAllocator(amIo);
         this.exportResolver = resolver;
@@ -308,10 +316,10 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        counters.increment(Counters.Key.write);
-        counters.increment(Counters.Key.bytesWritten, count);
         InodeMetadata updated = inodeMap.write(inode, data, offset, count);
         inodeIndex.index(inode.exportIndex(), updated);
+        counters.increment(Counters.Key.write);
+        counters.increment(Counters.Key.bytesWritten, count);
         return new WriteResult(stabilityLevel, Math.max(data.length, count));
     }
 
@@ -351,29 +359,28 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public nfsace4[] getAcl(Inode inode) throws IOException {
-//        if (inodeMap.isRoot(inode)) {
-//            return InodeMap.ROOT_METADATA.getNfsAces();
-//        }
-//
-//        Optional<InodeMetadata> stat = inodeMap.stat(inode);
-//        if (!stat.isPresent()) {
-//            throw new NoEntException();
-//        }
-//        return stat.get().getNfsAces();
-        return new nfsace4[0];
+        if (inodeMap.isRoot(inode)) {
+            return InodeMap.ROOT_METADATA.getNfsAces();
+        }
+
+        Optional<InodeMetadata> stat = inodeMap.stat(inode);
+        if (!stat.isPresent()) {
+            throw new NoEntException();
+        }
+        return stat.get().getNfsAces();
     }
 
     @Override
     public void setAcl(Inode inode, nfsace4[] acl) throws IOException {
-//        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
-//        if (!metadata.isPresent()) {
-//            throw new NoEntException();
-//        }
-//
-//        InodeMetadata updated = metadata.get().withNfsAces(acl);
-//
-//        inodeMap.update(updated);
-//        inodeIndex.index(updated);
+        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
+        if (!metadata.isPresent()) {
+            throw new NoEntException();
+        }
+
+        InodeMetadata updated = metadata.get().withNfsAces(acl);
+
+        inodeMap.update(inode.exportIndex(), updated);
+        inodeIndex.index(inode.exportIndex(), updated);
     }
 
     @Override
@@ -383,12 +390,87 @@ public class BlockyVfs implements VirtualFileSystem {
 
     @Override
     public AclCheckable getAclCheckable() {
-        return null;
+        return this;
     }
 
     @Override
     public NfsIdMapping getIdMapper() {
         return idMap;
+    }
+
+    @Override
+    public Access checkAcl(Subject subject, Inode inode, int accessMask) throws IOException {
+        Optional<InodeMetadata> metadata = inodeMap.stat(inode);
+        if (!metadata.isPresent()) {
+            throw new NoEntException();
+        }
+
+        Stat stat = metadata.get().asStat(inode.exportIndex());
+        nfsace4[] nfsAces = metadata.get().getNfsAces();
+        List<ACE> aces = new ArrayList<>(nfsAces.length);
+        for (nfsace4 nfsAce : nfsAces) {
+            aces.add(valueOf(nfsAce, idMap));
+        }
+        Access access = checkAcl(subject, aces, stat.getUid(), stat.getGid(), accessMask);
+        return access;
+    }
+
+
+    private ACE valueOf(nfsace4 ace, NfsIdMapping idMapping) throws BadOwnerException {
+        String principal = ace.who.toString();
+        int type = ace.type.value.value;
+        int flags = ace.flag.value.value;
+        int mask = ace.access_mask.value.value;
+
+        int id = -1;
+        Who who = Who.fromAbbreviation(principal);
+        if (who == null) {
+            // not a special pricipal
+            boolean isGroup = AceFlags.IDENTIFIER_GROUP.matches(flags);
+            if (isGroup) {
+                who = Who.GROUP;
+                id = idMapping.principalToGid(principal);
+            } else {
+                who = Who.USER;
+                id = idMapping.principalToUid(principal);
+            }
+        }
+        return new ACE(AceType.valueOf(type), flags, mask, who, id, ACE.DEFAULT_ADDRESS_MSK);
+    }
+
+    private Access checkAcl(Subject subject, List<ACE> acl, int owner, int group, int access) {
+        for (ACE ace : acl) {
+            int flag = ace.getFlags();
+            if ((flag & ACE4_INHERIT_ONLY_ACE) != 0) {
+                continue;
+            }
+
+            if ((ace.getType() != AceType.ACCESS_ALLOWED_ACE_TYPE) && (ace.getType() != AceType.ACCESS_DENIED_ACE_TYPE)) {
+                continue;
+            }
+
+            int ace_mask = ace.getAccessMsk();
+            if ((ace_mask & access) == 0) {
+                continue;
+            }
+
+            Who who = ace.getWho();
+
+            if ((who == Who.EVERYONE)
+                    || (who == Who.OWNER & Subjects.hasUid(subject, owner))
+                    || (who == Who.OWNER_GROUP & Subjects.hasGid(subject, group))
+                    || (who == Who.GROUP & Subjects.hasGid(subject, ace.getWhoID()))
+                    || (who == Who.USER & Subjects.hasUid(subject, ace.getWhoID()))) {
+
+                if (ace.getType() == AceType.ACCESS_DENIED_ACE_TYPE) {
+                    return Access.DENY;
+                } else {
+                    return Access.ALLOW;
+                }
+            }
+        }
+
+        return Access.UNDEFINED;
     }
 
 
