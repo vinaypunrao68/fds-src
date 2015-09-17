@@ -82,8 +82,8 @@ public class Main {
             SingletonConfiguration.instance()
                                   .getConfig();
 
-        System.setProperty( "fds-root", configuration.getFdsRoot() );
-        logger.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
+        // Configuration class ensures that fds-root system property is defined.
+        logger.trace( "FDS-ROOT: " + configuration.getFdsRoot() );
 
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
