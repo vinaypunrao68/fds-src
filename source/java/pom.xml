@@ -62,6 +62,7 @@
     <apache.hadoop.version>2.6.0</apache.hadoop.version>
     <apache.httpcomponents.version>4.4.1</apache.httpcomponents.version>
     <apache.log4j.v2.version>2.3</apache.log4j.v2.version>
+    <asyncretry.version>0.0.7</asyncretry.version>
     <!-- issue with latest version, junit security failure -->
     <aws.version>1.7.9</aws.version>
     <bcprov.ext.jdk15on.version>1.52</bcprov.ext.jdk15on.version>
@@ -218,6 +219,12 @@
         <artifactId>jackson-databind</artifactId>
         <version>${jackson.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>com.nurkiewicz.asyncretry</groupId>
+        <artifactId>asyncretry</artifactId>
+        <version>${asyncretry.version}</version>
+       </dependency>
 
       <dependency>
         <groupId>com.google.code.gson</groupId>

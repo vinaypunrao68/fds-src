@@ -16,11 +16,14 @@
 #include "connector/scst/common.h"
 #include "connector/scst/ScstOperations.h"
 
+struct scst_user_get_cmd;
+
 namespace fds
 {
 
 struct AmProcessor;
 struct ScstConnector;
+struct ScstTask;
 
 struct ScstConnection : public ScstOperationsResponseIface {
     ScstConnection(std::string const& vol_name,
@@ -34,30 +37,26 @@ struct ScstConnection : public ScstOperationsResponseIface {
     ~ScstConnection();
 
     // implementation of ScstOperationsResponseIface
-    void readWriteResp(ScstResponseVector* response) override;
-    void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    void respondTask(ScstTask* response) override;
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
   private:
     template<typename T>
     using unique = std::unique_ptr<T>;
-    using resp_vector_type = unique<iovec[]>;
+    using cmd_type = unique<scst_user_get_cmd>;
 
     bool standalone_mode { false };
 
-    enum class ConnectionState { DETACHED,
-                                 ATTACHING,
-                                 ATTACHED,
+    enum class ConnectionState { RUNNING,
                                  STOPPING,
                                  STOPPED };
 
-     ConnectionState state_ { ConnectionState::DETACHED };
+     ConnectionState state_ { ConnectionState::RUNNING };
 
     std::string volumeName;
-    uint32_t attach_cmd_h {0};
     int scstDev {-1};
     size_t volume_size;
-    size_t object_size;
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstConnector* scst_server;
@@ -65,14 +64,15 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
     size_t resp_needed;
 
-    resp_vector_type response;
-    size_t total_blocks;
-    ssize_t write_offset;
+    cmd_type cmd;
+    uint32_t logical_block_size;
+    uint32_t physical_block_size {0};
 
-    boost::lockfree::queue<ScstResponseVector*> readyResponses;
+    boost::lockfree::queue<ScstTask*> readyResponses;
+    std::unordered_map<uint32_t, unique<ScstTask>> repliedResponses;
 
-    std::unique_ptr<ev::io> ioWatcher;
-    std::unique_ptr<ev::async> asyncWatcher;
+    unique<ev::io> ioWatcher;
+    unique<ev::async> asyncWatcher;
 
     /** Indicates to ev loop if it's safe to handle events on this connection */
     bool processing_ {false};
@@ -81,6 +81,14 @@ struct ScstConnection : public ScstOperationsResponseIface {
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
     bool getAndRespond();
+
+    void execAllocCmd();
+    void execMemFree();
+    void execSessionCmd();
+    void execUserCmd();
+    void execCompleteCmd();
+    void execTaskMgmtCmd();
+    void execParseCmd();
 };
 
 }  // namespace fds

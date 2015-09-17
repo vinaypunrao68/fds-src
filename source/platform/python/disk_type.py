@@ -235,6 +235,8 @@ class Disk:
     # delete partitions, wipe out fds magic marker
     #
     def del_parts(self):
+        if self.is_ignored():
+            return 1
         if self.is_boot_dev():
             return 1
 
@@ -248,6 +250,8 @@ class Disk:
     # format using xfs, write magic header
     #
     def format(self):
+        if self.is_ignored():
+            return None
         if self.is_boot_dev():
             return None
 
@@ -266,6 +270,8 @@ class Disk:
         return res
 
     def mount_fs(self, mount_output, dev_no):
+        if self.is_ignored():
+            return None
         if self.is_boot_dev():
             return None
 
