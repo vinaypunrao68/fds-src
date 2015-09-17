@@ -41,12 +41,12 @@ public class MemoryIo implements Io {
     }
 
     @Override
-    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+    public void mutateMetadata(String domain, String volume, String blobName, Map<String, String> map, boolean deferrable) throws IOException {
         metadataCache.put(blobName, map);
     }
 
     @Override
-    public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
+    public <T> T mapObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         Map<String, String> metadata = metadataCache.get(blobName);
         if (metadata == null) {
             try {
@@ -73,7 +73,7 @@ public class MemoryIo implements Io {
 
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
-        mapObject(domain, volume, blobName, objectSize, objectOffset, (oov) -> {
+        mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset, (oov) -> {
             ObjectView objectView = null;
             if (!oov.isPresent()) {
                 objectView = new ObjectView(new HashMap<String, String>(), ByteBuffer.allocate(objectSize));

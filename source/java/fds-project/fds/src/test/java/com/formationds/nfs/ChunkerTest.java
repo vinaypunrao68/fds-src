@@ -31,7 +31,7 @@ public class ChunkerTest {
         String arbitraryValue = UUID.randomUUID().toString();
         String blobName = "blobName";
         chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
-        io.mapObject(DOMAIN, VOLUME, blobName, OBJECT_SIZE, new ObjectOffset(0), (oov) -> {
+        io.mapObjectAndMetadata(DOMAIN, VOLUME, blobName, OBJECT_SIZE, new ObjectOffset(0), (oov) -> {
             assertTrue(oov.isPresent());
             assertEquals(arbitraryValue, oov.get().getMetadata().get("key"));
             return null;
