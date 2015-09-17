@@ -183,7 +183,6 @@ void ScstConnection::execAllocCmd() {
 void ScstConnection::execMemFree() {
     LOGTRACE << "Deallocation requested.";
     free((void*)cmd.on_cached_mem_free.pbuf);
-    scst_user_reply_cmd reply { cmd.cmd_h, cmd.subcode, 0ull };
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -389,7 +388,7 @@ void
 ScstConnection::getAndRespond() {
     cmd.preply = 0ull;
     do {
-        // If we do not have reply read a response it
+        // If we do not have reply read a response into it
         if (0ull == cmd.preply && !readyResponses.empty()) {
             ScstTask* resp {nullptr};
             ensure(readyResponses.pop(resp));
