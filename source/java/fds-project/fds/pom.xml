@@ -77,6 +77,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.nurkiewicz.asyncretry</groupId>
+      <artifactId>asyncretry</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
