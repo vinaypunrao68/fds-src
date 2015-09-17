@@ -4,6 +4,7 @@
 #
 import os
 import sys
+import time
 import logging
 import logging.handlers
 
@@ -414,7 +415,7 @@ def create_fdsConf_file(om_ip):
     file.close()
 
 def convertor(volume, fdscfg):
-    new_volume = Volume();
+    new_volume = Volume()
     new_volume.name=volume.nd_conf_dict['vol-name']
     new_volume.id=volume.nd_conf_dict['id']
 
@@ -478,7 +479,23 @@ def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
-    self.__om_auth.login()
+    print "Attempting to authenticate to %s" % (om_ip)
+    retryCount = 0
+    maxRetries = 20
+    while retryCount < maxRetries:
+      retryCount += 1
+      try:
+        self.__om_auth.login()
+        break
+
+      except Exception as e:
+        if retryCount < maxRetries:
+          retryTime = 1 + ( (retryCount - 1) * 0.5 )
+          time.sleep(retryTime)
+        else:
+          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
+
+        continue
 
 def get_ips_from_inventory(inventory_file_name,rt_env):
     filename = inventory_file_name
