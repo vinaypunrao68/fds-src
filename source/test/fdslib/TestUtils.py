@@ -479,23 +479,21 @@ def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
-    print "Attempting to authenticate to" % (om_ip)
+    print "Attempting to authenticate to %s" % (om_ip)
     retryCount = 0
     maxRetries = 20
     while retryCount < maxRetries:
       retryCount += 1
       try:
-        print "Authentcation [Attempt %s] to %s" % (retryCount, om_ip)
         self.__om_auth.login()
         break
 
       except Exception as e:
         if retryCount < maxRetries:
           retryTime = 1 + ( (retryCount - 1) * 0.5 )
-          print "Authenticate [Attempy %s] failed - Retrying in %s seconds" % (retryCount, retryTime)
           time.sleep(retryTime)
         else:
-          raise ExceptionToThrow(e)
+          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
 
         continue
 
