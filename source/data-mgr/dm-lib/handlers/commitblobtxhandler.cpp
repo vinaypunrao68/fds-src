@@ -78,7 +78,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
                                                      std::placeholders::_3,
                                                      std::placeholders::_4,
                                                      std::placeholders::_5,
-                                                     typedRequest));
+                                                     dmRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
         helper.cancel();
@@ -98,7 +98,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           BlobObjList::const_ptr const& blob_obj_list,
                                           MetaDataList::const_ptr const& meta_list,
                                           fds_uint64_t const blobSize,
-                                          DmIoCommitBlobTx* commitBlobReq) {
+										  DmRequest* dmRequest) {
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
     QueueHelper helper(dataManager, commitBlobReq);
     fds_assert(commitBlobReq->ioBlobTxDesc != nullptr);
     // If this is a piggy-back request, do not notify QoS
