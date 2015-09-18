@@ -50,6 +50,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
+    numPrimaries = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.number_of_primary", 0);
 
     // get migration timeout duration from the platform.conf file.
     migrationTimeoutSec =
@@ -157,6 +158,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                        << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
             SCOPEDWRITE(migrExecutorLock);
+            failedSMsAsSource[mySvcUuid] = false;
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 migrExecutors[smTok][srcSmUuid] = createMigrationExecutor(srcSmUuid,
@@ -288,11 +290,11 @@ Error
 MigrationMgr::startResync(const fds::DLT *dlt,
                           const NodeUuid& mySvcUuid,
                           fds_uint32_t bitsPerDltToken,
-                          PendingResyncCb pendingResyncFn)
+                          ResyncDoneOrPendingCb doneOrPendingResyncFn)
 {
     LOGNORMAL << "Starting resync for dlt version " << dlt->getVersion();
-    if (pendingResyncFn) {
-        cachedPendingResyncCb = pendingResyncFn;
+    if (doneOrPendingResyncFn) {
+        cachedResyncDoneOrPendingCb = doneOrPendingResyncFn;
     }
 
     if (!isMigrationIdle()) {
@@ -929,14 +931,13 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
                 migrExecutorLock.upgrade();
                 migrExecutors.clear();
+                failedSMsAsSource.clear();
                 LOGMIGRATE << "ResyncOnRestart: cleared executors";
                 // see if clients are also done so we can cleanup
                 checkResyncDoneAndCleanup(true);
 
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
-                LOGNOTIFY << "SM Resync process done!";
-                checkAndStartPendingResync();
             } else {
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.cond_write_unlock();
@@ -946,11 +947,11 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 }
 
 void
-MigrationMgr::checkAndStartPendingResync() {
-    bool resync = false;
-    resync = std::atomic_exchange(&isResyncPending, resync);
-    if (resync) {
-        cachedPendingResyncCb();
+MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
+    bool resyncPending = false;
+    resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
+    if (resyncPending || resyncOnRestart) {
+        cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
     }
 }
 
@@ -1174,6 +1175,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
+        failedSMsAsSource.clear();
     }
 
     {
@@ -1191,7 +1193,7 @@ MigrationMgr::handleDltClose(const DLT* dlt,
      * resync request is pending. If that's so, ask Object Store Manager
      * to start a fresh resync.
      */
-    checkAndStartPendingResync();
+    reportMigrationCompleted(false);
 
     return err;
 }
@@ -1235,6 +1237,33 @@ MigrationMgr::isDltTokenReady(const ObjectID& objId) {
         return dltTokenStates[dltTokId];
     }
     return false;
+}
+
+fds_bool_t
+MigrationMgr::primaryTokensReady(const fds::DLT *dlt,
+                                 const NodeUuid& mySvcUuid) {
+    if (numPrimaries == 0) {
+        // not using consistency model, ok if resync failed, so returnung true
+        return true;
+    }
+    TokenList tokList;   // list of DLT tokens for which this SM is primary
+    fds_uint32_t rows = dlt->getDepth();
+    if (numPrimaries < rows) {
+        rows = numPrimaries;
+    }
+    for (fds_uint32_t i = 0; i < rows; ++i) {
+        dlt->getTokens(&tokList, mySvcUuid, i);
+    }
+
+    // if at least one primary token is not ready, return false
+    FDSGUARD(dltTokenStatesMutex);
+    for (auto tok : tokList) {
+        if (!dltTokenStates[tok]) {
+            return false;
+        }
+    }
+    // all primary tokens are ready
+    return true;
 }
 
 /**
@@ -1321,8 +1350,9 @@ MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
             mTimer.cancel(retryTokenMigrationTask);
         }
 
-        LOGNOTIFY << "Token resync on restart / or being resync client completed for DLT version "
-                  << targetDltVersion;
+        LOGNOTIFY << "SM Resync process done! (Token resync on restart / or being resync client"
+                  << " completed for DLT version " << targetDltVersion << ")";
+        reportMigrationCompleted(true);
     }
 }
 
@@ -1333,7 +1363,7 @@ MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
 void
 MigrationMgr::timeoutAbortMigration()
 {
-    LOGNOTIFY << "Will abort tokenmigration due to timeout";
+    LOGNOTIFY << "Will abort token migration due to timeout";
     abortMigration(ERR_SM_TOK_MIGRATION_TIMEOUT);
 }
 
@@ -1444,6 +1474,7 @@ MigrationMgr::tryAbortingMigration() {
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
+        failedSMsAsSource.clear();
     }
     smTokenInProgressMutex.lock();
     smTokenInProgress.clear();
@@ -1578,6 +1609,10 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                        << srcSmUuid.uuid_get_val() << std::dec
                        << " for SM token " << smToken;
             for (auto const& dltToken : tokenGroup.second) {
+                if (tokenGroup.first == INVALID_RESOURCE_UUID) {
+                    LOGWARN << "Failed to sync DLT token " << dltToken << ", token will remain UNAVAILABLE";
+                    continue;
+                }
                 fds_token_id smToken = SmDiskMap::smTokenId(dltToken);
                 LOGNOTIFY << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                            << " DLT token " << dltToken << " SM token " << smToken;
