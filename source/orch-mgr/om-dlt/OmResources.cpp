@@ -2290,7 +2290,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     bool fPrevRegistered) {
 
     LOGDEBUG << "Scheduled task 'setupNewNode' started, uuid "
-             << std::hex << uuid << std::dec
+             << std::hex << uuid << std::dec;
 
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
