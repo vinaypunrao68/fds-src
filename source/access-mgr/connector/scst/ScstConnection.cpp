@@ -106,7 +106,10 @@ ScstConnection::ScstConnection(std::string const& vol_name,
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
     // We can support other target-drivers than iSCSI...TBD
     // Create an iSCSI target in the SCST mid-ware for our handler
-    auto scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/fds.iscsi:tgt/luns/mgmt", O_WRONLY);
+    auto scstTgtMgmt = open((std::string("/sys/kernel/scst_tgt/targets/iscsi/") +
+                                scst_server->targetName() +
+                                "/luns/mgmt").c_str(),
+                            O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not map lun, no iSCSI devices will be presented!";
     } else {
@@ -126,7 +129,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
     asyncWatcher->start();
 
     LOGNORMAL << "New SCST device [" << volumeName
-              << "] Tgt [fds.iscsi:tgt"
+              << "] Tgt [" << scst_server->targetName()
               << "] LUN [0"
               << "] BlockSize[" << logical_block_size << "]";
 }
@@ -403,6 +406,7 @@ ScstConnection::getAndRespond() {
         res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
         } while ((0 > res) && (EINTR == errno));
 
+        cmd.preply = 0ull;
         if (0 != res) {
             switch (errno) {
                 case ENOTTY:
@@ -413,10 +417,13 @@ ScstConnection::getAndRespond() {
                 case EINVAL:
                     fds_panic("Invalid Scst argument!");
                 default:
+                    // If we still have responses, keep replying
+                    if (!readyResponses.empty()) {
+                        continue;
+                    }
                     return;
             }
         }
-        cmd.preply = 0ull;
 
         LOGTRACE << "Received SCST command: "
                  << "[0x" << std::hex << cmd.cmd_h
@@ -446,7 +453,7 @@ ScstConnection::getAndRespond() {
                 execUserCmd();
                 break;
             default:
-                LOGTRACE << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
+                LOGWARN << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
                 break;
         }
     } while (true); // Keep replying while we have responses or requests
