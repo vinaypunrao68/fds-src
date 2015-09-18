@@ -531,8 +531,9 @@ fds: {
                 }
             }
             scst: {
-		threads={{ am_scst_server_threads }}
                 default_block_size={{ am_scst_default_block_size }}
+                target_name={{ am_scst_target_name }}
+		threads={{ am_scst_server_threads }}
             }
         }
 
