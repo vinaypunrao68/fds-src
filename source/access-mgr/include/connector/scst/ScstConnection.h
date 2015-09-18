@@ -44,7 +44,6 @@ struct ScstConnection : public ScstOperationsResponseIface {
   private:
     template<typename T>
     using unique = std::unique_ptr<T>;
-    using cmd_type = unique<scst_user_get_cmd>;
 
     bool standalone_mode { false };
 
@@ -64,7 +63,8 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
     size_t resp_needed;
 
-    cmd_type cmd;
+    scst_user_get_cmd cmd {};
+    scst_user_reply_cmd fast_reply {};
     uint32_t logical_block_size;
     uint32_t physical_block_size {0};
 
@@ -80,7 +80,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
-    bool getAndRespond();
+    void getAndRespond();
 
     void execAllocCmd();
     void execMemFree();
@@ -89,6 +89,12 @@ struct ScstConnection : public ScstOperationsResponseIface {
     void execCompleteCmd();
     void execTaskMgmtCmd();
     void execParseCmd();
+
+    void fastReply() {
+        fast_reply.cmd_h = cmd.cmd_h;
+        fast_reply.subcode = cmd.subcode;
+        cmd.preply = (unsigned long)&fast_reply;
+    }
 };
 
 }  // namespace fds
