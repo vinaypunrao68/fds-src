@@ -2270,8 +2270,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         /* schedule the task to be run on timer thread after 3 seconds */
         if ( timer->schedule( task, std::chrono::seconds( 3 ) ) )
         {
-            LOGDEBUG << "Successfully scheduled 'setupNewNode' for uuid " 
-                     << std::hex << uuid << std::dec;
+            LOGNORMAL << "Successfully scheduled 'setupNewNode' for uuid " 
+                      << std::hex << uuid << std::dec;
         }
         else
         {
@@ -2289,8 +2289,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
 
-    LOGDEBUG << "Scheduled task 'setupNewNode' started, uuid "
-             << std::hex << uuid << std::dec;
+    LOGNORMAL << "Scheduled task 'setupNewNode' started, uuid "
+              << std::hex << uuid << std::dec;
 
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
@@ -2406,8 +2406,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
     }
 
-    LOGDEBUG << "Scheduled task 'setupNewNode' finished, uuid " 
-             << std::hex << uuid << std::dec;
+    LOGNORMAL << "Scheduled task 'setupNewNode' finished, uuid " 
+              << std::hex << uuid << std::dec;
 }
 
 // om_del_services
