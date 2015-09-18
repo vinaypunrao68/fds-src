@@ -447,7 +447,6 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     		forwardedMsgs.push_back(fwdCatReq);
     		break;
     	case APPLYING_FORWARDS_IN_PROGRESS:
-    		fds_assert(forwardedMsgs.size() == 0);
     		msgHandler.addToQueue(fwdCatReq);
     		break;
     	case MIGRATION_ABORTED:
