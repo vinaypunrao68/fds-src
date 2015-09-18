@@ -516,7 +516,8 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
     fwdMsg->sequence_id = commitBlobReq->sequence_id;
-    fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
+    // fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
+    fwdMsg->txId = 0;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
