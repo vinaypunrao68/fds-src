@@ -4,6 +4,7 @@
 
 #ifndef USE_BOOSTBASED_TIMER
 #include <fds_timer.h>
+#include <util/Log.h>
 
 namespace fds
 {
@@ -83,6 +84,8 @@ std::string FdsTimer::log_string()
 
 void FdsTimer::runTimerThread_()
 {
+    GLOGNORMAL << "Timer thread started...";
+
     while (!aborted_) {
         // TODO(Rao): Improve this sleep below so that it services tasks
         // more promptly than every timerThreadSleepMs_
@@ -103,7 +106,15 @@ void FdsTimer::runTimerThread_()
                 }
                 lock_.unlock();
 
-                task->runTimerTask();
+                try {
+                    task->runTimerTask();
+                } catch (const std::exception &e) {
+                    GLOGERROR << "Exception on timer thread: " << e.what()
+                        << ".  Ignoring and continuing timer thread";
+                } catch (...) {
+                    GLOGERROR << "Unknown exception on timer thread: "
+                        << ".  Ignoring and continuing timer thread";
+                }
 
                 lock_.lock();
             } else {
@@ -114,6 +125,8 @@ void FdsTimer::runTimerThread_()
         /* go back to sleep */
         std::this_thread::sleep_for(std::chrono::milliseconds(timerThreadSleepMs_));
     }
+
+    GLOGNORMAL << "Timer thread exited...";
 }
 }  // namespace fds
 
