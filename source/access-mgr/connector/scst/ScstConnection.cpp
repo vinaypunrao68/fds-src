@@ -255,7 +255,11 @@ void ScstConnection::execUserCmd() {
             }
         case INQUIRY:
             {
-                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[36] {});
+                auto& buflen = scsi_cmd.bufflen;
+                if (buflen < 8) {
+                    return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                }
+                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[buflen] {});
 
                 buffer[0] = TYPE_DISK;
                 // Check EVPD bit
@@ -279,25 +283,52 @@ void ScstConnection::execUserCmd() {
                             buffer[4] = 0x02; // ASCII
                             buffer[5] = 0x01; // Vendor ID
                             buffer[7] = 8;
-                            memcpy(buffer.get() + 8, "FDS     ", 8);
+                            if (16 >= buflen) {
+                                memcpy(buffer.get() + 8, "FDS     ", 8);
+                            }
                             break;
                         default:
                             LOGERROR << "Request for unsupported page code.";
-                            task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                            return;
+                            return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                     }
                     task->setResponseBuffer(buffer, buffer[3] + 4);
                 } else {
                     LOGDEBUG << "Standard inquiry requested.";
-                    buffer[2] = 0x06;
-                    buffer[3] = 0x12;
-                    buffer[4] = 31;
-                    buffer[5] = 0x00;
-                    buffer[6] = 0x10;
-                    buffer[7] = 0x02;
-                    memcpy( &buffer[8], "FDS     ",          8);
-                    memcpy(&buffer[16], "SCST_VOL        ", 16);
-                    memcpy(&buffer[32], "BETA",              4);
+                    /* /-----------------------------------------------------------------------\
+                     * |                                VERSION                                |
+                     * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
+                     * |                          ADDITIONAL LENGTH                            |
+                     * |  SCCS  |  ACC   |      TPGS       |  3PC   |      resv       | PRTECT |
+                     * |  obsl  | ENCSVC | vendor | MULTIP |  obsl  |  resv  |  resv  | ADDR16 |
+                     * |  obsl  |  resv  | WBUS16 |  SYNC  |  obsl  |  resv  | CMDQUE | vendor |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const standard_inquiry_header[] = {
+                        0x06      , // SPC-4
+                        0b00010010, // SAM-5
+                        31        ,
+                        0b00000000,
+                        0b00010000,
+                        0b00000010
+                    };
+                    static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
+                    static uint8_t const product_id[]  = { 'F', 'o', 'r', 'm', 'a', 't', 'i', 'o',
+                                                           'n', 'O', 'n', 'e', ' ', ' ', ' ', ' ' };
+
+                    // Copy the fixed standard inquiry header above
+                    memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
+
+                    // Conditionally fill out the additional vendor/device id
+                    if (16 >= buflen) {
+                        memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
+                        if (32 >= buflen) {
+                            memcpy(&buffer[16], product_id, sizeof(product_id));
+                            if (36 >= buflen) {
+                                memcpy(&buffer[32], "BETA", 4);
+                            }
+                        }
+
+                    }
                     task->setResponseBuffer(buffer, buffer[4] + 5);
                 }
             }
