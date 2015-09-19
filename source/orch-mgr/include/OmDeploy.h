@@ -35,6 +35,8 @@ class DltLoadedDbEvt
     std::string logString() const {
         return "DltLoadedDbEvt";
     }
+
+    fds_bool_t isRestart() const { return true; }
 };
 
 class DltRebalOkEvt
@@ -45,6 +47,8 @@ class DltRebalOkEvt
     std::string logString() const {
         return "DltRebalOkEvt";
     }
+
+    fds_bool_t isRestart() const { return false; }
 
     NodeUuid               smAcked;
 };

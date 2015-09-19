@@ -612,7 +612,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // and close, we will redo the migration
 
     // commit as an 'official' version in the data placement engine
-    dp->commitDlt();
+    dp->commitDlt( evt.isRestart() );
 
     // Send new DLT to each node in the cluster map
     // the new DLT now is committed DLT
