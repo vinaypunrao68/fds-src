@@ -77,7 +77,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
         {                           // SCST options
                 SCST_USER_PARSE_STANDARD,                   // parse type
                 SCST_USER_ON_FREE_CMD_CALL,                 // command on-free type
-                SCST_USER_MEM_REUSE_WRITE,                  // command reuse type
+                SCST_USER_MEM_REUSE_ALL,                    // buffer reuse type
                 SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
                 0,                                          // partial transfer length
                 SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
@@ -174,7 +174,7 @@ void ScstConnection::execAllocCmd() {
     LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
 
     // Allocate a page aligned memory buffer for Scst usage
-    auto buf = posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length);
+    ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
     fastReply();
 }
 
@@ -189,6 +189,9 @@ void ScstConnection::execCompleteCmd() {
 
     auto it = repliedResponses.find(cmd.cmd_h);
     fds_assert(repliedResponses.end() != it);
+    if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
+        free((void*)cmd.on_free_cmd.pbuf);
+    }
     repliedResponses.erase(it);
     fastReply(); // Setup the reply for the next ioctl
 }
@@ -232,6 +235,11 @@ void ScstConnection::execUserCmd() {
     auto& op_code = scsi_cmd.cdb[0];
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
 
+    auto buffer = (uint8_t*)scsi_cmd.pbuf;
+    if (!buffer && 0 < scsi_cmd.alloc_len) {
+        ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+    }
+
     switch (op_code) {
     case TEST_UNIT_READY:
         LOGTRACE << "Test Unit Ready received.";
@@ -256,7 +264,6 @@ void ScstConnection::execUserCmd() {
             if (buflen < 8) {
                 return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
             }
-            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[buflen] {});
 
             buffer[0] = TYPE_DISK;
             // Check EVPD bit
@@ -307,7 +314,7 @@ void ScstConnection::execUserCmd() {
 
                     // If our buffer is big enough, copy the vendor id
                     if (16 >= buflen) {
-                        memcpy(buffer.get() + 8, vendor_name, sizeof(vendor_name));
+                        memcpy(buffer + 8, vendor_name, sizeof(vendor_name));
                     }
                     break;
                 default:
@@ -391,6 +398,7 @@ void ScstConnection::execUserCmd() {
                   << "] Handle[0x" << cmd.cmd_h << "]";
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
+            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
             return scstOps->read(task);
         }
         break;
@@ -398,8 +406,6 @@ void ScstConnection::execUserCmd() {
     case READ_CAPACITY_16:
         {
             LOGDEBUG << "Read Capacity received.";
-            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
-
             uint64_t num_blocks = volume_size / logical_block_size;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
@@ -557,18 +563,17 @@ ScstConnection::respondTask(ScstTask* response) {
         if (!response->getError().ok()) {
             response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else {
-            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[response->getLength()]);
+            auto buffer = response->getResponseBuffer();
             fds_uint32_t i = 0, context = 0;
             boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
             while (buf != NULL) {
                 LOGDEBUG << "Handle 0x" << std::hex << response->getHandle()
                          << "...Size 0x" << buf->length() << "B"
                          << "...Buffer # " << std::dec << context;
-                memcpy(buffer.get() + i, buf->c_str(), buf->length());
+                memcpy(buffer + i, buf->c_str(), buf->length());
                 i += buf->length();
                 buf = response->getNextReadBuffer(context);
             }
-            response->setResponseBuffer(buffer, response->getLength());
         }
     } else if (!response->getError().ok()) {
         if (response->isWrite()) {
