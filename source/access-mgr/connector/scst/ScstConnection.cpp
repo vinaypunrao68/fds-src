@@ -35,10 +35,6 @@ static constexpr size_t Gi = Ki * Mi;
 static constexpr ssize_t max_block_size = 8 * Mi;
 /// ******************************************
 
-template<typename T>
-constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
-{ return const_cast<typename std::remove_cv<T>::type*>(t); }
-
 static constexpr bool ensure(bool b)
 { return (!b ? throw fds::ScstError::connection_closed : true); }
 
@@ -54,7 +50,6 @@ ScstConnection::ScstConnection(std::string const& vol_name,
           scstOps(boost::make_shared<ScstOperations>(this)),
           volumeName(vol_name),
           volume_size{0},
-          resp_needed(0u),
           logical_block_size(512ul),
           readyResponses(4000)
 {
@@ -234,186 +229,219 @@ ScstConnection::execSessionCmd() {
 
 void ScstConnection::execUserCmd() {
     auto& scsi_cmd = cmd.exec_cmd;
+    auto& op_code = scsi_cmd.cdb[0];
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
 
-    switch (scsi_cmd.cdb[0]) {
-        case TEST_UNIT_READY:
-            LOGTRACE << "Test Unit Ready received.";
-            break;
-        case FORMAT_UNIT:
-            {
-                LOGTRACE << "Format Unit received.";
-                bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
-                bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
+    switch (op_code) {
+    case TEST_UNIT_READY:
+        LOGTRACE << "Test Unit Ready received.";
+        break;
+    case FORMAT_UNIT:
+        {
+            LOGTRACE << "Format Unit received.";
+            bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
+            bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
 
-                // Mutually exclusive (and not supported)
-                if (fmtdata || fmtpinfo) {
-                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                }
-                // Nothing to do as we don't support data patterns...done!
-                break;
+            // Mutually exclusive (and not supported)
+            if (fmtdata || fmtpinfo) {
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
             }
-        case INQUIRY:
-            {
-                auto& buflen = scsi_cmd.bufflen;
-                if (buflen < 8) {
+            // Nothing to do as we don't support data patterns...done!
+            break;
+        }
+    case INQUIRY:
+        {
+            static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
+            auto& buflen = scsi_cmd.bufflen;
+            if (buflen < 8) {
+                return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+            }
+            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[buflen] {});
+
+            buffer[0] = TYPE_DISK;
+            // Check EVPD bit
+            if (scsi_cmd.cdb[1] & 0x01) {
+                auto& page = scsi_cmd.cdb[2];
+                LOGDEBUG << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
+                switch (page) {
+                case 0x00: // Supported pages
+                    /* |                                 PAGE                                  |*/
+                    /* |                                LENGTH                                 |*/
+                    /* |                              (PAGE CODE)                              |*/
+                    /* |                              (   ...   )                              |*/
+                    static uint8_t const supported_page_header [] = {
+                        0,
+                        3,
+                        0x00,   // This Page
+                        0x80,   // Unit Serial
+                        0x83,   // Vendor ID Page
+                    };
+                    memcpy(&buffer[2], supported_page_header, sizeof(supported_page_header));
+                    break;
+                case 0x80: // Unit Serial
+                    /* |                                 PAGE                                  |*/
+                    /* |                                LENGTH                                 |*/
+                    /* |                                SERIAL                                 |*/
+                    /* |                                NUMBER                                 |*/
+                    /* |                                 ...                                   |*/
+                    static uint8_t const serial_number_header [] = {
+                        0,
+                        8,
+                        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '  // Blank
+                    };
+                    memcpy(&buffer[2], serial_number_header, std::min((size_t)buflen, sizeof(serial_number_header)));
+                    break;
+                case 0x83: // Device ID
+                    /* |                                 PAGE                                  |*/
+                    /* |                                LENGTH                                 |*/
+                    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+                    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+                    static uint8_t const device_id_header [] = {
+                        0,
+                        12,
+                        0x02,       // ASCII
+                        0b00000001, // T10 Vendor ID
+                        8           // ID Length
+                    };
+                    memcpy(&buffer[2], device_id_header, sizeof(device_id_header));
+
+                    // If our buffer is big enough, copy the vendor id
+                    if (16 >= buflen) {
+                        memcpy(buffer.get() + 8, vendor_name, sizeof(vendor_name));
+                    }
+                    break;
+                default:
+                    LOGERROR << "Request for unsupported page code.";
                     return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 }
-                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[buflen] {});
+                buffer[1] = page; // Identity of the page we're returning
+                task->setResponseBuffer(buffer, buffer[3] + 4);
+            } else {
+                LOGDEBUG << "Standard inquiry requested.";
+                /* /-----------------------------------------------------------------------\
+                 * |                                VERSION                                |
+                 * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
+                 * |                          ADDITIONAL LENGTH                            |
+                 * |  SCCS  |  ACC   |      TPGS       |  3PC   |      resv       | PRTECT |
+                 * |  obsl  | ENCSVC | vendor | MULTIP |  obsl  |  resv  |  resv  | ADDR16 |
+                 * |  obsl  |  resv  | WBUS16 |  SYNC  |  obsl  |  resv  | CMDQUE | vendor |
+                 * \_______________________________________________________________________/
+                 */
+                static uint8_t const standard_inquiry_header[] = {
+                    0x06      , // SPC-4
+                    0b00010010, // SAM-5
+                    31        ,
+                    0b00000000,
+                    0b00010000,
+                    0b00000010
+                };
+                static uint8_t const product_id[]  = { 'F', 'o', 'r', 'm', 'a', 't', 'i', 'o',
+                                                       'n', 'O', 'n', 'e', ' ', ' ', ' ', ' ' };
 
-                buffer[0] = TYPE_DISK;
-                // Check EVPD bit
-                if (scsi_cmd.cdb[1] & 0x01) {
-                    LOGDEBUG << "Inquiry request for page: [0x" << std::hex << (uint32_t)(scsi_cmd.cdb[2])
-                        << "] requested.";
-                    buffer[1] = scsi_cmd.cdb[2];
-                    switch (scsi_cmd.cdb[2]) {
-                        case 0x00: // Supported pages
-                            buffer[3] = 3;
-                            buffer[4] = 0; // This page
-                            buffer[5] = 0x80; // unit serial number
-                            buffer[6] = 0x83; // device id
-                            break;
-                        case 0x80: // Serial Number
-                            buffer[3] = 1;
-                            buffer[4] = ' ';
-                            break;
-                        case 0x83: // Device ID
-                            buffer[3] = 12;
-                            buffer[4] = 0x02; // ASCII
-                            buffer[5] = 0x01; // Vendor ID
-                            buffer[7] = 8;
-                            if (16 >= buflen) {
-                                memcpy(buffer.get() + 8, "FDS     ", 8);
-                            }
-                            break;
-                        default:
-                            LOGERROR << "Request for unsupported page code.";
-                            return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                    }
-                    task->setResponseBuffer(buffer, buffer[3] + 4);
-                } else {
-                    LOGDEBUG << "Standard inquiry requested.";
-                    /* /-----------------------------------------------------------------------\
-                     * |                                VERSION                                |
-                     * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
-                     * |                          ADDITIONAL LENGTH                            |
-                     * |  SCCS  |  ACC   |      TPGS       |  3PC   |      resv       | PRTECT |
-                     * |  obsl  | ENCSVC | vendor | MULTIP |  obsl  |  resv  |  resv  | ADDR16 |
-                     * |  obsl  |  resv  | WBUS16 |  SYNC  |  obsl  |  resv  | CMDQUE | vendor |
-                     * \_______________________________________________________________________/
-                     */
-                    static uint8_t const standard_inquiry_header[] = {
-                        0x06      , // SPC-4
-                        0b00010010, // SAM-5
-                        31        ,
-                        0b00000000,
-                        0b00010000,
-                        0b00000010
-                    };
-                    static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
-                    static uint8_t const product_id[]  = { 'F', 'o', 'r', 'm', 'a', 't', 'i', 'o',
-                                                           'n', 'O', 'n', 'e', ' ', ' ', ' ', ' ' };
+                // Copy the fixed standard inquiry header above
+                memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
 
-                    // Copy the fixed standard inquiry header above
-                    memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
-
-                    // Conditionally fill out the additional vendor/device id
-                    if (16 >= buflen) {
-                        memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
-                        if (32 >= buflen) {
-                            memcpy(&buffer[16], product_id, sizeof(product_id));
-                            if (36 >= buflen) {
-                                memcpy(&buffer[32], "BETA", 4);
-                            }
+                // Conditionally fill out the additional vendor/device id
+                if (16 >= buflen) {
+                    memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
+                    if (32 >= buflen) {
+                        memcpy(&buffer[16], product_id, sizeof(product_id));
+                        if (36 >= buflen) {
+                            memcpy(&buffer[32], "BETA", 4);
                         }
-
                     }
-                    task->setResponseBuffer(buffer, buffer[4] + 5);
+
                 }
+                task->setResponseBuffer(buffer, buffer[4] + 5);
             }
-            break;
-        case MODE_SENSE:
-            {
-                bool dbd = (0x00 != (scsi_cmd.cdb[1] & 0x08));
-                uint8_t pc = scsi_cmd.cdb[2] / 0x40;
-                uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
-                uint8_t& subpage = scsi_cmd.cdb[3];
-                LOGTRACE << "Mode Sense: "
-                         << " dbd[" << std::hex << dbd
-                         << "] pc[" << std::hex << (uint32_t)pc
-                         << "] page_code[" << (uint32_t)page_code
-                         << "] subpage[" << (uint32_t)subpage << "]";
+        }
+        break;
+    case MODE_SENSE:
+        {
+            bool dbd = (0x00 != (scsi_cmd.cdb[1] & 0x08));
+            uint8_t pc = scsi_cmd.cdb[2] / 0x40;
+            uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
+            uint8_t& subpage = scsi_cmd.cdb[3];
+            LOGTRACE << "Mode Sense: "
+                     << " dbd[" << std::hex << dbd
+                     << "] pc[" << std::hex << (uint32_t)pc
+                     << "] page_code[" << (uint32_t)page_code
+                     << "] subpage[" << (uint32_t)subpage << "]";
 
-                // We do not support any subpages
-                if (0x00 != subpage) {
-                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                }
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+            // We do not support any subpages
+            if (0x00 != subpage) {
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
             }
-            break;
-        case READ_6:
-        case READ_10:
-        case READ_12:
-        case READ_16:
-            {
-                LOGIO << "Read received for "
-                      << "LBA[0x" << std::hex << scsi_cmd.lba
-                      << "] Length[0x" << scsi_cmd.bufflen
-                      << "] Handle[0x" << cmd.cmd_h << "]";
-                uint64_t offset = scsi_cmd.lba * logical_block_size;
-                task->setRead(offset, scsi_cmd.bufflen);
-                return scstOps->read(task);
-            }
-            break;
-        case READ_CAPACITY:     // READ_CAPACITY(10)
-        case READ_CAPACITY_16:
-            {
-                LOGDEBUG << "Read Capacity received.";
-                auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
-
-                uint64_t num_blocks = volume_size / logical_block_size;
-                uint32_t blocks_per_object = physical_block_size / logical_block_size;
-
-                if (READ_CAPACITY == scsi_cmd.cdb[0]) {
-                    *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
-                    *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
-                    task->setResponseBuffer(buffer, 8);
-                } else {
-                    *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
-                    *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
-                    // Number of logic blocks per object as a power of 2
-                    buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
-                    task->setResponseBuffer(buffer, 32);
-                }
-            }
-            break;
-        case WRITE_6:
-        case WRITE_10:
-        case WRITE_12:
-        case WRITE_16:
-            {
-                // If we are anything but WRITE_6 read the FUA bit
-                bool fua = (WRITE_6 == scsi_cmd.cdb[0]) ?
-                                false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
-
-                LOGIO << "Write received for "
-                      << "LBA[0x" << std::hex << scsi_cmd.lba
-                      << "] Length[0x" << scsi_cmd.bufflen
-                      << "] FUA[" << fua
-                      << "] Handle[0x" << cmd.cmd_h << "]";
-                uint64_t offset = scsi_cmd.lba * logical_block_size;
-                task->setWrite(offset, scsi_cmd.bufflen);
-                return scstOps->write((char*) scsi_cmd.pbuf, task);
-            }
-            break;
-        default:
-            LOGNOTIFY << "Unsupported SCSI command received " << std::hex
-                << "OPCode [0x" << (uint32_t)(scsi_cmd.cdb[0])
-                << "] CDB length [" << std::dec << scsi_cmd.cdb_len
-                << "]";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
-            break;
+        }
+        break;
+    case READ_6:
+    case READ_10:
+    case READ_12:
+    case READ_16:
+        {
+            // If we are anything but READ_6 read the FUA bit
+            bool fua = (READ_6 == op_code) ?
+                            false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
+
+            LOGIO << "Read received for "
+                  << "LBA[0x" << std::hex << scsi_cmd.lba
+                  << "] Length[0x" << scsi_cmd.bufflen
+                  << "] FUA[" << fua
+                  << "] Handle[0x" << cmd.cmd_h << "]";
+            uint64_t offset = scsi_cmd.lba * logical_block_size;
+            task->setRead(offset, scsi_cmd.bufflen);
+            return scstOps->read(task);
+        }
+        break;
+    case READ_CAPACITY:     // READ_CAPACITY(10)
+    case READ_CAPACITY_16:
+        {
+            LOGDEBUG << "Read Capacity received.";
+            auto buffer = std::unique_ptr<uint8_t[]>(new uint8_t[32] {});
+
+            uint64_t num_blocks = volume_size / logical_block_size;
+            uint32_t blocks_per_object = physical_block_size / logical_block_size;
+
+            if (READ_CAPACITY == op_code) {
+                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
+                task->setResponseBuffer(buffer, 8);
+            } else {
+                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
+                // Number of logic blocks per object as a power of 2
+                buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
+                task->setResponseBuffer(buffer, 32);
+            }
+        }
+        break;
+    case WRITE_6:
+    case WRITE_10:
+    case WRITE_12:
+    case WRITE_16:
+        {
+            // If we are anything but WRITE_6 read the FUA bit
+            bool fua = (WRITE_6 == op_code) ?
+                            false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
+
+            LOGIO << "Write received for "
+                  << "LBA[0x" << std::hex << scsi_cmd.lba
+                  << "] Length[0x" << scsi_cmd.bufflen
+                  << "] FUA[" << fua
+                  << "] Handle[0x" << cmd.cmd_h << "]";
+            uint64_t offset = scsi_cmd.lba * logical_block_size;
+            task->setWrite(offset, scsi_cmd.bufflen);
+            return scstOps->write((char*) scsi_cmd.pbuf, task);
+        }
+        break;
+    default:
+        LOGNOTIFY << "Unsupported SCSI command received " << std::hex
+            << "OPCode [0x" << (uint32_t)(op_code)
+            << "] CDB length [" << std::dec << scsi_cmd.cdb_len
+            << "]";
+        task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+        break;
     }
     readyResponses.push(task);
 }
@@ -440,19 +468,20 @@ ScstConnection::getAndRespond() {
         cmd.preply = 0ull;
         if (0 != res) {
             switch (errno) {
-                case ENOTTY:
-                case EBADF:
-                    LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                    throw ScstError::connection_closed;
-                case EFAULT:
-                case EINVAL:
-                    fds_panic("Invalid Scst argument!");
-                default:
-                    // If we still have responses, keep replying
-                    if (!readyResponses.empty()) {
-                        continue;
-                    }
-                    return;
+            case ENOTTY:
+            case EBADF:
+                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
+                throw ScstError::connection_closed;
+            case EFAULT:
+            case EINVAL:
+                fds_panic("Invalid Scst argument!");
+            case EAGAIN:
+                // If we still have responses, keep replying
+                if (!readyResponses.empty()) {
+                    continue;
+                }
+            default:
+                return;
             }
         }
 
@@ -460,32 +489,32 @@ ScstConnection::getAndRespond() {
                  << "[0x" << std::hex << cmd.cmd_h
                  << "] sc [0x" << cmd.subcode << "]";
         switch (cmd.subcode) {
-            case SCST_USER_ATTACH_SESS:
-            case SCST_USER_DETACH_SESS:
-                execSessionCmd();
-                break;
-            case SCST_USER_ON_FREE_CMD:
-                execCompleteCmd();
-                break;
-            case SCST_USER_TASK_MGMT_RECEIVED:
-            case SCST_USER_TASK_MGMT_DONE:
-                execTaskMgmtCmd();
-                break;
-            case SCST_USER_ON_CACHED_MEM_FREE:
-                execMemFree();
-                break;
-            case SCST_USER_ALLOC_MEM:
-                execAllocCmd();
-                break;
-            case SCST_USER_PARSE:
-                execParseCmd();
-                break;
-            case SCST_USER_EXEC:
-                execUserCmd();
-                break;
-            default:
-                LOGWARN << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
-                break;
+        case SCST_USER_ATTACH_SESS:
+        case SCST_USER_DETACH_SESS:
+            execSessionCmd();
+            break;
+        case SCST_USER_ON_FREE_CMD:
+            execCompleteCmd();
+            break;
+        case SCST_USER_TASK_MGMT_RECEIVED:
+        case SCST_USER_TASK_MGMT_DONE:
+            execTaskMgmtCmd();
+            break;
+        case SCST_USER_ON_CACHED_MEM_FREE:
+            execMemFree();
+            break;
+        case SCST_USER_ALLOC_MEM:
+            execAllocCmd();
+            break;
+        case SCST_USER_PARSE:
+            execParseCmd();
+            break;
+        case SCST_USER_EXEC:
+            execUserCmd();
+            break;
+        default:
+            LOGWARN << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
+            break;
         }
     } while (true); // Keep replying while we have responses or requests
 }
@@ -542,7 +571,11 @@ ScstConnection::respondTask(ScstTask* response) {
             response->setResponseBuffer(buffer, response->getLength());
         }
     } else if (!response->getError().ok()) {
-        response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+        if (response->isWrite()) {
+            response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+        } else {
+            response->setResult(-((uint32_t)response->getError().GetErrno()));
+        }
     }
 
     // add to quueue
