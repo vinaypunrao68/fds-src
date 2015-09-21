@@ -161,6 +161,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination DM that an error has occurred. The Destination DM will then tell the OM.
      */
     void abortMigration();
+    void abortMigrationReal();
 
     // Get timeout for messages between clients and executors
     inline uint32_t getTimeoutValue() {

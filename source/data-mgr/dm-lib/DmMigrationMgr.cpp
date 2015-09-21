@@ -629,13 +629,22 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
 }
 
 void
-DmMigrationMgr::abortMigration() {
-
+DmMigrationMgr::abortMigration()
+{
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED)) {
 		// If not the first client or first executor, don't worry about the rest.
 		return;
 	}
+
+	std::thread t1(&DmMigrationMgr::abortMigrationReal, this);
+	t1.detach();
+
+}
+
+void
+DmMigrationMgr::abortMigrationReal()
+{
 
 	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
