@@ -291,7 +291,7 @@ void ScavControl::disableScavenger(SmCommandInitiator initiator)
     if (std::atomic_compare_exchange_strong(&verifyData, &expect, false)) {
         LOGNOTIFY << "Disabled scrubber because scavenger was disabled";
     } else {
-        LOGNOTIFY << "Scrubber status not changed; scrubber already disabled";
+        LOGDEBUG << "Scrubber status not changed; scrubber already disabled";
     }
 }
 

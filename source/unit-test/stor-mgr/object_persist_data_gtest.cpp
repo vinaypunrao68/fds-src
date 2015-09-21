@@ -185,7 +185,7 @@ SmObjectPersistDataTest::writeDataset(
         obj_phy_loc_t* loc = req->req_get_phy_loc();
         obj_phy_loc_t* savedLoc = new obj_phy_loc_t();
         memcpy(savedLoc, loc, sizeof(obj_phy_loc_t));
-        EXPECT_EQ(locMap.count(oid), 0);
+        EXPECT_EQ(locMap.count(oid), 0u);
         locMap[oid] = savedLoc;
 
         delete req;
@@ -425,8 +425,8 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
 
     // at this point new files are empty
     getTokenStats(&totalSize, &reclaimSize);
-    EXPECT_EQ(0, totalSize);
-    EXPECT_EQ(0, reclaimSize);
+    EXPECT_EQ(0u, totalSize);
+    EXPECT_EQ(0u, reclaimSize);
 
     // write the same dataset (data store layer does not check dup, so
     // this will write all data to new file)
@@ -436,7 +436,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     // get stats (which are always for new file we are writing)
     getTokenStats(&totalSize, &reclaimSize);
     EXPECT_EQ(expectTotalSize, totalSize);
-    EXPECT_EQ(0, reclaimSize);
+    EXPECT_EQ(0u, reclaimSize);
 
     // "stop GC" which will remove old files
     for (SmTokenSet::const_iterator cit = smToks.cbegin();

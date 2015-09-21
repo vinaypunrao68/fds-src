@@ -437,6 +437,15 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
     if ((svc_type == fpi::FDSP_STOR_MGR) ||
         (svc_type == fpi::FDSP_DATA_MGR)) {
         if ((reportError == ERR_SERVICE_CAPACITY_FULL) ||
+            // TODO: we should implement finer-grained handling here
+            // This error means that SM failed to sync one or more DLT tokens
+            // for which this is primary; SM currently reports ERROR to OM so that
+            // we set it to failed state to make OM rotate DLT and make this SM
+            // secondary for its DLT tokens. In the future, SM should be able
+            // to report specific DLT tokens that failed and OM should rotate only
+            // those DLT columns; but we need to implement this in both state machine
+            // and DLT computation module.
+            (reportError == ERR_TOKEN_NOT_READY) ||
             // service is unavailable -- most likely failed to initialize
             (reportError == ERR_NODE_NOT_ACTIVE)) {
             // when a service reports these errors, it sets itself inactive
