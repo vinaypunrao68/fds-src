@@ -30,7 +30,7 @@ var updateVolume = function( vol ){
 **/
 var createNewStat = function( vol ){
     
-    var limit = parseInt( vol.qosPolicy.iops_max );
+    var limit = parseInt( vol.qosPolicy.iopsMax );
     
     if ( limit === 0 ){
         limit = 10000;
@@ -139,7 +139,7 @@ var computeStats = function(){
     for ( var i = 0; vols != null && i < vols.length; i++ ){
         
         var volume = vols[i];
-        var stat = JSON.parse( window.localStorage.getItem( volume.id.uuid + '_stats' ) );
+        var stat = JSON.parse( window.localStorage.getItem( volume.uid + '_stats' ) );
         
         if ( !angular.isDefined( stat ) || stat === null ){
             
@@ -153,7 +153,7 @@ var computeStats = function(){
             stat = addStats( volume, stat );
         }
         
-        window.localStorage.setItem( volume.id.uuid + '_stats', JSON.stringify( stat ) );
+        window.localStorage.setItem( volume.uid + '_stats', JSON.stringify( stat ) );
     }
 };
 

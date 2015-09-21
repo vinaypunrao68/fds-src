@@ -1,7 +1,6 @@
 package com.formationds.client.v08.model.stats;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.json.JSONArray;
