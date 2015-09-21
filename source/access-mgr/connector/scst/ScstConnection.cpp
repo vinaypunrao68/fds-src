@@ -364,6 +364,7 @@ void ScstConnection::execUserCmd() {
         }
         break;
     case MODE_SENSE:
+    case MODE_SENSE_10:
         {
             bool dbd = (0x00 != (scsi_cmd.cdb[1] & 0x08));
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
@@ -378,8 +379,38 @@ void ScstConnection::execUserCmd() {
             // We do not support any subpages
             if (0x00 != subpage) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                break;
             }
-            task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
+
+            size_t param_cursor = 0ull;
+            if (MODE_SENSE == op_code) {
+                buffer[1] = TYPE_DISK;  // Block device type
+                buffer[2] = 0b00010000; // Support for FUA/DPO
+                param_cursor = 4;
+            } else {
+                buffer[2] = TYPE_DISK;  // Block device type
+                buffer[3] = 0b00010000; // Support for FUA/DPO
+                buffer[4] = 0b00000000; // LLBA disabled
+                param_cursor = 8;
+            }
+
+            // Append block descriptor if enabled
+            if (!dbd) {
+                buffer[param_cursor - 1] = 0x08; // Set descriptor size
+                uint64_t num_blocks = volume_size / logical_block_size;
+                // Number of LBAs (or 0xFFFFFFFF if bigger than 4GiB)
+                *reinterpret_cast<uint32_t*>(&buffer[param_cursor]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+5]) = htobe32(logical_block_size);
+                param_cursor += 8;
+            }
+
+            // Set data length
+            if (MODE_SENSE == op_code) {
+                buffer[0] = param_cursor - 1;
+            } else {
+                buffer[1] = param_cursor - 2;
+            }
+            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
         }
         break;
     case READ_6:
