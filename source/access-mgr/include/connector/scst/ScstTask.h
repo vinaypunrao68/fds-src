@@ -35,6 +35,7 @@ struct ScstTask {
     ~ScstTask() = default;
 
     bool isRead() const { return (operation == READ); }
+    bool isWrite() const { return (operation == WRITE); }
     inline uint32_t getHandle() const { return reply.cmd_h; }
     inline uint32_t getSubcode() const { return reply.subcode; }
     inline Error getError() const { return opError; }
@@ -74,13 +75,14 @@ struct ScstTask {
         reply.exec_reply.psense_buffer = (unsigned long)&sense_buffer;
     }
 
-    void setResponseBuffer(std::unique_ptr<uint8_t[]>& buf, size_t buf_len)
+    void setResponseBuffer(uint8_t* buf, size_t buf_len)
     {
         fds_assert(buf);
-        pbuffer.swap(buf);
-        reply.exec_reply.pbuf = (unsigned long)pbuffer.get();
+        reply.exec_reply.pbuf = (unsigned long)buf;
         reply.exec_reply.resp_data_len = buf_len;
     }
+
+    uint8_t* getResponseBuffer() const { return (uint8_t*)reply.exec_reply.pbuf; }
 
     void setResult(int32_t result) { reply.result = result; }
 
@@ -155,7 +157,6 @@ struct ScstTask {
 
     // pbuf pointer for cmds (RAII)
     uint8_t sense_buffer[18] {};
-    std::unique_ptr<uint8_t[]> pbuffer;
 
     // to collect read responses or first and last buffer for write op
     std::vector<buffer_ptr_type> bufVec;

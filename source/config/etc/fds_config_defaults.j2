@@ -82,6 +82,7 @@
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
 {% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'true' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
+{% set am_scst_auto_volumes = fds_am_scst_auto_volumes if fds_am_scst_auto_volumes is defined else '' %}
 {% set am_scst_target_name = fds_am_scst_target_name if fds_am_scst_target_name is defined else 'iqn.2015-08.com.formationds:block_storage' %}
 {% set am_scst_server_threads = fds_am_scst_server_threads if fds_am_scst_server_threads is defined else '1' %}
 {% set am_scst_default_block_size = fds_am_scst_default_block_size if fds_am_scst_default_block_size is defined else '512' %}
