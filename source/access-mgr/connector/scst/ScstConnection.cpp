@@ -41,6 +41,8 @@ static constexpr bool ensure(bool b)
 namespace fds
 {
 
+std::atomic_uint ScstConnection::next_lun {0};
+
 ScstConnection::ScstConnection(std::string const& vol_name,
                                ScstConnector* server,
                                std::shared_ptr<ev::dynamic_loop> loop,
@@ -64,7 +66,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
-        return;
+        throw ScstError::connection_closed;
     }
 
     // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
@@ -73,7 +75,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
         (unsigned long)DEV_USER_VERSION, // Constant
         (unsigned long)"GPL",       // License string
         TYPE_DISK,                  // Device type
-        0, 0, 0, 0,                 // SGV options
+        1, 0, 0, 0,                 // SGV enabled
         {                           // SCST options
                 SCST_USER_PARSE_STANDARD,                   // parse type
                 SCST_USER_ON_FREE_CMD_CALL,                 // command on-free type
@@ -107,11 +109,13 @@ ScstConnection::ScstConnection(std::string const& vol_name,
                             O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not map lun, no iSCSI devices will be presented!";
-    } else {
-        static std::string add_tgt_cmd = "add " + volumeName + " 0";
-        auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
-        close(scstTgtMgmt);
+        throw ScstError::connection_closed;
     }
+
+    auto lun = next_lun++;
+    std::string add_tgt_cmd = "add " + volumeName + " " + std::to_string(lun);
+    auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
+    close(scstTgtMgmt);
 
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set(*loop);
@@ -125,7 +129,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
 
     LOGNORMAL << "New SCST device [" << volumeName
               << "] Tgt [" << scst_server->targetName()
-              << "] LUN [0"
+              << "] LUN [" << lun
               << "] BlockSize[" << logical_block_size << "]";
 }
 

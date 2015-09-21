@@ -13,6 +13,7 @@ extern "C" {
 
 #include <ev++.h>
 #include <boost/shared_ptr.hpp>
+#include <boost/tokenizer.hpp>
 
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
@@ -85,8 +86,20 @@ ScstConnector::initializeTarget() {
         LOGNORMAL << "No processing layer, shutdown.";
         return;
     }
-    LOGDEBUG << "Creating Device for connector.";
-    auto client = new ScstConnection("scst_vol", this, evLoop, processor);
+
+    LOGDEBUG << "Creating auto volumes for connector.";
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
+    auto auto_volumes = conf.get<std::string>("auto_volumes", "scst_vol");
+    {
+        boost::tokenizer<boost::escaped_list_separator<char> > tok(auto_volumes);
+        for (auto const& vol_name : tok) {
+            try {
+            auto client = new ScstConnection(vol_name, this, evLoop, processor);
+            } catch (ScstError& e) {
+                LOGERROR << "Failed to create device for: " << vol_name;
+            }
+        }
+    }
 
     LOGDEBUG << "Enabling iSCSI target.";
     scstTgtMgmt = open((std::string("/sys/kernel/scst_tgt/targets/iscsi/") + target_name + "/enabled").c_str(), O_WRONLY);
