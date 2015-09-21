@@ -251,7 +251,6 @@ class MigrationTrackIOReqs {
     bool denyTrackIOReqs;
 
 };  // MigrationTrackIOReqs
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_MIGRATIONUTILITY_H_

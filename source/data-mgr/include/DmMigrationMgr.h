@@ -319,7 +319,6 @@ class DmMigrationMgr : public DmMigrationBase {
     fds_rwlock executorAccessLock;
     fds_rwlock clientAccessLock;
 
-
 };  // DmMigrationMgr
 
 }  // namespace fds

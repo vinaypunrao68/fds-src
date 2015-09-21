@@ -200,7 +200,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
      * We need to revisit this and work with the maxConcurrency concept to start x concurrent
      * threads.
      */
-    SCOPEDWRITE(migrExecutorLock);
+    SCOPEDREAD(migrExecutorLock);
     mit = executorMap.begin();
     while (loopFireNext && (mit != executorMap.end())) {
         loopFireNext = !(mit->second->shouldAutoExecuteNext());
