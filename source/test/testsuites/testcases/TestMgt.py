@@ -483,7 +483,6 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
         if (action.count("stop") > 0) or (action.count("remove")) or (action.count("add")) or (action.count("start")) or (action.count("kill")) > 0:
             if selectedServices == None:
                 selectedServices = service.split(',')
-
             if fdsNodes is not None:
                 selectedActions = action.split(',')
                 for node in fdsNodes:
@@ -491,7 +490,8 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                         for action in selectedActions:
                             if (action.count("remove")) > 0:
                                 if service == "pm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSPMRemove(node=node))
+                                    log.error("Cannot remove PM service for scenario {}".format(scenario.nd_conf_dict['scenario-name']))
+                                    raise Exception
                                 elif service == "dm":
                                     suite.addTest(TestFDSServiceMgt.TestAWSDMRemove(node=node))
                                 elif service == "sm":
