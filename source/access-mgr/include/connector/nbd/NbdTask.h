@@ -42,6 +42,7 @@ struct NbdTask {
     bool isWrite() const { return (operation == WRITE); }
     inline int64_t getHandle() const { return handle; }
     inline Error getError() const { return opError; }
+    inline void setResult(fds::Error const& error) { opError = error; }
     inline uint64_t getOffset() const { return offset; }
     inline uint32_t getLength() const { return length; }
     inline uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }

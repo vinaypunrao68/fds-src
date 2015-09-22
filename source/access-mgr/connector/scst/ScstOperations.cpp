@@ -88,15 +88,14 @@ ScstOperations::attachVolumeResp(const Error& error,
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
             resp->setResult(ERR_INVALID_VOL_ID);
-        }
-        maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+        } else {
+            maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
 
-        // Reference count this association
-        std::unique_lock<std::mutex> lk(assoc_map_lock);
-        ++assoc_map[volDesc->name];
-    }
-    if (ERR_OK == error) {
-        scstResp->attachResp(volDesc);
+            // Reference count this association
+            std::unique_lock<std::mutex> lk(assoc_map_lock);
+            ++assoc_map[volDesc->name];
+            scstResp->attachResp(volDesc);
+        }
     }
     finishResponse(resp);
 }
@@ -242,7 +241,7 @@ ScstOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            int& length) {
-    ScstTask* resp = NULL;
+    ScstTask* resp = nullptr;
     auto handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 

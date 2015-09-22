@@ -35,8 +35,8 @@ struct NbdOperationsResponseIface {
     NbdOperationsResponseIface& operator=(NbdOperationsResponseIface const&&) = delete;
     virtual ~NbdOperationsResponseIface() = default;
 
-    virtual void readWriteResp(NbdTask* response) = 0;
-    virtual void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
+    virtual void respondTask(NbdTask* response) = 0;
+    virtual void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) = 0;
     virtual void terminate() = 0;
 };
 
@@ -63,7 +63,8 @@ class NbdOperations
 
     typedef boost::shared_ptr<NbdOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
-              std::shared_ptr<AmProcessor> processor);
+              std::shared_ptr<AmProcessor> processor,
+              NbdTask* resp);
 
     void read(NbdTask* resp);
     void read(uint32_t length, uint64_t offset, int64_t handle);

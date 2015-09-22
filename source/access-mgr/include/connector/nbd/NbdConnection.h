@@ -64,8 +64,8 @@ struct NbdConnection : public NbdOperationsResponseIface {
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdTask* response) override;
-    void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    void respondTask(NbdTask* response) override;
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
   private:

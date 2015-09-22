@@ -39,12 +39,19 @@ NbdOperations::NbdOperations(NbdOperationsResponseIface* respIface)
 // a shared pointer to ourselves (and NbdConnection already started one).
 void
 NbdOperations::init(boost::shared_ptr<std::string> vol_name,
-                    std::shared_ptr<AmProcessor> processor)
+                    std::shared_ptr<AmProcessor> processor,
+                    NbdTask* resp)
 {
     amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
     volumeName = vol_name;
 
-    handle_type reqId{0, 0};
+    {   // add response that we will fill in with data
+        fds_mutex::scoped_lock l(respLock);
+        if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
+            { throw NbdError::connection_closed; }
+    }
+
+    handle_type reqId{resp->getHandle(), 0};
 
     // We assume the client wants R/W with a cache for now
     auto mode = boost::make_shared<fpi::VolumeAccessMode>();
@@ -60,18 +67,37 @@ NbdOperations::attachVolumeResp(const Error& error,
                                 boost::shared_ptr<VolumeDesc>& volDesc,
                                 boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
+    auto handle = requestId.handle;
+    NbdTask* resp = nullptr;
+
+    {
+        fds_mutex::scoped_lock l(respLock);
+        // if we are not waiting for this response, we probably already
+        // returned an error
+        auto it = responses.find(handle);
+        if (responses.end() == it) {
+            LOGWARN << "Not waiting for response for handle 0x" << std::hex << handle << std::dec
+                    << ", check if we returned an error";
+            return;
+        }
+        // get response
+        resp = it->second;
+    }
+
     if (ERR_OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
-            return nbdResp->attachResp(ERR_INVALID_VOL_ID, nullptr);
-        }
-        maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+            resp->setResult(ERR_INVALID_VOL_ID);
+        } else {
+            maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
 
-        // Reference count this association
-        std::unique_lock<std::mutex> lk(assoc_map_lock);
-        ++assoc_map[volDesc->name];
+            // Reference count this association
+            std::unique_lock<std::mutex> lk(assoc_map_lock);
+            ++assoc_map[volDesc->name];
+            nbdResp->attachResp(volDesc);
+        }
     }
-    nbdResp->attachResp(error, volDesc);
+    finishResponse(resp);
 }
 
 void
@@ -398,7 +424,7 @@ NbdOperations::finishResponse(NbdTask* response) {
         done_responding = responses.empty();
     }
     if (response_removed) {
-        nbdResp->readWriteResp(response);
+        nbdResp->respondTask(response);
     } else {
         LOGNOTIFY << "Handle 0x" << std::hex << response->getHandle() << std::dec
                   << " was missing from the response map!";

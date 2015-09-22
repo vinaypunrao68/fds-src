@@ -245,7 +245,8 @@ bool NbdConnection::option_request(ev::io &watcher) {
         nbd_state = NbdProtoState::SENDOPTS;
         asyncWatcher->send();
     } else {
-        nbdOps->init(volumeName, amProcessor);
+        auto task = new NbdTask(0ll);
+        nbdOps->init(volumeName, amProcessor, task);
     }
 
     return true;
@@ -513,29 +514,29 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 }
 
 void
-NbdConnection::readWriteResp(NbdTask* response) {
-    LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
-              << " response from NbdOperations handle: 0x" << std::hex << response->handle
-              << " " << response->getError();
+NbdConnection::respondTask(NbdTask* response) {
+    LOGDEBUG << " response from NbdOperations handle: 0x" << std::hex << response->getHandle()
+             << " " << response->getError();
 
     // add to quueue
-    readyResponses.push(response);
+    if (response->isRead() || response->isWrite()) {
+        readyResponses.push(response);
+    } else {
+        delete response;
+    }
 
     // We have something to write, so poke the loop
     asyncWatcher->send();
 }
 
 void
-NbdConnection::attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) {
-    if (ERR_OK == error) {
-        // capacity is in MB
-        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-                  << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-        object_size = volDesc->maxObjSizeInBytes;
-        volume_size = __builtin_bswap64(volDesc->capacity * Mi);
-    }
+NbdConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
+    // capacity is in MB
+    LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
+              << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+    object_size = volDesc->maxObjSizeInBytes;
+    volume_size = __builtin_bswap64(volDesc->capacity * Mi);
     nbd_state = NbdProtoState::SENDOPTS;
-    asyncWatcher->send();
 }
 
 ssize_t retry_read(int fd, void* buf, size_t count) {

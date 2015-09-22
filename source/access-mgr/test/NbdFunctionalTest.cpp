@@ -100,14 +100,13 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void terminate() override {
     }
 
-    void attachResp(Error const& error,
-                    boost::shared_ptr<VolumeDesc> const& volDesc) override {
-        ASSERT_EQ(ERR_OK, error);
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override {
         objSize = volDesc->maxObjSizeInBytes;
     }
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdTask* response) override {
+    void respondTask(NbdTask* response) override {
+        if (!response->isRead() && !response->isWrite()) return; // Non-io response
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
                   << " response for handle " << response->handle
@@ -144,7 +143,8 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
-        nbdOps->init(volumeName, am->getProcessor());
+        auto task = new NbdTask(0ll);
+        nbdOps->init(volumeName, am->getProcessor(), task);
         am->getProcessor()->registerVolume(
             std::move(VolumeDesc(*volumeName, fds_volid_t(5), 0, 0, 1)));
     }
