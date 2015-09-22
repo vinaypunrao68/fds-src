@@ -352,21 +352,14 @@ namespace fds
     //
     bool PmDiskObj::dsk_blk_dev_path(const char *raw, std::string &blk, std::string &dev)
     {
-        const char   *block;
+        const char   *block = NULL;
 
-        // Check for a sdX block device
+        // Check for a sdX || virtual box || device mapper  device
         block = strstr(raw, "block/sd");
+        if (!block) block = strstr(raw, "block/xvd");
+        if (!block) block = strstr(raw, "block/dm-");
 
-        if (block == NULL)
-        {
-            // check for virtual box device (?)
-            block = strstr(raw, "block/xvd");
-
-            if (block == NULL)
-            {
-                return false;
-            }
-        }
+        if (!block) return false;
 
         // trim off the end device name (like dirname without altering *raw, and keep the trailing '/')
         blk.assign(raw, (size_t) (block - raw) + sizeof("block"));
@@ -396,21 +389,21 @@ namespace fds
         {
             device += '1';
         }
-
+        GLOGDEBUG << "trying to read : " << device;
         fd = open(device.c_str(), O_RDONLY | O_CLOEXEC);
 
         ssize_t to_read = fds_disk_sector_to_byte(sec_cnt);
-        do
-        {
+        do {
             rt = pread(fd, buf, to_read, fds_disk_sector_to_byte(sector));
         }
         while ((0 > rt) && (EINTR == errno));
 
         close(fd);
 
-        if (0 > rt)
-        {
-            perror(strerror(errno));
+        if (0 > rt) {
+            GLOGERROR <<"unable to read : " << device << ":" << strerror(errno);
+        } else {
+            GLOGDEBUG << "succesfully read : " << device;
         }
 
         return rt;
@@ -438,6 +431,8 @@ namespace fds
             device += '1';
         }
 
+        GLOGDEBUG << "trying to write onto : " << device;
+
         fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
 
         ssize_t const to_write = fds_disk_sector_to_byte(sec_cnt);
@@ -454,7 +449,7 @@ namespace fds
 
         if (to_write != rt)
         {
-            perror(strerror(errno));
+            GLOGERROR << "unable to write onto : " << device << ":"<< strerror(errno);
         } else {
             LOGNORMAL << "Wrote superblock to " << device << ", sector " << sector << ", ret " << rt << ", sect cnt " << sec_cnt;
         }
