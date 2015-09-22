@@ -632,7 +632,6 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 			}
 			if (allExecutorsDone) {
 				LOGMIGRATE << "All migration executors have finished. Starting cleanup thread...";
-				// std::thread t1(&DmMigrationMgr::finishActiveMigration, this);
 				std::thread t1([&] {this->finishActiveMigration();});
 				t1.detach();
 			}
@@ -729,6 +728,14 @@ DmMigrationMgr::asyncMsgPassed()
 {
 	trackIOReqs.finishTrackIOReqs();
 	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+}
+
+void
+DmMigrationMgr::asyncMsgFailed()
+{
+	trackIOReqs.finishTrackIOReqs();
+	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+	abortMigration();
 }
 
 void

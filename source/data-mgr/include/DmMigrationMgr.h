@@ -165,6 +165,7 @@ class DmMigrationMgr : public DmMigrationBase {
     void abortMigrationReal();
 
     void asyncMsgPassed();
+    void asyncMsgFailed();
     void asyncMsgIssued();
 
     // Get timeout for messages between clients and executors
