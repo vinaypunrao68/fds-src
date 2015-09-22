@@ -651,7 +651,7 @@ class TestDMKill(TestCase.FDSTestCase):
 
         return True
 
-
+# Deprecated TestAWSDMKill, we use TestOMKill for AWS nodes TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
@@ -1251,7 +1251,7 @@ class TestSMKill(TestCase.FDSTestCase):
 
         return True
 
-
+# Deprecated TestAWSSMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
@@ -1758,6 +1758,7 @@ class TestPMKill(TestCase.FDSTestCase):
 
         return True
 
+# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
@@ -2318,7 +2319,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
         return True
 
-
+# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
@@ -2885,6 +2886,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
         return True
 
+# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TOFO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAWSAMKill(TestCase.FDSTestCase):
