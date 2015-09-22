@@ -15,10 +15,12 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Set the QoS parameters on a volume.
@@ -58,13 +60,25 @@ public final class SetVolumeQos extends AbstractOmV8Operation
         qos.put("iopsMin", settings.getIopsAssured());
         qos.put("iopsMax", settings.getIopsThrottle());
 
+        String modifiedVolumeString;
         try
         {
-            endpoint.doWrite(connection, oyVeh.toString(), StandardCharsets.UTF_8);
+            modifiedVolumeString = endpoint.doWriteThenRead(connection,
+                                                            oyVeh.toString(),
+                                                            StandardCharsets.UTF_8);
         }
         catch (HttpException e)
         {
             throw new ExecutionException(e);
+        }
+        
+        if (reporter instanceof WorkloadEventListener)
+        {
+            Volume modifiedVolume = ObjectModelHelper.toObject(modifiedVolumeString, Volume.class);
+            
+            ((WorkloadEventListener)reporter).reportVolumeModified(
+                    modifiedVolume.getName(),
+                    VolumeQosSettings.fromVolume(modifiedVolume));
         }
     }
 

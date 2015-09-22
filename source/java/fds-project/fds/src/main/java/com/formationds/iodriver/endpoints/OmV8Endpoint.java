@@ -7,8 +7,8 @@ import javax.net.ssl.HttpsURLConnection;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.OmV8Operation;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 

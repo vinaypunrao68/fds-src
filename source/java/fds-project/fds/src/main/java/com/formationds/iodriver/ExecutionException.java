@@ -1,4 +1,6 @@
-package com.formationds.iodriver.operations;
+package com.formationds.iodriver;
+
+import com.formationds.iodriver.operations.Operation;
 
 /**
  * An error occurred while executing an {@link Operation}.

@@ -6,6 +6,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.stream.Stream;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 

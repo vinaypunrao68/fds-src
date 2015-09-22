@@ -6,6 +6,7 @@ import java.time.Instant;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 // TODO: Intended to verify that volumes get their assured IOPS without exceeding their throttles.
 //       Kind of works, not complete.
@@ -16,6 +17,20 @@ public final class QosValidator implements Validator
     {
         if (listener == null) throw new NullArgumentException("listener");
 
+        if (listener instanceof WorkloadEventListener)
+        {
+            return isValid((WorkloadEventListener)listener);
+        }
+        else
+        {
+            return false;
+        }
+    }
+    
+    public boolean isValid(WorkloadEventListener listener)
+    {
+        if (listener == null) throw new NullArgumentException("listener");
+        
         boolean failed = false;
         for (String volumeName : listener.getVolumes())
         {

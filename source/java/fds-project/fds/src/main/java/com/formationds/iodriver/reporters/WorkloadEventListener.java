@@ -1,7 +1,6 @@
 package com.formationds.iodriver.reporters;
 
 import java.time.Instant;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -57,27 +56,8 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
             _volumeOps.put(volumeName, new VolumeQosStats(value));
         }
     }
-
-    @Override
-    public void addVolume(String name, VolumeQosSettings params)
-    {
-        if (name == null) throw new NullArgumentException("name");
-        if (params == null) throw new NullArgumentException("params");
-
-        if (_volumeOps.containsKey(name))
-        {
-            throw new IllegalArgumentException("Volume " + name + " already exists.");
-        }
-
-        _volumeOps.put(name, new VolumeQosStats(params));
-
-        volumeAdded.send(new SimpleEntry<>(name, params));
-    }
     
-    /**
-     * Call when the workload is completely done.
-     */
-    public void finished()
+    public void close()
     {
         for (VolumeQosStats volumeStats : _volumeOps.values())
         {
@@ -86,9 +66,8 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
                 throw new IllegalStateException("Not all operations have finished!");
             }
         }
-
     }
-
+    
     /**
      * Get the instant the workload started its main body for a given volume. This method must not
      * be called prior to the workload starting for that volume.
@@ -101,16 +80,15 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
     {
         if (volume == null) throw new NullArgumentException("volume");
 
-        VolumeQosStats stats = getStatsInternal(volume);
+        VolumeQosStats stats = _getStatsInternal(volume);
         return stats.performance.getStart();
     }
 
-    @Override
     public VolumeQosStats getStats(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
 
-        VolumeQosStats stats = getStatsInternal(volume);
+        VolumeQosStats stats = _getStatsInternal(volume);
 
         return stats.copy();
     }
@@ -127,35 +105,21 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
     {
         if (volume == null) throw new NullArgumentException("volume");
 
-        VolumeQosStats stats = getStatsInternal(volume);
+        VolumeQosStats stats = _getStatsInternal(volume);
         return stats.performance.getStop();
     }
 
-    @Override
     public Set<String> getVolumes()
     {
         return new HashSet<>(_volumeOps.keySet());
     }
 
-    /**
-     * Call when an I/O operation occurs.
-     * 
-     * @param volume The volume that received I/O.
-     */
-    public void reportIo(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        reportIo(volume, 1);
-    }
-
-    @Override
     public void reportIo(String volume, int count)
     {
         if (volume == null) throw new NullArgumentException("volume");
         if (count <= 0) throw new IllegalArgumentException("count of IOs must be > 0.");
 
-        VolumeQosStats stats = getStatsInternal(volume);
+        VolumeQosStats stats = _getStatsInternal(volume);
         stats.performance.addOps(count);
     }
 
@@ -167,26 +131,46 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
         operationExecuted.send(operation);
     }
     
-    @Override
-    public void reportStart(String volume)
+    public void reportVolumeAdded(String name, VolumeQosSettings params)
     {
-        if (volume == null) throw new NullArgumentException("volume");
+        if (name == null) throw new NullArgumentException("name");
+        if (params == null) throw new NullArgumentException("params");
 
-        VolumeQosStats stats = getStatsInternal(volume);
-        Instant start = stats.performance.startNow();
+        if (_volumeOps.containsKey(name))
+        {
+            throw new IllegalArgumentException("Volume " + name + " already exists.");
+        }
 
-        started.send(new SimpleEntry<>(volume, start));
+        _volumeOps.put(name, new VolumeQosStats(params));
+    }
+    
+    public void reportVolumeModified(String name, VolumeQosSettings params)
+    {
+        if (name == null) throw new NullArgumentException("name");
+        if (params == null) throw new NullArgumentException("params");
+        
+        if (!_volumeOps.containsKey(name))
+        {
+            throw new IllegalArgumentException("Volume " + name + " does not exist.");
+        }
+        
+        _volumeOps.put(name, new VolumeQosStats(params));
     }
 
-    @Override
-    public void reportStop(String volume)
+    public void reportVolumeStart(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
 
-        VolumeQosStats stats = getStatsInternal(volume);
-        Instant stop = stats.performance.stopNow();
+        VolumeQosStats stats = _getStatsInternal(volume);
+        stats.performance.startNow();
+    }
+    
+    public void reportVolumeStop(String volume)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
 
-        stopped.send(new SimpleEntry<>(volume, stop));
+        VolumeQosStats stats = _getStatsInternal(volume);
+        stats.performance.stopNow();
     }
 
     /**
@@ -202,7 +186,7 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
      * 
      * @return The volume's statistics.
      */
-    private VolumeQosStats getStatsInternal(String volume)
+    private VolumeQosStats _getStatsInternal(String volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
 

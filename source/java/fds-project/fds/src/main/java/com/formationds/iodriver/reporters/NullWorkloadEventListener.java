@@ -1,5 +1,6 @@
 package com.formationds.iodriver.reporters;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
 
@@ -13,51 +14,15 @@ public class NullWorkloadEventListener extends AbstractWorkloadEventListener
     {
         super(logger);
     }
-    
+
     @Override
-    public void addVolume(String name, VolumeQosSettings params)
-    {
-        // No-op.
-    }
-    
-    @Override
-    public void finished()
-    {
-        // No-op.
-    }
-    
-    @Override
-    public VolumeQosStats getStats(String volume)
-    {
-        throw new IllegalArgumentException("No volumes exist in " + getClass().getName() + ".");
-    }
-    
-    @Override
-    public Set<String> getVolumes()
-    {
-        return Collections.emptySet();
-    }
-    
-    @Override
-    public void reportIo(String volume, int count)
+    public void close() throws IOException
     {
         // No-op.
     }
     
     @Override
     public void reportOperationExecution(Operation operation)
-    {
-        // No-op.
-    }
-    
-    @Override
-    public void reportStart(String volume)
-    {
-        // No-op.
-    }
-    
-    @Override
-    public void reportStop(String volume)
     {
         // No-op.
     }

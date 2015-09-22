@@ -5,8 +5,8 @@ import java.net.URL;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.HttpOperation;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 

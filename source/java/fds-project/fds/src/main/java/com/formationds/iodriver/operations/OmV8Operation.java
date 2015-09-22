@@ -2,6 +2,7 @@ package com.formationds.iodriver.operations;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 

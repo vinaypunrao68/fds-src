@@ -20,8 +20,8 @@ import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.google.common.io.CharStreams;
@@ -91,6 +91,23 @@ public abstract class AbstractBaseHttpEndpoint<
         writeToRequest(connection, content, charset);
 
         handleResponse(connection, c -> null);
+    }
+
+    @Override
+    public String doWriteThenRead(ConnectionT connection,
+                                  String content,
+                                  Charset charset) throws HttpException
+    {
+        if (connection == null) throw new NullArgumentException("connection");
+        if (content == null) throw new NullArgumentException("content");
+        if (charset == null) throw new NullArgumentException("charset");
+
+        connection.setDoInput(true);
+        connection.setDoOutput(true);
+
+        writeToRequest(connection, content, charset);
+
+        return handleResponse(connection, c -> getResponse(c));
     }
 
     @Override

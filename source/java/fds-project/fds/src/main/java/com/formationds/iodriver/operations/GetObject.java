@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.ObjectManifest;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;

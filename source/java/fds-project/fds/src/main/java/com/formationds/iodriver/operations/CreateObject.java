@@ -14,9 +14,11 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Create an object in an S3 bucket.
@@ -130,9 +132,9 @@ public final class CreateObject extends S3Operation
             throw new ExecutionException("Error closing input stream.", e);
         }
 
-        if (_doReporting)
+        if (_doReporting && reporter instanceof WorkloadEventListener)
         {
-            reporter.reportIo(_bucketName, IO_COST);
+            ((WorkloadEventListener)reporter).reportIo(_bucketName, IO_COST);
         }
     }
     

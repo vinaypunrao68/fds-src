@@ -1,6 +1,12 @@
 package com.formationds.iodriver.model;
 
+import static com.formationds.client.v08.converters.ExternalModelConverter.convertToInternalMediaPolicy;
+
 import com.formationds.apis.MediaPolicy;
+import com.formationds.client.v08.model.DataProtectionPolicy;
+import com.formationds.client.v08.model.QosPolicy;
+import com.formationds.client.v08.model.Volume;
+import com.formationds.commons.NullArgumentException;
 
 /**
  * QoS settings for a volume.
@@ -33,6 +39,21 @@ public final class VolumeQosSettings
         _mediaPolicy = mediaPolicy;
     }
 
+    public static VolumeQosSettings fromVolume(Volume volume)
+    {
+        if (volume == null) throw new NullArgumentException("volume");
+        
+        QosPolicy qosPolicy = volume.getQosPolicy();
+        DataProtectionPolicy dataProtectionPolicy = volume.getDataProtectionPolicy();
+        
+        return new VolumeQosSettings(volume.getId(),
+                                     qosPolicy.getIopsMin(),
+                                     qosPolicy.getIopsMax(),
+                                     qosPolicy.getPriority(),
+                                     dataProtectionPolicy.getCommitLogRetention().getSeconds(),
+                                     convertToInternalMediaPolicy(volume.getMediaPolicy()));
+    }
+    
     /**
      * Do a deep copy of this object.
      * 

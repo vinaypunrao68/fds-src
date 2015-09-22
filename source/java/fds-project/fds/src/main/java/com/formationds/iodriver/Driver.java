@@ -2,7 +2,6 @@ package com.formationds.iodriver;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;

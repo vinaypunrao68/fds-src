@@ -11,7 +11,6 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.NullWorkloadEventListener;

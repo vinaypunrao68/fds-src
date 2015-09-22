@@ -10,10 +10,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CallChildWorkload;
-import com.formationds.iodriver.operations.ExecutionException;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
@@ -54,12 +54,8 @@ public class BenchmarkPrefixSearch extends Workload
                     new com.formationds.iodriver.workloads.GetObjects(
                             objName ->
                             {
-                                Set<String> volumeDirectories = _directories.get(lambdaVolumeName);
-                                if (volumeDirectories == null)
-                                {
-                                    volumeDirectories = new HashSet<>();
-                                    _directories.put(lambdaVolumeName, volumeDirectories);
-                                }
+                                Set<String> volumeDirectories =
+                                        _getVolumeDirectories(lambdaVolumeName);
 
                                 int lastSlash = objName.lastIndexOf('/');
                                 if (lastSlash > -1)
@@ -102,6 +98,19 @@ public class BenchmarkPrefixSearch extends Workload
         Consumer<String> getObjectSetter = obj -> System.out.println(obj);
         
         return volumeDirectories.stream().map(dir -> new GetObjects(volumeName, getObjectSetter));
+    }
+    
+    private Set<String> _getVolumeDirectories(String volumeName)
+    {
+        Set<String> retval = _directories.get(volumeName);
+        
+        if (retval == null)
+        {
+            retval = new HashSet<>();
+            _directories.put(volumeName, retval);
+        }
+        
+        return retval;
     }
     
     private final Map<String, Set<String>> _directories;

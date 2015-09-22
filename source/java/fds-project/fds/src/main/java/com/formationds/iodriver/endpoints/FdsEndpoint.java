@@ -1,7 +1,7 @@
 package com.formationds.iodriver.endpoints;
 
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.OmV7Operation;
 import com.formationds.iodriver.operations.OmV8Operation;
 import com.formationds.iodriver.operations.Operation;

@@ -8,6 +8,7 @@ import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Validate that no volume exceeded its throttle by more than 1%.
@@ -19,6 +20,20 @@ public final class RateLimitValidator implements Validator
     {
         if (listener == null) throw new NullArgumentException("listener");
 
+        if (listener instanceof WorkloadEventListener)
+        {
+            return isValid((WorkloadEventListener)listener);
+        }
+        else
+        {
+            return false;
+        }
+    }
+    
+    public boolean isValid(WorkloadEventListener listener)
+    {
+        if (listener == null) throw new NullArgumentException("listener");
+        
         boolean failed = false;
         for (String volumeName : listener.getVolumes())
         {

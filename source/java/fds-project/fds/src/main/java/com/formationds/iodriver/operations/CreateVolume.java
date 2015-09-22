@@ -15,9 +15,12 @@ import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
+import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class CreateVolume extends AbstractOmV8Operation
 {
@@ -46,19 +49,29 @@ public class CreateVolume extends AbstractOmV8Operation
         newVolumeBuilder.qosPolicy(new QosPolicy(1, 0, 0));
         Volume newVolume = newVolumeBuilder.create();
 
+        String addedVolumeString;
         try
         {
-            endpoint.doWrite(connection,
-                             ObjectModelHelper.toJSON(newVolume),
-                             StandardCharsets.UTF_8);
+            addedVolumeString = endpoint.doWriteThenRead(connection,
+                                                         ObjectModelHelper.toJSON(newVolume),
+                                                         StandardCharsets.UTF_8);
         }
         catch (HttpException e)
         {
             throw new ExecutionException(e);
         }
+
+        if (listener instanceof WorkloadEventListener)
+        {
+            Volume addedVolume = ObjectModelHelper.toObject(addedVolumeString, Volume.class);
+            
+            ((WorkloadEventListener)listener).reportVolumeAdded(
+                    _name,
+                    VolumeQosSettings.fromVolume(addedVolume));
+        }
     }
 
-	@Override
+    @Override
 	public URI getRelativeUri()
 	{
 		URI base = Fds.Api.V08.getBase();
@@ -72,7 +85,7 @@ public class CreateVolume extends AbstractOmV8Operation
 	{
 	    return "POST";
 	}
-
+	
 	@Override
 	protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
 	{

@@ -2,6 +2,7 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 
+import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 
