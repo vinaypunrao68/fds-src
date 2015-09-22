@@ -377,8 +377,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
 
     if (!err.ok()) {
-        LOGERROR << "Error getting commit log for vol: " << volumeUuid;
-    	abortMigration();
+        LOGERROR << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
         return err;
     }
 
@@ -391,8 +390,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
         }
         testStaticMigrationComplete();
     } else {
-    	LOGMIGRATE << "Error trying to apply forwarded commit logs content.";
-    	abortMigration();
+    	LOGMIGRATE << "Error trying to apply forwarded commit logs content with error " << err;
     }
 
     return err;

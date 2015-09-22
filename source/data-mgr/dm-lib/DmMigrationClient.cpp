@@ -426,6 +426,11 @@ Error
 DmMigrationClient::processBlobFilterSet2()
 {
 	Error err(ERR_OK);
+
+    fiu_do_on("abort.dm.migration.processBlobFilter2",\
+              LOGDEBUG << "abort.dm.migration processBlobFilter2.fault point enabled";\
+              return ERR_NOT_READY;);
+
 	/**
      * This is the main entrance for migrationClient (source) work.
      * It will take care of generating the blobs diff, blobs descriptors, and send

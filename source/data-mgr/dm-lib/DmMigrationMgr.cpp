@@ -349,7 +349,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
 
     if (err != ERR_OK) {
-    	abortMigration();
+    	fds_assert(isMigrationAborted());
         return err;
     }
 
@@ -373,6 +373,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         LOGMIGRATE << "Client received request for volume " << filterSet->volumeId
             << " but it already exists";
         err = ERR_DUPLICATE;
+        abortMigrationExternal();
     } else {
         /**
          * Create a new instance of client and start it.
@@ -393,6 +394,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	SCOPEDREAD(migrClientLock);
         	client = getMigrationClient(fds_volid);
         	fds_assert(client != nullptr);
+        	trackIOReqs.startTrackIOReqs();
 			err = client->processBlobFilterSet();
 			if (ERR_OK != err) {
 				fds_assert(isMigrationAborted());
@@ -403,7 +405,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 
 			err = client->processBlobFilterSet2();
 			if (ERR_OK != err) {
-				fds_assert(isMigrationAborted());
+				// This one doesn't have an async callback to decrement so we fail it manually
+				abortMigrationExternal();
 				LOGERROR << "Processing blob diff failed";
 				// Shared the same error code, so look for above's msg
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
@@ -648,7 +651,21 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
         return ERR_NOT_FOUND;
     }
 
-    return (executor->processTxState(txStateMsg));
+    Error err(ERR_OK);
+    err = executor->processTxState(txStateMsg);
+
+    if (!err.ok()) {
+    	abortMigrationExternal();
+    }
+
+    return (err);
+}
+
+void
+DmMigrationMgr::abortMigrationExternal()
+{
+	trackIOReqs.startTrackIOReqs();
+	abortMigration();
 }
 
 void

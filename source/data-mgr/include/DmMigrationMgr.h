@@ -162,6 +162,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination DM that an error has occurred. The Destination DM will then tell the OM.
      */
     void abortMigration();
+    void abortMigrationExternal();
     void abortMigrationReal();
 
     void asyncMsgPassed();

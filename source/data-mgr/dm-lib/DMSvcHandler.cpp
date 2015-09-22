@@ -446,7 +446,7 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
 
     // Tell the DM Migration Mgr
-    dataManager_.dmMigrationMgr->abortMigration();
+    dataManager_.dmMigrationMgr->abortMigrationExternal();
 
     LOGNOTIFY << "DM Migration Manager aborted and cleaned up";
 
