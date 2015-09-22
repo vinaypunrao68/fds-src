@@ -204,8 +204,6 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
     mit = executorMap.begin();
     while (loopFireNext && (mit != executorMap.end())) {
         loopFireNext = !(mit->second->shouldAutoExecuteNext());
-        // Due to asyncInitialBlobSetReq async request
-        trackIOReqs.startTrackIOReqs();
         mit->second->startMigration();
         if (isMigrationAborted()) {
             /**
@@ -306,8 +304,7 @@ DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
     	}
     	return ERR_NOT_FOUND;
     }
-    executor->processForwardedCommits(fwdCatReq);
-    return ERR_OK;
+    return (executor->processForwardedCommits(fwdCatReq));
 }
 
 void
@@ -373,7 +370,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         LOGMIGRATE << "Client received request for volume " << filterSet->volumeId
             << " but it already exists";
         err = ERR_DUPLICATE;
-        abortMigrationExternal();
+        abortMigration();
     } else {
         /**
          * Create a new instance of client and start it.
@@ -394,8 +391,9 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	SCOPEDREAD(migrClientLock);
         	client = getMigrationClient(fds_volid);
         	fds_assert(client != nullptr);
-        	trackIOReqs.startTrackIOReqs();
-			err = client->processBlobFilterSet();
+
+        	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
+			err = client->processBlobFilterSet(trackerBind);
 			if (ERR_OK != err) {
 				fds_assert(isMigrationAborted());
 				LOGERROR << "Processing filter set failed.";
@@ -406,7 +404,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 			err = client->processBlobFilterSet2();
 			if (ERR_OK != err) {
 				// This one doesn't have an async callback to decrement so we fail it manually
-				abortMigrationExternal();
+				abortMigration();
 				LOGERROR << "Processing blob diff failed";
 				// Shared the same error code, so look for above's msg
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
@@ -477,7 +475,6 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         if (mit->second->shouldAutoExecuteNext()) {
             ++mit;
             if (mit != executorMap.end()) {
-            	trackIOReqs.startTrackIOReqs();
                 mit->second->startMigration();
             } else {
                 ackStaticMigrationComplete(result);
@@ -655,25 +652,15 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     err = executor->processTxState(txStateMsg);
 
     if (!err.ok()) {
-    	abortMigrationExternal();
+    	abortMigration();
     }
 
     return (err);
 }
 
 void
-DmMigrationMgr::abortMigrationExternal()
-{
-	trackIOReqs.startTrackIOReqs();
-	abortMigration();
-}
-
-void
 DmMigrationMgr::abortMigration()
 {
-	trackIOReqs.finishTrackIOReqs();
-	LOGDEBUG << "trackIO count is now: " << trackIOReqs.debugCount();
-
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED)) {
 		// If not the first client or first executor, don't worry about the rest.
@@ -726,7 +713,14 @@ void
 DmMigrationMgr::asyncMsgPassed()
 {
 	trackIOReqs.finishTrackIOReqs();
-	LOGDEBUG << "trackIO count is now: " << trackIOReqs.debugCount();
+	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+}
+
+void
+DmMigrationMgr::asyncMsgIssued()
+{
+	trackIOReqs.startTrackIOReqs();
+	LOGDEBUG << "trackIO count++ is now: " << trackIOReqs.debugCount();
 }
 
 void

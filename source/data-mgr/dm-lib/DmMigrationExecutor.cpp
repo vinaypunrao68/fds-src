@@ -93,7 +93,7 @@ DmMigrationExecutor::startMigration()
     	if (!err.ok()) {
     		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
     				<< " with error=" << err;
-    		abortMigration();
+    		dataMgr.dmMigrationMgr->abortMigration();
     	}
     } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
@@ -101,7 +101,7 @@ DmMigrationExecutor::startMigration()
         if (migrDoneCb) {
         	migrDoneCb(volDesc.volUUID, err);
         }
-        abortMigration();
+    	dataMgr.dmMigrationMgr->abortMigration();
     }
 
     return err;
@@ -153,6 +153,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     std::function<void()> abortBind = std::bind(&DmMigrationMgr::abortMigration, std::ref(dataMgr.dmMigrationMgr));
     std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
     asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
+    dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncInitialBlobSetReq->invoke();
 
     return err;
@@ -436,7 +437,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
-        	abortMigration();
+        	dataMgr.dmMigrationMgr->abortMigration();
             delete dmReq;
             return;
         }

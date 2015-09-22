@@ -368,7 +368,7 @@ DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateB
 }
 
 Error
-DmMigrationClient::processBlobFilterSet()
+DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 {
     LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
@@ -376,6 +376,7 @@ DmMigrationClient::processBlobFilterSet()
               LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
               return ERR_NOT_READY;);
 
+    trackerFunc = inTracker;
 
     // Lookup commit log so we can take a snapshot of the volume while blocking
     // updates
@@ -489,6 +490,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
     asyncDeltaBlobsMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncDeltaBlobsMsg->invoke();
 
     return err;
@@ -512,6 +514,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
     asyncDeltaBlobDescMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncDeltaBlobDescMsg->invoke();
 
     return err;
@@ -621,8 +624,11 @@ DmMigrationClient::sendFinishFwdMsg()
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
     thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
-    // TODO: need a handler here
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::abortMigration, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    thriftMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	thriftMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
 	thriftMsg->invoke();
 
 	return (err);

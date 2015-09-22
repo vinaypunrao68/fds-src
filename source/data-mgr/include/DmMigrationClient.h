@@ -19,6 +19,8 @@ class DataMgr;
 typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
+using incrementCountFunc = std::function<void()>;
+
 class DmMigrationClient : public DmMigrationBase {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
@@ -36,7 +38,7 @@ class DmMigrationClient : public DmMigrationBase {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error processBlobFilterSet();
+    Error processBlobFilterSet(incrementCountFunc inTracker);
 
     Error processBlobFilterSet2();
 
@@ -208,6 +210,9 @@ class DmMigrationClient : public DmMigrationBase {
     // Used for abort cleanup
     fds_mutex  ssTakenScopeLock;
     fds_bool_t snapshotTaken;
+
+    // Function pointer for incrementing count per message sent
+    incrementCountFunc trackerFunc;
 
 };  // DmMigrationClient
 

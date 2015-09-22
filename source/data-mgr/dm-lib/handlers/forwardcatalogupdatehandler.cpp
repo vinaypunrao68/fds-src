@@ -35,7 +35,6 @@ void ForwardCatalogUpdateHandler::handleRequest(
      */
     auto error = dataManager.dmMigrationMgr->handleForwardedCommits(dmReq);
 
-    /* Ack back immediately */
     asyncHdr->msg_code = error.GetErrno();
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
 }
