@@ -204,13 +204,14 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
     mit = executorMap.begin();
     while (loopFireNext && (mit != executorMap.end())) {
         loopFireNext = !(mit->second->shouldAutoExecuteNext());
+        // Due to asyncInitialBlobSetReq async request
+        trackIOReqs.startTrackIOReqs();
         mit->second->startMigration();
         if (isMigrationAborted()) {
             /**
              * Abort everything
              */
             err = ERR_DM_MIGRATION_ABORTED;
-            abortMigration();
             break;
         } else if (loopFireNext) {
             mit++;
@@ -376,22 +377,38 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         /**
          * Create a new instance of client and start it.
          */
-        migrClientLock.write_lock();
-        LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
-        clientMap.emplace(fds_volid,
-                          (client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
-                                                                                        mySvcUuid, destDmUuid, filterSet,
-                                                                                        std::bind(&DmMigrationMgr::migrationClientDoneCb,
-                                                                                                  this, std::placeholders::_1,
-                                                                                                  std::placeholders::_2),
-                                                                                        maxNumBlobs,
-                                                                                        maxNumBlobDesc))));
-        migrClientLock.write_unlock();
+        {
+        	SCOPEDWRITE(migrClientLock);
+        	LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
+			clientMap.emplace(fds_volid,
+							  (client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
+																							mySvcUuid, destDmUuid, filterSet,
+																							std::bind(&DmMigrationMgr::migrationClientDoneCb,
+																									  this, std::placeholders::_1,
+																									  std::placeholders::_2),
+																							maxNumBlobs,
+																							maxNumBlobDesc))));
+        }
+        {
+        	SCOPEDREAD(migrClientLock);
+        	client = getMigrationClient(fds_volid);
+        	fds_assert(client != nullptr);
+			err = client->processBlobFilterSet();
+			if (ERR_OK != err) {
+				fds_assert(isMigrationAborted());
+				LOGERROR << "Processing filter set failed.";
+				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+				return err;
+			}
 
-        err = client->processBlobFilterSet();
-        if (ERR_OK != err) {
-            LOGERROR << "Processing filter set failed.";
-            err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+			err = client->processBlobFilterSet2();
+			if (ERR_OK != err) {
+				fds_assert(isMigrationAborted());
+				LOGERROR << "Processing blob diff failed";
+				// Shared the same error code, so look for above's msg
+				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+				return err;
+			}
         }
     }
 
@@ -457,6 +474,7 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         if (mit->second->shouldAutoExecuteNext()) {
             ++mit;
             if (mit != executorMap.end()) {
+            	trackIOReqs.startTrackIOReqs();
                 mit->second->startMigration();
             } else {
                 ackStaticMigrationComplete(result);
@@ -469,8 +487,13 @@ void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
     SCOPEDWRITE(migrClientLock);
-    LOGMIGRATE << "Client done with volume " << uniqueId;
-    // clientMap.erase(fds_volid_t(uniqueId));
+    if (!result.OK()) {
+        fds_verify(isMigrationInProgress() || isMigrationAborted());
+        LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
+        abortMigration();
+    } else {
+    	LOGMIGRATE << "Client done with volume " << uniqueId;
+    }
 }
 
 fds_bool_t
@@ -631,12 +654,16 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
 void
 DmMigrationMgr::abortMigration()
 {
+	trackIOReqs.finishTrackIOReqs();
+	LOGDEBUG << "trackIO count is now: " << trackIOReqs.debugCount();
+
 	MigrationState expectedState(MIGR_IN_PROGRESS);
 	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED)) {
 		// If not the first client or first executor, don't worry about the rest.
 		return;
 	}
 
+	// Need to release a thread while this original one exits the read lock
 	std::thread t1(&DmMigrationMgr::abortMigrationReal, this);
 	t1.detach();
 
@@ -645,25 +672,29 @@ DmMigrationMgr::abortMigration()
 void
 DmMigrationMgr::abortMigrationReal()
 {
+	LOGDEBUG << "Waiting for all I/O to complete";
+	trackIOReqs.waitForTrackIOReqs();
 
 	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
-	migrExecutorLock.write_lock();
-	migrClientLock.write_lock();
-	DmMigrationClientMap::const_iterator citer (clientMap.begin());
-	DmMigrationExecMap::const_iterator eiter (executorMap.begin());
-	while (citer != clientMap.end()) {
-		citer->second->abortMigration();
-		++citer;
+	{
+		SCOPEDWRITE(migrExecutorLock);
+		{
+			SCOPEDWRITE(migrClientLock);
+			DmMigrationClientMap::const_iterator citer (clientMap.begin());
+			DmMigrationExecMap::const_iterator eiter (executorMap.begin());
+			while (citer != clientMap.end()) {
+				citer->second->abortMigration();
+				++citer;
+			}
+			while (eiter != executorMap.end()) {
+				eiter->second->abortMigration();
+				++eiter;
+			}
+			clientMap.clear();
+			executorMap.clear();
+		}
 	}
-	while (eiter != executorMap.end()) {
-		eiter->second->abortMigration();
-		++eiter;
-	}
-	clientMap.clear();
-	executorMap.clear();
-	migrClientLock.write_unlock();
-	migrExecutorLock.write_unlock();
 
     fds_assert(myRole != MIGR_UNKNOWN);
     if ((myRole == MIGR_EXECUTOR) && OmStartMigrCb) {
@@ -672,6 +703,13 @@ DmMigrationMgr::abortMigrationReal()
     }
 
     std::atomic_store(&migrState, MIGR_IDLE);
+}
+
+void
+DmMigrationMgr::asyncMsgPassed()
+{
+	trackIOReqs.finishTrackIOReqs();
+	LOGDEBUG << "trackIO count is now: " << trackIOReqs.debugCount();
 }
 
 void

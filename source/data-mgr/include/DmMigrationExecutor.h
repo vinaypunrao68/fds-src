@@ -87,10 +87,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      */
     Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
 
-    inline fds_bool_t shouldAutoExecuteNext()
-    {
-    	return autoIncrement;
-    }
+    fds_bool_t shouldAutoExecuteNext();
 
     /**
      * Destination DM:

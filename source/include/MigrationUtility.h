@@ -223,19 +223,22 @@ class MigrationTrackIOReqs {
     void finishTrackIOReqs();
 
     void waitForTrackIOReqs();
+    inline uint64_t debugCount() {
+    	return numTrackIOReqs;
+    }
 
-    class scopedTrackIOReqs : boost::noncopyable {
+    class ScopedTrackIOReqs : boost::noncopyable {
       public:
         MigrationTrackIOReqs * scopedReq;
         bool success = {false};
-        explicit scopedTrackIOReqs(MigrationTrackIOReqs &req)
+        explicit ScopedTrackIOReqs(MigrationTrackIOReqs &req)
                                   : scopedReq(&req) {
           if (scopedReq) {
             success = scopedReq->startTrackIOReqs();
           }
         }
 
-        ~scopedTrackIOReqs() {
+        ~ScopedTrackIOReqs() {
           if (scopedReq && success) {
             scopedReq->finishTrackIOReqs();
             scopedReq = nullptr;

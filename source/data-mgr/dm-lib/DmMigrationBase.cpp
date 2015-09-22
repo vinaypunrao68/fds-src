@@ -9,6 +9,7 @@ namespace fds {
 
 void
 DmMigrationBase::dmMigrationCheckResp(std::function<void()> abortFunc,
+										std::function<void()> passFunc,
 										EPSvcRequest *req,
 										const Error& error,
 										boost::shared_ptr<std::string> payload)
@@ -16,6 +17,8 @@ DmMigrationBase::dmMigrationCheckResp(std::function<void()> abortFunc,
 	LOGMIGRATE << "Received response with error: " << error;
 	if (!error.ok()) {
 		abortFunc();
+	} else {
+		passFunc();
 	}
 }
 

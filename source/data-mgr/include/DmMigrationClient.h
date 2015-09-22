@@ -38,6 +38,8 @@ class DmMigrationClient : public DmMigrationBase {
      */
     Error processBlobFilterSet();
 
+    Error processBlobFilterSet2();
+
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
@@ -185,6 +187,11 @@ class DmMigrationClient : public DmMigrationBase {
      */
     uint64_t getSeqNumBlobs();
     void resetSeqNumBlobs();
+
+    /**
+     * Used between processBlobFilterSet part 1 and 2
+     */
+    DmCommitLog::ptr commitLog;
 
     /**
      * sequence number apis for blobs.

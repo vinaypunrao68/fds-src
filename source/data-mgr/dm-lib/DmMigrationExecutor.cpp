@@ -93,6 +93,7 @@ DmMigrationExecutor::startMigration()
     	if (!err.ok()) {
     		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
     				<< " with error=" << err;
+    		abortMigration();
     	}
     } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
@@ -100,9 +101,22 @@ DmMigrationExecutor::startMigration()
         if (migrDoneCb) {
         	migrDoneCb(volDesc.volUUID, err);
         }
+        abortMigration();
     }
 
     return err;
+}
+
+
+fds_bool_t
+DmMigrationExecutor::shouldAutoExecuteNext()
+{
+	fds_scoped_lock lock(progressLock);
+	if (migrationProgress == MIGRATION_ABORTED) {
+		return false;
+	} else {
+		return autoIncrement;
+	}
 }
 
 Error
@@ -137,7 +151,8 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
     std::function<void()> abortBind = std::bind(&DmMigrationMgr::abortMigration, std::ref(dataMgr.dmMigrationMgr));
-    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     asyncInitialBlobSetReq->invoke();
 
     return err;

@@ -9,6 +9,7 @@
 #include <DmMigrationExecutor.h>
 #include <DmMigrationClient.h>
 #include <condition_variable>
+#include <MigrationUtility.h>
 
 namespace fds {
 
@@ -162,6 +163,8 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void abortMigration();
     void abortMigrationReal();
+
+    void asyncMsgPassed();
 
     // Get timeout for messages between clients and executors
     inline uint32_t getTimeoutValue() {
@@ -319,6 +322,15 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     fds_rwlock executorAccessLock;
     fds_rwlock clientAccessLock;
+
+    /**
+     * Scoped tracking - how it works:
+     * Normally, the migrationMgr gets a read lock on the respective exec/client.
+     * If the operation is synchronous, the call completes and the lock is release.
+     * If the operation is async, then we need to increment the counter and decrement it
+     * on the callback.
+     */
+    MigrationTrackIOReqs trackIOReqs;
 
 };  // DmMigrationMgr
 
