@@ -19,6 +19,7 @@ public class StatDataPoint {
 	public static final String MAXIMUM_VALUE = "maximumValue";
 	public static final String MINIMUM_VALUE = "minimumValue";
 	public static final String RELATED_CONTEXTS = "relatedContexts";
+	public static final String AGGREGATION_TYPE = "aggregationType";
 	
 	public enum TIME_UNITS{
 		MILLISECONDS,
@@ -91,6 +92,11 @@ public class StatDataPoint {
 	private List<ContextDef> relatedContexts;
 	
 	/**
+	 * Tells the aggregator how to aggregate stats of this type
+	 */
+	private AggregationType aggregationType = AggregationType.SUM;
+	
+	/**
 	 * The type (or system noun) that describes what the stat is about
 	 * 0 = Volume
 	 * 1 = Node
@@ -107,7 +113,8 @@ public class StatDataPoint {
 						  TIME_UNITS collectionTimePeriod,
 						  Integer numberOfSamples,
 						  Long contextId,
-						  ContextType contextType ){
+						  ContextType contextType,
+						  AggregationType aggregationType ){
 		
 		this.reportTime = reportTime;
 		this.metricName = metricName;
@@ -117,6 +124,7 @@ public class StatDataPoint {
 		this.contextId = contextId;
 		this.contextType = contextType;
 		this.collectionTimePeriod = collectionTimePeriod;
+		this.aggregationType = aggregationType;
 	}
 
 	public Long getReportTime() {
@@ -199,6 +207,14 @@ public class StatDataPoint {
 		this.contextType = contextType;
 	}
 	
+	public AggregationType getAggregationType(){
+		return this.aggregationType;
+	}
+	
+	public void setAggregationType( AggregationType type ){
+		this.aggregationType = type;
+	}
+	
 	public List<ContextDef> getRelatedContexts(){
 		
 		if ( this.relatedContexts == null ){
@@ -226,6 +242,7 @@ public class StatDataPoint {
 		json.put( NUMBER_OF_SAMPLES, getNumberOfSamples() );
 		json.put( MINIMUM_VALUE, getMinimumValue() );
 		json.put( MAXIMUM_VALUE, getMaximumValue() );
+		json.put( AGGREGATION_TYPE, getAggregationType().name() );
 		
 		JSONArray contextArray = new JSONArray();
 		
@@ -261,6 +278,7 @@ public class StatDataPoint {
 		datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
 		datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
 		datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
+		datapoint.setAggregationType( AggregationType.valueOf( json.getString( AGGREGATION_TYPE ) ) );
 		
 		try {
 			JSONArray array = json.getJSONArray( RELATED_CONTEXTS );
