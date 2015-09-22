@@ -50,7 +50,7 @@ public class Chunker {
         ByteBuffer output = ByteBuffer.wrap(destination);
 
         for (long i = 0; i < totalObjects; i++) {
-            io.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i), oov -> {
+            io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i), oov -> {
                 if (!oov.isPresent()) {
                     throw new FileNotFoundException();
                 }

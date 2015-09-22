@@ -22,6 +22,10 @@ public class FdsObjectFrame {
         return nextFrame(seed);
     }
 
+    public FdsObjectFrame entireObject() {
+        return firstFrame(objectSize * objectOffset, objectSize, objectSize);
+    }
+
     public FdsObjectFrame nextFrame() {
         return nextFrame(this);
     }

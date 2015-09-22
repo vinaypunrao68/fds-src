@@ -530,6 +530,13 @@ fds: {
                     no_delay=true
                 }
             }
+            scst: {
+		/* Volumes in this CSV list will be automatically presented on load */
+		auto_volumes="{{ am_scst_auto_volumes }}"
+                default_block_size={{ am_scst_default_block_size }}
+                target_name="{{ am_scst_target_name }}"
+		threads={{ am_scst_server_threads }}
+            }
         }
 
         threadpool: {
@@ -695,6 +702,7 @@ fds: {
     	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
     	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
 	nfs_stats = true
+	nfs_defer_metatada_updates = {{ nfs_defer_metadata_updates }}
     }
 
     test: {

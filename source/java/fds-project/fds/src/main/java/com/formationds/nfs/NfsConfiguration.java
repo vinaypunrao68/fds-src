@@ -5,12 +5,14 @@ public class NfsConfiguration {
     private int workQueueSize = 2000;
     private long incomingRequestTimeoutSeconds = 120;
     private boolean activateStats;
+    private boolean deferMetadataUpdates;
 
-    public NfsConfiguration(int threadPoolSize, int threadPoolWorkQueueSize, long incomingRequestTimeoutSeconds, boolean activateStats) {
+    public NfsConfiguration(int threadPoolSize, int threadPoolWorkQueueSize, long incomingRequestTimeoutSeconds, boolean activateStats, boolean deferMetadataUpdates) {
         this.threadPoolSize = threadPoolSize;
         this.workQueueSize = threadPoolWorkQueueSize;
         this.incomingRequestTimeoutSeconds = incomingRequestTimeoutSeconds;
         this.activateStats = activateStats;
+        this.deferMetadataUpdates = deferMetadataUpdates;
     }
 
     public int getThreadPoolSize() {
@@ -23,6 +25,10 @@ public class NfsConfiguration {
 
     public long getIncomingRequestTimeoutSeconds() {
         return incomingRequestTimeoutSeconds;
+    }
+
+    public boolean deferMetadataUpdates() {
+        return deferMetadataUpdates;
     }
 
     @Override

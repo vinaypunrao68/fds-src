@@ -1051,8 +1051,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                               boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> &dlt)
 {
     Error err(ERR_OK);
-    LOGNOTIFY << "Received new DLT commit version  "
-              << dlt->dlt_data.dlt_type;
+    LOGDEBUG << "Received new DLT commit version  "
+             << dlt->dlt_version;
     err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
                                                    dlt->dlt_data.dlt_data, nullptr);
     if (err.ok()) {
@@ -1062,7 +1062,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         err = ERR_OK;
     }
 
-    LOGNOTIFY << "Sending DLT commit response to OM with result " << err;
+    LOGNOTIFY << "Sending DLT commit (version " << dlt->dlt_version
+              << ") response to OM with result " << err;
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
