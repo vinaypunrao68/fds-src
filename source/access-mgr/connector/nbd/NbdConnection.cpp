@@ -19,6 +19,7 @@ extern "C" {
 #include <ev++.h>
 
 #include "connector/nbd/NbdConnector.h"
+#include "connector/nbd/NbdTask.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"
@@ -347,7 +348,7 @@ NbdConnection::io_reply(ev::io &watcher) {
 
         total_blocks = 3;
 
-        NbdResponseVector* resp = NULL;
+        NbdTask* resp = NULL;
         ensure(readyResponses.pop(resp));
         current_response.reset(resp);
 
@@ -395,14 +396,17 @@ NbdConnection::dispatchOp() {
     auto& handle = request.header.handle;
     auto& offset = request.header.offset;
     auto& length = request.header.length;
+    auto task = new NbdTask(handle);
 
     switch (request.header.opType) {
         case NBD_CMD_READ:
-            nbdOps->read(length, offset, handle);
+            task->setRead(offset, length);
+            nbdOps->read(task);
             break;
         case NBD_CMD_WRITE:
             fds_assert(request.data);
-            nbdOps->write(request.data, length, offset, handle);
+            task->setWrite(offset, length);
+            nbdOps->write(request.data, task);
             break;
         case NBD_CMD_FLUSH:
             break;
@@ -509,7 +513,7 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 }
 
 void
-NbdConnection::readWriteResp(NbdResponseVector* response) {
+NbdConnection::readWriteResp(NbdTask* response) {
     LOGDEBUG << (response->isRead() ? "READ" : "WRITE")
               << " response from NbdOperations handle: 0x" << std::hex << response->handle
               << " " << response->getError();

@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <util/fds_stat.h>
 #include "connector/nbd/NbdOperations.h"
+#include "connector/nbd/NbdTask.h"
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 
@@ -106,7 +107,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     }
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response) override {
+    void readWriteResp(NbdTask* response) override {
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
                   << " response for handle " << response->handle
@@ -173,7 +174,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    nbdOps->write(localData, localData->length(), offset, ++handle);
+                    auto task = new NbdTask(++handle);
+                    task->setWrite(offset, objSize);
+                    nbdOps->write(localData, task);
                     if (verifyData) {
                         fds_mutex::scoped_lock l(verifyMutex);
                         fds_verify(offData.count(offset) == 0);
@@ -184,7 +187,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(objSize, offset, ++handle);
+                    auto task = new NbdTask(++handle);
+                    task->setRead(offset, objSize);
+                    nbdOps->read(task);
                 } catch(fpi::ApiException fdsE) {
                     fds_panic("read failed");
                 }

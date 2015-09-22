@@ -15,6 +15,7 @@
 
 #include "fds_types.h"
 #include "connector/scst/common.h"
+#include "connector/scst/scst_user.h"
 #include "connector/scst/ScstOperations.h"
 
 struct scst_user_get_cmd;

@@ -21,6 +21,7 @@ namespace fds
 
 struct AmProcessor;
 struct NbdConnector;
+struct NbdTask;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -63,7 +64,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
     ~NbdConnection();
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response) override;
+    void readWriteResp(NbdTask* response) override;
     void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
@@ -98,8 +99,8 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t total_blocks;
     ssize_t write_offset;
 
-    boost::lockfree::queue<NbdResponseVector*> readyResponses;
-    std::unique_ptr<NbdResponseVector> current_response;
+    boost::lockfree::queue<NbdTask*> readyResponses;
+    std::unique_ptr<NbdTask> current_response;
 
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;

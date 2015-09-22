@@ -20,7 +20,6 @@
 #include "concurrency/Mutex.h"
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
-#include "connector/scst/scst_user.h"
 #include "connector/SectorLockMap.h"
 
 namespace fds {
@@ -97,8 +96,7 @@ class ScstOperations
                           handle_type* queued_handle_ptr,
                           Error const error);
 
-    uint32_t getObjectCount(uint32_t length,
-                                uint64_t offset);
+    uint32_t getObjectCount(uint32_t length, uint64_t offset);
 
     void detachVolume();
 
