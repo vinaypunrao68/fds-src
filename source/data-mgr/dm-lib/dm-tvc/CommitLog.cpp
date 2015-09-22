@@ -353,7 +353,7 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
     fds_assert(txId == *(iter->second->txDesc));
 
     if (iter->second->committed) {
-        GLOGERROR << "Blob transaction already committed: TxId:" << std::hex << txId << std::dec;
+        GLOGERROR << "Blob transaction already committed: TxId:" <<  txId;
         return ERR_DM_TX_COMMITTED;
     }
 
