@@ -2858,20 +2858,32 @@ class TestAMKill(TestCase.FDSTestCase):
             else:
                 status = 0
                 self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+            bare_am_killed_pid[n.nd_conf_dict['node-name']]= pid
+
+            # java AM (com.formationds.am.Main) is dependent on bare_am.
+            # kill/restart of bare_am cause kill/restart of java_am hence sleep for couple of seconds
+            time.sleep(2)
+            pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
+            if pid != -1:
+               cmd = "kill -KILL %s" % pid
+               status = n.nd_agent.exec_wait(cmd)
+            if status != 0:
+                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                return False
+            else:
+                status = 0
+                self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
             if (status != 1) and (status != 0):
                 self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            # java AM (com.formationds.am.Main) is dependent on bare_am.
-            # kill/restart of bare_am cause kill/restart of java_am
-            bare_am_killed_pid[n.nd_conf_dict['node-name']]= pid
 
             if self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 
         return True
-
 
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
