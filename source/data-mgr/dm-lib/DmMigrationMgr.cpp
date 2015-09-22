@@ -395,7 +395,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
 			err = client->processBlobFilterSet(trackerBind);
 			if (ERR_OK != err) {
-				fds_assert(isMigrationAborted());
+				abortMigration();
 				LOGERROR << "Processing filter set failed.";
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
 				return err;
@@ -570,15 +570,30 @@ Error
 DmMigrationMgr::finishActiveMigration()
 {
 	Error err(ERR_OK);
+	MigrationState expectedState(MIGR_IN_PROGRESS);
 	if (myRole == MIGR_CLIENT) {
 		SCOPEDWRITE(migrClientLock);
-		MigrationState expectedState(MIGR_IN_PROGRESS);
 		if (std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IDLE)) {
+			LOGMIGRATE << "Waiting for all outstanding async messages to be finished";
+			trackIOReqs.waitForTrackIOReqs();
 			clientMap.clear();
 			LOGMIGRATE << "Migration clients cleared and state reset";
+		} else if (std::atomic_load(&migrState) == MIGR_ABORTED) {
+			// TODO
+		} else {
+			fds_assert(0);
 		}
 	} else if (myRole == MIGR_EXECUTOR) {
-		// Not implemented yet
+		SCOPEDWRITE(migrExecutorLock);
+		if (std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IDLE)) {
+			LOGMIGRATE << "Waiting for all outstanding async messages to be finished";
+			trackIOReqs.waitForTrackIOReqs();
+			LOGMIGRATE << "Migration executors state reset";
+		} else if (std::atomic_load(&migrState) == MIGR_ABORTED) {
+			// TODO
+		} else {
+			fds_assert(0);
+		}
 	} else {
 		// Not in migration
 	}
@@ -606,9 +621,6 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 			}
 
 			err = dmExecutor->finishActiveMigration();
-			if (err.ok()) {
-				// executorMap.erase(volId);
-			}
 
 			// Check to see if all migration clients are finished
 			bool allExecutorsDone(true);
@@ -619,7 +631,10 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
 				}
 			}
 			if (allExecutorsDone) {
-				// erase here?
+				LOGMIGRATE << "All migration executors have finished. Starting cleanup thread...";
+				// std::thread t1(&DmMigrationMgr::finishActiveMigration, this);
+				std::thread t1([&] {this->finishActiveMigration();});
+				t1.detach();
 			}
 		}
 	} else {

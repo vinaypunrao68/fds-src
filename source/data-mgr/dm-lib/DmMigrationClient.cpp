@@ -384,7 +384,6 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
     if (!err.ok() || !commitLog) {
         LOGERROR << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
-		abortMigration();
         return err;
     }
 
@@ -401,7 +400,6 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 		if (ERR_OK != err) {
 			LOGERROR << "Failed to get snapshot volume=" << volId
 					 << " with error=" << err;
-			abortMigration();
 			return err;
 		} else {
 			snapshotTaken = true;
