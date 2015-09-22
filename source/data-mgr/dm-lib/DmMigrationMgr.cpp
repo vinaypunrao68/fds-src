@@ -486,7 +486,7 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    SCOPEDWRITE(migrClientLock);
+    SCOPEDREAD(migrClientLock);
     if (!result.OK()) {
         fds_verify(isMigrationInProgress() || isMigrationAborted());
         LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;

@@ -14,7 +14,7 @@ DmMigrationBase::dmMigrationCheckResp(std::function<void()> abortFunc,
 										const Error& error,
 										boost::shared_ptr<std::string> payload)
 {
-	LOGMIGRATE << "Received response with error: " << error;
+	LOGMIGRATE << "Request : " << req << " Received response with error: " << error;
 	if (!error.ok()) {
 		abortFunc();
 	} else {
