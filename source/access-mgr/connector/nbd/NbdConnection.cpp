@@ -535,11 +535,13 @@ NbdConnection::respondTask(BlockTask* response) {
 
 void
 NbdConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    // capacity is in MB
-    LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-              << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-    object_size = volDesc->maxObjSizeInBytes;
-    volume_size = __builtin_bswap64(volDesc->capacity * Mi);
+    if (volDesc) {
+        // capacity is in MB
+        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
+                  << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+        object_size = volDesc->maxObjSizeInBytes;
+        volume_size = __builtin_bswap64(volDesc->capacity * Mi);
+    }
     nbd_state = NbdProtoState::SENDOPTS;
 }
 

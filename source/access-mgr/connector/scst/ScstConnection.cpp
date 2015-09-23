@@ -631,10 +631,12 @@ ScstConnection::respondTask(BlockTask* response) {
 void
 ScstConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
-    LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-        << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-    physical_block_size = volDesc->maxObjSizeInBytes;
-    volume_size = (volDesc->capacity * Mi);
+    if (volDesc) {
+        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
+            << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+        physical_block_size = volDesc->maxObjSizeInBytes;
+        volume_size = (volDesc->capacity * Mi);
+    }
 }
 
 }  // namespace fds

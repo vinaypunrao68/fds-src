@@ -82,6 +82,7 @@ BlockOperations::attachVolumeResp(const Error& error,
         resp = it->second;
     }
 
+    boost::shared_ptr<VolumeDesc> descriptor = nullptr;
     if (ERR_OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
@@ -92,9 +93,10 @@ BlockOperations::attachVolumeResp(const Error& error,
             // Reference count this association
             std::unique_lock<std::mutex> lk(assoc_map_lock);
             ++assoc_map[volDesc->name];
-            blockResp->attachResp(volDesc);
+            descriptor = volDesc;
         }
     }
+    blockResp->attachResp(descriptor);
     finishResponse(resp);
 }
 
