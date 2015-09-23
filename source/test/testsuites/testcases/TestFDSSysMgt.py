@@ -9,6 +9,7 @@ import traceback
 import TestCase
 import pdb
 import re
+import time
 
 # Module-specific requirements
 import sys
@@ -18,7 +19,9 @@ import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from TestFDSServiceMgt import TestAMBringUp
 from fdslib.TestUtils import get_node_service
+from fdslib.TestUtils import get_node_state
 from fdscli.model.platform.service import Service
+from fdscli.model.platform.node import Node
 from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
@@ -302,9 +305,144 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
             node_service = get_node_service(self,om_ip)
             node_remove = node_service.remove_node(node_id)
 
+            #check node state after remove_node
+            node_state = node_service.get_node(node_id)
+            service_list = ['AM', 'DM', 'SM', 'PM']
+            for service_name in service_list:
+                if (node_state.services['{}'.format(service_name)][0].status.state != "RUNNING") and node_state.state != 'UP':
+                    self.log.warn("FAILED:  Expected Node service=RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))
+                    return False
+
             if isinstance(node_remove, FdsError) :
                 self.log.error("Removal of node %s returned status %s." %
                                (n.nd_conf_dict['node-name'], node_remove))
+                return False
+            elif self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                break
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# node shutdown. (I.e. stop all services on the node)
+class TestNodeShutdown(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeShutdown,
+                                             "Stop all services on a node")
+
+        self.passedNode = node
+
+    def test_NodeShutdown(self):
+        """
+        Test Case:
+        Attempt to shutdown the node.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
+        for n in nodes:
+        # If we were provided a node, deactivate that one and exit.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Shutdown node %s. " % n.nd_conf_dict['node-name'])
+            node_id = int(n.nd_uuid, 16)
+            # Prevent scenario where we try to remove a node that was never online
+            if not node_is_up(self,om_ip,node_id):
+                self.log.info("Selected node {} is down already. Ignoring "
+                                     "command to stop node".format(n.nd_conf_dict['node-name']))
+                continue
+
+            node_service = get_node_service(self,om_ip)
+            node_shutdown= node_service.stop_node(node_id)
+            time.sleep(5)
+            #check node state after stop_node
+            node_state = node_service.get_node(node_id)
+            service_list = ['AM', 'DM', 'SM', 'PM']
+            for service_name in service_list:
+                if (node_state.services['{}'.format(service_name)][0].status.state != "NOT_RUNNING") and node_state.state != 'DOWN':
+                    self.log.warn("FAILED:  Expected Node service=NOT_RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))
+                    return False
+
+
+            if isinstance(node_shutdown, FdsError) :
+                self.log.error("Shutdown of node %s returned status %s." %
+                               (n.nd_conf_dict['node-name'], node_shutdown))
+                return False
+            elif self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                break
+
+        return True
+
+# This class contains the attributes and methods to test
+# start node (I.e. node start services on the node)
+class TestNodeStart(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeStart,
+                                             "Start all services on a node")
+
+        self.passedNode = node
+
+    def test_NodeStart(self):
+        """
+        Test Case:
+        Attempt to start all services on a node.
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
+        for n in nodes:
+        # If we were provided a node, deactivate that one and exit.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Shutdown node %s. " % n.nd_conf_dict['node-name'])
+            node_id = int(n.nd_uuid, 16)
+            # Prevent scenario where we try to remove a node that was never online
+            if node_is_up(self,om_ip,node_id):
+                self.log.info("Selected node {} is UP already. Ignoring "
+                                     "command to start node".format(n.nd_conf_dict['node-name']))
+                continue
+
+            node_service = get_node_service(self,om_ip)
+            node_shutdown= node_service.start_node(node_id)
+
+            node_state = get_node_state(self,om_ip, node_id)
+            if node_state == 'UP':
+                self.log.info("PASSED:  Node start on node {} was successful.  Expected Node state = UP, Returned Node state={}".format(n.nd_conf_dict['node-name'], node_state))
+
+            else:
+                self.log.error("FAILED:  Failing to start node {}.  Expected Node state = UP, Returned Node state={}".format(n.nd_conf_dict['node-name'], node_state))
+
+            if isinstance(node_shutdown, FdsError) :
+                self.log.error("Node start of node %s returned status %s." %
+                               (n.nd_conf_dict['node-name'], node_shutdown))
                 return False
             elif self.passedNode is not None:
                 # If we were passed a specific node, exit now.
