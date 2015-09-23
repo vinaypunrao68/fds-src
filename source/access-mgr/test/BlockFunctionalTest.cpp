@@ -9,7 +9,7 @@
 #include <thread>
 #include <condition_variable>
 #include <util/fds_stat.h>
-#include "connector/nbd/NbdOperations.h"
+#include "connector/BlockOperations.h"
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 
@@ -141,7 +141,7 @@ class NbdOpsProc : public BlockOperations::ResponseIFace {
 
     void init() {
         // pass data API to Ndb Operations
-        nbdOps.reset(new NbdOperations(this));
+        nbdOps.reset(new BlockOperations(this));
         auto task = new BlockTask(0ll);
         nbdOps->init(volumeName, am->getProcessor(), task);
         am->getProcessor()->registerVolume(
@@ -244,7 +244,7 @@ class NbdOpsProc : public BlockOperations::ResponseIFace {
 
   private:
     // NbdOperations to test
-    NbdOperations::shared_ptr nbdOps;
+    BlockOperations::shared_ptr nbdOps;
 
     /// performance test setup
     fds_uint32_t concurrency;
@@ -290,13 +290,13 @@ class NbdOpsProc : public BlockOperations::ResponseIFace {
 using fds::NbdOpsProc;
 NbdOpsProc::unique_ptr nbdOpsProc;
 
-TEST(NbdOperations, write) {
+TEST(BlockOperations, write) {
     GLOGDEBUG << "TBD: Testing write";
     nbdOpsProc->resetCounters();
     nbdOpsProc->runAsyncTask(NbdOpsProc::PUT);
 }
 
-TEST(NbdOperations, read) {
+TEST(BlockOperations, read) {
     GLOGDEBUG << "TBD: Testing read";
     nbdOpsProc->runAsyncTask(NbdOpsProc::GET);
 }
