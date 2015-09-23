@@ -25,6 +25,7 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 // TODO: This was intended to test the fairness QOS with multiple queues. Not complete.
 public final class S3QosTestWorkload extends Workload
@@ -54,6 +55,12 @@ public final class S3QosTestWorkload extends Workload
         return S3Endpoint.class;
     }
 
+    @Override
+    public Class<?> getListenerType()
+    {
+        return WorkloadEventListener.class;
+    }
+    
     private S3QosTestWorkload(Collection<IoParams> bucketParams,
                               Duration duration,
                               ZonedDateTime stopTime,

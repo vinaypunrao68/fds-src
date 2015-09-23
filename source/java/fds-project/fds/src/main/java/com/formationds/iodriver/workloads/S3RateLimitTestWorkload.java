@@ -21,6 +21,7 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
 
@@ -71,6 +72,12 @@ public final class S3RateLimitTestWorkload extends Workload
         return FdsEndpoint.class;
     }
 
+    @Override
+    public Class<?> getListenerType()
+    {
+        return WorkloadEventListener.class;
+    }
+    
     @Override
     protected List<Stream<Operation>> createOperations()
     {

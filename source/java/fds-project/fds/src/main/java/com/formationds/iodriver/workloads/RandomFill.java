@@ -13,6 +13,7 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.CreateVolume;
 import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 
 public class RandomFill extends Workload
 {
@@ -46,6 +47,12 @@ public class RandomFill extends Workload
 	public Class<?> getEndpointType()
 	{
 	    return FdsEndpoint.class;
+	}
+	
+	@Override
+	public Class<?> getListenerType()
+	{
+	    return BaseWorkloadEventListener.class;
 	}
 	
 	@Override

@@ -17,6 +17,7 @@ import com.formationds.iodriver.operations.CallChildWorkload;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 
 public class BenchmarkPrefixSearch extends Workload
 {
@@ -38,6 +39,12 @@ public class BenchmarkPrefixSearch extends Workload
     public Class<?> getEndpointType()
     {
         return FdsEndpoint.class;
+    }
+    
+    @Override
+    public Class<?> getListenerType()
+    {
+        return BaseWorkloadEventListener.class;
     }
     
     @Override
@@ -95,7 +102,7 @@ public class BenchmarkPrefixSearch extends Workload
         String volumeName = directories.getKey();
         Set<String> volumeDirectories = directories.getValue();
         
-        Consumer<String> getObjectSetter = obj -> System.out.println(obj);
+        Consumer<String> getObjectSetter = obj -> { };
         
         return volumeDirectories.stream().map(dir -> new GetObjects(volumeName, getObjectSetter));
     }

@@ -12,8 +12,10 @@ import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
 import com.formationds.iodriver.reporters.NullWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.BenchmarkPrefixSearchConfig;
@@ -114,6 +116,32 @@ public final class Main
         }
     }
     
+    private static AbstractWorkloadEventListener getCompatibleListener(Workload workload,
+                                                                       Logger logger)
+    {
+        if (workload == null) throw new NullArgumentException("workload");
+        if (logger == null) throw new NullArgumentException("logger");
+        
+        Class<?> neededListenerClass = workload.getListenerType();
+        if (neededListenerClass.isAssignableFrom(BaseWorkloadEventListener.class))
+        {
+            return new BaseWorkloadEventListener(logger);
+        }
+        else if (neededListenerClass.isAssignableFrom(WorkloadEventListener.class))
+        {
+            return new WorkloadEventListener(logger);
+        }
+        else if (neededListenerClass.isAssignableFrom(NullWorkloadEventListener.class))
+        {
+            return new NullWorkloadEventListener(logger);
+        }
+        else
+        {
+            throw new UnsupportedOperationException(
+                    "Cannot find a listener of type " + neededListenerClass.getName() + ".");
+        }
+    }
+    
     /**
      * Display help if necessary.
      *
@@ -150,28 +178,32 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
 
-        try (AbstractWorkloadEventListener listener =
-                validate ? config.getListener()
-                         : new NullWorkloadEventListener(config.getLogger());
-             ConsoleProgressReporter reporter =
-                new ConsoleProgressReporter(System.out,
-                                            listener.operationExecuted))
+        try
         {
             Workload workload = config.getSelectedWorkload();
-            Endpoint endpoint = getCompatibleEndpoint(workload);
-            Validator validator = validate
-                                  ? workload.getSuggestedValidator().orElse(config.getValidator())
-                                  : new NullValidator();
-                                  
-            Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
-            if (validate || workload.doDryRun())
+            
+            try (AbstractWorkloadEventListener listener =
+                    validate ? getCompatibleListener(workload, config.getLogger())
+                             : new NullWorkloadEventListener(config.getLogger());
+                 ConsoleProgressReporter reporter =
+                    new ConsoleProgressReporter(System.out,
+                                                listener.operationExecuted))
             {
-                driver.runWorkload();
-                return driver.getResult();
-            }
-            else
-            {
-                return 0;
+                Endpoint endpoint = getCompatibleEndpoint(workload);
+                Validator validator = validate
+                                      ? workload.getSuggestedValidator().orElse(new NullValidator())
+                                      : new NullValidator();
+                                      
+                Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
+                if (validate || workload.doDryRun())
+                {
+                    driver.runWorkload();
+                    return driver.getResult();
+                }
+                else
+                {
+                    return 0;
+                }
             }
         }
         catch (Exception e)

@@ -193,7 +193,6 @@ public final class CreateObject extends S3Operation
                              Stream.of(memberToString("bucketName", _bucketName),
                                        memberToString("contentLength", _contentLength),
                                        memberToString("doReporting", _doReporting),
-                                       memberToString("input", _input),
                                        memberToString("key", _key)));
     }
     

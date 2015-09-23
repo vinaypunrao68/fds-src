@@ -1,5 +1,6 @@
 package com.formationds.iodriver.reporters;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,14 +13,13 @@ import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.Operation;
 
 /**
  * Captures events from a {@link com.formationds.iodriver.workloads.Workload Workload} run.
  * 
  * Gathers statistics from those events. Passes on events to multiple consumers.
  */
-public final class WorkloadEventListener extends AbstractWorkloadEventListener
+public final class WorkloadEventListener extends BaseWorkloadEventListener
 {
     /**
      * QoS statistics used by this class.
@@ -109,7 +109,7 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
         }
     }
     
-    public void close()
+    public void close() throws IOException
     {
         for (VolumeQosStats volumeStats : _volumeOps.values())
         {
@@ -118,6 +118,8 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
                 throw new IllegalStateException("Not all operations have finished!");
             }
         }
+        
+        super.close();
     }
     
     @Override
@@ -181,14 +183,6 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
         stats.performance.addOps(count);
     }
 
-    @Override
-    public void reportOperationExecution(Operation operation)
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        
-        operationExecuted.send(operation);
-    }
-    
     public void reportVolumeAdded(String name, VolumeQosSettings params)
     {
         if (name == null) throw new NullArgumentException("name");

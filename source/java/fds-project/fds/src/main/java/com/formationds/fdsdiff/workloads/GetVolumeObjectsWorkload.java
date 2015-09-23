@@ -9,6 +9,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 import com.formationds.iodriver.workloads.Workload;
 
 public class GetVolumeObjectsWorkload extends Workload
@@ -36,6 +37,12 @@ public class GetVolumeObjectsWorkload extends Workload
     public Class<?> getEndpointType()
     {
         return S3Endpoint.class;
+    }
+    
+    @Override
+    public Class<?> getListenerType()
+    {
+        return BaseWorkloadEventListener.class;
     }
     
     @Override

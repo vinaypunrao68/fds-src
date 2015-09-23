@@ -19,6 +19,7 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
@@ -60,6 +61,12 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
     public Class<?> getEndpointType()
     {
         return S3Endpoint.class;
+    }
+    
+    @Override
+    public Class<?> getListenerType()
+    {
+        return WorkloadEventListener.class;
     }
     
     @Override

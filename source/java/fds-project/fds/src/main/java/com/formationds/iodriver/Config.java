@@ -29,8 +29,6 @@ import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
-import com.formationds.iodriver.validators.RateLimitValidator;
-import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 import com.formationds.iodriver.workloads.Workload;
@@ -96,16 +94,6 @@ public final class Config extends AbstractConfig
             return _listener.copy();
         }
 
-        /**
-         * Get the default validator.
-         *
-         * @return A validator that ensures a volumes IOPS did not exceed its configured throttle.
-         */
-        public static Validator getValidator()
-        {
-            return _validator;
-        }
-
         static
         {
             try
@@ -141,7 +129,6 @@ public final class Config extends AbstractConfig
                 throw new IllegalStateException(e);
             }
             _listener = new WorkloadEventListener(AbstractConfig.Defaults.getLogger());
-            _validator = new RateLimitValidator();
         }
 
         /**
@@ -163,11 +150,6 @@ public final class Config extends AbstractConfig
          * Default S3 endpoint.
          */
         private static final S3Endpoint _s3Endpoint;
-
-        /**
-         * Default validator.
-         */
-        private static final Validator _validator;
 
         private static final OmV7Endpoint _omV7Endpoint;
         
@@ -447,17 +429,6 @@ public final class Config extends AbstractConfig
         }
 
         return workload;
-    }
-
-    /**
-     * Get the configured validator.
-     * 
-     * @return A validator.
-     */
-    public Validator getValidator()
-    {
-        // TODO: Allow this to be configured.
-        return Defaults.getValidator();
     }
 
     @Override

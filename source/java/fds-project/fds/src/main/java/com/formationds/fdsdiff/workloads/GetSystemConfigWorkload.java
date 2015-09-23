@@ -16,6 +16,7 @@ import com.formationds.iodriver.operations.GetTenants;
 import com.formationds.iodriver.operations.GetUsers;
 import com.formationds.iodriver.operations.ListVolumes;
 import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 import com.formationds.iodriver.workloads.Workload;
 
 public final class GetSystemConfigWorkload extends Workload
@@ -46,6 +47,12 @@ public final class GetSystemConfigWorkload extends Workload
         return OmV7Endpoint.class;
     }
 	
+    @Override
+    public Class<?> getListenerType()
+    {
+        return BaseWorkloadEventListener.class;
+    }
+    
 	@Override
 	protected List<Stream<Operation>> createOperations()
 	{

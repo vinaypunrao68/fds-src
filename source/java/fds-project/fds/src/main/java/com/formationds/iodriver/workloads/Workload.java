@@ -38,6 +38,8 @@ public abstract class Workload
     
     public abstract Class<?> getEndpointType();
     
+    public abstract Class<?> getListenerType();
+    
     /**
      * Get a validator that will interpret this workload well.
      * 
