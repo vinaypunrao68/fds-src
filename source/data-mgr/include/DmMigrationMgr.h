@@ -65,7 +65,13 @@ class DmMigrationMgr : public DmMigrationBase {
     }
 
     inline fds_uint64_t ongoingMigrationCnt() const {
-    	return (executorMap.size());
+    	if (myRole == MIGR_EXECUTOR) {
+    		return (executorMap.size());
+    	} else if (myRole == MIGR_CLIENT) {
+    		return (clientMap.size());
+    	} else {
+    		return 0;
+    	}
     }
 
     /**

@@ -578,10 +578,17 @@ DmMigrationMgr::finishActiveMigration()
 			trackIOReqs.waitForTrackIOReqs();
 			clientMap.clear();
 			LOGMIGRATE << "Migration clients cleared and state reset";
-		} else if (std::atomic_load(&migrState) == MIGR_ABORTED) {
-			// TODO
 		} else {
-			fds_assert(0);
+			switch (std::atomic_load(&migrState)) {
+				case (MIGR_ABORTED):
+						// TODO - recover from aborted situation
+						break;
+				case (MIGR_IDLE):
+						// Do nothing
+						break;
+				default:
+					fds_assert(0);
+			}
 		}
 	} else if (myRole == MIGR_EXECUTOR) {
 		SCOPEDWRITE(migrExecutorLock);
@@ -589,10 +596,17 @@ DmMigrationMgr::finishActiveMigration()
 			LOGMIGRATE << "Waiting for all outstanding async messages to be finished";
 			trackIOReqs.waitForTrackIOReqs();
 			LOGMIGRATE << "Migration executors state reset";
-		} else if (std::atomic_load(&migrState) == MIGR_ABORTED) {
-			// TODO
 		} else {
-			fds_assert(0);
+			switch (std::atomic_load(&migrState)) {
+				case (MIGR_ABORTED):
+						// TODO - recover from aborted situation
+						break;
+				case (MIGR_IDLE):
+						// Do nothing
+						break;
+				default:
+					fds_assert(0);
+			}
 		}
 	} else {
 		// Not in migration
