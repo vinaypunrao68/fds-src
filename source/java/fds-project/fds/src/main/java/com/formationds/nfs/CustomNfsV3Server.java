@@ -59,20 +59,22 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
     private final VirtualFileSystem _vfs;
     private final ExportFile _exports;
 
-    private final Cache<InodeCacheEntry<cookieverf3>, List<DirectoryEntry>> _dlCacheFull =
-            CacheBuilder.newBuilder()
-                    .expireAfterWrite(10, TimeUnit.MINUTES)
-                    .softValues()
-                    .maximumSize(10000)
-                    .recordStats()
-                    .build();
+    private final Cache<InodeCacheEntry<cookieverf3>, List<DirectoryEntry>> _dlCacheFull;
 
-    private final GuavaCacheMXBean CACHE_MXBEAN
-            = new GuavaCacheMXBeanImpl("READDIR3", _dlCacheFull);
+    private final GuavaCacheMXBean CACHE_MXBEAN;
 
     private final writeverf3 writeVerifier = generateInstanceWriteVerifier();
 
-    public CustomNfsV3Server(ExportFile exports, VirtualFileSystem fs) throws OncRpcException, IOException {
+    public CustomNfsV3Server(ExportFile exports, VirtualFileSystem fs, int maxLiveNfsCookies) throws OncRpcException, IOException {
+        _dlCacheFull = CacheBuilder.newBuilder()
+                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .softValues()
+                .maximumSize(maxLiveNfsCookies)
+                .recordStats()
+                .build();
+
+        CACHE_MXBEAN = new GuavaCacheMXBeanImpl("READDIR3", _dlCacheFull);
+
         _vfs = fs;
         _exports = exports;
     }

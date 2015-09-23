@@ -90,7 +90,7 @@ public class NfsServer {
                 exportFile);
 
         // create NFS v3 and mountd servers
-        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs);
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, nfsConfiguration.getMaxLiveNfsCookies());
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

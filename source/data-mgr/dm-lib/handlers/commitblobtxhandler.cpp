@@ -105,6 +105,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.err = e;
     if (!helper.err.ok()) {
         LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        if (commitBlobReq->ioBlobTxDesc)
+             LOGWARN   << " TxId:" << *(commitBlobReq->ioBlobTxDesc);
         return;
     }
 
