@@ -511,15 +511,15 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
 
                             elif (action.count("kill")) > 0:
                                 if service == "pm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSPMKill(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
                                 elif service == "dm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSDMKill(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
                                 elif service == "sm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSSMKill(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
                                 elif service == "om":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSOMKill(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
                                 elif service == "am":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSAMKill(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
 
                             elif (action.count("start")) > 0:
                                 if service == "pm":
@@ -550,6 +550,15 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 if (action.count("remove")) > 0:
                     for service in selectedServices:
                         if service == "pm":
+                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                        elif service == "dm":
+                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                        elif service == "sm":
+                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                        elif service == "om":
+                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                        elif service == "am":
+                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
                             log.error("Remove action not valid for PM service for scenario '%s'" %
                                       (scenario.nd_conf_dict['scenario-name']))
                             raise Exception
