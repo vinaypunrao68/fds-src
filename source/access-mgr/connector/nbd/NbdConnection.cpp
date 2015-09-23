@@ -396,17 +396,22 @@ NbdConnection::dispatchOp() {
     auto& handle = request.header.handle;
     auto& offset = request.header.offset;
     auto& length = request.header.length;
-    auto task = new BlockTask(handle);
 
     switch (request.header.opType) {
         case NBD_CMD_READ:
-            task->setRead(offset, length);
-            nbdOps->read(task);
+            {
+                auto task = new BlockTask(handle);
+                task->setRead(offset, length);
+                nbdOps->read(task);
+            }
             break;
         case NBD_CMD_WRITE:
-            fds_assert(request.data);
-            task->setWrite(offset, length);
-            nbdOps->write(request.data, task);
+            {
+                fds_assert(request.data);
+                auto task = new BlockTask(handle);
+                task->setWrite(offset, length);
+                nbdOps->write(request.data, task);
+            }
             break;
         case NBD_CMD_FLUSH:
             break;
