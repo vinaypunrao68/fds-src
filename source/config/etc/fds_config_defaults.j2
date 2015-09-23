@@ -103,6 +103,8 @@
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
 {% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
 {% set nfs_defer_metadata_updates = nfs_defer_metadata_updates if nfs_defer_metadata_updates is defined else 'true' %}
+{% set nfs_max_live_nfs_cookies = nfs_max_live_nfs_cookies if nfs_max_live_nfs_cookies is defined else 1000000 %}
+
 {#
    fds.checker. specific entries
 #}
