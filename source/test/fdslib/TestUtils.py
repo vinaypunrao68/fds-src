@@ -77,7 +77,7 @@ def get_options(pyUnit):
     parser.prog = sys.argv[0].split("/")[-1]
     parser.usage = "%prog -h | <Suite|.csv|File:Class> \n" + \
                    "<-q <qaautotest.ini> | -s <test_source_dir>> " + \
-                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
+                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
                    "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
@@ -336,6 +336,16 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     else:
         setattr(options, "sudo_password", "dummy")
 
+    if "inventory_file" in params:
+        if params["inventory_file"] is None:
+            if pyUnitInventory is None:
+                params["inventory_file"] = "generic-lxc-nodes"
+            else:
+                params["inventory_file"] = pyUnitInventory
+        setattr(options,"inventory_file", params["inventory_file"])
+    else:
+        setattr(options, "inventory_file", "generic-lxc-nodes")
+
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
@@ -504,7 +514,9 @@ def get_ips_from_inventory(inventory_file_name,rt_env):
         ips_array = []
         lines = f.readlines()
         for line in lines:
-            if (line.startswith('[')) or line == '\n':
+            if (line.startswith('[')):
+                continue
+            elif line == '\n':
                 break
             else:
                 ips_array.append(line.rstrip('\n'))
