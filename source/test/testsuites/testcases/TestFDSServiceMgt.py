@@ -651,7 +651,7 @@ class TestDMKill(TestCase.FDSTestCase):
 
         return True
 
-# Deprecated TestAWSDMKill, we use TestOMKill for AWS nodes TODO: pooja remove class
+# Deprecated TestAWSDMKill, we use TestDMKill for AWS nodes TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
@@ -974,7 +974,7 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
                 pid = getSvcPIDforNode('DataMgr', n)
                 if pid != -1 and pid == dm_killed_pid[n.nd_conf_dict['node-name']] :
                     return False
-                self.log.info("The DM on %s was down and restarted by platformd." %n.nd_conf_dict['node-name'])
+                self.log.info("The DM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
 
             if self.passedNode is not None:
                 # Took care of the node passed in so get out.
@@ -1251,7 +1251,7 @@ class TestSMKill(TestCase.FDSTestCase):
 
         return True
 
-# Deprecated TestAWSSMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
+# Deprecated TestAWSSMKill, we use TestSMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
@@ -1758,7 +1758,7 @@ class TestPMKill(TestCase.FDSTestCase):
 
         return True
 
-# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
+# Deprecated TestAWSPMKill, we use TestPMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
@@ -2886,7 +2886,7 @@ class TestAMKill(TestCase.FDSTestCase):
 
         return True
 
-# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TOFO: pooja remove class
+# Deprecated TestAWSAMKill, we use TestAMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAWSAMKill(TestCase.FDSTestCase):
@@ -3200,7 +3200,7 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
                 pid = getSvcPIDforNode('bare_am', n)
                 if pid != -1 and pid == bare_am_killed_pid[n.nd_conf_dict['node-name']]:
                     return False
-                self.log.info("The AM on %s was down and restarted by platformd with new pid %s" %(n.nd_conf_dict['node-name'],pid))
+                self.log.info("The AM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
 
             if self.passedNode is not None:
                 # We took care of the one node. Get out.
