@@ -1034,9 +1034,10 @@ class FdsConfigRun(object):
             quiet_ssh = True
 
         nodes = self.rt_obj.cfg_nodes
-        # Extra Ips in cfg file are removed from list who's address was not over written
-        del_list = [ind for ind, node in enumerate(nodes) if node.nd_conf_dict["ip"]=='localhost']
-        nodes = [node for ind, node in enumerate(nodes) if ind not in del_list]
+        if opt.install is True:
+            # Extra Ips in cfg file are removed from list who's address was not over written
+            del_list = [ind for ind, node in enumerate(nodes) if node.nd_conf_dict["ip"]=='localhost']
+            nodes = [node for ind, node in enumerate(nodes) if ind not in del_list]
 
         for n in nodes:
             n.nd_connect_agent(self.rt_env, quiet_ssh)
