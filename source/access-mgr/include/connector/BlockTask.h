@@ -19,10 +19,18 @@
 namespace fds
 {
 
+/**
+ * A BlockTask represents a single READ/WRITE operation from a storage
+ * interface to a block device. The operation may encompass less than or
+ * greater than a single object. This class helps deal with the buffers and
+ * offset/length calculations needed during asynchronous i/o
+ */
 struct BlockTask {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
-    enum NbdOperation {
+
+    /// What type of task is this
+    enum BlockOp {
         OTHER = 0,
         READ = 1,
         WRITE = 2
@@ -36,22 +44,8 @@ struct BlockTask {
     }
 
     ~BlockTask() {}
-    typedef boost::shared_ptr<BlockTask> shared_ptr;
 
-    bool isRead() const { return (operation == READ); }
-    bool isWrite() const { return (operation == WRITE); }
-    uint64_t getHandle() const { return handle; }
-    Error getError() const { return opError; }
-    void setError(fds::Error const& error) { opError = error; }
-    uint64_t getOffset() const { return offset; }
-    uint32_t getLength() const { return length; }
-    uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
-    void setObjectCount(size_t const count) {
-        objCount = count;
-        bufVec.reserve(count);
-        offVec.reserve(count);
-    }
-
+    /// Setup task params
     void setRead(uint64_t const off, uint32_t const bytes) {
         operation = READ;
         offset = off;
@@ -64,8 +58,29 @@ struct BlockTask {
         length = bytes;
     }
 
+    /// Task getters
+    bool isRead() const         { return (operation == READ); }
+    bool isWrite() const        { return (operation == WRITE); }
+    uint64_t getHandle() const  { return handle; }
+    uint64_t getOffset() const  { return offset; }
+    uint32_t getLength() const  { return length; }
+    Error getError() const      { return opError; }
+    uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
+
+    /// Task setters
+    void setError(fds::Error const& error) { opError = error; }
+    void setObjectCount(size_t const count) {
+        objCount = count;
+        bufVec.reserve(count);
+        offVec.reserve(count);
+    }
     void setMaxObjectSize(uint32_t const size) { maxObjectSizeInBytes = size; };
 
+    /// Sub-task operations
+    uint64_t getOffset(uint32_t const seqId) const          { return offVec[seqId]; }
+    buffer_ptr_type getBuffer(uint32_t const seqId) const   { return bufVec[seqId]; }
+
+    /// Buffer operations
     buffer_ptr_type getNextReadBuffer(uint32_t& context) {
         if (context >= bufVec.size()) {
             return nullptr;
@@ -81,19 +96,10 @@ struct BlockTask {
         offVec.emplace_back(objectOff);
     }
 
-    uint64_t getOffset(uint32_t const seqId) const {
-        return offVec[seqId];
-    }
-
-    buffer_ptr_type getBuffer(uint32_t const seqId) const {
-        return bufVec[seqId];
-    }
-
     /**
      * \return true if all responses were received or operation error
      */
-    void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
-                            uint32_t len);
+    void handleReadResponse(std::vector<buffer_ptr_type>& buffers, uint32_t len);
 
     /**
      * \return true if all responses were received
@@ -126,7 +132,7 @@ struct BlockTask {
     std::unordered_map<uint32_t, std::deque<BlockTask*>> chained_responses;
 
   private:
-    NbdOperation operation {OTHER};
+    BlockOp operation {OTHER};
     std::atomic_uint doneCount {0};
     uint32_t objCount {1};
 

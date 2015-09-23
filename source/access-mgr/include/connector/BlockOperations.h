@@ -35,6 +35,14 @@ struct BlockHandle {
     uint32_t seq;
 };
 
+/**
+ * The BlockOperations class provides a simple interface to a dynamic connector
+ * allowing block like semantics. The interface consists of three main calls to
+ * attach the volume, read data and write data. The RMW logic and operation
+ * rollup all happens in here allowing block connectors to issue their requests
+ * as fast as possible without having to deal with consistency themselves and
+ * map I/O to AmAsyncDataApi calls.
+ */
 class BlockOperations
     :   public boost::enable_shared_from_this<BlockOperations>,
         public AmAsyncResponseApi<BlockHandle>
