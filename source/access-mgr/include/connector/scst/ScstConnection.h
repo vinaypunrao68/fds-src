@@ -6,6 +6,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -42,6 +43,8 @@ struct ScstConnection : public ScstOperationsResponseIface {
     void terminate() override;
 
   private:
+    static std::atomic_uint next_lun;
+
     template<typename T>
     using unique = std::unique_ptr<T>;
 
@@ -51,7 +54,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
                                  STOPPING,
                                  STOPPED };
 
-     ConnectionState state_ { ConnectionState::RUNNING };
+    ConnectionState state_ { ConnectionState::RUNNING };
 
     std::string volumeName;
     int scstDev {-1};
