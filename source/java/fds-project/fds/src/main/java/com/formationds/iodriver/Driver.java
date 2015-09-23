@@ -132,16 +132,14 @@ public final class Driver
     public void runWorkload() throws ExecutionException
     {
         ensureSetUp();
-        AbstractWorkloadEventListener listener = getListener();
         try
         {
-            getWorkload().runOn(getEndpoint(), listener);
+            getWorkload().runOn(getEndpoint(), getListener());
         }
         finally
         {
             ensureTearDown();
         }
-        listener.finished();
     }
 
     /**

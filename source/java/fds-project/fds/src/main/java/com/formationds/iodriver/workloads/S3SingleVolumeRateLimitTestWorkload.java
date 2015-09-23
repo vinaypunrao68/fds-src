@@ -10,7 +10,6 @@ import java.util.stream.Stream;
 import com.codepoetics.protonpack.StreamUtils;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
@@ -124,8 +123,7 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
                                                            _originalState.getCommitLogRetention(),
                                                            _originalState.getMediaPolicy());
                          }),
-                         new SetVolumeQos(() -> _targetState),
-                         new AddToReporter(_bucketName, () -> _targetState));
+                         new SetVolumeQos(() -> _targetState));
     }
 
     @Override

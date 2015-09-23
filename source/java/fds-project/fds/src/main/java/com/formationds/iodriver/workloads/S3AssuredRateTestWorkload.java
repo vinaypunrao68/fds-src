@@ -16,7 +16,6 @@ import com.codepoetics.protonpack.StreamUtils;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.AwaitGate;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
@@ -324,9 +323,8 @@ public final class S3AssuredRateTestWorkload extends Workload
         StatVolume statBucket = new StatVolume(bucketName, qosSetter);
         LambdaS3Operation setTarget = new LambdaS3Operation(setQosParams);
         SetVolumeQos setQosToTarget = new SetVolumeQos(qosGetter);
-        AddToReporter addToReporter = new AddToReporter(bucketName, qosGetter);
 
-        return Stream.of(createBucket, statBucket, setTarget, setQosToTarget, addToReporter);
+        return Stream.of(createBucket, statBucket, setTarget, setQosToTarget);
     }
 
     static

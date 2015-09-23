@@ -150,15 +150,12 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
 
-        AbstractWorkloadEventListener listener = validate
-                                                 ? config.getListener()
-                                                 : new NullWorkloadEventListener(config.getLogger());
-        try (ConsoleProgressReporter reporter =
+        try (AbstractWorkloadEventListener listener =
+                validate ? config.getListener()
+                         : new NullWorkloadEventListener(config.getLogger());
+             ConsoleProgressReporter reporter =
                 new ConsoleProgressReporter(System.out,
-                                            listener.operationExecuted,
-                                            listener.started,
-                                            listener.stopped,
-                                            listener.volumeAdded))
+                                            listener.operationExecuted))
         {
             Workload workload = config.getSelectedWorkload();
             Endpoint endpoint = getCompatibleEndpoint(workload);

@@ -5,69 +5,18 @@ import java.io.Closeable;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.model.VolumeQosPerformance;
-import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.Operation;
 
 public abstract class AbstractWorkloadEventListener implements Closeable
 {
     /**
-     * QoS statistics used by this class.
-     */
-    public final static class VolumeQosStats
-    {
-        /**
-         * QoS parameters.
-         */
-        public final VolumeQosSettings params;
-
-        /**
-         * Workload statistics.
-         */
-        public final VolumeQosPerformance performance;
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         */
-        public VolumeQosStats(VolumeQosSettings params)
-        {
-            this(params, new VolumeQosPerformance());
-        }
-
-        /**
-         * Duplicate this object.
-         * 
-         * @return A deep copy of this object.
-         */
-        public VolumeQosStats copy()
-        {
-            return new VolumeQosStats(params.copy(), performance.copy());
-        }
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         * @param performance Workload statistics.
-         */
-        private VolumeQosStats(VolumeQosSettings params, VolumeQosPerformance performance)
-        {
-            if (params == null) throw new NullArgumentException("params");
-            if (performance == null) throw new NullArgumentException("performance");
-
-            this.params = params;
-            this.performance = performance;
-        }
-    }
-
-    /**
      * Notifies when the workload is finished running.
      */
-    public final Subject<Void> finished;
+    public final transient Subject<Void> finished;
 
-    public final Subject<Operation> operationExecuted;
+    public final transient Subject<Operation> operationExecuted;
+    
+    public abstract AbstractWorkloadEventListener copy();
     
     /**
      * Get the default logger.
@@ -80,6 +29,21 @@ public abstract class AbstractWorkloadEventListener implements Closeable
     }
     
     public abstract void reportOperationExecution(Operation operation);
+    
+    protected class CopyHelper
+    {
+        public final Logger logger = AbstractWorkloadEventListener.this._logger;
+    }
+    
+    protected AbstractWorkloadEventListener(CopyHelper copyHelper)
+    {
+        if (copyHelper == null) throw new NullArgumentException("copyHelper");
+        
+        finished = new Subject<>();
+        operationExecuted = new Subject<>();
+        
+        _logger = copyHelper.logger;
+    }
     
     /**
      * Constructor.

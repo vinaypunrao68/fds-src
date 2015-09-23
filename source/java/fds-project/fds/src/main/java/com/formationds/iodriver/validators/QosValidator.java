@@ -5,8 +5,8 @@ import java.time.Instant;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener.VolumeQosStats;
 
 // TODO: Intended to verify that volumes get their assured IOPS without exceeding their throttles.
 //       Kind of works, not complete.

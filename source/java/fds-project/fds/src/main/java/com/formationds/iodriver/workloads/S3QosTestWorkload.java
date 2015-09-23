@@ -17,7 +17,6 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.IoParams;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.LambdaS3Operation;
@@ -140,8 +139,7 @@ public final class S3QosTestWorkload extends Workload
                                                            state.currentState.getCommitLogRetention(),
                                                            state.currentState.getMediaPolicy());
                          }),
-                         new SetVolumeQos(statsGetter),
-                         new AddToReporter(bucketName, statsGetter));
+                         new SetVolumeQos(statsGetter));
     }
 
     @Override

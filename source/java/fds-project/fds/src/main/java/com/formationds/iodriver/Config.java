@@ -31,7 +31,6 @@ import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
-import com.formationds.iodriver.workloads.RandomFill;
 import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 import com.formationds.iodriver.workloads.Workload;
@@ -94,7 +93,7 @@ public final class Config extends AbstractConfig
          */
         public static WorkloadEventListener getListener()
         {
-            return _listener;
+            return _listener.copy();
         }
 
         /**
@@ -244,7 +243,7 @@ public final class Config extends AbstractConfig
      */
     public WorkloadEventListener getListener()
     {
-        // TODO: ALlow this to be configured.
+        // TODO: Allow this to be configured.
         return Defaults.getListener();
     }
 

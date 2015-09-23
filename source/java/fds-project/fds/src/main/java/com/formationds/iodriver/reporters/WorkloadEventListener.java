@@ -10,6 +10,7 @@ import java.util.Set;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Strings;
 import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.Operation;
 
@@ -20,6 +21,57 @@ import com.formationds.iodriver.operations.Operation;
  */
 public final class WorkloadEventListener extends AbstractWorkloadEventListener
 {
+    /**
+     * QoS statistics used by this class.
+     */
+    public final static class VolumeQosStats
+    {
+        /**
+         * QoS parameters.
+         */
+        public final VolumeQosSettings params;
+
+        /**
+         * Workload statistics.
+         */
+        public final VolumeQosPerformance performance;
+
+        /**
+         * Constructor.
+         * 
+         * @param params QoS parameters.
+         */
+        public VolumeQosStats(VolumeQosSettings params)
+        {
+            this(params, new VolumeQosPerformance());
+        }
+
+        /**
+         * Duplicate this object.
+         * 
+         * @return A deep copy of this object.
+         */
+        public VolumeQosStats copy()
+        {
+            return new VolumeQosStats(params.copy(), performance.copy());
+        }
+
+        /**
+         * Constructor.
+         * 
+         * @param params QoS parameters.
+         * @param performance Workload statistics.
+         */
+        private VolumeQosStats(VolumeQosSettings params, VolumeQosPerformance performance)
+        {
+            if (params == null) throw new NullArgumentException("params");
+            if (performance == null) throw new NullArgumentException("performance");
+
+            this.params = params;
+            this.performance = performance;
+        }
+    }
+
     /**
      * Constructor.
      */
@@ -66,6 +118,12 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
                 throw new IllegalStateException("Not all operations have finished!");
             }
         }
+    }
+    
+    @Override
+    public WorkloadEventListener copy()
+    {
+        return new WorkloadEventListener(new CopyHelper());
     }
     
     /**
@@ -173,6 +231,25 @@ public final class WorkloadEventListener extends AbstractWorkloadEventListener
         stats.performance.stopNow();
     }
 
+    protected class CopyHelper extends AbstractWorkloadEventListener.CopyHelper
+    {
+        public final Map<String, VolumeQosStats> volumeOps =
+                WorkloadEventListener.this._volumeOps;
+    }
+    
+    protected WorkloadEventListener(CopyHelper copyHelper)
+    {
+        super(copyHelper);
+        
+        Map<String, VolumeQosStats> newVolumeOps = new HashMap<>();
+        for (Entry<String, VolumeQosStats> entry : copyHelper.volumeOps.entrySet())
+        {
+            newVolumeOps.put(entry.getKey(), entry.getValue().copy());
+        }
+        
+        _volumeOps = newVolumeOps;
+    }
+    
     /**
      * The statistics for volumes.
      */

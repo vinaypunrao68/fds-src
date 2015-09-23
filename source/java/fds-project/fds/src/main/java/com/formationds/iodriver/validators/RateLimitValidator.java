@@ -7,8 +7,8 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener.VolumeQosStats;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener.VolumeQosStats;
 
 /**
  * Validate that no volume exceeded its throttle by more than 1%.
