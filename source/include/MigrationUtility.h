@@ -252,6 +252,7 @@ class MigrationTrackIOReqs {
     uint64_t numTrackIOReqs;
     bool waitingTrackIOReqsCompletion;
     bool denyTrackIOReqs;
+    bool trackingStarted;
 
 };  // MigrationTrackIOReqs
 }  // namespace fds
