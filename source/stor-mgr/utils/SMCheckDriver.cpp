@@ -141,7 +141,7 @@ main(int argc, char** argv) {
 
     argc = new_argv.size();
 
-    fds::SMCheckDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.", xvec, smDiskMap, smObjStore);
+    fds::SMCheckDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.", vec, smDiskMap, smObjStore);
     int ret = smChk.main();
     return ret;
 }
