@@ -394,6 +394,9 @@ def findNodeFromInv(node_inventory, target):
         if node.nd_conf_dict['node-name'] == target:
             return node
 
+    # else return None for debugging purposes
+    return "None"
+
 def check_localhost(ip):
     ipad = socket.gethostbyname(ip)
     if ipad.count('.') == 4:
