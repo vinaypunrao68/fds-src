@@ -2,7 +2,7 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include "connector/nbd/NbdTask.h"
+#include "connector/BlockTask.h"
 
 #include <boost/make_shared.hpp>
 
@@ -10,7 +10,7 @@ namespace fds
 {
 
 void
-NbdTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
+BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
                                       fds_uint32_t len) {
     static boost::shared_ptr<std::string> const empty_buffer =
         boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
@@ -30,9 +30,9 @@ NbdTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers
 
     // return zeros for uninitialized objects, again a special *block*
     // semantic to PAD the read to the required length.
-    fds_uint32_t iOff = offset % maxObjectSizeInBytes;
+    uint32_t iOff = offset % maxObjectSizeInBytes;
     if (len < (length + iOff)) {
-        for (int64_t zero_data = (length + iOff) - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
+        for (ssize_t zero_data = (length + iOff) - len; 0 < zero_data; zero_data -= maxObjectSizeInBytes) {
             bufVec.push_back(empty_buffer);
         }
     }
@@ -54,9 +54,9 @@ NbdTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers
 }
 
 std::pair<Error, boost::shared_ptr<std::string>>
-NbdTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
-                                 fds_uint32_t len,
-                                 fds_uint32_t seqId,
+BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
+                                 uint32_t len,
+                                 uint32_t seqId,
                                  const Error& err) {
     fds_assert(operation == WRITE);
     if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
@@ -65,7 +65,7 @@ NbdTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
         return std::make_pair(err, boost::shared_ptr<std::string>());
     }
 
-    fds_uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
+    uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
     auto& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
     if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND) ||

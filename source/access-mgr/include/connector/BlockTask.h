@@ -2,8 +2,8 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_NBD_NBDTASK_H_
-#define SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_NBD_NBDTASK_H_
+#ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_BLOCKTASK_H_
+#define SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_BLOCKTASK_H_
 
 #include <atomic>
 #include <deque>
@@ -19,7 +19,7 @@
 namespace fds
 {
 
-struct NbdTask {
+struct BlockTask {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
     enum NbdOperation {
@@ -28,25 +28,25 @@ struct NbdTask {
         WRITE = 2
     };
 
-    explicit NbdTask(int64_t hdl) :
+    explicit BlockTask(uint64_t hdl) :
         handle(hdl)
     {
         bufVec.reserve(objCount);
         offVec.reserve(objCount);
     }
 
-    ~NbdTask() {}
-    typedef boost::shared_ptr<NbdTask> shared_ptr;
+    ~BlockTask() {}
+    typedef boost::shared_ptr<BlockTask> shared_ptr;
 
     bool isRead() const { return (operation == READ); }
     bool isWrite() const { return (operation == WRITE); }
-    inline int64_t getHandle() const { return handle; }
-    inline Error getError() const { return opError; }
-    inline void setResult(fds::Error const& error) { opError = error; }
-    inline uint64_t getOffset() const { return offset; }
-    inline uint32_t getLength() const { return length; }
-    inline uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
-    inline void setObjectCount(size_t const count) {
+    uint64_t getHandle() const { return handle; }
+    Error getError() const { return opError; }
+    void setError(fds::Error const& error) { opError = error; }
+    uint64_t getOffset() const { return offset; }
+    uint32_t getLength() const { return length; }
+    uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
+    void setObjectCount(size_t const count) {
         objCount = count;
         bufVec.reserve(count);
         offVec.reserve(count);
@@ -123,7 +123,7 @@ struct NbdTask {
 
     // These are the responses we are also in charge of responding to, in order
     // with ourselves being last.
-    std::unordered_map<uint32_t, std::deque<NbdTask*>> chained_responses;
+    std::unordered_map<uint32_t, std::deque<BlockTask*>> chained_responses;
 
   private:
     NbdOperation operation {OTHER};
@@ -147,4 +147,4 @@ struct NbdTask {
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_NBD_NBDTASK_H_
+#endif  // SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_BLOCKTASK_H_

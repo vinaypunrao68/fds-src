@@ -10,7 +10,6 @@
 #include <condition_variable>
 #include <util/fds_stat.h>
 #include "connector/nbd/NbdOperations.h"
-#include "connector/nbd/NbdTask.h"
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 
@@ -52,7 +51,7 @@ struct null_deleter
     }
 };
 
-class NbdOpsProc : public NbdOperationsResponseIface {
+class NbdOpsProc : public BlockOperations::ResponseIFace {
   public:
     NbdOpsProc(int argc, char **argv)
             : volumeName(new std::string("Test Volume")) {
@@ -105,7 +104,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     }
 
     // implementation of NbdOperationsResponseIface
-    void respondTask(NbdTask* response) override {
+    void respondTask(BlockTask* response) override {
         if (!response->isRead() && !response->isWrite()) return; // Non-io response
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
@@ -143,7 +142,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void init() {
         // pass data API to Ndb Operations
         nbdOps.reset(new NbdOperations(this));
-        auto task = new NbdTask(0ll);
+        auto task = new BlockTask(0ll);
         nbdOps->init(volumeName, am->getProcessor(), task);
         am->getProcessor()->registerVolume(
             std::move(VolumeDesc(*volumeName, fds_volid_t(5), 0, 0, 1)));
@@ -174,7 +173,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    auto task = new NbdTask(++handle);
+                    auto task = new BlockTask(++handle);
                     task->setWrite(offset, objSize);
                     nbdOps->write(localData, task);
                     if (verifyData) {
@@ -187,7 +186,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    auto task = new NbdTask(++handle);
+                    auto task = new BlockTask(++handle);
                     task->setRead(offset, objSize);
                     nbdOps->read(task);
                 } catch(fpi::ApiException fdsE) {

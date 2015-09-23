@@ -36,7 +36,7 @@ static constexpr ssize_t max_block_size = 8 * Mi;
 /// ******************************************
 
 static constexpr bool ensure(bool b)
-{ return (!b ? throw fds::ScstError::connection_closed : true); }
+{ return (!b ? throw fds::BlockError::connection_closed : true); }
 
 namespace fds
 {
@@ -49,7 +49,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
                                std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           scst_server(server),
-          scstOps(boost::make_shared<ScstOperations>(this)),
+          scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_name),
           volume_size{0},
           logical_block_size(512ul),
@@ -66,7 +66,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
-        throw ScstError::connection_closed;
+        throw ScstError::scst_not_found;
     }
 
     // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
@@ -97,7 +97,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
     auto res = ioctl(scstDev, SCST_USER_REGISTER_DEVICE, &scst_descriptor);
     if (0 > res) {
         LOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
-        throw ScstError::connection_closed;
+        throw ScstError::scst_error;
     }
 
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
@@ -109,7 +109,7 @@ ScstConnection::ScstConnection(std::string const& vol_name,
                             O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not map lun, no iSCSI devices will be presented!";
-        throw ScstError::connection_closed;
+        throw ScstError::scst_error;
     }
 
     auto lun = next_lun++;
@@ -473,7 +473,9 @@ void ScstConnection::execUserCmd() {
                   << "] Handle[0x" << cmd.cmd_h << "]";
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setWrite(offset, scsi_cmd.bufflen);
-            return scstOps->write((char*) scsi_cmd.pbuf, task);
+            // Right now our API expects the data in a boost shared_ptr :(
+            auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
+            return scstOps->write(buffer, task);
         }
         break;
     default:
@@ -512,7 +514,7 @@ ScstConnection::getAndRespond() {
             case ENOTTY:
             case EBADF:
                 LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                throw ScstError::connection_closed;
+                throw BlockError::connection_closed;
             case EFAULT:
             case EINVAL:
                 fds_panic("Invalid Scst argument!");
@@ -576,9 +578,9 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     try {
         // Get the next command, and/or reply to any existing finished commands
         getAndRespond();
-    } catch(ScstError const& e) {
+    } catch(BlockError const& e) {
         state_ = ConnectionState::STOPPING;
-        if (e == ScstError::connection_closed) {
+        if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
             state_ = ConnectionState::STOPPED;
         }
@@ -590,36 +592,37 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
 }
 
 void
-ScstConnection::respondTask(ScstTask* response) {
-    LOGDEBUG << " response from ScstOperations handle: 0x" << std::hex << response->getHandle()
+ScstConnection::respondTask(BlockTask* response) {
+    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
              << " " << response->getError();
 
-    if (response->isRead()) {
-        if (!response->getError().ok()) {
-            response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
+    auto scst_response = static_cast<ScstTask*>(response);
+    if (scst_response->isRead()) {
+        if (!scst_response->getError().ok()) {
+            scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else {
-            auto buffer = response->getResponseBuffer();
+            auto buffer = scst_response->getResponseBuffer();
             fds_uint32_t i = 0, context = 0;
-            boost::shared_ptr<std::string> buf = response->getNextReadBuffer(context);
+            boost::shared_ptr<std::string> buf = scst_response->getNextReadBuffer(context);
             while (buf != NULL) {
-                LOGDEBUG << "Handle 0x" << std::hex << response->getHandle()
+                LOGDEBUG << "Handle 0x" << std::hex << scst_response->getHandle()
                          << "...Size 0x" << buf->length() << "B"
                          << "...Buffer # " << std::dec << context;
                 memcpy(buffer + i, buf->c_str(), buf->length());
                 i += buf->length();
-                buf = response->getNextReadBuffer(context);
+                buf = scst_response->getNextReadBuffer(context);
             }
         }
-    } else if (!response->getError().ok()) {
-        if (response->isWrite()) {
-            response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+    } else if (!scst_response->getError().ok()) {
+        if (scst_response->isWrite()) {
+            scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            response->setResult(-((uint32_t)response->getError().GetErrno()));
+            scst_response->setResult(-((uint32_t)scst_response->getError().GetErrno()));
         }
     }
 
     // add to quueue
-    readyResponses.push(response);
+    readyResponses.push(scst_response);
 
     // We have something to write, so poke the loop
     asyncWatcher->send();

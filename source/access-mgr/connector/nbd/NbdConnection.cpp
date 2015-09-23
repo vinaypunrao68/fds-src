@@ -19,7 +19,6 @@ extern "C" {
 #include <ev++.h>
 
 #include "connector/nbd/NbdConnector.h"
-#include "connector/nbd/NbdTask.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"
@@ -60,7 +59,7 @@ constexpr auto to_iovec(T* t) -> typename std::remove_cv<T>::type*
 { return const_cast<typename std::remove_cv<T>::type*>(t); }
 
 static constexpr bool ensure(bool b)
-{ return (!b ? throw fds::NbdError::connection_closed : true); }
+{ return (!b ? throw fds::BlockError::connection_closed : true); }
 
 static std::array<std::string, 5> const io_to_string = {
     { "READ", "WRITE", "DISCONNECT", "FLUSH", "TRIM" }
@@ -85,7 +84,7 @@ NbdConnection::NbdConnection(NbdConnector* server,
                              std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           nbd_server(server),
-          nbdOps(boost::make_shared<NbdOperations>(this)),
+          nbdOps(boost::make_shared<BlockOperations>(this)),
           clientSocket(clientsd),
           volume_size{0},
           object_size{0},
@@ -172,7 +171,7 @@ NbdConnection::write_response() {
         if (nwritten < 0) {
             if (EAGAIN != errno) {
                 LOGERROR << "Socket write error: [" << strerror(errno) << "]";
-                throw NbdError::connection_closed;
+                throw BlockError::connection_closed;
             }
         } else {
             // Didn't write all the data yet, update offset
@@ -245,7 +244,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
         nbd_state = NbdProtoState::SENDOPTS;
         asyncWatcher->send();
     } else {
-        auto task = new NbdTask(0ll);
+        auto task = new BlockTask(0ull);
         nbdOps->init(volumeName, amProcessor, task);
     }
 
@@ -265,7 +264,7 @@ NbdConnection::option_reply(ev::io &watcher) {
 
     // Verify we got a valid volume size from attach
     if (0 == volume_size) {
-        throw NbdError::connection_closed;
+        throw BlockError::connection_closed;
     }
 
     if (!response) {
@@ -299,7 +298,7 @@ bool NbdConnection::io_request(ev::io &watcher) {
             LOGWARN << "Client used a block size, "
                     << request.header.length << "B, "
                     << "larger than the supported " << max_block_size << "B.";
-            throw NbdError::shutdown_requested;
+            throw BlockError::shutdown_requested;
         }
 
         // Construct Buffer for Write Payload
@@ -349,7 +348,7 @@ NbdConnection::io_reply(ev::io &watcher) {
 
         total_blocks = 3;
 
-        NbdTask* resp = NULL;
+        BlockTask* resp = nullptr;
         ensure(readyResponses.pop(resp));
         current_response.reset(resp);
 
@@ -397,7 +396,7 @@ NbdConnection::dispatchOp() {
     auto& handle = request.header.handle;
     auto& offset = request.header.offset;
     auto& length = request.header.length;
-    auto task = new NbdTask(handle);
+    auto task = new BlockTask(handle);
 
     switch (request.header.opType) {
         case NBD_CMD_READ:
@@ -414,7 +413,7 @@ NbdConnection::dispatchOp() {
         case NBD_CMD_DISC:
             LOGNORMAL << "Got a disconnect";
         default:
-            throw NbdError::shutdown_requested;
+            throw BlockError::shutdown_requested;
             break;
     }
     return ERR_OK;
@@ -500,9 +499,9 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
                 fds_panic("Unknown NBD connection state %d", nbd_state);
         }
     }
-    } catch(NbdError const& e) {
+    } catch(BlockError const& e) {
         state_ = ConnectionState::STOPPING;
-        if (e == NbdError::connection_closed) {
+        if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
             state_ = ConnectionState::STOPPED;
         }
@@ -514,8 +513,8 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 }
 
 void
-NbdConnection::respondTask(NbdTask* response) {
-    LOGDEBUG << " response from NbdOperations handle: 0x" << std::hex << response->getHandle()
+NbdConnection::respondTask(BlockTask* response) {
+    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
              << " " << response->getError();
 
     // add to quueue
@@ -580,12 +579,12 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
                 LOGNOTIFY << "Client disconnected";
             default:
                 LOGERROR << "Socket read error: [" << strerror(errno) << "]";
-                throw NbdError::shutdown_requested;
+                throw BlockError::shutdown_requested;
         }
     } else if (0 == nread) {
         // Orderly shutdown of the TCP connection
         LOGNORMAL << "Client disconnected.";
-        throw NbdError::connection_closed;
+        throw BlockError::connection_closed;
     } else if (nread < len) {
         // Only received some of the data so far
         off += nread;

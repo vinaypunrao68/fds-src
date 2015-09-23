@@ -2,7 +2,7 @@
  * Copyright 2015 by Formation Data Systems, Inc.
  */
 
-#include "connector/scst/ScstOperations.h"
+#include "connector/BlockOperations.h"
 
 #include <algorithm>
 #include <map>
@@ -10,8 +10,6 @@
 #include <utility>
 
 #include "AmAsyncDataApi_impl.h"
-#include "connector/scst/common.h"
-#include "connector/scst/ScstTask.h"
 
 namespace fds {
 
@@ -23,10 +21,10 @@ namespace fds {
 static std::unordered_map<std::string, std::uint_fast16_t> assoc_map {};
 static std::mutex assoc_map_lock {};
 
-ScstOperations::ScstOperations(ScstOperationsResponseIface* respIface)
+BlockOperations::BlockOperations(BlockOperations::ResponseIFace* respIface)
         : amAsyncDataApi(nullptr),
           volumeName(nullptr),
-          scstResp(respIface),
+          blockResp(respIface),
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
@@ -36,11 +34,11 @@ ScstOperations::ScstOperations(ScstOperationsResponseIface* respIface)
 }
 
 // We can't initialize this in the constructor since we want to pass
-// a shared pointer to ourselves (and ScstConnection already started one).
+// a shared pointer to ourselves (and the Connection already started one).
 void
-ScstOperations::init(boost::shared_ptr<std::string> vol_name,
+BlockOperations::init(boost::shared_ptr<std::string> vol_name,
                     std::shared_ptr<AmProcessor> processor,
-                    ScstTask* resp)
+                    BlockTask* resp)
 {
     amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
     volumeName = vol_name;
@@ -48,7 +46,7 @@ ScstOperations::init(boost::shared_ptr<std::string> vol_name,
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
-            { throw ScstError::connection_closed; }
+            { throw BlockError::connection_closed; }
     }
 
     handle_type reqId{resp->getHandle(), 0};
@@ -62,13 +60,13 @@ ScstOperations::init(boost::shared_ptr<std::string> vol_name,
 }
 
 void
-ScstOperations::attachVolumeResp(const Error& error,
+BlockOperations::attachVolumeResp(const Error& error,
                                 handle_type& requestId,
                                 boost::shared_ptr<VolumeDesc>& volDesc,
                                 boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
     auto handle = requestId.handle;
-    ScstTask* resp = NULL;
+    BlockTask* resp = NULL;
 
     {
         fds_mutex::scoped_lock l(respLock);
@@ -87,21 +85,21 @@ ScstOperations::attachVolumeResp(const Error& error,
     if (ERR_OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
-            resp->setResult(ERR_INVALID_VOL_ID);
+            resp->setError(ERR_INVALID_VOL_ID);
         } else {
             maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
 
             // Reference count this association
             std::unique_lock<std::mutex> lk(assoc_map_lock);
             ++assoc_map[volDesc->name];
-            scstResp->attachResp(volDesc);
+            blockResp->attachResp(volDesc);
         }
     }
     finishResponse(resp);
 }
 
 void
-ScstOperations::detachVolume() {
+BlockOperations::detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
@@ -116,7 +114,7 @@ ScstOperations::detachVolume() {
 }
 
 void
-ScstOperations::detachVolumeResp(const Error& error,
+BlockOperations::detachVolumeResp(const Error& error,
                                 handle_type& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "Volume detach response: " << error;
@@ -124,7 +122,7 @@ ScstOperations::detachVolumeResp(const Error& error,
 }
 
 void
-ScstOperations::read(ScstTask* resp) {
+BlockOperations::read(BlockTask* resp) {
     fds_assert(amAsyncDataApi);
 
     resp->setMaxObjectSize(maxObjectSizeInBytes);
@@ -134,7 +132,7 @@ ScstOperations::read(ScstTask* resp) {
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
-            { throw ScstError::connection_closed; }
+            { throw BlockError::connection_closed; }
     }
 
     // Determine how much data we need to read, we need
@@ -157,9 +155,8 @@ ScstOperations::read(ScstTask* resp) {
                             off);
 }
 
-
 void
-ScstOperations::write(char* bytes, ScstTask* resp) {
+BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_type* resp) {
     fds_assert(amAsyncDataApi);
     // calculate how many FDS objects we will write
     auto length = resp->getLength();
@@ -172,7 +169,7 @@ ScstOperations::write(char* bytes, ScstTask* resp) {
     {   // add response that we will fill in with data
         fds_mutex::scoped_lock l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
-            { throw ScstError::connection_closed; }
+            { throw BlockError::connection_closed; }
     }
 
     size_t amBytesWritten = 0;
@@ -190,7 +187,8 @@ ScstOperations::write(char* bytes, ScstTask* resp) {
         LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
                   << " for length: 0x" << iLength;
 
-        auto objBuf = boost::make_shared<std::string>(bytes, iLength);
+        auto objBuf = (iLength == bytes->length()) ?
+            bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
 
         // write an object
         boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
@@ -237,11 +235,11 @@ ScstOperations::write(char* bytes, ScstTask* resp) {
 }
 
 void
-ScstOperations::getBlobResp(const Error &error,
+BlockOperations::getBlobResp(const Error &error,
                            handle_type& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            int& length) {
-    ScstTask* resp = nullptr;
+    BlockTask* resp = nullptr;
     auto handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
@@ -265,8 +263,8 @@ ScstOperations::getBlobResp(const Error &error,
 
     fds_verify(resp);
     if (!resp->isRead()) {
-        static ScstTask::buffer_ptr_type const null_buff(nullptr);
-        // this is a response for read during a write operation from SCST connector
+        static BlockTask::buffer_ptr_type const null_buff(nullptr);
+        // this is a response for read during a write operation from Block connector
         LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
 
         // RMW only operates on a single buffer...
@@ -287,8 +285,8 @@ ScstOperations::getBlobResp(const Error &error,
 }
 
 void
-ScstOperations::updateBlobResp(const Error &error, handle_type& requestId) {
-    ScstTask* resp = nullptr;
+BlockOperations::updateBlobResp(const Error &error, handle_type& requestId) {
+    BlockTask* resp = nullptr;
     auto handle = requestId.handle;
     auto seqId = requestId.seq;
 
@@ -331,8 +329,8 @@ ScstOperations::updateBlobResp(const Error &error, handle_type& requestId) {
 }
 
 void
-ScstOperations::drainUpdateChain(uint64_t const offset,
-                                ScstTask::buffer_ptr_type buf,
+BlockOperations::drainUpdateChain(uint64_t const offset,
+                                BlockTask::buffer_ptr_type buf,
                                 handle_type* queued_handle_ptr,
                                 Error const error) {
     // The first call to handleRMWResponse will create a null buffer if this is
@@ -340,8 +338,8 @@ ScstOperations::drainUpdateChain(uint64_t const offset,
     auto err = error;
     bool update_queued {true};
     handle_type queued_handle;
-    ScstTask* last_chained = nullptr;
-    std::deque<ScstTask*> chain;
+    BlockTask* last_chained = nullptr;
+    std::deque<BlockTask*> chain;
 
     //  Either we explicitly are handling a RMW or checking to see if there are
     //  any new ones in the queue
@@ -352,7 +350,7 @@ ScstOperations::drainUpdateChain(uint64_t const offset,
     }
 
     while (update_queued) {
-        ScstTask* queued_resp = nullptr;
+        BlockTask* queued_resp = nullptr;
         {
             fds_mutex::scoped_lock l(respLock);
             auto it = responses.find(queued_handle.handle);
@@ -414,8 +412,8 @@ ScstOperations::drainUpdateChain(uint64_t const offset,
 
 
 void
-ScstOperations::finishResponse(ScstTask* response) {
-    // scst connector will free resp, just accounting here
+BlockOperations::finishResponse(BlockTask* response) {
+    // block connector will free resp, just accounting here
     bool done_responding, response_removed;
     {
         fds_mutex::scoped_lock l(respLock);
@@ -423,7 +421,7 @@ ScstOperations::finishResponse(ScstTask* response) {
         done_responding = responses.empty();
     }
     if (response_removed) {
-        scstResp->respondTask(response);
+        blockResp->respondTask(response);
     } else {
         LOGNOTIFY << "Handle 0x" << std::hex << response->getHandle() << std::dec
                   << " was missing from the response map!";
@@ -432,13 +430,13 @@ ScstOperations::finishResponse(ScstTask* response) {
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
     if (shutting_down && done_responding) {
-        LOGDEBUG << "Scst responses drained, finalizing detach from: " << *volumeName;
+        LOGDEBUG << "Block responses drained, finalizing detach from: " << *volumeName;
         detachVolume();
     }
 }
 
 void
-ScstOperations::shutdown()
+BlockOperations::shutdown()
 {
     fds_mutex::scoped_lock l(respLock);
     shutting_down = true;
@@ -453,7 +451,7 @@ ScstOperations::shutdown()
  * 'length' at offset 'offset'
  */
 uint32_t
-ScstOperations::getObjectCount(uint32_t length,
+BlockOperations::getObjectCount(uint32_t length,
                               uint64_t offset) {
     uint32_t objCount = length / maxObjectSizeInBytes;
     uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
