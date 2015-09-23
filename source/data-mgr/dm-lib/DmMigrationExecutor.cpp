@@ -458,9 +458,11 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     fds_scoped_lock lock(progressLock);
     switch (migrationProgress) {
     	case STATICMIGRATION_IN_PROGRESS:
+    		LOGDEBUG << "Buffered " << fwdCatReq << " to be applied";
     		forwardedMsgs.push_back(fwdCatReq);
     		break;
     	case APPLYING_FORWARDS_IN_PROGRESS:
+    		LOGDEBUG << "Enqueued " << fwdCatReq << " to be applied";
     		msgHandler.addToQueue(fwdCatReq);
     		break;
     	case MIGRATION_ABORTED:
