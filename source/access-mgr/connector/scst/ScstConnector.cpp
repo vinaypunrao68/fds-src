@@ -37,10 +37,11 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
         auto target_name = conf.get<std::string>("target_name",
                                                  "iqn.2015-08.com.formationds:block_storage");
         instance_.reset(new ScstConnector(target_name, processor, threads - 1));
-        instance_->initializeTarget();
-        // Start the main server thread
-        auto t = std::thread(&ScstConnector::follow, instance_.get());
-        t.detach();
+        if (instance_->initializeTarget()) {
+            // Start the main server thread
+            auto t = std::thread(&ScstConnector::follow, instance_.get());
+            t.detach();
+        }
     });
 }
 
@@ -59,12 +60,12 @@ ScstConnector::ScstConnector(std::string const& name,
              << " Target: [" << target_name << "]";
 }
 
-void
+bool
 ScstConnector::initializeTarget() {
     evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
         LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
-        return;
+        return false;
     }
 
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
@@ -74,6 +75,7 @@ ScstConnector::initializeTarget() {
     auto scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/mgmt", O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not create target, no iSCSI devices will be presented!";
+        return false;
     } else {
         static std::string const add_tgt_cmd = "add_target " + target_name;
         auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
@@ -84,7 +86,7 @@ ScstConnector::initializeTarget() {
     auto processor = amProcessor.lock();
     if (!processor) {
         LOGNORMAL << "No processing layer, shutdown.";
-        return;
+        return false;
     }
 
     LOGDEBUG << "Creating auto volumes for connector.";
@@ -105,11 +107,13 @@ ScstConnector::initializeTarget() {
     scstTgtMgmt = open((std::string("/sys/kernel/scst_tgt/targets/iscsi/") + target_name + "/enabled").c_str(), O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not enable target, no iSCSI devices will be presented!";
+        return false;
     } else {
         auto i = write(scstTgtMgmt, "1", 1);
         close(scstTgtMgmt);
     }
     LOGNORMAL << "Scst Connector is running...";
+    return true;
 }
 
 void

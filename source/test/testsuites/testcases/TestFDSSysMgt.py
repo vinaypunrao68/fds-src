@@ -7,6 +7,8 @@
 import unittest
 import traceback
 import TestCase
+import pdb
+import re
 
 # Module-specific requirements
 import sys
@@ -163,13 +165,15 @@ class TestNodeKill(TestCase.FDSTestCase):
 # node activation. (I.e. activate the node's specified
 # services.)
 class TestNodeActivate(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, expect_to_fail=False, expect_failed_msg=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NodeActivateService,
                                              "Node services activation")
 
         self.passedNode = node
+        self.expect_to_fail = expect_to_fail
+        self.expect_failed_msg = expect_failed_msg
 
     def test_NodeActivateService(self):
         """
@@ -206,18 +210,38 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 service = Service()
                 service.type = service_name
                 add_service = node_service.add_service(node_id,service)
-                if type(add_service).__name__ == 'FdsError':
-                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
-                    return False
+                if (type(add_service).__name__ == 'FdsError'):
+                    if self.expect_to_fail:
+                        if isinstance(add_service, FdsError):
+                            self.log.error("FAILED:  Service activation on node %s returned status %d." %
+                                (n.nd_conf_dict['node-name'], add_service.message))
+                            return False
 
-                self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
-                start_service = node_service.start_service(node_id,add_service.id)
-                time.sleep(3)
-                get_service = node_service.get_service(node_id,start_service.id)
-                if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                    self.log.error("Service activation of node %s returned status %d." %
-                               (n.nd_conf_dict['node-name'], status))
-                    return False
+                        elif re.search(self.expect_failed_msg, add_service.message):
+                            node_service = get_node_service(self,om_ip)
+                            get_node = node_service.get_node(node_id)
+                            self.log.info("PASSED:  Service activation on node={} is not allowed for service.id={}.".format(n.nd_conf_dict['node-name'], service.id))
+                            self.log.info("PASSED:  Expect failed message=> {}, Found=> {}".format(self.expect_failed_msg, add_service.message))
+                            return True
+
+                    else:
+                        self.log.error("Failing to add service {} to node {} returned status {}".format(service_name, n.nd_conf_dict['node-name'], add_service.message))
+                        return False
+
+                else:
+                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
+                    #return False
+
+                if not self.expect_to_fail:
+                    self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
+                    start_service = node_service.start_service(node_id,add_service.id)
+                    time.sleep(3)
+                    get_service = node_service.get_service(node_id,start_service.id)
+                    if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
+                        self.log.error("Service activation of node %s returned status %d." %
+                                   (n.nd_conf_dict['node-name'], status))
+                        return False
+
             if self.passedNode is not None:
                 # If we were passed a specific node, exit now.
                 return True
@@ -261,6 +285,13 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
                 return False
 
             self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
+
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                    (n.nd_conf_dict['node-name'], status))
+                return False
+
             node_id = int(n.nd_uuid, 16)
             # Prevent scenario where we try to remove a node that was never online
             if not node_is_up(self,om_ip,node_id):

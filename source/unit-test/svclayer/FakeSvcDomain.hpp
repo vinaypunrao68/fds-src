@@ -278,6 +278,9 @@ void FakeSyncSvcDomain::broadcastSvcMap() {
 FakeSvc::FakeSvc(FakeSvcDomain *domain, 
                  const std::string &configFile,
                  fds_int64_t uuid, int port) {
+    /* Putting this log statetement will create a logger */
+    GLOGNORMAL << "Constructing fakesvc domain";
+
     domain_ = domain;
 
     /* config */

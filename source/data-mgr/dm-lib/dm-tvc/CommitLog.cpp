@@ -126,7 +126,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
+    GLOGDEBUG << "Starting blob transaction: TxId (" << txId << ") for (" << blobName << ")";
 
     auto ptx = boost::make_shared<CommitLogTx>();
 
@@ -184,7 +184,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Update blob for transaction (" << txId << ")";
+    GLOGDEBUG << "Update blob for transaction TxId: (" << txId << ")";
 
     auto auto_lock = getTxMapLock();
 
@@ -248,7 +248,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Delete blob in transaction (" << txId << ")";
+    GLOGDEBUG << "Delete blob in transaction: TxId: (" << txId << ")";
 
     auto auto_lock = getTxMapLock();
 
@@ -276,7 +276,7 @@ CommitLogTx::ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & sta
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Committing blob transaction " << txId;
+    GLOGDEBUG << "Committing blob transaction: TxId: " << txId;
 
     auto auto_lock = getTxMapLock(true);
 
@@ -300,7 +300,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Rollback blob transaction " << txId;
+    GLOGDEBUG << "Rollback blob transaction: TxId: " << txId;
 
     auto auto_lock = getTxMapLock(true);
 
@@ -322,19 +322,19 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
 
     Error rc = startTx(txDesc, name, 0, 0);
     if (!rc.ok()) {
-        GLOGWARN << "Failed to start transaction '" << txId << "' for snapshot '" << name << "'";
+        GLOGWARN << "Failed to start transaction: TxId: '" << txId << "' for snapshot '" << name << "'";
         return rc;
     }
 
     rc = snapshotInsert(txDesc);
     if (!rc.ok()) {
-        GLOGWARN << "Failed to insert snapshot for transaction '" << txId << "'";
+        GLOGWARN << "Failed to insert snapshot for transaction: TxId: '" << txId << "'";
         return rc;
     }
 
     CommitLogTx::const_ptr tx = commitTx(txDesc, rc);
     if (!rc.ok()) {
-        GLOGWARN << "Failed to commit snapshot transaction '" << txId << "'";
+        GLOGWARN << "Failed to commit snapshot transaction: TxId: '" << txId << "'";
         return rc;
     }
 
@@ -347,13 +347,13 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
 Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
-        GLOGERROR << "Blob transaction not started";
+        GLOGERROR << "Blob transaction not started: TxId: " <<  txId;
         return ERR_DM_TX_NOT_STARTED;
     }
     fds_assert(txId == *(iter->second->txDesc));
 
     if (iter->second->committed) {
-        GLOGERROR << "Blob transaction already committed";
+        GLOGERROR << "Blob transaction already committed: TxId:" <<  txId;
         return ERR_DM_TX_COMMITTED;
     }
 
@@ -380,7 +380,7 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    GLOGDEBUG << "Snapshot transaction " << txId;
+    GLOGDEBUG << "Snapshot transaction: TxId " << txId;
 
     auto auto_lock = getTxMapLock();
 
