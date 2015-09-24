@@ -3255,6 +3255,12 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        if self.passedService not in svcs:
+            self.log.info("Not in svcs... retrying")
+            status = self.passedNode.nd_populate_metadata(om_node=om_node)
+            passed_node_uuid = self.passedNode.nd_uuid
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+
         svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
         if not svc_uuid:
             self.log.error("Unable to find the servcie UUID")
