@@ -48,7 +48,6 @@ ScstDevice::ScstDevice(std::string const& vol_name,
           scst_target(target),
           scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_name),
-          volume_size{0},
           logical_block_size(512ul),
           readyResponses(4000)
 {
@@ -208,9 +207,16 @@ ScstDevice::execSessionCmd() {
         << "] Targ [" << sess.target_name << "]";
     auto volName = boost::make_shared<std::string>(volumeName);
     if (attaching) {
-        // Attach the volume to AM
-        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        return scstOps->init(volName, amProcessor, task); // Defer
+        ++sessions;
+        // Attach the volume to AM if we haven't already
+        if (0 == volume_size) {
+            auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+            return scstOps->init(volName, amProcessor, task); // Defer
+        }
+    } else {
+        if (0 == --sessions) {
+            scstOps->detachVolume();
+        }
     }
     fastReply(); // Setup the reply for the next ioctl
 }
