@@ -25,7 +25,9 @@ import fdslib.FDSServiceUtils as FDSServiceUtils
 from fdslib.TestUtils import get_node_service
 from fdscli.model.fds_error import FdsError
 from fdscli.model.platform.service import Service
-sm_killed_pid = -1
+sm_killed_pid = {}
+dm_killed_pid = {}
+bare_am_killed_pid = {}
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -641,13 +643,15 @@ class TestDMKill(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("DM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            dm_killed_pid[n.nd_conf_dict['node-name']]= pid
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
         return True
 
-
+# Deprecated TestAWSDMKill, we use TestDMKill for AWS nodes TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
@@ -967,8 +971,12 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
             self.log.info("Verify the DM on %s is down." %n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n, forShutdown=True):
-                return False
-            elif self.passedNode is not None:
+                pid = getSvcPIDforNode('DataMgr', n)
+                if pid != -1 and pid == dm_killed_pid[n.nd_conf_dict['node-name']] :
+                    return False
+                self.log.info("The DM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
+
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
@@ -1200,9 +1208,6 @@ class TestSMKill(TestCase.FDSTestCase):
         Attempt to shutdown the SM service(s)
         """
 
-        global sm_killed_pid
-        sm_killed_pid = -1
-
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
@@ -1239,14 +1244,14 @@ class TestSMKill(TestCase.FDSTestCase):
                 self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
 
+            sm_killed_pid[n.nd_conf_dict['node-name']]= pid
             if self.passedNode is not None:
                 # Took care of the one node passed so get out.
                 break
 
-        sm_killed_pid = pid
         return True
 
-
+# Deprecated TestAWSSMKill, we use TestSMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
@@ -1564,10 +1569,11 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
 
             if not modWait("StorMgr", n, forShutdown=True):
                 pid = getSvcPIDforNode('StorMgr', n)
-                if pid != -1 and pid == sm_killed_pid :
+                if pid != -1 and pid == sm_killed_pid[n.nd_conf_dict['node-name']] :
                     return False
                 self.log.info("The SM on %s was down and restarted by platformd." %n.nd_conf_dict['node-name'])
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
@@ -1752,6 +1758,7 @@ class TestPMKill(TestCase.FDSTestCase):
 
         return True
 
+# Deprecated TestAWSPMKill, we use TestPMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
@@ -2312,7 +2319,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
         return True
 
-
+# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
@@ -2852,43 +2859,34 @@ class TestAMKill(TestCase.FDSTestCase):
             else:
                 status = 0
                 self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+            bare_am_killed_pid[n.nd_conf_dict['node-name']]= pid
 
+            # java AM (com.formationds.am.Main) is dependent on bare_am.
+            # kill/restart of bare_am cause kill/restart of java_am hence sleep for couple of seconds
+            time.sleep(2)
             pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
             if pid != -1:
-                cmd = "kill -KILL %s" % pid
-                status = n.nd_agent.exec_wait(cmd)
-
-                if status != 0:
-                    self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
+               cmd = "kill -KILL %s" % pid
+               status = n.nd_agent.exec_wait(cmd)
+            if status != 0:
+                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
-                    return False
+                return False
             else:
                 status = 0
                 self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            pid = getSvcPIDforNode('AMAgent', n)
-            if pid != -1:
-                cmd = "kill -KILL %s" % pid
-                status = n.nd_agent.exec_wait(cmd)
-
-                if (status != 1) and (status != 0):
-                    self.log.error("AM (AMAgent) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                status = 0
-                self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['node-name']))
-
             if (status != 1) and (status != 0):
                 self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 
         return True
 
-
+# Deprecated TestAWSAMKill, we use TestAMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAWSAMKill(TestCase.FDSTestCase):
@@ -3198,9 +3196,13 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 
             self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
 
-            if not modWait("AMAgent", n, forShutdown=True):
-                return False
-            elif self.passedNode is not None:
+            if not modWait("bare_am", n, forShutdown=True):
+                pid = getSvcPIDforNode('bare_am', n)
+                if pid != -1 and pid == bare_am_killed_pid[n.nd_conf_dict['node-name']]:
+                    return False
+                self.log.info("The AM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
+
+            if self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 

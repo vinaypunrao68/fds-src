@@ -15,7 +15,8 @@
 
 #include "fds_types.h"
 #include "connector/scst/common.h"
-#include "connector/scst/ScstOperations.h"
+#include "connector/scst/scst_user.h"
+#include "connector/BlockOperations.h"
 
 struct scst_user_get_cmd;
 
@@ -26,7 +27,7 @@ struct AmProcessor;
 struct ScstConnector;
 struct ScstTask;
 
-struct ScstConnection : public ScstOperationsResponseIface {
+struct ScstConnection : public BlockOperations::ResponseIFace {
     ScstConnection(std::string const& vol_name,
                    ScstConnector* server,
                    std::shared_ptr<ev::dynamic_loop> loop,
@@ -37,8 +38,8 @@ struct ScstConnection : public ScstOperationsResponseIface {
     ScstConnection operator=(ScstConnection const&& rhs) = delete;
     ~ScstConnection();
 
-    // implementation of ScstOperationsResponseIface
-    void respondTask(ScstTask* response) override;
+    // implementation of BlockOperations::ResponseIFace
+    void respondTask(BlockTask* response) override;
     void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
@@ -62,7 +63,7 @@ struct ScstConnection : public ScstOperationsResponseIface {
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstConnector* scst_server;
-    ScstOperations::shared_ptr scstOps;
+    BlockOperations::shared_ptr scstOps;
 
     size_t resp_needed;
 
