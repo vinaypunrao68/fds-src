@@ -36,7 +36,7 @@ struct ScstConnector
     ScstConnector(ScstConnector const& rhs) = delete;
     ScstConnector& operator=(ScstConnector const& rhs) = delete;
 
-    void initializeTarget();
+    bool initializeTarget();
 
     static std::unique_ptr<ScstConnector> instance_;
 
