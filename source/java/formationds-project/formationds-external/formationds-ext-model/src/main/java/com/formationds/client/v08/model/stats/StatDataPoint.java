@@ -1,12 +1,15 @@
 package com.formationds.client.v08.model.stats;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class StatDataPoint {
+public class StatDataPoint implements Cloneable{
 
 	public static final String REPORT_TIME = "reportTime";
 	public static final String METRIC_NAME = "metricName";
@@ -225,6 +228,66 @@ public class StatDataPoint {
 	}
 	
 	/**
+	 * This is used to determine whether or not two stat data points represent the 
+	 * same data but for a different time.
+	 * 
+	 * @return
+	 */
+	public Boolean same( StatDataPoint point ){
+		
+		if ( point.getMetricName().equals( getMetricName() ) && 
+				point.getContextType().equals( getContextType() ) &&
+				point.getContextId().equals( getContextId() ) && 
+				point.getRelatedContexts().size() == getRelatedContexts().size() ){
+			
+			final List<ContextDef> thisCtxts = getRelatedContexts();
+			
+			// now check the related contexts
+			List<ContextDef> diffDefs = point.getRelatedContexts().stream().filter( (ctxt) -> {
+				
+				return !thisCtxts.contains( ctxt );
+				
+			}).collect( Collectors.toList() );
+			
+			if ( diffDefs.size() == 0 ){
+				return Boolean.TRUE;
+			}
+		}
+		
+		return Boolean.FALSE;
+	}
+	
+	/**
+	 * This method can be used by a collector in order to 
+	 * group like-stats in a map
+	 * @return
+	 */
+	public String samenessString(){
+		
+		StringJoiner joiner = new StringJoiner( ":" );
+		joiner.add( getMetricName() );
+		joiner.add( getContextType().name() );
+		joiner.add( getContextId().toString() );
+		
+		Collections.sort( getRelatedContexts(), (c1, c2) ->{
+			int result = c1.getContextType().name().compareTo( c2.getContextType().name() );
+			
+			if ( result == 0 ){
+				result = c1.getContextId().compareTo( c2.getContextId() );
+			}
+			
+			return result;
+		});
+		
+		getRelatedContexts().stream().forEach( (ctxt) -> {
+			joiner.add( ctxt.getContextType().name() );
+			joiner.add( ctxt.getContextId().toString() );
+		});
+		
+		return joiner.toString();
+	}
+	
+	/**
 	 * Built in marshaling to json
 	 * @return
 	 */
@@ -292,5 +355,31 @@ public class StatDataPoint {
 		}
 		
 		return datapoint;
+	}
+	
+	@Override
+	public String toString() {
+	
+		return toJson();
+	}
+	
+	@Override
+	public StatDataPoint clone() throws CloneNotSupportedException {
+		
+		StatDataPoint newPoint = new StatDataPoint();
+		newPoint.setAggregationType( getAggregationType() );
+		newPoint.setCollectionPeriod( getCollectionPeriod() );
+		newPoint.setCollectionTimeUnit( getCollectionTimeUnit() );
+		newPoint.setContextId( getContextId() );
+		newPoint.setContextType( getContextType() );
+		newPoint.setMaximumValue( getMaximumValue() );
+		newPoint.setMetricName( getMetricName() );
+		newPoint.setMetricValue( getMetricValue() );
+		newPoint.setMinimumValue( getMinimumValue() );
+		newPoint.setReportTime( getReportTime() );
+		newPoint.setNumberOfSamples( getNumberOfSamples() );
+		newPoint.getRelatedContexts().addAll( getRelatedContexts() );
+		
+		return newPoint;
 	}
 }

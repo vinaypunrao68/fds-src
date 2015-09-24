@@ -43,6 +43,18 @@ public class ContextDef {
 		return json;
 	}
 	
+	@Override
+	public boolean equals( Object obj) {
+	
+		if ( !(obj instanceof ContextDef) ){
+			return false;
+		}
+		
+		ContextDef def = (ContextDef)obj;
+		
+		return ( def.getContextId().equals( getContextId() ) && def.getContextType().equals( getContextType() ) );
+	}
+	
 	public String toJson(){
 		return toJsonObject().toString();
 	}
