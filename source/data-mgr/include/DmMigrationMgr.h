@@ -9,15 +9,14 @@
 #include <DmMigrationExecutor.h>
 #include <DmMigrationClient.h>
 #include <condition_variable>
+#include <MigrationUtility.h>
 
 namespace fds {
 
 // Forward declaration
 class DmIoReqHandler;
 
-
 class DmMigrationMgr : public DmMigrationBase {
-
 	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
 
@@ -66,7 +65,13 @@ class DmMigrationMgr : public DmMigrationBase {
     }
 
     inline fds_uint64_t ongoingMigrationCnt() const {
-    	return (executorMap.size());
+    	if (myRole == MIGR_EXECUTOR) {
+    		return (executorMap.size());
+    	} else if (myRole == MIGR_CLIENT) {
+    		return (clientMap.size());
+    	} else {
+    		return 0;
+    	}
     }
 
     /**
@@ -153,6 +158,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * In the case no forwards is sent, this will finish the migration
      */
     Error finishActiveMigration(fds_volid_t volId);
+    Error finishActiveMigration();
 
     /**
      * Both DMs:
@@ -162,6 +168,11 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination DM that an error has occurred. The Destination DM will then tell the OM.
      */
     void abortMigration();
+    void abortMigrationReal();
+
+    void asyncMsgPassed();
+    void asyncMsgFailed();
+    void asyncMsgIssued();
 
     // Get timeout for messages between clients and executors
     inline uint32_t getTimeoutValue() {
@@ -237,7 +248,7 @@ class DmMigrationMgr : public DmMigrationBase {
 
     /**
      * Destination side DM:
-     * Gets an ptr to the migration executor. Used as part of handler.
+     * Gets an ptr to the migration executor. Used internally.
      */
     DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
 
@@ -310,6 +321,24 @@ class DmMigrationMgr : public DmMigrationBase {
     void dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
     void dumpDmIoMigrationDeltaBlobDesc(DmIoMigrationDeltaBlobDesc *deltaBlobReq);
     void dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+
+
+    /**
+     * The followings are used to ensure we do correct accounting for
+     * the number of accesses to executors and clients.
+     * So that we don't blow away things when there are still threads accessing them.
+     */
+    fds_rwlock executorAccessLock;
+    fds_rwlock clientAccessLock;
+
+    /**
+     * Scoped tracking - how it works:
+     * Normally, the migrationMgr gets a read lock on the respective exec/client.
+     * If the operation is synchronous, the call completes and the lock is release.
+     * If the operation is async, then we need to increment the counter and decrement it
+     * on the callback.
+     */
+    MigrationTrackIOReqs trackIOReqs;
 
 };  // DmMigrationMgr
 
