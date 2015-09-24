@@ -32,6 +32,7 @@ import TestFDSServiceMgt
 import TestFDSVolMgt
 import TestFDSSysVerify
 import NetworkErrorInjection
+import TestFDSSnapshotMgt
 
 try:
     # Removed in Python 3
@@ -818,6 +819,35 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 log.error("Volume not found for scenario '%s'" %
                           (scenario.nd_conf_dict['scenario-name']))
                 raise Exception
+
+        elif action == "create_snapshot":
+            found = False
+            for volume in scenario.cfg_sect_volumes:
+                if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
+                    found = True
+                    suite.addTest(TestFDSSnapshotMgt.TestCreateSnapshot(volume=volume))
+                    break
+
+            if found:
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(TestWait(delay=delay, reason="to allow creating volume snapshot " + script + " to propagate"))
+
+
+
+        elif action == "list_snapshot":
+            found = False
+            for volume in scenario.cfg_sect_volumes:
+                if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
+                    found = True
+                    suite.addTest(TestFDSSnapshotMgt.TestListSnapshot(volume=volume))
+                    break
+
+            if found:
+                if 'delay_wait' in scenario.nd_conf_dict:
+                    suite.addTest(TestWait(delay=delay, reason="to allow list snapshot " + script + " to propagate"))
+
+
+
         else:
             log.error("Unrecognized node action '%s' for scenario %s" %
                       (action, scenario.nd_conf_dict['scenario-name']))
