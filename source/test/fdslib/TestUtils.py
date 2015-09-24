@@ -520,8 +520,3 @@ def node_is_up(self,om_ip,node_id):
     else:
         return False
 
-def get_node_state(self,om_ip,node_id):
-    node_service = get_node_service(self,om_ip)
-    node = node_service.get_node(node_id)
-    return node.state
-

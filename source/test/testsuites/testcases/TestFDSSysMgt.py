@@ -19,7 +19,6 @@ import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from TestFDSServiceMgt import TestAMBringUp
 from fdslib.TestUtils import get_node_service
-from fdslib.TestUtils import get_node_state
 from fdscli.model.platform.service import Service
 from fdscli.model.platform.node import Node
 from fdslib.TestUtils import get_localDomain_service
@@ -433,12 +432,12 @@ class TestNodeStart(TestCase.FDSTestCase):
             node_service = get_node_service(self,om_ip)
             node_shutdown= node_service.start_node(node_id)
 
-            node_state = get_node_state(self,om_ip, node_id)
-            if node_state == 'UP':
-                self.log.info("PASSED:  Node start on node {} was successful.  Expected Node state = UP, Returned Node state={}".format(n.nd_conf_dict['node-name'], node_state))
-
-            else:
-                self.log.error("FAILED:  Failing to start node {}.  Expected Node state = UP, Returned Node state={}".format(n.nd_conf_dict['node-name'], node_state))
+            node_state = node_service.get_node(node_id)
+            service_list = ['AM', 'DM', 'SM', 'PM']
+            for service_name in service_list:
+                if (node_state.services['{}'.format(service_name)][0].status.state != "RUNNING") and node_state.state != 'UP':
+                    self.log.warn("FAILED:  Expected Node service=RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))
+                    return False
 
             if isinstance(node_shutdown, FdsError) :
                 self.log.error("Node start of node %s returned status %s." %
