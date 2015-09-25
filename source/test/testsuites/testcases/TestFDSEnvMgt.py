@@ -990,7 +990,7 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
             if self.parameters['ansible_install_done']:
                 plat_file = os.path.join('/fds/etc/platform.conf')
             else:
-                if self.applyAll:
+                if self.applyAll is not None:
                     plat_file = os.path.join('/fds/etc/platform.conf')
                 else:
                     plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
