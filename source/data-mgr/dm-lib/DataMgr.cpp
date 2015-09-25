@@ -1194,8 +1194,14 @@ void DataMgr::mod_shutdown()
     }
 
     LOGNORMAL;
-    statStreamAggr_->mod_shutdown();
-    timeVolCat_->mod_shutdown();
+    if ( statStreamAggr_ ) {
+      statStreamAggr_->mod_shutdown();
+    }
+
+    if ( timeVolCat_ ) {
+      timeVolCat_->mod_shutdown();
+    }
+
     if (features.isCatSyncEnabled()) {
         catSyncMgr->mod_shutdown();
     } else {

@@ -125,11 +125,16 @@ namespace fds
 
         // If we dont' have a dl_map and create is true, open the diskmap truncating
         // any disk-map already present
+        bool fDumpDiskMap = g_fdsprocess->get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
         if ((dl_map == NULL) && (creat == true))
         {
             const FdsRootDir   *dir = g_fdsprocess->proc_fdsroot();
             FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
-            dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
+            if (fDumpDiskMap) {
+                dl_map = (std::ofstream*)(&std::cout);
+            } else {
+                dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
+            }
         }
 
         dl_total_disks  = 0;
@@ -147,6 +152,7 @@ namespace fds
             if (label->dsk_label_valid(this))
             {
                 dl_valid_labels++;
+                GLOGDEBUG << label->dl_owner;
 
                 if (master == NULL)
                 {
@@ -207,11 +213,13 @@ namespace fds
 
             if (curr == NULL)
             {
+                GLOGDEBUG << "breaking";
                 break;
             }
 
             if (creat == true)
             {
+                GLOGDEBUG << "writing label" ;
                 curr->dsk_label_clone(master);
                 curr->dsk_label_write(inv, this);
             }
@@ -231,8 +239,7 @@ namespace fds
 #endif
 
         // End of the function -- if dl_map and create, close what was opened previously
-        if ((dl_map != NULL) && (creat == true))
-        {
+        if ((dl_map != NULL) && (creat == true) && (dl_map != &std::cout)) {
             // This isn't thread-safe but we won't need dl_map in post-alpha.
             dl_map->flush();
             dl_map->close();

@@ -31,6 +31,7 @@ namespace fds {
 const std::string DmPersistVolDB::CATALOG_WRITE_BUFFER_SIZE_STR("catalog_write_buffer_size");
 const std::string DmPersistVolDB::CATALOG_CACHE_SIZE_STR("catalog_cache_size");
 const std::string DmPersistVolDB::CATALOG_MAX_LOG_FILES_STR("catalog_max_log_files");
+const std::string DmPersistVolDB::ENABLE_TIMELINE_STR("enable_timeline");
 
 Error status2error(leveldb::Status s){
     if (s.ok()) {
@@ -97,6 +98,7 @@ Error DmPersistVolDB::activate() {
     fds_uint32_t cacheSize = configHelper_.get<fds_uint32_t>(CATALOG_CACHE_SIZE_STR,
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
+    fds_bool_t timelineEnable = configHelper_.get<fds_bool_t>(ENABLE_TIMELINE_STR,false);
 
     std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
@@ -109,6 +111,7 @@ Error DmPersistVolDB::activate() {
                                    logDirName,
                                    logFilePrefix,
                                    maxLogFiles,
+                                   timelineEnable,
                                    &cmp_));
     }
     catch(const CatalogException& e)

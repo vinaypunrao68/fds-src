@@ -90,6 +90,11 @@ public:
     FdsTimer();
 
     /**
+     * Constructor
+     */
+    explicit FdsTimer(const std::string &id);
+
+    /**
      * Destructor
      */
     ~FdsTimer()
@@ -163,6 +168,8 @@ private:
 
     /* Lock for protecting scheduled variable */
     fds_mutex lock_;
+    /* Id of the timer */
+    std::string id_;
     /* Pending timer objects */
     std::set<FdsTimerTaskPtr, LessFdsTimerTaskPtr> pendingTasks_;
     /* Whether timer thread should abort or not */

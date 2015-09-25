@@ -9,7 +9,7 @@
 #include <thread>
 #include <condition_variable>
 #include <util/fds_stat.h>
-#include "connector/nbd/NbdOperations.h"
+#include "connector/BlockOperations.h"
 #include <AccessMgr.h>
 #include <AmProcessor.h>
 
@@ -51,7 +51,7 @@ struct null_deleter
     }
 };
 
-class NbdOpsProc : public NbdOperationsResponseIface {
+class NbdOpsProc : public BlockOperations::ResponseIFace {
   public:
     NbdOpsProc(int argc, char **argv)
             : volumeName(new std::string("Test Volume")) {
@@ -99,14 +99,13 @@ class NbdOpsProc : public NbdOperationsResponseIface {
     void terminate() override {
     }
 
-    void attachResp(Error const& error,
-                    boost::shared_ptr<VolumeDesc> const& volDesc) override {
-        ASSERT_EQ(ERR_OK, error);
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override {
         objSize = volDesc->maxObjSizeInBytes;
     }
 
     // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response) override {
+    void respondTask(BlockTask* response) override {
+        if (!response->isRead() && !response->isWrite()) return; // Non-io response
         fds_uint32_t cdone = atomic_fetch_add(&opsDone, (fds_uint32_t)1);
         GLOGDEBUG << "Read? " << response->isRead()
                   << " response for handle " << response->handle
@@ -142,8 +141,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
 
     void init() {
         // pass data API to Ndb Operations
-        nbdOps.reset(new NbdOperations(this));
-        nbdOps->init(volumeName, am->getProcessor());
+        nbdOps.reset(new BlockOperations(this));
+        auto task = new BlockTask(0ll);
+        nbdOps->init(volumeName, am->getProcessor(), task);
         am->getProcessor()->registerVolume(
             std::move(VolumeDesc(*volumeName, fds_volid_t(5), 0, 0, 1)));
     }
@@ -173,7 +173,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                     // Make copy of data since function "takes" the shared_ptr
                     boost::shared_ptr<std::string> localData(
                         boost::make_shared<std::string>(*blobGen.blobData));
-                    nbdOps->write(localData, localData->length(), offset, ++handle);
+                    auto task = new BlockTask(++handle);
+                    task->setWrite(offset, objSize);
+                    nbdOps->write(localData, task);
                     if (verifyData) {
                         fds_mutex::scoped_lock l(verifyMutex);
                         fds_verify(offData.count(offset) == 0);
@@ -184,7 +186,9 @@ class NbdOpsProc : public NbdOperationsResponseIface {
                 }
             } else if (opType == GET) {
                 try {
-                    nbdOps->read(objSize, offset, ++handle);
+                    auto task = new BlockTask(++handle);
+                    task->setRead(offset, objSize);
+                    nbdOps->read(task);
                 } catch(fpi::ApiException fdsE) {
                     fds_panic("read failed");
                 }
@@ -240,7 +244,7 @@ class NbdOpsProc : public NbdOperationsResponseIface {
 
   private:
     // NbdOperations to test
-    NbdOperations::shared_ptr nbdOps;
+    BlockOperations::shared_ptr nbdOps;
 
     /// performance test setup
     fds_uint32_t concurrency;
@@ -286,13 +290,13 @@ class NbdOpsProc : public NbdOperationsResponseIface {
 using fds::NbdOpsProc;
 NbdOpsProc::unique_ptr nbdOpsProc;
 
-TEST(NbdOperations, write) {
+TEST(BlockOperations, write) {
     GLOGDEBUG << "TBD: Testing write";
     nbdOpsProc->resetCounters();
     nbdOpsProc->runAsyncTask(NbdOpsProc::PUT);
 }
 
-TEST(NbdOperations, read) {
+TEST(BlockOperations, read) {
     GLOGDEBUG << "TBD: Testing read";
     nbdOpsProc->runAsyncTask(NbdOpsProc::GET);
 }
