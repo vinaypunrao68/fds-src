@@ -28,6 +28,7 @@ private:
     fds_mutex rotateMtx_;
     fds_bool_t copying_;
     fds_bool_t logRotate_;
+    fds_bool_t timelineEnable_;
 
     std::string logDirName_;
     std::string logFilePrefix_;
@@ -62,6 +63,13 @@ public:
 
     fds_bool_t CopyFile(const std::string & fname);
     fds_bool_t KeepFile(const std::string & fname);
+
+    inline const fds_bool_t & timelineEnable() const {
+        return timelineEnable_;
+    }
+    inline fds_bool_t & timelineEnable() {
+        return timelineEnable_;
+    }
 
     inline const fds_bool_t & logRotate() const {
         return logRotate_;

@@ -13,6 +13,7 @@ extern "C" {
 
 #include <ev++.h>
 #include <boost/shared_ptr.hpp>
+#include <boost/tokenizer.hpp>
 
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstConnection.h"
@@ -33,11 +34,14 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
     {
         FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
         auto threads = conf.get<uint32_t>("threads", 1);
-        instance_.reset(new ScstConnector(processor, threads - 1));
-        instance_->initializeTarget();
-        // Start the main server thread
-        auto t = std::thread(&ScstConnector::follow, instance_.get());
-        t.detach();
+        auto target_name = conf.get<std::string>("target_name",
+                                                 "iqn.2015-08.com.formationds:block_storage");
+        instance_.reset(new ScstConnector(target_name, processor, threads - 1));
+        if (instance_->initializeTarget()) {
+            // Start the main server thread
+            auto t = std::thread(&ScstConnector::follow, instance_.get());
+            t.detach();
+        }
     });
 }
 
@@ -46,19 +50,22 @@ void ScstConnector::stop() {
     // Implement
 }
 
-ScstConnector::ScstConnector(std::weak_ptr<AmProcessor> processor,
-                           size_t const followers)
+ScstConnector::ScstConnector(std::string const& name,
+                             std::weak_ptr<AmProcessor> processor,
+                             size_t const followers)
         : LeaderFollower(followers, false),
-          amProcessor(processor) {
-    LOGDEBUG << "Initialized server with: " << followers << " followers.";
+          amProcessor(processor),
+          target_name(name) {
+    LOGDEBUG << "Initialized server with: " << followers << " followers."
+             << " Target: [" << target_name << "]";
 }
 
-void
+bool
 ScstConnector::initializeTarget() {
-    evLoop = std::make_shared<ev::dynamic_loop>();
+    evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
         LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
-        return;
+        return false;
     }
 
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
@@ -68,8 +75,9 @@ ScstConnector::initializeTarget() {
     auto scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/mgmt", O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not create target, no iSCSI devices will be presented!";
+        return false;
     } else {
-        static std::string const add_tgt_cmd = "add_target fds.iscsi:tgt";
+        static std::string const add_tgt_cmd = "add_target " + target_name;
         auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
         close(scstTgtMgmt);
     }
@@ -78,20 +86,34 @@ ScstConnector::initializeTarget() {
     auto processor = amProcessor.lock();
     if (!processor) {
         LOGNORMAL << "No processing layer, shutdown.";
-        return;
+        return false;
     }
-    LOGDEBUG << "Creating Device for connector.";
-    auto client = new ScstConnection("scst_vol", this, evLoop, processor);
+
+    LOGDEBUG << "Creating auto volumes for connector.";
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
+    auto auto_volumes = conf.get<std::string>("auto_volumes", "scst_vol");
+    {
+        boost::tokenizer<boost::escaped_list_separator<char> > tok(auto_volumes);
+        for (auto const& vol_name : tok) {
+            try {
+            auto client = new ScstConnection(vol_name, this, evLoop, processor);
+            } catch (ScstError& e) {
+                LOGERROR << "Failed to create device for: " << vol_name;
+            }
+        }
+    }
 
     LOGDEBUG << "Enabling iSCSI target.";
-    scstTgtMgmt = open("/sys/kernel/scst_tgt/targets/iscsi/fds.iscsi:tgt/enabled", O_WRONLY);
+    scstTgtMgmt = open((std::string("/sys/kernel/scst_tgt/targets/iscsi/") + target_name + "/enabled").c_str(), O_WRONLY);
     if (0 > scstTgtMgmt) {
         LOGERROR << "Could not enable target, no iSCSI devices will be presented!";
+        return false;
     } else {
         auto i = write(scstTgtMgmt, "1", 1);
         close(scstTgtMgmt);
     }
     LOGNORMAL << "Scst Connector is running...";
+    return true;
 }
 
 void

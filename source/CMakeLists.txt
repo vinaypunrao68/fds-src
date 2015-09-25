@@ -121,7 +121,7 @@ set(SOURCE_FILES
     ./access-mgr/include/AsyncResponseHandlers.h
     ./access-mgr/include/responsehandler.h
     ./access-mgr/test/AmFunctionalTest.cpp
-    ./access-mgr/test/NbdFunctionalTest.cpp
+./access-mgr/test/BlockFunctionalTest.cpp
     ./access-mgr/am-main.cpp
 
     ./data-mgr/dm-lib/checker/DmChecker.cpp

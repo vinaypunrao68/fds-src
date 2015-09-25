@@ -109,7 +109,7 @@ public class StatsResourceAuth implements RequestHandler {
 		
 		if ( resource.equals( QUEUE ) ){
 			
-			if ( name.equals( "stats.work" ) ){
+			if ( name.equals( "stats.work" ) || name.equals( "stats.query" ) ){
 				perms.add( READ );
 //				perms.add( WRITE );
 				perms.add( CONFIGURE );

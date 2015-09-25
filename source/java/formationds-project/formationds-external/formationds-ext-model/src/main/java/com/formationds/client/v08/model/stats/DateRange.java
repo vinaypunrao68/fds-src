@@ -27,7 +27,7 @@ public class DateRange {
         Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
         Long tsOneDayAgo = oneDayAgo.getEpochSecond();
 
-        return new DateRange( tsOneDayAgo );
+        return new DateRange( tsOneDayAgo, Instant.now().getEpochSecond() );
     }
 
     /**

@@ -666,7 +666,7 @@ TEST(SmSuperblockTestDriver, test7)
     //              re-distributing levelDB and token files, no tokens should be
     //              assigned to disk 4.
     SmTokenSet tmpTokens = test7->getSmTokens(4);
-    EXPECT_EQ(tmpTokens.size(), 0);
+    EXPECT_EQ(tmpTokens.size(), 0u);
     test7->deleteDirs();
 }
 

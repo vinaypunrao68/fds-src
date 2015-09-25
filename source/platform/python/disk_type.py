@@ -33,7 +33,7 @@ class ConcatJSONDecoder(json.JSONDecoder):
 class Disk:
     # Static disk parsing stuff
     #
-    p_dev   = re.compile('sd[a-z]$')
+    p_dev   = re.compile('sd[a-z]*$')
     dsk_prefix = '/dev/'
     dsk_part_hdd_data = 3
     dsk_part_ssd_data = 1
@@ -82,6 +82,7 @@ class Disk:
         self.dsk_formatted = 'Unknown'
         self.dsk_boot_dev  = False
         self.dsk_mounted   = False
+        self.dsk_ignored   = False
 
         # Check if we have software raid present on c9 systems.
         # This is essentially throw away code to get the c9 systems configured.
@@ -101,7 +102,10 @@ class Disk:
 
         # parse disk information
         # self.__parse_with_hdparm(path, fake)
-        self.__parse_with_lshw(path, fake)
+        if False == self.__parse_with_lshw(path, fake):
+            self.dsk_ignored    = True
+            return
+
         self.__parse_with_parted(path, fake)
 
         # check if disk is formatted
@@ -114,6 +118,9 @@ class Disk:
 
     def is_mounted(self):
         return self.dsk_mounted
+
+    def is_ignored(self):
+        return self.dsk_ignored
 
     def check_for_mounted(self, mount_output):
         for rec in mount_output:
@@ -159,6 +166,7 @@ class Disk:
         for k, v in parts.iteritems():
             print 'part     :\t' + k + ':' + v
         print 'formatted:\t' + str(self.is_formatted())
+        print 'ignored  :\t' + str(self.is_ignored())
 
 ## ----------------------------------------------------------------
 ## destructive operations, handle with care
@@ -167,6 +175,8 @@ class Disk:
     # create partitions for HDD/SSD, write fds magic marker to drive
     #
     def create_parts(self):
+        if self.is_ignored():
+            return 1
         # Wipe out FDS label.
         call_list = ['dd', 'if=/dev/zero', 'of=%s' % self.dsk_path,
                      'seek=64', 'bs=512', 'count=1']
@@ -225,6 +235,8 @@ class Disk:
     # delete partitions, wipe out fds magic marker
     #
     def del_parts(self):
+        if self.is_ignored():
+            return 1
         if self.is_boot_dev():
             return 1
 
@@ -238,6 +250,8 @@ class Disk:
     # format using xfs, write magic header
     #
     def format(self):
+        if self.is_ignored():
+            return None
         if self.is_boot_dev():
             return None
 
@@ -256,6 +270,8 @@ class Disk:
         return res
 
     def mount_fs(self, mount_output, dev_no):
+        if self.is_ignored():
+            return None
         if self.is_boot_dev():
             return None
 
@@ -339,7 +355,7 @@ class Disk:
         # Parse for Disk type, capacity
         if fake == True:
             print "Fake not supported"
-            return
+            return false
         else:
             if Disk.dsk_json_objs == None:
                 output = subprocess.Popen(['lshw', '-json', '-class', 'disk'],
@@ -375,7 +391,8 @@ class Disk:
                     assert False
                 self.dsk_cap = (int(rec['size']) * units) / Disk.dsk_gsize
                 break
-        assert self.dsk_cap != 0
+        if 0 == self.dsk_cap:
+            return False
 
         # match type
         dev = re.split('/', path)
@@ -388,13 +405,15 @@ class Disk:
         else:
             self.dsk_typ = Disk.dsk_typ_hdd
 
+        return True
+
     ###
     # parse using lshw and xml
     def __parse_with_lshw(self, path, fake):
         # Parse for Disk type, capacity
         if fake == True:
             print "Fake not supported"
-            return
+            return false
         else:
             if Disk.dsk_lshw_xml == None:
                 dev_stdout = subprocess.Popen(['lshw', '-xml', '-class', 'disk'],
@@ -413,7 +432,8 @@ class Disk:
                 continue
 
             node_size = node.find('size')
-            assert node_size != None
+            if None == node_size:
+                continue
 
             units = node_size.get('units')
             if units == 'bytes':
@@ -423,7 +443,8 @@ class Disk:
                 self.dsk_cap = 0
                 print 'ERROR: lshw units size not implemented for:  ', node_logicalname.text
                 assert False
-        assert self.dsk_cap != 0
+        if 0 == self.dsk_cap:
+            return False
 
         # match type
         dev = re.split('/', path)
@@ -435,6 +456,8 @@ class Disk:
             self.dsk_typ = Disk.dsk_typ_ssd
         else:
             self.dsk_typ = Disk.dsk_typ_hdd
+
+        return True
 
     def __parse_with_parted(self, path, fake):
         # Parse Disk parition type

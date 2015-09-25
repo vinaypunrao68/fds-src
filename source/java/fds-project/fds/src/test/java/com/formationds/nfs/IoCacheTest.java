@@ -40,13 +40,13 @@ public class IoCacheTest {
 
         Optional<Map<String, String>> cachedMeta = cache.mapMetadata(domain, volume, blobName, om -> om);
         assertFalse(cachedMeta.isPresent());
-        Optional<ObjectView> cachedObject = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        Optional<ObjectView> cachedObject = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov);
         assertFalse(cachedObject.isPresent());
 
         Optional<Map<String, String>> storedMeta = io.mapMetadata(domain, volume, blobName, om -> om);
         assertFalse(storedMeta.isPresent());
-        Optional<ObjectView> storedObject = io.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        Optional<ObjectView> storedObject = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov);
         assertFalse(storedObject.isPresent());
     }
@@ -59,7 +59,7 @@ public class IoCacheTest {
         buffer.putInt(42);
         buffer.position(0);
         cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), buffer.duplicate(), metadata);
-        ByteBuffer result = io.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0), oov -> oov.get().getBuf());
+        ByteBuffer result = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), oov -> oov.get().getBuf());
         assertEquals(42, result.getInt());
     }
 
@@ -71,13 +71,13 @@ public class IoCacheTest {
         cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> new ObjectView(metadata, ByteBuffer.allocate(10)));
 
-        ByteBuffer byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        ByteBuffer byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(0, byteBuffer.get());
 
         // Mutate sure we get a sliced ByteBuffer
-        byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
 
@@ -89,7 +89,7 @@ public class IoCacheTest {
                 });
 
         // Mutate sure we get a sliced ByteBuffer
-        byteBuffer = cache.mapObject(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(42, byteBuffer.getInt());
