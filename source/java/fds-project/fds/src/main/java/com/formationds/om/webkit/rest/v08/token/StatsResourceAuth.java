@@ -114,11 +114,12 @@ public class StatsResourceAuth implements RequestHandler {
 				perms.add( READ );
 				perms.add( CONFIGURE );
 				
-			} else if ( name.equals( "stats.aggregation" ) ) {
+			} 
+			else if ( name.equals( "stats.aggregation" ) ) {
 				
 				perms.add( READ );
-				perms.add( WRITE );
 				perms.add( CONFIGURE );
+				perms.add( WRITE );
 			}
 		}
 		else {
