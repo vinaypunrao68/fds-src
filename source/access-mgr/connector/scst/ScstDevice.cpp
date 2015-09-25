@@ -2,7 +2,7 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include "connector/scst/ScstConnection.h"
+#include "connector/scst/ScstDevice.h"
 
 #include <cerrno>
 #include <string>
@@ -17,7 +17,7 @@ extern "C" {
 
 #include <ev++.h>
 
-#include "connector/scst/ScstConnector.h"
+#include "connector/scst/ScstTarget.h"
 #include "fds_process.h"
 #include "fds_volume.h"
 #include "fdsp/config_types_types.h"
@@ -41,17 +41,13 @@ static constexpr bool ensure(bool b)
 namespace fds
 {
 
-std::atomic_uint ScstConnection::next_lun {0};
-
-ScstConnection::ScstConnection(std::string const& vol_name,
-                               ScstConnector* server,
-                               std::shared_ptr<ev::dynamic_loop> loop,
-                               std::shared_ptr<AmProcessor> processor)
+ScstDevice::ScstDevice(std::string const& vol_name,
+                       ScstTarget* target,
+                       std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
-          scst_server(server),
+          scst_target(target),
           scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_name),
-          volume_size{0},
           logical_block_size(512ul),
           readyResponses(4000)
 {
@@ -96,55 +92,39 @@ ScstConnection::ScstConnection(std::string const& vol_name,
     snprintf(scst_descriptor.name, SCST_MAX_NAME, "%s", volumeName.c_str());
     auto res = ioctl(scstDev, SCST_USER_REGISTER_DEVICE, &scst_descriptor);
     if (0 > res) {
-        LOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
+        GLOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
         throw ScstError::scst_error;
     }
 
-    // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
-    // We can support other target-drivers than iSCSI...TBD
-    // Create an iSCSI target in the SCST mid-ware for our handler
-    auto scstTgtMgmt = open((std::string("/sys/kernel/scst_tgt/targets/iscsi/") +
-                                scst_server->targetName() +
-                                "/luns/mgmt").c_str(),
-                            O_WRONLY);
-    if (0 > scstTgtMgmt) {
-        LOGERROR << "Could not map lun, no iSCSI devices will be presented!";
-        throw ScstError::scst_error;
-    }
+    GLOGNORMAL << "New SCST device [" << volumeName
+               << "] BlockSize[" << logical_block_size << "]";
+}
 
-    auto lun = next_lun++;
-    std::string add_tgt_cmd = "add " + volumeName + " " + std::to_string(lun);
-    auto i = write(scstTgtMgmt, add_tgt_cmd.c_str(), add_tgt_cmd.size());
-    close(scstTgtMgmt);
-
+void
+ScstDevice::start(std::shared_ptr<ev::dynamic_loop> loop) {
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set(*loop);
-    ioWatcher->set<ScstConnection, &ScstConnection::ioEvent>(this);
+    ioWatcher->set<ScstDevice, &ScstDevice::ioEvent>(this);
     ioWatcher->start(scstDev, ev::READ);
 
     asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
     asyncWatcher->set(*loop);
-    asyncWatcher->set<ScstConnection, &ScstConnection::wakeupCb>(this);
+    asyncWatcher->set<ScstDevice, &ScstDevice::wakeupCb>(this);
     asyncWatcher->start();
-
-    LOGNORMAL << "New SCST device [" << volumeName
-              << "] Tgt [" << scst_server->targetName()
-              << "] LUN [" << lun
-              << "] BlockSize[" << logical_block_size << "]";
 }
 
-ScstConnection::~ScstConnection() {
-    LOGNORMAL << "SCST client disconnected for " << scstDev;
+ScstDevice::~ScstDevice() {
+    GLOGNORMAL << "SCST client disconnected for " << scstDev;
 }
 
 void
-ScstConnection::terminate() {
+ScstDevice::terminate() {
     state_ = ConnectionState::STOPPING;
     asyncWatcher->send();
 }
 
 int
-ScstConnection::openScst() {
+ScstDevice::openScst() {
     int dev = open(DEV_USER_PATH DEV_USER_NAME, O_RDWR | O_NONBLOCK);
     if (0 > dev) {
         LOGERROR << "Opening the SCST device failed: " << strerror(errno);
@@ -153,7 +133,7 @@ ScstConnection::openScst() {
 }
 
 void
-ScstConnection::wakeupCb(ev::async &watcher, int revents) {
+ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
     if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
         scstOps->shutdown();
@@ -173,7 +153,7 @@ ScstConnection::wakeupCb(ev::async &watcher, int revents) {
     }
 }
 
-void ScstConnection::execAllocCmd() {
+void ScstDevice::execAllocCmd() {
     auto& length = cmd.alloc_cmd.alloc_len;
     LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
 
@@ -182,13 +162,13 @@ void ScstConnection::execAllocCmd() {
     fastReply();
 }
 
-void ScstConnection::execMemFree() {
+void ScstDevice::execMemFree() {
     LOGTRACE << "Deallocation requested.";
     free((void*)cmd.on_cached_mem_free.pbuf);
     fastReply(); // Setup the reply for the next ioctl
 }
 
-void ScstConnection::execCompleteCmd() {
+void ScstDevice::execCompleteCmd() {
     LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
 
     auto it = repliedResponses.find(cmd.cmd_h);
@@ -200,21 +180,21 @@ void ScstConnection::execCompleteCmd() {
     fastReply(); // Setup the reply for the next ioctl
 }
 
-void ScstConnection::execParseCmd() {
+void ScstDevice::execParseCmd() {
     LOGDEBUG << "Need parsing help.";
     fds_panic("Should not be here!");
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_PARSE);
     readyResponses.push(task);
 }
 
-void ScstConnection::execTaskMgmtCmd() {
+void ScstDevice::execTaskMgmtCmd() {
     LOGDEBUG << "Task Management request.";
     // We do not support Aborts/Resets/etc. at this point, so do nothing.
     fastReply(); // Setup the reply for the next ioctl
 }
 
 void
-ScstConnection::execSessionCmd() {
+ScstDevice::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
     LOGDEBUG << "Session "
@@ -227,14 +207,21 @@ ScstConnection::execSessionCmd() {
         << "] Targ [" << sess.target_name << "]";
     auto volName = boost::make_shared<std::string>(volumeName);
     if (attaching) {
-        // Attach the volume to AM
-        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        return scstOps->init(volName, amProcessor, task); // Defer
+        ++sessions;
+        // Attach the volume to AM if we haven't already
+        if (0 == volume_size) {
+            auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+            return scstOps->init(volName, amProcessor, task); // Defer
+        }
+    } else {
+        if (0 == --sessions) {
+            scstOps->detachVolume();
+        }
     }
     fastReply(); // Setup the reply for the next ioctl
 }
 
-void ScstConnection::execUserCmd() {
+void ScstDevice::execUserCmd() {
     auto& scsi_cmd = cmd.exec_cmd;
     auto& op_code = scsi_cmd.cdb[0];
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
@@ -242,6 +229,13 @@ void ScstConnection::execUserCmd() {
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+    }
+
+    // Poor man's goto
+    do {
+    if (0 == volume_size) {
+        task->checkCondition(SCST_LOAD_SENSE(scst_sense_not_ready));
+        continue;
     }
 
     switch (op_code) {
@@ -257,6 +251,7 @@ void ScstConnection::execUserCmd() {
             // Mutually exclusive (and not supported)
             if (fmtdata || fmtpinfo) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
             }
             // Nothing to do as we don't support data patterns...done!
             break;
@@ -266,7 +261,8 @@ void ScstConnection::execUserCmd() {
             static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
             auto& buflen = scsi_cmd.bufflen;
             if (buflen < 8) {
-                return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
             }
 
             buffer[0] = TYPE_DISK;
@@ -323,7 +319,8 @@ void ScstConnection::execUserCmd() {
                     break;
                 default:
                     LOGERROR << "Request for unsupported page code.";
-                    return task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                    continue;
                 }
                 buffer[1] = page; // Identity of the page we're returning
                 task->setResponseBuffer(buffer, buffer[3] + 4);
@@ -383,7 +380,7 @@ void ScstConnection::execUserCmd() {
             // We do not support any subpages
             if (0x00 != subpage) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                break;
+                continue;
             }
 
             size_t param_cursor = 0ull;
@@ -486,11 +483,12 @@ void ScstConnection::execUserCmd() {
         task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
         break;
     }
+    } while (false);
     readyResponses.push(task);
 }
 
 void
-ScstConnection::getAndRespond() {
+ScstDevice::getAndRespond() {
     cmd.preply = 0ull;
     do {
         // If we do not have reply read a response into it
@@ -563,7 +561,7 @@ ScstConnection::getAndRespond() {
 }
 
 void
-ScstConnection::ioEvent(ev::io &watcher, int revents) {
+ScstDevice::ioEvent(ev::io &watcher, int revents) {
     if (processing_ || (EV_ERROR & revents)) {
         LOGERROR << "Got invalid libev event";
         return;
@@ -572,7 +570,7 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     ioWatcher->stop();
     processing_ = true;
     // Unblocks the next thread to listen on the ev loop
-    scst_server->process();
+    scst_target->process();
 
     // We are guaranteed to be the only thread acting on this file descriptor
     try {
@@ -588,11 +586,11 @@ ScstConnection::ioEvent(ev::io &watcher, int revents) {
     // Unblocks the ev loop to handle events again on this connection
     processing_ = false;
     asyncWatcher->send();
-    scst_server->follow();
+    scst_target->follow();
 }
 
 void
-ScstConnection::respondTask(BlockTask* response) {
+ScstDevice::respondTask(BlockTask* response) {
     LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
              << " " << response->getError();
 
@@ -629,7 +627,7 @@ ScstConnection::respondTask(BlockTask* response) {
 }
 
 void
-ScstConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
+ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
     if (volDesc) {
         LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
