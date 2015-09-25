@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PASSWD="pairing"
-INVENTORYFILE="s3-ec2-nodes"
+PASSWD="dummy"
+INVENTORYFILE="long_system_test"
 LOGFILE="/tmp/LongSystemTest.log"
 
 #ADD NEW SYSTEM TEST HERE IN THE ARRAY
