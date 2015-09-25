@@ -570,8 +570,11 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     if (!error.ok()) {
     	LOGERROR << "Forwarding failed. Aborting DM Migration.";
     	abortMigration();
-        return;
     }
+
+    commitReq->localCb(error, commitReq);
+    // commitReq must not be accessed from this point.
+    return;
 }
 
 

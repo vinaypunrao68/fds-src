@@ -189,6 +189,9 @@ struct CommitBlobTxHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
 };
 
 struct UpdateCatalogOnceHandler : Handler {
