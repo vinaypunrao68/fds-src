@@ -107,14 +107,15 @@ public class StatsResourceAuth implements RequestHandler {
 		
 		List<String> perms = new ArrayList<String>();
 		
-		if ( resource.equals( QUEUE ) ){
-			
-			if ( name.equals( "stats.work" ) || name.equals( "stats.query" )){
+		if ( resource.equals( QUEUE ) ) {
+
+			if ( name.equals( "stats.work" ) || name.equals( "stats.query" ) ) {
+				
 				perms.add( READ );
-//				perms.add( WRITE );
 				perms.add( CONFIGURE );
-			}
-			else if ( name.equals( "stats.aggregation" ) ){
+				
+			} else if ( name.equals( "stats.aggregation" ) ) {
+				
 				perms.add( READ );
 				perms.add( WRITE );
 				perms.add( CONFIGURE );
