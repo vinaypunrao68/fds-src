@@ -1,7 +1,6 @@
 package com.formationds.nfs;
 
 import com.formationds.commons.util.thread.ThreadFactories;
-import com.formationds.commons.util.thread.ThreadUtil;
 import com.formationds.util.Configuration;
 import com.formationds.util.DebugWebapp;
 import com.formationds.util.ServerPortFinder;
@@ -52,7 +51,9 @@ public class NfsServer {
     public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         Counters counters = new Counters();
         if (nfsConfiguration.activateStats()) {
-            new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters)).start();
+            Thread t = new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters));
+            t.setName("NFS statistics webapp");
+            t.start();
         }
         LOG.info("Starting NFS server - " + nfsConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
@@ -61,10 +62,10 @@ public class NfsServer {
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
 //        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
-        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters);
+        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters, nfsConfiguration.deferMetadataUpdates());
 
         // create the RPC service which will handle NFS requests
-        ThreadFactory factory = ThreadFactories.newThreadFactory( "nfs-rpcsvc", true );
+        ThreadFactory factory = ThreadFactories.newThreadFactory("nfs-rpcsvc", true);
         ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
                 nfsConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,
@@ -89,7 +90,7 @@ public class NfsServer {
                 exportFile);
 
         // create NFS v3 and mountd servers
-        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs);
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, nfsConfiguration.getMaxLiveNfsCookies());
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

@@ -44,7 +44,10 @@ public class SimpleInodeIndex implements InodeIndex {
             Map<Long, String> links = entry.getLinks();
             for (long parentId : links.keySet()) {
                 String blobName = blobName(parentId, links.get(parentId));
-                io.setMetadataOnEmptyBlob(BlockyVfs.DOMAIN, volumeName, blobName, entry.asMap());
+                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, metadata -> {
+                    metadata.clear();
+                    metadata.putAll(entry.asMap());
+                });
             }
         }
     }

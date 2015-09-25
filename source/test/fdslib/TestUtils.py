@@ -2,8 +2,10 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import pdb
 import os
 import sys
+import time
 import logging
 import logging.handlers
 
@@ -20,6 +22,7 @@ from fdscli.model.volume.settings.object_settings import ObjectSettings
 from fdscli.model.volume.settings.block_settings import BlockSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
+from fdscli.model.platform.service import Service
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
@@ -76,7 +79,7 @@ def get_options(pyUnit):
     parser.prog = sys.argv[0].split("/")[-1]
     parser.usage = "%prog -h | <Suite|.csv|File:Class> \n" + \
                    "<-q <qaautotest.ini> | -s <test_source_dir>> " + \
-                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
+                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
                    "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
@@ -335,6 +338,16 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     else:
         setattr(options, "sudo_password", "dummy")
 
+    if "inventory_file" in params:
+        if params["inventory_file"] is None:
+            if pyUnitInventory is None:
+                params["inventory_file"] = "generic-lxc-nodes"
+            else:
+                params["inventory_file"] = pyUnitInventory
+        setattr(options,"inventory_file", params["inventory_file"])
+    else:
+        setattr(options, "inventory_file", "generic-lxc-nodes")
+
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
@@ -417,7 +430,7 @@ def create_fdsConf_file(om_ip):
     file.close()
 
 def convertor(volume, fdscfg):
-    new_volume = Volume();
+    new_volume = Volume()
     new_volume.name=volume.nd_conf_dict['vol-name']
     new_volume.id=volume.nd_conf_dict['id']
 
@@ -481,7 +494,23 @@ def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
-    self.__om_auth.login()
+    print "Attempting to authenticate to %s" % (om_ip)
+    retryCount = 0
+    maxRetries = 20
+    while retryCount < maxRetries:
+      retryCount += 1
+      try:
+        self.__om_auth.login()
+        break
+
+      except Exception as e:
+        if retryCount < maxRetries:
+          retryTime = 1 + ( (retryCount - 1) * 0.5 )
+          time.sleep(retryTime)
+        else:
+          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
+
+        continue
 
 def get_ips_from_inventory(inventory_file_name,rt_env):
     filename = inventory_file_name
@@ -490,7 +519,9 @@ def get_ips_from_inventory(inventory_file_name,rt_env):
         ips_array = []
         lines = f.readlines()
         for line in lines:
-            if (line.startswith('[')) or line == '\n':
+            if (line.startswith('[')):
+                continue
+            elif line == '\n':
                 break
             else:
                 ips_array.append(line.rstrip('\n'))
@@ -503,3 +534,4 @@ def node_is_up(self,om_ip,node_id):
         return True
     else:
         return False
+

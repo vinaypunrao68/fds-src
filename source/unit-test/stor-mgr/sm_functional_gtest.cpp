@@ -219,7 +219,7 @@ SmUnitTest::putSmCb(const Error &err,
                     SmIoPutObjectReq* putReq)
 {
     fds_volid_t volId = putReq->getVolId();
-    ASSERT_EQ(volId.get(), 98);
+    ASSERT_EQ(volId.get(), 98u);
     fds_uint32_t dispatched = atomic_fetch_sub(&(volume1->dispatched_count), (fds_uint32_t)1);
     if (dispatched <= 1) {
         done_cond.notify_all();
@@ -236,7 +236,7 @@ SmUnitTest::getSmCb(const Error &err,
                     SmIoGetObjectReq *getReq)
 {
     fds_volid_t volId = getReq->getVolId();
-    ASSERT_EQ(volId.get(), 98);
+    ASSERT_EQ(volId.get(), 98u);
     TestVolume::ptr vol = volume1;
 
     // validate data
@@ -339,7 +339,7 @@ SmUnitTest::runMultithreadedTest(TestVolume::StoreOpType opType,
               << " concurrency " << volume->concurrency_;
 
     // setup the run
-    EXPECT_EQ(threads_.size(), 0);
+    EXPECT_EQ(threads_.size(), 0u);
     op_count = ATOMIC_VAR_INIT(0);
 
     for (unsigned i = 0; i < volume->concurrency_; ++i) {

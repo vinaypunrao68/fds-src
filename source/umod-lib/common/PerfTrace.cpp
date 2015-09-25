@@ -407,7 +407,7 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
         LatencyCounter * plc = static_cast<LatencyCounter *>(ctx.data.get()); //NOLINT
         incr(ctx.type, ctx.volid, plc->total_latency(), plc->count(), ctx.name);
     } else {
-        GLOGDEBUG << "Counter wothout a name or type -  name: "
+        GLOGTRACE << "Counter wothout a name or type -  name: "
                   << ctx.name << " type: " << ctx.type;
     }
 }

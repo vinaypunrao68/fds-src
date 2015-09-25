@@ -8,7 +8,6 @@ import com.formationds.apis.XdiService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -32,13 +31,19 @@ import com.formationds.util.Configuration;
 import com.formationds.util.thrift.AmServiceClientFactory;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
+import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.ConnectException;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
@@ -82,8 +87,8 @@ public class Main {
             SingletonConfiguration.instance()
                                   .getConfig();
 
-        System.setProperty( "fds-root", configuration.getFdsRoot() );
-        logger.trace( "FDS-ROOT: " + System.getProperty( "fds-root" ) );
+        // Configuration class ensures that fds-root system property is defined.
+        logger.trace( "FDS-ROOT: " + configuration.getFdsRoot() );
 
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
@@ -148,17 +153,46 @@ public class Main {
         // port of another node (but this is the same functionality as was before with instanceID)
         int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
         int amServicePort = pmPort + amServicePortOffset;
-        int omConfigPort = platformConfig.defaultInt( "fds.om.config_port", 9090 );
+        int omConfigPort = platformConfig.defaultInt( "fds.om.config_port",
+                                                      9090 );
 
-        String omHost = configuration.getOMIPAddress();
+        String omHost = configuration.getOMIPAddress( );
 
         ThriftClientFactory<ConfigurationService.Iface> configApiFactory =
             ConfigServiceClientFactory.newConfigService( omHost, omConfigPort );
 
-        // TODO: this retries with a very long timeout.... probably not what we want in the long run
-        final OmConfigurationApi configCache = RetryHelper.retry(
-            "OmConfigurationApi", 5, TimeUnit.MINUTES,
-            ( ) -> new OmConfigurationApi( configApiFactory ) );
+        logger.debug( "Attempting to connect to configuration service, on {}:{}.",
+                      omHost, omConfigPort );
+        final AsyncRetryExecutor asyncRetryExecutor =
+            new AsyncRetryExecutor(
+                Executors.newSingleThreadScheduledExecutor( ) );
+
+                asyncRetryExecutor.withExponentialBackoff( 500, 2 )
+                                  .withMaxDelay( 10_000 )
+                                  .withUniformJitter( )
+                                  .retryInfinitely()
+                                  .retryOn( ExecutionException.class )
+                                  .retryOn( RuntimeException.class )
+                                  .retryOn( TTransportException.class )
+                                  .retryOn( ConnectException.class );
+
+        final CompletableFuture<OmConfigurationApi> completableFuture =
+            asyncRetryExecutor.getWithRetry(
+                ( ) -> new OmConfigurationApi( configApiFactory ) );
+
+        final OmConfigurationApi configCache = completableFuture.get( );
+
+        if( configCache != null )
+        {
+            logger.debug( "Successful connected to configuration service, on {}:{}.",
+                          omHost, omConfigPort );
+        }
+        else
+        {
+            throw new RuntimeException(
+                "FAILED: not able to connect to configuration service, on" +
+                omHost + ":" + omConfigPort );
+        }
 
         final int configUpdateIntervalMS = platformConfig.defaultInt( "fds.om.config_cache_update_interval_ms",
                                                                       10000 );

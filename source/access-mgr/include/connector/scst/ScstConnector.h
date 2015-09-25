@@ -21,6 +21,8 @@ struct ScstConnector
     static void start(std::weak_ptr<AmProcessor> processor);
     static void stop();
 
+    std::string targetName() const { return target_name; }
+
  protected:
     void lead() override;
 
@@ -28,14 +30,17 @@ struct ScstConnector
     std::shared_ptr<ev::dynamic_loop> evLoop;
     std::weak_ptr<AmProcessor> amProcessor;
 
-    ScstConnector(std::weak_ptr<AmProcessor> processor,
-                 size_t const followers);
+    ScstConnector(std::string const& name,
+                  std::weak_ptr<AmProcessor> processor,
+                  size_t const followers);
     ScstConnector(ScstConnector const& rhs) = delete;
     ScstConnector& operator=(ScstConnector const& rhs) = delete;
 
-    void initializeTarget();
+    bool initializeTarget();
 
     static std::unique_ptr<ScstConnector> instance_;
+
+    std::string target_name;
 };
 
 }  // namespace fds
