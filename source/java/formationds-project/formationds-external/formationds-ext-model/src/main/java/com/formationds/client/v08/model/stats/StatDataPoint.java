@@ -332,16 +332,41 @@ public class StatDataPoint implements Cloneable{
 		StatDataPoint datapoint = new StatDataPoint();
 		
 		datapoint.setReportTime( json.getLong( REPORT_TIME ) );
-		datapoint.setCollectionPeriod( json.getLong( COLLECTION_PERIOD ) );
-		datapoint.setContextId( json.getLong( CONTEXT_ID ) );
-		datapoint.setContextType( ContextType.valueOf( json.getString( CONTEXT_TYPE_STR ) ) );
+		
+		if ( json.has( COLLECTION_PERIOD ) ){
+			datapoint.setCollectionPeriod( json.getLong( COLLECTION_PERIOD ) );
+		}
+		
+		if ( json.has( CONTEXT_ID ) ){
+			datapoint.setContextId( json.getLong( CONTEXT_ID ) );
+		}
+		
+		if ( json.has( CONTEXT_TYPE_STR ) ){
+			datapoint.setContextType( ContextType.valueOf( json.getString( CONTEXT_TYPE_STR ) ) );
+		}
+		
 		datapoint.setMetricName( json.getString( METRIC_NAME ) );
 		datapoint.setMetricValue( json.getDouble( METRIC_VALUE ) );
-		datapoint.setCollectionTimeUnit( TIME_UNITS.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
-		datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
-		datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
-		datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
-		datapoint.setAggregationType( AggregationType.valueOf( json.getString( AGGREGATION_TYPE ) ) );
+		
+		if ( json.has( COLLECTION_TIME_UNIT ) ) {
+			datapoint.setCollectionTimeUnit( TIME_UNITS.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
+		}
+		
+		if ( json.has( NUMBER_OF_SAMPLES ) ){
+			datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
+		}
+		
+		if ( json.has( MAXIMUM_VALUE ) ){
+			datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
+		}
+		
+		if ( json.has( MINIMUM_VALUE ) ){
+			datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
+		}
+		
+		if ( json.has( AGGREGATION_TYPE ) ){
+			datapoint.setAggregationType( AggregationType.valueOf( json.getString( AGGREGATION_TYPE ) ) );
+		}
 		
 		try {
 			JSONArray array = json.getJSONArray( RELATED_CONTEXTS );
