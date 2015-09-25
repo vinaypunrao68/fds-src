@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.formationds.client.v08.model.TimeUnit;
+
 public class StatDataPoint implements Cloneable{
 
 	public static final String REPORT_TIME = "reportTime";
@@ -23,16 +25,6 @@ public class StatDataPoint implements Cloneable{
 	public static final String MINIMUM_VALUE = "minimumValue";
 	public static final String RELATED_CONTEXTS = "relatedContexts";
 	public static final String AGGREGATION_TYPE = "aggregationType";
-	
-	public enum TIME_UNITS{
-		MILLISECONDS,
-		SECONDS,
-		MINUTES,
-		HOURS,
-		WEEKS,
-		DAYS,
-		YEARS
-	};
 	
 	/**
 	 * This is the time the statistic was reported
@@ -74,7 +66,7 @@ public class StatDataPoint implements Cloneable{
 	 * concerns.  Descriptions of what each integer means in terms of time period can be found in
 	 * this file as static final members.
 	 */
-	private TIME_UNITS collectionTimePeriod = TIME_UNITS.MILLISECONDS;
+	private TimeUnit collectionTimePeriod = TimeUnit.MILLISECONDS;
 	
 	/**
 	 * This represents how many samples were included in the statistical
@@ -113,7 +105,7 @@ public class StatDataPoint implements Cloneable{
 						  String metricName,
 						  Double metricValue,
 						  Long collectionPeriod,
-						  TIME_UNITS collectionTimePeriod,
+						  TimeUnit collectionTimePeriod,
 						  Integer numberOfSamples,
 						  Long contextId,
 						  ContextType contextType,
@@ -186,11 +178,11 @@ public class StatDataPoint implements Cloneable{
 		this.numberOfSamples = numberOfSamples;
 	}
 	
-	public TIME_UNITS getCollectionTimeUnit(){
+	public TimeUnit getCollectionTimeUnit(){
 		return collectionTimePeriod;
 	}
 	
-	public void setCollectionTimeUnit( TIME_UNITS timeUnit ){
+	public void setCollectionTimeUnit( TimeUnit timeUnit ){
 		this.collectionTimePeriod = timeUnit;
 	}
 
@@ -260,6 +252,9 @@ public class StatDataPoint implements Cloneable{
 	/**
 	 * This method can be used by a collector in order to 
 	 * group like-stats in a map
+	 * 
+	 * It will look something like:
+	 * PUTS:VOLUME:123728947238749:NODE:4829018392103:DOMAIN:3890248290
 	 * @return
 	 */
 	public String samenessString(){
@@ -349,7 +344,7 @@ public class StatDataPoint implements Cloneable{
 		datapoint.setMetricValue( json.getDouble( METRIC_VALUE ) );
 		
 		if ( json.has( COLLECTION_TIME_UNIT ) ) {
-			datapoint.setCollectionTimeUnit( TIME_UNITS.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
+			datapoint.setCollectionTimeUnit( TimeUnit.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
 		}
 		
 		if ( json.has( NUMBER_OF_SAMPLES ) ){

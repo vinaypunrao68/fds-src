@@ -5,11 +5,11 @@ import java.util.Calendar;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.formationds.client.v08.model.TimeUnit;
 import com.formationds.client.v08.model.stats.ContextDef;
 import com.formationds.client.v08.model.stats.ContextType;
 import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.client.v08.model.stats.StatTypes;
-import com.formationds.client.v08.model.stats.StatDataPoint.TIME_UNITS;
 
 public class TestSerialization {
 
@@ -18,7 +18,7 @@ public class TestSerialization {
 		
 		StatDataPoint datapoint = new StatDataPoint();
 		datapoint.setCollectionPeriod( 10L );
-		datapoint.setCollectionTimeUnit( TIME_UNITS.HOURS );
+		datapoint.setCollectionTimeUnit( TimeUnit.HOURS );
 		datapoint.setContextType( ContextType.VOLUME );
 		datapoint.setContextId( 12345L );
 		datapoint.setNumberOfSamples( 6 );
