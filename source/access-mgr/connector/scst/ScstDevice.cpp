@@ -78,7 +78,7 @@ ScstDevice::ScstDevice(std::string const& vol_name,
                 SCST_USER_MEM_REUSE_ALL,                    // buffer reuse type
                 SCST_USER_PARTIAL_TRANSFERS_NOT_SUPPORTED,  // partial transfer type
                 0,                                          // partial transfer length
-                SCST_TST_1_SEP_TASK_SETS,                   // task set sharing
+                SCST_TST_0_SINGLE_TASK_SET,                 // task set sharing
                 0,                                          // task mgmt only (on fault)
                 SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // reordering however
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
