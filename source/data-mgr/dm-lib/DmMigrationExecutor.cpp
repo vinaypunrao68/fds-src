@@ -493,7 +493,15 @@ DmMigrationExecutor::finishActiveMigration()
 void
 DmMigrationExecutor::abortMigration()
 {
-	// It's possible that the IO was stopped earlier during static migration
+	/**
+	 * It's possible that the IO was stopped earlier during static migration.
+	 * Prior to "unblocking" the volume, let's set the state to error because
+	 * we are in an inconsistent state halfway through migration.
+	 */
+	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
+	volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
+	LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
+			<< " to " << fpi::ResourceState::InError;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
     {
         fds_scoped_lock lock(progressLock);
