@@ -31,9 +31,9 @@ public class TestSerialization {
 		String json = datapoint.toJson();
 		System.out.println( json );
 		
-		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\"," + 
-				"\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[],\"contextType\":"+ 
-				"\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"
+		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\",\"aggregationType\":\"SUM\","
+				+ "\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[],\"contextType\":" 
+				+ "\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"
 				+ "\"reportTime\":" + datapoint.getReportTime() +"}" ) );
 		
 		datapoint.getRelatedContexts().add( new ContextDef( ContextType.NODE, 34243L ) );
@@ -41,7 +41,7 @@ public class TestSerialization {
 		json = datapoint.toJson();
 		System.out.println( json );
 		
-		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\","
+		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\",\"aggregationType\":\"SUM\","
 				+ "\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[{\"contextType\":\"NODE\",\"contextId\":34243}],"
 				+ "\"contextType\":"
 				+ "\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"
