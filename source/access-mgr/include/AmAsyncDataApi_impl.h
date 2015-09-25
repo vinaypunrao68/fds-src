@@ -244,7 +244,7 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
 }
 
 template<typename H>
-void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
+AmRequest* AmAsyncDataApi<H>::abortBlobTx(H& requestId,
                                     shared_string_type& domainName,
                                     shared_string_type& volumeName,
                                     shared_string_type& blobName,
@@ -265,7 +265,7 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
                                             *blobName,
                                             blobTxDesc,
                                             callback);
-    amProcessor->enqueueRequest(blobReq);
+    return blobReq;
 }
 
 template<typename H>

@@ -10,6 +10,7 @@
 #include <fds_module.h>
 #include <fdsp/AsyncXdiServiceRequest.h>
 #include <AmAsyncResponseApi.h>
+#include <AmRequest.h>
 
 namespace fds {
 
@@ -40,11 +41,11 @@ class AmAsyncDataApi {
     typedef AmAsyncResponseApi<handle_type> response_api_type;
     typedef typename boost::shared_ptr<response_api_type> response_ptr;
 
-    processor_type amProcessor;
-
   protected:
     /// Response client to use in response handler
     response_ptr responseApi;
+
+    processor_type amProcessor;
 
   public:
     explicit AmAsyncDataApi(processor_type processor, response_ptr response_api);
@@ -102,7 +103,7 @@ class AmAsyncDataApi {
                       shared_string_type& blobName,
                       shared_tx_ctx_type& txDesc);
 
-    void abortBlobTx(handle_type& requestId,
+    AmRequest* abortBlobTx(handle_type& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,

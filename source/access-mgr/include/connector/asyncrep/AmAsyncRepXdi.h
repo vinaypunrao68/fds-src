@@ -2,8 +2,8 @@
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMASYNCXDI_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCXDI_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMASYNCREPXDI_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCREPXDI_H_
 
 #include <map>
 #include <memory>
@@ -14,151 +14,29 @@
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "fdsp/AsyncXdiServiceResponse.h"
-#include "AmProcessor.h"
-#include "requests/requests.h"
+
+#include "connector/xdi/AmAsyncXdi.h"
 
 namespace fds
 {
 
-class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>> {
- public:
-    using client_type = apis::AsyncXdiServiceResponseClient;
-    using client_ptr = std::shared_ptr<client_type>;
-    using client_map = std::unordered_map<std::string, client_ptr>;
+// Currently, no special treatment of responses for replicated operations. They work just like any AmAsyncXdiResponse.
 
- private:
-    using api_type = AmAsyncResponseApi<boost::shared_ptr<apis::RequestId>>;
-
-    // We use a std rw lock here and vector or client pointers because
-    // this lookup only happens once when the handshake is performed
-    static std::mutex map_lock;
-    static client_map clients;
-    static constexpr size_t max_response_retries {1};
-
-
-    /// Thrift client to response to XDI
-    std::mutex client_lock;
-    client_ptr asyncRespClient;
-    std::string serverIp;
-    fds_uint32_t serverPort;
-
-    void initiateClientConnect();
-
-    template<typename ... Args>
-    void xdiClientCall(void (client_type::*func)(Args...), Args&&... args) {
-        using transport_exception = apache::thrift::transport::TTransportException;
-        std::lock_guard<std::mutex> g(client_lock);
-        for (auto i = max_response_retries; i >= 0; --i) {
-        try {
-            if (!asyncRespClient) {
-                initiateClientConnect();
-            }
-            // Invoke the thrift method on our client
-            return ((asyncRespClient.get())->*(func))(std::forward<Args>(args)...);
-        } catch(const transport_exception& e) {
-            // Reset the pointer and re-try (if we have any left)
-            try {
-            initiateClientConnect();
-            } catch (const transport_exception& e) {
-                // ugh, Xdi probably died or we've become partitioned
-                // assume we'll never return this response
-                break;
-            }
-        }
-        }
-        LOGERROR << "Unable to respond to XDI: "
-                 << "tcp://" << serverIp << ":" << serverPort;
-    }
-
-    boost::shared_ptr<fpi::ErrorCode> mappedErrorCode(Error const& error) const;
-
-  public:
-    explicit AmAsyncXdiResponse(std::string const& server_ip);
-    virtual ~AmAsyncXdiResponse();
-    typedef boost::shared_ptr<AmAsyncXdiResponse> shared_ptr;
-
-    // This only belongs to the Thrift interface, not the AmAsyncData interface
-    // to setup the response port.
-    void handshakeComplete(api_type::handle_type& requestId,
-                           boost::shared_ptr<int32_t>& port);
-
-    void attachVolumeResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId,
-                          api_type::shared_vol_descriptor_type& volDesc,
-                          api_type::shared_vol_mode_type& mode) override;
-
-    void detachVolumeResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId) override;
-
-    void startBlobTxResp(const api_type::error_type &error,
-                         api_type::handle_type& requestId,
-                         boost::shared_ptr<apis::TxDescriptor>& txDesc) override;
-
-    void abortBlobTxResp(const api_type::error_type &error,
-                         api_type::handle_type& requestId) override;
-
-    void commitBlobTxResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId) override;
-
-    void updateBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId) override;
-
-    void updateBlobOnceResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId) override;
-
-    void updateMetadataResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId) override;
-
-    void deleteBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId) override;
-
-    void statBlobResp(const api_type::error_type &error,
-                      api_type::handle_type& requestId,
-                      api_type::shared_descriptor_type& blobDesc) override;
-
-    void volumeStatusResp(const api_type::error_type &error,
-                          api_type::handle_type& requestId,
-                          api_type::shared_status_type& volumeStatus) override;
-
-    void volumeContentsResp(const api_type::error_type &error,
-                            api_type::handle_type& requestId,
-                            api_type::shared_descriptor_vec_type& volContents) override;
-
-    void setVolumeMetadataResp(const api_type::error_type &error,
-                               api_type::handle_type& requestId) override;
-
-    void getVolumeMetadataResp(const api_type::error_type &error,
-                               api_type::handle_type& requestId,
-                               api_type::shared_meta_type& metadata) override;
-
-    void getBlobResp(const api_type::error_type &error,
-                     api_type::handle_type& requestId,
-                     const api_type::shared_buffer_array_type& bufs,
-                     api_type::size_type& length) override;
-
-    void getBlobWithMetaResp(const api_type::error_type &error,
-                             api_type::handle_type& requestId,
-                             const api_type::shared_buffer_array_type& bufs,
-                             api_type::size_type& length,
-                             api_type::shared_descriptor_type& blobDesc) override;
-
-    void renameBlobResp(const api_type::error_type &error,
-                        api_type::handle_type& requestId,
-                        api_type::shared_descriptor_type& blobDesc) override;
-};
-
-// This structure provides one feature and is to implement the thrift interface
-// which uses apis::RequestId as a handle and has a handshake method. We don't
-// want to pollute the other connectors with things they don't want to use or
-// need so I'm implemented handshake here and forwarded the rest of the
-// requests which will probably be optimized out.
-struct AmAsyncXdiRequest
+// This structure implements the Thrift XDI Service Request interface for
+// asynchronously replicated transactions. Requests are uniquely identified
+// by apis::RequestId. XDI Clients using this interface also
+// require a handshake method implemented here.
+//
+// We don't want to pollute the other XDI clients with things they don't want to use or
+// need so I've implemented handshake here and forwarded the rest of the
+// API calls. The forwarding will likely be optimized out.
+struct AmAsyncRepXdiRequest
     : public fds::apis::AsyncXdiServiceRequestIf,
       public AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>
 {
     using api_type = AmAsyncDataApi<boost::shared_ptr<apis::RequestId>>;
 
-    explicit AmAsyncXdiRequest(std::shared_ptr<AmProcessor> processor, boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
+    explicit AmAsyncRepXdiRequest(std::shared_ptr<AmProcessor> processor, boost::shared_ptr<AmAsyncResponseApi<api_type::handle_type>> response_api):
         api_type(processor, response_api)
     {}
 
@@ -175,7 +53,7 @@ struct AmAsyncXdiRequest
     void logio(char const* op,
           api_type::handle_type& handle,
           api_type::shared_string_type& blobName)
-    { LOGIO << " op [" << op << "] handle [" << handle << "] blob [" << *blobName << "]"; }
+    { LOGIO << " async rep op [" << op << "] handle [" << handle << "] blob [" << *blobName << "]"; }
 
     static
     void logio(char const* op,
@@ -184,7 +62,7 @@ struct AmAsyncXdiRequest
           api_type::shared_int_type& length,
           api_type::shared_offset_type& offset)
     {
-        LOGIO << " op [" << op
+        LOGIO << " async rep op [" << op
               << "] handle [" << handle
               << "] blob [" << *blobName
               << "] offset {" << std::hex << offset
@@ -192,16 +70,17 @@ struct AmAsyncXdiRequest
     }
 
     template<typename AmRequestGenerator>
-    void enqueue_req(AmRequestGenerator reqGenFunc)
+    void enqueue_async_rep_req(AmRequestGenerator reqGenFunc)
     {
         AmRequest *req = reqGenFunc();
+        req->replicated = true;
         amProcessor->enqueueRequest(req);
     }
 
-    // These just forward to the generic template implementation in
-    // AmAsyncDataApi.cxx
+    // These just mark the operation as replicated and forward to the generic template implementation in
+    // AmAsyncDataApi_impl.h
     void abortBlobTx(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
-    { enqueue_req([&] ()->AmRequest* {return api_type::abortBlobTx(requestId, domainName, volumeName, blobName, txDesc);}); }  // NOLINT
+    { enqueue_async_rep_req([&] ()->AmRequest* {return api_type::abortBlobTx(requestId, domainName, volumeName, blobName, txDesc);}); }  // NOLINT
     void attachVolume(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_vol_mode_type& mode)  // NOLINT
     { api_type::attachVolume(requestId, domainName, volumeName, mode); }
     void commitBlobTx(api_type::handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
@@ -275,4 +154,4 @@ struct AmAsyncXdiRequest
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMASYNCXDI_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMASYNCREPXDI_H_
