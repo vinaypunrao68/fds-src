@@ -113,11 +113,14 @@ class fds_threadpool : boost::noncopyable
     /*
      * Create the threadpool with specified number of thread.
      */
-    fds_threadpool(int num_thr = 10, bool use_lftp = false);
+    fds_threadpool(int num_thr = 10, bool use_lftp = true);
 
     /* Scheduling functions. */
     template <class F, class... Args>
     void schedule(F&& f, Args&&... args);
+    
+    template <class F, class... Args>
+    void scheduleWithAffinity(uint64_t affinity, F&& f, Args&&... args);
 
     void scheduleTask(thpool_req *task);
 
@@ -140,6 +143,15 @@ void fds_threadpool::schedule(F&& f, Args&&... args)
         thpool_req *task = new thpool_req(std::forward<F>(f), std::forward<Args>(args)...);
         scheduleTask(task);
     }
+}
+
+template <class F, class... Args>
+void fds_threadpool::scheduleWithAffinity(uint64_t affinity, F&& f, Args&&... args)
+{
+    fds_verify(use_lftp_instead == true);
+    lfthreadpool->scheduleWithAffinity(
+        affinity,
+        std::forward<F>(f), std::forward<Args>(args)...);
 }
 
 typedef boost::shared_ptr<fds_threadpool> fds_threadpoolPtr;
