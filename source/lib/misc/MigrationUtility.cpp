@@ -447,16 +447,17 @@ boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
 MigrationTrackIOReqs::MigrationTrackIOReqs()
     : numTrackIOReqs(0),
       waitingTrackIOReqsCompletion(false),
-      denyTrackIOReqs(false)
+      denyTrackIOReqs(false),
+	  trackingStarted(false)
 {
 
 }
 
 MigrationTrackIOReqs::~MigrationTrackIOReqs()
 {
-    fds_verify(0 == numTrackIOReqs);
-    fds_verify(false == waitingTrackIOReqsCompletion);
-    fds_verify(true == denyTrackIOReqs);
+    fds_assert(0 == numTrackIOReqs);
+    fds_assert(!waitingTrackIOReqsCompletion);
+    fds_assert(denyTrackIOReqs || !trackingStarted);
 }
 
 // Start tracking outstanding IO requests for SM token migration.
@@ -476,6 +477,7 @@ bool
 MigrationTrackIOReqs::startTrackIOReqs()
 {
     std::lock_guard<std::mutex> lock(trackReqsMutex);
+    trackingStarted = true;
 
     // If the deny reqs
     if (denyTrackIOReqs) {

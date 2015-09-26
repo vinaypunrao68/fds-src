@@ -3238,6 +3238,9 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         if self.passedNode is not None and self.passedNode != "random_node":
             self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            if self.passedNode is None:
+                # throw error
+                self.log.error("Unable to find node from inventory")
             # Sometimes the node UUID doesn't get populated. This call makes sure that it does.
             status = self.passedNode.nd_populate_metadata(om_node=om_node)
             passed_node_uuid = self.passedNode.nd_uuid
@@ -3245,6 +3248,9 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             # First filter out only services belonging to the specified node
             # Use a little voodoo to match service UUIDs to the node UUID
             svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+            if not svcs:
+                self.log.error("Unable to find the service belonging to such node")
+                return False;
 
         '''
         Randomly choose a fault to inject
@@ -3269,7 +3275,16 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        if self.passedService not in svcs:
+            self.log.info("Not in svcs... retrying")
+            status = self.passedNode.nd_populate_metadata(om_node=om_node)
+            passed_node_uuid = self.passedNode.nd_uuid
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+
         svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+        if not svc_uuid:
+            self.log.error("Unable to find the servcie UUID")
+            return False
 
         # set the actual injection
         res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
