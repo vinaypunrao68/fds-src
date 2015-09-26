@@ -67,24 +67,22 @@ set(SOURCE_FILES
     ./access-mgr/amlib/handlers/responsehandler.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp
-    ./access-mgr/connector/nbd/NbdOperations.cpp
     ./access-mgr/connector/scst/ScstConnection.cpp
     ./access-mgr/connector/scst/ScstConnector.cpp
-    ./access-mgr/connector/scst/ScstOperations.cpp
-        access-mgr/connector/xdi/AmAsyncService.cpp
+    ./access-mgr/connector/scst/ScstTask.cpp
+    ./access-mgr/connector/xdi/AmAsyncService.cpp
     ./access-mgr/connector/xdi/AmAsyncXdiResponse.cpp
-        access-mgr/include/connector/asyncrep/AmAsyncService.h
+    ./access-mgr/include/connector/asyncrep/AmAsyncService.h
     ./access-mgr/include/connector/asyncrep/AmAsyncRepXdi.h
     ./access-mgr/include/connector/nbd/common.h
     ./access-mgr/include/connector/nbd/NbdConnection.h
     ./access-mgr/include/connector/nbd/NbdConnector.h
-    ./access-mgr/include/connector/nbd/NbdOperations.h
     ./access-mgr/include/connector/scst/common.h
     ./access-mgr/include/connector/scst/scst_const.h
     ./access-mgr/include/connector/scst/scst_user.h
     ./access-mgr/include/connector/scst/ScstConnection.h
     ./access-mgr/include/connector/scst/ScstConnector.h
-    ./access-mgr/include/connector/scst/ScstOperations.h
+    ./access-mgr/include/connector/scst/ScstTask.h
     ./access-mgr/include/connector/xdi/AmAsyncService.h
     ./access-mgr/include/connector/xdi/AmAsyncXdi.h
     ./access-mgr/include/requests/AbortBlobTxReq.h

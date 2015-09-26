@@ -53,7 +53,7 @@ class AmAsyncDataApi {
 
     ~AmAsyncDataApi() {}
 
-    void attachVolume(handle_type& requestId,
+    AmRequest* attachVolume(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_vol_mode_type& mode);
@@ -62,11 +62,11 @@ class AmAsyncDataApi {
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    void volumeStatus(handle_type& requestId,
+    AmRequest* volumeStatus(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    void volumeContents(handle_type& requestId,
+    AmRequest* volumeContents(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_int_type& count,
@@ -77,27 +77,27 @@ class AmAsyncDataApi {
                         shared_bool_type& descending,
                         shared_string_type& delimiter);
 
-    void setVolumeMetadata(handle_type& requestId,
+    AmRequest* setVolumeMetadata(handle_type& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName,
                            shared_meta_type& metadata);
 
-    void getVolumeMetadata(handle_type& requestId,
+    AmRequest* getVolumeMetadata(handle_type& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName);
 
-    void statBlob(handle_type& requestId,
+    AmRequest* statBlob(handle_type& requestId,
                   shared_string_type& domainName,
                   shared_string_type& volumeName,
                   shared_string_type& blobName);
 
-    void startBlobTx(handle_type& requestId,
+    AmRequest* startBlobTx(handle_type& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,
                      shared_int_type& blobMode);
 
-    void commitBlobTx(handle_type& requestId,
+    AmRequest* commitBlobTx(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_string_type& blobName,
@@ -109,34 +109,34 @@ class AmAsyncDataApi {
                      shared_string_type& blobName,
                      shared_tx_ctx_type& txDesc);
 
-    void getBlob(handle_type& requestId,
+    AmRequest* getBlob(handle_type& requestId,
                  shared_string_type& domainName,
                  shared_string_type& volumeName,
                  shared_string_type& blobName,
                  shared_int_type& length,
                  shared_offset_type& objectOffset);
 
-    void getBlobWithMeta(handle_type& requestId,
+    AmRequest* getBlobWithMeta(handle_type& requestId,
                          shared_string_type& domainName,
                          shared_string_type& volumeName,
                          shared_string_type& blobName,
                          shared_int_type& length,
                          shared_offset_type& objectOffset);
 
-    void renameBlob(handle_type& requestId,
+    AmRequest* renameBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& sourceBlobName,
                     shared_string_type& destinationBlobName);
 
-    void updateMetadata(handle_type& requestId,
+    AmRequest* updateMetadata(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
                         shared_tx_ctx_type& txDesc,
                         shared_meta_type& metadata);
 
-    void updateBlobOnce(handle_type& requestId,
+    AmRequest* updateBlobOnce(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
@@ -146,7 +146,7 @@ class AmAsyncDataApi {
                         shared_offset_type& objectOffset,
                         shared_meta_type& metadata);
 
-    void updateBlob(handle_type& requestId,
+    AmRequest* updateBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,
@@ -155,7 +155,7 @@ class AmAsyncDataApi {
                     shared_int_type& length,
                     shared_offset_type& objectOffset);
 
-    void deleteBlob(handle_type& requestId,
+    AmRequest* deleteBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,
