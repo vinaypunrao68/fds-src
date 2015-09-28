@@ -55,7 +55,7 @@ public class ListObjects implements SyncRequestHandler {
                 .map(c -> {
                     String etag = c.getMetadata().getOrDefault("etag", "fade004009e9272f22eb90f51619431d");
                     return new XmlElement("Contents")
-                            .withValueElt("Key", S3Namespace.user().blobName(c.getName()))
+                            .withValueElt("Key", S3Namespace.user().localName(c.getName()))
                             .withValueElt("LastModified", ServiceUtils.formatIso8601Date(new Date()))
                             .withValueElt("ETag", "&quot;" + etag + "&quot;")
                             .withValueElt("Size", Long.toString(c.getByteCount()))
