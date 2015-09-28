@@ -20,6 +20,9 @@ AmQoSCtrl::AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log)
 AmQoSCtrl::~AmQoSCtrl() {
     htb_dispatcher->stop();
     delete htb_dispatcher;
+    if (dispatcherThread) {
+        dispatcherThread->join();
+    }
 }
 
 FDS_VolumeQueue* AmQoSCtrl::getQueue(fds_volid_t queueId) {
@@ -41,7 +44,7 @@ void startSHDispatcher(AmQoSCtrl *qosctl) {
 
 void AmQoSCtrl::runScheduler(vol_callback_type&& cb) {
     vol_callback = std::move(cb);
-    threadPool->schedule(startSHDispatcher, this);
+    dispatcherThread.reset(new std::thread(startSHDispatcher, this));
 }
 
 

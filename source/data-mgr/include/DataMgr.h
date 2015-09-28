@@ -364,6 +364,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
         virtual ~dmQosCtrl() {
              delete dispatcher;
+             if (dispatcherThread) {
+                 dispatcherThread->join();
+             }
         }
     };
 
