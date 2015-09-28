@@ -987,11 +987,13 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
   
     def test_TestModifyPlatformConf(self):
         def doit(node):
-            if self.applyAll is not None:
-                plat_file = os.path.join(node.nd_conf_dict['fds_root'], '..', 'etc', 'platform.conf')
+            if self.parameters['ansible_install_done']:
+                plat_file = os.path.join('/fds/etc/platform.conf')
             else:
-                plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
-
+                if self.applyAll is not None:
+                    plat_file = os.path.join('/fds/etc/platform.conf')
+                else:
+                    plat_file = os.path.join(node.nd_conf_dict['fds_root'], 'etc', 'platform.conf')
             errcode = 0
             for mods in self.replace:
                 errcode += node.nd_agent.exec_wait(
@@ -1001,7 +1003,7 @@ class TestModifyPlatformConf(TestCase.FDSTestCase):
 
         fdscfg = self.parameters['fdscfg']
         status = []
-        if self.passedNode is not None:
+        if self.passedNode is not None and self.applyAll is None:
             self.log.info("Modifying platform.conf for node: " + self.passedNode)
             node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
             status.append(doit(node))

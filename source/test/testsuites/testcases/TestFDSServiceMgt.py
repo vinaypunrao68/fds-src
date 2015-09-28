@@ -3195,6 +3195,10 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
                 n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
+            services = n.nd_services.split(",")
+            if 'am' not in services:
+                self.log.info("AM is not available for %s" %n.nd_conf_dict['node-name'])
+                continue
 
             if not modWait("bare_am", n, forShutdown=True):
                 pid = getSvcPIDforNode('bare_am', n)
