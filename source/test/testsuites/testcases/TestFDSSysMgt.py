@@ -306,7 +306,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
             #check node state after remove_node
             node_state = node_service.get_node(node_id)
-            service_list = ['AM', 'DM', 'SM', 'PM']
+            service_list = ['PM']
             for service_name in service_list:
                 if (node_state.services['{}'.format(service_name)][0].status.state != "RUNNING") and node_state.state != 'UP':
                     self.log.warn("FAILED:  Expected Node service=RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))

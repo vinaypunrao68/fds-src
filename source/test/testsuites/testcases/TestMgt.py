@@ -506,6 +506,9 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                     suite.addTest(TestFDSServiceMgt.TestAWSSMRemove(node=node))
                                 elif service == "am":
                                     suite.addTest(TestFDSServiceMgt.TestAWSAMRemove(node=node))
+                                elif service == "om":
+                                    log.error("Cannot remove OM service for scenario {}".format(scenario.nd_conf_dict['scenario-name']))
+                                    raise Exception
 
                             elif (action.count("add")) > 0:
                                 if service == "pm":
@@ -558,15 +561,6 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 if (action.count("remove")) > 0:
                     for service in selectedServices:
                         if service == "pm":
-                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
-                        elif service == "dm":
-                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
-                        elif service == "sm":
-                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
-                        elif service == "om":
-                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
-                        elif service == "am":
-                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
                             log.error("Remove action not valid for PM service for scenario '%s'" %
                                       (scenario.nd_conf_dict['scenario-name']))
                             raise Exception
