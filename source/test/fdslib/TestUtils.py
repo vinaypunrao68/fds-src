@@ -2,6 +2,7 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import pdb
 import os
 import sys
 import time
@@ -21,6 +22,7 @@ from fdscli.model.volume.settings.object_settings import ObjectSettings
 from fdscli.model.volume.settings.block_settings import BlockSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
+from fdscli.model.platform.service import Service
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
@@ -77,7 +79,7 @@ def get_options(pyUnit):
     parser.prog = sys.argv[0].split("/")[-1]
     parser.usage = "%prog -h | <Suite|.csv|File:Class> \n" + \
                    "<-q <qaautotest.ini> | -s <test_source_dir>> " + \
-                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
+                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
                    "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
@@ -336,6 +338,16 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     else:
         setattr(options, "sudo_password", "dummy")
 
+    if "inventory_file" in params:
+        if params["inventory_file"] is None:
+            if pyUnitInventory is None:
+                params["inventory_file"] = "generic-lxc-nodes"
+            else:
+                params["inventory_file"] = pyUnitInventory
+        setattr(options,"inventory_file", params["inventory_file"])
+    else:
+        setattr(options, "inventory_file", "generic-lxc-nodes")
+
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
@@ -394,6 +406,9 @@ def findNodeFromInv(node_inventory, target):
     for node in node_inventory:
         if node.nd_conf_dict['node-name'] == target:
             return node
+
+    # else return None for debugging purposes
+    return "None"
 
 def check_localhost(ip):
     ipad = socket.gethostbyname(ip)
@@ -504,7 +519,10 @@ def get_ips_from_inventory(inventory_file_name,rt_env):
         ips_array = []
         lines = f.readlines()
         for line in lines:
-            if (line.startswith('[')) or line == '\n':
+            line = line.strip()
+            if (line.startswith('[')):
+                continue
+            elif not line :
                 break
             else:
                 ips_array.append(line.rstrip('\n'))
@@ -517,3 +535,4 @@ def node_is_up(self,om_ip,node_id):
         return True
     else:
         return False
+

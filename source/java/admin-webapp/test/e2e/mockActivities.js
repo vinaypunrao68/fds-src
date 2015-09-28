@@ -100,11 +100,11 @@ mockActivities = function(){
                 
                 var node = nodes[i];
                 
-                var om = isActive( node.services.OM[0].status );
-                var sm = isActive( node.services.SM[0].status );
-                var dm = isActive( node.services.DM[0].status );
-                var pm = isActive( node.services.PM[0].status );
-                var am = isActive( node.services.AM[0].status );
+                var om = isActive( node.serviceMap.OM[0].status );
+                var sm = isActive( node.serviceMap.SM[0].status );
+                var dm = isActive( node.serviceMap.DM[0].status );
+                var pm = isActive( node.serviceMap.PM[0].status );
+                var am = isActive( node.serviceMap.AM[0].status );
                 
                 if ( om === sm === dm === pm === am === true ){
                     // all good... keep going.

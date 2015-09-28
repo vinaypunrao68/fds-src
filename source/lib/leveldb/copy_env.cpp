@@ -56,9 +56,11 @@ Status CopyEnv::NewWritableFile(const std::string& fname, WritableFile** result)
         s = target()->RenameFile(prefix, newName);
         fds_verify(s.ok());
 
-        std::string archiveFile = logDirName() + archivePrefix() + "." +
+        if (timelineEnable_) {
+           std::string archiveFile = logDirName() + archivePrefix() + "." +
                 std::to_string(util::getTimeStampMicros());
-        fds_verify(0 == link(newName.c_str(), archiveFile.c_str()));
+           fds_verify(0 == link(newName.c_str(), archiveFile.c_str()));
+        }
     }
 
     fds_verify(0 == link(fname.c_str(), prefix.c_str()));

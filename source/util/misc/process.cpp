@@ -218,5 +218,60 @@ void print_stacktrace(unsigned int max_frames)
 
 	return;
 }
+
+/**
+ * ===================  SUBPROCESS  =========================
+ */
+
+bool SubProcess::run(const std::string& cmd, bool readMode) {
+    const char* mode;
+    if (readMode) mode = "r";
+    else mode= "w";
+    GLOGDEBUG << "running cmd: [" << cmd << "]";
+    fp = popen(cmd.c_str(), mode);
+    return fp != NULL;
+}
+
+bool SubProcess::write(const std::string& cmd) {
+    int ret = fputs(cmd.c_str(), fp);
+    fflush(fp);
+    return ret != EOF;
+}
+
+bool SubProcess::read(std::string& data, int sz) {
+    char line[sz];
+    char *ret = fgets(line, sz,fp);
+    if (ret) data=line;
+    else data.clear();
+    return ret!=NULL;
+}
+
+bool SubProcess::readLine(std::string& data) {
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t bytes;
+    bytes = getline(&line, &len, fp);
+    if (bytes != -1) {
+        while(bytes > 0 && (line[bytes-1] == '\n' || line[bytes-1] == '\r')) {
+            line[bytes-1] = 0;
+            bytes--;
+        }
+        data=line;
+    } else {
+        data.clear();
+    }
+    if (line) free(line);
+    return bytes != -1;
+}
+
+bool SubProcess::close() {
+    return -1 != pclose(fp);
+}
+
+SubProcess::~SubProcess() {
+    close();
+}
+
+
 }  // namespace util
 }  // namespace fds

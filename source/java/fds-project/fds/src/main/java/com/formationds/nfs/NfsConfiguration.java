@@ -6,13 +6,19 @@ public class NfsConfiguration {
     private long incomingRequestTimeoutSeconds = 120;
     private boolean activateStats;
     private boolean deferMetadataUpdates;
+    private int maxLiveNfsCookies;
 
-    public NfsConfiguration(int threadPoolSize, int threadPoolWorkQueueSize, long incomingRequestTimeoutSeconds, boolean activateStats, boolean deferMetadataUpdates) {
+    public NfsConfiguration(int threadPoolSize,
+                            int threadPoolWorkQueueSize,
+                            long incomingRequestTimeoutSeconds,
+                            boolean activateStats,
+                            boolean deferMetadataUpdates, int maxLiveNfsCookies) {
         this.threadPoolSize = threadPoolSize;
         this.workQueueSize = threadPoolWorkQueueSize;
         this.incomingRequestTimeoutSeconds = incomingRequestTimeoutSeconds;
         this.activateStats = activateStats;
         this.deferMetadataUpdates = deferMetadataUpdates;
+        this.maxLiveNfsCookies = maxLiveNfsCookies;
     }
 
     public int getThreadPoolSize() {
@@ -42,5 +48,9 @@ public class NfsConfiguration {
 
     public boolean activateStats() {
         return activateStats;
+    }
+
+    public int getMaxLiveNfsCookies() {
+        return maxLiveNfsCookies;
     }
 }

@@ -56,6 +56,7 @@ void UpdateCatalogOnceHandler::handleRequest(
     dmUpdCatReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleResponse, asyncHdr, message);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
+    dmCommitBlobOnceReq->ioBlobTxDesc = dmUpdCatReq->ioBlobTxDesc;
 
     addToQueue(dmUpdCatReq);
 }

@@ -115,7 +115,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 if ( angular.isDefined( $scope.maximumValue ) ){
                     $xMax = $scope.maximumValue;
                 }
-                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        $scope.data.series[0].datapoints.length > 0 ){
                     var lastXPos = $scope.data.series[0].datapoints.length - 1;
                     $xMax = $scope.data.series[0].datapoints[lastXPos].x;
                 }
@@ -125,7 +126,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 if ( angular.isDefined( $scope.minimumValue ) ){
                     $xMin = $scope.minimumValue;
                 }
-                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        angular.isDefined( $scope.data.series[0].datapoints[0] ) ){
                     $xMin = $scope.data.series[0].datapoints[0].x;
                 }
                 
@@ -265,7 +267,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         
                         var val = 0;
                     
-                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                           $scope.data.series[0].datapoints.length > 0 ){
                             var pos = $scope.data.series[0].datapoints.length-1;
                             val = $xScale( $scope.data.series[0].datapoints[pos].x );
                         }
