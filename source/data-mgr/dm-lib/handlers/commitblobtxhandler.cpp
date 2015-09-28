@@ -59,7 +59,7 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 								asyncHdr,
 								message,
 								std::placeholders::_1,
-								dmReq);
+								std::placeholders::_2);
 
 
     addToQueue(dmReq);
