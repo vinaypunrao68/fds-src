@@ -12,8 +12,8 @@ import java.util.Optional;
 
 public enum TimeUnit implements TemporalUnit {
 
-    MICROS( ChronoUnit.MICROS, java.util.concurrent.TimeUnit.MICROSECONDS ),
-    MILLIS( ChronoUnit.MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS ),
+    MICROSECONDS( ChronoUnit.MICROS, java.util.concurrent.TimeUnit.MICROSECONDS ),
+    MILLISECONDS( ChronoUnit.MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS ),
     SECONDS( ChronoUnit.SECONDS, java.util.concurrent.TimeUnit.SECONDS ),
     MINUTES( ChronoUnit.MINUTES, java.util.concurrent.TimeUnit.MINUTES ),
     HOURS( ChronoUnit.HOURS, java.util.concurrent.TimeUnit.HOURS ),

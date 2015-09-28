@@ -19,6 +19,7 @@ class RabbitMQClient(object):
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue='stats.work',durable=False,auto_delete=True,exclusive=False)
         self.period = period
+	self.publish_count = 0
 
     # publish a data point
     def publish(self, name, period, value, volume_id, service, node, cntr_type, timestamp):
@@ -45,7 +46,8 @@ class RabbitMQClient(object):
                                                 {"contextType": "NODE", "contextId" : node}, 
                                                 {"contextType": "CNTR_TYPE", "contextId" : cntr_type}
                                             ],
-                "reportTime"            :   timestamp
+                "reportTime"            :   timestamp,
+		"aggregationType"	:   "SUM"
                 }
         
         json_data = json.dumps(data)
@@ -65,7 +67,7 @@ class RabbitMQClient(object):
         cols, vals = [list(x) for x in  zip(*records)]
         vals = [utils.dyn_cast(x) for x in vals]
         n = len(cols)
-        print ("Publishing: ", n, " stats")
+        self.publish_count += n
         for i in range(n):
             m = re.match("(\w*)\.(\w*)(?:\.(\w*))?", cols[i])
             if m != None:
@@ -75,6 +77,7 @@ class RabbitMQClient(object):
                 cntr_type = tokens[2]
                 timestamp = int(round(time.time() * 1000))
                 self.publish(name, self.period, vals[i], volume_id, service, node, cntr_type, timestamp)
+	print "Publish Count: {}".format( self.publish_count )
         
 
 def main():

@@ -83,8 +83,8 @@
 {% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'true' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
 {% set am_scst_auto_volumes = fds_am_scst_auto_volumes if fds_am_scst_auto_volumes is defined else '' %}
-{% set am_scst_target_name = fds_am_scst_target_name if fds_am_scst_target_name is defined else 'iqn.2015-08.com.formationds:block_storage' %}
-{% set am_scst_server_threads = fds_am_scst_server_threads if fds_am_scst_server_threads is defined else '1' %}
+{% set am_scst_target_prefix = fds_am_scst_target_prefix if fds_am_scst_target_prefix is defined else 'iqn.2012-05.com.formationds:' %}
+{% set am_scst_target_threads = fds_am_scst_target_threads if fds_am_scst_target_threads is defined else '1' %}
 {% set am_scst_default_block_size = fds_am_scst_default_block_size if fds_am_scst_default_block_size is defined else '512' %}
 {#
    fds.om. specific entries
@@ -124,6 +124,7 @@
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
+{% set ft_am_nbd_enabled                          = fds_ft_am_nbd_enabled                          if fds_ft_am_nbd_enabled                          is defined else 'true'  %}
 {% set ft_am_scst_enabled                         = fds_ft_am_scst_enabled                         if fds_ft_am_scst_enabled                         is defined else 'false' %}
 {% set ft_platform_use_disk_hints                 = fds_ft_platform_use_disk_hints                 if fds_ft_platform_use_disk_hints                 is defined else 'false' %}
 {% set ft_platform_control_disk_simulation_mode   = fds_ft_platform_control_disk_simulation_mode   if fds_ft_platform_control_disk_simulation_mode   is defined else 'false' %}

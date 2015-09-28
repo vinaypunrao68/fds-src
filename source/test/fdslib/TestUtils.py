@@ -519,9 +519,10 @@ def get_ips_from_inventory(inventory_file_name,rt_env):
         ips_array = []
         lines = f.readlines()
         for line in lines:
+            line = line.strip()
             if (line.startswith('[')):
                 continue
-            elif line == '\n':
+            elif not line :
                 break
             else:
                 ips_array.append(line.rstrip('\n'))

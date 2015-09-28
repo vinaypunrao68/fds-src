@@ -230,10 +230,6 @@ class TestNodeActivate(TestCase.FDSTestCase):
                         self.log.error("Failing to add service {} to node {} returned status {}".format(service_name, n.nd_conf_dict['node-name'], add_service.message))
                         return False
 
-                else:
-                    self.log.error(" Add service %s failed on node %s with"%(service_name, n.nd_conf_dict['node-name']))
-                    #return False
-
                 if not self.expect_to_fail:
                     self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                     start_service = node_service.start_service(node_id,add_service.id)
@@ -306,7 +302,7 @@ class TestNodeRemoveServices(TestCase.FDSTestCase):
 
             #check node state after remove_node
             node_state = node_service.get_node(node_id)
-            service_list = ['AM', 'DM', 'SM', 'PM']
+            service_list = ['PM']
             for service_name in service_list:
                 if (node_state.services['{}'.format(service_name)][0].status.state != "RUNNING") and node_state.state != 'UP':
                     self.log.warn("FAILED:  Expected Node service=RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))

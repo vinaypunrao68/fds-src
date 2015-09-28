@@ -42,6 +42,7 @@ fds: {
         }
         am: {
             scst_connector = {{ ft_am_scst_enabled }}
+            nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
             safe_atomic_write = {{ am_safe_atomic_write }}
         }
@@ -534,9 +535,15 @@ fds: {
             scst: {
 		/* Volumes in this CSV list will be automatically presented on load */
 		auto_volumes="{{ am_scst_auto_volumes }}"
+
+		/* Smallest IO transfer size allowed */
                 default_block_size={{ am_scst_default_block_size }}
-                target_name="{{ am_scst_target_name }}"
-		threads={{ am_scst_server_threads }}
+
+                /* Targets will appear with this prefix on iscsi portals */
+                target_prefix="{{ am_scst_target_prefix }}"
+
+		/* Threads per target */
+		threads={{ am_scst_target_threads }}
             }
         }
 

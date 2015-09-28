@@ -105,6 +105,8 @@ class BlockOperations
 
     void updateBlobResp(const error_type &error, handle_type& requestId) override;
 
+    void detachVolume();
+
     void shutdown();
 
   private:
@@ -116,8 +118,6 @@ class BlockOperations
                           Error const error);
 
     uint32_t getObjectCount(uint32_t length, uint64_t offset);
-
-    void detachVolume();
 
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
