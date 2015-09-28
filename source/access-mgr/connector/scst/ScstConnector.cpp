@@ -42,7 +42,12 @@ ScstConnector::ScstConnector(std::string const& prefix,
     auto threads = conf.get<uint32_t>("threads", 1);
     // TODO(bszmyd): Thu 24 Sep 2015 02:46:57 PM MDT
     // This is just for testing until we support dynamic volume loading
-    ScstTarget* target = new ScstTarget(target_prefix + "test",  threads, amProcessor);
+    ScstTarget* target {nullptr};
+    try {
+    target = new ScstTarget(target_prefix + "test",  threads, amProcessor);
+    } catch (ScstError& e) {
+        return;
+    }
 
     LOGDEBUG << "Creating auto volumes for connector.";
     auto auto_volumes = conf.get<std::string>("auto_volumes", "scst_vol");
