@@ -1,5 +1,7 @@
 package com.formationds.client.v08.model.stats;
 
+import java.util.Objects;
+
 import org.json.JSONObject;
 
 public class ContextDef {
@@ -41,6 +43,25 @@ public class ContextDef {
 		json.put( CONTEXT_ID, getContextId() );
 		
 		return json;
+	}
+	
+	@Override
+	public boolean equals( Object obj) {
+	
+		if ( !(obj instanceof ContextDef) ){
+			return false;
+		}
+		
+		ContextDef def = (ContextDef)obj;
+		
+		return ( def.getContextId().equals( getContextId() ) && def.getContextType().equals( getContextType() ) );
+	}
+	
+	@Override
+	public int hashCode() {
+	
+		int hc = Objects.hash( getContextId(), getContextType() );
+		return hc;
 	}
 	
 	public String toJson(){

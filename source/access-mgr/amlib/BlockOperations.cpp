@@ -40,7 +40,9 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
                     std::shared_ptr<AmProcessor> processor,
                     BlockTask* resp)
 {
-    amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
+    if (!amAsyncDataApi) {
+        amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
+    }
     volumeName = vol_name;
 
     {   // add response that we will fill in with data
