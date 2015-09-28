@@ -50,7 +50,7 @@ public class HeadObject implements SyncRequestHandler {
                 .withHeader("Last-Modified", lastModified)
                 .withHeader("ETag", etag);
 
-        for(Map.Entry<String, String> entry : S3UserMetadataUtility.extractUserMetadata(metadata).entrySet())
+        for(Map.Entry<String, String> entry : S3MetadataUtility.extractUserMetadata(metadata).entrySet())
             result = result.withHeader(entry.getKey(), entry.getValue());
 
         return result;

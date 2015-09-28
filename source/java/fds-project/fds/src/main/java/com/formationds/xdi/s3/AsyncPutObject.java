@@ -3,7 +3,6 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.util.io.ContentLengthInputStream;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
@@ -61,7 +60,7 @@ public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationTok
     private Map<String, String> updateMetadata(HttpContext context, Map<String, String> metadata) {
         if (context.getRequestContentType() != null)
             metadata.put("Content-type", context.getRequestContentType());
-        metadata.putAll(S3UserMetadataUtility.requestUserMetadata(context));
+        metadata.putAll(S3MetadataUtility.requestUserMetadata(context));
         return metadata;
     }
 }

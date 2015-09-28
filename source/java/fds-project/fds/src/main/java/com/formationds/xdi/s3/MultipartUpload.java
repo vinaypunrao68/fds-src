@@ -13,6 +13,8 @@ import com.formationds.xdi.io.AsyncObjectReader;
 import com.formationds.xdi.io.BlobSpecifier;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -28,7 +30,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MultipartUpload {
+    public static final String S3_MULTIPART_INDEX_METADATA_KEY = "s3-multipart-index";
+    public static final String LENGTH_METADATA_KEY = "length";
+    public static final String ETAG_METADATA_KEY = "etag";
+    public static final String LAST_MODIFIED_METADATA_KEY = "lastModified";
     private BlobSpecifier specifier;
+    private Optional<BlobDescriptor> existingBlobDescriptor;
     private AsyncAm am;
     private int fdsObjectSize;
     private String uploadId;
@@ -37,14 +44,15 @@ public class MultipartUpload {
     private Executor ioExecutor;
     private final Object executorInitLock = new Object();
 
-    public MultipartUpload(BlobSpecifier specifier, AsyncAm am, int fdsObjectSize, String uploadId) {
+    public MultipartUpload(BlobSpecifier specifier, Optional<BlobDescriptor> existingBlobDescriptor, AsyncAm am, int fdsObjectSize, String uploadId) {
         this.specifier = specifier;
+        this.existingBlobDescriptor = existingBlobDescriptor;
         this.am = am;
         this.fdsObjectSize = fdsObjectSize;
         this.uploadId = uploadId;
     }
 
-    public CompletableFuture<byte[]> uploadPart(InputStream inputStream, int partNumber, long contentLength) {
+    public CompletableFuture<byte[]> uploadPart(InputStream inputStream, int partNumber, long contentLength, DateTime now) {
         if(partNumber < 1 || partNumber > MAX_PARTS)
             throw new IllegalArgumentException("Part number must be between 1-" + MAX_PARTS + " (inclusive)");
 
@@ -87,8 +95,9 @@ public class MultipartUpload {
             CompletableFuture<Void> metadataBlobWriteFuture =
                 writeCompleteFuture.thenCompose(_null ->  digest).thenCompose(hash -> {
                     Map<String, String> metadata = new HashMap<>();
-                    metadata.put("length", Long.toString(contentLength));
-                    metadata.put("etag", Hex.encodeHexString(hash));
+                    metadata.put(LENGTH_METADATA_KEY, Long.toString(contentLength));
+                    metadata.put(ETAG_METADATA_KEY, Hex.encodeHexString(hash));
+                    metadata.put(LAST_MODIFIED_METADATA_KEY, Long.toString(now.getMillis()));
 
                     return am.updateBlobOnce(specifier.getDomainName(), specifier.getVolumeName(), partMetadataBlobName, Mode.TRUNCATE.getValue(), ByteBuffer.allocate(0), 0, new ObjectOffset(0), metadata);
                 });
@@ -97,68 +106,6 @@ public class MultipartUpload {
                     .thenCompose(_null -> digest);
         });
     }
-
-//    public CompletableFuture<byte[]> uploadPart(InputStream inputStream, int partNumber, long contentLength) {
-//        if(contentLength > MAX_PART_DATA_SIZE)
-//            throw new IllegalArgumentException("Content length exceeds maximum content length");
-//
-//        String name = getDataBlobName();
-//        DigestInputStream dis = new DigestInputStream(inputStream, DigestUtil.newMd5());
-//        InputStream streamWithHeader = new SequenceInputStream(new ByteBufferInputStream(ByteBuffer.allocate(PART_HEADER_SIZE)), dis);
-//
-//        return am.startBlobTx(specifier.getDomainName(), specifier.getVolumeName(), name, 0)
-//                .thenCompose(txId -> {
-//                    CompletableFuture<ByteBuffer> readFuture = CompletableFuture.completedFuture(null);
-//                    CompletableFuture<ByteBuffer> firstRead = null; // NB: we will delay writing the first frame until we have the etag
-//                    List<CompletableFuture<Void>> writeFutures = new ArrayList<>();
-//                    FdsObjectFrame firstFrame = null;
-//
-//                    // write all frames except for the first
-//                    for (FdsObjectFrame frame : FdsObjectFrame.frames(getPartOffset(partNumber) * partObjectLength(), contentLength + PART_HEADER_SIZE, fdsObjectSize)) {
-//                        CompletableFuture<ByteBuffer> objectReadFuture = readFuture.thenCompose(_null -> readFrame(streamWithHeader, frame));
-//                        readFuture = objectReadFuture;
-//
-//                        if(firstRead != null) {
-//                            writeFutures.add(objectReadFuture.thenCompose(buf ->
-//                                            am.updateBlob(specifier.getDomainName(), specifier.getVolumeName(), name, txId, buf.slice(), fdsObjectSize, new ObjectOffset(frame.objectOffset), false)
-//                            ));
-//                        } else {
-//                            firstFrame = frame;
-//                            firstRead = objectReadFuture;
-//                        }
-//                    }
-//
-//                    CompletableFuture<byte[]> digest = readFuture.thenApply(_null -> dis.getMessageDigest().digest());
-//
-//                    // now write the first frame - with header
-//                    final CompletableFuture<ByteBuffer> finalFirstFrameRead = firstRead;
-//                    final FdsObjectFrame finalFirstFrame = firstFrame;
-//                    CompletableFuture<Void> firstFrameWrite = readFuture
-//                            .thenCompose(_last -> finalFirstFrameRead)
-//                            .thenCompose(first ->
-//                                    digest.thenCompose(d -> {
-//                                        ByteBuffer hdr = first.slice();
-//                                        hdr.limit(PART_HEADER_SIZE);
-//                                        hdr.putLong(contentLength);
-//                                        hdr.put(dis.getMessageDigest().digest());
-//
-//                                        return am.updateBlob(specifier.getDomainName(), specifier.getVolumeName(), name, txId, first.slice(), fdsObjectSize, new ObjectOffset(finalFirstFrame.objectOffset), false);
-//                                }));
-//
-//                    writeFutures.add(firstFrameWrite);
-//
-//                    CompletableFuture<Void> writeCompleteFuture = CompletableFuture.completedFuture(null);
-//                    for(CompletableFuture<Void> f : writeFutures)
-//                        writeCompleteFuture = writeCompleteFuture.thenCompose(_null -> f);
-//
-//                    return writeCompleteFuture.whenComplete((_null, ex) -> {
-//                        if (ex != null)
-//                            am.abortBlobTx(specifier.getDomainName(), specifier.getVolumeName(), name, txId);
-//                        else
-//                            am.commitBlobTx(specifier.getDomainName(), specifier.getVolumeName(), name, txId);
-//                    }).thenCompose(_null -> digest);
-//                });
-//    }
 
     private CompletionStage<ByteBuffer> readFrame(InputStream inputStream, FdsObjectFrame frame) {
         CompletableFuture<ByteBuffer> readResponse = new CompletableFuture<>();
@@ -184,6 +131,8 @@ public class MultipartUpload {
             int r = inputStream.read(bytes, internalOffset + read, internalLength - read);
             if(r == -1)
                 return read > 0 ? read : -1;
+
+            read += r;
         }
     }
 
@@ -198,34 +147,52 @@ public class MultipartUpload {
         return ioExecutor;
     }
 
-    public CompletableFuture<Void> initiate() {
+    public CompletableFuture<Void> initiate(Map<String, String> userMetadata) {
         ByteBuffer b = ByteBuffer.allocate(fdsObjectSize);
-        return am.updateBlobOnce(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), Mode.TRUNCATE.getValue(), b, fdsObjectSize, new ObjectOffset(0), Collections.emptyMap());
+        return am.updateBlobOnce(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), Mode.TRUNCATE.getValue(), b, fdsObjectSize, new ObjectOffset(0), userMetadata);
     }
 
+    // TODO: we need a way to transactionally read the metadata to ensure that in the case of an update, we are updating what we think we are
     public CompletableFuture<BlobDescriptor> complete() {
         return listParts().thenCompose(parts -> {
             String multipartData = PartInfo.toString(parts);
             String etag = computeEtag(parts);
 
+            CompletableFuture<Map<String, String>> extantMetadata = new CompletableFuture<Map<String, String>>();
 
-            Map<String, String> metadata = new HashMap<String, String>();
-            metadata.put("etag", etag);
-            metadata.put("s3-multipart-index",  multipartData);
 
-            CompletableFuture<Void> updateMetadata = am.startBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), 0)
-                    .thenCompose(txId ->
-                                    am.updateMetadata(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId, metadata)
-                                            .whenComplete((d, ex) -> {
-                                                if (ex != null) {
-                                                    am.abortBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId);
-                                                }
-                                            })
-                                            .thenCompose(d -> am.commitBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId)));
+            am.statBlob(specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName())
+            .whenComplete((bd, ex) -> {
+                if (bd != null)
+                    extantMetadata.complete(bd.getMetadata());
+                else if (ex instanceof ApiException && ((ApiException) ex).getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                    extantMetadata.complete(Collections.emptyMap());
 
-            return updateMetadata.thenCompose(_null ->
-                    am.renameBlob(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), specifier.getBlobName())
-            );
+                extantMetadata.completeExceptionally(ex);
+            });
+
+            return extantMetadata.thenCompose(md -> {
+
+                Map<String, String> metadata = new HashMap<String, String>(md);
+                S3MetadataUtility.updateMetadata(metadata, existingBlobDescriptor);
+                metadata.put(ETAG_METADATA_KEY, etag);
+                metadata.put(S3_MULTIPART_INDEX_METADATA_KEY, multipartData);
+
+                final Map<String, String> metadataFinal = metadata;
+                CompletableFuture<Void> updateMetadata = am.startBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), 0)
+                        .thenCompose(txId ->
+                                am.updateMetadata(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId, metadataFinal)
+                                        .whenComplete((d, ex) -> {
+                                            if (ex != null) {
+                                                am.abortBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId);
+                                            }
+                                        })
+                                        .thenCompose(d -> am.commitBlobTx(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), txId)));
+
+                return updateMetadata.thenCompose(_null ->
+                                am.renameBlob(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), specifier.getBlobName())
+                );
+            });
         });
     }
 
@@ -249,47 +216,21 @@ public class MultipartUpload {
     }
 
     public CompletableFuture<Void> cancel() {
-        return am.deleteBlob(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName());
+        return listParts().thenCompose(parts -> {
+            CompletableFuture<Void> cf = new CompletableFuture<Void>();
+
+            for(PartInfo partInfo : parts) {
+                CompletableFuture<Void> deleteFuture = am.deleteBlob(specifier.getDomainName(), specifier.getVolumeName(), getPartMetadataBlobName(partInfo.partNumber));
+                cf = cf.thenCompose(_void -> deleteFuture);
+            }
+            CompletableFuture<Void> deleteDataBlobFuture = am.deleteBlob(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName());
+            cf = cf.thenCompose(_void -> deleteDataBlobFuture);
+
+            return cf;
+        });
     }
 
-//    public CompletableFuture<List<PartInfo>> listParts() {
-//        AsyncSemaphore limiter = new AsyncSemaphore(20);
-//
-//        List<CompletableFuture<PartInfo>> partInfoFutures = new ArrayList<>();
-//        for(int i = 1; i <= MAX_PARTS; i++) {
-//            final int partNumber = i;
-//            CompletableFuture<PartInfo> partInfoFuture = new CompletableFuture<>();
-//
-//            limiter.execute(() ->
-//                    am.getBlob(specifier.getDomainName(), specifier.getVolumeName(), getDataBlobName(), PART_HEADER_SIZE, new ObjectOffset(getPartOffset(partNumber)))
-//                            .whenComplete((buf, ex) -> {
-//                                int j = partNumber;
-//                                if (ex != null) {
-//                                    if (ex instanceof ApiException && ((ApiException) ex).getErrorCode() == ErrorCode.MISSING_RESOURCE)
-//                                        partInfoFuture.complete(null);
-//                                    else
-//                                        partInfoFuture.completeExceptionally(ex);
-//                                }
-//                                else {
-//                                    partInfoFuture.complete(decodeHeader(buf, partNumber));
-//                                }
-//                            }));
-//
-//            partInfoFutures.add(partInfoFuture);
-//        }
-//
-//        CompletableFuture<List<PartInfo>> result = CompletableFuture.completedFuture(new ArrayList<>());
-//        for(CompletableFuture<PartInfo> partFuture : partInfoFutures) {
-//            result = result.thenCombine(partFuture, (lst, partInfo) -> {
-//               if(partInfo != null)
-//                   lst.add(partInfo);
-//                return lst;
-//            });
-//        }
-//        return result;
-//    }
-
-    private CompletableFuture<List<PartInfo>> listParts() {
+    public CompletableFuture<List<PartInfo>> listParts() {
         Pattern pattern = Pattern.compile(".*part-([0-9]+)$");
         return am.volumeContents(specifier.getDomainName(), specifier.getVolumeName(), 20000, 0, uploadBlobName(""), PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false)
                 .thenApply(contents -> {
@@ -313,9 +254,10 @@ public class MultipartUpload {
     }
 
     private PartInfo getPartInfo(BlobDescriptor desc, int partNumber) throws DecoderException {
-        String etag = desc.getMetadata().get("etag");
-        long length = Integer.parseInt(desc.getMetadata().get("length"));
-        return new PartInfo(partNumber, Hex.decodeHex(etag.toCharArray()), length, getPartOffset(partNumber), 0);
+        String etag = desc.getMetadata().get(ETAG_METADATA_KEY);
+        long length = Integer.parseInt(desc.getMetadata().get(LENGTH_METADATA_KEY));
+        long lastModified = Long.parseLong(desc.getMetadata().get(LAST_MODIFIED_METADATA_KEY));
+        return new PartInfo(partNumber, Hex.decodeHex(etag.toCharArray()), length, getPartOffset(partNumber), new DateTime(lastModified, DateTimeZone.UTC));
     }
 
     private long partObjectLength() {
@@ -342,10 +284,14 @@ public class MultipartUpload {
     }
 
     public static List<PartInfo> getPartInfoList(BlobDescriptor stat) {
-        String partInfo = stat.getMetadata().getOrDefault("s3-multipart-index", null);
+        String partInfo = stat.getMetadata().getOrDefault(S3_MULTIPART_INDEX_METADATA_KEY, null);
         if(partInfo == null)
             return null;
         return PartInfo.parse(partInfo);
+    }
+
+    public static boolean isMultipartBlob(BlobDescriptor blobDescriptor) {
+        return getPartInfoList(blobDescriptor) != null;
     }
 
     public static class PartInfo {
@@ -353,16 +299,11 @@ public class MultipartUpload {
         private byte[] etag;
         private long length;
         private long startObjectOffset;
-
-        public int getStartObjectByteOffset() {
-            return startObjectByteOffset;
-        }
+        private DateTime lastModified;
 
         public long getStartObjectOffset() {
             return startObjectOffset;
         }
-
-        private int startObjectByteOffset;
 
         public int getPartNumber() {
             return partNumber;
@@ -376,16 +317,16 @@ public class MultipartUpload {
             return length;
         }
 
-        public PartInfo(int partNumber, byte[] etag, long length, long objectOffset, int byteOffset) {
+        public PartInfo(int partNumber, byte[] etag, long length, long objectOffset, DateTime lastModified) {
             this.partNumber = partNumber;
             this.etag = etag;
             this.length = length;
-            startObjectByteOffset = byteOffset;
             startObjectOffset = objectOffset;
+            this.lastModified = lastModified;
         }
 
         public Iterable<FdsObjectFrame> getFrames(int objectSize) {
-            return FdsObjectFrame.frames(objectSize * startObjectOffset + startObjectByteOffset, length, objectSize);
+            return FdsObjectFrame.frames(objectSize * startObjectOffset, length, objectSize);
         }
 
         public static String toString(Collection<PartInfo> partInfos) {
@@ -395,13 +336,13 @@ public class MultipartUpload {
             try {
                 object.put("version", "1");
 
-                for(PartInfo info : partInfos) {
+                for (PartInfo info : partInfos) {
                     JSONObject partObject = new JSONObject();
                     partObject.put("partNumber", info.getPartNumber());
                     partObject.put("etag", Hex.encodeHexString(info.getEtag()));
                     partObject.put("length", info.getLength());
                     partObject.put("dataObjectOffset", info.getStartObjectOffset());
-                    partObject.put("dataByteOffset", info.getStartObjectByteOffset());
+                    partObject.put("lastModified", info.getLastModified().getMillis());
                     parts.put(partObject);
                 }
 
@@ -429,9 +370,9 @@ public class MultipartUpload {
                     byte[] etag = Hex.decodeHex(part.getString("etag").toCharArray());
                     long length =  part.getLong("length");
                     long objectOffset = part.getLong("dataObjectOffset");
-                    int byteOffset = part.getInt("dataByteOffset");
+                    DateTime lastModified = new DateTime(part.getLong("lastModified"), DateTimeZone.UTC);
 
-                    partInfos.add(new PartInfo(partNumber, etag, length, objectOffset, byteOffset));
+                    partInfos.add(new PartInfo(partNumber, etag, length, objectOffset, lastModified));
                 }
 
                 return partInfos;
@@ -443,6 +384,14 @@ public class MultipartUpload {
 
         public static long computeLength(List<PartInfo> parts) {
             return parts.stream().collect(Collectors.summingLong(p -> p.getLength()));
+        }
+
+        public DateTime lastModified() {
+            return lastModified;
+        }
+
+        public DateTime getLastModified() {
+            return lastModified;
         }
     }
 }

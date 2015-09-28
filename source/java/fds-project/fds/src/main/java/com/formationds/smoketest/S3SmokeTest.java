@@ -10,10 +10,12 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
 import com.formationds.protocol.Snapshot;
+import com.formationds.util.DigestUtil;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -25,11 +27,14 @@ import org.junit.*;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -104,6 +109,7 @@ public class S3SmokeTest {
         userClient.createBucket(userBucket);
 
         randomBytes = new byte[4096];
+
         rng.nextBytes(randomBytes);
         prefix = UUID.randomUUID()
                 .toString();
@@ -236,17 +242,15 @@ public class S3SmokeTest {
         InitiateMultipartUploadResult initiateResult = userClient.initiateMultipartUpload(new InitiateMultipartUploadRequest(userBucket, key));
 
         int partCount = 10;
-        AtomicInteger expectedLength = new AtomicInteger(0);
+        AtomicLong expectedLength = new AtomicLong(0);
+        byte[] buf = new byte[50 * (1024 * 1024)];
+        Arrays.fill(buf, (byte)-1);
 
         List<PartETag> etags = IntStream.range(1, partCount + 1)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
-                    byte[] buf = new byte[50 * (1024 * 1024)];
                     expectedLength.addAndGet(buf.length);
-                    for (int j = 0; j < buf.length; j++) {
-                        buf[j] = (byte) -1;
-                    }
                     UploadPartRequest request = new UploadPartRequest()
                             .withBucketName(userBucket)
                             .withKey(key)
@@ -305,13 +309,27 @@ public class S3SmokeTest {
                 .toString();
 
         uploadMultipart(userClient, userBucket, key);
+
+        String copyKey = UUID.randomUUID().toString();
+        userClient.copyObject(userBucket, key, userBucket, copyKey);
+
+        S3Object object = userClient.getObject(userBucket, key);
+        S3Object copy = userClient.getObject(userBucket, copyKey);
+
+        byte[] objectMd5 = DigestUtils.md5(object.getObjectContent());
+        byte[] copyMd5 = DigestUtils.md5(copy.getObjectContent());
+
+        Assert.assertArrayEquals(objectMd5, copyMd5);
+
+        userClient.deleteObject(userBucket, copyKey);
     }
 
-    private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException {
+    private void uploadMultipart(AmazonS3Client client, String bucket, String blobName) throws NoSuchAlgorithmException, IOException {
         int partCount = 5;
         InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName));
 
         MessageDigest md5 = MessageDigest.getInstance("MD5");
+
         List<PartETag> etags = IntStream.range(1, partCount + 1)
                 .map(new ConsoleProgress("Uploading parts", partCount))
                 .mapToObj(i -> {
@@ -328,12 +346,39 @@ public class S3SmokeTest {
                 })
                 .collect(Collectors.toList());
 
+        PartListing partListing = userClient.listParts(new ListPartsRequest(bucket, blobName, initiateResult.getUploadId()));
+        List<PartSummary> parts = partListing.getParts().stream().sorted((a, b) -> Integer.compare(a.getPartNumber(), b.getPartNumber())).collect(Collectors.toList());
+        Assert.assertEquals(partCount, parts.size());
+        Assert.assertEquals(1, parts.get(0).getPartNumber());
+        Assert.assertEquals(randomBytes.length, parts.get(0).getSize());
+        Assert.assertEquals(Hex.encodeHexString(DigestUtils.md5(randomBytes)), parts.get(0).getETag());
+        Assert.assertEquals(partCount, parts.get(partCount - 1).getPartNumber());
+
         CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, blobName, initiateResult.getUploadId(), etags);
         CompleteMultipartUploadResult result = client.completeMultipartUpload(completeRequest);
         byte[] digest = md5.digest();
         assertTrue(result.getETag().endsWith("-" + Integer.toString(partCount)));
         ObjectMetadata objectMetadata = client.getObjectMetadata(bucket, blobName);
         assertEquals(4096 * partCount, objectMetadata.getContentLength());
+
+        S3Object object = client.getObject(bucket, blobName);
+        byte[] objRead = IOUtils.toByteArray(object.getObjectContent());
+
+        boolean fail = false;
+        for(int j = 0; j < partCount; j++) {
+            for(int k = 0; k < randomBytes.length; k++) {
+                int idx = k + j * randomBytes.length;
+                if(objRead[idx] != randomBytes[k]) {
+                    fail = true;
+                    System.out.println("index " + idx + " is incorrect (expecting " + randomBytes[k] + " but got " + objRead[idx] + ")");
+                }
+            }
+        }
+
+        Assert.assertFalse(fail);
+
+        byte[] getObjDigest = DigestUtils.md5(objRead);
+        Assert.assertArrayEquals(digest, getObjDigest);
     }
 
     @Test

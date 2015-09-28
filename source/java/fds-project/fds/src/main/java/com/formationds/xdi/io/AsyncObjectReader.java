@@ -99,7 +99,12 @@ public class AsyncObjectReader {
             } else {
                 objectRead = am.getBlob(specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName(), frame.internalLength + frame.internalOffset, new ObjectOffset(frame.objectOffset));
             }
-            objectRead =  objectRead.thenApply(buf -> { buf.position(buf.position() + frame.internalOffset); return buf; });
+            objectRead = objectRead.thenApply(buf -> {
+                buf.limit(buf.position() + frame.internalOffset + frame.internalLength);
+                buf.position(buf.position() + frame.internalOffset);
+                return buf;
+            });
+
             readFutures.add(objectRead);
             objectRead.whenComplete((c, x) -> readCompletion());
             object0 = null;

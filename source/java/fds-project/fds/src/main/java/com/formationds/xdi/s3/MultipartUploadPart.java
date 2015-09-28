@@ -7,6 +7,8 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.io.BlobSpecifier;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.TException;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -38,7 +40,8 @@ public class MultipartUploadPart implements BiFunction<HttpContext, Authenticati
 
         BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(object));
         try {
-            return xdi.multipart(authenticationToken, specifier, uploadid.get()).uploadPart(context.getInputStream(), partNumber.get(), contentLength.get())
+            DateTime now = new DateTime(DateTimeZone.UTC);
+            return xdi.multipart(authenticationToken, specifier, uploadid.get()).uploadPart(context.getInputStream(), partNumber.get(), contentLength.get(), now)
                     .thenAccept(digest -> {
                         context.setResponseStatus(200);
                         context.addResponseHeader("ETag", '"' + Hex.encodeHexString(digest) + '"');

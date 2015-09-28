@@ -56,20 +56,7 @@ public class PutObject implements SyncRequestHandler {
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
-        map.putAll(S3UserMetadataUtility.requestUserMetadata(context));
-
-        // handle multi part upload
-        if(uploadId != null) {
-            MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
-            int partNumber = Integer.parseInt(context.getQueryParameters().get("partNumber").iterator().next());
-
-            if(partNumber < 0 || partNumber > 10000)
-                throw new Exception("invalid part number");
-
-            domain = S3Endpoint.FDS_S3_SYSTEM;
-            bucketName = xdi.getSystemVolumeName(token);
-            objectName = mops.getPartName(partNumber);
-        }
+        map.putAll(S3MetadataUtility.requestUserMetadata(context));
 
         if(copySource == null) {
             byte[] digest = xdi.put(token, domain, bucketName, S3Namespace.user().blobName(objectName), str, map).get().digest;
@@ -109,8 +96,6 @@ public class PutObject implements SyncRequestHandler {
         }
         final DateTime lastModified = lastModifiedTemp;
 
-
-
         if(matchETag != null && !matchETag.equals(copySourceETag))
             return new TextResource(HttpServletResponse.SC_PRECONDITION_FAILED, "");
         if(notMatchETag != null && notMatchETag.equals(copySourceETag))
@@ -122,10 +107,10 @@ public class PutObject implements SyncRequestHandler {
         if(copySourceBucket.equals(targetBucketName) && copySourceObject.equals(targetBlobName)) {
             if(metadataDirective != null && metadataDirective.equals("REPLACE")) {
                 HashMap<String,String> md = new HashMap<>(copySourceStat.getMetadata());
-                for(Map.Entry<String, String> kv : S3UserMetadataUtility.extractUserMetadata(md).entrySet()) {
+                for(Map.Entry<String, String> kv : S3MetadataUtility.extractUserMetadata(md).entrySet()) {
                     md.remove(kv.getKey());
                 }
-                md.putAll(S3UserMetadataUtility.extractUserMetadata(metadataMap));
+                md.putAll(S3MetadataUtility.extractUserMetadata(metadataMap));
                 xdi.setMetadata(token, targetDomain, targetBucketName, S3Namespace.user().blobName(targetBlobName), md).get();
             }
             digest = Hex.decodeHex(copySourceETag.toCharArray());
@@ -133,7 +118,12 @@ public class PutObject implements SyncRequestHandler {
             OutputStream outputStream = xdi.openForWriting(token, targetDomain, targetBucketName, S3Namespace.user().blobName(targetBlobName), metadataMap);
             DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
             BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3, copySourceParts[0], S3Namespace.user().blobName(copySourceParts[1])).get();
-            xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
+
+            if(MultipartUpload.isMultipartBlob(copySourceStat)) {
+                xdi.readMultipart(token, blobInfo, outputStream).get();
+            } else {
+                xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
+            }
             digestOutputStream.close();
             digest = digestOutputStream.getMessageDigest().digest();
         }

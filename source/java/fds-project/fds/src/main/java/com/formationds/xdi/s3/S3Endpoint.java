@@ -33,7 +33,6 @@ public class S3Endpoint {
     private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
     private final S3Authenticator authenticator;
     public static final String FDS_S3 = "FDS_S3";
-    public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
