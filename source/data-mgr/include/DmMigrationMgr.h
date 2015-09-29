@@ -28,6 +28,11 @@ class DmMigrationMgr : public DmMigrationBase {
     	return enableMigrationFeature;
     }
 
+    inline bool isMigrationAborted() {
+    	// return std::atomic_load(migrationAborted, std::memory_order_relaxed);
+    	return (migrationAborted.load(std::memory_order_relaxed));
+    }
+
     /**
      * Migration State Machine related methods.
      */
@@ -41,7 +46,6 @@ class DmMigrationMgr : public DmMigrationBase {
      * The role of this current migration role
      */
     enum MigrationRole {
-    	MIGR_UNKNOWN,
     	MIGR_EXECUTOR,
 		MIGR_CLIENT
     };
@@ -51,23 +55,41 @@ class DmMigrationMgr : public DmMigrationBase {
         MIGR_DM_RESYNC	  // If this migration is peer-initiated between DMs
     };
 
-    inline fds_bool_t isMigrationInProgress() const {
-        MigrationState curState = atomic_load(&migrState);
-        return (curState == MIGR_IN_PROGRESS);
+    inline fds_bool_t isMigrationInProgress(MigrationRole role) const {
+     	if (role == MIGR_EXECUTOR) {
+     		return (atomic_load(&executorState) == MIGR_IN_PROGRESS);
+    	} else if (role == MIGR_CLIENT) {
+     		return (atomic_load(&clientState) == MIGR_IN_PROGRESS);
+    	} else {
+    		fds_assert(0);
+    		return (false);
+    	}
     }
-    inline fds_bool_t isMigrationIdle() const {
-        MigrationState curState = atomic_load(&migrState);
-        return (curState == MIGR_IDLE);
+    inline fds_bool_t isMigrationIdle(MigrationRole role) const {
+     	if (role == MIGR_EXECUTOR) {
+     		return (atomic_load(&executorState) == MIGR_IDLE);
+    	} else if (role == MIGR_CLIENT) {
+     		return (atomic_load(&clientState) == MIGR_IDLE);
+    	} else {
+    		fds_assert(0);
+    		return (true);
+    	}
     }
-    inline fds_bool_t isMigrationAborted() const {
-        MigrationState curState = atomic_load(&migrState);
-        return (curState == MIGR_ABORTED);
+    inline fds_bool_t isMigrationAborted(MigrationRole role) const {
+     	if (role == MIGR_EXECUTOR) {
+     		return (atomic_load(&executorState) == MIGR_ABORTED);
+    	} else if (role == MIGR_CLIENT) {
+     		return (atomic_load(&clientState) == MIGR_ABORTED);
+    	} else {
+    		fds_assert(0);
+    		return (true);
+    	}
     }
 
-    inline fds_uint64_t ongoingMigrationCnt() const {
-    	if (myRole == MIGR_EXECUTOR) {
+    inline fds_uint64_t ongoingMigrationCnt(MigrationRole role) const {
+    	if (role == MIGR_EXECUTOR) {
     		return (executorMap.size());
-    	} else if (myRole == MIGR_CLIENT) {
+    	} else if (role == MIGR_CLIENT) {
     		return (clientMap.size());
     	} else {
     		return 0;
@@ -158,7 +180,12 @@ class DmMigrationMgr : public DmMigrationBase {
      * In the case no forwards is sent, this will finish the migration
      */
     Error finishActiveMigration(fds_volid_t volId);
-    Error finishActiveMigration();
+
+
+    /**
+     * Used to clean up migration clients or executors
+     */
+    Error finishActiveMigration(MigrationRole role);
 
     /**
      * Both DMs:
@@ -187,14 +214,19 @@ class DmMigrationMgr : public DmMigrationBase {
     DmIoReqHandler* DmReqHandler;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
-    std::atomic<MigrationState> migrState;
-    MigrationRole myRole;
+    std::atomic<MigrationState> clientState;
+    std::atomic<MigrationState> executorState;
 
     DataMgr& dataManager;
 
     /** check if the feature is enabled or not.
      */
     bool enableMigrationFeature;
+
+    /**
+     * Migration aborted?
+     */
+    std::atomic<bool> migrationAborted;
 
     /**
      * Seconds to sleep prior to starting migration
@@ -257,13 +289,6 @@ class DmMigrationMgr : public DmMigrationBase {
      * Gets an ptr to the migration client. Used as part of forwarding, etc.
      */
     DmMigrationClient::shared_ptr getMigrationClient(fds_volid_t uniqueId);
-
-    /**
-     * Destination side DM:
-     * Makes sure that the state machine is idle, and activate it.
-     * Returns ERR_OK if that's the case, otherwise returns something else.
-     */
-    Error activateStateMachine(MigrationRole role);
 
    /**
      * Destination side DM:
