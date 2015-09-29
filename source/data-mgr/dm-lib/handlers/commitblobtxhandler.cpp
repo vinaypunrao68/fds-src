@@ -159,6 +159,7 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
     if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+    	LOGDEBUG << "Deleting request" << dmRequest;
     	delete dmRequest;
     }
 }
