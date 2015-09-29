@@ -38,7 +38,7 @@ public class InodeAllocator {
                 Map<String, String> map = new HashMap<>();
                 newValue = v + 1;
                 map.put(NUMBER_WELL, Long.toString(newValue));
-                io.setMetadataOnEmptyBlob(BlockyVfs.DOMAIN, volume, NUMBER_WELL, map);
+                io.mutateMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, map, false);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

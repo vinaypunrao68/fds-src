@@ -220,6 +220,8 @@ class DmIoCommitBlobTx : public DmRequest {
     virtual ~DmIoCommitBlobTx() {
     }
 
+    std::function<void(const Error &e, DmRequest *dmRequest)> localCb = NULL;
+
     virtual std::string log_string() const override {
         std::stringstream ret;
         ret << "DmIoCommitBlobTx vol "
@@ -236,6 +238,7 @@ class DmIoCommitBlobTx : public DmRequest {
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
+    bool usedForMigration;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
     /* is this the original request */
@@ -769,6 +772,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 };
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {
+    std::function<void(const Error& e)> localCb = NULL;
     explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
              deltaBlobDescMsg(msg)

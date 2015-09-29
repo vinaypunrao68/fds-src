@@ -2,8 +2,10 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import pdb
 import os
 import sys
+import time
 import logging
 import logging.handlers
 
@@ -20,6 +22,7 @@ from fdscli.model.volume.settings.object_settings import ObjectSettings
 from fdscli.model.volume.settings.block_settings import BlockSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
+from fdscli.model.platform.service import Service
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
@@ -76,7 +79,7 @@ def get_options(pyUnit):
     parser.prog = sys.argv[0].split("/")[-1]
     parser.usage = "%prog -h | <Suite|.csv|File:Class> \n" + \
                    "<-q <qaautotest.ini> | -s <test_source_dir>> " + \
-                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>]" + \
+                   "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
                    "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
@@ -129,6 +132,9 @@ def get_options(pyUnit):
     parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
                       help = 'When the node is localhost, use this password for sudo access to the configured user. ')
 
+    parser.add_option("-z","--inventory-file", action="store", type="string", dest = 'inventory_file',
+                      help = 'If given , will over ride ip addresses in cfg file with inventory ips')
+
     validate_cli_options(parser, pyUnit)
     return parser
 
@@ -149,7 +155,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -332,6 +338,16 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     else:
         setattr(options, "sudo_password", "dummy")
 
+    if "inventory_file" in params:
+        if params["inventory_file"] is None:
+            if pyUnitInventory is None:
+                params["inventory_file"] = "generic-lxc-nodes"
+            else:
+                params["inventory_file"] = pyUnitInventory
+        setattr(options,"inventory_file", params["inventory_file"])
+    else:
+        setattr(options, "inventory_file", "generic-lxc-nodes")
+
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
@@ -370,7 +386,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # Currently, 3/2/2015, if we do an Ansible package install,
     # we only want to do it once as it will install the software
     # on all identified nodes at once.
-    params["ansible_install_done"] = False
+    params["ansible_install_done"] = pyUnitInstall
 
     return params
 
@@ -390,6 +406,9 @@ def findNodeFromInv(node_inventory, target):
     for node in node_inventory:
         if node.nd_conf_dict['node-name'] == target:
             return node
+
+    # else return None for debugging purposes
+    return "None"
 
 def check_localhost(ip):
     ipad = socket.gethostbyname(ip)
@@ -411,7 +430,7 @@ def create_fdsConf_file(om_ip):
     file.close()
 
 def convertor(volume, fdscfg):
-    new_volume = Volume();
+    new_volume = Volume()
     new_volume.name=volume.nd_conf_dict['vol-name']
     new_volume.id=volume.nd_conf_dict['id']
 
@@ -475,4 +494,45 @@ def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
     file_name = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     self.__om_auth = FdsAuth(file_name)
-    self.__om_auth.login()
+    print "Attempting to authenticate to %s" % (om_ip)
+    retryCount = 0
+    maxRetries = 20
+    while retryCount < maxRetries:
+      retryCount += 1
+      try:
+        self.__om_auth.login()
+        break
+
+      except Exception as e:
+        if retryCount < maxRetries:
+          retryTime = 1 + ( (retryCount - 1) * 0.5 )
+          time.sleep(retryTime)
+        else:
+          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
+
+        continue
+
+def get_ips_from_inventory(inventory_file_name,rt_env):
+    filename = inventory_file_name
+    path = rt_env.env_fdsSrc + "test/testsuites/templates/ansible-inventory/"
+    with open(path+filename) as f:
+        ips_array = []
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if (line.startswith('[')):
+                continue
+            elif not line :
+                break
+            else:
+                ips_array.append(line.rstrip('\n'))
+    return ips_array
+
+def node_is_up(self,om_ip,node_id):
+    node_service = get_node_service(self,om_ip)
+    node = node_service.get_node(node_id)
+    if node.state == 'UP':
+        return True
+    else:
+        return False
+

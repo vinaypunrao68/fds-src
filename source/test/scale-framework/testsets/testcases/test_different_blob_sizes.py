@@ -11,7 +11,7 @@ import config
 import s3
 import samples
 import users
-import utils
+import lib
 import testsets.testcase as testcase
 
 class TestDifferentBlobSizes(testcase.FDSTestCase):
@@ -38,7 +38,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
     # @unittest.expectedFailure
     def runTest(self):
 
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
 
         self.create_random_size_files()
         s3conn = s3.S3Connection(
@@ -66,7 +66,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
         # Delete the bucket
         self.destroy_volume(bucket, s3conn)
         # remove the existing file
-        utils.remove_dir(config.DOWNLOAD_DIR)
+        lib.remove_dir(config.DOWNLOAD_DIR)
 
     def check_files_hash(self):
         '''
@@ -76,7 +76,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             # hash the current file, and compare with the key
             self.log.info("Hashing for file %s" % k)
             path = os.path.join(config.DOWNLOAD_DIR, k)
-            hashcode = utils.hash_file_content(path)
+            hashcode = lib.hash_file_content(path)
             if v != hashcode:
                 self.log.warning("%s != %s" % (v, hashcode))
                 self.test_passed = False
@@ -118,7 +118,7 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
+                                             cb=lib.percent_cb,
                                              num_cb=10)
                 self.log.info("Uploaded file %s to bucket %s" %
                              (sample, bucket.name))
@@ -129,5 +129,5 @@ class TestDifferentBlobSizes(testcase.FDSTestCase):
             path = os.path.join(config.TEST_DIR, current)
             if os.path.exists(path):
                 self.sample_files.append(current)
-                encode = utils.hash_file_content(path)
+                encode = lib.hash_file_content(path)
                 self.hash_table[current] = encode

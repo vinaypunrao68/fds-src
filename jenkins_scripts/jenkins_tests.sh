@@ -27,7 +27,7 @@ message "CONFIGURE ulimit AND COREFILE SETTINGS"
 
 ulimit -c unlimited
 mkdir -p /corefiles
-sysctl -w "kernel.core_pattern=/corefiles/%e-%p.core"
+sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"
 ulimit -n 400000
 
 message "CURRENT ulimit SETTINGS"

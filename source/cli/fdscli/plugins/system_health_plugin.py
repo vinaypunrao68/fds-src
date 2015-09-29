@@ -1,4 +1,4 @@
-from abstract_plugin import AbstractPlugin
+from .abstract_plugin import AbstractPlugin
 from services.stats_service import StatsService
 from utils.converters.health.system_health_converter import SystemHealthConverter
 from services.response_writer import ResponseWriter
@@ -63,7 +63,7 @@ class SystemHealthPlugin( AbstractPlugin):
             ResponseWriter.writeTabularData(t_data)
             
             for record in health.health_records:
-                print record.category + ": " + HealthState.MESSAGES[record.message]
+                print(record.category + ": " + HealthState.MESSAGES[record.message])
                 
-            print ""
+            print("")
         

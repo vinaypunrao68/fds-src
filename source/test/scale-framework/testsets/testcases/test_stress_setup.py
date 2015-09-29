@@ -5,7 +5,7 @@
 import ConfigParser
 
 import s3
-import utils
+import lib
 import config
 import unittest
 import json

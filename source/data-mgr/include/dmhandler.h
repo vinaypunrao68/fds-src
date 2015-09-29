@@ -189,6 +189,9 @@ struct CommitBlobTxHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
 };
 
 struct UpdateCatalogOnceHandler : Handler {
@@ -338,6 +341,8 @@ struct DmMigrationDeltaBlobDescHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e);
 };
 
 struct DmMigrationDeltaBlobHandler : Handler {

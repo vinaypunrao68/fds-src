@@ -32,6 +32,7 @@ fds: {
             control_disk_simulation_mode = {{ ft_platform_control_disk_simulation_mode }}
             use_new_superblock = {{ ft_platform_use_new_superblock }}
             restart_failed_children_processes = {{ ft_restart_failed_children_processes }}
+            enable_disk_activation = {{ ft_enable_disk_activation }}
         }
         dm: {
 
@@ -40,11 +41,14 @@ fds: {
 
         }
         am: {
+            scst_connector = {{ ft_am_scst_enabled }}
+            nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
-            safe_atomic_write = "{{ am_safe_atomic_write }}"
+            safe_atomic_write = {{ am_safe_atomic_write }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
+           enable_java_om_svc_proxy = {{ ft_enable_java_om_svc_proxy }}
            rest_07_feature = {{ ft_fds_rest_07_feature }}
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
         }
@@ -116,12 +120,6 @@ fds: {
         /* Platform port.  This is the node base port.  All services running on this node derive their port based on this port */
         platform_port = 7000
 
-        /* Orchestration manager info */
-        /* TODO(Rao): Deprecate om_ip, om_port, om_platform_port.  We don't need them anymore */
-        om_ip            = "{{ om_ip }}"
-        om_port          = 8904
-        om_platform_port = 7000
-
         redis_host = "{{ om_ip }}"
         redis_port = {{ redis_port }}
 
@@ -137,6 +135,11 @@ fds: {
 
         /* Graphite is enabled or not */
         enable_graphite = {{ metrics_enabled }}
+
+        disk_sim: {
+            ssd_count = 4
+            hdd_count = 4
+        }
 
         graphite: {
             /* Graphite server ip */
@@ -220,10 +223,6 @@ fds: {
         id      = "dm"
         no_om   = false;
 
-        /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
-        om_ip   = "{{ om_ip }}"
-        om_port = 8904
-
         /* Log file */
         logfile = "dm"
 
@@ -259,7 +258,7 @@ fds: {
             /* Maximum number of blobs in delta set */
             migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
 
-            /* Timeout value (secs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
+            /* Timeout value (millisecs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
             migration_max_delta_blobs_to = {{ dm_migration_max_delta_blobs_to }}
 
             /* Maximum number of blob desc in delta set */
@@ -311,6 +310,9 @@ fds: {
             coarse_slots = 6
             longslot_sec = 900
             long_slots = 6
+
+            /* Delay the start the of the DM x seconds for testing migration injections */
+            test_delay_start = 0
         }
     }
 
@@ -331,10 +333,6 @@ fds: {
         /* process id */
         id      = "sm"
         prefix  = ""
-
-        /* TODO(Rao): Deprecate om_ip, om_port here.  Not needed anymore */
-        om_ip   = "{{ om_ip }}"
-        om_port = 8904
 
         /* Log file */
         logfile="sm"
@@ -497,10 +495,6 @@ fds: {
         log_severity = "{{ am_log_severity }}"
         logfile      = "am"
 
-        /* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
-        om_ip        = "{{ om_ip }}"
-        om_port      = 8904
-
         /* TODO(Rao): Get this from platform */
         om_config_port = 9090
 
@@ -531,12 +525,25 @@ fds: {
         connector: {
             nbd: {
                 server_port_offset=3809
-		threads=1
+		threads={{ am_nbd_server_threads}}
                 options: {
                     /* Time (seconds) to retry connection to client before disconnect */
                     keep_alive=30
                     no_delay=true
                 }
+            }
+            scst: {
+		/* Volumes in this CSV list will be automatically presented on load */
+		auto_volumes="{{ am_scst_auto_volumes }}"
+
+		/* Smallest IO transfer size allowed */
+                default_block_size={{ am_scst_default_block_size }}
+
+                /* Targets will appear with this prefix on iscsi portals */
+                target_prefix="{{ am_scst_target_prefix }}"
+
+		/* Threads per target */
+		threads={{ am_scst_target_threads }}
             }
         }
 
@@ -640,9 +647,13 @@ fds: {
         config_port=9090
         config_cache_update_interval_ms=10000
 
-        /* TODO(Rao): Deprecate control_port and ip_address.  Not needed */
-        control_port=8904
-        ip_address = "{{ om_ip }}"
+        /* if om_enabled_java_om_svc_proxy feature toggle is enabled, then
+           this property is used to determine the OM C++ Service port that is
+           proxied from the primary OM service port.  This is considered an
+           internal port to the OM and should not be accessed by any other
+           service */
+        java_svc_proxy_port_offset=1900
+
         token_factor=8
         replica_factor=3
         placement_algo="ConsistHash"
@@ -686,13 +697,6 @@ fds: {
         /* Control path port */
         control_port = 6991
 
-        /* Orchestration manager ip */
-        /* TODO(Rao): Deprecate om_ip, om_port.  Not needed any more */
-        om_ip = "{{ om_ip }}"
-
-        /* Orchestration manager port */
-        om_port = 8904
-
         enable_graphite = {{ metrics_enabled }}
 
         threadpool: {
@@ -705,6 +709,9 @@ fds: {
     	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
     	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
     	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
+	nfs_stats = true
+	nfs_defer_metatada_updates = {{ nfs_defer_metadata_updates }}
+	nfs_max_live_nfs_cookies = {{ nfs_max_live_nfs_cookies }}
     }
 
     test: {

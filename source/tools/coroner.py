@@ -254,7 +254,11 @@ def run_collect(opts):
     corepaths = [
        '/corefiles/*',
        '%s/var/cores/*' % bodybag.fdsroot,
-       '%s/bin/core*' % bodybag.fdsroot
+       '%s/bin/*core*' % bodybag.fdsroot,
+       '%s/bin/*.hprof' % bodybag.fdsroot,
+       '%s/bin/*hs_err_pid*.log' % bodybag.fdsroot,
+       '%s/var/logs/*.hprof' % bodybag.fdsroot,
+       '%s/var/logs/*hs_err_pid*.log' % bodybag.fdsroot
     ]
     bodybag.collect_cores(corepaths)
     if opts['collect_dirs'] is not None:

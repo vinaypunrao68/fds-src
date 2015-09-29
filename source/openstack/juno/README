@@ -1,0 +1,6 @@
+FDS Openstack Juno Installation:
+- Copy fds_cinder_driver.tar.gz to cinder (block) node's directory i.e. /tmp
+- Copy fds_juno_compute_service.tar.gz to each compute node's directory i.e. /tmp
+- Extract the file and follow the installation instruction.
+
+

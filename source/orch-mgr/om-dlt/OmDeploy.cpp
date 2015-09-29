@@ -612,7 +612,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // and close, we will redo the migration
 
     // commit as an 'official' version in the data placement engine
-    dp->commitDlt();
+    dp->commitDlt( evt.isRestart() );
 
     // Send new DLT to each node in the cluster map
     // the new DLT now is committed DLT
@@ -666,14 +666,6 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // reset pending nodes in cluster map, since they are already
     // present in the DLT
     cm->resetPendServices(fpi::FDSP_STOR_MGR);
-
-    /**
-     * TODO(Gurpreet): Remove this sleep once FS-2231 is done. This sleep
-     * prevents a race between outstanding IO for src SM which are forwared
-     * to destination SM during migration AND sending of dltClose notification
-     * to all SMs.
-     */
-    usleep(0.5*1000*1000);
 
     // Send DLT close message to SM nodes
     fds_uint32_t close_cnt = dom_ctrl->om_bcast_dlt_close(commited_dlt_ver);

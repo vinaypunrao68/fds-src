@@ -25,7 +25,7 @@ from filechunkio import FileChunkIO
 import samples
 import s3
 import testsets.testcase as testcase
-import utils
+import lib
 
 class TestCreateMultivolume(testcase.FDSTestCase):
     
@@ -41,15 +41,15 @@ class TestCreateMultivolume(testcase.FDSTestCase):
         self.sample_files = []
         self.s3_connections = []
     
-        utils.create_dir(config.TEST_DIR)
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.TEST_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
             
         # for this test, we will create 5 sample files, 2MB each
         for current in samples.sample_mb_files[:3]:
             path = os.path.join(config.TEST_DIR, current)
             if os.path.exists(path):
                 self.sample_files.append(current)
-                encode = utils.hash_file_content(path)
+                encode = lib.hash_file_content(path)
                 self.hash_table[current] = encode
         self.log.info("hash table: %s" % self.hash_table)
         
@@ -66,7 +66,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
                 self.test_passed = True
         
         self.log.info("Removing the sample files created.")
-        # utils.remove_dir(config.DOWNLOAD_DIR)
+        # lib.remove_dir(config.DOWNLOAD_DIR)
         self.reportTestCaseResult(self.test_passed)
     
     def create_volumes(self, ip):
@@ -114,7 +114,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
                 # hash the current file, and compare with the key
                 self.log.info("Hashing for file %s" % k)
                 path = os.path.join(config.DOWNLOAD_DIR, k)
-                hashcode = utils.hash_file_content(path)
+                hashcode = lib.hash_file_content(path)
                 if v != hashcode:
                     self.log.warning("%s != %s" % (v, hashcode))
                     self.test_passed = False
@@ -124,7 +124,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
         return s3conn
 
     def download_files(self, bucket):
-        utils.create_dir(config.DOWNLOAD_DIR)
+        lib.create_dir(config.DOWNLOAD_DIR)
         bucket_list = bucket.list()
         for l in bucket_list:
             key_string = str(l.key)
@@ -151,7 +151,7 @@ class TestCreateMultivolume(testcase.FDSTestCase):
             if os.path.exists(path):
                 k.key = sample
                 k.set_contents_from_filename(path,
-                                             cb=utils.percent_cb,
+                                             cb=lib.percent_cb,
                                              num_cb=10)
                 self.log.info("Uploaded file %s to bucket %s" % 
                              (sample, bucket.name))

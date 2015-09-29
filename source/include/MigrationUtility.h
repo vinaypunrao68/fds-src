@@ -223,6 +223,28 @@ class MigrationTrackIOReqs {
     void finishTrackIOReqs();
 
     void waitForTrackIOReqs();
+    inline uint64_t debugCount() {
+    	return numTrackIOReqs;
+    }
+
+    class ScopedTrackIOReqs : boost::noncopyable {
+      public:
+        MigrationTrackIOReqs * scopedReq;
+        bool success = {false};
+        explicit ScopedTrackIOReqs(MigrationTrackIOReqs &req)
+                                  : scopedReq(&req) {
+          if (scopedReq) {
+            success = scopedReq->startTrackIOReqs();
+          }
+        }
+
+        ~ScopedTrackIOReqs() {
+          if (scopedReq && success) {
+            scopedReq->finishTrackIOReqs();
+            scopedReq = nullptr;
+          }
+        }
+    };
 
   private:
     std::mutex  trackReqsMutex;
@@ -230,9 +252,9 @@ class MigrationTrackIOReqs {
     uint64_t numTrackIOReqs;
     bool waitingTrackIOReqsCompletion;
     bool denyTrackIOReqs;
+    bool trackingStarted;
 
 };  // MigrationTrackIOReqs
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_MIGRATIONUTILITY_H_

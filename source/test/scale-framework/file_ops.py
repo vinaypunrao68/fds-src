@@ -11,7 +11,7 @@ import logging
 import config
 import s3
 import samples
-import utils
+import lib
 import s3_volumes
 import file_generator
 
@@ -53,7 +53,7 @@ class FileOps(object):
             path = os.path.join(source_path, f)
             if os.path.exists(path):
                 self.sample_files.append(f)
-                encode = utils.hash_file_content(path)
+                encode = lib.hash_file_content(path)
                 self.table[f] = encode
                 
     
@@ -94,7 +94,7 @@ class FileOps(object):
         for k, v in self.table.iteritems():
             self.log.info("Hashing for file %s" % k)
             path = os.path.join(source_path, k)
-            hashcode = utils.hash_file_content(path)
+            hashcode = lib.hash_file_content(path)
             if v != hashcode:
                 self.log.warning("%s != %s" % (v, hashcode))
                 return False

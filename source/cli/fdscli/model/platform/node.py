@@ -36,7 +36,7 @@ class Node(BaseModel):
     @state.setter
     def state(self, a_state):
         
-        if ( a_state not in ("UP", "DOWN", "UNKNOWN", "DISCOVERED", "REMOVED", "MIGRATION") ):
+        if ( a_state not in ("UP", "DOWN", "UNKNOWN", "DISCOVERED", "REMOVED", "MIGRATION", "STANDBY") ):
             raise TypeError()
             return
         

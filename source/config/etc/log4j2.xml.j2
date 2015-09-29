@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Properties>
+        <!-- must match environment variable name -->
+        <property name ="fds_root">/fds</property>
+        <property name="fds.service.name">default</property>
+
+        <!-- Current code uses 'yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ' date format which
+             is ISO8601 plus greater precision and including timezone offset.
+             docs claim using a pattern instead of the predefined defaults (ISO8601)
+             negatively impact performance.  Something to consider if logging is
+             ever identified as a bottleneck.-->
+        <Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c %t - %m%n</Property>
+
+        <!-- intent here is to use the env definition of fds_root.  If not set, should
+             default to /fds based on above definition -->
+        <property name="fds.logs">${env:fds_root}/var/logs</property>
+
+    </Properties>
+    <Appenders>
+
+        <!-- log4j2 docs show filePattern using variables like 
+            "filePattern="logs/$${date:yyyy-MM}/app-%d{yyyy-MM-dd}-%i.log.gz"
+            to archive files.  The $${date:yyyy-MM} portion of that is supposed to create
+            a directory based on the month, but is instead creating a directory named "${date:yyyy-MM}".
+            Replacing with a fixed name for now -->
+        <!-- Note also that we are only using an index (%i) in the file name pattern.  This was
+            chosen in part because the Log4j2 max files rollover strategy is currently based only
+            on the index, but when using a TimeBasedTriggeringPolicy (and a datetime pattern in the
+            file pattern), that index resets when the file rolls based on time.  The result is that the
+            max files is not respected.  There are alternatives, such as creating our own policies, or
+            doing log file management outside of the library, but this seems like an ok default -->
+        <RollingRandomAccessFile name="fds-${sys:fds.service.name}"
+                                 fileName="${fds.logs}/${sys:fds.service.name}.log"
+                                 filePattern="${fds.logs}/archive/${sys:fds.service.name}-%i.log.gz"
+                                 immediateFlush="true">
+
+            <Policies>
+                <!-- start a new file at startup regardless of time or size -->
+                <OnStartupTriggeringPolicy/>
+
+                <!-- rollover when file size reaches 100 MB -->
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+            <PatternLayout pattern="${fds.pattern}"/>
+        </RollingRandomAccessFile>
+
+        <RollingRandomAccessFile name="jsvclayer"
+                                 fileName="${fds.logs}/jsvclayer.log"
+                                 filePattern="${fds.logs}/archive/jsvclayer-%i.log.gz"
+                                 immediateFlush="true">
+
+            <Policies>
+                <!-- start a new file at startup regardless of time or size -->
+                <OnStartupTriggeringPolicy/>
+
+                <!-- rollover when file size reaches 100 MB -->
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="100"/>
+            <PatternLayout pattern="${fds.pattern}"/>
+        </RollingRandomAccessFile>
+
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p [%t] %c{2} (%F:%L) - %m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="FATAL">
+            <AppenderRef ref="console"/>
+        </Root>
+        <Logger name="com.formationds" level="trace" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+        <Logger name="com.formationds.platform" level="trace" additivity="false">
+            <AppenderRef ref="jsvclayer"/>
+        </Logger>
+    </Loggers>
+</Configuration>
+

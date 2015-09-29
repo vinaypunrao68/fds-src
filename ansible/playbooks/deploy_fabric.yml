@@ -12,7 +12,7 @@
             - { key: 'fs.file-max', value: '400000', state: 'present' }
             - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
             - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
-            - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
+            - { key: 'kernel.core_pattern', value: '/corefiles/%e-%p-%u-%t.core', state: 'present' }
 
     -   name: install_limits_conf
         delegate_to: 127.0.0.1
@@ -43,7 +43,6 @@
         with_items:
             - fds
             - platform
-            - orch_mgr
             - redis
 
     -   name: render /fds/etc/formation_env config files

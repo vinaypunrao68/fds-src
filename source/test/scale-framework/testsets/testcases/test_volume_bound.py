@@ -10,7 +10,7 @@ import requests
 import config
 import s3
 import samples
-import utils
+import lib
 import testsets.testcase as testcase
 import block_volumes
 
@@ -32,7 +32,7 @@ class TestVolumeBound(testcase.FDSTestCase):
         port = config.FDS_REST_PORT
         try:
             # Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                 self.om_ip_address, port, 0, 1))
             self.log.info("UserToken = %s", userToken)
             # setup for the request

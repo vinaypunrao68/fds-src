@@ -54,6 +54,13 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
      */
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
+	dmReq->localCb = std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
+								this,
+								asyncHdr,
+								message,
+								std::placeholders::_1,
+								std::placeholders::_2);
+
 
     addToQueue(dmReq);
 }
@@ -61,6 +68,7 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
 void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
+
 
     LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
     helper.err = dataManager
@@ -105,6 +113,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.err = e;
     if (!helper.err.ok()) {
         LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        if (commitBlobReq->ioBlobTxDesc)
+             LOGWARN   << " TxId:" << *(commitBlobReq->ioBlobTxDesc);
         return;
     }
 
@@ -119,33 +129,23 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // forwarding, the main time goes to waiting for response
     // from another DM, which is not really consuming local
     // DM resources
-    // FIXME(DAC): Is it okay that the caller isn't notified of errors after this point? Wouldn't
-    //             it make more sense to wait to respond until after the request is successfully
-    //             forwarded to another DM in the case that that's necessary?
     helper.markIoDone();
 
     // do forwarding if needed and commit was successful
-    if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-        fds_volid_t volId(commitBlobReq->volId);
+    fds_volid_t volId(commitBlobReq->volId);
+	if (!(dataManager.features.isTestModeEnabled()) &&
+			(dataManager.dmMigrationMgr->shouldForwardIO(volId,
+														 commitBlobReq->dmt_version))) {
+		LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
+				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 
-        if (!(dataManager.features.isTestModeEnabled()) &&
-        		(dataManager.dmMigrationMgr->shouldForwardIO(volId,
-        													 commitBlobReq->dmt_version))) {
-            // DMT version must not match in order to forward the update!!!
-            if (commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion()) {
-                LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-                           << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
-                helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
-                                                                              commitBlobReq,
-                                                                              blob_version,
-                                                                              blob_obj_list,
-                                                                              meta_list);
-            }
-        } else {
-            // DMT mismatch must not happen if volume is in 'not forwarding' state
-            fds_verify(commitBlobReq->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion());
-        }
-    }
+		commitBlobReq->usedForMigration = true;
+		helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
+																	  commitBlobReq,
+																	  blob_version,
+																	  blob_obj_list,
+																	  meta_list);
+	}
 }
 
 void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -158,8 +158,15 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    delete dmRequest;
+    if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+    	delete dmRequest;
+    }
 }
 
+void CommitBlobTxHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                         	 	boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
+												Error const& e, DmRequest* dmRequest) {
+    delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

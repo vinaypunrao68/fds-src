@@ -597,6 +597,7 @@ function clean() {
                 rm -rf /${node}/memcheck/*.memcheck
 
 		rm -rf /${node}/var/logs/*.log*
+		rm -rf /${node}/var/logs/archive
 		rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null

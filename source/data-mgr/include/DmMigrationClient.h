@@ -19,7 +19,9 @@ class DataMgr;
 typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
-class DmMigrationClient {
+using incrementCountFunc = std::function<void()>;
+
+class DmMigrationClient : public DmMigrationBase {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
     		DataMgr& _dataMgr,
@@ -36,7 +38,9 @@ class DmMigrationClient {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error processBlobFilterSet();
+    Error processBlobFilterSet(incrementCountFunc inTracker);
+
+    Error processBlobFilterSet2();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
@@ -51,6 +55,7 @@ class DmMigrationClient {
     /* Forwarding Modifiers */
     void turnOnForwarding();
     void turnOffForwarding();
+    void turnOffForwardingInternal(); // No sending of finish messages
 
     /**
      * Sends a msg to say that we're done with forwarding.
@@ -80,6 +85,14 @@ class DmMigrationClient {
                                const std::map<std::string, int64_t>& source,
                                std::vector<std::string>& update_list,
                                std::vector<std::string>& delete_list);
+
+    /**
+     * Response handler - no-op for OK, otherwise fail migration.
+     */
+    void dmMigrationCheckResp(EPSvcRequest*, const Error&, boost::shared_ptr<std::string>);
+
+    // Called by MigrationMgr to clean up any ongoing residue due to migration
+    void abortMigration();
 
  private:
     /**
@@ -178,6 +191,11 @@ class DmMigrationClient {
     void resetSeqNumBlobs();
 
     /**
+     * Used between processBlobFilterSet part 1 and 2
+     */
+    DmCommitLog::ptr commitLog;
+
+    /**
      * sequence number apis for blobs.
      * When getSeqNumBlobDesc() is called, it will automatically increment.
      */
@@ -188,6 +206,13 @@ class DmMigrationClient {
      * Whether or not we're forwarding I/O during Active Migration
      */
     std::atomic<fds_bool_t> forwardingIO;
+
+    // Used for abort cleanup
+    fds_mutex  ssTakenScopeLock;
+    fds_bool_t snapshotTaken;
+
+    // Function pointer for incrementing count per message sent
+    incrementCountFunc trackerFunc;
 
 };  // DmMigrationClient
 

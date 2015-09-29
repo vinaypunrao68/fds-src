@@ -5,6 +5,7 @@ import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.commons.Fds;
 import com.formationds.nfs.BlockyVfs;
+import com.formationds.nfs.Counters;
 import com.formationds.nfs.ExportResolver;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
@@ -50,7 +51,7 @@ public class NfsTest extends BaseAmTest {
         asyncAm.start();
         resolver = mock(ExportResolver.class);
         when(resolver.exportId(anyString())).thenReturn(0);
-        amVfs = new BlockyVfs(asyncAm, resolver);
+        amVfs = new BlockyVfs(asyncAm, resolver, new Counters(), true);
     }
 
     @Before

@@ -334,7 +334,7 @@ QoSHTBDispatcher::ioProcessForEnqueue(fds_qid_t queue_id,
     auto& qstate = qstate_map[queue_id];
     fds_assert(qstate);
     fds_uint32_t queued_ios = qstate->handleIoEnqueue(io);
-    LOGDEBUG << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
+    LOGTRACE << "QoSHTBDispatcher: handling enqueue IO to queue 0x"
              << std::hex << queue_id << std::dec
              << " ; # of queued_ios " << (queued_ios+1);
 }
@@ -387,7 +387,7 @@ QoSHTBDispatcher::getNextQueueForDispatch()
             if (exp_assured_toks > 0) {
                 /* first put expired assured tokens to the avail_pool */
                 avail_pool.addTokens(exp_assured_toks);
-                LOGDEBUG << "QoSHTVDispatcher: moving "
+                LOGTRACE << "QoSHTVDispatcher: moving "
                          << exp_assured_toks << " expired assured toks from "
                          << "queue 0x" << std::hex << qstate->queue_id
                          << std::dec << " to the pool of available tokens";
@@ -398,7 +398,7 @@ QoSHTBDispatcher::getNextQueueForDispatch()
             if (state == TBQueueState::TBQUEUE_STATE_OK) {
                 /* we found a queue whose IO we will dispatch to meet its min_ios */
                 last_dispatch_qid = it->first;
-                LOGDEBUG << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
+                LOGTRACE << "QoSHTBDispatcher: dispatch (min_iops) io from queue 0x"
                          << std::hex << it->first << std::dec;
                 return it->first;
             } else if (state == TBQueueState::TBQUEUE_STATE_NO_ASSURED_TOKENS) {
@@ -428,7 +428,7 @@ QoSHTBDispatcher::getNextQueueForDispatch()
             if (bHasToks) {
                 min_wma_qstate->consumeTokens(1);
                 ret_qid = min_wma_qstate->queue_id;
-                LOGDEBUG << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
+                LOGTRACE << "QoSHTBDispatcher: dispatch (avail) io from queue 0x"
                     << std::hex << ret_qid << std::dec;
                 break;
             }
@@ -442,7 +442,7 @@ QoSHTBDispatcher::getNextQueueForDispatch()
             if ((assured_delay_microsec > 0) && (delay_microsec > assured_delay_microsec))
                 delay_microsec = assured_delay_microsec;
 
-            LOGDEBUG << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
+            LOGTRACE << "QoSHTBDispatcher: no tokens available, will sleep for " << delay_microsec;
             if (delay_microsec > 0) {
                 qda_lock.read_unlock();
                 boost::this_thread::sleep(boost::posix_time::microseconds(delay_microsec));

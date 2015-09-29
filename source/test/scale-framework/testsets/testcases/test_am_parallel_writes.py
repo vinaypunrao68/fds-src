@@ -26,7 +26,7 @@ from filechunkio import FileChunkIO
 import s3
 import samples
 import testsets.testcase as testcase
-import utils
+import lib
 import s3_volumes
 import file_generator
 

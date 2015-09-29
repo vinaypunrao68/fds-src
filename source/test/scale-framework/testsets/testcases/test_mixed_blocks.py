@@ -7,7 +7,7 @@ from boto.s3.key import Key
 import config
 import config_parser
 import users
-import utils
+import lib
 import samples
 import s3
 import testsets.testcase as testcase
@@ -120,7 +120,7 @@ class TestMixedBlocks(testcase.FDSTestCase):
         try:
 
             #Get the user token
-            userToken = str(utils.get_user_token("admin", "admin",
+            userToken = str(lib.get_user_token("admin", "admin",
                                                  self.om_ip_address, port, 0, 1))
             self.log.info("userToken = %s", userToken)
 

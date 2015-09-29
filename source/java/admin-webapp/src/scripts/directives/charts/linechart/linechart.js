@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@' },
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@', lineType: '@', minimumValue: '=?', maximumValue: '=?' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -37,6 +37,10 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             
             if ( !angular.isDefined( $scope.axisColor ) ){
                 $scope.axisColor = 'black';
+            }
+            
+            if ( !angular.isDefined( $scope.lineType ) ){
+                $scope.lineType = 'basis';
             }
             
             var el = d3.select( $element[0] ).select( '.line-chart' );
@@ -103,18 +107,27 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             // calculate off of real data.  Depends on max calculation
             var buildScales = function(){
                
+                
                 buildMax();
                 
                 $xMax = 1;
                 
-                if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                if ( angular.isDefined( $scope.maximumValue ) ){
+                    $xMax = $scope.maximumValue;
+                }
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        $scope.data.series[0].datapoints.length > 0 ){
                     var lastXPos = $scope.data.series[0].datapoints.length - 1;
                     $xMax = $scope.data.series[0].datapoints[lastXPos].x;
                 }
                 
                 $xMin = 0;
                 
-                if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                if ( angular.isDefined( $scope.minimumValue ) ){
+                    $xMin = $scope.minimumValue;
+                }
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        angular.isDefined( $scope.data.series[0].datapoints[0] ) ){
                     $xMin = $scope.data.series[0].datapoints[0].x;
                 }
                 
@@ -208,7 +221,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                     .y1( function( d ){
                         return $yScale( d.y );
                     })
-                    .interpolate( 'basis' );
+                    .interpolate( $scope.lineType );
                 
                 $svg.selectAll( '.line' )
 //                    .transition()
@@ -254,7 +267,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         
                         var val = 0;
                     
-                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                           $scope.data.series[0].datapoints.length > 0 ){
                             var pos = $scope.data.series[0].datapoints.length-1;
                             val = $xScale( $scope.data.series[0].datapoints[pos].x );
                         }
