@@ -29,7 +29,6 @@ class DmMigrationMgr : public DmMigrationBase {
     }
 
     inline bool isMigrationAborted() {
-    	// return std::atomic_load(migrationAborted, std::memory_order_relaxed);
     	return (migrationAborted.load(std::memory_order_relaxed));
     }
 
@@ -148,8 +147,7 @@ class DmMigrationMgr : public DmMigrationBase {
     Error applyTxState(DmIoMigrationTxState* txStateReq);
 
     /**
-     * Public interface to check whether or not a I/O should be forwarded as part of
-     * active migration.
+     * Public interface to check whether or not a I/O should be forwarded as part ofstion.
      * Params:
      * 1. volId - the volume in question.
      * 2. dmtVersion - dmtVersion of the commit to be sent.

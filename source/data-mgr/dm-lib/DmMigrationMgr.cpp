@@ -132,11 +132,6 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         sleep(delayStart);
     }
 
-    /**
-     * Make sure we're in a state able to dispatch migration.
-     */
-    // err = activateStateMachine(MIGR_EXECUTOR);
-
     // Test error return code
     fiu_do_on("abort.dm.migration",\
               LOGDEBUG << "abort.dm.migration fault point enabled";\
@@ -331,11 +326,6 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
-
-    /**
-     * Make sure we're in a state able to dispatch migration.
-     */
-    // err = activateStateMachine(MIGR_CLIENT);
 
     if (err != ERR_OK) {
     	abortMigration();
