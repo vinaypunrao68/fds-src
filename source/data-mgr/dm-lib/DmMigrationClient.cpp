@@ -572,7 +572,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     	abortMigration();
     }
 
-    commitReq->localCb(error, commitReq);
+    commitReq->localCb(error);
     // commitReq must not be accessed from this point.
     return;
 }

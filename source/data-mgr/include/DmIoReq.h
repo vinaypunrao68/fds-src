@@ -220,7 +220,7 @@ class DmIoCommitBlobTx : public DmRequest {
     virtual ~DmIoCommitBlobTx() {
     }
 
-    std::function<void(const Error &e, DmRequest *dmRequest)> localCb = NULL;
+    std::function<void(const Error &e)> localCb = NULL;
 
     virtual std::string log_string() const override {
         std::stringstream ret;
