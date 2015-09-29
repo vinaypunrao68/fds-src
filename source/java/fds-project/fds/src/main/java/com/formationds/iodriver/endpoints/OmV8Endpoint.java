@@ -10,7 +10,7 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.OmV8Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class OmV8Endpoint extends OmBaseEndpoint<OmV8Endpoint>
 {
@@ -34,7 +34,7 @@ public class OmV8Endpoint extends OmBaseEndpoint<OmV8Endpoint>
     @Override
     protected final void typedVisit(BaseHttpOperation<HttpsURLConnection> operation,
                                     HttpsURLConnection connection,
-                                    AbstractWorkloadEventListener listener)
+                                    WorkloadEventListener listener)
             throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");

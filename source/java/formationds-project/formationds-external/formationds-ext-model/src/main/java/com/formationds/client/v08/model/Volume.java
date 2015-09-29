@@ -43,6 +43,7 @@ public class Volume extends AbstractResource<Long> {
          */
         public Builder(Volume from, String name) {
             this(name);
+            // FIXME: status?
             tenant = from.getTenant();
             application = from.getApplication();
             settings = from.getSettings().newSettingsFrom();

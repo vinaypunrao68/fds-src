@@ -23,7 +23,7 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
 
@@ -149,7 +149,7 @@ public abstract class AbstractBaseHttpEndpoint<
 
     @Override
     public void visit(BaseHttpOperation<ConnectionT> operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
@@ -195,7 +195,7 @@ public abstract class AbstractBaseHttpEndpoint<
     
     @Override
     public void visit(Operation operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
@@ -523,7 +523,7 @@ public abstract class AbstractBaseHttpEndpoint<
 
     protected abstract void typedVisit(BaseHttpOperation<ConnectionT> operation,
                                        ConnectionT connection,
-                                       AbstractWorkloadEventListener listener)
+                                       WorkloadEventListener listener)
             throws ExecutionException;
 
     /**

@@ -6,7 +6,6 @@ import java.util.stream.Stream;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
@@ -29,16 +28,13 @@ public class ReportStop extends AbstractOperation
     @Override
     // @eclipseFormat:off
     public void accept(Endpoint endpoint,
-                       AbstractWorkloadEventListener reporter) throws ExecutionException
+                       WorkloadEventListener reporter) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (reporter == null) throw new NullArgumentException("reporter");
 
-        if (reporter instanceof WorkloadEventListener)
-        {
-            ((WorkloadEventListener)reporter).reportVolumeStop(_bucketName);
-        }
+        reporter.adHocStop.send(_bucketName);
     }
 
     @Override

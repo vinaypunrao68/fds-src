@@ -8,7 +8,7 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.HttpOperation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public abstract class AbstractHttpEndpoint<ThisT extends AbstractHttpEndpoint<ThisT>>
         extends AbstractBaseHttpEndpoint<ThisT, HttpURLConnection>
@@ -21,7 +21,7 @@ public abstract class AbstractHttpEndpoint<ThisT extends AbstractHttpEndpoint<Th
 
     @Override
     public void visit(BaseHttpOperation<HttpURLConnection> operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");

@@ -1,42 +1,33 @@
 package com.formationds.iodriver.validators;
 
+import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
-import com.formationds.iodriver.reporters.WorkloadEventListener.VolumeQosStats;
 
-public class AssuredRateValidator implements Validator
+public class AssuredRateValidator extends QosValidator
 {
     @Override
-    public boolean isValid(AbstractWorkloadEventListener listener)
+    public boolean isValid(Closeable context)
     {
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        if (listener instanceof WorkloadEventListener)
+        if (context == null) throw new NullArgumentException("context");
+        if (!(context instanceof Context))
         {
-            return isValid((WorkloadEventListener)listener);
+            throw new IllegalArgumentException("context must come from newContext().");
         }
-        else
-        {
-            return false;
-        }
-    }
-    
-    public boolean isValid(WorkloadEventListener listener)
-    {
-        if (listener == null) throw new NullArgumentException("listener");
         
+        Context typedContext = (Context)context;
+
         boolean failed = false;
         int totalAssuredIops = 0;
         double totalIops = 0.0;
-        for (String volumeName : listener.getVolumes())
+        for (String volumeName : typedContext.getVolumes())
         {
-            VolumeQosStats stats = listener.getStats(volumeName);
+            VolumeQosStats stats = typedContext.getStats(volumeName);
             VolumeQosSettings params = stats.params;
             VolumeQosPerformance perf = stats.performance;
             

@@ -1,8 +1,10 @@
 package com.formationds.iodriver;
 
+import java.io.Closeable;
+
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -21,7 +23,7 @@ public final class Driver
      */
     public Driver(Endpoint endpoint,
                   Workload workload,
-                  AbstractWorkloadEventListener listener,
+                  WorkloadEventListener listener,
                   Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -29,6 +31,7 @@ public final class Driver
         if (listener == null) throw new NullArgumentException("listener");
         if (validator == null) throw new NullArgumentException("validator");
 
+        _context = null;
         _endpoint = endpoint;
         _listener = listener;
         _workload = workload;
@@ -44,7 +47,10 @@ public final class Driver
     {
         if (!_isSetUp)
         {
-            getWorkload().setUp(getEndpoint(), getListener());
+            WorkloadEventListener listener = getListener();
+            
+            _context = getValidator().newContext(listener);
+            getWorkload().setUp(getEndpoint(), listener);
             _isSetUp = true;
         }
     }
@@ -78,7 +84,7 @@ public final class Driver
      * 
      * @return The current property value.
      */
-    public AbstractWorkloadEventListener getListener()
+    public WorkloadEventListener getListener()
     {
         return _listener;
     }
@@ -90,10 +96,9 @@ public final class Driver
      */
     public int getResult()
     {
-        AbstractWorkloadEventListener listener = getListener();
         Validator validator = getValidator();
 
-        if (validator.isValid(listener))
+        if (validator.isValid(_context))
         {
             return 0;
         }
@@ -147,7 +152,7 @@ public final class Driver
      * 
      * @param listener The property value to set.
      */
-    public void setListener(AbstractWorkloadEventListener listener)
+    public void setListener(WorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
 
@@ -156,7 +161,7 @@ public final class Driver
 
     public static Driver newDriver(Endpoint endpoint,
                                    Workload workload,
-                                   AbstractWorkloadEventListener listener,
+                                   WorkloadEventListener listener,
                                    Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -166,6 +171,8 @@ public final class Driver
 
         return new Driver(endpoint, workload, listener, validator);
     }
+    
+    private Closeable _context;
     
     /**
      * The service endpoint that {@link #_workload} is run on.
@@ -181,7 +188,7 @@ public final class Driver
     /**
      * Observes events from {@link #_workload}.
      */
-    private AbstractWorkloadEventListener _listener;
+    private WorkloadEventListener _listener;
 
     /**
      * The instructions to run on {@link #_endpoint}.

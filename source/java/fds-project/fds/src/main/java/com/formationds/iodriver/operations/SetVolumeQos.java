@@ -19,8 +19,8 @@ import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener.BeforeAfter;
 
 /**
  * Set the QoS parameters on a volume.
@@ -42,7 +42,7 @@ public final class SetVolumeQos extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       AbstractWorkloadEventListener reporter) throws ExecutionException
+                       WorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
@@ -54,6 +54,8 @@ public final class SetVolumeQos extends AbstractOmV8Operation
         GetVolume getter = new GetVolume(settings.getId(), volume -> volumeQosSetter[0] = volume);
         endpoint.visit(getter, reporter);
 
+        Volume oldVolume = volumeQosSetter[0];
+        
         JSONObject oyVeh = new JSONObject(ObjectModelHelper.toJSON(volumeQosSetter[0]));
         JSONObject qos = oyVeh.getJSONObject("qosPolicy");
         qos.put("priority", settings.getPriority());
@@ -72,14 +74,9 @@ public final class SetVolumeQos extends AbstractOmV8Operation
             throw new ExecutionException(e);
         }
         
-        if (reporter instanceof WorkloadEventListener)
-        {
-            Volume modifiedVolume = ObjectModelHelper.toObject(modifiedVolumeString, Volume.class);
+        Volume modifiedVolume = ObjectModelHelper.toObject(modifiedVolumeString, Volume.class);
             
-            ((WorkloadEventListener)reporter).reportVolumeModified(
-                    modifiedVolume.getName(),
-                    VolumeQosSettings.fromVolume(modifiedVolume));
-        }
+        reporter.volumeModified.send(new BeforeAfter<>(oldVolume, modifiedVolume));
     }
 
     @Override

@@ -7,7 +7,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Execute an arbitrary operation on an S3 endpoint.
@@ -23,7 +23,7 @@ public class LambdaS3Operation extends S3Operation
         // @eclipseFormat:off
         void accept(S3Endpoint endpoint,
                     AmazonS3Client client,
-                    AbstractWorkloadEventListener reporter) throws ExecutionException;
+                    WorkloadEventListener reporter) throws ExecutionException;
         // @eclipseFormat:on
     }
 
@@ -54,7 +54,7 @@ public class LambdaS3Operation extends S3Operation
     // @eclipseFormat:off
     public void accept(S3Endpoint endpoint,
                        AmazonS3Client client,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");

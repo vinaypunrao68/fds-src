@@ -6,7 +6,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An operation that runs on the OM.
@@ -17,7 +17,7 @@ public abstract class AbstractOmV7Operation extends AbstractHttpsOperation
     @Override
     public void accept(BaseHttpEndpoint<HttpsURLConnection> endpoint,
                        HttpsURLConnection connection,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

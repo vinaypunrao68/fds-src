@@ -1,76 +1,57 @@
 package com.formationds.iodriver.reporters;
 
-import java.io.IOException;
-import java.time.Instant;
+import java.io.Closeable;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.util.Strings;
+import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.logging.Logger;
-import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
 
 /**
  * Captures events from a {@link com.formationds.iodriver.workloads.Workload Workload} run.
  * 
  * Gathers statistics from those events. Passes on events to multiple consumers.
  */
-public final class WorkloadEventListener extends BaseWorkloadEventListener
+public final class WorkloadEventListener implements Closeable
 {
-    /**
-     * QoS statistics used by this class.
-     */
-    public final static class VolumeQosStats
+    public final static class BeforeAfter<T>
     {
-        /**
-         * QoS parameters.
-         */
-        public final VolumeQosSettings params;
-
-        /**
-         * Workload statistics.
-         */
-        public final VolumeQosPerformance performance;
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         */
-        public VolumeQosStats(VolumeQosSettings params)
+        public BeforeAfter(T before, T after)
         {
-            this(params, new VolumeQosPerformance());
+            _before = before;
+            _after = after;
         }
-
-        /**
-         * Duplicate this object.
-         * 
-         * @return A deep copy of this object.
-         */
-        public VolumeQosStats copy()
+        
+        public T getAfter()
         {
-            return new VolumeQosStats(params.copy(), performance.copy());
+            return _after;
         }
-
-        /**
-         * Constructor.
-         * 
-         * @param params QoS parameters.
-         * @param performance Workload statistics.
-         */
-        private VolumeQosStats(VolumeQosSettings params, VolumeQosPerformance performance)
+        
+        public T getBefore()
         {
-            if (params == null) throw new NullArgumentException("params");
-            if (performance == null) throw new NullArgumentException("performance");
-
-            this.params = params;
-            this.performance = performance;
+            return _before;
         }
+        
+        private final T _after;
+        
+        private final T _before;
     }
+    
+    public final transient Subject<Object> adHocStart;
+    
+    public final transient Subject<Object> adHocStop;
+
+    public final transient Subject<Operation> operationExecuted;
+    
+    public final transient Subject<Volume> volumeAdded;
+    
+    public final transient Subject<BeforeAfter<Volume>> volumeModified;
+    
+    public final transient Subject<Volume> volumeStatted;
 
     /**
      * Constructor.
@@ -87,186 +68,47 @@ public final class WorkloadEventListener extends BaseWorkloadEventListener
      */
     public WorkloadEventListener(Map<String, VolumeQosSettings> params, Logger logger)
     {
-        super(logger);
-        
         if (params == null) throw new NullArgumentException("params");
+        if (logger == null) throw new NullArgumentException("logger");
 
-        _volumeOps = new HashMap<>();
-        for (Entry<String, VolumeQosSettings> param : params.entrySet())
-        {
-            String volumeName = param.getKey();
-            if (volumeName == null)
-            {
-                throw new IllegalArgumentException("null key found in params.");
-            }
-            VolumeQosSettings value = param.getValue();
-            if (value == null)
-            {
-                throw new IllegalArgumentException("null value for params["
-                                                   + Strings.javaString(volumeName) + "].");
-            }
-            _volumeOps.put(volumeName, new VolumeQosStats(value));
-        }
-    }
-    
-    public void close() throws IOException
-    {
-        for (VolumeQosStats volumeStats : _volumeOps.values())
-        {
-            if (!volumeStats.performance.isStopped())
-            {
-                throw new IllegalStateException("Not all operations have finished!");
-            }
-        }
+        _logger = logger;
         
-        super.close();
+        adHocStart = new Subject<>();
+        adHocStop = new Subject<>();
+        operationExecuted = new Subject<>();
+        volumeAdded = new Subject<>();
+        volumeModified = new Subject<>();
+        volumeStatted = new Subject<>();
     }
     
-    @Override
+    public void close()
+    {
+        // Nothing for now.
+    }
+    
     public WorkloadEventListener copy()
     {
         return new WorkloadEventListener(new CopyHelper());
     }
-    
-    /**
-     * Get the instant the workload started its main body for a given volume. This method must not
-     * be called prior to the workload starting for that volume.
-     * 
-     * @param volume The volume name.
-     * 
-     * @return The instant the main body began executing for {@code volume}.
-     */
-    public Instant getStart(String volume)
+
+    protected class CopyHelper
     {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-        return stats.performance.getStart();
-    }
-
-    public VolumeQosStats getStats(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-
-        return stats.copy();
-    }
-
-    /**
-     * Get the instant the workload stopped its main body for a given volume. This method must not
-     * be called prior to the workload stopping for that volume.
-     * 
-     * @param volume The volume name.
-     * 
-     * @return The instant the main body finished executing for {@code volume}.
-     */
-    public Instant getStop(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-        return stats.performance.getStop();
-    }
-
-    public Set<String> getVolumes()
-    {
-        return new HashSet<>(_volumeOps.keySet());
-    }
-
-    public void reportIo(String volume, int count)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-        if (count <= 0) throw new IllegalArgumentException("count of IOs must be > 0.");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-        stats.performance.addOps(count);
-    }
-
-    public void reportVolumeAdded(String name, VolumeQosSettings params)
-    {
-        if (name == null) throw new NullArgumentException("name");
-        if (params == null) throw new NullArgumentException("params");
-
-        if (_volumeOps.containsKey(name))
-        {
-            throw new IllegalArgumentException("Volume " + name + " already exists.");
-        }
-
-        _volumeOps.put(name, new VolumeQosStats(params));
-    }
-    
-    public void reportVolumeModified(String name, VolumeQosSettings params)
-    {
-        if (name == null) throw new NullArgumentException("name");
-        if (params == null) throw new NullArgumentException("params");
-        
-        if (!_volumeOps.containsKey(name))
-        {
-            throw new IllegalArgumentException("Volume " + name + " does not exist.");
-        }
-        
-        _volumeOps.put(name, new VolumeQosStats(params));
-    }
-
-    public void reportVolumeStart(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-        stats.performance.startNow();
-    }
-    
-    public void reportVolumeStop(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _getStatsInternal(volume);
-        stats.performance.stopNow();
-    }
-
-    protected class CopyHelper extends AbstractWorkloadEventListener.CopyHelper
-    {
-        public final Map<String, VolumeQosStats> volumeOps =
-                WorkloadEventListener.this._volumeOps;
+        public final Logger logger = WorkloadEventListener.this._logger;
     }
     
     protected WorkloadEventListener(CopyHelper copyHelper)
     {
-        super(copyHelper);
+        if (copyHelper == null) throw new NullArgumentException("copyHelper");
         
-        Map<String, VolumeQosStats> newVolumeOps = new HashMap<>();
-        for (Entry<String, VolumeQosStats> entry : copyHelper.volumeOps.entrySet())
-        {
-            newVolumeOps.put(entry.getKey(), entry.getValue().copy());
-        }
+        _logger = copyHelper.logger;
         
-        _volumeOps = newVolumeOps;
+        adHocStart = new Subject<>();
+        adHocStop = new Subject<>();
+        operationExecuted = new Subject<>();
+        volumeAdded = new Subject<>();
+        volumeModified = new Subject<>();
+        volumeStatted = new Subject<>();
     }
     
-    /**
-     * The statistics for volumes.
-     */
-    private final Map<String, VolumeQosStats> _volumeOps;
-
-    /**
-     * Get the statistics for a given volume. Must not be called for a volume that has not been
-     * added via {@link #addVolume(String, VolumeQosSettings)}.
-     * 
-     * @param volume The volume name.
-     * 
-     * @return The volume's statistics.
-     */
-    private VolumeQosStats _getStatsInternal(String volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        VolumeQosStats stats = _volumeOps.get(volume);
-        if (stats == null)
-        {
-            throw new IllegalArgumentException("No such volume: " + volume);
-        }
-
-        return stats;
-    }
+    private final Logger _logger;
 }

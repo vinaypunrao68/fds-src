@@ -3,13 +3,6 @@ package com.formationds.iodriver.endpoints;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
-import org.apache.log4j.Appender;
-import org.apache.log4j.Layout;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.spi.ErrorHandler;
-import org.apache.log4j.spi.Filter;
-import org.apache.log4j.spi.LoggingEvent;
-
 import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -20,7 +13,7 @@ import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.OmBaseEndpoint.AuthToken;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An S3 service endpoint.
@@ -65,7 +58,7 @@ public final class S3Endpoint implements Endpoint
      */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");
@@ -86,7 +79,7 @@ public final class S3Endpoint implements Endpoint
     
     @Override
     public void visit(Operation operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");
@@ -138,47 +131,47 @@ public final class S3Endpoint implements Endpoint
             AuthToken authToken = _omEndpoint.getAuthToken();
             
             // TODO: Logging should be configurable, but for now, we need this to be quiet.
-            LogManager.getRootLogger().removeAllAppenders();
-            LogManager.getRootLogger().addAppender(new Appender()
-            {
-                @Override public void addFilter(Filter newFilter) { }
-                @Override public void clearFilters() { }
-                @Override public void close() { }
-                @Override public void doAppend(LoggingEvent event) { }
-                @Override public void setErrorHandler(ErrorHandler errorHandler) { }
-                @Override public void setLayout(Layout layout) { }
-                @Override public void setName(String name) { }
-
-                @Override
-                public ErrorHandler getErrorHandler()
-                {
-                    return null;
-                }
-
-                @Override
-                public Filter getFilter()
-                {
-                    return null;
-                }
-
-                @Override
-                public Layout getLayout()
-                {
-                    return null;
-                }
-
-                @Override
-                public String getName()
-                {
-                    return "FdsNullAppender";
-                }
-
-                @Override
-                public boolean requiresLayout()
-                {
-                    return false;
-                }
-            });
+//            LogManager.getRootLogger().removeAllAppenders();
+//            LogManager.getRootLogger().addAppender(new Appender()
+//            {
+//                @Override public void addFilter(Filter newFilter) { }
+//                @Override public void clearFilters() { }
+//                @Override public void close() { }
+//                @Override public void doAppend(LoggingEvent event) { }
+//                @Override public void setErrorHandler(ErrorHandler errorHandler) { }
+//                @Override public void setLayout(Layout layout) { }
+//                @Override public void setName(String name) { }
+//
+//                @Override
+//                public ErrorHandler getErrorHandler()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public Filter getFilter()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public Layout getLayout()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public String getName()
+//                {
+//                    return "FdsNullAppender";
+//                }
+//
+//                @Override
+//                public boolean requiresLayout()
+//                {
+//                    return false;
+//                }
+//            });
             
 //            @SuppressWarnings("unchecked")
 //            List<org.apache.log4j.Logger> loggers =

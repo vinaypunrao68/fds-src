@@ -10,7 +10,7 @@ import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.OmV7Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An endpoint connecting to an FDS Orchestration Manager.
@@ -39,7 +39,7 @@ public class OmV7Endpoint extends OmBaseEndpoint<OmV7Endpoint>
     @Override
     protected final void typedVisit(BaseHttpOperation<HttpsURLConnection> operation,
                                     HttpsURLConnection connection,
-                                    AbstractWorkloadEventListener listener)
+                                    WorkloadEventListener listener)
             throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");

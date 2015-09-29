@@ -9,7 +9,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public final class GetObjects extends S3Operation
 {
@@ -32,7 +32,7 @@ public final class GetObjects extends S3Operation
     @Override
     public void accept(S3Endpoint endpoint,
                        AmazonS3Client client,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");

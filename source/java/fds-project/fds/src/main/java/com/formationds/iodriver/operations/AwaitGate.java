@@ -8,7 +8,7 @@ import java.util.stream.Stream;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class AwaitGate extends AbstractOperation
 {
@@ -20,7 +20,7 @@ public class AwaitGate extends AbstractOperation
     }
     
     public void accept(Endpoint endpoint,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");

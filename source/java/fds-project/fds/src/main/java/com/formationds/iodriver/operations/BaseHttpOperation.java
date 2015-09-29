@@ -4,7 +4,7 @@ import java.net.URI;
 
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public interface BaseHttpOperation<ConnectionT> extends Operation
 {
@@ -20,7 +20,7 @@ public interface BaseHttpOperation<ConnectionT> extends Operation
      */
     void accept(BaseHttpEndpoint<ConnectionT> endpoint,
                 ConnectionT connection,
-                AbstractWorkloadEventListener reporter) throws ExecutionException;
+                WorkloadEventListener reporter) throws ExecutionException;
 
     /**
      * Get the type of connection this operation requires.

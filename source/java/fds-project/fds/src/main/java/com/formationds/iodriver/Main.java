@@ -11,10 +11,7 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.NullWorkloadEventListener;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
@@ -116,32 +113,6 @@ public final class Main
         }
     }
     
-    private static AbstractWorkloadEventListener getCompatibleListener(Workload workload,
-                                                                       Logger logger)
-    {
-        if (workload == null) throw new NullArgumentException("workload");
-        if (logger == null) throw new NullArgumentException("logger");
-        
-        Class<?> neededListenerClass = workload.getListenerType();
-        if (neededListenerClass.isAssignableFrom(BaseWorkloadEventListener.class))
-        {
-            return new BaseWorkloadEventListener(logger);
-        }
-        else if (neededListenerClass.isAssignableFrom(WorkloadEventListener.class))
-        {
-            return new WorkloadEventListener(logger);
-        }
-        else if (neededListenerClass.isAssignableFrom(NullWorkloadEventListener.class))
-        {
-            return new NullWorkloadEventListener(logger);
-        }
-        else
-        {
-            throw new UnsupportedOperationException(
-                    "Cannot find a listener of type " + neededListenerClass.getName() + ".");
-        }
-    }
-    
     /**
      * Display help if necessary.
      *
@@ -182,12 +153,9 @@ public final class Main
         {
             Workload workload = config.getSelectedWorkload();
             
-            try (AbstractWorkloadEventListener listener =
-                    validate ? getCompatibleListener(workload, config.getLogger())
-                             : new NullWorkloadEventListener(config.getLogger());
+            try (WorkloadEventListener listener = new WorkloadEventListener(config.getLogger());
                  ConsoleProgressReporter reporter =
-                    new ConsoleProgressReporter(System.out,
-                                                listener.operationExecuted))
+                    new ConsoleProgressReporter(System.out, listener))
             {
                 Endpoint endpoint = getCompatibleEndpoint(workload);
                 Validator validator = validate

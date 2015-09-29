@@ -5,7 +5,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An operation on an S3 endpoint.
@@ -23,11 +23,11 @@ public abstract class S3Operation extends AbstractOperation
      */
     public abstract void accept(S3Endpoint endpoint,
                                 AmazonS3Client client,
-                                AbstractWorkloadEventListener listener) throws ExecutionException;
+                                WorkloadEventListener listener) throws ExecutionException;
     
     @Override
     public void accept(Endpoint endpoint,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");

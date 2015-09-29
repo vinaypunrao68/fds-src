@@ -17,24 +17,26 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.operations.categories.IoOperation;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Create an object in an S3 bucket.
  */
-public final class CreateObject extends S3Operation
+public final class CreateObject extends S3Operation implements IoOperation
 {
     /**
-     * Constructor. Actions will be reported.
+     * Constructor.
      * 
      * @param bucketName The name of the bucket to create the object in.
      * @param key The key of the object to create.
      * @param content The content of the object to create.
+     * @param doReporting Whether this object's actions should be reported to workload listener.
+     *            Should be false during setup or warmup or teardown, for example.
      */
     public CreateObject(String bucketName, String key, String content)
     {
-        this(bucketName, key, content, true);
+        this(bucketName, key, getBytes(content));
     }
 
     /**
@@ -45,36 +47,10 @@ public final class CreateObject extends S3Operation
      * @param content The content of the object to create.
      * @param doReporting Whether this object's actions should be reported to workload listener.
      *            Should be false during setup or warmup or teardown, for example.
-     */
-    public CreateObject(String bucketName, String key, String content, boolean doReporting)
-    {
-        this(bucketName, key, getBytes(content), doReporting);
-    }
-
-    /**
-     * Constructor. Actions will be reported.
-     *
-     * @param bucketName The name of the bucket to create the object in.
-     * @param key The key of the object to create.
-     * @param content The content of the object to create.
      */
     public CreateObject(String bucketName, String key, byte[] content)
     {
-        this(bucketName, key, content, true);
-    }
-    
-    /**
-     * Constructor.
-     * 
-     * @param bucketName The name of the bucket to create the object in.
-     * @param key The key of the object to create.
-     * @param content The content of the object to create.
-     * @param doReporting Whether this object's actions should be reported to workload listener.
-     *            Should be false during setup or warmup or teardown, for example.
-     */
-    public CreateObject(String bucketName, String key, byte[] content, boolean doReporting)
-    {
-        this(bucketName, key, () -> toInputStream(content), getLength(content), doReporting);
+        this(bucketName, key, () -> toInputStream(content), getLength(content));
     }
 
     /**
@@ -90,8 +66,7 @@ public final class CreateObject extends S3Operation
     public CreateObject(String bucketName,
                         String key,
                         Supplier<InputStream> input,
-                        long contentLength,
-                        boolean doReporting)
+                        long contentLength)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
         if (key == null) throw new NullArgumentException("key");
@@ -102,13 +77,12 @@ public final class CreateObject extends S3Operation
         _contentLength = contentLength;
         _key = key;
         _input = input;
-        _doReporting = doReporting;
     }
 
     @Override
     public void accept(S3Endpoint endpoint,
                        AmazonS3Client client,
-                       AbstractWorkloadEventListener reporter) throws ExecutionException
+                       WorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
@@ -131,21 +105,28 @@ public final class CreateObject extends S3Operation
         {
             throw new ExecutionException("Error closing input stream.", e);
         }
-
-        if (_doReporting && reporter instanceof WorkloadEventListener)
-        {
-            ((WorkloadEventListener)reporter).reportIo(_bucketName, IO_COST);
-        }
     }
     
     @Override
     public void accept(Endpoint endpoint,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (listener == null) throw new NullArgumentException("listener");
         
         endpoint.visit(this, listener);
+    }
+
+    @Override
+    public int getCost()
+    {
+        return _IO_COST;
+    }
+
+    @Override
+    public String getVolumeName()
+    {
+        return _bucketName;
     }
 
     /**
@@ -157,11 +138,6 @@ public final class CreateObject extends S3Operation
      * The length in bytes of the object's content.
      */
     private final long _contentLength;
-
-    /**
-     * Whether actions should be reported.
-     */
-    private final boolean _doReporting;
 
     /**
      * Supplies content when creating objects.
@@ -176,14 +152,14 @@ public final class CreateObject extends S3Operation
     /**
      * The number of system I/Os this operation costs.
      */
-    private static final int IO_COST;
+    private static final int _IO_COST;
     
     /**
      * Static constructor.
      */
     static
     {
-        IO_COST = 3;
+        _IO_COST = 3;
     }
     
     @Override
@@ -192,7 +168,6 @@ public final class CreateObject extends S3Operation
         return Stream.concat(super.toStringMembers(),
                              Stream.of(memberToString("bucketName", _bucketName),
                                        memberToString("contentLength", _contentLength),
-                                       memberToString("doReporting", _doReporting),
                                        memberToString("key", _key)));
     }
     

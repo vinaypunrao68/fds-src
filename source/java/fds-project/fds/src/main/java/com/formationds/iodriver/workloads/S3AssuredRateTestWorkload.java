@@ -26,7 +26,6 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.google.common.collect.ImmutableMap;
@@ -102,12 +101,6 @@ public final class S3AssuredRateTestWorkload extends Workload
     public Class<?> getEndpointType()
     {
         return FdsEndpoint.class;
-    }
-    
-    @Override
-    public Class<?> getListenerType()
-    {
-        return WorkloadEventListener.class;
     }
     
     @Override

@@ -30,7 +30,6 @@ import com.formationds.iodriver.model.ComparisonDataFormat;
 import com.formationds.iodriver.model.ExtendedObjectManifest;
 import com.formationds.iodriver.model.FullObjectManifest;
 import com.formationds.iodriver.model.ObjectManifest;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.gson.Gson;
 
@@ -303,7 +302,7 @@ public final class Main
         
         // FIXME: Log operations should be configurable.
         GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content, true);
-        AbstractWorkloadEventListener listener = new WorkloadEventListener(logger);
+        WorkloadEventListener listener = new WorkloadEventListener(logger);
         getSystemConfig.runOn(endpoint, listener);
         
         // Now gather individual volume contents.

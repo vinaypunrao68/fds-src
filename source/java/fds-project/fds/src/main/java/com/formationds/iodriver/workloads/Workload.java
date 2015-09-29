@@ -22,7 +22,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 
 /**
@@ -37,8 +37,6 @@ public abstract class Workload
     public abstract boolean doDryRun();
     
     public abstract Class<?> getEndpointType();
-    
-    public abstract Class<?> getListenerType();
     
     /**
      * Get a validator that will interpret this workload well.
@@ -60,7 +58,7 @@ public abstract class Workload
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(Endpoint endpoint, AbstractWorkloadEventListener listener)
+    public final void runOn(Endpoint endpoint, WorkloadEventListener listener)
             throws ExecutionException
     // @eclipseFormat:on
     {
@@ -80,11 +78,8 @@ public abstract class Workload
                         ExceptionThrowingConsumer<Operation, ExecutionException> exec =
                                 op ->
                                 {
-                                    if (getLogOperations())
-                                    {
-                                        listener.reportOperationExecution(op);
-                                    }
                                     endpoint.visit(op, listener);
+                                    listener.operationExecuted.send(op);
                                 };
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
@@ -175,7 +170,7 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public void setUp(Endpoint endpoint,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -191,7 +186,7 @@ public abstract class Workload
                 {
                     if (getLogOperations())
                     {
-                        listener.reportOperationExecution(op);
+                        listener.operationExecuted.send(op);
                     }
                     endpoint.visit(op, listener);
                 });
@@ -208,7 +203,7 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public final void tearDown(Endpoint endpoint,
-                               AbstractWorkloadEventListener listener) throws ExecutionException
+                               WorkloadEventListener listener) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
@@ -224,7 +219,7 @@ public abstract class Workload
                 {
                     if (getLogOperations())
                     {
-                        listener.reportOperationExecution(op);
+                        listener.operationExecuted.send(op);
                     }
                     endpoint.visit(op, listener);
                 });

@@ -16,8 +16,7 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CallChildWorkload;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
-import com.formationds.iodriver.reporters.BaseWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class BenchmarkPrefixSearch extends Workload
 {
@@ -42,14 +41,8 @@ public class BenchmarkPrefixSearch extends Workload
     }
     
     @Override
-    public Class<?> getListenerType()
-    {
-        return BaseWorkloadEventListener.class;
-    }
-    
-    @Override
     public final void setUp(Endpoint endpoint,
-                            AbstractWorkloadEventListener listener) throws ExecutionException
+                            WorkloadEventListener listener) throws ExecutionException
     {
         super.setUp(endpoint, listener);
         

@@ -1,29 +1,30 @@
 package com.formationds.iodriver.operations;
 
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.formationds.apis.MediaPolicy;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Get the QoS settings for a volume.
  */
-public final class StatVolume extends AbstractOmV7Operation
+@SuppressWarnings("serial")
+public final class StatVolume extends AbstractOmV8Operation
 {
     /**
      * Constructor.
@@ -41,9 +42,9 @@ public final class StatVolume extends AbstractOmV7Operation
     }
 
     @Override
-    public void accept(OmV7Endpoint endpoint,
+    public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       AbstractWorkloadEventListener reporter) throws ExecutionException
+                       WorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
@@ -59,38 +60,18 @@ public final class StatVolume extends AbstractOmV7Operation
             throw new ExecutionException(e);
         }
 
-        JSONArray volumes;
-        try
-        {
-            volumes = new JSONArray(content);
-        }
-        catch (JSONException e)
-        {
-            throw new ExecutionException("Error parsing response: " + content, e);
-        }
+        List<Volume> volumes = ObjectModelHelper.toObject(content, _VOLUME_LIST_TYPE);
 
         boolean found = false;
-        for (int i = 0; i != volumes.length(); ++i)
+        for (Volume volume : volumes)
         {
+            reporter.volumeStatted.send(volume);
+            
             // FIXME: Need to deal with tenants.
-            JSONObject voldesc = volumes.optJSONObject(i);
-            if (voldesc != null && voldesc.getString("name").equals(_volumeName))
+            if (volume.getName().equals(_volumeName))
             {
-                JSONObject policy = voldesc.getJSONObject("policy");
-
-                int assured_rate = voldesc.getInt("sla");
-                int throttle_rate = voldesc.getInt("limit");
-                int priority = voldesc.getInt("priority");
-                long commit_log_retention = voldesc.getLong("commit_log_retention");
-                MediaPolicy mediaPolicy = MediaPolicy.valueOf(policy.getString("mediaPolicy"));
-                long id = Long.parseLong(voldesc.getString("id"));
-
-                _consumer.accept(new VolumeQosSettings(id,
-                                                       assured_rate,
-                                                       throttle_rate,
-                                                       priority,
-                                                       commit_log_retention,
-                                                       mediaPolicy));
+                _consumer.accept(VolumeQosSettings.fromVolume(volume));
+                
                 found = true;
                 break;
             }
@@ -104,7 +85,7 @@ public final class StatVolume extends AbstractOmV7Operation
     @Override
     public URI getRelativeUri()
     {
-        return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
+        return Fds.Api.V08.getBase().relativize(Fds.Api.V08.getVolumes());
     }
 
     @Override
@@ -121,6 +102,11 @@ public final class StatVolume extends AbstractOmV7Operation
                                        memberToString("volumeName", _volumeName)));
     }
     
+    static
+    {
+        _VOLUME_LIST_TYPE = new TypeToken<List<Volume>>() {}.getType();
+    }
+    
     /**
      * Where to send the settings.
      */
@@ -130,4 +116,6 @@ public final class StatVolume extends AbstractOmV7Operation
      * The name of the volume to stat.
      */
     private final String _volumeName;
+    
+    private static final Type _VOLUME_LIST_TYPE;
 }

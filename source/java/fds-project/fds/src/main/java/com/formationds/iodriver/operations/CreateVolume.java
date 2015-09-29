@@ -18,8 +18,6 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class CreateVolume extends AbstractOmV8Operation
@@ -34,7 +32,7 @@ public class CreateVolume extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       AbstractWorkloadEventListener listener) throws ExecutionException
+                       WorkloadEventListener listener) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
@@ -61,14 +59,7 @@ public class CreateVolume extends AbstractOmV8Operation
             throw new ExecutionException(e);
         }
 
-        if (listener instanceof WorkloadEventListener)
-        {
-            Volume addedVolume = ObjectModelHelper.toObject(addedVolumeString, Volume.class);
-            
-            ((WorkloadEventListener)listener).reportVolumeAdded(
-                    _name,
-                    VolumeQosSettings.fromVolume(addedVolume));
-        }
+        listener.volumeAdded.send(ObjectModelHelper.toObject(addedVolumeString, Volume.class));
     }
 
     @Override

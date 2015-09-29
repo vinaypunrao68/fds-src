@@ -6,7 +6,7 @@ import com.formationds.iodriver.operations.OmV7Operation;
 import com.formationds.iodriver.operations.OmV8Operation;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public final class FdsEndpoint implements Endpoint
 {
@@ -45,7 +45,7 @@ public final class FdsEndpoint implements Endpoint
 
     @Override
     public void visit(Operation operation,
-                      AbstractWorkloadEventListener listener) throws ExecutionException
+                      WorkloadEventListener listener) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (listener == null) throw new NullArgumentException("listener");

@@ -13,7 +13,7 @@ import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public final class GetVolume extends AbstractOmV8Operation
 {
@@ -28,7 +28,7 @@ public final class GetVolume extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       AbstractWorkloadEventListener reporter) throws ExecutionException
+                       WorkloadEventListener reporter) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");

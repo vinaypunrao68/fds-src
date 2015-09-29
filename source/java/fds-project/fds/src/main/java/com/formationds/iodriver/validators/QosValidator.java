@@ -1,68 +1,259 @@
 package com.formationds.iodriver.validators;
 
-import java.time.Duration;
+import java.io.Closeable;
+import java.io.IOException;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.reporters.AbstractWorkloadEventListener;
+import com.formationds.iodriver.model.VolumeQosPerformance;
+import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.operations.categories.IoOperation;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
-import com.formationds.iodriver.reporters.WorkloadEventListener.VolumeQosStats;
+import com.formationds.iodriver.reporters.WorkloadEventListener.BeforeAfter;
 
-// TODO: Intended to verify that volumes get their assured IOPS without exceeding their throttles.
-//       Kind of works, not complete.
-public final class QosValidator implements Validator
+public abstract class QosValidator implements Validator
 {
-    @Override
-    public boolean isValid(AbstractWorkloadEventListener listener)
+    public final class Context implements Closeable
     {
-        if (listener == null) throw new NullArgumentException("listener");
+        public Context(WorkloadEventListener listener)
+        {
+            if (listener == null) throw new NullArgumentException("listener");
+            
+            _volumeOps = new HashMap<>();
 
-        if (listener instanceof WorkloadEventListener)
-        {
-            return isValid((WorkloadEventListener)listener);
+            // We're ready for events now.
+            _operationExecutedToken = listener.operationExecuted.register(this::_onOperationExecuted);
+            _volumeAddedToken = listener.volumeAdded.register(this::_onVolumeAdded);
+            _volumeModifiedToken = listener.volumeModified.register(this::_onVolumeModified);
+            _volumeStattedToken = listener.volumeStatted.register(this::_onVolumeStatted);
+            _volumeStartToken = listener.adHocStart.register(this::_onVolumeStart);
+            _volumeStopToken = listener.adHocStop.register(this::_onVolumeStop);
         }
-        else
+        
+        @Override
+        public void close() throws IOException
         {
-            return false;
+            for (VolumeQosStats volumeStats : _volumeOps.values())
+            {
+                if (!volumeStats.performance.isStopped())
+                {
+                    throw new IllegalStateException("Not all operations have finished!");
+                }
+            }
+            
+            _operationExecutedToken.close();
+            _volumeAddedToken.close();
+            _volumeModifiedToken.close();
+            _volumeStattedToken.close();
+            _volumeStartToken.close();
+            _volumeStopToken.close();
+        }
+        
+        public VolumeQosStats getStats(String volume)
+        {
+            if (volume == null) throw new NullArgumentException("volume");
+
+            VolumeQosStats stats = _getStatsInternal(volume);
+
+            return stats.copy();
+        }
+
+        public Instant getVolumeStart(String volume)
+        {
+            if (volume == null) throw new NullArgumentException("volume");
+            
+            VolumeQosStats stats = _getStatsInternal(volume);
+            return stats.performance.getStart();
+        }
+        
+        public Instant getVolumeStop(String volume)
+        {
+            if (volume == null) throw new NullArgumentException("volume");
+            
+            VolumeQosStats stats = _getStatsInternal(volume);
+            return stats.performance.getStop();
+        }
+        
+        public Set<String> getVolumes()
+        {
+            return new HashSet<>(_volumeOps.keySet());
+        }
+
+        private final Closeable _operationExecutedToken;
+        
+        private final Closeable _volumeAddedToken;
+        
+        private final Closeable _volumeModifiedToken;
+        
+        private final Closeable _volumeStartToken;
+        
+        private final Closeable _volumeStattedToken;
+        
+        private final Closeable _volumeStopToken;
+        
+        /**
+         * The statistics for volumes.
+         */
+        private final Map<String, VolumeQosStats> _volumeOps;
+
+        /**
+         * Get the statistics for a given volume. Must not be called for a volume that has not been
+         * added via {@link #addVolume(String, VolumeQosSettings)}.
+         * 
+         * @param volume The volume name.
+         * 
+         * @return The volume's statistics.
+         */
+        private VolumeQosStats _getStatsInternal(String volume)
+        {
+            if (volume == null) throw new NullArgumentException("volume");
+
+            VolumeQosStats stats = _volumeOps.get(volume);
+            if (stats == null)
+            {
+                throw new IllegalArgumentException("No such volume: " + volume);
+            }
+
+            return stats;
+        }
+        
+        private void _onOperationExecuted(Operation operation)
+        {
+            if (operation instanceof IoOperation)
+            {
+                IoOperation typedOperation = (IoOperation)operation;
+                VolumeQosStats stats = _getStatsInternal(typedOperation.getVolumeName());
+                stats.performance.addOps(typedOperation.getCost());
+            }
+        }
+        
+        private void _onVolumeAdded(Volume volume)
+        {
+            String name = volume.getName();
+            _volumeOps.put(name, new VolumeQosStats(volume));
+        }
+        
+        private void _onVolumeModified(BeforeAfter<Volume> volume)
+        {
+            Volume before = volume.getBefore();
+            Volume after = volume.getAfter();
+
+            String oldName = before.getName();
+            String newName = after.getName();
+            
+            VolumeQosStats stats = _getStatsInternal(oldName);
+            if (!oldName.equals(newName))
+            {
+                _volumeOps.remove(oldName);
+            }
+            _volumeOps.put(newName, new VolumeQosStats(VolumeQosSettings.fromVolume(after),
+                                                       stats.performance));
+        }
+        
+        private void _onVolumeStart(Object volumeName)
+        {
+            VolumeQosStats stats = _volumeOps.get(volumeName);
+            if (stats != null)
+            {
+                stats.performance.startNow();
+            }
+        }
+        
+        private void _onVolumeStatted(Volume volume)
+        {
+            String name = volume.getName();
+            VolumeQosStats stats = _volumeOps.get(name);
+            if (stats == null)
+            {
+                stats = new VolumeQosStats(VolumeQosSettings.fromVolume(volume));
+            }
+            else
+            {
+                stats = new VolumeQosStats(VolumeQosSettings.fromVolume(volume),
+                                           stats.performance);
+            }
+            _volumeOps.put(name, stats);
+        }
+        
+        private void _onVolumeStop(Object volumeName)
+        {
+            VolumeQosStats stats = _volumeOps.get(volumeName);
+            if (stats != null)
+            {
+                stats.performance.stopNow();
+            }
         }
     }
     
-    public boolean isValid(WorkloadEventListener listener)
+    /**
+     * QoS statistics used by this class.
+     */
+    public final static class VolumeQosStats
+    {
+        /**
+         * QoS parameters.
+         */
+        public final VolumeQosSettings params;
+
+        /**
+         * Workload statistics.
+         */
+        public final VolumeQosPerformance performance;
+
+        /**
+         * Constructor.
+         * 
+         * @param params QoS parameters.
+         */
+        public VolumeQosStats(VolumeQosSettings params)
+        {
+            this(params, new VolumeQosPerformance());
+        }
+        
+        public VolumeQosStats(Volume volume)
+        {
+            this(VolumeQosSettings.fromVolume(volume));
+        }
+
+        /**
+         * Duplicate this object.
+         * 
+         * @return A deep copy of this object.
+         */
+        public VolumeQosStats copy()
+        {
+            return new VolumeQosStats(params.copy(), performance.copy());
+        }
+
+        /**
+         * Constructor.
+         * 
+         * @param params QoS parameters.
+         * @param performance Workload statistics.
+         */
+        private VolumeQosStats(VolumeQosSettings params, VolumeQosPerformance performance)
+        {
+            if (params == null) throw new NullArgumentException("params");
+            if (performance == null) throw new NullArgumentException("performance");
+
+            this.params = params;
+            this.performance = performance;
+        }
+    }
+    
+    @Override
+    public Context newContext(WorkloadEventListener listener)
     {
         if (listener == null) throw new NullArgumentException("listener");
         
-        boolean failed = false;
-        for (String volumeName : listener.getVolumes())
-        {
-            VolumeQosStats stats = listener.getStats(volumeName);
-
-            Instant start = stats.performance.getStart();
-            Instant stop = stats.performance.getStop();
-            if (start == null)
-            {
-                throw new IllegalStateException("Volume " + volumeName + " has not been started.");
-            }
-            if (stop == null)
-            {
-                throw new IllegalStateException("Volume " + volumeName + " has not been stopped.");
-            }
-
-            Duration duration = Duration.between(start, stop);
-            double durationInSeconds = duration.toMillis() / 1000.0;
-            double iops = stats.performance.getOps() / durationInSeconds;
-
-            System.out.println(volumeName + "(A:" + stats.params.getIopsAssured() + ", T:"
-                               + stats.params.getIopsThrottle() + ", P:"
-                               + stats.params.getPriority() + ")" + ": "
-                               + stats.performance.getOps() + " / " + durationInSeconds + " = "
-                               + iops + ".");
-
-            if (iops < stats.params.getIopsAssured() || iops > stats.params.getIopsThrottle())
-            {
-                failed = true;
-            }
-        }
-
-        return !failed;
+        Context retval = new Context(listener);
+        
+        return retval;
     }
 }
