@@ -54,7 +54,9 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
      */
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
-	dmReq->localCb = std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
+
+	(static_cast<DmIoCommitBlobTx*>(dmReq))->localCb =
+								std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
 								this,
 								asyncHdr,
 								message,
