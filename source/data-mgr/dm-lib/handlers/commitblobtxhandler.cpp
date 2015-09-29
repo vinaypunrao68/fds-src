@@ -54,12 +54,14 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
      */
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
-	dmReq->localCb = std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
+
+	(static_cast<DmIoCommitBlobTx*>(dmReq))->localCb =
+								std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
 								this,
 								asyncHdr,
 								message,
 								std::placeholders::_1,
-								std::placeholders::_2);
+								dmReq);
 
 
     addToQueue(dmReq);
@@ -85,7 +87,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
                                                      std::placeholders::_3,
                                                      std::placeholders::_4,
                                                      std::placeholders::_5,
-                                                     typedRequest));
+                                                     dmRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
         helper.cancel();
@@ -104,7 +106,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           BlobObjList::const_ptr const& blob_obj_list,
                                           MetaDataList::const_ptr const& meta_list,
                                           fds_uint64_t const blobSize,
-                                          DmIoCommitBlobTx* commitBlobReq) {
+										  DmRequest* dmRequest) {
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
     QueueHelper helper(dataManager, commitBlobReq);
     // If this is a piggy-back request, do not notify QoS
     if (!commitBlobReq->orig_request) {
@@ -159,6 +162,7 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
     if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+    	LOGDEBUG << "Deleting request" << dmRequest;
     	delete dmRequest;
     }
 }

@@ -218,9 +218,10 @@ class DmIoCommitBlobTx : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
     }
     virtual ~DmIoCommitBlobTx() {
+    	LOGDEBUG << "NEIL DEBUG destructor for commitBlob for " << blob_name << " called";
     }
 
-    std::function<void(const Error &e, DmRequest *dmRequest)> localCb = NULL;
+    std::function<void(const Error &e)> localCb;
 
     virtual std::string log_string() const override {
         std::stringstream ret;
