@@ -54,6 +54,13 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
      */
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
+	dmReq->localCb = std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
+								this,
+								asyncHdr,
+								message,
+								std::placeholders::_1,
+								std::placeholders::_2);
+
 
     addToQueue(dmReq);
 }
@@ -130,6 +137,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 														 commitBlobReq->dmt_version))) {
 		LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
 				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+
+		commitBlobReq->usedForMigration = true;
 		helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
 																	  commitBlobReq,
 																	  blob_version,
@@ -148,8 +157,15 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
             static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    delete dmRequest;
+    if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+    	delete dmRequest;
+    }
 }
 
+void CommitBlobTxHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                         	 	boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
+												Error const& e, DmRequest* dmRequest) {
+    delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

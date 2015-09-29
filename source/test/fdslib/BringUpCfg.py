@@ -462,9 +462,10 @@ class FdsNodeConfig(FdsConfig):
                     break
             else:
                 #For AWS cluster each node port is same but ip addr is diff, so use ipaddress
-                if self.nd_conf_dict['ip'] == node.address.ipv4address:
+                if self.nd_conf_dict['ip'].strip() == node.address.ipv4address.strip():
                     self.nd_assigned_name = 'pm'
                     self.nd_uuid = hex(int(node.id))
+                    break
 
         if (self.nd_uuid is None):
             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
@@ -936,7 +937,11 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    self.cfg_nodes.append(n)
+                    if self.cfg_is_fds_installed is True and n.nd_conf_dict['ip'] == 'localhost':
+                        # It's an extra IP in cfg and ignore it while running against AWS
+                        print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
+                    else:
+                        self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
 
             elif (re.match('sh', section) != None) or (re.match('am', section) != None):

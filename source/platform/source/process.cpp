@@ -154,21 +154,35 @@ namespace fds
 
             c_args.push_back(NULL);
 
-            return fds_spawn_service(prog.c_str(), fds_root.c_str(), &c_args[0], daemonize ? 1 : 0);
+            return fds_spawn_service(prog.c_str(), fds_root.c_str(), c_args.size(), &c_args[0], daemonize ? 1 : 0);
         }
 
         /*
          * fds_spawn_service
          * -----------------
          */
-        pid_t fds_spawn_service(const char *prog, const char *fds_root, const char** extra_args, int daemonize)
+        pid_t fds_spawn_service(const char *prog, const char *fds_root,
+                                const int argc, const char** extra_args, int daemonize)
         {
+            const int max_args = 256;
             size_t    len {0}, ret;
             char      exec[1024];
             char      root[1024];
-            char     *argv[32];
+            char     *argv[max_args];
             int       argvIndex = 0;
             int       extraIndex = 0;
+            int       valgrindOptCount = 0;
+
+            // this check does not take into account the valgrind options, if any.
+            // The check of the actual argument count that takes valgrind into account
+            // occurs below
+            if (argc > (max_args - 2))
+            {
+                LOGERROR << "Argument count exceeds max allowed arguments (argc=" <<
+                        argc << " > (" << max_args << " - 2))";
+
+                fds_verify(argc < (max_args -2));
+            }
 
             std::string progStr (prog);
             std::size_t found = progStr.rfind("java");
@@ -177,6 +191,8 @@ namespace fds
             // This needs to live through the lifetime of the exec call
             ValgrindOptions valgrind_options(prog, fds_root);
             if (!is_java && valgrind_options.runningOnUnnestedValgrind()) {
+                valgrindOptCount = valgrind_options().size();
+
                 // Adjust the argv to actually run valgrind...the rest of the
                 // arguments should be the same
                 for (auto const& option : valgrind_options()) {
@@ -188,13 +204,25 @@ namespace fds
 
             argv[argvIndex++] = exec;
 
-            for (; extra_args[extraIndex] != NULL && extraIndex < 10; argvIndex++, extraIndex++)
+            for (; extra_args[extraIndex] != NULL; argvIndex++, extraIndex++)
             {
                 argv[argvIndex] = (char*) extra_args[extraIndex];
             }
 
-            /* Only allow 10 args for now */
-            fds_verify(extra_args[extraIndex] == NULL);
+            // check for attempt to pass in more arguments than the count specified.
+            if (argvIndex != (argc + valgrindOptCount))
+            {
+                LOGERROR << "Number of arguments passed in (" << argvIndex <<
+                        ") does not match specified argument count (" << argc << ") plus valgrind options (" <<
+                        valgrindOptCount << ").";
+
+                for (uint i = 0; argv[i] != NULL; ++i)
+                {
+                    LOGDEBUG << "ARGV[" << i << "]=" << argv[i];
+                }
+
+                fds_verify(argvIndex == argc);
+            }
 
             if (!is_java)
             {
@@ -233,11 +261,13 @@ namespace fds
              * XXX(Vy): we're using fds_root as prefix to config DB, strip out the
              * ending '/' so that the child process can use the correct key.
              */
-            for (ret--; ret > 0 && root[ret] == '/'; ret--)
-            {
-            }
+            size_t xret = ret;
+            for (ret--; ret > 0 && root[ret] == '/'; ret--); // intentionally empty block
 
-            root[ret + 1] = '\0';
+            if (ret < xret)
+            {
+                root[ret + 1] = '\0';
+            }
 
             printf("Spawn %s %s\n", exec, root);
             LOGDEBUG << "Spawn " << exec ;

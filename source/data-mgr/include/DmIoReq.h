@@ -220,6 +220,7 @@ class DmIoCommitBlobTx : public DmRequest {
     virtual ~DmIoCommitBlobTx() {
     }
 
+   //  std::function<void(const Error &e, DmRequest *dmRequest)> localCb = NULL;
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
@@ -236,6 +237,7 @@ class DmIoCommitBlobTx : public DmRequest {
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
+    bool usedForMigration;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
     /* is this the original request */
