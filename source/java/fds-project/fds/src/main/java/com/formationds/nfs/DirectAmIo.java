@@ -64,11 +64,13 @@ public class DirectAmIo implements Io {
     }
 
     @Override
-    public void setMetadataOnEmptyBlob(String domain, String volume, String blobName, Map<String, String> map) throws IOException {
+    public void mutateMetadata(String domain, String volume, String blobName, Map<String, String> map, boolean deferrable) throws IOException {
         try {
             unwindExceptions(() -> {
-                counters.increment(Counters.Key.AM_updateBlobOnce_metadataOnly);
-                asyncAm.updateBlobOnce(domain, volume, blobName, 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), map).get();
+                counters.increment(Counters.Key.AM_updateMetadataTx);
+                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                asyncAm.updateMetadata(domain, volume, blobName, tx, map).get();
+                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
                 return null;
             });
         } catch (Exception e) {
@@ -80,7 +82,7 @@ public class DirectAmIo implements Io {
 
     // Objects will be either non-existent or have 'objectSize' bytes
     @Override
-    public <T> T mapObject(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
+    public <T> T mapObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMapper<T> objectMapper) throws IOException {
         Optional<BlobWithMetadata> blobWithMeta = null;
         try {
             counters.increment(Counters.Key.AM_getBlobWithMeta);
@@ -114,7 +116,7 @@ public class DirectAmIo implements Io {
 
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
-        mapObject(domain, volume, blobName, objectSize, objectOffset, (x) -> {
+        mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset, (x) -> {
             ObjectView ov = x.orElseGet(() -> new ObjectView(new HashMap<>(), ByteBuffer.allocate(objectSize)));
             mutator.mutate(ov);
             ByteBuffer buf = ov.getBuf();

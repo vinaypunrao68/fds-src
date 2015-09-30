@@ -201,7 +201,7 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
               << " concurrency " << volume->concurrency_;
 
     // setup the run
-    EXPECT_EQ(threads_.size(), 0);
+    EXPECT_EQ(threads_.size(), 0u);
     op_count = ATOMIC_VAR_INIT(0);
 
     for (unsigned i = 0; i < volume->concurrency_; ++i) {
@@ -550,7 +550,7 @@ TEST_F(SmObjectStoreTest, findSrcSMForTokenSyncTest) {
     destSm = 10000; // destination SM id
     srcNodeMap.clear();
     dlt->getSourceForAllNodeTokens(NodeUuid(destSm), srcNodeMap);
-    ASSERT_EQ(srcNodeMap.size(), 0);
+    ASSERT_EQ(srcNodeMap.size(), 0u);
 
     delete dlt;
 }

@@ -28,6 +28,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     static const std::string CATALOG_WRITE_BUFFER_SIZE_STR;
     static const std::string CATALOG_CACHE_SIZE_STR;
     static const std::string CATALOG_MAX_LOG_FILES_STR;
+    static const std::string ENABLE_TIMELINE_STR;
 
     // ctor & dtor
     DmPersistVolDB(fds_volid_t volId,

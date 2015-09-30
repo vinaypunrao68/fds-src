@@ -14,14 +14,4 @@ class async;
 struct dynamic_loop;
 }  // namespace ev
 
-namespace fds
-{
-
-    enum class NbdError : uint8_t {
-        connection_closed,
-        shutdown_requested,
-    };
-
-}  // namespace fds
-
 #endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_NBD_COMMON_H_

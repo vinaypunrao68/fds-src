@@ -18,10 +18,12 @@ namespace fds
 {
 
     enum class ScstError : uint8_t {
-        connection_closed,
-        shutdown_requested,
+        scst_not_found,
+        scst_error,
     };
 
 }  // namespace fds
+
+#define READ_CAPACITY_16    0x9E
 
 #endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_COMMON_H_

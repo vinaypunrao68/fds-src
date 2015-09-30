@@ -263,7 +263,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
 
     if (requestResyncFn) {
-        requestResyncFn();
+        requestResyncFn(true, false);
     }
     return err;
 }

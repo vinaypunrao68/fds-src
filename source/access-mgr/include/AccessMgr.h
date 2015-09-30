@@ -64,6 +64,7 @@ class AccessMgr : public Module, public boost::noncopyable {
      * FEATURE TOGGLE: Scst connector
      * Fri 11 Sep 2015 09:33:33 AM MDT
      */
+    bool nbd_enabled {true};
     bool scst_enabled {false};
 };
 
