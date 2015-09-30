@@ -26,16 +26,15 @@ user_incl_dir     := \
 	$(util_dir)/hash \
 	$(topdir)/include/hash
 
-user_cpp          :=  \
-    log_unit_test.cpp \
-	fds_panic_test.cpp
+user_cpp          :=  $(wildcard *.cpp)
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := log_unit_test \
-                     fds_panic_test bloomtest
+                     fds_panic_test bloomtest utiltest
 
 log_unit_test     := log_unit_test.cpp
 fds_panic_test    := fds_panic_test.cpp
 bloomtest         := bloomtest.cpp
+utiltest         := utiltest.cpp
 include $(test_topdir)/Makefile.svc
 

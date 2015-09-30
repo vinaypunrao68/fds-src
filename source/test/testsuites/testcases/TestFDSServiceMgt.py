@@ -25,7 +25,9 @@ import fdslib.FDSServiceUtils as FDSServiceUtils
 from fdslib.TestUtils import get_node_service
 from fdscli.model.fds_error import FdsError
 from fdscli.model.platform.service import Service
-sm_killed_pid = -1
+sm_killed_pid = {}
+dm_killed_pid = {}
+bare_am_killed_pid = {}
 
 def getSvcPIDforNode(svc, node, javaClass=None):
     """
@@ -641,13 +643,15 @@ class TestDMKill(TestCase.FDSTestCase):
             if status != 0:
                 self.log.error("DM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            dm_killed_pid[n.nd_conf_dict['node-name']]= pid
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
         return True
 
-
+# Deprecated TestAWSDMKill, we use TestDMKill for AWS nodes TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
@@ -774,7 +778,7 @@ class TestAWSDMStop(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # killing an (DM) service.
-class TestAWSDMStart(TestCase.FDSTestCase):
+class TestDMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -783,12 +787,12 @@ class TestAWSDMStart(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWS_DMStart,
+                                             self.test_DMStart,
                                              "Start DM service  ")
 
         self.passedNode = node
 
-    def test_AWS_DMStart(self):
+    def test_DMStart(self):
         """
         Test Case:
         Attempt to start the DM service(s)
@@ -797,34 +801,41 @@ class TestAWSDMStart(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
         nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
+        for node in nodes:
             # If a specific node was passed in, use that one and get out.
             if self.passedNode is not None:
-                n = findNodeFromInv(nodes, self.passedNode)
+                node = self.passedNode
 
-            self.log.info("Starting DM on %s." % n.nd_conf_dict['node-name'])
-
-            # Get the PID of the processes in question and ... kill them!
-            pid = getSvcPIDforNode('DataMgr', n)
-
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            dm_obj = FDSServiceUtils.DMService(om_ip, node_ip)
-            ret_status = dm_obj.start(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("DM (DataMgr) is running on %s." % (n.nd_conf_dict['node-name']))
-            else:
-                self.log.error("Failing to start DM (DataMgr) service on %s" %
-                                (n.nd_conf_dict['node-name']))
-
-            if (status != 0):
+            # Make sure this node is configured for an DM service.
+            if (node.nd_services.count("dm") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a DM service." % node.nd_conf_dict['node-name'])
                 return False
-            elif self.passedNode is not None:
-                # We took care of the one node. Get out.
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Starting DM for node %s using " % (node.nd_conf_dict['node-name']))
+            self.log.debug("DM's Node UUID should be: " + node.nd_uuid + " and in decimal: " + str(int(node.nd_uuid, 16)))
+            node_service = get_node_service(self, om_ip)
+            node_cli = node_service.get_node(int(node.nd_uuid, 16))
+            try:
+                dm_state = node_cli.services['DM'][0].status.state
+                if dm_state == 'NOT_RUNNING':
+                    #if dm not is running then only start it
+                    dm_service = node_service.start_service(node_cli.id,node_cli.services['DM'][0].id)
+                    dm_state = dm_service.status.state
+                assert dm_state == "RUNNING"
+            except IndexError:
+                self.log.error("DM service not found on %s ." % (node.nd_conf_dict['node-name']))
+                return False
+            if self.passedNode is not None:
                 break
 
         return True
@@ -967,8 +978,12 @@ class TestDMVerifyDown(TestCase.FDSTestCase):
             self.log.info("Verify the DM on %s is down." %n.nd_conf_dict['node-name'])
 
             if not modWait("DataMgr", n, forShutdown=True):
-                return False
-            elif self.passedNode is not None:
+                pid = getSvcPIDforNode('DataMgr', n)
+                if pid != -1 and pid == dm_killed_pid[n.nd_conf_dict['node-name']] :
+                    return False
+                self.log.info("The DM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
+
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
@@ -1127,7 +1142,6 @@ class TestSMStop(TestCase.FDSTestCase):
 
         self.passedNode = node
 
-    @TestCase.expectedFailure
     def test_SMStop(self):
         """
         Test Case:
@@ -1200,9 +1214,6 @@ class TestSMKill(TestCase.FDSTestCase):
         Attempt to shutdown the SM service(s)
         """
 
-        global sm_killed_pid
-        sm_killed_pid = -1
-
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
@@ -1239,14 +1250,14 @@ class TestSMKill(TestCase.FDSTestCase):
                 self.log.error("SM kill on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
 
+            sm_killed_pid[n.nd_conf_dict['node-name']]= pid
             if self.passedNode is not None:
                 # Took care of the one node passed so get out.
                 break
 
-        sm_killed_pid = pid
         return True
 
-
+# Deprecated TestAWSSMKill, we use TestSMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
@@ -1372,7 +1383,7 @@ class TestAWSSMStop(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # killing an (SM) service.
-class TestAWSSMStart(TestCase.FDSTestCase):
+class TestSMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -1381,12 +1392,12 @@ class TestAWSSMStart(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWS_SMStart,
+                                             self.test_SMStart,
                                              "Start SM service  ")
 
         self.passedNode = node
 
-    def test_AWS_SMStart(self):
+    def test_SMStart(self):
         """
         Test Case:
         Attempt to start the SM service(s)
@@ -1395,34 +1406,42 @@ class TestAWSSMStart(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
         nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
+        for node in nodes:
             # If a specific node was passed in, use that one and get out.
             if self.passedNode is not None:
-                n = findNodeFromInv(nodes, self.passedNode)
+                node = self.passedNode
 
-            self.log.info("Starting SM on %s." % n.nd_conf_dict['node-name'])
-
-            # Get the PID of the processes in question and ... kill them!
-            pid = getSvcPIDforNode('StorMgr', n)
-
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            sm_obj = FDSServiceUtils.SMService(om_ip, node_ip)
-            ret_status = sm_obj.start(node_ip)
-
-            if ret_status:
-                status = 0
-                self.log.info("SM (StorMgr) is running on %s." % (n.nd_conf_dict['node-name']))
-            else:
-                self.log.error("Failing to start SM (StorMgr) service on %s" %
-                                (n.nd_conf_dict['node-name']))
-
-            if (status != 0):
+            # Make sure this node is configured for an SM service.
+            if (node.nd_services.count("sm") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a SM service." % node.nd_conf_dict['node-name'])
                 return False
-            elif self.passedNode is not None:
-                # We took care of the one node. Get out.
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Starting SM for node %s using OM node %s." % (node.nd_conf_dict['node-name'],
+                                                                        om_node.nd_conf_dict['node-name']))
+            node_service = get_node_service(self, om_ip)
+            node_cli = node_service.get_node(int(node.nd_uuid, 16))
+            try:
+                sm_state = node_cli.services['SM'][0].status.state
+                if sm_state == 'NOT_RUNNING':
+                    #if sm is not running then only start it
+                    sm_service = node_service.start_service(node_cli.id,node_cli.services['SM'][0].id)
+                    sm_state = sm_service.status.state
+                assert sm_state == "RUNNING"
+            except IndexError:
+                self.log.error("SM service not found on %s ." % (node.nd_conf_dict['node-name']))
+                return False
+
+            if self.passedNode is not None:
                 break
 
         return True
@@ -1564,10 +1583,11 @@ class TestSMVerifyDown(TestCase.FDSTestCase):
 
             if not modWait("StorMgr", n, forShutdown=True):
                 pid = getSvcPIDforNode('StorMgr', n)
-                if pid != -1 and pid == sm_killed_pid :
+                if pid != -1 and pid == sm_killed_pid[n.nd_conf_dict['node-name']] :
                     return False
                 self.log.info("The SM on %s was down and restarted by platformd." %n.nd_conf_dict['node-name'])
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # Took care of the node passed in so get out.
                 break
 
@@ -1752,6 +1772,7 @@ class TestPMKill(TestCase.FDSTestCase):
 
         return True
 
+# Deprecated TestAWSPMKill, we use TestPMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
@@ -2312,7 +2333,7 @@ class TestOMKill(TestCase.FDSTestCase):
 
         return True
 
-
+# Deprecated TestAWSOMKill, we use TestOMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
@@ -2685,7 +2706,6 @@ class TestAMStop(TestCase.FDSTestCase):
 
         self.passedNode = node
 
-    @TestCase.expectedFailure
     def test_AMStop(self):
         """
         Test Case:
@@ -2723,7 +2743,7 @@ class TestAMStop(TestCase.FDSTestCase):
                 am_state = node_cli.services['AM'][0].status.state
                 if am_state == 'RUNNING':
                     #if am is running then only stop it
-                    am_service = node_service.stop_service(node_cli.id,node_cli.services['SM'][0].id)
+                    am_service = node_service.stop_service(node_cli.id,node_cli.services['AM'][0].id)
                     am_state = am_service.status.state
                 assert am_state == "NOT_RUNNING"
             except IndexError:
@@ -2852,43 +2872,34 @@ class TestAMKill(TestCase.FDSTestCase):
             else:
                 status = 0
                 self.log.warning("AM (bare_am) already shutdown on %s." % (n.nd_conf_dict['node-name']))
+            bare_am_killed_pid[n.nd_conf_dict['node-name']]= pid
 
+            # java AM (com.formationds.am.Main) is dependent on bare_am.
+            # kill/restart of bare_am cause kill/restart of java_am hence sleep for couple of seconds
+            time.sleep(2)
             pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
             if pid != -1:
-                cmd = "kill -KILL %s" % pid
-                status = n.nd_agent.exec_wait(cmd)
-
-                if status != 0:
-                    self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
+               cmd = "kill -KILL %s" % pid
+               status = n.nd_agent.exec_wait(cmd)
+            if status != 0:
+                self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
                                    (n.nd_conf_dict['node-name'], status))
-                    return False
+                return False
             else:
                 status = 0
                 self.log.warning("AM (com.formationds.am.Main) already shutdown on %s." % (n.nd_conf_dict['node-name']))
 
-            pid = getSvcPIDforNode('AMAgent', n)
-            if pid != -1:
-                cmd = "kill -KILL %s" % pid
-                status = n.nd_agent.exec_wait(cmd)
-
-                if (status != 1) and (status != 0):
-                    self.log.error("AM (AMAgent) shutdown on %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
-                    return False
-            else:
-                status = 0
-                self.log.warning("AM (AMAgent) already shutdown on %s." % (n.nd_conf_dict['node-name']))
-
             if (status != 1) and (status != 0):
                 self.log.error("AM shutdown on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
                 return False
-            elif self.passedNode is not None:
+
+            if self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 
         return True
 
-
+# Deprecated TestAWSAMKill, we use TestAMKill for AWS nodes too TODO: pooja remove class
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAWSAMKill(TestCase.FDSTestCase):
@@ -3015,7 +3026,7 @@ class TestAWSAMStop(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # starting an Access Manager (AM) service.
-class TestAWSAMStart(TestCase.FDSTestCase):
+class TestAMStart(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,
@@ -3024,12 +3035,12 @@ class TestAWSAMStart(TestCase.FDSTestCase):
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
-                                             self.test_AWS_AMStart,
+                                             self.test_AMStart,
                                              "Start AM service  ")
 
         self.passedNode = node
 
-    def test_AWS_AMStart(self):
+    def test_AMStart(self):
         """
         Test Case:
         Attempt to start the AM service(s)
@@ -3038,27 +3049,41 @@ class TestAWSAMStart(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
         nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
-            # If a specific node was passed in, use that one and get out.
+        for node in nodes:
+            # If we were passed a node, check that one and exit.
             if self.passedNode is not None:
-                n = findNodeFromInv(nodes, self.passedNode)
+                node = self.passedNode
 
-            self.log.info("Startinng AM on %s." % n.nd_conf_dict['node-name'])
-
-            om_node = fdscfg.rt_om_node
-            om_ip = om_node.nd_conf_dict['ip']
-            node_ip = n.nd_conf_dict['ip']
-            am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
-            ret_status = am_obj.start(node_ip)
-
-            if ret_status:
-                status = 0
-
-            if (status != 0):
+            # Make sure this node is configured for an AM service.
+            if (node.nd_services.count("am") == 0) and self.passedNode is not None:
+                self.log.error("Node %s is not configured to host a AM service." % node.nd_conf_dict['node-name'])
                 return False
-            elif self.passedNode is not None:
-                # We took care of the one node. Get out.
+
+            # Make sure we have the node's meta-data.
+            status = node.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (node.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info("Starting AM for node %s" % (node.nd_conf_dict['node-name']))
+            node_service = get_node_service(self, om_ip)
+            node_cli = node_service.get_node(int(node.nd_uuid, 16))
+            try:
+                am_state = node_cli.services['AM'][0].status.state
+                if am_state == 'NOT_RUNNING':
+                    #if am is not running then only start it
+                    am_service = node_service.start_service(node_cli.id,node_cli.services['AM'][0].id)
+                    am_state = am_service.status.state
+                assert am_state == "RUNNING"
+            except IndexError:
+                self.log.error("AM service not found on %s ." % (node.nd_conf_dict['node-name']))
+                return False
+
+            if self.passedNode is not None:
                 break
 
         return True
@@ -3197,10 +3222,18 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
                 n = findNodeFromInv(nodes, self.passedNode)
 
             self.log.info("Verify AM on %s is down" % n.nd_conf_dict['node-name'])
+            services = n.nd_services.split(",")
+            if 'am' not in services:
+                self.log.info("AM is not available for %s" %n.nd_conf_dict['node-name'])
+                continue
 
-            if not modWait("AMAgent", n, forShutdown=True):
-                return False
-            elif self.passedNode is not None:
+            if not modWait("bare_am", n, forShutdown=True):
+                pid = getSvcPIDforNode('bare_am', n)
+                if pid != -1 and pid == bare_am_killed_pid[n.nd_conf_dict['node-name']]:
+                    return False
+                self.log.info("The AM on %s was down and was probably restarted by PM with new pid %s" %(n.nd_conf_dict['node-name'],pid))
+
+            if self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
 
@@ -3236,6 +3269,9 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         if self.passedNode is not None and self.passedNode != "random_node":
             self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
+            if self.passedNode is None:
+                # throw error
+                self.log.error("Unable to find node from inventory")
             # Sometimes the node UUID doesn't get populated. This call makes sure that it does.
             status = self.passedNode.nd_populate_metadata(om_node=om_node)
             passed_node_uuid = self.passedNode.nd_uuid
@@ -3243,6 +3279,9 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             # First filter out only services belonging to the specified node
             # Use a little voodoo to match service UUIDs to the node UUID
             svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+            if not svcs:
+                self.log.error("Unable to find the service belonging to such node")
+                return False;
 
         '''
         Randomly choose a fault to inject
@@ -3267,7 +3306,16 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
+        if self.passedService not in svcs:
+            self.log.info("Not in svcs... retrying")
+            status = self.passedNode.nd_populate_metadata(om_node=om_node)
+            passed_node_uuid = self.passedNode.nd_uuid
+            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+
         svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+        if not svc_uuid:
+            self.log.error("Unable to find the servcie UUID")
+            return False
 
         # set the actual injection
         res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)

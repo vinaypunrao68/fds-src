@@ -212,7 +212,8 @@ std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj)
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
 {
     std::ostringstream oss;
-    oss << " UpdateCatalogMsg";
+    oss << " UpdateCatalogMsg TxId:" <<  updCat.txId
+        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name;
     return oss.str();
 }
 
@@ -226,7 +227,8 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat)
 {
     std::ostringstream oss;
-    oss << " UpdateCatalogOnceMsg";
+    oss << " UpdateCatalogOnceMsg TxId:" << updCat.txId
+        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name;
     return oss.str();
 }
 
@@ -240,21 +242,24 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updC
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
 {
     std::ostringstream oss;
-    oss << " StartBlobTxMs";
+    oss << " StartBlobTxMs TxId:" << stBlobTx.txId
+        << " volume_id" << stBlobTx.volume_id << " blob_name: "<< stBlobTx.blob_name;
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
-    oss << " CommitBlobTxMs";
+    oss << " CommitBlobTxMs TxId:" << commitBlbTx.txId
+        << " volume_id" << commitBlbTx.volume_id << " blob_name: "<< commitBlbTx.blob_name;
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
 {
     std::ostringstream oss;
-    oss << " SetBlobMetaDataMsg";
+    oss << " SetBlobMetaDataMsg TxId:" << setMDMsg.txId
+        << " volume_id" << setMDMsg.volume_id << " blob_name: "<< setMDMsg.blob_name;
     return oss.str();
 }
 
@@ -299,6 +304,8 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
     std::ostringstream oss;
     // FIXME(DAC): This does nothing.
     oss << " AbortBlobTxMs";
+    oss << " AbortBlobTxMs TxId:" << abortBlbTx.txId
+        << " volume_id" << abortBlbTx.volume_id << " blob_name: "<< abortBlbTx.blob_name;
     return oss.str();
 }
 
@@ -347,6 +354,8 @@ std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
 std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
     std::ostringstream oss;
     oss << " DeleteBlobMsg ";
+    oss << " DeleteBlobMsg TxId:" << msg.txId
+        << " volume_id" << msg.volume_id << " blob_name: "<< msg.blob_name;
     return oss.str();
 }
 

@@ -48,7 +48,7 @@ void ReloadVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoReloadVolume* typedRequest = static_cast<DmIoReloadVolume*>(dmRequest);
 
-    LOGTRACE << "Will reload volume " << *typedRequest;
+    LOGDEBUG << "Will reload volume " << *typedRequest;
 
     fds_volid_t volId(typedRequest->message->volume_id);
     const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);

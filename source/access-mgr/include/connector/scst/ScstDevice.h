@@ -6,6 +6,7 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <utility>
@@ -14,7 +15,8 @@
 
 #include "fds_types.h"
 #include "connector/scst/common.h"
-#include "connector/scst/ScstOperations.h"
+#include "connector/scst/scst_user.h"
+#include "connector/BlockOperations.h"
 
 struct scst_user_get_cmd;
 
@@ -22,24 +24,27 @@ namespace fds
 {
 
 struct AmProcessor;
-struct ScstConnector;
+struct ScstTarget;
 struct ScstTask;
 
-struct ScstConnection : public ScstOperationsResponseIface {
-    ScstConnection(std::string const& vol_name,
-                   ScstConnector* server,
-                   std::shared_ptr<ev::dynamic_loop> loop,
-                   std::shared_ptr<AmProcessor> processor);
-    ScstConnection(ScstConnection const& rhs) = delete;
-    ScstConnection(ScstConnection const&& rhs) = delete;
-    ScstConnection operator=(ScstConnection const& rhs) = delete;
-    ScstConnection operator=(ScstConnection const&& rhs) = delete;
-    ~ScstConnection();
+struct ScstDevice : public BlockOperations::ResponseIFace {
+    ScstDevice(std::string const& vol_name,
+               ScstTarget* target,
+               std::shared_ptr<AmProcessor> processor);
+    ScstDevice(ScstDevice const& rhs) = delete;
+    ScstDevice(ScstDevice const&& rhs) = delete;
+    ScstDevice operator=(ScstDevice const& rhs) = delete;
+    ScstDevice operator=(ScstDevice const&& rhs) = delete;
+    ~ScstDevice();
 
-    // implementation of ScstOperationsResponseIface
-    void respondTask(ScstTask* response) override;
+    // implementation of BlockOperations::ResponseIFace
+    void respondTask(BlockTask* response) override;
     void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
+
+    std::string getName() const { return volumeName; }
+
+    void start(std::shared_ptr<ev::dynamic_loop> loop);
 
   private:
     template<typename T>
@@ -51,15 +56,16 @@ struct ScstConnection : public ScstOperationsResponseIface {
                                  STOPPING,
                                  STOPPED };
 
-     ConnectionState state_ { ConnectionState::RUNNING };
+    ConnectionState state_ { ConnectionState::RUNNING };
 
-    std::string volumeName;
+    std::string const volumeName;
     int scstDev {-1};
-    size_t volume_size;
+    size_t volume_size {0};
+    size_t sessions {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
-    ScstConnector* scst_server;
-    ScstOperations::shared_ptr scstOps;
+    ScstTarget* scst_target;
+    BlockOperations::shared_ptr scstOps;
 
     size_t resp_needed;
 

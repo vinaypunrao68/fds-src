@@ -1,9 +1,4 @@
-package com.formationds.xdi.s3;
-/*
- * Copyright 2014 Formation Data Systems, Inc.
- */
-
-import com.formationds.util.async.AsyncResourcePool;
+package com.formationds.util.async;
 
 public class VoidImpl implements AsyncResourcePool.Impl<Void> {
 

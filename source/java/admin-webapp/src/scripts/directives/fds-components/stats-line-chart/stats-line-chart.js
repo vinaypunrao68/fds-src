@@ -32,7 +32,7 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
                     data = JSON.parse( data );
 
                     if ( data.metricName === $scope.stat ){
-                        timeSum += data.metricValue;
+                        timeSum += parseInt( data.metricValue / 100000 );
                         numStats++;
                     }
                 }
