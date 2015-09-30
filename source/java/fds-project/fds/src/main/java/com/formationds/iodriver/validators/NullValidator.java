@@ -12,7 +12,7 @@ import com.formationds.iodriver.reporters.WorkloadEventListener;
 public final class NullValidator implements Validator
 {
     @Override
-    public boolean isValid(Closeable context)
+    public boolean isValid(Closeable context, WorkloadEventListener listener)
     {
         return true;
     }

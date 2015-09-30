@@ -1,5 +1,7 @@
 package com.formationds.iodriver.workloads;
 
+import java.io.Closeable;
+import java.io.PrintStream;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Collections;
@@ -9,6 +11,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.codepoetics.protonpack.StreamUtils;
+import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
@@ -21,6 +24,8 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.QosProgressReporter;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
 
@@ -34,6 +39,16 @@ public final class S3RateLimitTestWorkload extends Workload
     public Optional<Validator> getSuggestedValidator()
     {
         return Optional.of(new RateLimitValidator());
+    }
+    
+    @Override
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadEventListener listener)
+    {
+        if (output == null) throw new NullArgumentException("output");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        return Optional.of(new QosProgressReporter(output, listener));
     }
     
     /**
@@ -81,8 +96,7 @@ public final class S3RateLimitTestWorkload extends Workload
                 Stream.generate(() -> UUID.randomUUID().toString())
                       .<Operation>map(content -> new CreateObject(_bucketName,
                                                                     _objectName,
-                                                                    content,
-                                                                    false))
+                                                                    content))
                       .limit(100);
 
         Stream<Operation> reportStart = Stream.of(new ReportStart(_bucketName));

@@ -4,6 +4,8 @@
  */
 package com.formationds.iodriver;
 
+import java.io.Closeable;
+
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.endpoints.Endpoint;
@@ -154,8 +156,10 @@ public final class Main
             Workload workload = config.getSelectedWorkload();
             
             try (WorkloadEventListener listener = new WorkloadEventListener(config.getLogger());
-                 ConsoleProgressReporter reporter =
-                    new ConsoleProgressReporter(System.out, listener))
+                 Closeable reporter = workload.getSuggestedReporter(System.out, listener)
+                                              .orElseGet(() -> new ConsoleProgressReporter(
+                                                      System.out,
+                                                      listener)))
             {
                 Endpoint endpoint = getCompatibleEndpoint(workload);
                 Validator validator = validate

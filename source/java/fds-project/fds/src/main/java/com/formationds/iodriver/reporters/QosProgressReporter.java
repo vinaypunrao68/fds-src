@@ -7,36 +7,27 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.formationds.client.v08.model.QosPolicy;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkloadEventListener.BeforeAfter;
+import com.formationds.iodriver.reporters.WorkloadEventListener.ValidationResult;
 
-/**
- * Reports workload progress on the system console.
- */
-public class ConsoleProgressReporter implements Closeable
+public final class QosProgressReporter implements Closeable
 {
-    /**
-     * Constructor.
-     * 
-     * @param output Stream to output to, usually {@code System.out}.
-     */
-    public ConsoleProgressReporter(PrintStream output,
-                                   WorkloadEventListener listener)
+    public QosProgressReporter(PrintStream output, WorkloadEventListener listener)
     {
         if (output == null) throw new NullArgumentException("output");
         if (listener == null) throw new NullArgumentException("listener");
-
+        
         _closed = new AtomicBoolean(false);
         _output = output;
         _adHocStartToken = listener.adHocStart.register(this::onAdHocStart);
         _adHocStopToken = listener.adHocStop.register(this::onAdHocStop);
-        _operationExecutedToken = listener.operationExecuted.register(this::onOperationExecuted);
-        _volumeAddedToken = listener.volumeAdded.register(this::onVolumeAdded);
+        _validatedToken = listener.validated.register(this::onValidated);
         _volumeModifiedToken = listener.volumeModified.register(this::onVolumeModified);
     }
-
+    
     @Override
     public void close() throws IOException
     {
@@ -44,73 +35,58 @@ public class ConsoleProgressReporter implements Closeable
         {
             _adHocStartToken.close();
             _adHocStopToken.close();
-            _operationExecutedToken.close();
-            _volumeAddedToken.close();
+            _validatedToken.close();
             _volumeModifiedToken.close();
         }
     }
-
+    
     protected void onAdHocStart(Object event)
     {
         if (event == null) throw new NullArgumentException("event");
         
-        _output.println("Ad-hoc start: " + event);
+        if (event instanceof String)
+        {
+            _output.println(javaString((String)event) + ": Starting.");
+        }
     }
     
     protected void onAdHocStop(Object event)
     {
         if (event == null) throw new NullArgumentException("event");
         
-        _output.println("Ad-hoc stop: " + event.toString());
+        if (event instanceof String)
+        {
+            _output.println(javaString((String)event) + ": Finished.");
+        }
     }
     
-    protected void onOperationExecuted(Operation operation)
+    protected void onValidated(ValidationResult result)
     {
-        if (operation == null) throw new NullArgumentException("operationExecuted");
+        if (result == null) throw new NullArgumentException("result");
         
-        _output.println("Executing: " + operation);
-    }
-    
-    protected void onVolumeAdded(Volume volume)
-    {
-        if (volume == null) throw new NullArgumentException("volume");
-        
-        _output.println(
-                "Adding volume ID " + volume.getId() + " " + javaString(volume.getName()));
+        _output.println(result);
     }
     
     protected void onVolumeModified(BeforeAfter<Volume> volume)
     {
         if (volume == null) throw new NullArgumentException("volume");
         
-        Volume before = volume.getBefore();
-        Volume after = volume.getAfter();
-        
-        _output.println(
-                "Modifying volume ID " + before.getId() + " " + javaString(before.getName())
-                + " -> " + after.getId() + " " + javaString(after.getName()));
+        Volume currentVolume = volume.getAfter();
+        QosPolicy qosPolicy = currentVolume.getQosPolicy();
+        _output.println(javaString(currentVolume.getName()) + ":"
+                        + " Assured: " + qosPolicy.getIopsMin()
+                        + " Throttle: " + qosPolicy.getIopsMax());
     }
     
     private final Closeable _adHocStartToken;
     
     private final Closeable _adHocStopToken;
     
-    /**
-     * Whether this object has been closed.
-     */
     private final AtomicBoolean _closed;
-
-    /**
-     * Operation executed event token.
-     */
-    private final Closeable _operationExecutedToken;
     
-    /**
-     * Output.
-     */
     private final PrintStream _output;
     
-    private final Closeable _volumeAddedToken;
+    private final Closeable _validatedToken;
     
     private final Closeable _volumeModifiedToken;
 }

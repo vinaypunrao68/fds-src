@@ -3,18 +3,19 @@ package com.formationds.iodriver.validators;
 import java.io.Closeable;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public class AssuredRateValidator extends QosValidator
 {
     @Override
-    public boolean isValid(Closeable context)
+    public boolean isValid(Closeable context, WorkloadEventListener listener)
     {
         if (context == null) throw new NullArgumentException("context");
+        if (listener == null) throw new NullArgumentException("listener");
         if (!(context instanceof Context))
         {
             throw new IllegalArgumentException("context must come from newContext().");

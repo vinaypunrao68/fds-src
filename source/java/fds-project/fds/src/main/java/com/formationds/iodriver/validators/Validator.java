@@ -18,7 +18,7 @@ public interface Validator
      * 
      * @return Whether this run should be accepted.
      */
-    boolean isValid(Closeable context);
+    boolean isValid(Closeable context, WorkloadEventListener listener);
 
     Closeable newContext(WorkloadEventListener listener);
 }

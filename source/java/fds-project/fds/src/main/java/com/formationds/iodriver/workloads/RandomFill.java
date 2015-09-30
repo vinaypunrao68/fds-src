@@ -97,8 +97,7 @@ public class RandomFill extends Workload
 	    {
 	        retval = Stream.concat(retval, Stream.of(new CreateObject(volumeName,
 	                                                                  parentDir,
-	                                                                  "",
-	                                                                  false)));
+	                                                                  "")));
 	    }
 
 	    retval = Stream.concat(retval, createObjectsOperations(volumeName, parentDir));
@@ -136,7 +135,7 @@ public class RandomFill extends Workload
                     byte[] content = new byte[thisObjectSize];
                     Fds.Random.nextBytes(content);
                     
-                    return new CreateObject(volumeName, fullPath, content, false);
+                    return new CreateObject(volumeName, fullPath, content);
                 });
         
         return createObjects.limit(Fds.Random.nextInt(_maxObjectsPerDirectory));

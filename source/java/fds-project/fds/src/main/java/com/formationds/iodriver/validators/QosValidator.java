@@ -129,7 +129,11 @@ public abstract class QosValidator implements Validator
             {
                 IoOperation typedOperation = (IoOperation)operation;
                 VolumeQosStats stats = _getStatsInternal(typedOperation.getVolumeName());
-                stats.performance.addOps(typedOperation.getCost());
+                VolumeQosPerformance performance = stats.performance;
+                if (performance.isStarted() && !performance.isStopped())
+                {
+                    performance.addOps(typedOperation.getCost());
+                }
             }
         }
         

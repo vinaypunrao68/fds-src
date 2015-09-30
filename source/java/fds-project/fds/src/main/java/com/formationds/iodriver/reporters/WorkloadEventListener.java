@@ -41,11 +41,28 @@ public final class WorkloadEventListener implements Closeable
         private final T _before;
     }
     
+    public static class ValidationResult
+    {
+        public ValidationResult(boolean isValid)
+        {
+            _isValid = isValid;
+        }
+        
+        public final boolean isValid()
+        {
+            return _isValid;
+        }
+        
+        private final boolean _isValid;
+    }
+    
     public final transient Subject<Object> adHocStart;
     
     public final transient Subject<Object> adHocStop;
 
     public final transient Subject<Operation> operationExecuted;
+    
+    public final transient Subject<ValidationResult> validated;
     
     public final transient Subject<Volume> volumeAdded;
     
@@ -76,6 +93,7 @@ public final class WorkloadEventListener implements Closeable
         adHocStart = new Subject<>();
         adHocStop = new Subject<>();
         operationExecuted = new Subject<>();
+        validated = new Subject<>();
         volumeAdded = new Subject<>();
         volumeModified = new Subject<>();
         volumeStatted = new Subject<>();
@@ -105,6 +123,7 @@ public final class WorkloadEventListener implements Closeable
         adHocStart = new Subject<>();
         adHocStop = new Subject<>();
         operationExecuted = new Subject<>();
+        validated = new Subject<>();
         volumeAdded = new Subject<>();
         volumeModified = new Subject<>();
         volumeStatted = new Subject<>();

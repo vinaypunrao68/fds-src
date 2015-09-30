@@ -2,6 +2,8 @@ package com.formationds.iodriver.workloads;
 
 import static com.formationds.commons.util.ExceptionHelper.getTunneledIfTunneled;
 
+import java.io.Closeable;
+import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +47,12 @@ public abstract class Workload
      *         default.
      */
     public Optional<Validator> getSuggestedValidator()
+    {
+        return Optional.empty();
+    }
+    
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadEventListener listener)
     {
         return Optional.empty();
     }

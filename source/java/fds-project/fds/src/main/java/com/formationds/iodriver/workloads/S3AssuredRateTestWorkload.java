@@ -202,8 +202,7 @@ public final class S3AssuredRateTestWorkload extends Workload
                 Stream.generate(() -> UUID.randomUUID().toString())
                       .<Operation>map(content -> new CreateObject(bucketName,
                                                                     _objectName,
-                                                                    content,
-                                                                    false))
+                                                                    content))
                       .limit(100);
 
         // Wait for everyone to warm up.

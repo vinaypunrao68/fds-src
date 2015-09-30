@@ -72,8 +72,7 @@ public final class S3SingleVolumeRateLimitTestWorkload extends Workload
                 Stream.generate(() -> UUID.randomUUID().toString())
                       .<Operation>map(content -> new CreateObject(_bucketName,
                                                                   _objectName,
-                                                                  content,
-                                                                  false))
+                                                                  content))
                       .limit(100);
 
         Stream<Operation> reportStart = Stream.of(new ReportStart(_bucketName));

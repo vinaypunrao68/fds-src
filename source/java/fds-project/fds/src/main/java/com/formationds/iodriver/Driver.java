@@ -96,9 +96,10 @@ public final class Driver
      */
     public int getResult()
     {
+        WorkloadEventListener listener = getListener();
         Validator validator = getValidator();
 
-        if (validator.isValid(_context))
+        if (validator.isValid(_context, listener))
         {
             return 0;
         }
