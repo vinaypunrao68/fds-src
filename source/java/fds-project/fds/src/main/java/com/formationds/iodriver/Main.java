@@ -59,11 +59,7 @@ public final class Main
             }
             else
             {
-                result = runWorkload(config, false);
-                if (result == 0)
-                {
-                    result = runWorkload(config, true);
-                }
+                result = runWorkload(config);
             }
         }
         catch (Exception ex)
@@ -141,13 +137,12 @@ public final class Main
      * Run the requested workload.
      *
      * @param config The runtime config to use.
-     * @param validate Whether to evaluate the workload results as part of the return code.
      *
      * @return A system return code.
      *
      * @throws ExecutionException when there is an unexpected error running the workload.
      */
-    private static int runWorkload(Config config, boolean validate) throws ExecutionException
+    private static int runWorkload(Config config) throws ExecutionException
     {
         if (config == null) throw new NullArgumentException("config");
 
@@ -162,20 +157,11 @@ public final class Main
                                                       listener)))
             {
                 Endpoint endpoint = getCompatibleEndpoint(workload);
-                Validator validator = validate
-                                      ? workload.getSuggestedValidator().orElse(new NullValidator())
-                                      : new NullValidator();
+                Validator validator = workload.getSuggestedValidator().orElse(new NullValidator());
                                       
                 Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
-                if (validate || workload.doDryRun())
-                {
-                    driver.runWorkload();
-                    return driver.getResult();
-                }
-                else
-                {
-                    return 0;
-                }
+                driver.runWorkload();
+                return driver.getResult();
             }
         }
         catch (Exception e)

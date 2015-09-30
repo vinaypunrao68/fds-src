@@ -23,12 +23,24 @@ public class OmV7Endpoint extends OmBaseEndpoint<OmV7Endpoint>
             throws MalformedURLException
     {
         super(uri, username, password, logger, trusting);
+        
+        _readOnly = true;
     }
     
     public OmV7Endpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
         return new OmV7Endpoint(copyHelper);
+    }
+    
+    public boolean getReadOnly()
+    {
+        return _readOnly;
+    }
+    
+    public void setReadOnly(boolean value)
+    {
+        _readOnly = value;
     }
 
     protected OmV7Endpoint(CopyHelper copyHelper)
@@ -55,4 +67,6 @@ public class OmV7Endpoint extends OmBaseEndpoint<OmV7Endpoint>
             operation.accept(this, connection, listener);
         }
     }
+    
+    private boolean _readOnly;
 }
