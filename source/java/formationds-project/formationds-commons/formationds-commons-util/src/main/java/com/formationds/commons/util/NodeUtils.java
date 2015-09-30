@@ -117,8 +117,10 @@ public class NodeUtils
      * @return Returns {@link Map} grouped by unique {@link FDSP_Node_Info_Type} field
      */
     public static Map<Long,List<FDSP_Node_Info_Type>> groupNodes(
-        final List<FDSP_Node_Info_Type> nodeInfos )
+        final List<FDSP_Node_Info_Type> nodeInfos,
+        final long omNodeUuid )
     {
+        logger.debug( "OM NODE UUID::{}", omNodeUuid );
         final ConcurrentMap<Long,List<FDSP_Node_Info_Type>> grouped =
             new ConcurrentHashMap<>( );
 
@@ -163,23 +165,19 @@ public class NodeUtils
          *
          * The OM should not have a special uuid ( node or service ). It
          * should use the node uuid of its residing node.
-         *
-         * FIXME: hard coding the OM uuid
-         * We need to remove the hard coding of the OM uuid. But we cannot
-         * until the platform.conf "parsing" is available outside of the
-         * fds jar. Otherwise, we end up with a circular dependency.
-         *
-         * formationds-common-util -> fds -> formationds-common-util
          */
-        final Long omUuid = 1024L;
         final List<FDSP_Node_Info_Type> omNodeList =
-            grouped.get( omUuid );
+            grouped.get( omNodeUuid );
 
-        if( ( omNodeList == null ) ||
-            ( omNodeList.isEmpty( ) || ( omNodeList.size( ) > 1 ) ) )
+        if( omNodeList == null || omNodeList.isEmpty( ) )
         {
-            logger.warn( "More then one OM, only expected one. " +
-                         "Leave OMs as separate nodes" );
+            logger.warn( "No OM node found, leaving unmodified. " +
+                         "OM Node UUID not set to default?" );
+        }
+        else if( omNodeList.size( ) > 1 )
+        {
+            logger.warn( "More then one OM, only expected one, " +
+                         "leaving unmodified. OM Node UUID not set to default?" );
         }
         else
         {
