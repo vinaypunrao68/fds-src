@@ -9,7 +9,6 @@ user_fds_ar_libs  := \
     fds-am-engine \
     fds-test \
     fds-lib \
-    fds-umod \
     fds-fdsp \
 
 user_non_fds_libs := \
@@ -72,6 +71,7 @@ user_bin_exe      := \
     perfstat_unit_test \
     fds_process_interrupt_test \
     counters_test \
+    SynchronizedTaskExecutor_ut \
     perf_trace_unit_test \
     sharedcache_perf_test \
     sharedcache_unit_test \

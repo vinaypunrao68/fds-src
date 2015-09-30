@@ -1,6 +1,7 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
+#include <util/Log.h>
 #include <concurrency/LFThreadpool.h>
 
 namespace fds {
@@ -221,7 +222,6 @@ LFMQThreadpool::~LFMQThreadpool()
     }
 }
 
-// TODO(Rao): Move this into LFThreadpool.cpp
 void LFMQThreadpool::threadpoolCheck() {
     static const util::TimeStamp MAX_TASK_TIME_MS = 10 * 1000;        // 10s     
     auto nowMs = util::getTimeStampMillis();
