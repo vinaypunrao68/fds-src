@@ -7,6 +7,7 @@
 
 #include <fds_assert.h>
 #include <concurrency/ThreadPool.h>
+#include <fds_timer.h>
 
 namespace fds {
 
@@ -288,6 +289,19 @@ fds_threadpool::~fds_threadpool()
 
 }
 
+void fds_threadpool::enableThreadpoolCheck(FdsTimer *timer) {
+    fds_verify(use_lftp_instead == true);
+    auto checkTask = boost::shared_ptr<FdsTimerTask>(
+            new FdsTimerFunctionTask(*timer,
+                [this]() {
+                    this->threadpoolCheck();
+                }));
+    timer->scheduleRepeated(checkTask, std::chrono::seconds(10));
+}
+
+void fds_threadpool::threadpoolCheck() {
+    lfthreadpool->threadpoolCheck();
+}
 
 /** \fds_threadpool::schedule
  * --------------------------
@@ -345,6 +359,24 @@ fds_threadpool::thp_dequeue_task_or_idle(thpool_worker *worker)
     }
     thp_mutex.unlock();
     return task;
+}
+
+// TODO(Rao): Move this into LFThreadpool.cpp
+void LFMQThreadpool::threadpoolCheck() {
+    static const util::TimeStamp MAX_TASK_TIME_MS = 10 * 1000;        // 10s     
+    auto nowMs = util::getTimeStampMillis();
+    for (const auto& worker : workers) {
+        if (worker->queueCnt > 0) {
+            auto lastRanTimestampMS = worker->lastTaskTimestampMs;
+            if (lastRanTimestampMS > 0 && nowMs > lastRanTimestampMS &&
+                (nowMs - lastRanTimestampMS) > MAX_TASK_TIME_MS) {
+                GLOGERROR << "LFThread with worker id: "
+                    << worker->id_ << " seems blocked on a task for :"
+                    << (nowMs - lastRanTimestampMS) << "ms";
+                fds_panic("Worker thread seems blocked.  Don't schedule long running task on threadpool");
+            }
+        }
+    }
 }
 
 }  // namespace fds

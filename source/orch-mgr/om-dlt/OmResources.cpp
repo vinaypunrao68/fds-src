@@ -2258,6 +2258,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             new FdsTimerFunctionTask(
                 *timer,
                 [this, uuid, msg, newNode, fPrevRegistered] () {
+                LOGNORMAL << "Posting 'setupNewNode' on to threadpool for uuid"
+                      << std::hex << uuid << std::dec;
                 /* Immediately post to threadpool so we don't hold up timer thread */
                 MODULEPROVIDER()->proc_thrpool()->schedule(
                     &OM_NodeDomainMod::setupNewNode,

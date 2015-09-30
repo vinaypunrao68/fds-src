@@ -18,6 +18,8 @@
 #include <linux/futex.h>
 #include <sys/time.h>
 
+#include <util/timeutils.h>
+
 #include "EclipseWorkarounds.h"
 
 namespace fds {
@@ -49,7 +51,8 @@ struct LockfreeWorker {
     peers_(peers),
     tasks(1500),
     workLoopTerminate(false),
-    completedCntr(0)
+    completedCntr(0),
+    lastTaskTimestampMs(0)
     {
     }
 
@@ -96,6 +99,7 @@ struct LockfreeWorker {
         param.sched_priority = sched_get_priority_max(policy); // 20;
         pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 #endif
+        GLOGNOTIFY << "Starting LFThread with worker id: " << id_;
 
         for (;;)
         {
@@ -205,6 +209,7 @@ struct LockfreeWorker {
                 if (dequeued) {
                     fds_verify(NULL != task);
                     try {
+                    DBG(lastTaskTimestampMs = util::getTimeStampMillis());
                     task->operator()();
                     } catch (std::bad_alloc const& e) {
                       fds_panic("Failed allocation of memory: %s\n", e.what());
@@ -237,6 +242,8 @@ struct LockfreeWorker {
     std::thread* worker;
     /* Counters */
     uint64_t completedCntr;
+    /* Timestamp at which last task was run.  Only collected in debug builds */
+    util::TimeStamp                 lastTaskTimestampMs;
 };
 
 struct LFMQThreadpool {
@@ -272,6 +279,13 @@ struct LFMQThreadpool {
         workers[idx]->enqueue(
                 new LockFreeTask(std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
     }
+    /* Use this function in debug builds to catch cases where long running/blocking
+     * task is blocking thread in the threadpool
+     * NOTE: Don't run this function on this threadpool, it's better to run on a
+     * separate thread.
+     */
+    void threadpoolCheck();
+
     // std::vector<IThreadpoolWorker> workers;
     std::vector<LockfreeWorker*> workers;
     // std::atomic<int> idx;

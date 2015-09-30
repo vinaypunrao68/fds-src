@@ -234,6 +234,7 @@ void FdsProcess::init(int argc, char *argv[],
             int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
             bool use_lfthreadpool = conf_helper_.get<bool>("threadpool.use_lftp");
             proc_thrp   = new fds_threadpool(num_thr, use_lfthreadpool);
+            DBG(proc_thrp->enableThreadpoolCheck(timer_servicePtr_.get()));
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
