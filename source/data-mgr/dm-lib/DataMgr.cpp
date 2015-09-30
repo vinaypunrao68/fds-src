@@ -40,6 +40,20 @@ Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId
 
 namespace fds {
 
+struct RemoveErroredVolume {
+    explicit RemoveErroredVolume(DataMgr* dm, fds_volid_t vol_uuid)
+            : dm(dm) , vol_uuid(vol_uuid) {}
+    ~RemoveErroredVolume() {
+        FDSGUARD(dm->vol_map_mtx);
+        auto iter = dm->vol_meta_map.find(vol_uuid);
+        if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
+            dm->vol_meta_map.erase(iter);
+        }
+    }
+    DataMgr* dm;
+    fds_volid_t vol_uuid;
+};
+
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
@@ -168,13 +182,11 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
     vol_map_mtx->lock();
-    for (auto vol_it = vol_meta_map.begin();
-         vol_it != vol_meta_map.end();
-         ++vol_it) {
-        if (vol_it->second->vol_desc->fSnapshot) {
+    for (const auto& iter : vol_meta_map) {
+        if (!iter.second || iter.second->vol_desc->fSnapshot) {
             continue;
         }
-        fds_volid_t volId (vol_it->first);
+        fds_volid_t volId (iter.first);
         if (amIPrimary(volId)) {
             prim_vols.insert(volId);
         }
@@ -314,11 +326,12 @@ DataMgr::finishCloseDMT() {
     // the set is used so that we call catSyncMgr to cleanup/and
     // and send push meta done msg outside of vol_map_mtx lock
     vol_map_mtx->lock();
-    for (auto vol_it = vol_meta_map.begin();
-         vol_it != vol_meta_map.end();
-         ++vol_it) {
-        fds_volid_t volid (vol_it->first);
-        VolumeMeta *vol_meta = vol_it->second;
+    for (auto iter = vol_meta_map.begin();
+         iter != vol_meta_map.end();
+         ++iter) {
+        if (!iter->second) continue;
+        fds_volid_t volid (iter->first);
+        VolumeMeta *vol_meta = iter->second;
         if (vol_meta->isForwarding()) {
             vol_meta->setForwardFinish();
             done_vols.insert(volid);
@@ -383,6 +396,7 @@ const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
 void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
     vecVolIds.reserve(vol_meta_map.size());
     for (const auto& iter : vol_meta_map) {
+        if (!iter.second) continue;
         const VolumeDesc* vdesc = iter.second->vol_desc;
         if (vdesc->isStateActive() && !vdesc->isSnapshot()) {
             vecVolIds.push_back(vdesc->volUUID);
@@ -489,33 +503,6 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     return err;
 }
 
-/*
- * Adds the volume if it doesn't exist already.
- * Note this does NOT return error if the volume exists.
- */
-Error DataMgr::_add_if_no_vol(const std::string& vol_name,
-                              fds_volid_t vol_uuid, VolumeDesc *desc) {
-    Error err(ERR_OK);
-
-    /*
-     * Check if we already know about this volume
-     */
-    vol_map_mtx->lock();
-    if (volExistsLocked(vol_uuid) == true) {
-        err = Error(ERR_DUPLICATE);
-        LOGNORMAL << "Received add request for existing vol uuid "
-                  << vol_uuid << ", so ignoring.";
-        vol_map_mtx->unlock();
-        return err;
-    }
-
-    vol_map_mtx->unlock();
-
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
-
-    return err;
-}
-
 VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
     if (!fMapAlreadyLocked) {
         FDSGUARD(*vol_map_mtx);
@@ -537,9 +524,25 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
  * @param vol_will_sync true if this volume's meta will be synced from
  * other DM first
  */
-Error DataMgr::_add_vol_locked(const std::string& vol_name,
-                               fds_volid_t vol_uuid,
-                               VolumeDesc *vdesc) {
+Error DataMgr::addVolume(const std::string& vol_name,
+                         fds_volid_t vol_uuid,
+                         VolumeDesc *vdesc) {
+
+    // check if the volume already exists ..
+    {
+        FDSGUARD(vol_map_mtx);
+        if (volExistsLocked(vol_uuid) == true) {
+            LOGDEBUG << "Received add request for existing vol uuid [" << vol_uuid << "]";
+            return ERR_DUPLICATE;
+        }
+        // add a dummy vol meta [FS-3207]
+        // This will make sure no other Volume with same id is being created at the same time
+        vol_meta_map[vol_uuid] = NULL;
+    }
+
+    // this will remove
+    RemoveErroredVolume __removeErrorVolume__(this, vol_uuid);
+
     Error err(ERR_OK);
     bool fActivated = false;
     // create vol catalogs, etc first
@@ -573,8 +576,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
-            GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
-                    "' not found!";
+            GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
             return ERR_NOT_FOUND;
         }
 
@@ -631,15 +633,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         }
     }
 
-    VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
-                                                       vol_uuid,
-                                                       GetLog(),
-                                                       vdesc);
-    if (!volmeta) {
-        LOGERROR << "Failed to allocate VolumeMeta for volume "
-                 << std::hex << vol_uuid << std::dec;
-        return ERR_OUT_OF_MEMORY;
-    }
+    VolumeMeta *volmeta = new VolumeMeta(vol_name, vol_uuid, GetLog(), vdesc);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -656,7 +650,6 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         needReg = true;
     }
 
-
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue " << std::hex
              << vol_uuid << std::dec << ", created catalogs";
 
@@ -665,6 +658,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         err = qosCtrl->registerVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid,
                                       static_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue.get()));
     }
+
     if (!err.ok()) {
         delete volmeta;
         vol_map_mtx->unlock();
@@ -742,32 +736,13 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     return err;
 }
 
-Error DataMgr::_process_add_vol(const std::string& vol_name,
-                                fds_volid_t vol_uuid,
-                                VolumeDesc *desc) {
-    Error err(ERR_OK);
-
-    vol_map_mtx->lock();
-    if (volExistsLocked(vol_uuid) == true) {
-        err = Error(ERR_DUPLICATE);
-        vol_map_mtx->unlock();
-        LOGDEBUG << "Received add request for existing vol uuid "
-                 << std::hex << vol_uuid << std::dec;
-        return err;
-    }
-    vol_map_mtx->unlock();
-
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
-    return err;
-}
-
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 {
     Error err(ERR_OK);
 
     vol_map_mtx->lock();
     /* make sure volume exists */
-    if (volExistsLocked(vol_uuid) == false) {
+    if (volExistsLocked(vol_uuid) == false || NULL == getVolumeMeta(vol_uuid, true)) {
         LOGERROR << "Received modify policy request for "
                  << "non-existant volume [" << vol_uuid
                  << ", " << voldesc.name << "]";
@@ -1266,19 +1241,12 @@ std::string DataMgr::getPrefix() const {
  * Intended to be called while holding the vol_map_mtx.
  */
 fds_bool_t DataMgr::volExistsLocked(fds_volid_t vol_uuid) const {
-    if (vol_meta_map.count(vol_uuid) != 0) {
-        return true;
-    }
-    return false;
+    return vol_meta_map.count(vol_uuid) != 0;
 }
 
 fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
-    fds_bool_t result;
-    vol_map_mtx->lock();
-    result = volExistsLocked(vol_uuid);
-    vol_map_mtx->unlock();
-
-    return result;
+    FDSGUARD(vol_map_mtx);
+    return volExistsLocked(vol_uuid);
 }
 
 /**
