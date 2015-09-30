@@ -112,6 +112,11 @@ class fds_threadpool : boost::noncopyable
   public:
     ~fds_threadpool();
     /*
+     * Create the threadpool with specified id, number of thread.
+     */
+    fds_threadpool(const std::string &id, int num_thr = 10, bool use_lftp = true);
+
+    /*
      * Create the threadpool with specified number of thread.
      */
     fds_threadpool(int num_thr = 10, bool use_lftp = true);

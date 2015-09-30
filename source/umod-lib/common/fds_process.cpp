@@ -233,7 +233,7 @@ void FdsProcess::init(int argc, char *argv[],
         if (conf_helper_.exists("threadpool")) {
             int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
             bool use_lfthreadpool = conf_helper_.get<bool>("threadpool.use_lftp");
-            proc_thrp   = new fds_threadpool(num_thr, use_lfthreadpool);
+            proc_thrp   = new fds_threadpool("ProcessThreadpool", num_thr, use_lfthreadpool);
             DBG(proc_thrp->enableThreadpoolCheck(timer_servicePtr_.get()));
         }
     } else {

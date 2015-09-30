@@ -16,7 +16,7 @@ FDS_QoSControl::FDS_QoSControl() {
 FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo, fds_log *log,
                                        const std::string& prefix) :qos_max_threads(_max_threads)
 {
-    threadPool = new fds_threadpool(qos_max_threads);
+    threadPool = new fds_threadpool("QosThreadpool", qos_max_threads);
     dispatchAlgo = algo;
     qos_log = log;
     total_rate = 20000;  // IOPS

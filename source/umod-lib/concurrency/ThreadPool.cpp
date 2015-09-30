@@ -220,7 +220,7 @@ thpool_worker::wk_loop(void)
 /** \fds_threadpool constructor
  * ----------------------------
  */
-fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
+fds_threadpool::fds_threadpool(const std::string &id, int num_thr, bool use_lftp)
     : thp_mutex("thpool mtx"),
       thp_state(RUNNING),
       thp_total_tasks(0),
@@ -231,7 +231,7 @@ fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
       use_lftp_instead(use_lftp)
 {
     if (use_lftp) {
-        lfthreadpool = new LFMQThreadpool(thp_num_threads);
+        lfthreadpool = new LFMQThreadpool(id, thp_num_threads);
     } else {
         int            i;
         // dlist_t       *iter;
@@ -254,6 +254,15 @@ fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
         }
     }
 }
+
+/** \fds_threadpool constructor
+ * ----------------------------
+ */
+fds_threadpool::fds_threadpool(int num_thr, bool use_lftp)
+: fds_threadpool("UnnamedThreadpool", num_thr, use_lftp)
+{
+}
+
 
 /** \fds_threadpool destructor
  * ---------------------------

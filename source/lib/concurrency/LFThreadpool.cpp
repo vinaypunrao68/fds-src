@@ -6,10 +6,10 @@
 
 namespace fds {
 
-LockfreeWorker::LockfreeWorker(int id, bool steal,
+LockfreeWorker::LockfreeWorker(const std::string &threadpoolId, bool steal,
                                std::vector<LockfreeWorker*> &peers)
 :  queueCnt(0),
-id_(id),
+id_(threadpoolId),
 steal_(steal),
 peers_(peers),
 state_(INIT),
@@ -71,6 +71,12 @@ void LockfreeWorker::workLoop() {
     param.sched_priority = sched_get_priority_max(policy); // 20;
     pthread_setschedparam(pthread_self(), SCHED_RR, &param);
 #endif
+    /* Set id to be combination of threadpool id and this thread id */
+    std::stringstream ss;
+    ss << id_ << ":" << std::this_thread::get_id();
+    id_ = ss.str();
+
+    GLOGNOTIFY << "Starting LFThread worker id: " << id_;
 
     for (;;)
     {
@@ -202,16 +208,21 @@ void LockfreeWorker::workLoop() {
     }  // for (;;)
 }
 
-LFMQThreadpool::LFMQThreadpool(uint32_t sz, bool steal)
+LFMQThreadpool::LFMQThreadpool(const std::string &id, uint32_t sz, bool steal)
 : workers(sz),
     idx(0)
 {
     for (uint32_t i = 0; i < workers.size(); i++) {
-        workers[i] = new LockfreeWorker(i, steal, workers);
+        workers[i] = new LockfreeWorker(id, steal, workers);
     }
     for (uint32_t i = 0; i < workers.size(); i++) {
         workers[i]->start();
     }
+}
+
+LFMQThreadpool::LFMQThreadpool(uint32_t sz, bool steal)
+: LFMQThreadpool("UnnamedThreadpool", sz, steal)
+{
 }
 
 LFMQThreadpool::~LFMQThreadpool()

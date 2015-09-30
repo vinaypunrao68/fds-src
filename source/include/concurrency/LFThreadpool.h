@@ -54,7 +54,8 @@ struct LockfreeWorker {
         ABORTING,
         ABORTED
     };
-    LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers);
+    LockfreeWorker(const std::string &threadpoolId,
+                   bool steal, std::vector<LockfreeWorker*> &peers);
     void start();
     void finish();
     void enqueue(LockFreeTask *t);
@@ -63,7 +64,8 @@ struct LockfreeWorker {
     // This should be cache line size aligned to avoid false sharing.
     alignas(64) int                         queueCnt = 0;
 
-    int                                     id_;
+    /* Combination of threadpool id and thread id */
+    std::string                             id_;
     bool                                    steal_;
     std::vector<LockfreeWorker*>            &peers_;
     State                                   state_;
@@ -82,6 +84,7 @@ struct LockfreeWorker {
 * per thread.
 */
 struct LFMQThreadpool {
+    LFMQThreadpool(const std::string &id, uint32_t sz, bool steal = false);
     LFMQThreadpool(uint32_t sz, bool steal = false);
     ~LFMQThreadpool();
     template <class F, class... Args>
