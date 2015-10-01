@@ -119,7 +119,6 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     // Commit the metadata updates
     // The commit callback we pass in will actually call the
     // final service callback
-    LOGDEBUG << "NEIL DEBUG doing commitBlobTx NOT binding, in  " << __FUNCTION__ << " " << dmRequest;
     helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
             typedRequest->updcatMsg->sequence_id,
@@ -162,7 +161,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
-        // LOGDEBUG << "NEIL DEBUG: " << __FUNCTION__;
+        // Potential meta list corruption here... debug later :)
         // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
