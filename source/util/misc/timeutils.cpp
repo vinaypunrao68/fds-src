@@ -7,6 +7,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <cstring>
+
+#include <util/stringutils.h>
+
 namespace fds {
 namespace util {
 fds_uint64_t CYCLES_PER_SECOND = CLOCKS_PER_SEC;
@@ -121,6 +124,53 @@ fds_uint64_t getClockTicks() {
 TimeStamp getNanosFromTicks(fds_uint64_t ticks) {
     return ticks / (CYCLES_PER_SECOND / (1000000 * 1000));
 }
+
+/**
+ * Return seconds from human readable time
+ * input string as: case-insensitive
+ * "12345",""12345s", "12345sec" = 12345
+ * "1h", "1 hour" = 3600
+ * "60m", "60mins" = 3600
+ * "2d", "2 days" = 2*86400
+ * "1w", "1 week" = 7 * 86400
+ *  MM:SS = MM*60 + SS
+ *  HH:MM:SS = HH*3600 + MM*60 + SS
+ */
+TimeStamp getSecondsFromHumanTime(const std::string& strTime) {
+    // check if : is present in the string , then it is HH:MM:SS
+    TimeStamp seconds = 0;
+    if (std::string::npos != strTime.find(':')) {
+        std::vector<std::string> tokens;
+        tokenize(strTime, tokens, ':');
+
+        if (tokens.size() > 3 || tokens.size() < 2) {
+            throw std::invalid_argument(strformat("time in wrong hh:mm:ss format - [%s]",strTime.c_str()));
+        }
+
+        uint mults[] = {1, 60, 3600};
+        uint pos;
+        for (uint i = 0 ; i < tokens.size(); i++) {
+            pos = tokens.size() - i - 1 ;
+            seconds += std::atoi(tokens[pos].c_str()) * mults[i];
+        }
+        return seconds;
+    }
+
+    int mult = 1;
+    char *p, *end;
+    seconds =  std::strtol(strTime.c_str(), &end, 10);
+    p = end;
+    for ( ; *p; ++p) *p = tolower(*p);
+    if (end != strTime.c_str()) {
+        if (0 == strncmp(end, "s", 1)) mult = 1;
+        else if (0 == strncmp(end, "m", 1)) mult = 60;
+        else if (0 == strncmp(end, "h", 1)) mult = 3600;
+        else if (0 == strncmp(end, "d", 1)) mult = 86400;
+        else if (0 == strncmp(end, "w", 1)) mult = 86400 * 7;
+    }
+    return seconds * mult;
+}
+
 // ==========================================================================================
 
 TimeStamp StopWatch::start() {

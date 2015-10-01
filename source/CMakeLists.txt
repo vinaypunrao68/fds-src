@@ -71,7 +71,7 @@ set(SOURCE_FILES
 ./access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
 ./access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
 ./access-mgr/test/AmFunctionalTest.cpp
-./access-mgr/test/NbdFunctionalTest.cpp
+./access-mgr/test/BlockFunctionalTest.cpp
 ./checker/checker.cpp
 ./checker/checker.h
 ./checker/dm_checker.cpp

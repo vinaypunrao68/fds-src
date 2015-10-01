@@ -1,12 +1,17 @@
 package com.formationds.client.v08.model.stats;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class StatDataPoint {
+import com.formationds.client.v08.model.TimeUnit;
+
+public class StatDataPoint implements Cloneable{
 
 	public static final String REPORT_TIME = "reportTime";
 	public static final String METRIC_NAME = "metricName";
@@ -20,16 +25,6 @@ public class StatDataPoint {
 	public static final String MINIMUM_VALUE = "minimumValue";
 	public static final String RELATED_CONTEXTS = "relatedContexts";
 	public static final String AGGREGATION_TYPE = "aggregationType";
-	
-	public enum TIME_UNITS{
-		MILLISECONDS,
-		SECONDS,
-		MINUTES,
-		HOURS,
-		WEEKS,
-		DAYS,
-		YEARS
-	};
 	
 	/**
 	 * This is the time the statistic was reported
@@ -71,7 +66,7 @@ public class StatDataPoint {
 	 * concerns.  Descriptions of what each integer means in terms of time period can be found in
 	 * this file as static final members.
 	 */
-	private TIME_UNITS collectionTimePeriod = TIME_UNITS.MILLISECONDS;
+	private TimeUnit collectionTimePeriod = TimeUnit.MILLISECONDS;
 	
 	/**
 	 * This represents how many samples were included in the statistical
@@ -110,7 +105,7 @@ public class StatDataPoint {
 						  String metricName,
 						  Double metricValue,
 						  Long collectionPeriod,
-						  TIME_UNITS collectionTimePeriod,
+						  TimeUnit collectionTimePeriod,
 						  Integer numberOfSamples,
 						  Long contextId,
 						  ContextType contextType,
@@ -183,11 +178,11 @@ public class StatDataPoint {
 		this.numberOfSamples = numberOfSamples;
 	}
 	
-	public TIME_UNITS getCollectionTimeUnit(){
+	public TimeUnit getCollectionTimeUnit(){
 		return collectionTimePeriod;
 	}
 	
-	public void setCollectionTimeUnit( TIME_UNITS timeUnit ){
+	public void setCollectionTimeUnit( TimeUnit timeUnit ){
 		this.collectionTimePeriod = timeUnit;
 	}
 
@@ -222,6 +217,69 @@ public class StatDataPoint {
 		}
 		
 		return this.relatedContexts;
+	}
+	
+	/**
+	 * This is used to determine whether or not two stat data points represent the 
+	 * same data but for a different time.
+	 * 
+	 * @return
+	 */
+	public Boolean same( StatDataPoint point ){
+		
+		if ( point.getMetricName().equals( getMetricName() ) && 
+				point.getContextType().equals( getContextType() ) &&
+				point.getContextId().equals( getContextId() ) && 
+				point.getRelatedContexts().size() == getRelatedContexts().size() ){
+			
+			final List<ContextDef> thisCtxts = getRelatedContexts();
+			
+			// now check the related contexts
+			List<ContextDef> diffDefs = point.getRelatedContexts().stream().filter( (ctxt) -> {
+				
+				return !thisCtxts.contains( ctxt );
+				
+			}).collect( Collectors.toList() );
+			
+			if ( diffDefs.size() == 0 ){
+				return Boolean.TRUE;
+			}
+		}
+		
+		return Boolean.FALSE;
+	}
+	
+	/**
+	 * This method can be used by a collector in order to 
+	 * group like-stats in a map
+	 * 
+	 * It will look something like:
+	 * PUTS:VOLUME:123728947238749:NODE:4829018392103:DOMAIN:3890248290
+	 * @return
+	 */
+	public String samenessString(){
+		
+		StringJoiner joiner = new StringJoiner( ":" );
+		joiner.add( getMetricName() );
+		joiner.add( getContextType().name() );
+		joiner.add( getContextId().toString() );
+		
+		Collections.sort( getRelatedContexts(), (c1, c2) ->{
+			int result = c1.getContextType().name().compareTo( c2.getContextType().name() );
+			
+			if ( result == 0 ){
+				result = c1.getContextId().compareTo( c2.getContextId() );
+			}
+			
+			return result;
+		});
+		
+		getRelatedContexts().stream().forEach( (ctxt) -> {
+			joiner.add( ctxt.getContextType().name() );
+			joiner.add( ctxt.getContextId().toString() );
+		});
+		
+		return joiner.toString();
 	}
 	
 	/**
@@ -269,16 +327,41 @@ public class StatDataPoint {
 		StatDataPoint datapoint = new StatDataPoint();
 		
 		datapoint.setReportTime( json.getLong( REPORT_TIME ) );
-		datapoint.setCollectionPeriod( json.getLong( COLLECTION_PERIOD ) );
-		datapoint.setContextId( json.getLong( CONTEXT_ID ) );
-		datapoint.setContextType( ContextType.valueOf( json.getString( CONTEXT_TYPE_STR ) ) );
+		
+		if ( json.has( COLLECTION_PERIOD ) ){
+			datapoint.setCollectionPeriod( json.getLong( COLLECTION_PERIOD ) );
+		}
+		
+		if ( json.has( CONTEXT_ID ) ){
+			datapoint.setContextId( json.getLong( CONTEXT_ID ) );
+		}
+		
+		if ( json.has( CONTEXT_TYPE_STR ) ){
+			datapoint.setContextType( ContextType.valueOf( json.getString( CONTEXT_TYPE_STR ) ) );
+		}
+		
 		datapoint.setMetricName( json.getString( METRIC_NAME ) );
 		datapoint.setMetricValue( json.getDouble( METRIC_VALUE ) );
-		datapoint.setCollectionTimeUnit( TIME_UNITS.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
-		datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
-		datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
-		datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
-		datapoint.setAggregationType( AggregationType.valueOf( json.getString( AGGREGATION_TYPE ) ) );
+		
+		if ( json.has( COLLECTION_TIME_UNIT ) ) {
+			datapoint.setCollectionTimeUnit( TimeUnit.valueOf( json.getString( COLLECTION_TIME_UNIT ) ) );
+		}
+		
+		if ( json.has( NUMBER_OF_SAMPLES ) ){
+			datapoint.setNumberOfSamples( json.getInt( NUMBER_OF_SAMPLES ) );
+		}
+		
+		if ( json.has( MAXIMUM_VALUE ) ){
+			datapoint.setMaximumValue( json.getDouble( MAXIMUM_VALUE ) );
+		}
+		
+		if ( json.has( MINIMUM_VALUE ) ){
+			datapoint.setMinimumValue( json.getDouble( MINIMUM_VALUE ) );
+		}
+		
+		if ( json.has( AGGREGATION_TYPE ) ){
+			datapoint.setAggregationType( AggregationType.valueOf( json.getString( AGGREGATION_TYPE ) ) );
+		}
 		
 		try {
 			JSONArray array = json.getJSONArray( RELATED_CONTEXTS );
@@ -292,5 +375,31 @@ public class StatDataPoint {
 		}
 		
 		return datapoint;
+	}
+	
+	@Override
+	public String toString() {
+	
+		return toJson();
+	}
+	
+	@Override
+	public StatDataPoint clone() throws CloneNotSupportedException {
+		
+		StatDataPoint newPoint = new StatDataPoint();
+		newPoint.setAggregationType( getAggregationType() );
+		newPoint.setCollectionPeriod( getCollectionPeriod() );
+		newPoint.setCollectionTimeUnit( getCollectionTimeUnit() );
+		newPoint.setContextId( getContextId() );
+		newPoint.setContextType( getContextType() );
+		newPoint.setMaximumValue( getMaximumValue() );
+		newPoint.setMetricName( getMetricName() );
+		newPoint.setMetricValue( getMetricValue() );
+		newPoint.setMinimumValue( getMinimumValue() );
+		newPoint.setReportTime( getReportTime() );
+		newPoint.setNumberOfSamples( getNumberOfSamples() );
+		newPoint.getRelatedContexts().addAll( getRelatedContexts() );
+		
+		return newPoint;
 	}
 }

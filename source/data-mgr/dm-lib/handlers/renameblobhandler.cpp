@@ -251,13 +251,17 @@ void RenameBlobHandler::handleDeleteOldBlob(Error const& e, DmRequest* dmRequest
 void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::RenameBlobMsg>& message,
                                        Error const& e, DmRequest* dmRequest) {
-    asyncHdr->msg_code = e.GetErrno();
-    auto renameReq = static_cast<DmIoRenameBlob*>(dmRequest);
-    auto response = renameReq->response ?
-        renameReq->response : boost::make_shared<fpi::RenameBlobRespMsg>();
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*response));
-
-    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg), *response);
+    if (dmRequest) {
+        asyncHdr->msg_code = e.GetErrno();
+        auto renameReq = static_cast<DmIoRenameBlob*>(dmRequest);
+        auto response = renameReq->response ?
+            renameReq->response : boost::make_shared<fpi::RenameBlobRespMsg>();
+        DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*response));
+        DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg), *response);
+    } else {
+        auto response = boost::make_shared<fpi::RenameBlobRespMsg>();
+        DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg), *response);
+    }
 
     delete dmRequest;
 }

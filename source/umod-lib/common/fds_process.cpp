@@ -693,7 +693,7 @@ void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
 void FdsProcess::setup_timer_service()
 {
     if (!timer_servicePtr_) {
-        timer_servicePtr_.reset(new FdsTimer());
+        timer_servicePtr_.reset(new FdsTimer("ProcessWideTimer"));
     }
 }
 

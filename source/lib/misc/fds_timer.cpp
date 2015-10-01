@@ -3,7 +3,9 @@
  */
 
 #ifndef USE_BOOSTBASED_TIMER
+#include <fds_globals.h>
 #include <fds_timer.h>
+#include <util/Log.h>
 
 namespace fds
 {
@@ -42,7 +44,15 @@ void FdsTimerFunctionTask::runTimerTask()
  * Constructor
  */
 FdsTimer::FdsTimer()
-: aborted_(false),
+: FdsTimer("") {
+}
+
+/**
+ * Constructor
+ */
+FdsTimer::FdsTimer(const std::string &id)
+: id_(std::string("FdsTimer:") + id + std::string(": ")),
+    aborted_(false),
     timerThreadSleepMs_(1000),
     timerThread_(std::bind(&FdsTimer::runTimerThread_, this))
 {
@@ -78,11 +88,22 @@ bool FdsTimer::cancel(const FdsTimerTaskPtr& task)
 
 std::string FdsTimer::log_string()
 {
-    return "FdsTimer";
+    return id_;
 }
 
 void FdsTimer::runTimerThread_()
 {
+    /* This wait is needed because of races in initializing g_fdslog.  There are global
+     * variables in OM that use fds_timer.  Before fds_process is inited, if we try to log
+     * anything from any of these globals g_fdslog may be inited twice from
+     * init_process_globals() which isn't desirable.
+     */
+    while (g_fdslog == nullptr) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    GLOGNORMAL << log_string() << " Timer thread started...";
+
     while (!aborted_) {
         // TODO(Rao): Improve this sleep below so that it services tasks
         // more promptly than every timerThreadSleepMs_
@@ -103,7 +124,15 @@ void FdsTimer::runTimerThread_()
                 }
                 lock_.unlock();
 
-                task->runTimerTask();
+                try {
+                    task->runTimerTask();
+                } catch (const std::exception &e) {
+                    GLOGERROR << log_string() << "Exception on timer thread: " << e.what()
+                        << ".  Ignoring and continuing timer thread";
+                } catch (...) {
+                    GLOGERROR << log_string() << "Unknown exception on timer thread: "
+                        << ".  Ignoring and continuing timer thread";
+                }
 
                 lock_.lock();
             } else {
@@ -114,6 +143,8 @@ void FdsTimer::runTimerThread_()
         /* go back to sleep */
         std::this_thread::sleep_for(std::chrono::milliseconds(timerThreadSleepMs_));
     }
+
+    GLOGNORMAL << log_string() << "Timer thread exited...";
 }
 }  // namespace fds
 

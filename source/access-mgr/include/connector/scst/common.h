@@ -18,8 +18,8 @@ namespace fds
 {
 
     enum class ScstError : uint8_t {
-        connection_closed,
-        shutdown_requested,
+        scst_not_found,
+        scst_error,
     };
 
 }  // namespace fds
