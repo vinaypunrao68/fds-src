@@ -457,7 +457,7 @@ public class QueryHelper {
      */
     protected List<PercentageConsumed> getTieringPercentage( List<Series> series ){
 
-    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
+    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
         	.findFirst().get();
 
     	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
