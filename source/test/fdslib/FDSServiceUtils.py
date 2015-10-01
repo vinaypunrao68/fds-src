@@ -833,10 +833,12 @@ class PMService(object):
                 #depracated
                 #self.nservice.stop_service(eachnode.id, eachnode.services['PM'][0].id)
                 env.host_string = node_ip
+                pm_status_before = sudo('service fds-pm status')
                 status = sudo('service fds-pm stop')
                 #sleeping more than five minutes for state to get updated correctly
-                time.sleep(600)
+                #time.sleep(600)
                 NodeFound = True
+                pm_status_after = sudo('service fds-pm status')
 
         #check updated node state 
         if NodeFound:
@@ -846,8 +848,9 @@ class PMService(object):
                     try:
                         #Currently, we have to wait 5 minutes for the state to get updated
                         #OM team is creating a card to make this configurable
-                        if eachnode.services['PM'][0].status.state ==  'STANDBY':
-                             log.warn('PASSED - PM service is not running on node {}'.format(eachnode.address.ipv4address))
+                        #if eachnode.services['PM'][0].status.state ==  'STANDBY':
+                        if 'fds-pm start' in pm_status_before and 'fds-pm stop' in pm_status_after:
+                             log.info('PASSED - PM service is not running on node {}'.format(eachnode.address.ipv4address))
                              return True 
 
                         else:
