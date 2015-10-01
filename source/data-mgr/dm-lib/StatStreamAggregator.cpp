@@ -129,6 +129,7 @@ void VolumeStats::processStats() {
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
                   << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
                   << "Gets from SSD " << StatHelper::getTotalSsdGets(*cit) << ", "
+                  << "Gets from HDD " << StatHelper::getTotalGets(*cit) - StatHelper::getTotalSsdGets(*cit) << ", "
                   << "Short term perf wma " << perf_recent_wma_ << ", "
                   << "Short term perf sigma " << perf_recent_stdev_ << ", "
                   << "Long term perf sigma " << perf_long_stdev_ << ", "
@@ -740,6 +741,11 @@ void StatStreamTimerTask::runTimerTask() {
             ssdGetsDP.key = "SSD Gets";
             ssdGetsDP.value = StatHelper::getTotalSsdGets(slot);
             volDataPointsMap[timestamp].push_back(ssdGetsDP);
+
+            fpi::DataPointPair hddGetsDP;
+            hddGetsDP.key = "HDD Gets";
+            hddGetsDP.value = getsDP.value - ssdGetsDP.value;
+            volDataPointsMap[timestamp].push_back(hddGetsDP);
 
             fpi::DataPointPair logicalBytesDP;
             logicalBytesDP.key = "Logical Bytes";
