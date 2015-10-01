@@ -217,9 +217,7 @@ class DmIoCommitBlobTx : public DmRequest {
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
         opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
     }
-    virtual ~DmIoCommitBlobTx() {
-    	LOGDEBUG << "NEIL DEBUG destructor for commitBlob for " << blob_name << " called";
-    }
+    virtual ~DmIoCommitBlobTx() {}
 
     std::function<void(const Error &e)> localCb;
 
@@ -234,6 +232,15 @@ class DmIoCommitBlobTx : public DmRequest {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
                    << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+    }
+
+    std::string dump_meta() const {
+    	std::stringstream ret;
+    	ret << "Meta list byte-count = " << rspMsg.byteCount;
+    	for (auto cit : rspMsg.meta_list) {
+    		ret << "Meta list key: " << cit.key << " value: " << cit.value;
+    	}
+    	return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
