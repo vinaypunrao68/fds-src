@@ -220,7 +220,7 @@ class DmIoCommitBlobTx : public DmRequest {
     virtual ~DmIoCommitBlobTx() {
     }
 
-    std::function<void(const Error &e, DmRequest *dmRequest)> localCb = NULL;
+    std::function<void(const Error &e)> localCb = NULL;
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -233,6 +233,15 @@ class DmIoCommitBlobTx : public DmRequest {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
                    << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+    }
+
+    std::string dump_meta() const {
+    	std::stringstream ret;
+    	ret << "Meta list byte-count = " << rspMsg.byteCount;
+    	for (auto cit : rspMsg.meta_list) {
+    		ret << "Meta list key: " << cit.key << " value: " << cit.value;
+    	}
+    	return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
