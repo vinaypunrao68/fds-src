@@ -162,8 +162,8 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
-        LOGDEBUG << "NEIL DEBUG: " << __FUNCTION__;
-        commitOnceReq->dump_meta();
+        // LOGDEBUG << "NEIL DEBUG: " << __FUNCTION__;
+        // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
     }
