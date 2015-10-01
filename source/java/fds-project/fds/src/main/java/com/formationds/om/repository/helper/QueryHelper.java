@@ -191,32 +191,6 @@ public class QueryHelper {
                                                         query.getSeriesType(),
                                                         StatOperation.RATE) );
             	
-            	// we could just test the query, but this captures more potential problems retrieving the list
-            	try {
-            		
-	            	// GETS has the total # of gets/sec and SSD is a subset of those.
-	            	// This query wants GETS for HDD access and SSD access so we mutate the
-	            	// GETS series with a quick subtraction of the corresponding SSD field
-	            	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.GETS.name() ) )
-	            		.findFirst().get();
-            		
-	            	Series ssdGets = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
-	            		.findFirst().get();
-	            	
-	            	gets.getDatapoints().forEach( 
-	            		gPoint -> {
-	            			ssdGets.getDatapoints().stream().filter( sPoint -> sPoint.getX().equals( gPoint.getX() ) )
-	            				.forEach(
-		            				sPoint -> {
-		            					gPoint.setY( gPoint.getY() - sPoint.getY() );
-		            				}
-		            			);
-	            		});
-            	}
-            	catch( NoSuchElementException noEm ) {
-            		logger.info( "The query either did not contain an SSD element, or one was not found.  Calculations will not include it." );
-            	}
-            	
             	calculatedList.add( getAverageIOPs( series ) );
             	calculatedList.addAll( getTieringPercentage( series ) );
             	
