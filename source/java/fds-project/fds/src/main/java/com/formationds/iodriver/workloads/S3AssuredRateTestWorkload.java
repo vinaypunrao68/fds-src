@@ -1,5 +1,7 @@
 package com.formationds.iodriver.workloads;
 
+import java.io.Closeable;
+import java.io.PrintStream;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -26,6 +28,8 @@ import com.formationds.iodriver.operations.ReportStart;
 import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.QosProgressReporter;
+import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +45,16 @@ public final class S3AssuredRateTestWorkload extends Workload
         return Optional.of(new AssuredRateValidator());
     }
     
+    @Override
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadEventListener listener)
+    {
+        if (output == null) throw new NullArgumentException("output");
+        if (listener == null) throw new NullArgumentException("listener");
+        
+        return Optional.of(new QosProgressReporter(output, listener));
+    }
+
     /**
      * Constructor.
      *
@@ -253,7 +267,7 @@ public final class S3AssuredRateTestWorkload extends Workload
     {
         int minAssuredIops = _competingBuckets * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = (int)(headroom * 0.95);  // Take 95% of the system's I/O capacity to
+        int testAssured = (int)(headroom * 0.85);  // Take 85% of the system's I/O capacity to
                                                    // ensure there's really competition.
 
         return createSetupBucket(_assuredBucketName, testAssured);

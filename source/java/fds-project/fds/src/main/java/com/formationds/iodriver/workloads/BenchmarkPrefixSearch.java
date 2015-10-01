@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.formationds.iodriver.Driver;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
@@ -17,6 +18,7 @@ import com.formationds.iodriver.operations.CallChildWorkload;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.validators.NullValidator;
 
 public class BenchmarkPrefixSearch extends Workload
 {
@@ -68,9 +70,17 @@ public class BenchmarkPrefixSearch extends Workload
                             null,
                             getLogOperations());
             
-            getVolumeObjects.setUp(endpoint, listener);
-            getVolumeObjects.runOn(endpoint, listener);
-            getVolumeObjects.tearDown(endpoint, listener);
+            Driver driver = Driver.newDriver(endpoint,
+                                             getVolumeObjects,
+                                             listener,
+                                             getVolumeObjects.getSuggestedValidator()
+                                                             .orElse(new NullValidator()));
+            driver.runWorkload();
+            int result = driver.getResult();
+            if (result != 0)
+            {
+                throw new ExecutionException("Getting volume objects failed with code " + result);
+            }
         }
     }
     

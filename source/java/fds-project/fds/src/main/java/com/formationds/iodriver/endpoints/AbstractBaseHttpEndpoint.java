@@ -584,7 +584,7 @@ public abstract class AbstractBaseHttpEndpoint<
      * Logs.
      */
     private final Logger _logger;
-
+    
     /**
      * Base URL for connections.
      */

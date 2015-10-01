@@ -149,14 +149,14 @@ public final class Main
         try
         {
             Workload workload = config.getSelectedWorkload();
-            
+            Endpoint endpoint = getCompatibleEndpoint(workload);
+
             try (WorkloadEventListener listener = new WorkloadEventListener(config.getLogger());
                  Closeable reporter = workload.getSuggestedReporter(System.out, listener)
                                               .orElseGet(() -> new ConsoleProgressReporter(
                                                       System.out,
                                                       listener)))
             {
-                Endpoint endpoint = getCompatibleEndpoint(workload);
                 Validator validator = workload.getSuggestedValidator().orElse(new NullValidator());
                                       
                 Driver driver = Driver.newDriver(endpoint, workload, listener, validator);

@@ -10,6 +10,7 @@ import javax.net.ssl.HttpsURLConnection;
 
 import org.json.JSONObject;
 
+import com.formationds.client.v08.model.QosPolicy;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
@@ -73,10 +74,23 @@ public final class SetVolumeQos extends AbstractOmV8Operation
         {
             throw new ExecutionException(e);
         }
-        
         Volume modifiedVolume = ObjectModelHelper.toObject(modifiedVolumeString, Volume.class);
-            
-        reporter.volumeModified.send(new BeforeAfter<>(oldVolume, modifiedVolume));
+
+        QosPolicy modifiedQos = modifiedVolume.getQosPolicy();
+        if (modifiedQos.getPriority() == settings.getPriority()
+            && modifiedQos.getIopsMin() == settings.getIopsAssured()
+            && modifiedQos.getIopsMax() == settings.getIopsThrottle())
+        {
+            reporter.volumeModified.send(new BeforeAfter<>(oldVolume, modifiedVolume));
+        }
+        else
+        {
+            throw new ExecutionException("QoS was not updated to requested settings: " + settings
+                                         + ", got QosPolicy(priority: " + modifiedQos.getPriority()
+                                         + ", iopsMin: " + modifiedQos.getIopsMin()
+                                         + ", iopsMax: " + modifiedQos.getIopsMax()
+                                         + ") instead.");
+        }
     }
 
     @Override

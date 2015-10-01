@@ -9,10 +9,6 @@ import com.formationds.iodriver.reporters.WorkloadEventListener;
  */
 public interface Endpoint
 {
-    boolean getReadOnly();
-    
-    void setReadOnly(boolean value);
-    
     /**
      * Execute an operation.
      *

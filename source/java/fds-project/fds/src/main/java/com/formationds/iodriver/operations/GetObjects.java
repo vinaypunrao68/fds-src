@@ -1,6 +1,10 @@
 package com.formationds.iodriver.operations;
 
+import static com.formationds.commons.util.Strings.javaString;
+
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -60,6 +64,15 @@ public final class GetObjects extends S3Operation
             }
         }
         while (objects.isTruncated());
+    }
+    
+    @Override
+    protected Stream<SimpleImmutableEntry<String, String>> toStringMembers()
+    {
+        return Stream.of(
+                new SimpleImmutableEntry<>("bucketName", javaString(_bucketName)),
+                new SimpleImmutableEntry<>("delimiter", javaString(_delimiter)),
+                new SimpleImmutableEntry<>("prefix", javaString(_prefix)));
     }
     
     private final String _bucketName;

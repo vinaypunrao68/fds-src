@@ -38,27 +38,11 @@ public final class FdsEndpoint implements Endpoint
         return _omV8Endpoint;
     }
     
-    @Override
-    public boolean getReadOnly()
-    {
-        return getOmV7Endpoint().getReadOnly()
-               && getOmV8Endpoint().getReadOnly()
-               && getS3Endpoint().getReadOnly();
-    }
-    
     public S3Endpoint getS3Endpoint()
     {
         return _s3Endpoint;
     }
     
-    @Override
-    public void setReadOnly(boolean value)
-    {
-        getOmV7Endpoint().setReadOnly(value);
-        getOmV8Endpoint().setReadOnly(value);
-        getS3Endpoint().setReadOnly(value);
-    }
-
     @Override
     public void visit(Operation operation,
                       WorkloadEventListener listener) throws ExecutionException
