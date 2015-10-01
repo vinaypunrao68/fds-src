@@ -137,6 +137,8 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
+    waitForAbortToFinish();
+
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -322,6 +324,8 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
+
+    waitForAbortToFinish();
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
@@ -657,7 +661,18 @@ DmMigrationMgr::abortMigrationReal()
     	OmStartMigrCb(ERR_DM_MIGRATION_ABORTED);
     }
 
-    std::atomic_store(&migrationAborted, false);
+    /*
+     * At this time, we're done cleaning up migration abort so in case
+     * another migration was initiated from the OM and are waiting,
+     * we need to wake them up now.
+     */
+    {
+    	std::lock_guard<std::mutex> lk(migrationAbortMutex);
+    	fds_verify(migrationAborted && !migrationAbortFinished);
+    	migrationAbortFinished = true;
+    }
+    migrationAbortCV.notify_one();
+
 }
 
 void
@@ -728,5 +743,22 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
+}
+
+void
+DmMigrationMgr::waitForAbortToFinish()
+{
+	LOGMIGRATE << "Waiting for previous migration abort to finish";
+	std::unique_lock<std::mutex> lk(migrationAbortMutex);
+	migrationAbortCV.wait(lk,
+			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
+					(!std::atomic_load(&migrationAborted)));});
+	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
+		// reset state
+		std::atomic_store(&migrationAborted, false);
+		migrationAbortFinished = false;
+	}
+	lk.unlock();
+	LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }
 }  // namespace fds

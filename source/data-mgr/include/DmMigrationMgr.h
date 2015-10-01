@@ -227,6 +227,16 @@ class DmMigrationMgr : public DmMigrationBase {
     std::atomic<bool> migrationAborted;
 
     /**
+     * If OM issues a re-sync or start migration and the migration is aborted,
+     * then the following is used to ensure that migration is fully aborted
+     * before restarting a new one.
+     */
+    fds_bool_t migrationAbortFinished;
+    std::mutex migrationAbortMutex;
+    std::condition_variable migrationAbortCV;
+
+
+    /**
      * Seconds to sleep prior to starting migration
      */
     unsigned delayStart;
@@ -362,6 +372,12 @@ class DmMigrationMgr : public DmMigrationBase {
      * on the callback.
      */
     MigrationTrackIOReqs trackIOReqs;
+
+    /**
+     * Both DMs
+     * If migration is undergoing error, this method waits for that abort to finish
+     */
+    void waitForAbortToFinish();
 
 };  // DmMigrationMgr
 
