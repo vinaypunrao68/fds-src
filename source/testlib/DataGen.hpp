@@ -23,6 +23,7 @@ struct DataGenIf {
     {
         return true;
     }
+    virtual void reset() {}
 };
 typedef boost::shared_ptr<DataGenIf> DataGenIfPtr;
 
@@ -81,6 +82,9 @@ struct RandDataGenerator : DataGenIf
     {
         return (maxCount_ == -1 || curCnt_ < maxCount_);
     }
+    virtual void reset() {
+        curCnt_ = 0;
+    }
  protected:
     /* Number of items to produce. -1 to indicate unlimited */
     int32_t maxCount_;
@@ -136,6 +140,9 @@ struct CachedRandDataGenerator : DataGenIf
             return true;
         }
         return idx_ < items_.size();
+    }
+    virtual void reset() override {
+        idx_ = 0;
     }
  protected:
     /* Cached items */

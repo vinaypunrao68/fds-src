@@ -146,6 +146,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              }
          virtual ~SmQosCtrl() {
              delete dispatcher;
+             if (dispatcherThread) {
+                 dispatcherThread->join();
+             }
          }
 
          Error processIO(FDS_IOType* _io);

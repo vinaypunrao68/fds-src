@@ -42,7 +42,7 @@ def suiteConstruction(self, action="installbootactivate"):
 
     # Note: If installing, restart Redis in a clean state. If booting
     # just boot Redis but don't mess with it's state.
-    if action.count("install") > 0:
+    if action.count("install") > 0 and fdscfg.rt_obj.cfg_is_fds_installed is not True:
         # Build the necessary FDS infrastructure.
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
@@ -51,7 +51,7 @@ def suiteConstruction(self, action="installbootactivate"):
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
 
     if action.count("boot_noverify") > 0:
-        if action.count("install") == 0:
+        if action.count("install") == 0 and fdscfg.rt_obj.cfg_is_fds_installed is not True:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
@@ -69,7 +69,7 @@ def suiteConstruction(self, action="installbootactivate"):
         # Give the nodes some time to initialize.
         suite.addTest(testcases.TestMgt.TestWait(delay=10, reason="to let the nodes initialize"))
     elif action.count("boot") > 0:
-        if action.count("install") == 0:
+        if action.count("install") == 0 and fdscfg.rt_obj.cfg_is_fds_installed is not True:
             suite.addTest(testcases.TestFDSEnvMgt.TestBootRedis())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
