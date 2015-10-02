@@ -217,23 +217,29 @@ class DmIoCommitBlobTx : public DmRequest {
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
         opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
     }
-    virtual ~DmIoCommitBlobTx() {
-    	LOGDEBUG << "NEIL DEBUG destructor for commitBlob for " << blob_name << " called";
-    }
+    virtual ~DmIoCommitBlobTx() {}
 
     std::function<void(const Error &e)> localCb;
-
-    virtual std::string log_string() const override {
-        std::stringstream ret;
-        ret << "DmIoCommitBlobTx vol "
-            << std::hex << volId << std::dec;
-        return ret.str();
-    }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
-                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+                   << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc);
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+	ret << *this;
+        return ret.str();
+    }
+
+    std::string dump_meta() const {
+    	std::stringstream ret;
+    	ret << "Meta list byte-count = " << rspMsg.byteCount;
+    	for (auto cit : rspMsg.meta_list) {
+    		ret << "Meta list key: " << cit.key << " value: " << cit.value;
+    	}
+    	return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
@@ -302,17 +308,16 @@ class DmIoStartBlobTx : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_START_REQ;
     }
 
-    virtual std::string log_string() const override {
-        std::stringstream ret;
-        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::dec
-            << ", dmt_version " << dmt_version << " TX " << *ioBlobTxDesc;
-        return ret.str();
-    }
-
     friend std::ostream& operator<<(std::ostream& out, const DmIoStartBlobTx& io) {
         return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name << " blob mode " << io.blob_mode
-                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+                   << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc);
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+	ret << *this;
+        return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
@@ -398,10 +403,13 @@ class DmIoUpdateCat : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_UPDATE_REQ;
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCat& io) {
+        return out << "DmIoUpdateCat vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoUpdateCat vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
 
@@ -434,10 +442,13 @@ class DmIoUpdateCatOnce : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_UPDATE_ONCE_REQ;
     }
 
-    std::string log_string() const override {
+    friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCatOnce& io) {
+        return out << "DmIoUpdateCatOnce vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
+    virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoUpdateCat vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
 
@@ -467,10 +478,13 @@ class DmIoSetBlobMetaData : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_SET_BLOB_META_REQ;
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoSetBlobMetaData& io) {
+        return out << "DmIoSetBlobMetaData vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoSetBlobMetaData vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
     BlobTxId::const_ptr ioBlobTxDesc;

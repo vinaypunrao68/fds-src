@@ -49,8 +49,7 @@ void UpdateCatalogHandler::handleQueueItem(DmRequest * dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
-    LOGDEBUG << "Will update blob: '" << request->blob_name << "' of volume: '" <<
-            std::hex << request->volId << std::dec << "'";
+    LOGDEBUG << "Will update blob " << *request;
 
     helper.err = dataManager.timeVolCat_->updateBlobTx(request->volId,
                                                        request->ioBlobTxDesc,

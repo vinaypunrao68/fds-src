@@ -204,6 +204,9 @@ struct UpdateCatalogOnceHandler : Handler {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                 Error const& e, DmRequest* dmRequest);
+    virtual void handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                       boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                       Error const& e, DmRequest* dmRequest);
 };
 
 struct SetBlobMetaDataHandler : Handler {

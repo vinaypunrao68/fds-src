@@ -72,8 +72,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
-
-    LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
+    LOGDEBUG << "Will commit blob " << *typedRequest;
     helper.err = dataManager
                 .timeVolCat_->commitBlobTx(typedRequest->volId,
                                            typedRequest->blob_name,
@@ -158,13 +157,17 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
 
-    // Sends reply to AM
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
-            static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
+    if (dmRequest) {
+        // Sends reply to AM
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
-    	LOGDEBUG << "Deleting request" << dmRequest;
-    	delete dmRequest;
+        if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+            delete dmRequest;
+        }
+    } else {
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                           fpi::CommitBlobTxRspMsg());
     }
 }
 
