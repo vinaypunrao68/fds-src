@@ -3281,6 +3281,7 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
         if self.passedService not in svcs:
             self.log.info("Not in svcs... retrying")
+            self.log.info("Passed_node_uuid: {} passed_in: {} svcs: {}".format(passed_node_uuid, self.passedService, svcs))
             status = self.passedNode.nd_populate_metadata(om_node=om_node)
             passed_node_uuid = self.passedNode.nd_uuid
             svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
