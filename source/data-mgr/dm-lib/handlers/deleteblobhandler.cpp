@@ -63,10 +63,13 @@ void DeleteBlobHandler::handleQueueItem(DmRequest *dmRequest) {
 void DeleteBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::DeleteBlobMsg>& message,
                                       const Error &e, DmRequest *dmRequest) {
-    LOGDEBUG << " volid:" << dmRequest->volId
-             << " blob:" << dmRequest->blob_name
-             << " version: " << dmRequest->blob_version
-             << " err:" << e;
+    if (dmRequest) {
+        LOGDEBUG << " volid:" << dmRequest->volId
+                 << " blob:" << dmRequest->blob_name
+                 << " version: " << dmRequest->blob_version
+                 << " err:" << e;
+    }
+
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::EmptyMsgTypeId, fpi::EmptyMsg());
     delete dmRequest;
