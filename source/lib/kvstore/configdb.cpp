@@ -267,7 +267,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.volType,
                               vol.capacity,
                               vol.maxQuota,
-                              vol.replicaCnt,
+                              vol.redundancyCnt,
                               vol.maxObjSizeInBytes,
                               vol.writeQuorum,
                               vol.readQuorum,
@@ -439,7 +439,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "type") { vol.volType = (fpi::FDSP_VolType)atoi(value.c_str()); }
             else if (key == "capacity") { vol.capacity = strtod (value.c_str(), NULL);}
             else if (key == "quota.max") { vol.maxQuota = strtod (value.c_str(), NULL);}
-            else if (key == "replica.count") {vol.replicaCnt = atoi(value.c_str());}
+            else if (key == "replica.count") {vol.redundancyCnt = atoi(value.c_str());}  // Persisted name is deprecated
+            else if (key == "redundancy.count") {vol.redundancyCnt = atoi(value.c_str());} // in favor of this one.
             else if (key == "objsize.max") {vol.maxObjSizeInBytes = atoi(value.c_str());}
             else if (key == "write.quorum") {vol.writeQuorum = atoi(value.c_str());}
             else if (key == "read.quorum") {vol.readQuorum = atoi(value.c_str());}
