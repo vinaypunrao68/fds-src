@@ -67,8 +67,9 @@ set(SOURCE_FILES
     ./access-mgr/amlib/handlers/responsehandler.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp
-    ./access-mgr/connector/scst/ScstConnection.cpp
     ./access-mgr/connector/scst/ScstConnector.cpp
+    ./access-mgr/connector/scst/ScstDevice.cpp
+    ./access-mgr/connector/scst/ScstTarget.cpp
     ./access-mgr/connector/scst/ScstTask.cpp
     ./access-mgr/connector/xdi/AmAsyncService.cpp
     ./access-mgr/connector/xdi/AmAsyncXdiResponse.cpp
@@ -80,8 +81,9 @@ set(SOURCE_FILES
     ./access-mgr/include/connector/scst/common.h
     ./access-mgr/include/connector/scst/scst_const.h
     ./access-mgr/include/connector/scst/scst_user.h
-    ./access-mgr/include/connector/scst/ScstConnection.h
     ./access-mgr/include/connector/scst/ScstConnector.h
+    ./access-mgr/include/connector/scst/ScstDevice.h
+    ./access-mgr/include/connector/scst/ScstTarget.h
     ./access-mgr/include/connector/scst/ScstTask.h
     ./access-mgr/include/connector/xdi/AmAsyncService.h
     ./access-mgr/include/connector/xdi/AmAsyncXdi.h
@@ -145,6 +147,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/migrationhandler.cpp
     ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
     ./data-mgr/dm-lib/handlers/reloadvolumehandler.cpp
+    ./data-mgr/dm-lib/handlers/renameblobhandler.cpp
     ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
     ./data-mgr/dm-lib/handlers/setvolumemetadatahandler.cpp
     ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
@@ -161,6 +164,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/CatalogSyncRecv.cpp
     ./data-mgr/dm-lib/DataMgr.cpp
     ./data-mgr/dm-lib/DmBlobTypes.cpp
+    ./data-mgr/dm-lib/DmMigrationBase.cpp
     ./data-mgr/dm-lib/DmMigrationClient.cpp
     ./data-mgr/dm-lib/DmMigrationExecutor.cpp
     ./data-mgr/dm-lib/DmMigrationMgr.cpp
@@ -189,6 +193,7 @@ set(SOURCE_FILES
     ./data-mgr/include/DmBlobTypes.h
     ./data-mgr/include/dmhandler.h
     ./data-mgr/include/DmIoReq.h
+    ./data-mgr/include/DmMigrationBase.h
     ./data-mgr/include/DmMigrationClient.h
     ./data-mgr/include/DmMigrationExecutor.h
     ./data-mgr/include/DmMigrationMgr.h
