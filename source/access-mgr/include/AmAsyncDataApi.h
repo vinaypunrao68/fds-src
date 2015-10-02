@@ -10,7 +10,6 @@
 #include <fds_module.h>
 #include <fdsp/AsyncXdiServiceRequest.h>
 #include <AmAsyncResponseApi.h>
-#include <AmRequest.h>
 
 namespace fds {
 
@@ -41,11 +40,11 @@ class AmAsyncDataApi {
     typedef AmAsyncResponseApi<handle_type> response_api_type;
     typedef typename boost::shared_ptr<response_api_type> response_ptr;
 
+    processor_type amProcessor;
+
   protected:
     /// Response client to use in response handler
     response_ptr responseApi;
-
-    processor_type amProcessor;
 
   public:
     explicit AmAsyncDataApi(processor_type processor, response_ptr response_api);
@@ -53,7 +52,7 @@ class AmAsyncDataApi {
 
     ~AmAsyncDataApi() {}
 
-    AmRequest* attachVolume(handle_type& requestId,
+    void attachVolume(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_vol_mode_type& mode);
@@ -62,11 +61,11 @@ class AmAsyncDataApi {
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    AmRequest* volumeStatus(handle_type& requestId,
+    void volumeStatus(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    AmRequest* volumeContents(handle_type& requestId,
+    void volumeContents(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_int_type& count,
@@ -77,66 +76,66 @@ class AmAsyncDataApi {
                         shared_bool_type& descending,
                         shared_string_type& delimiter);
 
-    AmRequest* setVolumeMetadata(handle_type& requestId,
+    void setVolumeMetadata(handle_type& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName,
                            shared_meta_type& metadata);
 
-    AmRequest* getVolumeMetadata(handle_type& requestId,
+    void getVolumeMetadata(handle_type& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName);
 
-    AmRequest* statBlob(handle_type& requestId,
+    void statBlob(handle_type& requestId,
                   shared_string_type& domainName,
                   shared_string_type& volumeName,
                   shared_string_type& blobName);
 
-    AmRequest* startBlobTx(handle_type& requestId,
+    void startBlobTx(handle_type& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,
                      shared_int_type& blobMode);
 
-    AmRequest* commitBlobTx(handle_type& requestId,
+    void commitBlobTx(handle_type& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_string_type& blobName,
                       shared_tx_ctx_type& txDesc);
 
-    AmRequest* abortBlobTx(handle_type& requestId,
+    void abortBlobTx(handle_type& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,
                      shared_tx_ctx_type& txDesc);
 
-    AmRequest* getBlob(handle_type& requestId,
+    void getBlob(handle_type& requestId,
                  shared_string_type& domainName,
                  shared_string_type& volumeName,
                  shared_string_type& blobName,
                  shared_int_type& length,
                  shared_offset_type& objectOffset);
 
-    AmRequest* getBlobWithMeta(handle_type& requestId,
+    void getBlobWithMeta(handle_type& requestId,
                          shared_string_type& domainName,
                          shared_string_type& volumeName,
                          shared_string_type& blobName,
                          shared_int_type& length,
                          shared_offset_type& objectOffset);
 
-    AmRequest* renameBlob(handle_type& requestId,
+    void renameBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& sourceBlobName,
                     shared_string_type& destinationBlobName);
 
-    AmRequest* updateMetadata(handle_type& requestId,
+    void updateMetadata(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
                         shared_tx_ctx_type& txDesc,
                         shared_meta_type& metadata);
 
-    AmRequest* updateBlobOnce(handle_type& requestId,
+    void updateBlobOnce(handle_type& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
@@ -146,7 +145,7 @@ class AmAsyncDataApi {
                         shared_offset_type& objectOffset,
                         shared_meta_type& metadata);
 
-    AmRequest* updateBlob(handle_type& requestId,
+    void updateBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,
@@ -155,7 +154,7 @@ class AmAsyncDataApi {
                     shared_int_type& length,
                     shared_offset_type& objectOffset);
 
-    AmRequest* deleteBlob(handle_type& requestId,
+    void deleteBlob(handle_type& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,

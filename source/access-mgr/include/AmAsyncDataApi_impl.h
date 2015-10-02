@@ -48,7 +48,7 @@ AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
 { }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::attachVolume(H& requestId,
+void AmAsyncDataApi<H>::attachVolume(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName,
                                      shared_vol_mode_type& mode) {
@@ -63,7 +63,7 @@ AmRequest* AmAsyncDataApi<H>::attachVolume(H& requestId,
                                              *volumeName,
                                              *mode,
                                              callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
@@ -82,7 +82,7 @@ void AmAsyncDataApi<H>::detachVolume(H& requestId,
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::volumeStatus(H& requestId,
+void AmAsyncDataApi<H>::volumeStatus(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
@@ -101,11 +101,11 @@ AmRequest* AmAsyncDataApi<H>::volumeStatus(H& requestId,
     AmRequest *blobReq = new StatVolumeReq(invalid_vol_id,
                                            *volumeName,
                                            callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::volumeContents(H& requestId,
+void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_int_type& count,
@@ -132,11 +132,11 @@ AmRequest* AmAsyncDataApi<H>::volumeContents(H& requestId,
                                                *descending,
                                                *delimiter,
                                                callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
+void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
                                           shared_string_type& domainName,
                                           shared_string_type& volumeName,
                                           shared_meta_type& metadata) {
@@ -151,11 +151,11 @@ AmRequest* AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
                                                   *volumeName,
                                                   metadata,
                                                   callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
+void AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
                                           shared_string_type& domainName,
                                           shared_string_type& volumeName) {
     // Closure for response call
@@ -168,11 +168,11 @@ AmRequest* AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
     AmRequest *blobReq = new GetVolumeMetadataReq(invalid_vol_id,
                                                   *volumeName,
                                                   callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::statBlob(H& requestId,
+void AmAsyncDataApi<H>::statBlob(H& requestId,
                                  shared_string_type& domainName,
                                  shared_string_type& volumeName,
                                  shared_string_type& blobName) {
@@ -192,11 +192,11 @@ AmRequest* AmAsyncDataApi<H>::statBlob(H& requestId,
                                          *volumeName,
                                          *blobName,
                                          callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::startBlobTx(H& requestId,
+void AmAsyncDataApi<H>::startBlobTx(H& requestId,
                                     shared_string_type& domainName,
                                     shared_string_type& volumeName,
                                     shared_string_type& blobName,
@@ -215,11 +215,11 @@ AmRequest* AmAsyncDataApi<H>::startBlobTx(H& requestId,
                                             *blobName,
                                             *blobMode,
                                             callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::commitBlobTx(H& requestId,
+void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName,
                                      shared_string_type& blobName,
@@ -240,11 +240,11 @@ AmRequest* AmAsyncDataApi<H>::commitBlobTx(H& requestId,
                                              *blobName,
                                              blobTxDesc,
                                              callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::abortBlobTx(H& requestId,
+void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
                                     shared_string_type& domainName,
                                     shared_string_type& volumeName,
                                     shared_string_type& blobName,
@@ -265,11 +265,11 @@ AmRequest* AmAsyncDataApi<H>::abortBlobTx(H& requestId,
                                             *blobName,
                                             blobTxDesc,
                                             callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::getBlob(H& requestId,
+void AmAsyncDataApi<H>::getBlob(H& requestId,
                                 shared_string_type& domainName,
                                 shared_string_type& volumeName,
                                 shared_string_type& blobName,
@@ -291,11 +291,11 @@ AmRequest* AmAsyncDataApi<H>::getBlob(H& requestId,
                                        callback,
                                        static_cast<fds_uint64_t>(objectOffset->value),
                                        *length);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
+void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
                                         shared_string_type& domainName,
                                         shared_string_type& volumeName,
                                         shared_string_type& blobName,
@@ -320,12 +320,11 @@ AmRequest* AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
                                         static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
     blobReq->get_metadata = true;
-
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::renameBlob(H& requestId,
+void AmAsyncDataApi<H>::renameBlob(H& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& sourceBlobName,
@@ -344,11 +343,11 @@ AmRequest* AmAsyncDataApi<H>::renameBlob(H& requestId,
                                     *sourceBlobName,
                                     *destinationBlobName,
                                     callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::updateMetadata(H& requestId,
+void AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_string_type& blobName,
@@ -380,11 +379,11 @@ AmRequest* AmAsyncDataApi<H>::updateMetadata(H& requestId,
                                                 blobTxDesc,
                                                 metaDataList,
                                                 callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
+void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_string_type& blobName,
@@ -406,8 +405,7 @@ AmRequest* AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
         LOGWARN << "Rejecting updateBlobOnce,"
                 << " request specified length: " << *length
                 << " actual length of payload was: " << bytes->size();
-        closure(nullptr, ERR_INVALID_ARG);
-        return nullptr;
+        return closure(nullptr, ERR_INVALID_ARG);
     }
 
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
@@ -421,11 +419,11 @@ AmRequest* AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
                                         *blobMode,
                                         metadata,
                                         callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::updateBlob(H& requestId,
+void AmAsyncDataApi<H>::updateBlob(H& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& blobName,
@@ -447,8 +445,7 @@ AmRequest* AmAsyncDataApi<H>::updateBlob(H& requestId,
         LOGWARN << "Rejecting updateBlob,"
                 << " request specified length: " << *length
                 << " actual length of payload was: " << bytes->size();
-        closure(nullptr, ERR_INVALID_ARG);
-        return nullptr;
+        return closure(nullptr, ERR_INVALID_ARG);
     }
 
     auto callback = create_async_handler<UpdateBlobCallback>(std::move(closure));
@@ -465,11 +462,11 @@ AmRequest* AmAsyncDataApi<H>::updateBlob(H& requestId,
                                         bytes,
                                         blobTxDesc,
                                         callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 template<typename H>
-AmRequest* AmAsyncDataApi<H>::deleteBlob(H& requestId,
+void AmAsyncDataApi<H>::deleteBlob(H& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& blobName,
@@ -488,7 +485,7 @@ AmRequest* AmAsyncDataApi<H>::deleteBlob(H& requestId,
                                            *volumeName,
                                            blobTxId,
                                            callback);
-    return blobReq;
+    amProcessor->enqueueRequest(blobReq);
 }
 
 }  // namespace fds

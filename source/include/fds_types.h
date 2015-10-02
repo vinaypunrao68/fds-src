@@ -301,8 +301,6 @@ class FDS_IOType {
     fds_uint64_t enqueue_ts {0};
     fds_uint64_t dispatch_ts {0};
     fds_uint64_t io_done_ts;
-    bool replicated {false}; // "true" if this is an asynchronously replicated FDS_IOTYPE.
-    fds_volid_t primaryVolUUID {invalid_vol_id}; // When (replica == true), volUUID of the primary volume (residing in a different local domain)
 
     // performance data collection related structures
     PerfEventType opReqFailedPerfEventType;
