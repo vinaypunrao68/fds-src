@@ -7,12 +7,14 @@ user_install_loc  := test
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-am-engine \
+    fds-test \
     fds-lib \
     fds-fdsp \
 
 user_non_fds_libs := \
     gmock \
     curl \
+    leveldb \
     pthread \
     jansson
 

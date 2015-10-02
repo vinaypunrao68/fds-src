@@ -23,7 +23,6 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo,
 }
 
 FDS_QoSControl::~FDS_QoSControl()  {
-    //  delete dispatcher;
     delete threadPool;
 }
 
@@ -46,7 +45,7 @@ static void startDispatcher(FDS_QoSControl *qosctl) {
 }
 
 void FDS_QoSControl::runScheduler() {
-    threadPool->schedule(startDispatcher, this);
+    dispatcherThread.reset(new std::thread(startDispatcher, this));
 }
 
 void   FDS_QoSControl::setQosDispatcher(dispatchAlgoType algo_type,
