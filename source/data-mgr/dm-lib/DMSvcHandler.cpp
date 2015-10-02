@@ -76,9 +76,9 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                << "[" << volumeId << ", "
                << desc.getName() << "]";
 
-    err = dataManager_._process_add_vol(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
-                                        vol_uuid,
-                                        &desc);
+    err = dataManager_.addVolume(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
+                                 vol_uuid,
+                                 &desc);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }

@@ -61,9 +61,9 @@ DmMigrationExecutor::startMigration()
      *
      * So, for now, we should just check for the existence of the volume.
      */
-    err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
-                                   volumeUuid,
-                                   &volDesc);
+    err = dataMgr.addVolume(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
+                            volumeUuid,
+                            &volDesc);
 
     /** TODO(Sean):
      * With current OM implementation, add node will send list of volumes and start migration

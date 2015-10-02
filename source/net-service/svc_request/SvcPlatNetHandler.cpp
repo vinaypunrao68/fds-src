@@ -188,10 +188,10 @@ void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::Async
                                                    header,
                                                    payload));
     } else {
-        taskExecutor_->scheduleOnTemplateKey(header->msg_src_id,
-                                             std::bind(&PlatNetSvcHandler::asyncRespHandler,
-                                                       MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
-                                                       header, payload));
+        taskExecutor_->scheduleOnHashKey(header->msg_src_id,
+                                         std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                                   MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                                   header, payload));
     }
 }
 
