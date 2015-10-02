@@ -65,7 +65,8 @@ void GetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
 void GetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::GetVolumeMetadataMsgRsp>& message,
                                               Error const& e, DmRequest* dmRequest) {
-    LOGTRACE << "Finished get metadata for volume " << dmRequest->volId;
+    LOGTRACE << "Finished get metadata for volume "
+             << (dmRequest ? dmRequest->volId : invalid_vol_id);
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     asyncHdr->msg_code = e.GetErrno();

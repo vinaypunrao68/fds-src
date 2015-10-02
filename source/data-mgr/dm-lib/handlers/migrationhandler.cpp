@@ -73,14 +73,17 @@ void DmMigrationHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& as
                                             const Error& e)
 {
 
-    fpi::CtrlNotifyDMStartMigrationRspMsgPtr msg(new fpi::CtrlNotifyDMStartMigrationRspMsg());
-    msg->DMT_version = dmtVersion;
     asyncHdr->msg_code = e.GetErrno();
-
     LOGMIGRATE << logString(*asyncHdr) << " sending async resp with err: " << e;
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *msg);
 
-
+    fpi::CtrlNotifyDMStartMigrationRspMsgPtr msg(new fpi::CtrlNotifyDMStartMigrationRspMsg());
+    if (msg) {
+        msg->DMT_version = dmtVersion;
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *msg);
+    } else {
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId,
+                           fpi::CtrlNotifyDMStartMigrationRspMsg());
+    }
 }
 
 /**
@@ -124,7 +127,6 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
 			Error const& e, DmRequest* dmRequest) {
 	asyncHdr->msg_code = e.GetErrno();
-
     LOGMIGRATE << logString(*asyncHdr) << logString(*message) << " sending async resp with err: " << e;
 
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetRspMsg),
