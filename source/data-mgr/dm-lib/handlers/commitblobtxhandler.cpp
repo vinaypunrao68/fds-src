@@ -69,8 +69,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
-
-    LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
+    LOGDEBUG << "Will commit blob " << *typedRequest;
     helper.err = dataManager
                 .timeVolCat_->commitBlobTx(typedRequest->volId,
                                            typedRequest->blob_name,
