@@ -19,6 +19,7 @@ import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.FDSP_MgrIdType;
 import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
@@ -167,14 +168,20 @@ public class Main {
             new AsyncRetryExecutor(
                 Executors.newSingleThreadScheduledExecutor( ) );
 
-                asyncRetryExecutor.withExponentialBackoff( 500, 2 )
-                                  .withMaxDelay( 10_000 )
-                                  .withUniformJitter( )
-                                  .retryInfinitely()
-                                  .retryOn( ExecutionException.class )
-                                  .retryOn( RuntimeException.class )
-                                  .retryOn( TTransportException.class )
-                                  .retryOn( ConnectException.class );
+        asyncRetryExecutor.withExponentialBackoff( 500, 2 )
+                          .withMaxDelay( 10_000 )
+                          .withUniformJitter( )
+                          .retryInfinitely()
+                          .retryOn( ExecutionException.class )
+                          .retryOn( RuntimeException.class )
+                          .retryOn( TTransportException.class )
+                          .retryOn( ConnectException.class )
+            /*
+             * retry on ApiException, because we try and get the configuration
+             * version number. Which can fail because the native OM isn't
+             * ready yet.
+             */
+                          .retryOn( ApiException.class );
 
         final CompletableFuture<OmConfigurationApi> completableFuture =
             asyncRetryExecutor.getWithRetry(
