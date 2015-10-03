@@ -1193,7 +1193,7 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     // mark request as complete
     qosCtrl->markIODone(*readDeltaSetReq, diskio::diskTier);
 
-    // notify migration executor we are done with this request
+    // notify migration client we are done with this request
     readDeltaSetReq->smioReadObjDeltaSetReqCb(err, readDeltaSetReq);
 
     /* Delete the delta set request */
