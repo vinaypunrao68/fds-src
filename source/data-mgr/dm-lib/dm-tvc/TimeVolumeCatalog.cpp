@@ -487,6 +487,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
         }
     }
 
+    fds_assert(txDesc != nullptr);
     if (commit_data != nullptr) {
         cb(e,
            blob_version,
