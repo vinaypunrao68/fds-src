@@ -32,17 +32,6 @@ ScstTarget::ScstTarget(std::string const& name,
     amProcessor(processor),
     target_name(name)
 {
-    evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
-    if (!evLoop) {
-        LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
-        throw ScstError::scst_error;
-    }
-
-    asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
-    asyncWatcher->set(*evLoop);
-    asyncWatcher->set<ScstTarget, &ScstTarget::wakeupCb>(this);
-    asyncWatcher->start();
-
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
     // We can support other target-drivers than iSCSI...TBD
     // Create an iSCSI target in the SCST mid-ware for our handler
@@ -57,6 +46,18 @@ ScstTarget::ScstTarget(std::string const& name,
     // Add a new target for ourselves
     tgt_dev << scst_iscsi_cmd_add << " " << target_name << std::endl;
     tgt_dev.close();
+
+    // Start watching the loop
+    evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
+    if (!evLoop) {
+        LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
+        throw ScstError::scst_error;
+    }
+
+    asyncWatcher = std::unique_ptr<ev::async>(new ev::async());
+    asyncWatcher->set(*evLoop);
+    asyncWatcher->set<ScstTarget, &ScstTarget::wakeupCb>(this);
+    asyncWatcher->start();
 
     // Just we spawn a leader thread to start this target handling requests
     auto t = std::thread(&ScstTarget::follow, this);
