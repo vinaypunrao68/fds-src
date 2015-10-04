@@ -2179,7 +2179,7 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 OM_DmAgent::pointer dmAgent = om_dm_agent(nodeAgent->get_uuid());
                 dmAgent->set_state_from_svcmap();
                 
-//                pmAgent->handle_register_service( msg->node_type, dmAgent );
+               pmAgent->handle_register_service( msg->node_type, dmAgent );
             }
                 
             LOGNOTIFY << "OM Restart, registration for Platform UUID:: "
