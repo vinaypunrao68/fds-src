@@ -1899,10 +1899,12 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
         
         if ( error.ok() )
         {
-            LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
+            LOGDEBUG << "OM Restart, Successful Registered Service: "
                      << fds::logDetailedString( svc );
+
             svc.incarnationNo = util::getTimeStampSeconds();
             svc.svc_status = fpi::SVC_STATUS_ACTIVE;
+
             spoofed.push_back( svc );
             configDB->updateSvcMap( svc );
         }
@@ -1915,7 +1917,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     
     if ( spoofed.size() > 0  )
     {    
-        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
+        LOGDEBUG << "OM Restart, updating and broadcasting service map ";
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
         om_locDomain->om_bcast_svcmap();
     }
@@ -2167,7 +2169,7 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 OM_SmAgent::pointer smAgent = om_sm_agent(nodeAgent->get_uuid());
                 smAgent->set_state_from_svcmap();
 
-                pmAgent->handle_register_service( msg->node_type, smAgent );
+//                pmAgent->handle_register_service( msg->node_type, smAgent );
 
                 /*
                  *  Activate and account for node capacity only when SM registers with OM.
@@ -2177,7 +2179,7 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 OM_DmAgent::pointer dmAgent = om_dm_agent(nodeAgent->get_uuid());
                 dmAgent->set_state_from_svcmap();
                 
-                pmAgent->handle_register_service( msg->node_type, dmAgent );
+//                pmAgent->handle_register_service( msg->node_type, dmAgent );
             }
                 
             LOGNOTIFY << "OM Restart, registration for Platform UUID:: "
