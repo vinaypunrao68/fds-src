@@ -2169,7 +2169,7 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                 OM_SmAgent::pointer smAgent = om_sm_agent(nodeAgent->get_uuid());
                 smAgent->set_state_from_svcmap();
 
-//                pmAgent->handle_register_service( msg->node_type, smAgent );
+               pmAgent->handle_register_service( msg->node_type, smAgent );
 
                 /*
                  *  Activate and account for node capacity only when SM registers with OM.
