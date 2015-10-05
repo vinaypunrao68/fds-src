@@ -58,6 +58,15 @@ void UpdateCatalogOnceHandler::handleRequest(
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
     dmCommitBlobOnceReq->ioBlobTxDesc = dmUpdCatReq->ioBlobTxDesc;
 
+    (static_cast<DmIoCommitBlobTx*>(dmCommitBlobOnceReq))->localCb =
+								std::bind(&UpdateCatalogOnceHandler::handleResponseCleanUp,
+								this,
+								asyncHdr,
+								message,
+								std::placeholders::_1,
+								dmCommitBlobOnceReq);
+
+
     addToQueue(dmUpdCatReq);
 }
 
@@ -152,6 +161,8 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
+        // Potential meta list corruption here... debug later :)
+        // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
     }
@@ -161,8 +172,16 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
-        delete dmRequest;
+         if (dmRequest && !static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+             delete dmRequest;
+         }
     }
+}
+
+void UpdateCatalogOnceHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                                     boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                                     Error const& e, DmRequest* dmRequest) {
+    delete dmRequest;
 }
 
 }  // namespace dm

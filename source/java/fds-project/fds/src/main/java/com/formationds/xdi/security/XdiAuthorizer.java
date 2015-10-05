@@ -8,6 +8,7 @@ import com.formationds.security.Authorizer;
 import com.formationds.util.blob.Mode;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.BlobWithMetadata;
 import com.formationds.xdi.XdiConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.cache.Cache;
