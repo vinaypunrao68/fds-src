@@ -119,7 +119,6 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     // Commit the metadata updates
     // The commit callback we pass in will actually call the
     // final service callback
-    LOGDEBUG << "NEIL DEBUG doing commitBlobTx NOT binding, in  " << __FUNCTION__ << " " << dmRequest;
     helper.err = dataManager.timeVolCat_->commitBlobTx(
             typedRequest->volId, typedRequest->blob_name, typedRequest->ioBlobTxDesc,
             typedRequest->updcatMsg->sequence_id,
