@@ -32,6 +32,7 @@ fds: {
             control_disk_simulation_mode = {{ ft_platform_control_disk_simulation_mode }}
             use_new_superblock = {{ ft_platform_use_new_superblock }}
             restart_failed_children_processes = {{ ft_restart_failed_children_processes }}
+            enable_disk_activation = {{ ft_enable_disk_activation }}
         }
         dm: {
 
@@ -40,6 +41,8 @@ fds: {
 
         }
         am: {
+            scst_connector = {{ ft_am_scst_enabled }}
+            nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
             safe_atomic_write = {{ am_safe_atomic_write }}
         }
@@ -255,7 +258,7 @@ fds: {
             /* Maximum number of blobs in delta set */
             migration_max_delta_blobs = {{ dm_migration_max_delta_blobs }}
 
-            /* Timeout value (secs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
+            /* Timeout value (millisecs) for interval between receiving delta blob/blobsdesc msgs (should be less than migration_timeout) */
             migration_max_delta_blobs_to = {{ dm_migration_max_delta_blobs_to }}
 
             /* Maximum number of blob desc in delta set */
@@ -529,6 +532,19 @@ fds: {
                     no_delay=true
                 }
             }
+            scst: {
+		/* Volumes in this CSV list will be automatically presented on load */
+		auto_volumes="{{ am_scst_auto_volumes }}"
+
+		/* Smallest IO transfer size allowed */
+                default_block_size={{ am_scst_default_block_size }}
+
+                /* Targets will appear with this prefix on iscsi portals */
+                target_prefix="{{ am_scst_target_prefix }}"
+
+		/* Threads per target */
+		threads={{ am_scst_target_threads }}
+            }
         }
 
         threadpool: {
@@ -693,6 +709,9 @@ fds: {
     	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
     	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
     	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
+	nfs_stats = true
+	nfs_defer_metatada_updates = {{ nfs_defer_metadata_updates }}
+	nfs_max_live_nfs_cookies = {{ nfs_max_live_nfs_cookies }}
     }
 
     test: {

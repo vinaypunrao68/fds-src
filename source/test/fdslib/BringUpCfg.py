@@ -76,25 +76,26 @@ class FdsNodeConfig(FdsConfig):
 
                 ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
                 if (ips_array.__len__() < (nodeId+1)):
-                    #TODO POOJA: for now just give warning to user, instead of raising exception
+                    # In this IPs count mismatch, we ignore extra IPs in cfg file
                     log.warning ("Number of ips give in inventory are less than nodes in cfg file")
 
-                if 'om' in self.nd_conf_dict:
-                    #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
-                    self.nd_conf_dict['ip'] = ips_array[nodeId]
                 else:
-                    self.nd_conf_dict['ip'] = ips_array[nodeId]
+                    if 'om' in self.nd_conf_dict:
+                        #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
+                        self.nd_conf_dict['ip'] = ips_array[nodeId]
+                    else:
+                        self.nd_conf_dict['ip'] = ips_array[nodeId]
 
-                # In this case, the deployment scripts always sets "/fds" as fds_root
-                # regardless of test configuration.
-                self.nd_conf_dict['fds_root'] = '/fds'
+                    # In this case, the deployment scripts always sets "/fds" as fds_root
+                    # regardless of test configuration.
+                    self.nd_conf_dict['fds_root'] = '/fds'
 
-                # Additionally, the deployment scripts always sets the node's base port as 7000
-                # regardless of test configuration.
-                self.nd_conf_dict['fds_port'] = '7000'
+                    # Additionally, the deployment scripts always sets the node's base port as 7000
+                    # regardless of test configuration.
+                    self.nd_conf_dict['fds_port'] = '7000'
 
-                # Additionally, we currently always need to boot Redis for a non-local node.
-                self.nd_conf_dict['redis'] = 'true'
+                    # Additionally, we currently always need to boot Redis for a non-local node.
+                    self.nd_conf_dict['redis'] = 'true'
 
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
@@ -453,10 +454,19 @@ class FdsNodeConfig(FdsConfig):
         status = 0
 
         for node in node_list:
-            if str(node.services['PM'][0].port) == port:
-                self.nd_assigned_name = 'pm'
-                self.nd_uuid = hex(int(node.id))
-                break
+            if self.nd_local is True:
+                # For local machine cluster each node ip is same but port is diff, so use port number
+                if str(node.services['PM'][0].port) == port:
+                    self.nd_assigned_name = 'pm'
+                    self.nd_uuid = hex(int(node.id))
+                    break
+            else:
+                #For AWS cluster each node port is same but ip addr is diff, so use ipaddress
+                if self.nd_conf_dict['ip'].strip() == node.address.ipv4address.strip():
+                    self.nd_assigned_name = 'pm'
+                    self.nd_uuid = hex(int(node.id))
+                    break
+
         if (self.nd_uuid is None):
             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
             log.error("Looking for ip %s and port %s." % (self.nd_conf_dict["ip"], port))
@@ -521,25 +531,17 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + bin_dir)
             if status == 0:
                 log.info("Cleanup cores in: %s" % bin_dir)
-                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/core')
-                self.nd_agent.exec_wait('rm -f ' + bin_dir + '/*.core')
+                self.nd_agent.exec_wait('cd ' + bin_dir + '&& rm -f  core *.core *.hprof *hs_err_pid*.log')
 
             status = self.nd_agent.exec_wait('ls ' + var_dir)
             if status == 0:
                 log.info("Cleanup logs,db and stats in: %s" % var_dir)
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/logs')
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/db')
-                self.nd_agent.exec_wait('rm -rf ' + var_dir + '/stats')
+                self.nd_agent.exec_wait('cd ' + var_dir + ' && rm -rf logs/ db/ stats/ core/')
 
             status = self.nd_agent.exec_wait('ls /corefiles')
             if status == 0:
-                log.info("Cleanup cores in: %s" % '/corefiles')
-                self.nd_agent.exec_wait('rm -f /corefiles/*.core')
-
-            status = self.nd_agent.exec_wait('ls ' + var_dir + '/core')
-            if status == 0:
-                log.info("Cleanup cores in: %s" % var_dir + '/core')
-                self.nd_agent.exec_wait('rm -f ' + var_dir + '/core/*.core')
+                log.info("Cleanup cores and java dump reports in: %s" % '/corefiles')
+                self.nd_agent.exec_wait('cd /corefiles && rm -f core *.core *.hprof *hs_err_pid*.log')
 
             status = self.nd_agent.exec_wait('ls ' + tools_dir)
             if status == 0:
@@ -550,14 +552,12 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/hdd-*')
-                self.nd_agent.exec_wait('rm -f ' + dev_dir + '/ssd-*')
+                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -f hdd-* ssd-*')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
                 log.info("Cleanup sys-repo and user-repo in: %s" % fds_dir)
-                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/sys-repo')
-                self.nd_agent.exec_wait('rm -rf ' + fds_dir + '/user-repo')
+                self.nd_agent.exec_wait('cd ' + fds_dir + ' && rm -rf /sys-repo /user-repo')
 
             status = self.nd_agent.exec_wait('ls /dev/shm')
             if status == 0:
@@ -568,10 +568,12 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_clean_influxdb()
         else:
             print("Cleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
-            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core); ' % bin_dir +
+            status = self.nd_agent.exec_wait('(cd %s && rm -f core *.core *.hprof *hs_err_pid*.log); ' % bin_dir +
                 '(cd %s && rm -rf logs db stats); ' % var_dir +
-                '(rm -f /corefiles/*.core); '  +
+                '(rm -f /corefiles/*.core /corefiles/*.hprof /corefiles/*hs_err_pid*.log); '  +
                 '(rm -f %s/core/*.core); ' % var_dir +
+                '(rm -f %s/core/*.hprof); ' % var_dir +
+                '(rm -f %s/core/*hs_err_pid*.log); ' % var_dir +
                 '([ -f "%s/fds" ] && %s/fds clean -i) 2>&1>>/dev/null; ' % (tools_dir, tools_dir) +
                 '(rm -rf %s/hdd-*/*); ' % dev_dir +
                 '(rm -rf %s/ssd-*/*); ' % dev_dir +
@@ -935,7 +937,11 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    self.cfg_nodes.append(n)
+                    if self.cfg_is_fds_installed is True and n.nd_conf_dict['ip'] == 'localhost':
+                        # It's an extra IP in cfg and ignore it while running against AWS
+                        print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
+                    else:
+                        self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
 
             elif (re.match('sh', section) != None) or (re.match('am', section) != None):
@@ -1033,6 +1039,10 @@ class FdsConfigRun(object):
             quiet_ssh = True
 
         nodes = self.rt_obj.cfg_nodes
+        if opt.install is True:
+            # Extra Ips in cfg file are removed from list who's address was not over written
+            del_list = [ind for ind, node in enumerate(nodes) if node.nd_conf_dict["ip"]=='localhost']
+            nodes = [node for ind, node in enumerate(nodes) if ind not in del_list]
 
         for n in nodes:
             n.nd_connect_agent(self.rt_env, quiet_ssh)

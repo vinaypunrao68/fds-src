@@ -19,7 +19,7 @@ import config
 import s3
 import samples
 import users
-import utils
+import lib
 
 class S3Volumes(object):
 
@@ -44,7 +44,7 @@ class S3Volumes(object):
             self.am_ip_address = om_ip_address
         else:
             self.am_ip_address = am_ip_address
-        self.s3conn = utils.create_s3_connection(self.om_ip_address,
+        self.s3conn = lib.create_s3_connection(self.om_ip_address,
                                                  self.am_ip_address)
         self.buckets = []
 
@@ -138,7 +138,7 @@ class S3Volumes(object):
         if os.path.exists(filepath):
             #print("key is {}".format(k.key))
             k.set_contents_from_filename(filepath,
-                                         cb=utils.percent_cb,
+                                         cb=lib.percent_cb,
                                          num_cb=10)
             self.log.info("Uploaded file %s to bucket %s" % 
                          (filepath, bucket.name))

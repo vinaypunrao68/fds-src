@@ -6,7 +6,7 @@
         - { key: 'fs.file-max', value: '400000', state: 'present' }
         - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
         - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
-        - { key: 'kernel.core_pattern', value: '/corefiles/%e.%p.%u.%t.core', state: 'present' }
+        - { key: 'kernel.core_pattern', value: '/corefiles/%e-%p-%u-%t.core', state: 'present' }
     tags:
         - install-deps
 

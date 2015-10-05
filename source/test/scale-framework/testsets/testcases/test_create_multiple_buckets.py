@@ -7,7 +7,7 @@ from boto.s3.key import Key
 
 import config
 import users
-import utils
+import lib
 import testsets.testcase as testcase
 
 class TestCreateMultipleBuckets(testcase.FDSTestCase):

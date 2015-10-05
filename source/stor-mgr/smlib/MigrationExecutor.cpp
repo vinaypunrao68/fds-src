@@ -509,14 +509,32 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 }
                 break;
             case ERR_SM_NOT_READY_AS_MIGR_SRC:
-                LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
-                           << " source SM " << sourceSmUuid << " not ready";
-                migrFailedRetryHandler(smTokenId);
+            case ERR_SVC_REQUEST_INVOCATION:
                 {
-                    fds_mutex::scoped_lock l(retryDltTokensLock);
-                    retryDltTokens[dltToken] = seqId;
+                    LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                               << " source SM " << sourceSmUuid << " not ready/ not up";
+                    uint32_t numRetries = 0;
+                    {
+                        fds_mutex::scoped_lock l(retryDltTokensLock);
+                        if (dltTokRetryCount.find(dltToken) != dltTokRetryCount.end()) {
+                            numRetries = dltTokRetryCount[dltToken];
+                        }
+                    }
+                    // we are doing read/modify/write of number of retries under two locks
+                    // which means that we may read same value two times and retry more
+                    // times then max, but that's ok, we don't need to be precise here
+                    // we just need to make sure we are not retrying forever
+                    if (numRetries < SM_MAX_NUM_RETRIES_SAME_SM) {
+                        migrFailedRetryHandler(smTokenId);
+                        {
+                            fds_mutex::scoped_lock l(retryDltTokensLock);
+                            retryDltTokens[dltToken] = seqId;
+                            dltTokRetryCount[dltToken] = numRetries + 1;
+                            break;
+                        }
+                    }
+                    // else fall through
                 }
-                break;
             default:
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
                          << " executor " << std::hex << executorId << std::dec

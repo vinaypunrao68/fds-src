@@ -61,9 +61,9 @@ DmMigrationExecutor::startMigration()
      *
      * So, for now, we should just check for the existence of the volume.
      */
-    err = dataMgr._process_add_vol(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
-                                   volumeUuid,
-                                   &volDesc);
+    err = dataMgr.addVolume(dataMgr.getPrefix() + std::to_string(volumeUuid.get()),
+                            volumeUuid,
+                            &volDesc);
 
     /** TODO(Sean):
      * With current OM implementation, add node will send list of volumes and start migration
@@ -83,6 +83,7 @@ DmMigrationExecutor::startMigration()
     	 */
     	LOGMIGRATE << "Stopping De-queing IO for volume " << volumeUuid;
     	dataMgr.qosCtrl->stopDequeue(volumeUuid);
+    	// Note: in error cases, abortMigration() gets called, as well as resumeIO().
 
     	/**
     	 * If the volume is successfully created with the given volume descriptor, process and generate the
@@ -92,6 +93,7 @@ DmMigrationExecutor::startMigration()
     	if (!err.ok()) {
     		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
     				<< " with error=" << err;
+    		dataMgr.dmMigrationMgr->abortMigration();
     	}
     } else {
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
@@ -99,9 +101,22 @@ DmMigrationExecutor::startMigration()
         if (migrDoneCb) {
         	migrDoneCb(volDesc.volUUID, err);
         }
+    	dataMgr.dmMigrationMgr->abortMigration();
     }
 
     return err;
+}
+
+
+fds_bool_t
+DmMigrationExecutor::shouldAutoExecuteNext()
+{
+	fds_scoped_lock lock(progressLock);
+	if (migrationProgress == MIGRATION_ABORTED) {
+		return false;
+	} else {
+		return autoIncrement;
+	}
 }
 
 Error
@@ -135,8 +150,10 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationExecutor::abortMigration, this);
-    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
+    dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncInitialBlobSetReq->invoke();
 
     return err;
@@ -361,7 +378,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
 
     if (!err.ok()) {
-        LOGERROR << "Error getting commit log for vol: " << volumeUuid;
+        LOGERROR << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
         return err;
     }
 
@@ -374,7 +391,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
         }
         testStaticMigrationComplete();
     } else {
-        /*XXX: trigger abort... be sure to call migrDoneCb with an error code */
+    	LOGMIGRATE << "Error trying to apply forwarded commit logs content with error " << err;
     }
 
     return err;
@@ -383,6 +400,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
+	LOGMIGRATE << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
 	abortMigration();
 }
 
@@ -415,10 +433,11 @@ DmMigrationExecutor::testStaticMigrationComplete() {
 
 Error
 DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
+	Error err(ERR_OK);
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
-        	abortMigration();
+        	dataMgr.dmMigrationMgr->abortMigration();
             delete dmReq;
             return;
         }
@@ -437,15 +456,27 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     };
 
     fds_scoped_lock lock(progressLock);
-    if (migrationProgress  == STATICMIGRATION_IN_PROGRESS) {
-        forwardedMsgs.push_back(fwdCatReq);
-    } else if (migrationProgress  == APPLYING_FORWARDS_IN_PROGRESS) {
-        fds_assert(forwardedMsgs.size() == 0);
-        msgHandler.addToQueue(fwdCatReq);
-    } else {
-        fds_panic("Unexpected state encountered");
+    switch (migrationProgress) {
+    	case STATICMIGRATION_IN_PROGRESS:
+    		LOGDEBUG << "Buffered " << fwdCatReq << " to be applied";
+    		forwardedMsgs.push_back(fwdCatReq);
+    		break;
+    	case APPLYING_FORWARDS_IN_PROGRESS:
+    		LOGDEBUG << "Enqueued " << fwdCatReq << " to be applied";
+    		msgHandler.addToQueue(fwdCatReq);
+    		break;
+    	case MIGRATION_ABORTED:
+    		LOGERROR "Migration aborted so dropping forward request for " << fwdCatReq;
+    		err = ERR_DM_MIGRATION_ABORTED;
+    		break;
+    	case MIGRATION_COMPLETE:
+    		// Do nothing
+    		break;
+    	default:
+    		fds_panic("Unexpected state encountered");
     }
-    return ERR_OK;
+
+    return err;
 }
 
 Error
@@ -462,6 +493,16 @@ DmMigrationExecutor::finishActiveMigration()
 void
 DmMigrationExecutor::abortMigration()
 {
+	/**
+	 * It's possible that the IO was stopped earlier during static migration.
+	 * Prior to "unblocking" the volume, let's set the state to error because
+	 * we are in an inconsistent state halfway through migration.
+	 */
+	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
+	volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
+	LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
+			<< " to " << fpi::ResourceState::InError;
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
     {
         fds_scoped_lock lock(progressLock);
         if (migrationProgress != MIGRATION_ABORTED) {

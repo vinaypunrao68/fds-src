@@ -24,13 +24,13 @@ class RESTHelper():
         
     def defaultSuccess(self, response):
     
-        print "\n"
+        print("\n")
         
         if ( len(response) == 0 ):
             return
         else:
-            print tabulate( response, "keys" )
-            print "\n"
+            print(tabulate( response, "keys" ))
+            print("\n")
     
     def defaultErrorHandler(self, error):
         
@@ -51,7 +51,7 @@ class RESTHelper():
         if error.status_code == 404:
             err_message = "The operation received a 404 response, this means there is a problem communicating with the FDS cluster."
         
-        print err_message
+        print(err_message)
         
         return err_message
             

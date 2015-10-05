@@ -368,7 +368,7 @@ DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateB
 }
 
 Error
-DmMigrationClient::processBlobFilterSet()
+DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 {
     LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
@@ -376,10 +376,10 @@ DmMigrationClient::processBlobFilterSet()
               LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
               return ERR_NOT_READY;);
 
+    trackerFunc = inTracker;
 
     // Lookup commit log so we can take a snapshot of the volume while blocking
     // updates
-    DmCommitLog::ptr commitLog;
     auto err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
     if (!err.ok() || !commitLog) {
         LOGERROR << "Failed to get snapshot volume=" << volId
@@ -412,12 +412,25 @@ DmMigrationClient::processBlobFilterSet()
     txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
                            txMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
-    txStateMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    txStateMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     txStateMsg->setTaskExecutorId(volId.v);
     txStateMsg->invoke();
 
-    /**
+    return err;
+}
+
+Error
+DmMigrationClient::processBlobFilterSet2()
+{
+	Error err(ERR_OK);
+
+    fiu_do_on("abort.dm.migration.processBlobFilter2",\
+              LOGDEBUG << "abort.dm.migration processBlobFilter2.fault point enabled";\
+              return ERR_NOT_READY;);
+
+	/**
      * This is the main entrance for migrationClient (source) work.
      * It will take care of generating the blobs diff, blobs descriptors, and send
      * them over to the destination side. By the time this method returns, we have already
@@ -471,9 +484,11 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
-    asyncDeltaBlobsMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    asyncDeltaBlobsMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncDeltaBlobsMsg->invoke();
 
     return err;
@@ -493,9 +508,11 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationClient::abortMigration, this);
-    asyncDeltaBlobDescMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind));
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    asyncDeltaBlobDescMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncDeltaBlobDescMsg->invoke();
 
     return err;
@@ -516,7 +533,8 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
     fwdMsg->sequence_id = commitBlobReq->sequence_id;
-    fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
+    // fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
+    fwdMsg->txId = 0;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
@@ -552,8 +570,12 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     if (!error.ok()) {
     	LOGERROR << "Forwarding failed. Aborting DM Migration.";
     	abortMigration();
-        return;
     }
+
+    fds_assert(commitReq->usedForMigration);
+    commitReq->localCb(error);
+    // commitReq must not be accessed from this point.
+    return;
 }
 
 
@@ -604,7 +626,11 @@ DmMigrationClient::sendFinishFwdMsg()
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
     thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    thriftMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	thriftMsg->setTaskExecutorId(volId.v);
+	dataMgr.dmMigrationMgr->asyncMsgIssued();
 	thriftMsg->invoke();
 
 	return (err);

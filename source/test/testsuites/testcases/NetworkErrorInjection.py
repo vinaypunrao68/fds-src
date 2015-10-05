@@ -15,7 +15,7 @@ import functools
 testlib_path = os.path.join(os.getcwd(), '..',)
 sys.path.append(testlib_path)
 
-from testlib.utils.network_err_inj import NetworkErrorInjector
+from testlib.lib.network_err_inj import NetworkErrorInjector
 from fdslib.TestUtils import findNodeFromInv
 
 

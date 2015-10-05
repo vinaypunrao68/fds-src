@@ -11,11 +11,11 @@
 namespace fds {
 
 #define SMTOKEN_MASK  0xff
-#define SMTOKEN_COUNT 256
+#define SMTOKEN_COUNT 256u
 #define SM_TIER_COUNT  2
 
 // file ID types
-#define SM_INVALID_FILE_ID         0
+#define SM_INVALID_FILE_ID         0u
 /**
  * Not a real file id. Use SM_WRITE_FILE_ID when need to access
  * a file we are currently appending
@@ -28,6 +28,7 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 
 /// Migration types
 #define SM_INVALID_EXECUTOR_ID     0
+#define SM_MAX_NUM_RETRIES_SAME_SM 4
 
 typedef fds_uint16_t DiskId;
 typedef std::set<fds_uint16_t> DiskIdSet;

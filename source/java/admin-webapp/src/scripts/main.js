@@ -1,6 +1,6 @@
 webPrefix = "/fds/config/v08";
 
-app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant', 'pascalprecht.translate'] );
+app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant', 'debug', 'pascalprecht.translate'] );
 
 app.config( function( $stateProvider, $urlRouterProvider ){
 
@@ -46,6 +46,10 @@ app.config( function( $stateProvider, $urlRouterProvider ){
         .state( 'homepage.account', {
             url: '/accountdetails',
             templateUrl: 'scripts/account/account.html'
+        })
+        .state( 'homepage.debug', {
+            url: '/debug',
+            templateUrl: 'scripts/debug/debug_fds.html'
         });
 });
 

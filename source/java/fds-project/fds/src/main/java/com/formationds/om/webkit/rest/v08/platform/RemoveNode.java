@@ -96,24 +96,28 @@ public class RemoveNode
         
         logger.debug("Stopping and removing services on node");
         int status =
-            getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList));
+            getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList, true));
 
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
                                       node.getName(), nodeUuid );
+            throw new ApiException( "Error encountered while stopping services on node: "
+                    + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
         }
         else 
         {   
             // Now that we have stopped the services go remove them
-        	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList));
+        	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList, true));
         	
         	if(status != 0)
         	{
                 status= HttpServletResponse.SC_BAD_REQUEST;
                 EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
                                           node.getName(), nodeUuid );
+                throw new ApiException( "Error encountered while removing services on node: "
+                        + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
         	}
         	else
         	{

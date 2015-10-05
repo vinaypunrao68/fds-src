@@ -22,7 +22,7 @@ thrStartReqs(MigrationTrackIOReqs& migTrackReqs, uint32_t numReqs)
 {
     for (uint32_t i = 0; i < numReqs; ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        MigrationTrackIOReqs::scopedTrackIOReqs scopedReq(migTrackReqs);
+        MigrationTrackIOReqs::ScopedTrackIOReqs scopedReq(migTrackReqs);
     }
 }
 

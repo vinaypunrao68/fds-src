@@ -21,7 +21,7 @@ mockStats = function(){
             
             
             for( var i = 0; volumes !== null && i < volumes.length; i++ ){
-                var raw =  window.localStorage.getItem( volumes[i].id + '_stats' );
+                var raw =  window.localStorage.getItem( volumes[i].uid + '_stats' );
                 var item = JSON.parse( raw );
                 stats.push( item );
             }
@@ -121,7 +121,7 @@ mockStats = function(){
             
             for ( var i = 0; volumes!== null && i < volumes.length; i++ ){
                 
-                var fbEvent = JSON.parse( window.localStorage.getItem( volumes[i].id + '_fb' ) );
+                var fbEvent = JSON.parse( window.localStorage.getItem( volumes[i].uid + '_fb' ) );
                 var point = { x: volumes[i].status.currentUsage.size, y: 3600*24 };
                 
                 if ( angular.isDefined( fbEvent ) && fbEvent !== null ){

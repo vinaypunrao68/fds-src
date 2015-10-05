@@ -21,6 +21,7 @@ public:
      * Response handler - no-op for OK, otherwise fail migration.
      */
     void dmMigrationCheckResp(std::function<void()>,
+    						  std::function<void()>,
     						  EPSvcRequest*,
     						  const Error&,
 							  boost::shared_ptr<std::string>);

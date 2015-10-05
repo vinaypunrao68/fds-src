@@ -90,7 +90,7 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
     */
 
     FDSGUARD(volMapLock_);
-    fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
+
     volMap_[voldesc.volUUID] = vol;
 
     return ERR_OK;
@@ -151,7 +151,6 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         */
 
         FDSGUARD(volMapLock_);
-        fds_verify(volMap_.end() == volMap_.find(voldesc.volUUID));
         volMap_[voldesc.volUUID] = vol;
     }
 

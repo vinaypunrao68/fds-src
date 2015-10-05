@@ -181,7 +181,7 @@ TEST(SmDiskMap, all_hdds) {
 
     // we should get empty disk set for SSDs
     DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
-    EXPECT_EQ(0, ssdIds.size());
+    EXPECT_EQ(0u, ssdIds.size());
 
     // we should get 'hdd_count' number of disk IDs for HDDs
     DiskIdSet hddIds = smDiskMap->getDiskIds(diskio::diskTier);
@@ -214,7 +214,7 @@ TEST(SmDiskMap, all_flash) {
 
         // we should get empty disk set for HDDs
         DiskIdSet hddIds = smDiskMap->getDiskIds(diskio::diskTier);
-        EXPECT_EQ(0, hddIds.size());
+        EXPECT_EQ(0u, hddIds.size());
 
         // cleanup
         SmUtUtils::cleanAllInDir(devPath);
@@ -255,7 +255,7 @@ TEST(SmDiskMap, token_ownership) {
 
     // at this point, none of the SM tokens are valid
     SmTokenSet smToks = smDiskMap->getSmTokens();
-    EXPECT_EQ(smToks.size(), 0);
+    EXPECT_EQ(smToks.size(), 0u);
 
     // pretend this is new SM added to the domain
     // first comes DLT update
@@ -289,7 +289,7 @@ TEST(SmDiskMap, token_ownership) {
     // next we recieve DLT close, but nothing should change
     SmTokenSet rmToks = smDiskMap->handleDltClose(dlt);
     // since it was the first DLT, we should not 'lose' any SM tokens
-    EXPECT_EQ(rmToks.size(), 0);
+    EXPECT_EQ(rmToks.size(), 0u);
     smToks.clear();
     smToks = smDiskMap->getSmTokens();
     EXPECT_EQ(smToks.size(), verifySmToks.size());
@@ -382,7 +382,7 @@ TEST(SmDiskMap, restart) {
 
     // next we receive DLT close, should not 'lose' any SM tokens
     SmTokenSet rmToks = smDiskMap->handleDltClose(dlt);
-    EXPECT_EQ(rmToks.size(), 0);
+    EXPECT_EQ(rmToks.size(), 0u);
 
     // restart
     smDiskMap->mod_shutdown();

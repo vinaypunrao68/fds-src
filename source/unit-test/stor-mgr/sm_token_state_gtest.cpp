@@ -32,7 +32,7 @@ TEST(SmTokenState, initialize) {
     }
     // there must be no valid tokens
     SmTokenSet tokSet = tbl.getSmTokens();
-    EXPECT_EQ(tokSet.size(), 0);
+    EXPECT_EQ(tokSet.size(), 0u);
 
     for (fds_uint32_t run = 0; run < 5; ++run) {
         SmTokenSet toks;
@@ -152,11 +152,11 @@ TEST(SmTokenState, invalidate) {
 
     // there must be no valid tokens
     SmTokenSet curTokSet = tokTbl.getSmTokens();
-    EXPECT_EQ(curTokSet.size(), 0);
+    EXPECT_EQ(curTokSet.size(), 0u);
 
     // invalidate every token again -- should be a noop
     SmTokenSet moreInvalidatedToks = tokTbl.invalidateSmTokens(tokSet);
-    EXPECT_EQ(moreInvalidatedToks.size(), 0);
+    EXPECT_EQ(moreInvalidatedToks.size(), 0u);
 
     // check file IDs are also invalid
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();

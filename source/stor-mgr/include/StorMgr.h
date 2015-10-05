@@ -146,6 +146,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              }
          virtual ~SmQosCtrl() {
              delete dispatcher;
+             if (dispatcherThread) {
+                 dispatcherThread->join();
+             }
          }
 
          Error processIO(FDS_IOType* _io);
@@ -302,7 +305,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void readObjDeltaSet(SmIoReq* ioReq);
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
-     void startResyncRequest();
+     void handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone);
 
      void changeTokensState(const std::set<fds_token_id>& dltTokens);
      void handleDiskChanges(const DiskId& dId,

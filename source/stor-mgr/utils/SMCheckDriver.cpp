@@ -127,7 +127,7 @@ main(int argc, char** argv) {
             new fds::ObjectDataStore("SMchk", NULL));
 
     fds::Module *vec[] = {
-            &diskio::gl_dataIOMod,
+            //&diskio::gl_dataIOMod,
             smDiskMap.get(),
             smObjStore.get(),
             nullptr
@@ -141,8 +141,7 @@ main(int argc, char** argv) {
 
     argc = new_argv.size();
 
-    fds::SMCheckDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.",
-            vec, smDiskMap, smObjStore);
+    fds::SMCheckDriver smChk(argc, &new_argv[0], "platform.conf", "fds.sm.", vec, smDiskMap, smObjStore);
     int ret = smChk.main();
     return ret;
 }

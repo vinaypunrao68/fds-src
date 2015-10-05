@@ -307,6 +307,7 @@ class MigrationExecutor {
      * And the lock protecting the DLT tokens map
      */
     std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    std::unordered_map<fds_token_id, uint32_t> dltTokRetryCount;
     fds_mutex retryDltTokensLock;
 
     /**

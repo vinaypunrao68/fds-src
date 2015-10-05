@@ -12,6 +12,7 @@ import com.formationds.om.webkit.rest.v08.domain.MutateLocalDomain;
 import com.formationds.om.webkit.rest.v08.events.IngestEvents;
 import com.formationds.om.webkit.rest.v08.events.QueryEvents;
 import com.formationds.om.webkit.rest.v08.metrics.IngestVolumeStats;
+import com.formationds.om.webkit.rest.v08.metrics.MessageBusForwarder;
 import com.formationds.om.webkit.rest.v08.metrics.QueryFirebreak;
 import com.formationds.om.webkit.rest.v08.metrics.QueryMetrics;
 import com.formationds.om.webkit.rest.v08.metrics.SystemHealthStatus;
@@ -121,10 +122,15 @@ public class ApiDefinition extends AbstractApiDefinition{
     }
     
     private void configureMessageBusAuthEndpoint(){
-    	
+	
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );
+    	
+    	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	fdsAdminOnly( HttpMethod.PUT, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
+    	fdsAdminOnly( HttpMethod.DELETE, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
     }
     
     /**
