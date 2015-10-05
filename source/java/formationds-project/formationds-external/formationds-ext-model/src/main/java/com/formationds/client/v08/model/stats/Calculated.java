@@ -8,10 +8,31 @@ package com.formationds.client.v08.model.stats;
  * @author ptinius
  */
 public class Calculated {
-  @SuppressWarnings("unused")
-private static final long serialVersionUID = -3524304479018347948L;
+	
+	private static final long serialVersionUID = -3524304479018347948L;
 
-  /**
-   * used for generated calculations for the {@link Statistics} model object
-   */
+	private String key;
+	private Double value;
+	
+	public Calculated( String key, Double value ){
+		this.key = key;
+		this.value = value;
+	}
+  
+	public String getKey(){
+		return key;
+	}
+	
+	public void setKey( String key ){
+		this.key = key;
+	}
+	
+	public Double getValue(){
+		return value;
+	}
+	
+	public void setValue( Double value ){
+		this.value = value;
+	}
+	
 }
