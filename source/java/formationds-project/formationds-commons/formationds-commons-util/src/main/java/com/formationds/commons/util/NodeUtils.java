@@ -131,6 +131,8 @@ public class NodeUtils
                              Collectors.groupingBy(
                                  FDSP_Node_Info_Type::getIp_lo_addr,
                                  Collectors.toList( ) ) ) );
+
+            logger.debug( "Found multi-node configuration" );
         }
         else if( NodeUtils.isVirtualNode( nodeInfos ) ||
                  NodeUtils.isSingleNode( nodeInfos ) )
@@ -141,6 +143,8 @@ public class NodeUtils
                              Collectors.groupingBy(
                                  FDSP_Node_Info_Type::getNode_uuid,
                                  Collectors.toList( ) ) ) );
+
+            logger.debug( "Found virtualized-node configuration" );
         }
 
         /*
@@ -207,6 +211,7 @@ public class NodeUtils
                 {
                     grouped.replace( nodeUUID, _omNode );
                     grouped.remove( om.getNode_uuid() );
+                    break;
                 }
             }
         }

@@ -11,6 +11,12 @@
 #include <gtest/gtest.h>
 #include <concurrency/ThreadPool.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <testlib/TestFixtures.h>
+#include <testlib/DataGen.hpp>
+#include <leveldb/db.h>
+#include <concurrency/taskstatus.h>
+#include <util/timeutils.h>
+#include <chrono>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -26,76 +32,6 @@ uint32_t nReps = 10000;
 fds::fds_threadpool tp;
 fds::SynchronizedTaskExecutor<int> executor(tp);
 fds::fds_mutex locks[nQCnt];
-
-#if 0
-void taskFunc(int qid, int seqId)
-{
-    // std::cout << "qid: " << qid << " seqId: " << seqId << std::endl;
-    fds_assert(inprogMap[qid] == false)
-
-    inprogMap[qid] = true;
-
-    for (uint32_t i = 0; i < nReps; i++) {}
-
-    inprogMap[qid] = false;
-    completedCnt++;
-}
-
-void taskFunc2(int qid, int seqId)
-{
-    fds::fds_scoped_lock l(locks[qid]);
-    fds_assert(inprogMap[qid] == false)
-
-    inprogMap[qid] = true;
-
-    for (uint32_t i = 0; i < nReps; i++) {}
-
-    inprogMap[qid] = false;
-    completedCnt++;
-}
-
-/**
- * Tests schedule function of SynchronizedTaskExecutor
- */
-TEST(SynchronizedTaskExecutor, schedule) {
-    completedCnt = 0;
-
-    for (int i = 0; i < nQCnt; i++) {
-        inprogMap[i] = false;
-    }
-
-    for (int i = 0; i < nReqs; i++) {
-        auto qid = i%nQCnt;
-        executor.scheduleOnHashKey(qid, std::bind(taskFunc, qid, i));
-    }
-
-    while (completedCnt < nReqs) {
-        sleep(1);
-    }
-}
-
-
-/**
- * Tests schedule function of SynchronizedTaskExecutor
- */
-TEST(Threadpool, schedule) {
-    completedCnt = 0;
-    fds::fds_threadpool tp;
-
-    for (int i = 0; i < nQCnt; i++) {
-        inprogMap[i] = false;
-    }
-
-    for (int i = 0; i < nReqs; i++) {
-        auto qid = i%nQCnt;
-        tp.schedule(taskFunc2, qid, i);
-    }
-
-    while (completedCnt < nReqs) {
-        sleep(1);
-    }
-}
-#endif
 
 struct PutReq {
 public:
@@ -259,9 +195,111 @@ TEST(Threadpool, putReq) {
 #endif
 }  // namespace fds_test
 
+struct ExecutorFixture :  BaseTestFixture {
+    void SetUp() override {
+        db1Path = "/tmp/testdb1";
+        auto res = std::system((std::string("rm -rf ") + db1Path).c_str());
+
+        leveldb::Options options;
+        options.create_if_missing = true;
+        auto status = leveldb::DB::Open(options, db1Path, &db1);
+        ASSERT_TRUE(status.ok());
+
+    }
+    void closeDbs() {
+        if (db1) {
+            delete db1;
+            db1 = nullptr;
+        }
+    }
+    void TearDown() override {
+        closeDbs();
+    }
+    static void SetUpTestCase() {
+        keyGen = new CachedRandDataGenerator<>(1000, true, 10, 25);
+        valueGen = new CachedRandDataGenerator<>(1000, true, 10, 100);
+        threadpool = new fds_threadpool(10, true);
+    }
+    static void TearDownTestCase() {
+        delete keyGen;
+        delete valueGen;
+        delete threadpool;
+    }
+    void testPuts(bool enableAffinity) {
+        SynchronizedTaskExecutor<size_t> executor(*threadpool, enableAffinity);
+        std::hash<std::string> hashFn;
+        int numTasks = this->getArg<int>("numTasks");
+        std::atomic<int> completedTasks;
+        completedTasks = 0;
+        util::TimeStamp startTs;
+        util::TimeStamp endTs;
+        concurrency::TaskStatus status;
+
+        auto task = [&enableAffinity, &hashFn, &numTasks, &completedTasks, &endTs, &status](int counter, leveldb::DB* db, StringPtr k, StringPtr v) {
+            static thread_local int tid = -1;
+            auto taskId = hashFn(*k) % 10;
+            if (enableAffinity) {
+                /* Affinity check to make sure same thread executes tasks with same id */
+                if (tid == -1) {
+                    tid = taskId;
+                } else {
+                    ASSERT_EQ(tid, taskId);
+                }
+            }
+
+            if (counter % 2 == 0) {
+                db->Put(leveldb::WriteOptions(),
+                        leveldb::Slice(*k),
+                        leveldb::Slice(*v));
+            } else {
+                std::string value;
+                leveldb::Status s = db->Get(leveldb::ReadOptions(), *k, &value);
+            }
+            completedTasks++;
+
+            if (completedTasks == numTasks) {
+                endTs = util::getTimeStampMicros();
+                status.done();
+            }
+        };
+
+        startTs = util::getTimeStampMicros();
+        for (int32_t i = 0; i < numTasks; i++) {
+            auto k = keyGen->nextItem();
+            auto v = keyGen->nextItem();
+
+            executor.scheduleOnHashKey(hashFn(*k), std::bind(task, i, db1, k, v));
+        }
+
+        status.await();
+        std::cout << "elapsed time: " << endTs-startTs << "micros" << std::endl;
+    }
+
+    std::string db1Path;
+    leveldb::DB* db1;
+    static CachedRandDataGenerator<> *keyGen;
+    static CachedRandDataGenerator<> *valueGen;
+    static fds_threadpool *threadpool;
+};
+
+CachedRandDataGenerator<>* ExecutorFixture::keyGen;
+CachedRandDataGenerator<>* ExecutorFixture::valueGen;
+fds_threadpool* ExecutorFixture::threadpool;
+
+
+TEST_F(ExecutorFixture, testSchedule) {
+    testPuts(false);
+}
+TEST_F(ExecutorFixture, testScheduleAffinity) {
+    testPuts(true);
+}
+
 int main(int argc, char** argv) {
-    // The following line must be executed to initialize Google Mock
-    // (and Google Test) before running the tests.
-    ::testing::InitGoogleMock(&argc, argv);
+    ::testing::InitGoogleTest(&argc, argv);
+    po::options_description opts("Allowed options");
+    opts.add_options()
+        ("help", "produce help message")
+        ("numTasks", po::value<int>()->default_value(1000), "num tasks");
+    ExecutorFixture::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

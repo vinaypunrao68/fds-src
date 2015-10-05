@@ -39,6 +39,7 @@ class FDS_QoSControl {
    FDS_QoSDispatcher* dispatcher; // Dispatcher Class 
 
    fds_uint32_t  qos_max_threads; // Max number of threads in the pool
+   std::unique_ptr<std::thread> dispatcherThread;
    fds_threadpool *threadPool; // This is the global threadpool
    fds_uint64_t   total_rate;
    

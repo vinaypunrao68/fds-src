@@ -11,6 +11,8 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.io.BlobSpecifier;
+import org.apache.commons.codec.binary.Hex;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -37,20 +39,21 @@ public class MultiPartListParts implements SyncRequestHandler {
         Map<String, Collection<String>> qp = context.getQueryParameters();
         String uploadId = qp.get("uploadId").iterator().next();
 
-        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
+        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(objectName));
+        MultipartUpload mpu = xdi.multipart(token, specifier, uploadId);
         Integer maxParts = getIntegerFromQueryParameters(qp, "max-parts");
         Integer partNumberMarker = getIntegerFromQueryParameters(qp, "part-number-marker");
 
-        List<PartInfo> allParts = mops.getParts();
-        Stream<PartInfo> partInfoStream = allParts.stream();
+        List<MultipartUpload.PartInfo> allParts = mpu.listParts().get();
+        Stream<MultipartUpload.PartInfo> partInfoStream = allParts.stream();
         if (partNumberMarker != null)
-            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.partNumber);
+            partInfoStream = partInfoStream.filter(pi -> partNumberMarker < pi.getPartNumber());
         if (maxParts != null)
             partInfoStream = partInfoStream.limit(maxParts);
 
-        List<PartInfo> filteredList = partInfoStream.collect(Collectors.toList());
-        Optional<PartInfo> nextPart = allParts.stream()
-                .filter(p -> filteredList.size() == 0 && p.partNumber > filteredList.get(filteredList.size() - 1).partNumber)
+        List<MultipartUpload.PartInfo> filteredList = partInfoStream.collect(Collectors.toList());
+        Optional<MultipartUpload.PartInfo> nextPart = allParts.stream()
+                .filter(p -> filteredList.size() == 0 && p.getPartNumber() > filteredList.get(filteredList.size() - 1).getPartNumber())
                 .findFirst();
 
         XmlElement elt = new XmlElement("ListPartsResult")
@@ -70,27 +73,14 @@ public class MultiPartListParts implements SyncRequestHandler {
         if (maxParts != null)
             elt = elt.withValueElt("MaxParts", maxParts.toString());
         if (nextPart.isPresent())
-            elt = elt.withValueElt("NextPartNumberMarker", Integer.toString(nextPart.get().partNumber));
+            elt = elt.withValueElt("NextPartNumberMarker", Integer.toString(nextPart.get().getPartNumber()));
 
-        for (PartInfo pi : filteredList) {
-            // TODO: remove when volumeContents is fixed - right now it does not return metadata
-            String systemVolume = xdi.getSystemVolumeName(token);
-            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName()).get();
-            Map<String, String> md = bd.getMetadata();
-            DateTime lastModifiedTemp;
-            try {
-                long instant = DateTimeZone.getDefault().convertLocalToUTC(Long.parseLong(md.get(Xdi.LAST_MODIFIED)), false);
-                lastModifiedTemp = new DateTime(instant, DateTimeZone.UTC);
-            } catch (Exception ex) {
-                lastModifiedTemp = DateTime.now(DateTimeZone.UTC);
-            }
-            final DateTime lastModified = lastModifiedTemp;
-
+        for (MultipartUpload.PartInfo pi : filteredList) {
             elt = elt.withNest("Part", sub -> sub
-                            .withValueElt("PartNumber", Integer.toString(pi.partNumber))
-                            .withValueElt("ETag", md.get("etag"))
-                            .withValueElt("LastModified", S3Endpoint.formatAwsDate(lastModified))
-                            .withValueElt("Size", Long.toString(pi.descriptor.getByteCount()))
+                            .withValueElt("PartNumber", Integer.toString(pi.getPartNumber()))
+                            .withValueElt("ETag", Hex.encodeHexString(pi.getEtag()))
+                            .withValueElt("LastModified", S3Endpoint.formatAwsDate(pi.getLastModified())))
+                            .withValueElt("Size", Long.toString(pi.getLength())
             );
         }
 

@@ -259,8 +259,8 @@ void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*response));
         DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg), *response);
     } else {
-        auto response = boost::make_shared<fpi::RenameBlobRespMsg>();
-        DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg), *response);
+        DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::RenameBlobRespMsg),
+                           fpi::RenameBlobRespMsg());
     }
 
     delete dmRequest;
