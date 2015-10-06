@@ -90,6 +90,7 @@ public class Main {
 
         // Configuration class ensures that fds-root system property is defined.
         logger.trace( "FDS-ROOT: " + configuration.getFdsRoot() );
+        logger.trace( "OM UUID: " + configuration.getOMUuid() );
 
         logger.trace( "Loading platform configuration." );
         ParsedConfig platformConfig = configuration.getPlatformConfig();
