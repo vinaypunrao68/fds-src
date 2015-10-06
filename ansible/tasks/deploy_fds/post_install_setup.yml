@@ -19,7 +19,13 @@
     environment:
         PATH: /opt/fds-deps/embedded/sbin:{{ ansible_env.PATH }}
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_enable_disk_activation is not defined or fds_ft_enable_disk_activation == "false")
+    tags:
+        - post-install
+
+-   name: manual selection and format disks
+    pause: prompt="please select and format disks using [/fds/bin/fds-disk --select] and format [/fds/bin/fds-disk --format]" 
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_enable_disk_activation is defined and fds_ft_enable_disk_activation == "true")
     tags:
         - post-install
 
