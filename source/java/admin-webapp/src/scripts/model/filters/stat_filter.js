@@ -10,6 +10,7 @@ var StatQueryFilter = {
     PUTS: 'PUTS',
     GETS: 'GETS',
     SSD_GETS: 'SSD_GETS',
+    HDD_GETS: 'HDD_GETS',
     
     create: function( contextList, seriesTypes, startTime, endTime, datapoints ){
         

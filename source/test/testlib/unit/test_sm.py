@@ -1,17 +1,15 @@
 import logging
 import unittest
-import pdb
 import sys
 sys.path.append("..")
-import SM
-import config
+
 
 class TestSM(unittest.TestCase):
     logging.basicConfig(level=logging.INFO,
 	format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
 			datefmt='%m-%d %H:%M')
     log = logging.getLogger(__name__)
-    sm_obj = SM.SMService()
+    sm_obj = sm.SMService()
     node_ip = '10.3.87.193'
     nodeList= ['10.3.87.194']
 
