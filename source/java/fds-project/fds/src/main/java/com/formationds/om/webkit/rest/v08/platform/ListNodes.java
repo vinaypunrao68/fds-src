@@ -51,6 +51,10 @@ public class ListNodes
     	List<FDSP_Node_Info_Type> list = getConfigApi().ListServices(0);
 
     	logger.debug( "Size of service list: {}", list.size( ) );
+    	for ( FDSP_Node_Info_Type aNode : list )
+    	{
+    		logger.debug( "Node name: {} uuid: {} ", aNode.node_name, aNode.node_uuid );
+    	}
 
         Map<Long, List<FDSP_Node_Info_Type>> groupedServices =
             NodeUtils.groupNodes( list );

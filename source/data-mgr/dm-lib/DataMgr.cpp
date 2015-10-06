@@ -858,7 +858,7 @@ Error DataMgr::notifyDMTClose() {
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
     dmMigrationMgr->stopAllClientForwarding();
-    err = dmMigrationMgr->finishActiveMigration();
+    err = dmMigrationMgr->finishActiveMigration(DmMigrationMgr::MigrationRole::MIGR_CLIENT);
     return err;
 }
 
