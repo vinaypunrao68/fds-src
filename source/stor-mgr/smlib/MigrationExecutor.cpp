@@ -110,7 +110,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
-    // If we can't start trakcing IO request, then terminate this request.
+    // If we can't start tracking IO request, then terminate this request.
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.
         return ERR_SM_TOK_MIGRATION_ABORTED;
@@ -227,13 +227,17 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                 dltTok.second));
             asyncRebalSetReq->setTimeoutMs(5000);
             asyncRebalSetReq->invoke();
+
+            // Per request tracking starts here and is stopped in response callback.
+            if (!trackIOReqs.startTrackIOReqs()) {
+                return ERR_SM_TOK_MIGRATION_ABORTED;
+            }
         }
-        /* TODO(Gurpreet): We should handle the exception and propogate the error to
-         * Token Migration Manager.
-         */
         catch (...) {
+            trackIOReqs.finishTrackIOReqs();
             LOGMIGRATE << "Async rebalance request failed for token " << dltTok.first << "to source SM "
                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            return ERR_SM_TOK_MIGRATION_ABORTED;
         }
     }
 
@@ -410,16 +414,13 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
                 return ERR_SM_TOK_MIGRATION_ABORTED;
             }
         }
-        /* TODO(Gurpreet): We should handle the exception and propogate the error to
-         * Token Migration Manager.
-         */
         catch (...) {
+            trackIOReqs.finishTrackIOReqs();
             LOGMIGRATE << "Async rebalance request failed for token " << tok << "to source SM "
                        << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            return ERR_SM_TOK_MIGRATION_ABORTED;
         }
 
-        // TODO(Gurpreet): Add proper error code during integration of
-        // failure handling for migration.
         fiu_do_on("fail.sm.migration.sending.filter.set",
                   LOGDEBUG << "fault fail.sm.migration.sending.filter.set enabled"; \
                   if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
@@ -794,10 +795,14 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                                   msg);
     async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::getSecondRebalanceDeltaResp));
     async2RebalSetReq->setTimeoutMs(5000);
+
+    // Start tracking outgoing request to Migration Client. Will be stopped in callback.
+    if (!trackIOReqs.startTrackIOReqs()) {
+        // For now, just return an error that migration is aborted.
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
     async2RebalSetReq->invoke();
 
-    // TODO(Gurpreet): Add proper error code during integration of
-    // failure handling for migration.
     fiu_do_on("fail.sm.migration.second.rebalance.req",
               LOGDEBUG << "fault fail.sm.migration.second.rebalance.req enabled"; \
               if (executorId % 20 == 0) return ERR_SM_TOK_MIGRATION_ABORTED;);
@@ -813,6 +818,9 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
     LOGDEBUG << "Received second rebalance delta response for executor "
              << std::hex << executorId << std::dec
              << " SM token " << smTokenId << " " << error;
+
+    // Stop tracking request.
+    trackIOReqs.finishTrackIOReqs();
 
     /**
      * If abort is pending for this Executor. Exit.
@@ -929,6 +937,11 @@ MigrationExecutor::sendFinishResyncToClient()
     asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
     asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::finishResyncResp));
     asyncFinishClientReq->setTimeoutMs(5000);
+
+    if (!trackIOReqs.startTrackIOReqs()) {
+        // For now, just return an error that migration is aborted.
+        return;
+    }
     asyncFinishClientReq->invoke();
 }
 
@@ -939,6 +952,8 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
 {
     LOGMIGRATE << "Received finish resync response from client for executor " << std::hex
                << executorId << std::dec << " SM token " << smTokenId << " " << error;
+
+    trackIOReqs.finishTrackIOReqs();
 
     // here we just print an error if that happened... but nothing
     // we can do on destination since we already either finished sync or
