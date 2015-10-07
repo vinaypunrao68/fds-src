@@ -10,10 +10,10 @@ import com.amazonaws.services.s3.S3ClientOptions;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.OmBaseEndpoint.AuthToken;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An S3 service endpoint.
@@ -52,17 +52,16 @@ public final class S3Endpoint implements Endpoint
      * Perform an operation on this endpoint.
      * 
      * @param operation The operation to perform.
-     * @param listener Report operations here.
      * 
      * @throws ExecutionException when an error occurs executing {@code operation}.
      */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         AmazonS3Client client;
         try
@@ -74,23 +73,23 @@ public final class S3Endpoint implements Endpoint
             throw new ExecutionException("Error getting S3 client.", e);
         }
         
-        operation.accept(this, client, listener);
+        operation.accept(this, client, context);
     }
     
     @Override
     public void visit(Operation operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         if (operation instanceof S3Operation)
         {
-            visit((S3Operation)operation, listener);
+            visit((S3Operation)operation, context);
         }
         else
         {
-            operation.accept(this, listener);
+            operation.accept(this, context);
         }
     }
 

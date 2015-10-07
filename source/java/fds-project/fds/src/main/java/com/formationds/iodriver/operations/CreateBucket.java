@@ -7,8 +7,8 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Create an S3 bucket.
@@ -30,11 +30,11 @@ public class CreateBucket extends S3Operation
     @Override
     public void accept(S3Endpoint endpoint,
                        AmazonS3Client client,
-                       WorkloadEventListener reporter) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
 
         try
         {

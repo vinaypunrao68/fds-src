@@ -14,7 +14,6 @@ import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.BenchmarkPrefixSearchConfig;
@@ -151,17 +150,17 @@ public final class Main
             Workload workload = config.getSelectedWorkload();
             Endpoint endpoint = getCompatibleEndpoint(workload);
 
-            try (WorkloadEventListener listener = new WorkloadEventListener(config.getLogger());
-                 Closeable reporter = workload.getSuggestedReporter(System.out, listener)
+            try (WorkloadContext context = workload.newContext(config.getLogger());
+                 Closeable reporter = workload.getSuggestedReporter(System.out, context)
                                               .orElseGet(() -> new ConsoleProgressReporter(
                                                       System.out,
-                                                      listener)))
+                                                      context)))
             {
                 Validator validator = workload.getSuggestedValidator().orElse(new NullValidator());
                                       
-                Driver driver = Driver.newDriver(endpoint, workload, listener, validator);
-                driver.runWorkload();
-                return driver.getResult();
+                Driver driver = Driver.newDriver(endpoint, workload, validator);
+                driver.runWorkload(context);
+                return driver.getResult(context);
             }
         }
         catch (Exception e)

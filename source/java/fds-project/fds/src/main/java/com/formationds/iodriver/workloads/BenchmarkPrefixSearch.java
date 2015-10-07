@@ -1,5 +1,6 @@
 package com.formationds.iodriver.workloads;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,12 +13,12 @@ import java.util.stream.Stream;
 
 import com.formationds.iodriver.Driver;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CallChildWorkload;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 
 public class BenchmarkPrefixSearch extends Workload
@@ -42,9 +43,9 @@ public class BenchmarkPrefixSearch extends Workload
     
     @Override
     public final void setUp(Endpoint endpoint,
-                            WorkloadEventListener listener) throws ExecutionException
+                            WorkloadContext context) throws ExecutionException
     {
-        super.setUp(endpoint, listener);
+        super.setUp(endpoint, context);
         
         for (String volumeName : _volumes)
         {
@@ -67,16 +68,22 @@ public class BenchmarkPrefixSearch extends Workload
                             null,
                             null);
             
-            Driver driver = Driver.newDriver(endpoint,
-                                             getVolumeObjects,
-                                             listener,
-                                             getVolumeObjects.getSuggestedValidator()
-                                                             .orElse(new NullValidator()));
-            driver.runWorkload();
-            int result = driver.getResult();
-            if (result != 0)
+            try (WorkloadContext innerContext = getVolumeObjects.newContext(context.getLogger()))
             {
-                throw new ExecutionException("Getting volume objects failed with code " + result);
+                Driver driver = Driver.newDriver(endpoint,
+                                                 getVolumeObjects,
+                                                 getVolumeObjects.getSuggestedValidator()
+                                                                 .orElse(new NullValidator()));
+                driver.runWorkload(innerContext);
+                int result = driver.getResult(innerContext);
+                if (result != 0)
+                {
+                    throw new ExecutionException("Getting volume objects failed with code " + result);
+                }
+            }
+            catch (IOException e)
+            {
+                throw new ExecutionException("Error closing inner context.", e);
             }
         }
     }

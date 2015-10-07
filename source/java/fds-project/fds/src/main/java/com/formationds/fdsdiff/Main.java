@@ -23,6 +23,7 @@ import com.formationds.fdsdiff.workloads.GetSystemConfigWorkload;
 import com.formationds.fdsdiff.workloads.GetVolumeObjectsWorkload;
 import com.formationds.iodriver.ConfigurationException;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.model.BasicObjectManifest;
@@ -30,7 +31,6 @@ import com.formationds.iodriver.model.ComparisonDataFormat;
 import com.formationds.iodriver.model.ExtendedObjectManifest;
 import com.formationds.iodriver.model.FullObjectManifest;
 import com.formationds.iodriver.model.ObjectManifest;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.gson.Gson;
 
 /**
@@ -293,7 +293,7 @@ public final class Main
     private static SystemContent _getSystemContent(Endpoint endpoint,
                                                    Logger logger,
                                                    ComparisonDataFormat format)
-            throws ExecutionException
+            throws ExecutionException, IOException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (logger == null) throw new NullArgumentException("logger");
@@ -302,32 +302,34 @@ public final class Main
         
         // FIXME: Log operations should be configurable.
         GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content);
-        WorkloadEventListener listener = new WorkloadEventListener(logger);
-        getSystemConfig.runOn(endpoint, listener);
-        
-        // Now gather individual volume contents.
-        for (VolumeWrapper volumeWrapper : content.getVolumes())
+        try (WorkloadContext context = getSystemConfig.newContext(logger))
         {
-            String volumeName = volumeWrapper.getVolume().getName();
+            getSystemConfig.runOn(endpoint, context);
             
-            // First just get object names.
-            Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volumeWrapper);
-            GetVolumeObjectsWorkload getVolumeObjects =
-                    new GetVolumeObjectsWorkload(volumeName, objectNameSetter);
-            getVolumeObjects.runOn(endpoint, listener);
-            
-            // Now fill in the details (minimal doesn't have any details).
-            if (format != ComparisonDataFormat.MINIMAL)
+            // Now gather individual volume contents.
+            for (VolumeWrapper volumeWrapper : content.getVolumes())
             {
-                GetObjectsDetailsWorkload getObjectsDetails =
-                        new GetObjectsDetailsWorkload(volumeName,
-                                                      content.getObjectNames(volumeWrapper),
-                                                      _getBuilderSupplier(format),
-                                                      content.getVolumeObjectAdder(volumeWrapper));
-                getObjectsDetails.runOn(endpoint, listener);
+                String volumeName = volumeWrapper.getVolume().getName();
+                
+                // First just get object names.
+                Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volumeWrapper);
+                GetVolumeObjectsWorkload getVolumeObjects =
+                        new GetVolumeObjectsWorkload(volumeName, objectNameSetter);
+                getVolumeObjects.runOn(endpoint, context);
+                
+                // Now fill in the details (minimal doesn't have any details).
+                if (format != ComparisonDataFormat.MINIMAL)
+                {
+                    GetObjectsDetailsWorkload getObjectsDetails =
+                            new GetObjectsDetailsWorkload(volumeName,
+                                                          content.getObjectNames(volumeWrapper),
+                                                          _getBuilderSupplier(format),
+                                                          content.getVolumeObjectAdder(volumeWrapper));
+                    getObjectsDetails.runOn(endpoint, context);
+                }
             }
+            
+            return content;
         }
-        
-        return content;
     }
 }

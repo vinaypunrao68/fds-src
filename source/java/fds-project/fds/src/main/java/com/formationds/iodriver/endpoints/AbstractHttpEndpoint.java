@@ -6,9 +6,9 @@ import java.net.URL;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.HttpOperation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public abstract class AbstractHttpEndpoint<ThisT extends AbstractHttpEndpoint<ThisT>>
         extends AbstractBaseHttpEndpoint<ThisT, HttpURLConnection>
@@ -21,18 +21,18 @@ public abstract class AbstractHttpEndpoint<ThisT extends AbstractHttpEndpoint<Th
 
     @Override
     public void visit(BaseHttpOperation<HttpURLConnection> operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         if (operation instanceof HttpOperation)
         {
-            visit((HttpOperation)operation, listener);
+            visit((HttpOperation)operation, context);
         }
         else
         {
-            operation.accept(getThis(), listener);
+            operation.accept(getThis(), context);
         }
     }
     

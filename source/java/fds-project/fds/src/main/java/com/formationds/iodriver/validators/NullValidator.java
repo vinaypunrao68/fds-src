@@ -1,10 +1,6 @@
 package com.formationds.iodriver.validators;
 
-import java.io.Closeable;
-import java.io.IOException;
-
-import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.WorkloadContext;
 
 /**
  * Doesn't actually validate anything.
@@ -12,25 +8,8 @@ import com.formationds.iodriver.reporters.WorkloadEventListener;
 public final class NullValidator implements Validator
 {
     @Override
-    public boolean isValid(Closeable context, WorkloadEventListener listener)
+    public boolean isValid(WorkloadContext context)
     {
         return true;
-    }
-
-    @Override
-    public Closeable newContext(WorkloadEventListener listener)
-    {
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        return new NullCloseable();
-    }
-    
-    private static final class NullCloseable implements Closeable
-    {
-        @Override
-        public void close() throws IOException
-        {
-            // No-op.
-        }
     }
 }

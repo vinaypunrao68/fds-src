@@ -21,9 +21,9 @@ import com.formationds.commons.util.Uris;
 import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.common.io.CharStreams;
 import com.google.common.net.MediaType;
 
@@ -149,10 +149,10 @@ public abstract class AbstractBaseHttpEndpoint<
 
     @Override
     public void visit(BaseHttpOperation<ConnectionT> operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         ConnectionT connection;
         try
@@ -185,7 +185,7 @@ public abstract class AbstractBaseHttpEndpoint<
                         "Error setting request method to " + javaString(requestMethod) + ".", e);
             }
 
-            typedVisit(operation, connection, listener);
+            typedVisit(operation, connection, context);
         }
         finally
         {
@@ -195,10 +195,10 @@ public abstract class AbstractBaseHttpEndpoint<
     
     @Override
     public void visit(Operation operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         BaseHttpOperation<ConnectionT> typedOperation = null;
         if (operation instanceof BaseHttpOperation)
@@ -215,11 +215,11 @@ public abstract class AbstractBaseHttpEndpoint<
         
         if (typedOperation != null)
         {
-            visit(typedOperation, listener);
+            visit(typedOperation, context);
         }
         else
         {
-            operation.accept(this, listener);
+            operation.accept(this, context);
         }
     }
     
@@ -523,7 +523,7 @@ public abstract class AbstractBaseHttpEndpoint<
 
     protected abstract void typedVisit(BaseHttpOperation<ConnectionT> operation,
                                        ConnectionT connection,
-                                       WorkloadEventListener listener)
+                                       WorkloadContext context)
             throws ExecutionException;
 
     /**

@@ -3,8 +3,8 @@ package com.formationds.iodriver.operations;
 import java.net.URI;
 
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public interface BaseHttpOperation<ConnectionT> extends Operation
 {
@@ -14,13 +14,12 @@ public interface BaseHttpOperation<ConnectionT> extends Operation
      * @param endpoint The endpoint to run on.
      * @param connection A connection according to {@link #getRelativeUri()} and
      *                   {@link #getRequestMethod()}.
-     * @param reporter The listener for events.
      * 
      * @throws ExecutionException when an error occurs.
      */
     void accept(BaseHttpEndpoint<ConnectionT> endpoint,
                 ConnectionT connection,
-                WorkloadEventListener reporter) throws ExecutionException;
+                WorkloadContext context) throws ExecutionException;
 
     /**
      * Get the type of connection this operation requires.

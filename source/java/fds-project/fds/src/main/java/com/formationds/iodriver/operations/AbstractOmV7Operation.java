@@ -4,9 +4,9 @@ import javax.net.ssl.HttpsURLConnection;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.BaseHttpEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An operation that runs on the OM.
@@ -17,11 +17,11 @@ public abstract class AbstractOmV7Operation extends AbstractHttpsOperation
     @Override
     public void accept(BaseHttpEndpoint<HttpsURLConnection> endpoint,
                        HttpsURLConnection connection,
-                       WorkloadEventListener listener) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         throw new UnsupportedOperationException(OmV7Endpoint.class.getName() + " required.");
     }

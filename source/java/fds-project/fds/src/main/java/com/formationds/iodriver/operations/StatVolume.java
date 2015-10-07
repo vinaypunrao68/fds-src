@@ -2,6 +2,7 @@ package com.formationds.iodriver.operations;
 
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.List;
 import java.util.function.Consumer;
@@ -14,10 +15,11 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
+import com.formationds.iodriver.events.VolumeStatted;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -44,11 +46,11 @@ public final class StatVolume extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       WorkloadEventListener reporter) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
 
         String content;
         try
@@ -65,7 +67,7 @@ public final class StatVolume extends AbstractOmV8Operation
         boolean found = false;
         for (Volume volume : volumes)
         {
-            reporter.volumeStatted.send(volume);
+            context.sendIfRegistered(new VolumeStatted(Instant.now(), volume));
             
             // FIXME: Need to deal with tenants.
             if (volume.getName().equals(_volumeName))

@@ -8,9 +8,9 @@ import javax.net.ssl.HttpsURLConnection;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.operations.BaseHttpOperation;
 import com.formationds.iodriver.operations.OmV7Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An endpoint connecting to an FDS Orchestration Manager.
@@ -39,20 +39,20 @@ public class OmV7Endpoint extends OmBaseEndpoint<OmV7Endpoint>
     @Override
     protected final void typedVisit(BaseHttpOperation<HttpsURLConnection> operation,
                                     HttpsURLConnection connection,
-                                    WorkloadEventListener listener)
+                                    WorkloadContext context)
             throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
         if (connection == null) throw new NullArgumentException("connection");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         if (operation instanceof OmV7Operation)
         {
-            ((OmV7Operation)operation).accept(this, connection, listener);
+            ((OmV7Operation)operation).accept(this, connection, context);
         }
         else
         {
-            operation.accept(this, connection, listener);
+            operation.accept(this, connection, context);
         }
     }
 }

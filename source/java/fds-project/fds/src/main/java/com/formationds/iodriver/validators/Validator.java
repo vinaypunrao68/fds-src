@@ -1,8 +1,6 @@
 package com.formationds.iodriver.validators;
 
-import java.io.Closeable;
-
-import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.WorkloadContext;
 
 /**
  * A class that implements this interface will validate the statistics gathered by running a
@@ -18,7 +16,5 @@ public interface Validator
      * 
      * @return Whether this run should be accepted.
      */
-    boolean isValid(Closeable context, WorkloadEventListener listener);
-
-    Closeable newContext(WorkloadEventListener listener);
+    boolean isValid(WorkloadContext context);
 }

@@ -3,6 +3,7 @@ package com.formationds.iodriver.workloads;
 import java.io.Closeable;
 import java.io.PrintStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,22 +17,23 @@ import java.util.stream.StreamSupport;
 
 import com.codepoetics.protonpack.StreamUtils;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.AwaitGate;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
+import com.formationds.iodriver.operations.FireEvent;
 import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.operations.ReportStart;
-import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
 import com.formationds.iodriver.reporters.QosProgressReporter;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.formationds.iodriver.workloads.QosWorkload.VolumeStarted;
+import com.formationds.iodriver.workloads.QosWorkload.VolumeStopped;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -47,12 +49,12 @@ public final class S3AssuredRateTestWorkload extends Workload
     
     @Override
     public Optional<Closeable> getSuggestedReporter(PrintStream output,
-                                                    WorkloadEventListener listener)
+                                                    WorkloadContext context)
     {
         if (output == null) throw new NullArgumentException("output");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
-        return Optional.of(new QosProgressReporter(output, listener));
+        return Optional.of(new QosProgressReporter(output, context));
     }
 
     /**
@@ -219,7 +221,8 @@ public final class S3AssuredRateTestWorkload extends Workload
         Stream<Operation> awaitWarmup = Stream.of(new AwaitGate(_warmupGate));
 
         // Start timing the test.
-        Stream<Operation> reportStart = Stream.of(new ReportStart(bucketName));
+        Stream<Operation> reportStart = Stream.of(
+                new FireEvent<>(() -> new VolumeStarted(Instant.now(), bucketName)));
 
         // Set the stop time for 10 seconds from when this operation is hit. We don't want to do a
         // map lookup every operation, so capture the state instead of looking it up each time.
@@ -242,7 +245,8 @@ public final class S3AssuredRateTestWorkload extends Workload
                                       op -> ZonedDateTime.now().isBefore(bucketState.stopTestTime));
 
         // Report completion of the test.
-        Stream<Operation> reportStop = Stream.of(new ReportStop(bucketName));
+        Stream<Operation> reportStop = Stream.of(
+                new FireEvent<>(() -> new VolumeStopped(Instant.now(), bucketName)));
 
         Stream<Operation> retval = Stream.empty();
         retval = Stream.concat(retval, warmup);

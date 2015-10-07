@@ -1,8 +1,7 @@
 package com.formationds.iodriver.workloads;
 
-import java.io.Closeable;
-import java.io.PrintStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -11,21 +10,17 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.codepoetics.protonpack.StreamUtils;
-import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
+import com.formationds.iodriver.operations.FireEvent;
 import com.formationds.iodriver.operations.LambdaS3Operation;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.operations.ReportStart;
-import com.formationds.iodriver.operations.ReportStop;
 import com.formationds.iodriver.operations.SetVolumeQos;
 import com.formationds.iodriver.operations.StatVolume;
-import com.formationds.iodriver.reporters.QosProgressReporter;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
 
@@ -33,22 +28,12 @@ import com.formationds.iodriver.validators.Validator;
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
  * attempts to exceed those IOPS.
  */
-public final class S3RateLimitTestWorkload extends Workload
+public final class S3RateLimitTestWorkload extends QosWorkload
 {
     @Override
     public Optional<Validator> getSuggestedValidator()
     {
         return Optional.of(new RateLimitValidator());
-    }
-    
-    @Override
-    public Optional<Closeable> getSuggestedReporter(PrintStream output,
-                                                    WorkloadEventListener listener)
-    {
-        if (output == null) throw new NullArgumentException("output");
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        return Optional.of(new QosProgressReporter(output, listener));
     }
     
     /**
@@ -96,7 +81,8 @@ public final class S3RateLimitTestWorkload extends Workload
                                                                     content))
                       .limit(100);
 
-        Stream<Operation> reportStart = Stream.of(new ReportStart(_bucketName));
+        Stream<Operation> reportStart = Stream.of(
+                new FireEvent<>(() -> new VolumeStarted(Instant.now(), _bucketName)));
 
         // Set the stop time for 10 seconds from when this operation is hit.
         Stream<Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
@@ -117,7 +103,8 @@ public final class S3RateLimitTestWorkload extends Workload
                                       op -> ZonedDateTime.now().isBefore(_stopTime));
 
         // Report completion of the test.
-        Stream<Operation> reportStop = Stream.of(new ReportStop(_bucketName));
+        Stream<Operation> reportStop = Stream.of(
+                new FireEvent<>(() -> new VolumeStopped(Instant.now(), _bucketName)));
 
         Stream<Operation> retval = Stream.empty();
         retval = Stream.concat(retval, warmup);

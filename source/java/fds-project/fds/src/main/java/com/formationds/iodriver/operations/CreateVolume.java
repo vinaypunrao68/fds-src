@@ -2,6 +2,7 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.stream.Stream;
 
@@ -16,9 +17,10 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
+import com.formationds.iodriver.events.VolumeAdded;
 
 public class CreateVolume extends AbstractOmV8Operation
 {
@@ -32,11 +34,11 @@ public class CreateVolume extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       WorkloadEventListener listener) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         // Other than name, the values below are present only to prevent NullPointerExceptions
         // when XDI converts the request.
@@ -59,7 +61,9 @@ public class CreateVolume extends AbstractOmV8Operation
             throw new ExecutionException(e);
         }
         
-        listener.volumeAdded.send(ObjectModelHelper.toObject(addedVolumeString, Volume.class));
+        context.sendIfRegistered(
+                new VolumeAdded(Instant.now(),
+                                ObjectModelHelper.toObject(addedVolumeString, Volume.class)));
     }
 
     @Override

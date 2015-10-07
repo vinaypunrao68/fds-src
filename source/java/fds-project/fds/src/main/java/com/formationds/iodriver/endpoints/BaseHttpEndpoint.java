@@ -3,8 +3,8 @@ package com.formationds.iodriver.endpoints;
 import java.nio.charset.Charset;
 
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.operations.BaseHttpOperation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * An endpoint that targets an HTTP server.
@@ -46,10 +46,9 @@ public interface BaseHttpEndpoint<ConnectionT> extends Endpoint
      * Execute an an operation that requires an HTTP connection.
      *
      * @param operation The operation to execute.
-     * @param listener Report progress here.
      *
      * @throws ExecutionException when an error occurs.
      */
     void visit(BaseHttpOperation<ConnectionT> operation,
-               WorkloadEventListener listener) throws ExecutionException;
+               WorkloadContext context) throws ExecutionException;
 }

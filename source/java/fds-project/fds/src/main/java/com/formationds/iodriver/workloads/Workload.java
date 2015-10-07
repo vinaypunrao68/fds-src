@@ -4,6 +4,7 @@ import static com.formationds.commons.util.ExceptionHelper.getTunneledIfTunneled
 
 import java.io.Closeable;
 import java.io.PrintStream;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -21,10 +22,12 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.events.OperationExecuted;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 
 /**
@@ -52,14 +55,16 @@ public abstract class Workload
     }
     
     public Optional<Closeable> getSuggestedReporter(PrintStream output,
-                                                    WorkloadEventListener listener)
+                                                    WorkloadContext context)
     {
         return Optional.empty();
     }
-    
-    public void registerEvents(WorkloadEventListener listener)
+
+    public WorkloadContext newContext(Logger logger)
     {
-        // No-op.
+        if (logger == null) throw new NullArgumentException("logger");
+        
+        return new WorkloadContext(logger);
     }
     
     /**
@@ -71,12 +76,12 @@ public abstract class Workload
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(Endpoint endpoint, WorkloadEventListener listener)
+    public final void runOn(Endpoint endpoint, WorkloadContext context)
             throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         ensureOperationsInitialized();
 
@@ -91,8 +96,9 @@ public abstract class Workload
                         ExceptionThrowingConsumer<Operation, ExecutionException> exec =
                                 op ->
                                 {
-                                    endpoint.visit(op, listener);
-                                    listener.operationExecuted.send(op);
+                                    endpoint.visit(op, context);
+                                    context.sendIfRegistered(new OperationExecuted(Instant.now(),
+                                                                                   op));
                                 };
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
@@ -183,11 +189,11 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public void setUp(Endpoint endpoint,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         ensureSetupInitialized();
 
@@ -197,8 +203,8 @@ public abstract class Workload
                 from -> _setup.forEach(from),
                 op ->
                 {
-                    listener.operationExecuted.send(op);
-                    endpoint.visit(op, listener);
+                    endpoint.visit(op, context);
+                    context.sendIfRegistered(new OperationExecuted(Instant.now(), op));
                 });
     }
 
@@ -213,11 +219,11 @@ public abstract class Workload
      */
     // @eclipseFormat:off
     public final void tearDown(Endpoint endpoint,
-                               WorkloadEventListener listener) throws ExecutionException
+                               WorkloadContext context) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
         ensureTeardownInitialized();
 
@@ -227,8 +233,8 @@ public abstract class Workload
                 from -> _teardown.forEach(from),
                 op ->
                 {
-                    listener.operationExecuted.send(op);
-                    endpoint.visit(op, listener);
+                    endpoint.visit(op, context);
+                    context.sendIfRegistered(new OperationExecuted(Instant.now(), op));
                 });
     }
 

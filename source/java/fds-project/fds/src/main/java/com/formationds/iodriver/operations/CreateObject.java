@@ -15,10 +15,10 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.operations.categories.IoOperation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 /**
  * Create an object in an S3 bucket.
@@ -82,11 +82,11 @@ public final class CreateObject extends S3Operation implements IoOperation
     @Override
     public void accept(S3Endpoint endpoint,
                        AmazonS3Client client,
-                       WorkloadEventListener reporter) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (client == null) throw new NullArgumentException("client");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
 
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(_contentLength);
@@ -109,12 +109,12 @@ public final class CreateObject extends S3Operation implements IoOperation
     
     @Override
     public void accept(Endpoint endpoint,
-                       WorkloadEventListener listener) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
-        endpoint.visit(this, listener);
+        endpoint.visit(this, context);
     }
 
     @Override

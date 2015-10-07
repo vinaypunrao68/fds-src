@@ -2,11 +2,11 @@ package com.formationds.iodriver.endpoints;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.operations.OmV7Operation;
 import com.formationds.iodriver.operations.OmV8Operation;
 import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 
 public final class FdsEndpoint implements Endpoint
 {
@@ -45,26 +45,26 @@ public final class FdsEndpoint implements Endpoint
     
     @Override
     public void visit(Operation operation,
-                      WorkloadEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         if (operation instanceof OmV7Operation)
         {
-            getOmV7Endpoint().visit((OmV7Operation)operation, listener);
+            getOmV7Endpoint().visit((OmV7Operation)operation, context);
         }
         else if (operation instanceof OmV8Operation)
         {
-            getOmV8Endpoint().visit((OmV8Operation)operation, listener);
+            getOmV8Endpoint().visit((OmV8Operation)operation, context);
         }
         else if (operation instanceof S3Operation)
         {
-            getS3Endpoint().visit((S3Operation)operation, listener);
+            getS3Endpoint().visit((S3Operation)operation, context);
         }
         else
         {
-            operation.accept(this, listener);
+            operation.accept(this, context);
         }
     }
     

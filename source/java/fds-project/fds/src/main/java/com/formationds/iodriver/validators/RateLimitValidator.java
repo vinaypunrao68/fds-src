@@ -2,7 +2,6 @@ package com.formationds.iodriver.validators;
 
 import static com.formationds.commons.util.Strings.javaString;
 
-import java.io.Closeable;
 import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -12,20 +11,23 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.WorkloadContext;
+import com.formationds.iodriver.events.Validated;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.RateLimitValidator.ValidationResult.VolumeResult;
+import com.formationds.iodriver.workloads.QosWorkload;
+import com.formationds.iodriver.workloads.QosWorkload.VolumeQosStats;
 import com.google.common.collect.ImmutableList;
 
 /**
  * Validate that no volume exceeded its throttle by more than 1%.
  */
-public final class RateLimitValidator extends QosValidator
+public final class RateLimitValidator implements Validator
 {
-    public final static class ValidationResult extends WorkloadEventListener.ValidationResult
+    public final static class ValidationResult extends com.formationds.iodriver.reporters.ValidationResult
     {
-        public final static class VolumeResult extends WorkloadEventListener.ValidationResult
+        public final static class VolumeResult extends com.formationds.iodriver.reporters.ValidationResult
         {
             public VolumeResult(boolean isValid,
                                 String volumeName,
@@ -91,16 +93,15 @@ public final class RateLimitValidator extends QosValidator
     }
     
     @Override
-    public boolean isValid(Closeable context, WorkloadEventListener listener)
+    public boolean isValid(WorkloadContext context)
     {
         if (context == null) throw new NullArgumentException("context");
-        if (listener == null) throw new NullArgumentException("listener");
-        if (!(context instanceof Context))
+        if (!(context instanceof QosWorkload.Context))
         {
             throw new IllegalArgumentException("context must come from newContext().");
         }
         
-        Context typedContext = (Context)context;
+        QosWorkload.Context typedContext = (QosWorkload.Context)context;
 
         List<VolumeResult> volumeResults = new ArrayList<>();
         boolean failed = false;
@@ -129,7 +130,8 @@ public final class RateLimitValidator extends QosValidator
             }
         }
 
-        listener.validated.send(new ValidationResult(!failed, volumeResults));
+        context.sendIfRegistered(new Validated(Instant.now(),
+                                               new ValidationResult(!failed, volumeResults)));
         
         return !failed;
     }

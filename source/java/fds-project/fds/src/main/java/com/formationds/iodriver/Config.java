@@ -28,7 +28,6 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.OmV7Endpoint;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 import com.formationds.iodriver.workloads.Workload;
@@ -84,16 +83,6 @@ public final class Config extends AbstractConfig
             return _s3Endpoint;
         }
 
-        /**
-         * Get the default event listener.
-         * 
-         * @return A stats-gathering and 1-input-many-output event hub.
-         */
-        public static WorkloadEventListener getListener()
-        {
-            return _listener.copy();
-        }
-
         static
         {
             try
@@ -128,7 +117,6 @@ public final class Config extends AbstractConfig
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
-            _listener = new WorkloadEventListener(AbstractConfig.Defaults.getLogger());
         }
 
         /**
@@ -140,11 +128,6 @@ public final class Config extends AbstractConfig
         }
 
         private static final FdsEndpoint _fdsEndpoint;
-        
-        /**
-         * Default event listener.
-         */
-        private static final WorkloadEventListener _listener;
 
         /**
          * Default S3 endpoint.
@@ -215,17 +198,6 @@ public final class Config extends AbstractConfig
         
         return new S3AssuredRateTestWorkload(competingBuckets,
                                              systemThrottle);
-    }
-    
-    /**
-     * Get the configured listener.
-     * 
-     * @return An event hub.
-     */
-    public WorkloadEventListener getListener()
-    {
-        // TODO: Allow this to be configured.
-        return Defaults.getListener();
     }
 
     /**

@@ -2,6 +2,7 @@ package com.formationds.iodriver.operations;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -17,11 +18,12 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
+import com.formationds.iodriver.events.VolumeModified;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
-import com.formationds.iodriver.reporters.WorkloadEventListener.BeforeAfter;
+import com.formationds.iodriver.reporters.BeforeAfter;
 
 /**
  * Set the QoS parameters on a volume.
@@ -43,17 +45,17 @@ public final class SetVolumeQos extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       WorkloadEventListener reporter) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
 
         VolumeQosSettings settings = _input.get();
         
         Volume[] volumeQosSetter = new Volume[1];
         GetVolume getter = new GetVolume(settings.getId(), volume -> volumeQosSetter[0] = volume);
-        endpoint.visit(getter, reporter);
+        endpoint.visit(getter, context);
 
         Volume oldVolume = volumeQosSetter[0];
         
@@ -81,7 +83,9 @@ public final class SetVolumeQos extends AbstractOmV8Operation
             && modifiedQos.getIopsMin() == settings.getIopsAssured()
             && modifiedQos.getIopsMax() == settings.getIopsThrottle())
         {
-            reporter.volumeModified.send(new BeforeAfter<>(oldVolume, modifiedVolume));
+            context.sendIfRegistered(new VolumeModified(Instant.now(),
+                                                        new BeforeAfter<>(oldVolume,
+                                                                          modifiedVolume)));
         }
         else
         {

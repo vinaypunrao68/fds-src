@@ -1,50 +1,45 @@
 package com.formationds.iodriver.operations;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.events.Event;
 
-public class AwaitGate extends AbstractOperation
+public class FireEvent<EventT extends Event<T>, T> extends AbstractOperation
 {
-    public AwaitGate(CyclicBarrier gate)
+    public FireEvent(Supplier<? extends EventT> eventSupplier)
     {
-        if (gate == null) throw new NullArgumentException("gate");
-        
-        _gate = gate;
+        if (eventSupplier == null) throw new NullArgumentException("eventSupplier");
+
+        _eventSupplier = eventSupplier;
     }
-    
+
+    @Override
+    // @eclipseFormat:off
     public void accept(Endpoint endpoint,
                        WorkloadContext context) throws ExecutionException
+    // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (context == null) throw new NullArgumentException("context");
-        
-        try
-        {
-            _gate.await();
-        }
-        catch (InterruptedException e)
-        {
-            Thread.currentThread().interrupt();
-        }
-        catch (BrokenBarrierException e)
-        {
-            throw new ExecutionException("Error waiting on gate.", e);
-        }
+
+        context.sendIfRegistered(_eventSupplier.get());
     }
-    
+
     @Override
     public Stream<SimpleImmutableEntry<String, String>> toStringMembers()
     {
         return Stream.concat(super.toStringMembers(),
-                             Stream.of(memberToString("gate", _gate)));
+                             Stream.of(memberToString("eventSupplier", _eventSupplier)));
     }
     
-    private final CyclicBarrier _gate;
+    /**
+     * The bucket to report begin for.
+     */
+    private final Supplier<? extends EventT> _eventSupplier;
 }

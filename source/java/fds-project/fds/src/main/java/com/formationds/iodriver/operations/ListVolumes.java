@@ -16,9 +16,9 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.fdsdiff.SystemContent.VolumeWrapper;
 import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
 import com.formationds.iodriver.endpoints.OmV8Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.google.gson.reflect.TypeToken;
 
 public final class ListVolumes extends AbstractOmV8Operation
@@ -33,11 +33,11 @@ public final class ListVolumes extends AbstractOmV8Operation
     @Override
     public void accept(OmV8Endpoint endpoint,
                        HttpsURLConnection connection,
-                       WorkloadEventListener listener) throws ExecutionException
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
         
         String volumes;
         try

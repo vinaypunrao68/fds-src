@@ -1,10 +1,7 @@
 package com.formationds.iodriver;
 
-import java.io.Closeable;
-
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.reporters.WorkloadEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
@@ -18,22 +15,15 @@ public final class Driver
      * 
      * @param endpoint The endpoint to run {@code workload} on.
      * @param workload The workload to run on {@code endpoint}.
-     * @param listener Receives events during the workload run.
      * @param validator Performs final check on the data {@code listener} gathered.
      */
-    public Driver(Endpoint endpoint,
-                  Workload workload,
-                  WorkloadEventListener listener,
-                  Validator validator)
+    public Driver(Endpoint endpoint, Workload workload, Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
-        if (listener == null) throw new NullArgumentException("listener");
         if (validator == null) throw new NullArgumentException("validator");
 
-        _context = null;
         _endpoint = endpoint;
-        _listener = listener;
         _workload = workload;
         _validator = validator;
     }
@@ -43,14 +33,13 @@ public final class Driver
      * 
      * @throws ExecutionException when an error occurs running the workload setup.
      */
-    public void ensureSetUp() throws ExecutionException
+    public void ensureSetUp(WorkloadContext context) throws ExecutionException
     {
+        if (context == null) throw new NullArgumentException("context");
+        
         if (!_isSetUp)
         {
-            WorkloadEventListener listener = getListener();
-            
-            _context = getValidator().newContext(listener);
-            getWorkload().setUp(getEndpoint(), listener);
+            getWorkload().setUp(getEndpoint(), context);
             _isSetUp = true;
         }
     }
@@ -60,11 +49,13 @@ public final class Driver
      * 
      * @throws ExecutionException when an error occurs running the workload teardown.
      */
-    public void ensureTearDown() throws ExecutionException
+    public void ensureTearDown(WorkloadContext context) throws ExecutionException
     {
+        if (context == null) throw new NullArgumentException("context");
+        
         if (_isSetUp)
         {
-            getWorkload().tearDown(getEndpoint(), getListener());
+            getWorkload().tearDown(getEndpoint(), context);
             _isSetUp = false;
         }
     }
@@ -80,26 +71,16 @@ public final class Driver
     }
 
     /**
-     * Get the event listener.
-     * 
-     * @return The current property value.
-     */
-    public WorkloadEventListener getListener()
-    {
-        return _listener;
-    }
-
-    /**
      * Get the result of running the workload from the {@link #getValidator() validator}.
      * 
      * @return 0 for success, other for failure.
      */
-    public int getResult()
+    public int getResult(WorkloadContext context)
     {
-        WorkloadEventListener listener = getListener();
+        if (context == null) throw new NullArgumentException("context");
+        
         Validator validator = getValidator();
-
-        if (validator.isValid(_context, listener))
+        if (validator.isValid(context))
         {
             return 0;
         }
@@ -135,45 +116,31 @@ public final class Driver
      * 
      * @throws ExecutionException when an error occurs during execution.
      */
-    public void runWorkload() throws ExecutionException
+    public void runWorkload(WorkloadContext context) throws ExecutionException
     {
-        ensureSetUp();
+        if (context == null) throw new NullArgumentException("context");
+        
+        ensureSetUp(context);
         try
         {
-            getWorkload().runOn(getEndpoint(), getListener());
+            getWorkload().runOn(getEndpoint(), context);
         }
         finally
         {
-            ensureTearDown();
+            ensureTearDown(context);
         }
-    }
-
-    /**
-     * Set the event listener.
-     * 
-     * @param listener The property value to set.
-     */
-    public void setListener(WorkloadEventListener listener)
-    {
-        if (listener == null) throw new NullArgumentException("listener");
-
-        _listener = listener;
     }
 
     public static Driver newDriver(Endpoint endpoint,
                                    Workload workload,
-                                   WorkloadEventListener listener,
                                    Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
-        if (listener == null) throw new NullArgumentException("listener");
         if (validator == null) throw new NullArgumentException("validator");
 
-        return new Driver(endpoint, workload, listener, validator);
+        return new Driver(endpoint, workload, validator);
     }
-    
-    private Closeable _context;
     
     /**
      * The service endpoint that {@link #_workload} is run on.
@@ -185,11 +152,6 @@ public final class Driver
      * teardown after.
      */
     private boolean _isSetUp;
-
-    /**
-     * Observes events from {@link #_workload}.
-     */
-    private WorkloadEventListener _listener;
 
     /**
      * The instructions to run on {@link #_endpoint}.
