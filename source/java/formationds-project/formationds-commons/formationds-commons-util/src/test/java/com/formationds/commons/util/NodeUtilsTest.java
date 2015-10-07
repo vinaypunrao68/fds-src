@@ -144,26 +144,26 @@ public class NodeUtilsTest
     @Test
     public void testGroupNodes_Multi_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodes( ) )
+        Assert.assertTrue( NodeUtils.groupNodes( nodes( ), 1024 )
                                     .size( ) == 4 );
     }
 
     @Test
     public void testGroupNodes_Single_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodeSingle() ).size() == 1 );
+        Assert.assertTrue( NodeUtils.groupNodes( nodeSingle(), 1024 ).size() == 1 );
     }
 
     @Test
     public void testGroupNodes_Virtualized_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodeVirtualized( ) ).size() == 4 );
+        Assert.assertTrue( NodeUtils.groupNodes( nodeVirtualized( ), 1024 ).size() == 4 );
     }
 
     @Test
     public void testFS2717()
     {
-        final Map<Long,List<FDSP_Node_Info_Type>> svcs = NodeUtils.groupNodes( nodeVirtualized( ) );
+        final Map<Long,List<FDSP_Node_Info_Type>> svcs = NodeUtils.groupNodes( nodeVirtualized( ), 1024 );
         for( final Long key : svcs.keySet( ) )
         {
             System.out.println( "Node " + key );
