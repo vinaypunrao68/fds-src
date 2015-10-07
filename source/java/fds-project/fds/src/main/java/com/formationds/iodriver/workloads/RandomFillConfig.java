@@ -132,8 +132,7 @@ public class RandomFillConfig implements RuntimeConfig
                               getMaxDirectoriesPerLevel(),
                               getMaxObjectSize(),
                               getMaxObjectsPerDirectory(),
-                              getMaxDirectoryDepth(),
-                              _baseConfig.getOperationLogging());
+                              getMaxDirectoryDepth());
     }
     
 	@Override

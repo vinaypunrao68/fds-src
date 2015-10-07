@@ -14,11 +14,8 @@ public class GetObjects extends Workload
     public GetObjects(Consumer<String> objectSetter,
                       String bucketName,
                       String prefix,
-                      String delimiter,
-                      boolean logOperations)
+                      String delimiter)
     {
-        super(logOperations);
-        
         if (bucketName == null) throw new NullArgumentException("bucketName");
         if (objectSetter == null) throw new NullArgumentException("objectSetter");
         

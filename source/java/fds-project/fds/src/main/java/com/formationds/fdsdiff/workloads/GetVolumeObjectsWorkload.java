@@ -14,11 +14,8 @@ import com.formationds.iodriver.workloads.Workload;
 public class GetVolumeObjectsWorkload extends Workload
 {
     public GetVolumeObjectsWorkload(String volumeName,
-                                    Consumer<String> setter,
-                                    boolean logOperations)
+                                    Consumer<String> setter)
     {
-        super(logOperations);
-        
         if (volumeName == null) throw new NullArgumentException("volumeName");
         if (setter == null) throw new NullArgumentException("setter");
         

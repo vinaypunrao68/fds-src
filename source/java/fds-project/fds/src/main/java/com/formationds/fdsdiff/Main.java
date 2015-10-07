@@ -301,7 +301,7 @@ public final class Main
         SystemContent content = new SystemContent();
         
         // FIXME: Log operations should be configurable.
-        GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content, true);
+        GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content);
         WorkloadEventListener listener = new WorkloadEventListener(logger);
         getSystemConfig.runOn(endpoint, listener);
         
@@ -313,7 +313,7 @@ public final class Main
             // First just get object names.
             Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volumeWrapper);
             GetVolumeObjectsWorkload getVolumeObjects =
-                    new GetVolumeObjectsWorkload(volumeName, objectNameSetter, true);
+                    new GetVolumeObjectsWorkload(volumeName, objectNameSetter);
             getVolumeObjects.runOn(endpoint, listener);
             
             // Now fill in the details (minimal doesn't have any details).
@@ -323,8 +323,7 @@ public final class Main
                         new GetObjectsDetailsWorkload(volumeName,
                                                       content.getObjectNames(volumeWrapper),
                                                       _getBuilderSupplier(format),
-                                                      content.getVolumeObjectAdder(volumeWrapper),
-                                                      true);
+                                                      content.getVolumeObjectAdder(volumeWrapper));
                 getObjectsDetails.runOn(endpoint, listener);
             }
         }

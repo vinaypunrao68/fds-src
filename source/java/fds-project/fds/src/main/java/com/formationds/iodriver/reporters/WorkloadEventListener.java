@@ -41,6 +41,36 @@ public final class WorkloadEventListener implements Closeable
         private final T _before;
     }
     
+    public static abstract class EventDefinition
+    {
+        
+    }
+    
+    public static abstract class Event<T>
+    {
+        public final EventDefinition getDefinition()
+        {
+            return _definition;
+        }
+        
+        protected Event(EventDefinition definition)
+        {
+            if (definition == null) throw new NullArgumentException("definition");
+            
+            _definition = definition;
+        }
+        
+        private final EventDefinition _definition;
+    }
+    
+    public static class TimedEvent<T> extends Event<T>
+    {
+        protected TimedEvent(EventDefinition definition)
+        {
+            super(definition);
+        }
+    }
+    
     public static class ValidationResult
     {
         public ValidationResult(boolean isValid)
@@ -97,6 +127,8 @@ public final class WorkloadEventListener implements Closeable
         volumeAdded = new Subject<>();
         volumeModified = new Subject<>();
         volumeStatted = new Subject<>();
+        
+        _events = new HashMap<>();
     }
     
     public void close()
@@ -107,6 +139,17 @@ public final class WorkloadEventListener implements Closeable
     public WorkloadEventListener copy()
     {
         return new WorkloadEventListener(new CopyHelper());
+    }
+    
+    public void registerEvent(EventDefinition definition, Subject<?> subject)
+    {
+        if (definition == null) throw new NullArgumentException("definiton");
+        if (subject == null) throw new NullArgumentException("subject");
+        
+        if (_events.put(definition, subject) != null)
+        {
+            throw new IllegalArgumentException("event " + definition + " already exists.");
+        }
     }
 
     protected class CopyHelper
@@ -127,7 +170,11 @@ public final class WorkloadEventListener implements Closeable
         volumeAdded = new Subject<>();
         volumeModified = new Subject<>();
         volumeStatted = new Subject<>();
+        
+        _events = new HashMap<>();
     }
+    
+    private final transient Map<EventDefinition, Subject<?>> _events;
     
     private final Logger _logger;
 }

@@ -21,11 +21,8 @@ public class RandomFill extends Workload
                       int maxDirectoriesPerLevel,
                       int maxObjectSize,
                       int maxObjectsPerDirectory,
-                      int maxDirectoryDepth,
-                      boolean logOperations)
+                      int maxDirectoryDepth)
 	{
-        super(logOperations);
-
 		if (pathSeparator == null) throw new NullArgumentException("pathSeparator");
 
 		_maxVolumes = maxVolumes;

@@ -214,8 +214,7 @@ public final class Config extends AbstractConfig
         final int systemThrottle = getSystemIopsMax();
         
         return new S3AssuredRateTestWorkload(competingBuckets,
-                                             systemThrottle,
-                                             getOperationLogging());
+                                             systemThrottle);
     }
     
     /**
@@ -330,7 +329,7 @@ public final class Config extends AbstractConfig
                                              + " IOPS of headroom, not enough for a good test.");
         }
 
-        return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded, getOperationLogging());
+        return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded);
     }
 
     /**

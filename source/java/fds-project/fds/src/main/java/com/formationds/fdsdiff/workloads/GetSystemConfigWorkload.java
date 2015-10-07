@@ -20,10 +20,8 @@ import com.formationds.iodriver.workloads.Workload;
 
 public final class GetSystemConfigWorkload extends Workload
 {
-	public GetSystemConfigWorkload(SystemContent contentContainer, boolean logOperations)
+	public GetSystemConfigWorkload(SystemContent contentContainer)
 	{
-		super(logOperations);
-		
 		if (contentContainer == null) throw new NullArgumentException("contentContainer");
 		
 		_contentContainer = contentContainer;

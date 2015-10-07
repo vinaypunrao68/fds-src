@@ -22,10 +22,8 @@ import com.formationds.iodriver.validators.NullValidator;
 
 public class BenchmarkPrefixSearch extends Workload
 {
-    public BenchmarkPrefixSearch(boolean logOperations)
+    public BenchmarkPrefixSearch()
     {
-        super(logOperations);
-
         _directories = new HashMap<>();
         _volumes = new HashSet<>();
     }
@@ -67,8 +65,7 @@ public class BenchmarkPrefixSearch extends Workload
                             },
                             volumeName,
                             null,
-                            null,
-                            getLogOperations());
+                            null);
             
             Driver driver = Driver.newDriver(endpoint,
                                              getVolumeObjects,
@@ -97,17 +94,18 @@ public class BenchmarkPrefixSearch extends Workload
     @Override
     protected Stream<Operation> createSetup()
     {
-        return Stream.of(new CallChildWorkload(new GetVolumes(_volumes::add, getLogOperations())));
+        return Stream.of(new CallChildWorkload(new GetVolumes(_volumes::add)));
     }
     
     private Stream<Operation> _createVolumeOperations(Entry<String, Set<String>> directories)
     {
         String volumeName = directories.getKey();
         Set<String> volumeDirectories = directories.getValue();
-        
+
         Consumer<String> getObjectSetter = obj -> { };
         
-        return volumeDirectories.stream().map(dir -> new GetObjects(volumeName, getObjectSetter));
+        return volumeDirectories.stream()
+                                .map(dir -> new GetObjects(volumeName, dir, "/", getObjectSetter));
     }
     
     private Set<String> _getVolumeDirectories(String volumeName)

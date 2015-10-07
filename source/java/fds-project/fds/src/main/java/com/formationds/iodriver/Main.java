@@ -44,7 +44,7 @@ public final class Main
             logger = config.getLogger();
             
             config.addConfig(new RandomFillConfig(config));
-            config.addConfig(new BenchmarkPrefixSearchConfig(config));
+            config.addConfig(new BenchmarkPrefixSearchConfig());
 
             if (handleHelp(config))
             {

@@ -57,6 +57,11 @@ public abstract class Workload
         return Optional.empty();
     }
     
+    public void registerEvents(WorkloadEventListener listener)
+    {
+        // No-op.
+    }
+    
     /**
      * Execute this workload.
      * 
@@ -192,10 +197,7 @@ public abstract class Workload
                 from -> _setup.forEach(from),
                 op ->
                 {
-                    if (getLogOperations())
-                    {
-                        listener.operationExecuted.send(op);
-                    }
+                    listener.operationExecuted.send(op);
                     endpoint.visit(op, listener);
                 });
     }
@@ -225,26 +227,11 @@ public abstract class Workload
                 from -> _teardown.forEach(from),
                 op ->
                 {
-                    if (getLogOperations())
-                    {
-                        listener.operationExecuted.send(op);
-                    }
+                    listener.operationExecuted.send(op);
                     endpoint.visit(op, listener);
                 });
     }
 
-    /**
-     * Constructor.
-     * 
-     * @param endpointType The type of endpoint this workload can use.
-     * @param operationType The type of operation this workload can run.
-     * @param logOperations Log operations executed by this workload.
-     */
-    protected Workload(boolean logOperations)
-    {
-        _logOperations = logOperations;
-    }
-    
     /**
      * Create the operations that will be executed.
      * 
@@ -302,16 +289,6 @@ public abstract class Workload
     }
 
     /**
-     * Return whether to log operations executed by this workload.
-     * 
-     * @return The current property value.
-     */
-    protected final boolean getLogOperations()
-    {
-        return _logOperations;
-    }
-    
-    /**
      * Wait to a gate to be released.
      * 
      * @param gate The gate to wait on.
@@ -332,11 +309,6 @@ public abstract class Workload
         }
     }
 
-    /**
-     * Log operations executed by this workload.
-     */
-    private boolean _logOperations;
-    
     /**
      * Workload body. Streams are run in parallel with each other.
      */

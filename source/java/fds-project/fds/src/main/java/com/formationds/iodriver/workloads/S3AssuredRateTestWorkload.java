@@ -61,14 +61,10 @@ public final class S3AssuredRateTestWorkload extends Workload
      * @param competingBuckets The number of buckets to compete against the test bucket's assured
      *            rate.
      * @param systemThrottle The maximum IOPS allowed by the system.
-     * @param logOperations Whether to log all operations executed by this workload.
      */
     public S3AssuredRateTestWorkload(int competingBuckets,
-                                     int systemThrottle,
-                                     boolean logOperations)
+                                     int systemThrottle)
     {
-        super(logOperations);
-        
         if (competingBuckets < 1)
         {
             throw new IllegalArgumentException("competingBuckets must be at least 1, passed "

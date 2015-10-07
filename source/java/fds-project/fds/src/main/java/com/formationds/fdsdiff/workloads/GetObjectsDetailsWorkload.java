@@ -20,11 +20,8 @@ public final class GetObjectsDetailsWorkload extends Workload
             String volumeName,
             Set<String> objectNames,
             Supplier<ObjectManifest.Builder<?, ? extends ObjectManifest>> builderSupplier,
-            Consumer<ObjectManifest> setter,
-            boolean logOperations)
+            Consumer<ObjectManifest> setter)
     {
-        super(logOperations);
-        
         if (volumeName == null) throw new NullArgumentException("volumeName");
         if (objectNames == null) throw new NullArgumentException("objectNames");
         if (builderSupplier == null) throw new NullArgumentException("builderSupplier");

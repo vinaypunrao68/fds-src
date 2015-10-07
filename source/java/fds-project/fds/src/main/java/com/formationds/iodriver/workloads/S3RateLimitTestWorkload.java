@@ -55,12 +55,9 @@ public final class S3RateLimitTestWorkload extends Workload
      * Constructor.
      * 
      * @param iops The number of IOPS to set throttle to.
-     * @param logOperations Whether to log all operations executed by this workload.
      */
-    public S3RateLimitTestWorkload(int iops, boolean logOperations)
+    public S3RateLimitTestWorkload(int iops)
     {
-        super(logOperations);
-        
         if (iops <= 0)
         {
             throw new IllegalArgumentException("Must have some IOPS to test. " + iops

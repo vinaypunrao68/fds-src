@@ -14,10 +14,8 @@ import com.formationds.iodriver.operations.Operation;
 
 public class GetVolumes extends Workload
 {
-    public GetVolumes(Consumer<String> volumeSetter, boolean logOperations)
+    public GetVolumes(Consumer<String> volumeSetter)
     {
-        super(logOperations);
-        
         if (volumeSetter == null) throw new NullArgumentException("volumeSetter");
         
         _volumeSetter = volumeSetter;
