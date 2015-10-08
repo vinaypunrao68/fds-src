@@ -1,16 +1,21 @@
 package com.formationds.iodriver.workloads;
 
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.Driver;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.WorkloadContext;
@@ -19,6 +24,7 @@ import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.operations.CallChildWorkload;
 import com.formationds.iodriver.operations.GetObjects;
 import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.reporters.BenchmarkPrefixSearchReporter;
 import com.formationds.iodriver.validators.NullValidator;
 
 public class BenchmarkPrefixSearch extends Workload
@@ -39,6 +45,24 @@ public class BenchmarkPrefixSearch extends Workload
     public Class<?> getEndpointType()
     {
         return FdsEndpoint.class;
+    }
+
+    @Override
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadContext context)
+    {
+        if (output == null) throw new NullArgumentException("output");
+        if (context == null) throw new NullArgumentException("context");
+        
+        return Optional.of(new BenchmarkPrefixSearchReporter(output, context));
+    }
+
+    @Override
+    public BenchmarkPrefixSearchContext newContext(Logger logger)
+    {
+        if (logger == null) throw new NullArgumentException("logger");
+        
+        return new BenchmarkPrefixSearchContext(logger);
     }
     
     @Override

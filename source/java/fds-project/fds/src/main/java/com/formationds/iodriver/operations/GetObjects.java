@@ -2,6 +2,8 @@ package com.formationds.iodriver.operations;
 
 import static com.formationds.commons.util.Strings.javaString;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -14,6 +16,7 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.ExecutionException;
 import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.S3Endpoint;
+import com.formationds.iodriver.events.PrefixSearch;
 
 public final class GetObjects extends S3Operation
 {
@@ -42,6 +45,8 @@ public final class GetObjects extends S3Operation
         if (client == null) throw new NullArgumentException("client");
         if (context == null) throw new NullArgumentException("context");
         
+        Instant start = Instant.now();
+        int results = 0;
         ObjectListing objects = null;
         do
         {
@@ -60,10 +65,32 @@ public final class GetObjects extends S3Operation
             
             for (S3ObjectSummary objectSummary : objects.getObjectSummaries())
             {
+                ++results;
                 _setter.accept(objectSummary.getKey());
             }
         }
         while (objects.isTruncated());
+        
+        context.sendIfRegistered(
+                new PrefixSearch(Instant.now(),
+                                 new PrefixSearch.Data(this,
+                                                       Duration.between(start, Instant.now()),
+                                                       results)));
+    }
+    
+    public String getBucketName()
+    {
+        return _bucketName;
+    }
+    
+    public String getDelimiter()
+    {
+        return _delimiter;
+    }
+    
+    public String getPrefix()
+    {
+        return _prefix;
     }
     
     @Override
