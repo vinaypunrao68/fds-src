@@ -2788,4 +2788,5 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     return err;
 }
+
 } // namespace fds

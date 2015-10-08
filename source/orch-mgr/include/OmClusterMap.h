@@ -140,6 +140,10 @@ class ClusterMap : public Module {
     std::unordered_set<NodeUuid, UuidHash>
             getRemovedServices(fpi::FDSP_MgrIdType svc_type) const;
 
+    /**
+     * If the given UUID service exists in the ordered map
+     */
+    fds_bool_t serviceAddExists(fpi::FDSP_MgrIdType svc_type, const NodeUuid& svc_uuid);
 
     /**
      * Returns a list of services that are in non-failed state

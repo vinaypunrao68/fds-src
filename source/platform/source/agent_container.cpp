@@ -131,6 +131,7 @@ namespace fds
 
         if ((agent == NULL) || (name.compare(agent->get_node_name()) != 0))
         {
+        	LOGDEBUG << "Unable to find agent for node " << uuid;
             return Error(ERR_NOT_FOUND);
         }
         agent_deactivate(agent);
