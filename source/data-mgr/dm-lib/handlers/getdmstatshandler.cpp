@@ -67,7 +67,7 @@ void DmSysStatsHandler::handleQueueItem(DmRequest *dmRequest) {
 void DmSysStatsHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::GetDmStatsMsg>& message,
                                        const Error &e, DmRequest *dmRequest) {
-    LOGDEBUG << " volid: " << dmRequest->volId
+    LOGDEBUG << " volid: " << (dmRequest ? dmRequest->volId : invalid_vol_id)
              << " err: " << e;
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     DM_SEND_ASYNC_RESP(asyncHdr, fpi::GetDmStatsMsgTypeId, message);

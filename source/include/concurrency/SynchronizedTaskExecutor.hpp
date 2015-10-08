@@ -19,6 +19,7 @@ class SynchronizedTaskExecutor
  public:
     typedef std::function<void ()>TaskT;
     SynchronizedTaskExecutor(fds_threadpool &tp);
+    SynchronizedTaskExecutor(fds_threadpool &tp, bool useAffinity);
     ~SynchronizedTaskExecutor();
 
     void scheduleOnTemplateKey(const KeyT &k, const TaskT &task);
@@ -32,6 +33,11 @@ class SynchronizedTaskExecutor
  protected:
     /* Threadpool to execute task functions */
     fds_threadpool &threadpool_;
+
+    /* When set, each task is given a thread affinity.  The task is only run by 
+     * a thread with particular id
+     */
+    bool useAffinity_;
 
     /* Lock around task maps */
     std::mutex lock_;
@@ -59,7 +65,15 @@ class SynchronizedTaskExecutor
 
 template <class KeyT>
 SynchronizedTaskExecutor<KeyT>::SynchronizedTaskExecutor(fds_threadpool &tp)
-: threadpool_(tp)
+: SynchronizedTaskExecutor<KeyT>(tp, true)
+{
+}
+
+template <class KeyT>
+SynchronizedTaskExecutor<KeyT>::SynchronizedTaskExecutor(
+    fds_threadpool &tp, bool useAffinity)
+: threadpool_(tp),
+    useAffinity_(useAffinity)
 {
 }
 
@@ -72,7 +86,12 @@ template <class KeyT>
 void SynchronizedTaskExecutor<KeyT>::
 scheduleOnTemplateKey(const KeyT &k, const SynchronizedTaskExecutor::TaskT &task)
 {
-    threadpool_.schedule(&SynchronizedTaskExecutor<KeyT>::runTemplateKey_, this, k, task);
+    if (useAffinity_) {
+        std::hash<KeyT> kHash;
+        threadpool_.scheduleWithAffinity(kHash(), task);
+    } else {
+        threadpool_.schedule(&SynchronizedTaskExecutor<KeyT>::runTemplateKey_, this, k, task);
+    }
 }
 
 template <class KeyT>
@@ -118,7 +137,11 @@ template <class KeyT>
 void SynchronizedTaskExecutor<KeyT>::
 scheduleOnHashKey(const size_t &k, const SynchronizedTaskExecutor::TaskT &task)
 {
-    threadpool_.schedule(&SynchronizedTaskExecutor<KeyT>::runHashKey_, this, k, task);
+    if (useAffinity_) {
+        threadpool_.scheduleWithAffinity(k, task);
+    } else {
+        threadpool_.schedule(&SynchronizedTaskExecutor<KeyT>::runHashKey_, this, k, task);
+    }
 }
 
 template <class KeyT>

@@ -95,7 +95,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                 // also open old file if compaction is in progress
                 if (diskMap->superblock->compactionInProgress(*cit, tier)) {
                     fds_uint16_t oldFileId = getShadowFileId(fileId);
-                    err = openTokenFile(diskio::diskTier, *cit, oldFileId);
+                    err = openTokenFile(tier, *cit, oldFileId);
                     fds_verify(err.ok());
                 }
             } else {

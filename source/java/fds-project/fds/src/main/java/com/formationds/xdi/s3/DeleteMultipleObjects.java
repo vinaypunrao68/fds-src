@@ -29,7 +29,7 @@ public class DeleteMultipleObjects implements SyncRequestHandler {
 
         new DeleteObjectsFrame(ctx.getInputStream(), s -> {
             try {
-                xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, s).get();
+                xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, S3Namespace.user().blobName(s)).get();
                 result.append("<Deleted><Key>");
                 result.append(s);
                 result.append("</Key></Deleted>");

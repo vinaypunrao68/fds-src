@@ -9,6 +9,7 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.io.BlobSpecifier;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -27,12 +28,9 @@ public class MultiPartUploadAbort implements SyncRequestHandler {
         String bucket = context.getRouteParameter("bucket");
         String objectName = context.getRouteParameter("object");
         String uploadId = context.getQueryParameters().get("uploadId").iterator().next();
-        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
+        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(objectName));
 
-        for(PartInfo pi : mops.getParts()) {
-            String systemVolume = xdi.getSystemVolumeName(token);
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, pi.descriptor.getName()).get();
-        }
+        xdi.multipart(token, specifier, uploadId).cancel().get();
 
         return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }

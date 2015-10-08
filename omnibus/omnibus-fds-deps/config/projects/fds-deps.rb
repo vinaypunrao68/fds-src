@@ -75,6 +75,7 @@ dependency "fdsutil"
 dependency "ansible"
 dependency "python-httplib2"
 dependency "sshpass"
+dependency "pyudev"
 
 # Version manifest file
 dependency "version-manifest"

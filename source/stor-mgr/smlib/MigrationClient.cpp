@@ -96,6 +96,15 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         return false;
     }
 
+    /**
+     * Start tracking forwarded IO request sent to the destination SM.
+     * Tracking will be stopped in the callback of the forwared IO request.
+     */
+    if (!trackIOReqs.startTrackIOReqs()) {
+        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
+
     // forward to destination SM
     if (req->io_type == FDS_SM_PUT_OBJECT) {
         SmIoPutObjectReq* putReq = static_cast<SmIoPutObjectReq *>(req);
@@ -135,6 +144,8 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         asyncDelReq->setTimeoutMs(1000);
         asyncDelReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdDelObjectCb, delReq));
         asyncDelReq->invoke();
+    } else {
+        trackIOReqs.finishTrackIOReqs();
     }
 
     return true;
@@ -147,6 +158,9 @@ MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
                                 boost::shared_ptr<std::string> payload) {
     LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId()
                << " " << error;
+
+    // Stop tracking this request, that was sent to destination SM.
+    trackIOReqs.finishTrackIOReqs();
 
     // on error, set error state
     if (!error.ok()) {
@@ -161,6 +175,9 @@ MigrationClient::fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
                                 boost::shared_ptr<std::string> payload) {
     LOGMIGRATE << "Ack for forwarded DELETE request " << delReq->getObjId()
                << " " << error;
+
+    // Stop tracking this request, that was sent to destination SM.
+    trackIOReqs.finishTrackIOReqs();
 
     // on error, set error state
     if (!error.ok()) {
@@ -245,6 +262,9 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                << " DeltSetSize=" << req->deltaSet.size()
                << " lastSet=" << (req->lastSet ? "TRUE" : "FALSE");
 
+    // Finish tracking IO request.
+    trackIOReqs.finishTrackIOReqs();
+
     // on error, set error state (abort migration)
     if (!error.ok()) {
         handleMigrationError(error);
@@ -260,6 +280,10 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
 {
     Error err(ERR_OK);
 
+    if (!trackIOReqs.startTrackIOReqs()) {
+        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        return;
+    }
     SmIoReadObjDeltaSetReq *readDeltaSetReq =
                       new(std::nothrow) SmIoReadObjDeltaSetReq(destSMNodeID,
                                                                executorID,

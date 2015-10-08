@@ -185,7 +185,7 @@ struct CommitBlobTxHandler : Handler {
                          BlobObjList::const_ptr const& blob_obj_list,
                          MetaDataList::const_ptr const& meta_list,
                          fds_uint64_t const blobSize,
-                         DmIoCommitBlobTx* commitBlobReq);
+                         DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
                         Error const& e, DmRequest* dmRequest);
@@ -204,6 +204,9 @@ struct UpdateCatalogOnceHandler : Handler {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                 Error const& e, DmRequest* dmRequest);
+    virtual void handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                       boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                       Error const& e, DmRequest* dmRequest);
 };
 
 struct SetBlobMetaDataHandler : Handler {

@@ -61,7 +61,7 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStartBlobTx* typedRequest = static_cast<DmIoStartBlobTx*>(dmRequest);
 
-    LOGTRACE << "Will start transaction " << *typedRequest;
+    LOGDEBUG << "Will start transaction " << *typedRequest;
 
     // TODO(Anna) If this DM is not forwarding for this io's volume anymore
     // we reject start TX on DMT mismatch

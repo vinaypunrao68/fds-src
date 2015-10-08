@@ -12,4 +12,11 @@ env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
 
 task
 
-exec /fds/bin/disk_type.py -m
+script
+if (grep -i "^ *enable_disk_activation *= *true" /fds/etc/platform.conf) ; then
+   /fds/bin/fds-disk --activate --mount
+   /fds/bin/fds-disk -p > /fds/var/logs/disk.log
+else
+   /fds/bin/disk_type.py -m
+fi
+end script

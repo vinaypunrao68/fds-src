@@ -6,14 +6,37 @@ import optparse
 import subprocess
 import logging
 import os.path
-import pyudev
 import shelve
 import types
 import re
 
+def addBinPath(paths):
+    binPaths = os.environ['PATH'].split(':')
+    for path in paths:
+        if path not in binPaths:
+            binPaths.append(path)
+
+    os.environ['PATH'] = ':'.join(binPaths)
+
+def addPythonPath(paths):
+    for path in paths:
+        if path not in sys.path:
+            sys.path.append(path)
+
+addBinPath(['/opt/fds-deps/embedded/bin', '/opt/fds-deps/embedded/sbin'])
+addPythonPath(['/opt/fds-deps/embedded/lib/python2.7', '/opt/fds-deps/embedded/lib/python2.7/site-packages'])
+
 # -- setup logging
 logging.basicConfig(level=logging.INFO,format="%(levelname)s : %(message)s")
 log = logging.getLogger('fdsdisk')
+
+try :
+    import pyudev
+except ImportError:
+    log.error('unable to import needed python pkg [pyudev]')
+    log.warn('mebbe try : sudo pip install pyudev')
+    log.info('python.path : \n---> {}'.format('\n---> '.join(sys.path)))
+    sys.exit(1)
 
 # -- system funcs
 def command(cmd, **kwargs):
