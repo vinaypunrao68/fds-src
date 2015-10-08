@@ -73,8 +73,6 @@ set(SOURCE_FILES
     ./access-mgr/connector/scst/ScstTask.cpp
     ./access-mgr/connector/xdi/AmAsyncService.cpp
     ./access-mgr/connector/xdi/AmAsyncXdiResponse.cpp
-    ./access-mgr/include/connector/asyncrep/AmAsyncService.h
-    ./access-mgr/include/connector/asyncrep/AmAsyncRepXdi.h
     ./access-mgr/include/connector/nbd/common.h
     ./access-mgr/include/connector/nbd/NbdConnection.h
     ./access-mgr/include/connector/nbd/NbdConnector.h
@@ -295,6 +293,7 @@ set(SOURCE_FILES
     ./include/fds_qos.h
     ./include/fds_request.h
     ./include/fds_resource.h
+    ./include/fds_subscription.h
     ./include/fds_table.h
     ./include/fds_timer.h
     ./include/fds_timestamp.h
@@ -508,6 +507,7 @@ set(SOURCE_FILES
     ./lib/misc/fds_counters.cpp
     ./lib/misc/fds_error.cpp
     ./lib/misc/fds_obj_cache.cpp
+    ./lib/misc/fds_subscription.cpp
     ./lib/misc/fds_timer.cpp
     ./lib/misc/fds_types.cpp
     ./lib/misc/fds_volume.cpp

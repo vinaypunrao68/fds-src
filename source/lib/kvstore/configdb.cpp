@@ -1936,5 +1936,231 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 }
 
 
+// Subscriptions
+// Note that subscriptions are global domain objects. While they might be created from any given
+// local domain or cached in any given local domain, they are definitively stored and maintained
+// in the context of the global domain and therefore, the master domain and master OM.
+//
+// TODO(Greg): These methods need to ensure that they are being executed within the context of the
+// master OM.
+fds_volid_t ConfigDB::getNewSubscriptionId() {
+    try {
+        fds_subid_t subId;
+        for (;;) {
+            subId = fds_subid_t(static_cast<uint64_t>(kv_store.incr("subscriptions:nextid")));
+            if (!subscriptionExists(subId)) return subId;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return invalid_sub_id;
+}
+bool ConfigDB::addSubscription(const Subscription& subscription) {
+    TRACKMOD();
+    // Add the subscription to the subscription list for the global domain
+    try {
+        auto subId = subscription.getID().get();
+        Reply reply = kv_store.sendCommand("sadd subscriptions %ld", subId);
+        if (!reply.wasModified()) {
+            LOGDEBUG << "Subscription [ " << subscription.getID()
+                     << " ] already exists.";
+        }
+
+        // Add the subscription
+        reply = kv_store.sendCommand("hmset sub:%ld id %ld"
+                                             " name %s"
+                                             " tennantID %d"
+                                             " primaryDomainID %d"
+                                             " primaryVolumeID %d"
+                                             " replicaDomainID %d"
+                                             " createTime %ld"
+                                             " state %d"
+                                             " type %d"
+                                             " scheduleType %d"
+                                             " intervalSize %d",
+                                     subId, subId,
+                                     subscription.getName().c_str(),
+                                     subscription.getTenantID(),
+                                     subscription.getPrimaryDomainID(),
+                                     subscription.getPrimaryVolumeID(),
+                                     subscription.getReplicaDomainID(),
+                                     subscription.getCreateTime(),
+                                     subscription.getState(),
+                                     subscription.getType(),
+                                     subscription.getScheduleType(),
+                                     subscription.getIntervalSize());
+        if (reply.isOk()) return true;
+        LOGWARN << "ConfigDB::addSubscription msg: " << reply.getString();
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+        TRACKMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::setSubscriptionState(fds_subid_t subId, fpi::ResourceState state) {
+    TRACKMOD();
+    try {
+        LOGDEBUG << "ConfigDB::setSubscriptionState updating subscription id " << subId
+                 << " to state " << state;
+        auto _subId = subId.get();
+        return kv_store.sendCommand("hset sub:%ld state %d", _subId, static_cast<int>(state)).isOk();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::updateSubscription(const Subscription& subscription) {
+    TRACKMOD();
+    try {
+        // To update the subsciption we just replace its contents.
+        return addSubscription(subscription);
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::deleteSubscription(fds_subid_t subId) {
+    TRACKMOD();
+    try {
+        auto _subId = subId.get();
+        Reply reply = kv_store.sendCommand("srem subscriptions %ld", _subId);
+        if (!reply.wasModified()) {
+            LOGWARN << "subscription [" << subId
+                    << "] does NOT exist";
+        }
+
+        // Delete the subscription.
+        reply = kv_store.sendCommand("del sub:%ld", _subId);
+        return reply.isOk();
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
+    }
+    return false;
+}
+
+// Check by subscription ID.
+bool ConfigDB::subscriptionExists(fds_subid_t subId) {
+    try {
+        auto _subId = subId.get();
+        Reply reply = kv_store.sendCommand("exists sub:%ld", _subId);
+        return (reply.getLong() == 1);
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+
+// Check by subscription name.
+bool ConfigDB::subscriptionExists(const std::string& subName)
+{
+    std::vector<Subscription> subscriptions;
+    const bool bRetCode = getSubscriptions(subscriptions);
+    if (bRetCode)
+    {
+        for (const auto subscription : subscriptions)
+        {
+            if (subscription.getName().compare(subName) == 0)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool ConfigDB::getSubscriptionIds(std::vector<fds_subid_t>& subIds) {
+    std::vector<long> _subIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers subscriptions");
+        reply.toVector(_subIds);
+
+        if (_subIds.empty()) {
+            LOGWARN << "ConfigDB::getSubscriptionIds no subscriptions found.";
+            return false;
+        }
+
+        for (uint i = 0; i < _subIds.size(); i++) {
+            subIds.push_back(fds_subid_t(static_cast<unsigned long>(_subIds[i])));
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getSubscriptions(std::vector<Subscription>& subscriptions) {
+    std::vector<long> subIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers subscriptions");
+        reply.toVector(subIds);
+
+        if (subIds.empty()) {
+            LOGWARN << "ConfigDB::getSubscriptions no subscriptions found.";
+            return false;
+        }
+
+        for (uint i = 0; i < subIds.size(); i++) {
+            Subscription subscription("" , fds_subid_t(1));  // dummy init
+            getSubscription(fds_subid_t(subIds[i]), subscription);
+            subscriptions.push_back(subscription);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getSubscription(fds_subid_t subId, Subscription& subscription) {
+    try {
+        auto _subId = subId.get();
+        Reply reply = kv_store.sendCommand("hgetall sub:%ld", _subId);
+        StringList strings;
+        reply.toVector(strings);
+
+        if (strings.empty()) {
+            LOGWARN << "ConfigDB::getSubscription unable to find subscription [" << subId <<"]";
+            return false;
+        }
+
+        for (uint i = 0; i < strings.size(); i+= 2) {
+            std::string& key = strings[i];
+            std::string& value = strings[i+1];
+
+            if (key == "id") {subscription.setID(fds_subid_t(strtoull(value.c_str(), NULL, 10)));}
+            else if (key == "name") { subscription.setName(value); }
+            else if (key == "tennantId") { subscription.setTenantID(atoi(value.c_str())); }
+            else if (key == "primaryDomainID") { subscription.setPrimaryDomainID(atoi(value.c_str()));}
+            else if (key == "primaryVolumeID") { subscription.setPrimaryVolumeID(fds_volid_t(strtoull(value.c_str(), NULL, 10)));} //NOLINT
+            else if (key == "replicaDomainID") { subscription.setReplicaDomainID(atoi(value.c_str()));}
+            else if (key == "createTime") { subscription.setCreateTime(strtoull(value.c_str(), NULL, 10));} //NOLINT
+            else if (key == "state") { subscription.setState((fpi::ResourceState) atoi(value.c_str()));}
+            else if (key == "type") { subscription.setType((fds::apis::SubscriptionType)atoi(value.c_str())); }
+            else if (key == "scheduleType") { subscription.setScheduleType((fds::apis::SubscriptionScheduleType)atoi(value.c_str())); }
+            else if (key == "intervalSize") { subscription.setIntervalSize(strtoull(value.c_str(), NULL, 10));} //NOLINT
+            else { //NOLINT
+                LOGWARN << "ConfigDB::getSubscription unknown key for subscription [" << subId <<"] - " << key;
+                fds_assert(!"ConfigDB::getSubscription unknown key");
+            }
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+
 }  // namespace kvstore
 }  // namespace fds

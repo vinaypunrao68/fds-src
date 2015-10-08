@@ -184,3 +184,76 @@ struct VolumeDescriptor {
   /** the ResourceState representing the current state of the volume */
   6: common.ResourceState   state;
 }
+
+/**
+ * Subscription types. These divide into two groups: Content-oriented and transaction-oriented.
+ */
+enum SubscriptionType {
+  /** Content is compared between primary and replica and changed content replaced. */
+  CONTENT_DELTA = 0;
+
+  /** Content changing transactions are pushed from primary to replica without the assistance of a transaction log. */
+  TRANSACTION_NO_LOG = 1;
+
+  /** Content changing transactions are pushed from primary to replica with the assistance of a transaction log. */
+  TRANSACTION_LOG = 2;
+}
+
+/**
+ * Subscription refresh schedule types. For content-oriented subscriptions types,
+ * the replica gets refreshed from the primary according to some schedule whose
+ * basis is given by one of these scheduling types.
+ */
+enum SubscriptionScheduleType {
+  NA = 0;
+
+  /** Based upon amount of elapsed time in seconds. Eg. every 5 minutes, every hour, once a day, etc. */
+  TIME = 1;
+
+  /** Based upon number of transactions. Eg. every 100 transactions, every 5,000 transactions, etc. */
+  TRANSACTION = 2;
+
+  /** Based upon quantity of changed data in MB. Eg. every 100 MBs, every 5,000 MBs, etc. */
+  DATA = 3;
+
+  /** Based upon number of changed blobs. Eg. every 100 blobs, every 5,000 blobs, etc. */
+  BLOB = 4;
+}
+
+/**
+ * Subscription attributes and status
+ */
+struct SubscriptionDescriptor {
+  /** A string representing the subscription name. MUST be unique within the global domain. */
+  1: required string name;
+
+  /** ID of the subscription. MUST be unique within the global domain. */
+  2: required i64 id;
+
+  /** The administrating tenant ID. */
+  3: required i64 tenantID;
+
+  /** ID of the local domain that is primary for this subscription. */
+  4: required i32 primaryDomainID;
+
+  /** ID of the volume that is the subject of this subscription. In particular, the ID of the volume in the primary local domain. */
+  5: required i64 primaryVolumeID;
+
+  /** ID of the replica domain for this subscription. */
+  6: required i32 replicaDomainID;
+
+  /** The date created, in epoch seconds. */
+  7: required i64 createTime;
+
+  /** The current state of the subscription. */
+  8: required common.ResourceState   state;
+
+  /** The type of subscription, generally whether it is content based or transaction based. */
+  9: required SubscriptionType type;
+
+  /** For content-based subscription types, the type of refresh scheduling policy. Also implies units. See the type definition. */
+  10: required SubscriptionScheduleType scheduleType;
+
+  /** When scheduling, the "size" of the interval the expiration of which results in a primary snapshot pushed to the replica. Units according to scheduleType. */
+  11: required i64 intervalSize;
+}
