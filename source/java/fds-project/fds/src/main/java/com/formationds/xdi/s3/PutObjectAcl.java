@@ -24,7 +24,7 @@ public class PutObjectAcl implements SyncRequestHandler {
 
         String aclName = ctx.getRequestHeader(XdiAcl.X_AMZ_ACL).toLowerCase();
         XdiAcl.Value acl = XdiAcl.parse(aclName);
-        xdi.getAuthorizer().updateBlobAcl(token, bucketName, objectName, acl);
+        xdi.getAuthorizer().updateBlobAcl(token, bucketName, S3Namespace.user().blobName(objectName), acl);
         return new TextResource("");
     }
 

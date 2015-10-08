@@ -2181,8 +2181,8 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
             } 
             else 
             {
-                LOGERROR << "Cannot find platform agent for node UUID ( "
-                         << std::hex << msg->node_uuid.uuid << std::dec << " )";
+                LOGWARN << "Cannot find platform agent for node UUID ( "
+                        << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
         }
             

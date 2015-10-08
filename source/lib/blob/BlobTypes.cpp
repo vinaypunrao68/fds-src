@@ -106,7 +106,7 @@ operator<<(std::ostream& out, const BlobOffsetPair& blobOffset) {
 
 std::ostream&
 operator<<(std::ostream& out, const BlobTxId& txId) {
-    return out << "0x" << std::hex << txId.txId << std::dec;
+    return out << txId.txId;
 }
 
 }  // namespace fds

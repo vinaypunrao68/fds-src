@@ -14,6 +14,8 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.io.BlobSpecifier;
+import com.formationds.xdi.s3.MultipartUpload;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
 
@@ -227,11 +229,6 @@ public class Xdi {
         return authorizer;
     }
 
-    public String getSystemVolumeName(AuthenticationToken token) throws SecurityException {
-        long tenantId = authorizer.tenantId(token);
-        return XdiConfigurationApi.systemFolderName(tenantId);
-    }
-
     public CompletableFuture<Void> setMetadata(AuthenticationToken token, String domain, String volume, String blob, HashMap<String, String> metadataMap) throws TException {
         attemptBlobAccess(token, domain, volume, blob, Intent.readWrite);
     	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
@@ -242,5 +239,24 @@ public class Xdi {
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
         return authorizer.authenticate(login, password);
+    }
+
+    public MultipartUpload multipart(AuthenticationToken token, BlobSpecifier specifier, String txid) throws TException, ExecutionException, InterruptedException {
+        Optional<BlobDescriptor> blobDescriptor = attemptBlobAccess(token, specifier.getDomainName(), specifier.getVolumeName(), specifier.getBlobName(), Intent.readWrite).get();
+        VolumeDescriptor stat = config.statVolume(specifier.getDomainName(), specifier.getVolumeName());
+        return new MultipartUpload(specifier, blobDescriptor, asyncAm, stat.getPolicy().getMaxObjectSizeInBytes(), txid);
+    }
+
+    public CompletableFuture<Void> readMultipart(AuthenticationToken token, BlobInfo blobInfo, OutputStream stream) {
+        List<MultipartUpload.PartInfo> partInfoList = MultipartUpload.getPartInfoList(blobInfo.getBlobDescriptor());
+        if(partInfoList == null)
+            throw new IllegalArgumentException("blob is not a multipart blob");
+
+        if (!authorizer.hasBlobPermission(token, blobInfo.getVolume(), Intent.read, blobInfo.getBlobDescriptor().getMetadata())) {
+            return CompletableFutureUtility.exceptionFuture(new SecurityException());
+        }
+
+        return MultipartUpload.read(asyncAm, new BlobSpecifier(blobInfo.getDomain(), blobInfo.getVolume(), blobInfo.getBlob()), partInfoList, blobInfo.getVolumeDescriptor().getPolicy().getMaxObjectSizeInBytes())
+                .readToStream(stream);
     }
 }

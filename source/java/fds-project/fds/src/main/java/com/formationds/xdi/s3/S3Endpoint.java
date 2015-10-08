@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -32,7 +33,6 @@ public class S3Endpoint {
     private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
     private final S3Authenticator authenticator;
     public static final String FDS_S3 = "FDS_S3";
-    public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
@@ -51,6 +51,16 @@ public class S3Endpoint {
 
     public static String formatAwsDate(DateTime dateTime) {
         return dateTime.toString(ISODateTimeFormat.dateTime());
+    }
+
+    public static Optional<Long> getContentLength(HttpContext context) {
+        String length = context.getRequestHeader("x-amz-decoded-content-length");
+        if(length == null)
+            length = context.getRequestHeader("Content-Length");
+        if(length == null)
+            return Optional.empty();
+
+        return Optional.of(Long.parseLong(length));
     }
 
     public void start() {
@@ -129,9 +139,8 @@ public class S3Endpoint {
                         .withHeader(S3Endpoint.X_AMZ_COPY_SOURCE),
                 (t) -> new PutObject(xdi, t));
 
-        syncObjectRoute(path.clone().withMethod(HttpMethod.PUT)
-                        .withUrlParam("uploadId"),
-                (t) -> new PutObject(xdi, t));
+        webApp.route(path.clone().withMethod(HttpMethod.PUT)
+                        .withUrlParam("uploadId"), ctx -> executeAsync(mergeObjectPath(ctx), new MultipartUploadPart(xdi)));
 
         syncObjectRoute(path.clone().withMethod(HttpMethod.PUT)
                         .withUrlParam("acl")
@@ -261,4 +270,7 @@ public class S3Endpoint {
                     return cf;
                 });
     }
+
+
+
 }
