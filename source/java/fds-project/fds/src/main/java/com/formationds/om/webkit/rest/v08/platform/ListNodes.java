@@ -8,7 +8,9 @@ import com.formationds.client.v08.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.NodeUtils;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -57,7 +59,7 @@ public class ListNodes
     	}
 
         Map<Long, List<FDSP_Node_Info_Type>> groupedServices =
-            NodeUtils.groupNodes( list );
+            NodeUtils.groupNodes( list, getConfiguration().getOMNodeUuid() );
 
     	final List<Node> nodes = new ArrayList<>();
         for( final Long nodeIp : groupedServices.keySet( ) )
@@ -88,5 +90,10 @@ public class ListNodes
     	}
     	
     	return configApi;
+    }
+
+    private Configuration getConfiguration() {
+        return SingletonConfiguration.instance( )
+                                     .getConfig();
     }
 }

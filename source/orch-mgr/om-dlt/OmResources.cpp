@@ -1832,10 +1832,11 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid)
    
 void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
 {    
+    LOGDEBUG << "OM Restart, Register ( spoof ) services " << svcs.size();
     std::vector<fpi::SvcInfo> spoofed;
     for ( auto svc : svcs )
     {
-        LOGDEBUG << "OM Restart, Register Service " 
+        LOGDEBUG << "OM Restart, Register Service ( spoof ) " 
                  << fds::logDetailedString( svc );
         Error error( ERR_OK );
         
@@ -1899,25 +1900,23 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
         
         if ( error.ok() )
         {
-            LOGDEBUG << "OM Restart, Successful Registered Service: "
+            LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
-
             svc.incarnationNo = util::getTimeStampSeconds();
             svc.svc_status = fpi::SVC_STATUS_ACTIVE;
-
             spoofed.push_back( svc );
             configDB->updateSvcMap( svc );
         }
         else 
         {
-            LOGWARN << "OM Restart, Failed to Register Service: "
+            LOGWARN << "OM Restart, Failed to Register ( spoof ) Service: "
                     << fds::logDetailedString( svc );
         }
     }
     
     if ( spoofed.size() > 0  )
     {    
-        LOGDEBUG << "OM Restart, updating and broadcasting service map ";
+        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
         om_locDomain->om_bcast_svcmap();
     }
@@ -2140,7 +2139,7 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
         // for this to be successful, PM must have been registered ( spoof ).
         if ( !pmNodes->check_new_service( ( msg->node_uuid ).uuid, msg->node_type ) ) 
         {
-            LOGERROR << "OM Restart, cannot register service " 
+            LOGERROR << "OM Restart, cannot register ( spoof ) service " 
                      << msg->node_name
                      << " on platform with uuid " 
                      << std::hex << ( msg->node_uuid ).uuid << std::dec 
@@ -2154,47 +2153,46 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     if ( error == ERR_DUPLICATE || error.ok() ) 
     {
         nodeAgent->set_node_state( fpi::FDS_Node_Up );
-         auto pmAgent = 
-            OM_PmAgent::agt_cast_ptr( pmNodes->agent_info( NodeUuid( msg->node_uuid.uuid ) ) );
-        if ( pmAgent != NULL )
+        // ANNA -- I don't want to mess with platform service state, so
+        // calling this method for SM and DM only. The register service method
+        // set correct discovered/active state for these services based on
+        // whether this is known service or restarting service. We are
+        // going to set node state based on service state in svc map
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            OM_SmAgent::pointer smAgent = om_sm_agent(nodeAgent->get_uuid());
+            smAgent->set_state_from_svcmap();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            OM_DmAgent::pointer dmAgent = om_dm_agent(nodeAgent->get_uuid());
+            dmAgent->set_state_from_svcmap();
+        }
+        
+        if ( msg->node_type == fpi::FDSP_STOR_MGR )
         {
             /*
-             * ANNA -- I don't want to mess with platform service state, so
-             * calling this method for SM and DM only. The register service method
-             * set correct discovered/active state for these services based on
-             * whether this is known service or restarting service. We are
-             * going to set node state based on service state in svc map
+             *  Activate and account node capacity only when SM ( spoof )
+             *  registers with OM.
              */
-            if (msg->node_type == fpi::FDSP_STOR_MGR) {
-                OM_SmAgent::pointer smAgent = om_sm_agent(nodeAgent->get_uuid());
-                smAgent->set_state_from_svcmap();
-
-               pmAgent->handle_register_service( msg->node_type, smAgent );
-
-                /*
-                 *  Activate and account for node capacity only when SM registers with OM.
-                 */
-                om_locDomain->om_update_capacity( pmAgent, true );
-            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-                OM_DmAgent::pointer dmAgent = om_dm_agent(nodeAgent->get_uuid());
-                dmAgent->set_state_from_svcmap();
-                
-               pmAgent->handle_register_service( msg->node_type, dmAgent );
+            auto pm = 
+                OM_PmAgent::agt_cast_ptr( 
+                    pmNodes->agent_info(NodeUuid(msg->node_uuid.uuid)));
+            if ( pm != NULL ) 
+            {
+                om_locDomain->om_update_capacity( pm, true );
+            } 
+            else 
+            {
+                LOGWARN << "Cannot find platform agent for node UUID ( "
+                        << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
-                
-            LOGNOTIFY << "OM Restart, registration for Platform UUID:: "
-                 << std::hex << ( msg->node_uuid ).uuid << std::dec 
-                 << " Service UUID:: "
-                 << std::hex << ( msg->service_uuid ).uuid << std::dec
-                 << " Type:: " << msg->node_type;
-
-            error = ERR_OK;
         }
-        else 
-        {
-            LOGERROR << "Cannot find platform agent for node UUID ( "
-                     << std::hex << uuid << std::dec << " )";
-        }
+            
+        LOGNOTIFY << "OM Restart, spoof registration for"
+             << " Platform UUID:: "
+             << std::hex << ( msg->node_uuid ).uuid << std::dec 
+             << " Service UUID:: "
+             << std::hex << ( msg->service_uuid ).uuid << std::dec
+             << " Type:: " << msg->node_type;
+        error = ERR_OK;
     }
     
     return error;

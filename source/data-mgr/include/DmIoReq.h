@@ -219,7 +219,7 @@ class DmIoCommitBlobTx : public DmRequest {
     }
     virtual ~DmIoCommitBlobTx() {}
 
-   std::function<void(const Error &e)> localCb = NULL;
+    std::function<void(const Error &e)> localCb;
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
