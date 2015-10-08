@@ -414,7 +414,8 @@ ClusterMap::serviceAddExists(fpi::FDSP_MgrIdType svc_type, const NodeUuid& svc_u
 			}
 			break;
         default:
-            fds_panic("Unknown MgrIdType %u", svc_type);
+        	// Clustermap only cares about DM or SM
+        	break;
 	}
 	return false;
 }
