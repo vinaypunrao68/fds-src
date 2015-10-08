@@ -2,7 +2,6 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <fds_subscription.h>
-#include <queue>
 #include <fds_typedefs.h>
 
 namespace fds {

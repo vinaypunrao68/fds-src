@@ -11,21 +11,11 @@
 #define SOURCE_INCLUDE_FDS_SUBSCRIPTION_H_
 
 #include <string>
-#include <atomic>
 
-#include <fds_error.h>
-#include <fds_assert.h>
-#include <fds_ptr.h>
 #include <fds_value_type.h>
 #include <fds_volume.h>
 #include <has_state.h>
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-
-#include <boost/thread/thread.hpp>
-#include <boost/lockfree/queue.hpp>
-#include <boost/atomic.hpp>
-#include <boost/io/ios_state.hpp>
 #include <serialize.h>
 #include <fdsp/config_types_types.h>
 

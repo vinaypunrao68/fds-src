@@ -246,7 +246,7 @@ struct SubscriptionDescriptor {
   7: required i64 createTime;
 
   /** The current state of the subscription. */
-  8: required common.ResourceState   state;
+  8: required common.ResourceState state;
 
   /** The type of subscription, generally whether it is content based or transaction based. */
   9: required SubscriptionType type;
