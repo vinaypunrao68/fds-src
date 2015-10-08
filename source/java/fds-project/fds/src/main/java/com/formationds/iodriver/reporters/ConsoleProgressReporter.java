@@ -35,11 +35,11 @@ public class ConsoleProgressReporter implements Closeable
 
         _closed = new AtomicBoolean(false);
         _output = output;
-        _operationExecutedToken = context.registerIfProvided(OperationExecuted.class,
+        _operationExecutedToken = context.subscribeIfProvided(OperationExecuted.class,
                                                              this::onOperationExecuted);
-        _volumeAddedToken = context.registerIfProvided(VolumeAdded.class,
+        _volumeAddedToken = context.subscribeIfProvided(VolumeAdded.class,
                                                        this::onVolumeAdded);
-        _volumeModifiedToken = context.registerIfProvided(VolumeModified.class,
+        _volumeModifiedToken = context.subscribeIfProvided(VolumeModified.class,
                                                           this::onVolumeModified);
     }
 

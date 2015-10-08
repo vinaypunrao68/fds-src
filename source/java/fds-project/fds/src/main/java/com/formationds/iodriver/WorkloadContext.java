@@ -37,15 +37,23 @@ public class WorkloadContext implements Closeable
         return _logger;
     }
     
-    public <EventT extends Event<T>, T> Closeable register(Class<EventT> eventType,
-                                                           Observer<EventT> observer)
+    public <EventT extends Event<T>, T> Closeable subscribe(Class<EventT> eventType,
+                                                            Observer<EventT> observer)
     {
         if (eventType == null) throw new NullArgumentException("eventType");
         if (observer == null) throw new NullArgumentException("observer");
         
-        return registerIfProvided(eventType, observer).orElseThrow(
-                () -> { throw new IllegalArgumentException(
-                        eventType.getClass() + " is not provided."); });
+        ensureLifecycle(Lifecycle.READY);
+        
+        Optional<Closeable> registrationToken = subscribeIfProvided(eventType, observer);
+        if (registrationToken.isPresent())
+        {
+            return registrationToken.get();
+        }
+        else
+        {
+            throw new IllegalArgumentException(eventType.getName() + " is not provided.");
+        }
     }
     
     public <EventT extends Event<T>, T> void registerEvent(Class<EventT> eventType,
@@ -60,7 +68,7 @@ public class WorkloadContext implements Closeable
         }
     }
     
-    public <EventT extends Event<T>, T> Optional<Closeable> registerIfProvided(
+    public <EventT extends Event<T>, T> Optional<Closeable> subscribeIfProvided(
             Class<EventT> eventType,
             Observer<EventT> observer)
     {

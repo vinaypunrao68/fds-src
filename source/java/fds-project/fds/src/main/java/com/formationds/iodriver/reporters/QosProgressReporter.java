@@ -25,10 +25,10 @@ public final class QosProgressReporter implements Closeable
         
         _closed = new AtomicBoolean(false);
         _output = output;
-        _validatedToken = context.register(Validated.class, this::onValidated);
-        _volumeModifiedToken = context.register(VolumeModified.class, this::onVolumeModified);
-        _volumeStartToken = context.register(VolumeStarted.class, this::onVolumeStarted);
-        _volumeStopToken = context.register(VolumeStopped.class, this::onVolumeStopped);
+        _validatedToken = context.subscribe(Validated.class, this::onValidated);
+        _volumeModifiedToken = context.subscribe(VolumeModified.class, this::onVolumeModified);
+        _volumeStartToken = context.subscribe(VolumeStarted.class, this::onVolumeStarted);
+        _volumeStopToken = context.subscribe(VolumeStopped.class, this::onVolumeStopped);
     }
     
     @Override
@@ -66,14 +66,16 @@ public final class QosProgressReporter implements Closeable
     {
         if (event == null) throw new NullArgumentException("event");
         
-        _output.println(javaString(event.getData()) + ": Starting.");
+        _output.println("[" + event.getTimestamp() + "] " + javaString(event.getData())
+                        + ": Starting.");
     }
     
     protected void onVolumeStopped(VolumeStopped event)
     {
         if (event == null) throw new NullArgumentException("event");
         
-        _output.println(javaString(event.getData()) + ": Firished.");
+        _output.println("[" + event.getTimestamp() + "] " + javaString(event.getData())
+                        + ": Firished.");
     }
     
     private final AtomicBoolean _closed;

@@ -14,10 +14,12 @@ import java.util.Set;
 
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.patterns.Subject;
 import com.formationds.commons.util.logging.Logger;
 import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.events.Event;
 import com.formationds.iodriver.events.OperationExecuted;
+import com.formationds.iodriver.events.Validated;
 import com.formationds.iodriver.events.VolumeAdded;
 import com.formationds.iodriver.events.VolumeModified;
 import com.formationds.iodriver.events.VolumeStatted;
@@ -86,7 +88,7 @@ public abstract class QosWorkload extends Workload
             _volumeStartToken.close();
             _volumeStopToken.close();
             
-            super.close();
+            super.closeInternal();
         }
         
         @Override
@@ -94,12 +96,28 @@ public abstract class QosWorkload extends Workload
         {
             super.setUp();
             
-            _operationExecutedToken = register(OperationExecuted.class, this::_onOperationExecuted);
-            _volumeAddedToken = register(VolumeAdded.class, this::_onVolumeAdded);
-            _volumeModifiedToken = register(VolumeModified.class, this::_onVolumeModified);
-            _volumeStattedToken = register(VolumeStatted.class, this::_onVolumeStatted);
-            _volumeStartToken = register(VolumeStarted.class, this::_onVolumeStart);
-            _volumeStopToken = register(VolumeStopped.class, this::_onVolumeStop);
+            Subject<OperationExecuted> operationExecuted = new Subject<>();
+            Subject<Validated> validated = new Subject<>();
+            Subject<VolumeAdded> volumeAdded = new Subject<>();
+            Subject<VolumeModified> volumeModified = new Subject<>();
+            Subject<VolumeStatted> volumeStatted = new Subject<>();
+            Subject<VolumeStarted> volumeStarted = new Subject<>();
+            Subject<VolumeStopped> volumeStopped = new Subject<>();
+            
+            _operationExecutedToken = operationExecuted.register(this::_onOperationExecuted);
+            _volumeAddedToken = volumeAdded.register(this::_onVolumeAdded);
+            _volumeModifiedToken = volumeModified.register(this::_onVolumeModified);
+            _volumeStattedToken = volumeStatted.register(this::_onVolumeStatted);
+            _volumeStartToken = volumeStarted.register(this::_onVolumeStart);
+            _volumeStopToken = volumeStopped.register(this::_onVolumeStop);
+            
+            registerEvent(OperationExecuted.class, operationExecuted);
+            registerEvent(Validated.class, validated);
+            registerEvent(VolumeAdded.class, volumeAdded);
+            registerEvent(VolumeModified.class, volumeModified);
+            registerEvent(VolumeStatted.class, volumeStatted);
+            registerEvent(VolumeStarted.class, volumeStarted);
+            registerEvent(VolumeStopped.class, volumeStopped);
         }
 
         private Closeable _operationExecutedToken;

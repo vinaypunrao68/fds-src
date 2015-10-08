@@ -151,7 +151,7 @@ public final class AssuredRateValidator implements Validator
         
         // If we can go over 10% of what we requested for assured, we're not stressing the system
         // hard enough.
-        if (Math.abs((totalIops - totalAssuredIops) / totalAssuredIops) > 0.1)
+        if (Math.abs((totalIops - totalAssuredIops) / totalAssuredIops) > 0.2)
         {
             failed = true;
         }

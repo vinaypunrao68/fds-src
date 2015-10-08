@@ -32,14 +32,12 @@ import com.formationds.iodriver.operations.StatVolume;
 import com.formationds.iodriver.reporters.QosProgressReporter;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
-import com.formationds.iodriver.workloads.QosWorkload.VolumeStarted;
-import com.formationds.iodriver.workloads.QosWorkload.VolumeStopped;
 import com.google.common.collect.ImmutableMap;
 
 /**
  * Workload that ensures that a volume always receives its assured IOPS rate.
  */
-public final class S3AssuredRateTestWorkload extends Workload
+public final class S3AssuredRateTestWorkload extends QosWorkload
 {
     @Override
     public Optional<Validator> getSuggestedValidator()
