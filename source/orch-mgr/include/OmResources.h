@@ -160,8 +160,16 @@ class OM_NodeAgent : public NodeAgent
                                boost::shared_ptr<std::string> payload);
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
 
-    void dump_agent_info();
-
+    /*
+     * In the case where when we're adding a new node but was unsuccessful,
+     * such as when DM or SM migration fails, the node is going to be in the
+     * addedSM or addedDM cluster map. Because it remains in the map, it becomes
+     * problematic for the OM as it doesn't clean them up.
+     * To clean them up, this method will take care of it, and to activate this
+     * cleanup, simply shut down a node from the CLI. This can be done safely
+     * in a customer environment.
+     * Once cleaned up, more nodes can be added to the domain.
+     */
     void cleanup_added_node();
 
   private:
