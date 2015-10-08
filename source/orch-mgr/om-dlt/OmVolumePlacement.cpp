@@ -110,13 +110,16 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     // if we alreay have commited DMT, next version is inc 1
     if (dmtMgr->hasCommittedDMT()) {
         next_version = dmtMgr->getCommittedVersion() + 1;
+        LOGDEBUG << "NEIL DEBUG committed version++";
     } else {
         // will use startDmtVersion, but increment startDmtVersion
         // in case this DMT will be reverted (due to error)
+        LOGDEBUG << "NEIL DEBUG start version++";
         ++startDmtVersion;
     }
     if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
         depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
+        LOGDEBUG << "NEIL DEBUG depth: " << depth;
     }
 
     if (depth == 0) {

@@ -399,4 +399,23 @@ ClusterMap::getServiceUuids(fpi::FDSP_MgrIdType svc_type) const {
     return retSet;
 }
 
+fds_bool_t
+ClusterMap::serviceAddExists(fpi::FDSP_MgrIdType svc_type, const NodeUuid& svc_uuid)
+{
+	switch (svc_type) {
+		case (fpi::FDSP_STOR_MGR):
+			if (addedSMs.count(svc_uuid) > 0) {
+				return true;
+			}
+			break;
+		case (fpi::FDSP_DATA_MGR):
+			if (addedDMs.count(svc_uuid) > 0) {
+				return true;
+			}
+			break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+	}
+	return false;
+}
 }  // namespace fds

@@ -70,6 +70,7 @@ class OM_NodeAgent : public NodeAgent
     static inline OM_NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<OM_NodeAgent *>(get_pointer(ptr));
     }
+    // TODO remove - not in use and incorrect
     inline fpi::FDSP_MgrIdType om_agent_type() const {
         return ndMyServId;
     }
@@ -158,6 +159,10 @@ class OM_NodeAgent : public NodeAgent
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
+
+    void dump_agent_info();
+
+    void cleanup_added_node();
 
   private:
     void om_send_one_stream_reg_cmd(const apis::StreamingRegistrationMsg& reg,

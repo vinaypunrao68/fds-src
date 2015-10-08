@@ -2472,6 +2472,8 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             handle_unregister_service(node_uuid, node_name, fpi::FDSP_DATA_MGR);
         if (uuid.uuid_get_val() != 0) {
             OM_DmAgent::pointer dmAgent = om_dm_agent(uuid);
+            // om_locDomain->dc_unregister_agent(uuid, fpi::FDSP_DATA_MGR);
+            LOGDEBUG << "Unregistering DM agent as node is shutting down";
             err = om_locDomain->dc_unregister_node(uuid, dmAgent->get_node_name());
             LOGDEBUG << "Unregistered DM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
@@ -2789,5 +2791,11 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     // if we are in this stage.
     dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     return err;
+}
+
+void
+OM_NodeAgent::dump_agent_info()
+{
+	LOGDEBUG << "Session ID: " << ndSessionId << " Type: " << ndMyServId << " parent UUID: " << parentUuid;
 }
 } // namespace fds

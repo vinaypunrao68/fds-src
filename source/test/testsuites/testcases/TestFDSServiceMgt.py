@@ -3323,6 +3323,7 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         if self.passedDisable is None:
             res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
         else:
+            self.log.info("Disabling chosen fault")
             res = svc_map.client(svc_uuid).setFault('disable name=' + chosenFault)
 
         if res:
