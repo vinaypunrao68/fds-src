@@ -187,9 +187,10 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                    << std::hex << msg->volume_id << std::dec
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
-        blobDescListMutex.lock();
-        blobDescList.emplace_back(make_pair(msg, cb));
-        blobDescListMutex.unlock();
+        {
+        	fds_scoped_lock(blobDescListMutex);
+        	blobDescList.emplace_back(make_pair(msg, cb));
+        }
         err = ERR_NOT_READY;
     } else {
 		/**
@@ -274,26 +275,26 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         }
     }
 
-    blobDescListMutex.lock();
+    {
+		fds_scoped_lock(blobDescListMutex);
+		/**
+		 * Set the sequence number appropriately.
+		 */
+		deltaBlobsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
 
-    /**
-     * Set the sequence number appropriately.
-     */
-    deltaBlobsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
-
-    /**
-     * If all the sequence numbers are present for the blobs, then send apply the queued
-     * blob descriptors in this thread context.
-     * It's possible that all desciptors have already been received.
-     * So, any descriptors in the queue should be flushed.
-     */
-    if (deltaBlobsSeqNum.isSeqNumComplete()) {
-        LOGMIGRATE << "blob sequence number is complete for volume="
-                   << std::hex << volumeUuid << std::dec
-                   << ".  Apply queued blob descriptors.";
-        err = applyQueuedBlobDescs();
+		/**
+		 * If all the sequence numbers are present for the blobs, then send apply the queued
+		 * blob descriptors in this thread context.
+		 * It's possible that all desciptors have already been received.
+		 * So, any descriptors in the queue should be flushed.
+		 */
+		if (deltaBlobsSeqNum.isSeqNumComplete()) {
+			LOGMIGRATE << "blob sequence number is complete for volume="
+					   << std::hex << volumeUuid << std::dec
+					   << ".  Apply queued blob descriptors.";
+			err = applyQueuedBlobDescs();
+		}
     }
-    blobDescListMutex.unlock();
 
 	return err;
 }
