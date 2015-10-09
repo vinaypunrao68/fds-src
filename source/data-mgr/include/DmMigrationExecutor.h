@@ -179,7 +179,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     /**
      * Mutex for blob offset list and blob descriptor list coordination
      */
-    std::mutex blobDescListMutex;
+    fds_mutex blobDescListMutex;
 
     /**
      * List of blob descriptors that have been queued waiting for

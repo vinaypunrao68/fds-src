@@ -188,7 +188,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
         {
-        	fds_scoped_lock(blobDescListMutex);
+        	fds_scoped_lock lock(blobDescListMutex);
         	blobDescList.emplace_back(make_pair(msg, cb));
         }
         err = ERR_NOT_READY;
@@ -276,7 +276,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
     }
 
     {
-		fds_scoped_lock(blobDescListMutex);
+		fds_scoped_lock lock(blobDescListMutex);
 		/**
 		 * Set the sequence number appropriately.
 		 */
