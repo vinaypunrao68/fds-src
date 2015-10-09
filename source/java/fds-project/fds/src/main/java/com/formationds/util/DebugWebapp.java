@@ -181,7 +181,7 @@ public class DebugWebapp {
                                                               PatternSemantics.PCRE,
                                                               "",
                                                               BlobListOrder.UNSPECIFIED,
-                                                              false).get();
+                                                              false).get().getBlobs();
             JSONArray array = new JSONArray();
             for (BlobDescriptor bd : bds) {
                 JSONObject o = new JSONObject();

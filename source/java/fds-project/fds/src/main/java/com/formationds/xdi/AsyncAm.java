@@ -18,15 +18,15 @@ public interface AsyncAm {
 
     CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException;
 
-    CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName,
-                                                           String volumeName,
-                                                           int count,
-                                                           long offset,
-                                                           String pattern,
-                                                           PatternSemantics patternSemantics,
-                                                           String delimiter,
-                                                           BlobListOrder order,
-                                                           boolean descending);
+    CompletableFuture<VolumeContents> volumeContents(String domainName,
+                                                     String volumeName,
+                                                     int count,
+                                                     long offset,
+                                                     String pattern,
+                                                     PatternSemantics patternSemantics,
+                                                     String delimiter,
+                                                     BlobListOrder order,
+                                                     boolean descending);
 
     CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName);
 

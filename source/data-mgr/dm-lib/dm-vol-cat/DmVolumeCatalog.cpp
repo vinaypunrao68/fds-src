@@ -456,13 +456,14 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
 Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
                                             std::string const& prefix,
                                             std::string const& delimiter,
-                                            fpi::BlobDescriptorListType& results)
+                                            fpi::BlobDescriptorListType& results,
+                                            std::vector<std::string>& skippedPrefixes)
 {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
     std::vector<BlobMetaDesc> blobMetaList;
-    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList);
+    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList, skippedPrefixes);
     if (!rc.ok())
     {
         LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex

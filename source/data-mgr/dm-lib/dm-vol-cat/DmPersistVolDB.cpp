@@ -190,7 +190,8 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
 
 Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
                                                 std::string const& delimiter,
-                                                std::vector<BlobMetaDesc>& blobMetaList)
+                                                std::vector<BlobMetaDesc>& blobMetaList,
+                                                std::vector<std::string>& skippedPrefixes)
 {
     auto dbIt = catalog_->NewIterator();
     fds_assert(dbIt);
@@ -223,6 +224,8 @@ Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
                 BlobMetadataKey blobNameToDelimiterEnd { blobNameToDelimiter };
 
                 dbIt->Seek(typedComparator.getIncremented(blobNameToDelimiterEnd));
+
+                skippedPrefixes.push_back(blobNameToDelimiter.substr(prefix.size()));
                 continue;
             }
         }

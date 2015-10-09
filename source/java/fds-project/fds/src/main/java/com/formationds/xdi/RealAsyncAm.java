@@ -1,6 +1,23 @@
 package com.formationds.xdi;
 
-import com.formationds.apis.*;
+import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
+import org.apache.thrift.server.TNonblockingServer;
+import org.apache.thrift.transport.TNonblockingServerSocket;
+import org.joda.time.Duration;
+
+import com.formationds.apis.AsyncXdiServiceRequest;
+import com.formationds.apis.AsyncXdiServiceResponse;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.RequestId;
+import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.VolumeStatus;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
@@ -11,18 +28,6 @@ import com.formationds.util.Retry;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
-import org.apache.thrift.server.TNonblockingServer;
-import org.apache.thrift.transport.TNonblockingServerSocket;
-import org.joda.time.Duration;
-
-import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
@@ -122,15 +127,15 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName,
-                                                                  String volumeName,
-                                                                  int count,
-                                                                  long offset,
-                                                                  String pattern,
-                                                                  PatternSemantics patternSemantics,
-                                                                  String delimiter,
-                                                                  BlobListOrder order,
-                                                                  boolean descending)
+    public CompletableFuture<VolumeContents> volumeContents(String domainName,
+                                                            String volumeName,
+                                                            int count,
+                                                            long offset,
+                                                            String pattern,
+                                                            PatternSemantics patternSemantics,
+                                                            String delimiter,
+                                                            BlobListOrder order,
+                                                            boolean descending)
     {
         return scheduleAsync(rid ->
         {

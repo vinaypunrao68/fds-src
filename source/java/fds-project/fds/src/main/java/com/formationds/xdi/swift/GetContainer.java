@@ -59,7 +59,7 @@ public class GetContainer  implements SwiftRequestHandler {
                                              BlobListOrder.UNSPECIFIED,
                                              false,
                                              PatternSemantics.PCRE,
-                                             "").get();
+                                             "").get().getBlobs();
         } catch (TException e) {
             throw new ApiException("Not found", ErrorCode.MISSING_RESOURCE);
         }

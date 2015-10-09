@@ -188,7 +188,7 @@ public class DirectAmIo implements Io {
                                                  PatternSemantics.PREFIX_AND_DELIMITER,
                                                  "/",
                                                  BlobListOrder.UNSPECIFIED,
-                                                 false).get());
+                                                 false).get().getBlobs());
             long elapsed = System.currentTimeMillis() - then;
             List<T> result = new ArrayList<>(blobDescriptors.size());
             for (BlobDescriptor bd : blobDescriptors) {

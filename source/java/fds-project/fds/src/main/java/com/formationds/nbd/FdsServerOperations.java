@@ -81,6 +81,7 @@ public class FdsServerOperations implements NbdServerOperations {
                                                         BlobListOrder.UNSPECIFIED,
                                                         false)
                                         .get()
+                                        .getBlobs()
                                         .stream().anyMatch(bd -> bd.getName()
                                                                    .equals(BLOCK_DEV_NAME));
             // do an initial write to create the blob in FDS

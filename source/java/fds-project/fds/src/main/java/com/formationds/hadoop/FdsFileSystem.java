@@ -295,7 +295,7 @@ public class FdsFileSystem extends FileSystem {
                                           PatternSemantics.PCRE,
                                           "",
                                           BlobListOrder.LEXICOGRAPHIC,
-                                          descending).get();
+                                          descending).get().getBlobs();
         } catch (Exception e) {
             throw new IOException(e);
         }

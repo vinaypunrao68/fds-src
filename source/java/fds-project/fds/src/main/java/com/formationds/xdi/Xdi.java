@@ -111,7 +111,7 @@ public class Xdi {
         return result;
     }
 
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token,
+    public CompletableFuture<VolumeContents> volumeContents(AuthenticationToken token,
                                                                   String domainName,
                                                                   String volumeName,
                                                                   int count,

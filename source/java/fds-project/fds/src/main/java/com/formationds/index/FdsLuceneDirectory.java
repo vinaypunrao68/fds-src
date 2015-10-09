@@ -47,7 +47,7 @@ public class FdsLuceneDirectory extends Directory {
                                                  PatternSemantics.PCRE,
                                                  "",
                                                  BlobListOrder.UNSPECIFIED,
-                                                 false).get());
+                                                 false).get().getBlobs());
             for (BlobDescriptor blob : blobs) {
                 String indexFile = blob.getName().replaceAll("^index-", "");
                 indexFiles.add(indexFile);
