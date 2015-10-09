@@ -33,6 +33,7 @@ void ObjectRefMgr::scan() {
 
     if (currentItr != scanList.end()) {
         auto current = *currentItr;
+        /* Scan step */
         Error e = current->scan();
         if (e != ERR_OK) {
             /* Report the error and move on */
@@ -46,7 +47,9 @@ void ObjectRefMgr::scan() {
     }
 
     if (currentItr != scanList.end()) {
-        // TODO: Schedule another scan
+        // TODO: Schedule another scan step on threadpool
+    } else {
+        // TODO(Rao): Schedule complate scan on timer
     }
 }
 
@@ -62,7 +65,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
 
     virtual Error init() override {
         /* Create snapshot */
-        auto volcatIf = refMgr->getDataMgr()->timeVolCat_->queryIface();
+        auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
         auto err = volcatIf->getVolumeSnapshot(volId, snap);
         if (err != ERR_OK) {
             return err;
@@ -74,7 +77,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
 
     virtual Error scan() override {
         for (uint32_t scannedEntriesCnt = 0;
-             scannedEntriesCnt < refMgr->getMaxEntriesToScan() && itr->Valid();
+             scannedEntriesCnt < objRefMgr->getMaxEntriesToScan() && itr->Valid();
              itr->Next()) {
              // TODO(Rao): Update the bloom filter
         }

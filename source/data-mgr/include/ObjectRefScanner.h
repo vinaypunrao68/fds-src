@@ -17,7 +17,7 @@ struct DataMgr;
 
 struct ObjectRefScanner {
     explicit ObjectRefScanner(ObjectRefMgr* m)
-    : refMgr(m) {
+    : objRefMgr(m) {
     }
     virtual ~ObjectRefScanner() {}
     virtual Error init() = 0;
@@ -26,7 +26,7 @@ struct ObjectRefScanner {
     virtual std::string logString() = 0;
 
  protected:
-    ObjectRefMgr        *refMgr;
+    ObjectRefMgr        *objRefMgr;
 };
 using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
 

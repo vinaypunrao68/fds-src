@@ -143,6 +143,12 @@ class DmPersistVolCat {
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
 
+    virtual void getObjectIds(const uint32_t &maxObjs,
+                              const Catalog::MemSnap &snap,
+                              std::unique_ptr<catalog_iterator_t>& dbItr,
+                              std::list<ObjectID> &objects) = 0;
+
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;
 

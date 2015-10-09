@@ -483,6 +483,16 @@ Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
     return rc;
 }
 
+Error DmVolumeCatalog::getObjectIds(fds_volid_t volId,
+                                    const uint32_t &maxObjs,
+                                    const Catalog::MemSnap &snap,
+                                    std::unique_ptr<catalog_iterator_t>& dbItr,
+                                    std::list<ObjectID> &objects) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    vol->getObjectIds(maxObjs, snap, dbItr, objects);
+    return ERR_OK;
+}
+
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
         const sequence_id_t seq_id) {

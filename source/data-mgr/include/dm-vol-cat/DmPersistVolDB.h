@@ -87,6 +87,11 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
+    virtual void getObjectIds(const uint32_t &maxObjs,
+                              const Catalog::MemSnap &snap,
+                              std::unique_ptr<catalog_iterator_t>& dbItr,
+                              std::list<ObjectID> &objects) override;
+
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
 
