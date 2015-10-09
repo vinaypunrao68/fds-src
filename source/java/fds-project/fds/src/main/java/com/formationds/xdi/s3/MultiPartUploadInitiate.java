@@ -13,7 +13,9 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.io.BlobSpecifier;
 
+import java.util.Map;
 import java.util.UUID;
 
 public class MultiPartUploadInitiate implements SyncRequestHandler {
@@ -25,27 +27,15 @@ public class MultiPartUploadInitiate implements SyncRequestHandler {
         this.token = token;
     }
 
-    private void ensureSystemBucketCreated() throws Exception {
-        String systemVolume = xdi.getSystemVolumeName(token);
-        boolean exists = xdi.listVolumes(token, S3Endpoint.FDS_S3_SYSTEM).stream()
-                .anyMatch(o -> o.getName().equals(systemVolume));
-
-        if (!exists) {
-            try {
-                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY));
-            } catch (ApiException ex) {
-                if (ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
-                    throw ex;
-            }
-        }
-    }
-
     @Override
     public Resource handle(HttpContext ctx) throws Exception {
         String bucket = ctx.getRouteParameter("bucket");
         String objectName = ctx.getRouteParameter("object");
         UUID txid = UUID.randomUUID();
-        ensureSystemBucketCreated();
+
+        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(objectName));
+        Map<String, String> userMetadata = S3MetadataUtility.requestUserMetadata(ctx);
+        xdi.multipart(token, specifier, txid.toString()).initiate(userMetadata).get();
 
         XmlElement response = new XmlElement("InitiateMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

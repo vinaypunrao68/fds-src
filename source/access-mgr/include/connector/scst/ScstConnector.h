@@ -7,40 +7,35 @@
 #include <memory>
 
 #include "connector/scst/common.h"
-#include "concurrency/LeaderFollower.h"
 
 namespace fds {
 
 struct AmProcessor;
+struct ScstTarget;
 
 struct ScstConnector
-    : public LeaderFollower
 {
+    ScstConnector(ScstConnector const& rhs) = delete;
+    ScstConnector& operator=(ScstConnector const& rhs) = delete;
     ~ScstConnector() = default;
 
     static void start(std::weak_ptr<AmProcessor> processor);
     static void stop();
 
-    std::string targetName() const { return target_name; }
-
- protected:
-    void lead() override;
+    std::string targetPrefix() const { return target_prefix; }
 
  private:
-    std::shared_ptr<ev::dynamic_loop> evLoop;
+    template<typename T>
+    using unique = std::unique_ptr<T>;
+
+    static unique<ScstConnector> instance_;
+
+    ScstConnector(std::string const& prefix,
+                  std::weak_ptr<AmProcessor> processor);
+
     std::weak_ptr<AmProcessor> amProcessor;
 
-    ScstConnector(std::string const& name,
-                  std::weak_ptr<AmProcessor> processor,
-                  size_t const followers);
-    ScstConnector(ScstConnector const& rhs) = delete;
-    ScstConnector& operator=(ScstConnector const& rhs) = delete;
-
-    void initializeTarget();
-
-    static std::unique_ptr<ScstConnector> instance_;
-
-    std::string target_name;
+    std::string target_prefix;
 };
 
 }  // namespace fds

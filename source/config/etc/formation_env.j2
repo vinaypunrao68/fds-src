@@ -38,8 +38,9 @@ PATH=${PATH}:${fds_root}/bin
 export PATH=${PATH}:${fds_root}/sbin
 
 # JAVA Options
-export OM_JAVA_OPTS="{{ om_java_opts }}"
-export XDI_JAVA_OPTS="{{ xdi_java_opts }}"
+COMMON_JAVA_OPTS="{{ common_java_opts }}"
+export OM_JAVA_OPTS="-Dfds.service.name=om-xdi {{ om_java_opts }} ${COMMON_JAVA_OPTS}"
+export XDI_JAVA_OPTS="-Dfds.service.name=xdi {{ xdi_java_opts }} ${COMMON_JAVA_OPTS}"
 
 # JAVA CLASSPATH dependencies
 CLASSPATH=${fds_root}/etc

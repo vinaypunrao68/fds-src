@@ -55,6 +55,15 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     dmReq->cb = BIND_MSG_CALLBACK(CommitBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
+	(static_cast<DmIoCommitBlobTx*>(dmReq))->localCb =
+								std::bind(&CommitBlobTxHandler::handleResponseCleanUp,
+								this,
+								asyncHdr,
+								message,
+								std::placeholders::_1,
+								dmReq);
+
+
     addToQueue(dmReq);
 }
 
@@ -62,7 +71,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
-    LOGTRACE << "Will commit blob " << typedRequest->blob_name << " to tvc";
+    LOGDEBUG << "Will commit blob " << *typedRequest;
     helper.err = dataManager
                 .timeVolCat_->commitBlobTx(typedRequest->volId,
                                            typedRequest->blob_name,
@@ -77,7 +86,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
                                                      std::placeholders::_3,
                                                      std::placeholders::_4,
                                                      std::placeholders::_5,
-                                                     typedRequest));
+                                                     dmRequest));
     // Our callback, volumeCatalogCb(), will be called and will handle calling handleResponse().
     if (helper.err.ok()) {
         helper.cancel();
@@ -96,7 +105,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
                                           BlobObjList::const_ptr const& blob_obj_list,
                                           MetaDataList::const_ptr const& meta_list,
                                           fds_uint64_t const blobSize,
-                                          DmIoCommitBlobTx* commitBlobReq) {
+										  DmRequest* dmRequest) {
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
     QueueHelper helper(dataManager, commitBlobReq);
     // If this is a piggy-back request, do not notify QoS
     if (!commitBlobReq->orig_request) {
@@ -105,6 +115,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     helper.err = e;
     if (!helper.err.ok()) {
         LOGWARN << "Failed to commit Tx for blob '" << commitBlobReq->blob_name << "'";
+        if (commitBlobReq->ioBlobTxDesc)
+             LOGWARN   << " TxId:" << *(commitBlobReq->ioBlobTxDesc);
         return;
     }
 
@@ -128,6 +140,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 														 commitBlobReq->dmt_version))) {
 		LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
 				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+
+		commitBlobReq->usedForMigration = true;
 		helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
 																	  commitBlobReq,
 																	  blob_version,
@@ -142,12 +156,24 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
 
-    // Sends reply to AM
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
-            static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
+    if (dmRequest) {
+        // Sends reply to AM
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    delete dmRequest;
+        if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+            delete dmRequest;
+        }
+    } else {
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                           fpi::CommitBlobTxRspMsg());
+    }
 }
 
+void CommitBlobTxHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                         	 	boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
+												Error const& e, DmRequest* dmRequest) {
+    delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

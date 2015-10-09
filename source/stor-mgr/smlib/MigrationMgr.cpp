@@ -665,13 +665,13 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         if (migrClients.count(executorId) > 0) {
             LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
                      << std::dec << " which means that forwarding from this client will stop too"
-		     << ". Migration clients " << migrClients.size();
+                     << ". Migration clients " << migrClients.size();
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
             migrClients[executorId]->waitForIOReqsCompletion(executorId);
             migrClients.erase(executorId);
             doneWithClients = (migrClients.size() == 0);
-	    LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
+            LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
         }
     }
 

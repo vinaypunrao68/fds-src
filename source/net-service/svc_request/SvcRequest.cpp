@@ -203,7 +203,8 @@ void SvcRequestIf::invoke()
     if (teidIsSet_) {
         taskExecutor->scheduleOnHashKey(teid_, std::bind(&SvcRequestIf::invokeWork_, this));
     } else {
-        taskExecutor->scheduleOnTemplateKey(id_, std::bind(&SvcRequestIf::invokeWork_, this));
+        taskExecutor->scheduleOnHashKey(static_cast<size_t>(id_),
+                                        std::bind(&SvcRequestIf::invokeWork_, this));
     }
 }
 

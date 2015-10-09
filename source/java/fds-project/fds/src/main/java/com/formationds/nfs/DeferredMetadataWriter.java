@@ -222,7 +222,7 @@ public class DeferredMetadataWriter implements Io {
                     TxDescriptor tx = asyncAm.startBlobTx(key.domain, key.volume, key.blobName, 0).get();
                     asyncAm.updateMetadata(key.domain, key.volume, key.blobName, tx, value.map).get();
                     asyncAm.commitBlobTx(key.domain, key.volume, key.blobName, tx);
-                    counters.increment(Counters.Key.AM_metadata_flush);
+                    counters.increment(Counters.Key.AM_updateMetadataTx);
                     return null;
                 });
                 value.isDirty = false;

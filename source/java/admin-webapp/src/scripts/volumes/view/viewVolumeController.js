@@ -75,7 +75,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var text ='';
         
         switch ( series.type ){
-            case 'GETS':
+            case 'HDD_GETS':
                 text = $filter( 'translate' )( 'status.l_gets' );
                 break;
             case 'SSD_GETS':
@@ -223,7 +223,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var now = new Date();
         
         performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
-            [StatQueryFilter.PUTS, StatQueryFilter.GETS, StatQueryFilter.SSD_GETS],
+            [StatQueryFilter.PUTS, StatQueryFilter.HDD_GETS, StatQueryFilter.SSD_GETS],
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
