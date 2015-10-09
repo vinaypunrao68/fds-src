@@ -1444,36 +1444,9 @@ OM_PmAgent::send_start_service
                                    fpi::SVC_STATUS_ACTIVE );
         set_node_state(fpi::FDS_Node_Up);
     }
-    // Check if the requested services are already running
-    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
-        bool smRunning = false;
-        bool dmRunning = false;
-        bool amRunning = false;
 
-        if (service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-            // If an activeAgent is not null(service exists), the service is already running
-            LOGNOTIFY << "OM_PmAgent: SM service already running, "
-                      << "not going to restart...";
-            smRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: DM service already running, "
-                      << "not going to restart...";
-            dmRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running,"
-                      << "not going to restart...";
-            amRunning = true;
-        }
-
-        // Perform updates to list only if necessary
-        if (smRunning || dmRunning || amRunning) {
-            fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
-        }
-    }
-    else
-    {
+    // Check to ensure that the node is up.
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         LOGDEBUG << "Attempting to start services on a node that is not up";
         return Error(ERR_INVALID_ARG);
     }
