@@ -266,16 +266,17 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
 }
 
 void
-AmAsyncXdiResponse::volumeContentsResp(const Error &error,
-                                       boost::shared_ptr<apis::RequestId>& requestId,
-                                       boost::shared_ptr<
-                                       std::vector<fpi::BlobDescriptor>>& volContents) {
+AmAsyncXdiResponse::volumeContentsResp(
+        const Error &error,
+        boost::shared_ptr<apis::RequestId>& requestId,
+        boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents,
+        boost::shared_ptr<std::vector<std::string>>& skippedPrefixes) {
     if (!error.ok()) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
         auto errorCode = mappedErrorCode(error);
         xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
     } else {
-        xdiClientCall(&client_type::volumeContents, requestId, volContents);
+        xdiClientCall(&client_type::volumeContents, requestId, volContents, skippedPrefixes);
     }
 }
 
