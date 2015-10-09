@@ -1,0 +1,21 @@
+---
+-   name: uninstall scst
+    apt: name={{item}}
+        state=absent
+        purge=yes
+    with_items:
+        - scstadmin
+        - iscsi-scst
+        - scst-dkms
+        - scst-dkms
+    tags:
+        - uninstall
+
+-   name: uninstall dkms
+    apt: name={{item}}
+        state=absent
+        purge=yes
+    with_items:
+        - dkms
+    tags:
+        - uninstall

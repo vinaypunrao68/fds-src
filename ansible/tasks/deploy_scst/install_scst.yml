@@ -1,0 +1,10 @@
+---
+-   name: install scstadmin from fds-deps
+    apt: deb="/opt/fds-deps/embedded/deb_pkgs/scstadmin*.deb"
+    tags:
+      - install
+
+-   name: install iscsi target from fds-deps
+    apt: deb="/opt/fds-deps/embedded/deb_pkgs/iscsi-scst*.deb"
+    tags:
+      - install

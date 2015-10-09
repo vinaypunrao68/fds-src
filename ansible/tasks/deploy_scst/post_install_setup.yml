@@ -1,0 +1,12 @@
+---
+-   name: configure SCST module
+    lineinfile: dest=/etc/scst.conf
+        line={{item}}
+    with_items:
+        -   "HANDLER dev_user {"
+        -   "}"
+        -   "TARGET_DRIVER iscsi {"
+        -   "    enabled 1"
+        -   "}"
+    tags:
+        - post-install
