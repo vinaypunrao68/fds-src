@@ -99,7 +99,7 @@ DmMigrationExecutor::startMigration()
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
         if (migrDoneCb) {
-        	migrDoneCb(volDesc.volUUID, err);
+        	migrDoneCb(srcDmSvcUuid, volDesc.volUUID, err);
         }
     	dataMgr.dmMigrationMgr->abortMigration();
     }
@@ -426,7 +426,7 @@ DmMigrationExecutor::testStaticMigrationComplete() {
         }
 
         if (migrDoneCb) {
-            migrDoneCb(volDesc.volUUID, ERR_OK);
+            migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_OK);
         }
     }
 }
@@ -509,7 +509,7 @@ DmMigrationExecutor::abortMigration()
         	migrationProgress = MIGRATION_ABORTED;
         	if (migrDoneCb) {
         		LOGMIGRATE << "Abort migration called.";
-        		migrDoneCb(volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
+        		migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         	}
         }
     }

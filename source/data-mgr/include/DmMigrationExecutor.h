@@ -18,7 +18,8 @@ class DataMgr;
 /**
  * 	Simple callback to ensure that firing off the migration msg was ok
  */
-typedef std::function<void (fds_volid_t volumeId,
+typedef std::function<void (NodeUuid srcNodeUuid,
+							fds_volid_t volumeId,
                             const Error& error)> DmMigrationExecutorDoneCb;
 
 class DmMigrationExecutor : public DmMigrationBase {

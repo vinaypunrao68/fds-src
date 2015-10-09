@@ -64,6 +64,8 @@ class DmMigrationClient : public DmMigrationBase {
 
     /**
      * Forward the committed blob to the destination side.
+     * Note: Because DmMigrationMgr can't check forward I/O at this point,
+     * this method will only forward if the internal atomic var says it's ok.
      */
     Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     						   blob_version_t blob_version,
