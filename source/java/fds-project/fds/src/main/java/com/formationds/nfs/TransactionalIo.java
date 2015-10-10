@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-public interface Io {
+public interface TransactionalIo {
     public <T> T mapMetadata(String domain, String volumeName, String blobName, MetadataMapper<T> mapper) throws IOException;
 
     public void mutateMetadata(String domain, String volume, String blobName, MetadataMutator mutator) throws IOException;
@@ -24,3 +24,5 @@ public interface Io {
 
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException;
 }
+
+

@@ -3,11 +3,11 @@ package com.formationds.nfs;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-public class ObjectView {
+public class ObjectAndMetadata {
     private Map<String, String> map;
     private ByteBuffer buf;
 
-    public ObjectView(Map<String, String> map, ByteBuffer buf) {
+    public ObjectAndMetadata(Map<String, String> map, ByteBuffer buf) {
         this.map = map;
         this.buf = buf;
     }

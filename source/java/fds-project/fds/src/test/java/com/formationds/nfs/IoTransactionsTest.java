@@ -4,32 +4,32 @@ import com.formationds.apis.ObjectOffset;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
-public class IoCacheTest {
+public class IoTransactionsTest {
 
     private String domain;
     private String volume;
     private String blobName;
     private int objectSize;
-    private Io io;
-    private Io cache;
+    private IoOps ioOps;
+    private TransactionalIo cache;
 
     @Test
     public void testMapAndMutateMetadata() throws Exception {
         cache.mutateMetadata(domain, volume, blobName, (meta) -> meta.put("foo", "bar"));
-        assertEquals("bar", io.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
         assertEquals("bar", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
 
         cache.mutateMetadata(domain, volume, blobName, meta -> meta.put("foo", "panda"));
-        assertEquals("panda", io.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("panda", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
         assertEquals("panda", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
     }
 
@@ -40,15 +40,18 @@ public class IoCacheTest {
 
         Optional<Map<String, String>> cachedMeta = cache.mapMetadata(domain, volume, blobName, om -> om);
         assertFalse(cachedMeta.isPresent());
-        Optional<ObjectView> cachedObject = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        Optional<ObjectAndMetadata> cachedObject = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov);
         assertFalse(cachedObject.isPresent());
 
-        Optional<Map<String, String>> storedMeta = io.mapMetadata(domain, volume, blobName, om -> om);
+        Optional<Map<String, String>> storedMeta = ioOps.readMetadata(domain, volume, blobName);
         assertFalse(storedMeta.isPresent());
-        Optional<ObjectView> storedObject = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> oov);
-        assertFalse(storedObject.isPresent());
+        try {
+            ioOps.readCompleteObject(domain, volume, blobName, new ObjectOffset(0), objectSize);
+        } catch (FileNotFoundException e) {
+            return;
+        }
+        fail("Should have gotten a FileNotFoundException!");
     }
 
     @Test
@@ -59,7 +62,7 @@ public class IoCacheTest {
         buffer.putInt(42);
         buffer.position(0);
         cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), buffer.duplicate(), metadata);
-        ByteBuffer result = io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), oov -> oov.get().getBuf());
+        ByteBuffer result = ioOps.readCompleteObject(domain, volume, blobName, new ObjectOffset(0), objectSize);
         assertEquals(42, result.getInt());
     }
 
@@ -69,7 +72,7 @@ public class IoCacheTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("foo", "bar");
         cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> new ObjectView(metadata, ByteBuffer.allocate(10)));
+                oov -> new ObjectAndMetadata(metadata, ByteBuffer.allocate(10)));
 
         ByteBuffer byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
@@ -101,7 +104,7 @@ public class IoCacheTest {
         volume = UUID.randomUUID().toString();
         blobName = UUID.randomUUID().toString();
         objectSize = 42;
-        io = new MemoryIo();
-        cache = new IoCache(io, new Counters());
+        ioOps = new MemoryIoOps();
+        cache = new IoTransactions(ioOps, new Counters());
     }
 }

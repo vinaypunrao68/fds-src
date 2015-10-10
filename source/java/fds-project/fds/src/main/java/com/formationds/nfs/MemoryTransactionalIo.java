@@ -11,11 +11,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 // TODO: make it domain/volume aware
-public class MemoryIo implements Io {
+public class MemoryTransactionalIo implements TransactionalIo {
     private Map<ObjectKey, byte[]> objectCache;
     private Map<String, Map<String, String>> metadataCache;
 
-    public MemoryIo() {
+    public MemoryTransactionalIo() {
         objectCache = new HashMap<>();
         metadataCache = new HashMap<>();
     }
@@ -65,7 +65,7 @@ public class MemoryIo implements Io {
         });
 
         try {
-            return objectMapper.map(Optional.of(new ObjectView(metadata, ByteBuffer.wrap(bytes))));
+            return objectMapper.map(Optional.of(new ObjectAndMetadata(metadata, ByteBuffer.wrap(bytes))));
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -74,15 +74,15 @@ public class MemoryIo implements Io {
     @Override
     public void mutateObjectAndMetadata(String domain, String volume, String blobName, int objectSize, ObjectOffset objectOffset, ObjectMutator mutator) throws IOException {
         mapObjectAndMetadata(domain, volume, blobName, objectSize, objectOffset, (oov) -> {
-            ObjectView objectView = null;
+            ObjectAndMetadata objectAndMetadata = null;
             if (!oov.isPresent()) {
-                objectView = new ObjectView(new HashMap<String, String>(), ByteBuffer.allocate(objectSize));
+                objectAndMetadata = new ObjectAndMetadata(new HashMap<String, String>(), ByteBuffer.allocate(objectSize));
             } else {
-                objectView = oov.get();
+                objectAndMetadata = oov.get();
             }
-            mutator.mutate(objectView);
-            objectCache.put(new ObjectKey(blobName, objectOffset), objectView.getBuf().array());
-            metadataCache.put(blobName, objectView.getMetadata());
+            mutator.mutate(objectAndMetadata);
+            objectCache.put(new ObjectKey(blobName, objectOffset), objectAndMetadata.getBuf().array());
+            metadataCache.put(blobName, objectAndMetadata.getMetadata());
             return null;
         });
     }

@@ -7,9 +7,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class Chunker {
-    private Io io;
+    private TransactionalIo io;
 
-    public Chunker(Io io) {
+    public Chunker(TransactionalIo io) {
         this.io = io;
     }
 

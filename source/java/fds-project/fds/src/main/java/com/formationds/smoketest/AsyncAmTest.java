@@ -38,8 +38,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testUpdate() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        IoTransactions txs = new IoTransactions(io, new Counters());
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
@@ -53,8 +54,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testLookup() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        IoTransactions txs = new IoTransactions(io, new Counters());
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
 
@@ -74,8 +76,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testListDirectory() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        IoTransactions txs = new IoTransactions(io, new Counters());
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
 

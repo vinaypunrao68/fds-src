@@ -15,7 +15,7 @@ public class ChunkerTest {
     public static final String DOMAIN = "domain";
     public static final String VOLUME = "volume";
     private Chunker chunker;
-    private MemoryIo io;
+    private MemoryTransactionalIo io;
 
     @Test
     public void testReadWrite() throws Exception {
@@ -53,7 +53,7 @@ public class ChunkerTest {
 
     @Before
     public void setUp() throws Exception {
-        io = new MemoryIo();
+        io = new MemoryTransactionalIo();
         chunker = new Chunker(io);
     }
 }

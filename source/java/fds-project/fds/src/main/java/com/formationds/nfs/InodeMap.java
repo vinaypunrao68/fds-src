@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
-    private final Io io;
+    private final TransactionalIo io;
     private final ExportResolver exportResolver;
     public static final Inode ROOT;
     public static final InodeMetadata ROOT_METADATA;
@@ -27,7 +27,7 @@ public class InodeMap {
 
     private final Chunker chunker;
 
-    public InodeMap(Io io, ExportResolver exportResolver) {
+    public InodeMap(TransactionalIo io, ExportResolver exportResolver) {
         this.exportResolver = exportResolver;
         this.io = io;
         chunker = new Chunker(io);
@@ -48,6 +48,10 @@ public class InodeMap {
 
     public static String blobName(Inode inode) {
         return "inode-" + InodeMetadata.fileId(inode);
+    }
+
+    public static String blobName(long fileId) {
+        return "inode-" + fileId;
     }
 
     public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {
