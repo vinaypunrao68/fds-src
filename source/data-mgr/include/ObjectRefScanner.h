@@ -15,12 +15,14 @@ namespace fds {
 struct ObjectRefMgr;
 struct DataMgr;
 
+/**
+* @brief Object reference scanner interface
+*/
 struct ObjectRefScanner {
     explicit ObjectRefScanner(ObjectRefMgr* m)
     : objRefMgr(m) {
     }
     virtual ~ObjectRefScanner() {}
-    virtual Error init() = 0;
     virtual Error scan() = 0;
     virtual bool isComplete() = 0;
     virtual std::string logString() = 0;
@@ -30,6 +32,15 @@ struct ObjectRefScanner {
 };
 using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
 
+/**
+* @brief Manages collection of ObjectRefScanner one for each volume.
+* 1. Scan of all of the volumes is scheduled on timer at configured interval
+* 2. During each scan cycle all the volumes are scanned.  Scan cycle is broken up
+* into small scan steps.
+* 3. Each scan step is executed on qos threadpool.
+* 4. During each scan step configured number of level db entries are scanned and 
+* appropriate bloom filter for the volume is update.
+*/
 struct ObjectRefMgr : HasModuleProvider, Module {
     ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
     virtual ~ObjectRefMgr() = default;
@@ -56,8 +67,10 @@ struct ObjectRefMgr : HasModuleProvider, Module {
         RUNNING
     };
 
-    DataMgr                                     *dataMgr;
+    dm::Handler                                 handler;
     uint32_t                                    maxEntriesToScan;
+    std::chrono::seconds                        scanIntervalSec;
+    FdsTimerTaskPtr                             scanTask;
     std::mutex                                  scannerLock;
     State                                       state;
     std::list<ObjectRefScannerPtr>              scanList;

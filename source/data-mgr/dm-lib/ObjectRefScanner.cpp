@@ -5,19 +5,29 @@
 #include <lib/Catalog.h>
 #include <ObjectRefScanner.h>
 #include <DataMgr.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
 
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
   Module("RefcountScanner"),
-  dataMgr(dm)
+  handler(*dm)
 {
     // TODO(Rao): assign other memebers
 }
 
 void ObjectRefMgr::mod_startup() {
-    MODULEPROVIDER()->getTimer();
+    auto timer = MODULEPROVIDER()->getTimer();
+    scanTask = boost::shared_ptr<FdsTimerTask>(
+        new FdsTimerFunctionTask(
+            *timer,
+            [this] () {
+            /* Immediately post to threadpool so we don't hold up timer thread */
+            auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
+            handler.addToQueue(req);
+            }));
+    timer->schedule(scanTask, scanIntervalSec);
     // TODO(Rao): Set members based on config
     // TODO(Rao): schdule scanner based on config
 }
@@ -25,10 +35,10 @@ void ObjectRefMgr::mod_startup() {
 void ObjectRefMgr::mod_shutdown() {
 }
 
+// TODO(Rao): Check if we need any synchronization
 void ObjectRefMgr::scan() {
     if (scanList.size() == 0) {
         buildScanList();
-        currentItr = scanList.begin();
     }
 
     if (currentItr != scanList.end()) {
@@ -41,21 +51,26 @@ void ObjectRefMgr::scan() {
             currentItr++;
         } else {
             if (current->isComplete()) {
+                // TODO(Rao): necessary cleanups
                 currentItr++;
             }
         }
     }
 
     if (currentItr != scanList.end()) {
-        // TODO: Schedule another scan step on threadpool
+        auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
+        handler.addToQueue(req);
     } else {
-        // TODO(Rao): Schedule complate scan on timer
+        auto timer = MODULEPROVIDER()->getTimer();
+        timer->schedule(scanTask, scanIntervalSec);
     }
 }
 
+//TODO(Rao): Support scanning of multiple snapshots
 struct VolumeObjectRefScanner : ObjectRefScanner {
     VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
     : ObjectRefScanner(m),
+    bInited(false),
     volId(vId)
     {
         std::stringstream ss;
@@ -63,7 +78,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
         logStr = ss.str();
     }
 
-    virtual Error init() override {
+    void init() {
         /* Create snapshot */
         auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
         auto err = volcatIf->getVolumeSnapshot(volId, snap);
@@ -76,21 +91,34 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
     }
 
     virtual Error scan() override {
-        for (uint32_t scannedEntriesCnt = 0;
-             scannedEntriesCnt < objRefMgr->getMaxEntriesToScan() && itr->Valid();
-             itr->Next()) {
-             // TODO(Rao): Update the bloom filter
+        if (!bInited) {
+            auto error = init();
+            if (error != ERR_OK) {
+                GLOGWARN << "Failed to initialize " << logString();
+                return error;
+            }
+            bInited = true;
         }
+
+        std::list<ObjectID> objects;
+        getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
+        for (const auto &id : objects) {
+            bloomfilter.add(id);
+        }
+
         return ERR_OK;
     }
 
-    virtual bool isComplete()  override { return !(itr->Valid()); }
+    virtual bool isComplete()  override { return (itr != nullptr && !(itr->Valid())); }
     virtual std::string logString() override { return logStr; }
 
+    bool                                            bInited;
     fds_volid_t                                     volId;
     Catalog::MemSnap                                snap;
     std::unique_ptr<Catalog::catalog_iterator_t>    itr;
     std::string                                     logStr;
+    BloomFilter                                     bloomfilter; 
+
 };
 
 struct SnapshotRefScanner : ObjectRefScanner {
