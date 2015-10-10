@@ -61,7 +61,7 @@ public class ListObjects implements SyncRequestHandler {
                                    bucket,
                                    Integer.MAX_VALUE,
                                    0,
-                                   prefix,
+                                   S3Namespace.user().blobName(prefix),
                                    BlobListOrder.UNSPECIFIED,
                                    false,
                                    delimiter == null || delimiter.isEmpty()
