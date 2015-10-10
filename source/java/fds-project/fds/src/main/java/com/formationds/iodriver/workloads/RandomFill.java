@@ -80,7 +80,7 @@ public class RandomFill extends Workload
         		};
 
 		return Stream.generate(volumeNames)
-		             .limit(Fds.Random.nextInt(1, _maxVolumes))
+		             .limit(Fds.Random.nextInt(1, _maxVolumes + 1))
 		             .flatMap(createVolumesAndContent);
 	}
 

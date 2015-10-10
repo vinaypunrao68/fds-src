@@ -85,7 +85,7 @@ public class BenchmarkPrefixSearch extends Workload
                                 int lastSlash = objName.lastIndexOf('/');
                                 if (lastSlash > -1)
                                 {
-                                    volumeDirectories.add(objName.substring(0, lastSlash));
+                                    volumeDirectories.add(objName.substring(0, lastSlash + 1));
                                 }
                             },
                             volumeName,

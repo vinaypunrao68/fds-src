@@ -55,16 +55,19 @@ public class ListObjects implements SyncRequestHandler {
             return new S3Failure(S3Failure.ErrorCode.NoSuchBucket, "No such bucket", bucket);
         }
 
-        VolumeContents volumeContentsResponse = xdi.volumeContents(token,
-                                                                   S3Endpoint.FDS_S3,
-                                                                   bucket,
-                                                                   Integer.MAX_VALUE,
-                                                                   0,
-                                                                   prefix,
-                                                                   BlobListOrder.UNSPECIFIED,
-                                                                   false,
-                                                                   PatternSemantics.PCRE,
-                                                                   delimiter).get();
+        VolumeContents volumeContentsResponse = 
+                xdi.volumeContents(token,
+                                   S3Endpoint.FDS_S3,
+                                   bucket,
+                                   Integer.MAX_VALUE,
+                                   0,
+                                   prefix,
+                                   BlobListOrder.UNSPECIFIED,
+                                   false,
+                                   delimiter == null || delimiter.isEmpty()
+                                           ? PatternSemantics.PREFIX
+                                           : PatternSemantics.PREFIX_AND_DELIMITER,
+                                   delimiter).get();
         List<BlobDescriptor> contents = volumeContentsResponse.getBlobs();
 
         XmlElement result = new XmlElement("ListBucketResult")
@@ -74,6 +77,10 @@ public class ListObjects implements SyncRequestHandler {
                 .withValueElt("Marker", "")
                 .withValueElt("MaxKeys", Integer.toString(1000))
                 .withValueElt("IsTruncated", "false");
+        if (delimiter != null && !delimiter.isEmpty())
+        {
+            result.withValueElt("Delimiter", delimiter);
+        }
 
         contents.stream()
                 .filter(c -> S3Namespace.user().isInNamespace(c.getName()))

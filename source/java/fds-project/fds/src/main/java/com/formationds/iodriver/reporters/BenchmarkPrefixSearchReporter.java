@@ -52,6 +52,8 @@ public class BenchmarkPrefixSearchReporter implements Closeable
                         + " Delimiter: " + javaString(operation.getDelimiter())
                         + " Results: " + data.getResultCount()
                         + " Elapsed: " + data.getElapsed()
-                        + " Per Object: " + data.getElapsed().dividedBy(data.getResultCount()));
+                        + " Per Object: " + (data.getResultCount() == 0
+                                ? "∞"
+                                : data.getElapsed().dividedBy(data.getResultCount())));
     }
 }
