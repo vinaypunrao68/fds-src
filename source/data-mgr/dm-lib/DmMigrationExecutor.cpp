@@ -485,7 +485,7 @@ DmMigrationExecutor::finishActiveMigration()
 {
 	fds_scoped_lock lock(progressLock);
 	migrationProgress = MIGRATION_COMPLETE;
-	LOGMIGRATE << "No forwards was sent, resuming IO for volume " << volumeUuid;
+    LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
 	return ERR_OK;
