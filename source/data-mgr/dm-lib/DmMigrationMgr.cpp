@@ -648,15 +648,14 @@ DmMigrationMgr::abortMigration()
 void
 DmMigrationMgr::abortMigrationReal()
 {
-	LOGDEBUG << "Waiting for all I/O to complete";
-	trackIOReqs.waitForTrackIOReqs();
-
 	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
 	{
 		SCOPEDWRITE(migrExecutorLock);
 		{
 			SCOPEDWRITE(migrClientLock);
+			LOGDEBUG << "Waiting for all I/O to complete";
+			trackIOReqs.waitForTrackIOReqs();
 			DmMigrationClientMap::const_iterator citer (clientMap.begin());
 			DmMigrationExecMap::const_iterator eiter (executorMap.begin());
 			while (citer != clientMap.end()) {
