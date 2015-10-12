@@ -74,6 +74,6 @@ public class MemoryIoOps implements IoOps {
                 objectCache.remove(ok);
             }
         });
-        metadataCache.remove(blobName);
+        metadataCache.remove(new MetaKey(domain, volume, blobName));
     }
 }

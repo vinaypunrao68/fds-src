@@ -20,27 +20,27 @@ public class IoTransactionsTest {
     private String blobName;
     private int objectSize;
     private IoOps ioOps;
-    private TransactionalIo cache;
+    private TransactionalIo transactionalIo;
 
     @Test
     public void testMapAndMutateMetadata() throws Exception {
-        cache.mutateMetadata(domain, volume, blobName, (meta) -> meta.put("foo", "bar"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
-        assertEquals("bar", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("bar", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
 
-        cache.mutateMetadata(domain, volume, blobName, meta -> meta.put("foo", "panda"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, meta -> meta.put("foo", "panda"));
         assertEquals("panda", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
-        assertEquals("panda", cache.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("panda", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
     }
 
     @Test
     public void testDelete() throws Exception {
         testMapAndMutateMetadata();
-        cache.deleteBlob(domain, volume, blobName);
+        transactionalIo.deleteBlob(domain, volume, blobName);
 
-        Optional<Map<String, String>> cachedMeta = cache.mapMetadata(domain, volume, blobName, om -> om);
+        Optional<Map<String, String>> cachedMeta = transactionalIo.mapMetadata(domain, volume, blobName, om -> om);
         assertFalse(cachedMeta.isPresent());
-        Optional<ObjectAndMetadata> cachedObject = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        Optional<ObjectAndMetadata> cachedObject = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov);
         assertFalse(cachedObject.isPresent());
 
@@ -58,10 +58,11 @@ public class IoTransactionsTest {
     public void testDirectMutate() throws Exception {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("foo", "bar");
-        ByteBuffer buffer = ByteBuffer.allocate(10);
+        ByteBuffer buffer = ByteBuffer.allocate(objectSize);
         buffer.putInt(42);
         buffer.position(0);
-        cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), buffer.duplicate(), metadata);
+        transactionalIo.mutateMetadata(domain, volume, blobName, new HashMap<>(), false);
+        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), buffer.duplicate(), metadata);
         ByteBuffer result = ioOps.readCompleteObject(domain, volume, blobName, new ObjectOffset(0), objectSize);
         assertEquals(42, result.getInt());
     }
@@ -71,20 +72,21 @@ public class IoTransactionsTest {
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("foo", "bar");
-        cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        transactionalIo.mutateMetadata(domain, volume, blobName, new HashMap<>(), false);
+        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> new ObjectAndMetadata(metadata, ByteBuffer.allocate(10)));
 
-        ByteBuffer byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        ByteBuffer byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(0, byteBuffer.get());
 
         // Mutate sure we get a sliced ByteBuffer
-        byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
 
-        cache.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 ov -> {
                     ByteBuffer buf = ov.getBuf();
                     buf.putInt(42);
@@ -92,7 +94,7 @@ public class IoTransactionsTest {
                 });
 
         // Mutate sure we get a sliced ByteBuffer
-        byteBuffer = cache.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(42, byteBuffer.getInt());
@@ -105,6 +107,6 @@ public class IoTransactionsTest {
         blobName = UUID.randomUUID().toString();
         objectSize = 42;
         ioOps = new MemoryIoOps();
-        cache = new IoTransactions(ioOps, new Counters());
+        transactionalIo = new IoTransactions(ioOps, new Counters());
     }
 }
