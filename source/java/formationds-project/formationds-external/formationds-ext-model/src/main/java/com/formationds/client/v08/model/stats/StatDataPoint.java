@@ -11,7 +11,7 @@ import org.json.JSONObject;
 
 import com.formationds.client.v08.model.TimeUnit;
 
-public class StatDataPoint implements Cloneable{
+public class StatDataPoint implements Cloneable, Comparable<StatDataPoint>{
 
 	public static final String REPORT_TIME = "reportTime";
 	public static final String METRIC_NAME = "metricName";
@@ -401,5 +401,11 @@ public class StatDataPoint implements Cloneable{
 		newPoint.getRelatedContexts().addAll( getRelatedContexts() );
 		
 		return newPoint;
+	}
+
+	@Override
+	public int compareTo(StatDataPoint o) {
+		
+		return (o.getReportTime().compareTo( getReportTime() ) );
 	}
 }
