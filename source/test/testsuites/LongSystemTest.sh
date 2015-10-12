@@ -10,7 +10,7 @@ SnapshotTest
 AWS_KillServiceTest
 AWS_StartStopServiceTest
 AWS_AddRemoveServiceTest
-AWS_StartShutDownNodeTest
+AWS_StartShutdownNodeTest
 AWS_AddRemoveNodeTest
 )
 
