@@ -148,7 +148,7 @@ public class FdsLuceneDirectory extends Directory {
             this.length = io.mapMetadata(BlockyVfs.DOMAIN, volume, blobName, om -> Long.parseLong(om.get().get(SIZE)));
         }
 
-        public FdsIndexInput(String resourceName, String blobName, long offset, long length) throws IOException {
+        public FdsIndexInput(String resourceName, String blobName, long offset, long length) {
             super(resourceName);
             this.blobName = blobName;
             this.offset = offset;
@@ -158,13 +158,8 @@ public class FdsLuceneDirectory extends Directory {
 
         @Override
         public IndexInput clone() {
-            FdsIndexInput indexInput = null;
-            try {
-                indexInput = new FdsIndexInput(toString(), blobName, offset, length());
-                indexInput.seek(this.getFilePointer());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            FdsIndexInput indexInput = new FdsIndexInput(toString(), blobName, offset, length());
+            indexInput.position = this.position;
             return indexInput;
         }
 
