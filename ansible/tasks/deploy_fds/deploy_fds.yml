@@ -13,6 +13,9 @@
 
 - include: install_deps.yml
 
+- include: ../deploy_scst/deploy_scst.yml
+  when: fds_ft_am_scst_enabled == true
+
 - include: install_fds.yml
 
 - include: set_node_num.yml

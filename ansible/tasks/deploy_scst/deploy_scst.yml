@@ -10,6 +10,4 @@
 
 - include: install_scst.yml
 
-- include: post_install_setup.yml
-
 - include: start_scst.yml

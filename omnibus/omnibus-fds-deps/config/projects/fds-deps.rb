@@ -37,6 +37,10 @@ end
 dependency "preparation"
 
 # fds-deps dependencies/components
+dependency "dkms"
+dependency "scst-dkms"
+dependency "scstadmin"
+dependency "iscsi-scst"
 dependency "python"
 dependency "badger"
 dependency "pip"
@@ -75,7 +79,6 @@ dependency "ansible"
 dependency "python-httplib2"
 dependency "sshpass"
 dependency "pyudev"
-dependency "dkms"
 
 # Version manifest file
 dependency "version-manifest"

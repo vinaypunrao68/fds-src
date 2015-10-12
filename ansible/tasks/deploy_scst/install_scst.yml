@@ -1,10 +1,20 @@
 ---
--   name: install scstadmin from fds-deps
-    apt: deb="/opt/fds-deps/embedded/deb_pkgs/scstadmin*.deb"
+-   name: install scst kernel module
+    shell: /opt/fds-deps/embedded/usr/sbin/dkms install scst/3.0.0.4838
     tags:
       - install
 
 -   name: install iscsi target from fds-deps
-    apt: deb="/opt/fds-deps/embedded/deb_pkgs/iscsi-scst*.deb"
+    file: path=/{{ item }} src=/opt/fds-deps/embedded/{{ item }} owner=root group=root state=link
+    with_items:
+        - 'etc/init.d/scst'
+        - 'usr/sbin/scstadmin'
+        - 'usr/share/perl/5.18.2/SCST/SCST.pm'
+
+-   name: install iscsi target from fds-deps
+    file: path=/{{ item }} src=/opt/fds-deps/embedded/{{ item }} owner=root group=root state=link
+    with_items:
+        - 'usr/sbin/iscsi-scstd'
+        - 'usr/sbin/iscsi-scst-adm'
     tags:
       - install

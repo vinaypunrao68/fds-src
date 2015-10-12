@@ -19,11 +19,11 @@ build do
   env = with_standard_compiler_flags(with_embedded_path)
 
   # Patch the code
-  command "git reset --hard debian/#{default_version}", env:env
+  command "git checkout -f debian/#{default_version}", env:env
   command "for i in $(cat #{patch_dir}series); do patch -Np1 < #{patch_dir}$i; done", env:env
 
   # Customize configuration
-  command "echo -n 'source_tree=\"/opt/fds-deps/embedded/usr/src\"\ndkms_tree=\"/opt/fds-deps/embedded/var/lib/dkms\"' >> dkms_framework.conf"
+  command "echo -n 'source_tree=\"/opt/fds-deps/embedded/usr/src\"\ndkms_tree=\"/opt/fds-deps/embedded/var/lib/dkms\"' >> dkms_framework.conf", env:env
 
   mkdir bin_dir
   mkdir debhelper_dir
