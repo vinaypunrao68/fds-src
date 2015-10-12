@@ -104,7 +104,12 @@ public class DeferredIoOps implements IoOps {
         ObjectKey objectKey = new ObjectKey(domain, volumeName, blobName, objectOffset);
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
-            c.put(objectKey, new CacheEntry<>(byteBuffer, true));
+            if (deferrable) {
+                c.put(objectKey, new CacheEntry<>(byteBuffer.slice(), true));
+            } else {
+                io.writeObject(domain, volumeName, blobName, objectOffset, byteBuffer.slice().duplicate(), objectSize, false);
+                c.put(objectKey, new CacheEntry<>(byteBuffer.slice().duplicate(), false));
+            }
             return null;
         });
     }

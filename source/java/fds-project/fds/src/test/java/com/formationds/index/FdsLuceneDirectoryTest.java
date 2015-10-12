@@ -13,14 +13,12 @@ import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.joda.time.DateTime;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-@Ignore
 public class FdsLuceneDirectoryTest {
     public static final List<String> KEYS = Lists.newArrayList("giraffe", "turtle", "panda", "lemur");
     public static final List<Long> VOLUMES = Lists.newArrayList(1l, 2l, 3l, 4l);

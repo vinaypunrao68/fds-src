@@ -153,7 +153,7 @@ public class FdsLuceneDirectory extends Directory {
             this.blobName = blobName;
             this.offset = offset;
             this.length = length;
-            this.position = 0;
+            this.position = offset;
         }
 
         @Override
