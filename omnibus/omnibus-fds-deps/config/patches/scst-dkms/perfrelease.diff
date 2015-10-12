@@ -1,0 +1,10 @@
+--- a/usr/src/scst-3.0.0.4838/Makefile	2015-01-22 02:58:12.000000000 -0700
++++ b/usr/src/scst-3.0.0.4838/Makefile	2015-10-12 12:35:47.389393503 -0600
+@@ -3,6 +3,7 @@
+ export KDIR=/lib/modules/$(KERNELRELEASE)/build
+ 
+ all:
++	cd scst && $(MAKE) 2perf
+ 	cd scst && $(MAKE) $@
+ 	cd iscsi-scst && $(MAKE) include/iscsi_scst_itf_ver.h && $(MAKE) mods
+ 	cd scst_local && $(MAKE) $@

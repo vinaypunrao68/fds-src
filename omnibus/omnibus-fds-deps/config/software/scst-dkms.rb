@@ -16,6 +16,9 @@ build do
   # Extract the code
   command "dpkg-deb -x *.deb ./", env:env
 
+  # Extract the code
+  patch source: "perfrelease.diff", plevel: 1
+
   # Copy to distribution
   command "cp -av usr/src #{usr_dir}", env:env
 end

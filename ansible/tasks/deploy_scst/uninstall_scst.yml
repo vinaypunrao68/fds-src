@@ -1,5 +1,10 @@
 ---
--   name: uninstall scst
+-   name: uninstall scst kernel module
+    shell: /opt/fds-deps/embedded/usr/sbin/dkms remove scst/3.0.0.4838 --all
+    tags:
+      - uninstall
+
+-   name: uninstall scst debs
     apt: name={{item}}
         state=absent
         purge=yes

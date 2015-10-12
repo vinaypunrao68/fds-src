@@ -1,15 +1,23 @@
 ---
--   name: install scst kernel module
+-   name: build scst kernel module
     shell: /opt/fds-deps/embedded/usr/sbin/dkms install scst/3.0.0.4838
+    tags:
+      - install
+
+-   name: create scst PERSISTENT_RESERVATION persistence
+    file: path=/var/lib/scst/pr owner=root group=root state=directory
     tags:
       - install
 
 -   name: install iscsi target from fds-deps
     file: path=/{{ item }} src=/opt/fds-deps/embedded/{{ item }} owner=root group=root state=link
     with_items:
+        - 'etc/scst.conf'
         - 'etc/init.d/scst'
         - 'usr/sbin/scstadmin'
-        - 'usr/share/perl/5.18.2/SCST/SCST.pm'
+        - 'usr/share/perl/5.18.2/SCST'
+    tags:
+      - install
 
 -   name: install iscsi target from fds-deps
     file: path=/{{ item }} src=/opt/fds-deps/embedded/{{ item }} owner=root group=root state=link
