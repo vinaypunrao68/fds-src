@@ -7,6 +7,7 @@
         -  /opt/fds-deps/embedded/var/lib/dkms
         -  /opt/fds-deps/embedded/usr/share/debhelper/autoscripts
         -  /opt/fds-deps/embedded/usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm
+    ignore_errors: True
     register: dkms_installed
     tags:
 
