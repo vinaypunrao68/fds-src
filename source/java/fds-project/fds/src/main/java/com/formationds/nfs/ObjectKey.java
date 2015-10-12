@@ -38,4 +38,14 @@ public class ObjectKey {
         result = 31 * result + (int) (objectOffset ^ (objectOffset >>> 32));
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "ObjectKey{" +
+                "domain='" + domain + '\'' +
+                ", volume='" + volume + '\'' +
+                ", blobName='" + blobName + '\'' +
+                ", objectOffset=" + objectOffset +
+                '}';
+    }
 }

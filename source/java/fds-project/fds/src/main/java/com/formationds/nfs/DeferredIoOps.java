@@ -29,7 +29,7 @@ public class DeferredIoOps implements IoOps {
                 TimeUnit.MINUTES);
 
         objectCache = new EvictingCache<>(
-                (key, entry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), entry.value, entry.value.remaining()),
+                (key, entry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), entry.value, entry.value.remaining(), false),
                 "Object cache",
                 500,
                 1,
@@ -90,6 +90,7 @@ public class DeferredIoOps implements IoOps {
                 counters.increment(Counters.Key.objectCacheMiss);
                 ByteBuffer buf = io.readCompleteObject(domain, volumeName, blobName, objectOffset, objectSize);
                 ce = new CacheEntry<ByteBuffer>(buf.slice(), false);
+                c.put(objectKey, ce);
             } else {
                 counters.increment(Counters.Key.objectCacheHit);
             }
@@ -99,7 +100,7 @@ public class DeferredIoOps implements IoOps {
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize) throws IOException {
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize, boolean deferrable) throws IOException {
         ObjectKey objectKey = new ObjectKey(domain, volumeName, blobName, objectOffset);
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
@@ -109,24 +110,51 @@ public class DeferredIoOps implements IoOps {
     }
 
     @Override
-    public List<Map<String, String>> scan(String domain, String volume, String blobNamePrefix) throws IOException {
-        List<Map<String, String>> results = io.scan(domain, volume, blobNamePrefix);
+    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+        List<BlobMetadata> results = io.scan(domain, volume, blobNamePrefix);
         for (int i = 0; i < results.size(); i++) {
-            Map<String, String> m = results.get(i);
-            long fileId = new InodeMetadata(m).getFileId();
-            MetaKey key = new MetaKey(domain, volume, InodeMap.blobName(fileId));
-
+            BlobMetadata m = results.get(i);
+            MetaKey key = new MetaKey(domain, volume, m.getBlobName());
+            final int offset = i;
             metadataCache.lock(key, c -> {
                 if (c.containsKey(key)) {
-                    m.clear();
-                    m.putAll(c.get(key).value);
+                    results.set(offset, new BlobMetadata(key.blobName, c.get(key).value));
                 } else {
-                    c.put(key, new CacheEntry<>(m, false));
+                    c.put(key, new CacheEntry<>(m.getMetadata(), false));
                 }
                 return null;
             });
         }
         return results;
+    }
+
+    @Override
+    public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
+        MetaKey oldKey = new MetaKey(domain, volumeName, oldName);
+        metadataCache.lock(oldKey, mc -> {
+                    CacheEntry<Map<String, String>> mce = mc.get(oldKey);
+                    if (!(mce == null) && mce.isDirty) {
+                        io.writeMetadata(domain, volumeName, oldName, mce.value, false);
+                        mc.remove(oldKey);
+                    }
+                    objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
+                        HashSet<ObjectKey> keys = new HashSet<>(c.keySet());
+                        for (ObjectKey key : keys) {
+                            if (key.domain.equals(domain) && key.volume.equals(volumeName) && key.blobName.equals(oldName)) {
+                                CacheEntry<ByteBuffer> oce = c.get(key);
+                                if (mce.isDirty) {
+                                    io.writeObject(domain, volumeName, oldName, new ObjectOffset(key.objectOffset),
+                                            oce.value, oce.value.remaining(), false);
+                                }
+                                c.remove(key);
+                            }
+                        }
+                        return null;
+                    });
+                    io.renameBlob(domain, volumeName, oldName, newName);
+                    return null;
+                }
+        );
     }
 
     @Override
