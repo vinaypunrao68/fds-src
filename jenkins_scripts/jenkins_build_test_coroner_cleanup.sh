@@ -381,6 +381,7 @@ function run_coroner
     source/tools/coroner.py collect --refid $REFID --buildermode \
       --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
                      build_release_bin:source/Build/linux-x86_64.release/bin    \
+                     test_logs:source/cit                                       \
                      fds-node1:/fds/node1                                       \
                      fds-node2:/fds/node2                                       \
                      fds-node3:/fds/node3                                       \
