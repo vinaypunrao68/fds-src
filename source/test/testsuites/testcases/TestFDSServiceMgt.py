@@ -3285,8 +3285,9 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             while loopCount < 10 and not svcs:
                 try:
                     svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
-                    loopCount += 1
+                    break
                 except:
+                    loopCount += 1
                     svc_map.refresh()
                     svcs = svc_map.list()
                     self.log.info("After refresh Svc map: {}".format(svcs))
@@ -3321,9 +3322,18 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         self.passedNode.nd_populate_metadata(om_node=om_node)
         passed_node_uuid = self.passedNode.nd_uuid
 
-        svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+        loopCount = 0
+        while loopCount < 10:
+            try:
+                svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+                svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+                break
+            except:
+                loopCount += 1
+                svc_map.refresh()
+                svcs = svc_map.list()
+                self.log.info("After refresh Svc map: {}".format(svcs))
 
-        svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
         if not svc_uuid:
             self.log.error("Unable to find the servcie UUID")
             return False

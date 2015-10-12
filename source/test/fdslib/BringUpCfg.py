@@ -454,7 +454,6 @@ class FdsNodeConfig(FdsConfig):
         status = 0
 
         for node in node_list:
-            log.debug("NEIL DEBUG: node list: {}".format(node_list))
             if self.nd_local is True:
                 # For local machine cluster each node ip is same but port is diff, so use port number
                 if str(node.services['PM'][0].port) == port:
