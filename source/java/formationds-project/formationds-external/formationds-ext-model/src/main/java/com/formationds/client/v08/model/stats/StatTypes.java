@@ -1,5 +1,8 @@
 package com.formationds.client.v08.model.stats;
 
+import java.util.EnumSet;
+
+
 /*
  * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
  */
@@ -102,9 +105,20 @@ public enum StatTypes {
     /**
      * gets from SSD and cache
      */
-    SSD_GETS( "SSD Gets" );
+    SSD_GETS( "SSD Gets" ),
+    /**
+     * Gets from just HDD
+     */
+    HDD_GETS( "HDD Gets" );
 
 
+    public static final EnumSet<StatTypes> CAPACITY = EnumSet.of( StatTypes.PBYTES,
+    															  StatTypes.LBYTES);
+
+    public static final EnumSet<StatTypes> PERFORMANCE_BREAKDOWN = EnumSet.of( StatTypes.PUTS,
+																    		   StatTypes.HDD_GETS,
+																    		   StatTypes.SSD_GETS);
+    
     private final String key;
 
     /**

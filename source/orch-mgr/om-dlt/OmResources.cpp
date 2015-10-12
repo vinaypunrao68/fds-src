@@ -2181,8 +2181,8 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
             } 
             else 
             {
-                LOGERROR << "Cannot find platform agent for node UUID ( "
-                         << std::hex << msg->node_uuid.uuid << std::dec << " )";
+                LOGWARN << "Cannot find platform agent for node UUID ( "
+                        << std::hex << msg->node_uuid.uuid << std::dec << " )";
             }
         }
             
@@ -2788,4 +2788,5 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     return err;
 }
+
 } // namespace fds

@@ -552,6 +552,18 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
              << " Total DMs: " << totalDms
              << " Non-failed DMs: " << nonFailedDms;
 
+    LOGDEBUG << "Added nodes: ";
+    for (auto cit : cm->getAddedServices(fpi::FDSP_DATA_MGR))
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+    LOGDEBUG << "Removed nodes: ";
+    for (auto cit : cm->getRemovedServices(fpi::FDSP_DATA_MGR))
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+
+
     // this method computes new DMT and sets as target *only* if
     // newly computed DMT is different from the current commited DMT
     Error err = vp->computeDMT(cm);
@@ -605,6 +617,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
          ++cit) {
         OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
         LOGDEBUG << "bcasting vol on dmt deploy: ";
+        // dm_agent->dump_agent_info();
         fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
         if (count > 0) {
             dst.dms_to_ack.insert(*cit);
@@ -1035,6 +1048,10 @@ void
 DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DACT_EndError";
+    // End of error handling for FSM. Not balancing volume anymore so turn it off.
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    vp->notifyEndOfRebalancing();
 }
 
 // DACT_ChkEndErr

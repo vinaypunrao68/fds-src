@@ -650,12 +650,14 @@ Error
 OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
 {
     Error err(ERR_OK);
+    fds_uint32_t dmMigrationTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                   get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMStartMigrationMsg), meta_msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pullmeta_resp, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(60000);
+    om_req->setTimeoutMs(dmMigrationTimeout);
     om_req->invoke();
 
     LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
@@ -753,6 +755,16 @@ OM_NodeAgent::om_send_shutdown() {
 }
 
 void
+OM_NodeAgent::cleanup_added_node()
+{
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap *cm = om->om_clusmap_mod();
+    if (cm->serviceAddExists(get_uuid().uuid_get_type(), get_uuid())) {
+    	cm->resetPendingAddedService(get_uuid().uuid_get_type(), get_uuid());
+    }
+}
+
+void
 OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
@@ -760,6 +772,9 @@ OM_NodeAgent::om_send_shutdown_resp(EPSvcRequest* req,
     LOGDEBUG << "OM received response for Prepare For Shutdown msg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
+
+    // In case the node was being added, this needs to be cleaned up
+    cleanup_added_node();
 
     // Notify domain state machine
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
@@ -1429,36 +1444,9 @@ OM_PmAgent::send_start_service
                                    fpi::SVC_STATUS_ACTIVE );
         set_node_state(fpi::FDS_Node_Up);
     }
-    // Check if the requested services are already running
-    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
-        bool smRunning = false;
-        bool dmRunning = false;
-        bool amRunning = false;
 
-        if (service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-            // If an activeAgent is not null(service exists), the service is already running
-            LOGNOTIFY << "OM_PmAgent: SM service already running, "
-                      << "not going to restart...";
-            smRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: DM service already running, "
-                      << "not going to restart...";
-            dmRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running,"
-                      << "not going to restart...";
-            amRunning = true;
-        }
-
-        // Perform updates to list only if necessary
-        if (smRunning || dmRunning || amRunning) {
-            fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
-        }
-    }
-    else
-    {
+    // Check to ensure that the node is up.
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         LOGDEBUG << "Attempting to start services on a node that is not up";
         return Error(ERR_INVALID_ARG);
     }
@@ -1556,6 +1544,7 @@ OM_PmAgent::send_stop_service
         LOGDEBUG << "Attempting to shutdown node that has not been added!";
         return Error(ERR_INVALID_ARG);
     }
+
     // Corner case: shutting down a node with no associated services
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Standby) {
         LOGDEBUG << "No services present to stop, setting node to down";
@@ -1565,51 +1554,7 @@ OM_PmAgent::send_stop_service
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
-    // Checks to make sure we do not attempt to stop a service that does
-    // not exist
-    bool smNotPresent = false;
-    bool dmNotPresent = false;
-    bool amNotPresent = false;
-
-    if (stop_sm && !service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: SM service does not exist";
-        smNotPresent = true;
-        stop_sm = false;
-    }
-    if (stop_dm && !service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: DM service does not exist";
-        dmNotPresent = true;
-        stop_dm = false;
-    }
-    if (stop_am && !service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: AM service does not exist";
-        amNotPresent = true;
-        stop_am = false;
-    }
-    // Perform updates only if necessary
-    if (smNotPresent || dmNotPresent || amNotPresent) {
-        fds::updateSvcInfoList(svcInfos, smNotPresent, dmNotPresent, amNotPresent);
-    }
-
-    if (!stop_sm && !stop_dm && !stop_am) {
-        // Corner case handling: shutting down a node with already
-        // stopped services
-        if (node_state() != FDS_ProtocolInterface::FDS_Node_Down) {
-            LOGDEBUG << "No services present to stop, setting node to down";
-            fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE );
-            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
-
-            return Error(ERR_OK);
-        } else {
-            // Removing a node that is already down
-            LOGDEBUG << "No services present to stop, node is down, no action taken";
-            return Error(ERR_OK);
-        }
-
-    }
-
+    
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         LOGNORMAL << "Stop services for node" << get_node_name()
                   << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
@@ -2155,6 +2100,7 @@ OM_AgentContainer::populate_nodes_in_container(std::list<NodeSvcEntity> &contain
         agent = agent_info(i);
         if (agent->node_get_svc_type() == type) {
     	    container_nodes.emplace_back(agent->get_node_name(),
+
     	                                 agent->get_uuid(),
     	                                 agent->node_get_svc_type());
         }

@@ -74,6 +74,7 @@
     when: fds_om_host is defined and fds_om_host == inventory_hostname
     tags:
       - startup
+      - activate
 
 -   name: wait for platformd to become available on remaining hosts
     wait_for: host={{ inventory_hostname }}
@@ -86,6 +87,7 @@
     sudo: no
     tags:
       - startup
+      - activate
 
 -   name: get auth token
     uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
@@ -98,6 +100,7 @@
     sudo: no
     tags:
       - startup
+      - activate
 
 -   name: activate local domain
     uri: url=http://{{ fds_om_host }}:7777/local_domains/{{local_domain_name}}/services
@@ -113,6 +116,7 @@
     sudo: no
     tags:
       - startup
+      - activate
 
 -   name: wait for services to be available on all nodes
     wait_for: host={{inventory_hostname}}
@@ -131,3 +135,4 @@
         - 9999
     tags:
       - startup
+      - activate

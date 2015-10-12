@@ -16,7 +16,7 @@
 
 name "server-jre"
 #default_version "7u25"
-default_version "8u31"
+default_version "8u60"
 
 whitelist_file "jre/bin/javaws"
 whitelist_file "jre/bin/policytool"
@@ -26,13 +26,13 @@ whitelist_file "jre/bin/appletviewer"
 
 if _64_bit?
   # TODO: download x86 version on x86 machines
-  source url:     "https://s3-us-west-2.amazonaws.com/fds-java/server-jre-8u31-linux-x64.tar.gz",
-         md5:     "9d69cdc00c536b8c9f5b26a3128bd2a1"
+  source url:     "https://s3-us-west-2.amazonaws.com/fds-java/server-jre-8u60-linux-x64.tar.gz",
+         md5:     "7c3bd07fb925d89eaa85a7af1471ab72"
 else
   raise "Server-jre can only be installed on x86_64 systems."
 end
 
-relative_path "jdk1.8.0_31"
+relative_path "jdk1.8.0_60"
 
 build do
   mkdir "#{install_dir}/embedded/jre"
