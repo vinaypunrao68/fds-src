@@ -3267,6 +3267,7 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
                                   fdscfg.rt_om_node.nd_conf_dict['fds_port'])
         svcs = svc_map.list()
+        self.log.info("Svc map: {}".format(svcs))
 
         if self.passedNode is not None and self.passedNode != "random_node":
             self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
@@ -3279,7 +3280,17 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
             # First filter out only services belonging to the specified node
             # Use a little voodoo to match service UUIDs to the node UUID
-            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+            
+            loopCount = 0
+            while loopCount < 10 and not svcs:
+                try:
+                    svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+                    loopCount += 1
+                except:
+                    svc_map.refresh()
+                    svcs = svc_map.list()
+                    self.log.info("After refresh Svc map: {}".format(svcs))
+
             if not svcs:
                 self.log.error("Unable to find the service belonging to such node")
                 return False;
@@ -3307,15 +3318,8 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
-        loopCount = 0
-        while self.passedService not in svcs:
-            self.log.info("Not in svcs... retrying")
-            self.log.info("Passed_node_uuid: {} passed_in: {} svcs: {}".format(passed_node_uuid, self.passedService, svcs))
-            self.passedNode.nd_populate_metadata(om_node=om_node)
-            passed_node_uuid = self.passedNode.nd_uuid
-            loopCount += 1
-            if loopCount > 10:
-                break;
+        self.passedNode.nd_populate_metadata(om_node=om_node)
+        passed_node_uuid = self.passedNode.nd_uuid
 
         svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
 
