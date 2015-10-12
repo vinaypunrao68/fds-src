@@ -1444,36 +1444,9 @@ OM_PmAgent::send_start_service
                                    fpi::SVC_STATUS_ACTIVE );
         set_node_state(fpi::FDS_Node_Up);
     }
-    // Check if the requested services are already running
-    if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
-        bool smRunning = false;
-        bool dmRunning = false;
-        bool amRunning = false;
 
-        if (service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-            // If an activeAgent is not null(service exists), the service is already running
-            LOGNOTIFY << "OM_PmAgent: SM service already running, "
-                      << "not going to restart...";
-            smRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: DM service already running, "
-                      << "not going to restart...";
-            dmRunning = true;
-        }
-        if (service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-            LOGNOTIFY << "OM_PmAgent: AM service already running,"
-                      << "not going to restart...";
-            amRunning = true;
-        }
-
-        // Perform updates to list only if necessary
-        if (smRunning || dmRunning || amRunning) {
-            fds::updateSvcInfoList(svcInfos, smRunning, dmRunning, amRunning);
-        }
-    }
-    else
-    {
+    // Check to ensure that the node is up.
+    if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         LOGDEBUG << "Attempting to start services on a node that is not up";
         return Error(ERR_INVALID_ARG);
     }
@@ -1571,6 +1544,7 @@ OM_PmAgent::send_stop_service
         LOGDEBUG << "Attempting to shutdown node that has not been added!";
         return Error(ERR_INVALID_ARG);
     }
+
     // Corner case: shutting down a node with no associated services
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Standby) {
         LOGDEBUG << "No services present to stop, setting node to down";
@@ -1580,51 +1554,7 @@ OM_PmAgent::send_stop_service
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
-    // Checks to make sure we do not attempt to stop a service that does
-    // not exist
-    bool smNotPresent = false;
-    bool dmNotPresent = false;
-    bool amNotPresent = false;
-
-    if (stop_sm && !service_exists(FDS_ProtocolInterface::FDSP_STOR_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: SM service does not exist";
-        smNotPresent = true;
-        stop_sm = false;
-    }
-    if (stop_dm && !service_exists(FDS_ProtocolInterface::FDSP_DATA_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: DM service does not exist";
-        dmNotPresent = true;
-        stop_dm = false;
-    }
-    if (stop_am && !service_exists(FDS_ProtocolInterface::FDSP_ACCESS_MGR)) {
-        LOGNOTIFY << "OM_PmAgent: AM service does not exist";
-        amNotPresent = true;
-        stop_am = false;
-    }
-    // Perform updates only if necessary
-    if (smNotPresent || dmNotPresent || amNotPresent) {
-        fds::updateSvcInfoList(svcInfos, smNotPresent, dmNotPresent, amNotPresent);
-    }
-
-    if (!stop_sm && !stop_dm && !stop_am) {
-        // Corner case handling: shutting down a node with already
-        // stopped services
-        if (node_state() != FDS_ProtocolInterface::FDS_Node_Down) {
-            LOGDEBUG << "No services present to stop, setting node to down";
-            fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE );
-            set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
-
-            return Error(ERR_OK);
-        } else {
-            // Removing a node that is already down
-            LOGDEBUG << "No services present to stop, node is down, no action taken";
-            return Error(ERR_OK);
-        }
-
-    }
-
+    
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         LOGNORMAL << "Stop services for node" << get_node_name()
                   << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec

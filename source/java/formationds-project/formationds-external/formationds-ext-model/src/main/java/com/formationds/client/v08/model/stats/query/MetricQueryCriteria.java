@@ -13,6 +13,9 @@ import java.util.List;
 
 public class MetricQueryCriteria extends QueryCriteria {
     
+	public static final String AVG_TRANSACTIONS = "average";
+	public static final String PERCENTAGE = "percentage";
+	
 	@SuppressWarnings("unused")
 	private static final long serialVersionUID = -5554442148762258901L;
 

@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.util.Configuration;
 import org.apache.commons.io.IOUtils;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -25,6 +26,7 @@ import static org.junit.Assert.*;
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
  */
+@Ignore
 public class ProductionSmokeTest {
 
     private AmazonS3Client client;
