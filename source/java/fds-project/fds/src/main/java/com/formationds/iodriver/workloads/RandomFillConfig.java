@@ -21,6 +21,7 @@ public class RandomFillConfig implements RuntimeConfig
 		_configs = new HashSet<>();
 		_maxDirectoriesPerLevel = null;
 		_maxDirectoryDepth = null;
+		_maxLeafObjects = null;
 		_maxObjectSize = null;
 		_maxObjectsPerDirectory = null;
 		_maxVolumes = null;
@@ -50,6 +51,10 @@ public class RandomFillConfig implements RuntimeConfig
 	                      "maxDirectoryDepth",
 	                      true,
 	                      "Directories will not exceed this depth.");
+	    options.addOption(null,
+	                      "maxLeafObjects",
+	                      true,
+	                      "Independent max number of objects in leaf directories.");
 	    options.addOption(null,
 	                      "maxObjectSize",
 	                      true,
@@ -82,6 +87,15 @@ public class RandomFillConfig implements RuntimeConfig
 	                                              .map(Integer::parseInt)
 	                                              .orElse(3))
 	           : _maxDirectoryDepth;
+	}
+	
+	public int getMaxLeafObjects() throws ParseException
+	{
+	    return _maxLeafObjects == null
+	           ? (_maxLeafObjects = _baseConfig.getCommandLineOptionValue("maxLeafObjects")
+	                                           .map(Integer::parseInt)
+	                                           .orElse(getMaxObjectsPerDirectory()))
+               : _maxLeafObjects;
 	}
 	
 	public int getMaxObjectSize() throws ParseException
@@ -130,6 +144,7 @@ public class RandomFillConfig implements RuntimeConfig
         return new RandomFill(getMaxVolumes(),
                               getPathSeparator(),
                               getMaxDirectoriesPerLevel(),
+                              getMaxLeafObjects(),
                               getMaxObjectSize(),
                               getMaxObjectsPerDirectory(),
                               getMaxDirectoryDepth());
@@ -148,6 +163,8 @@ public class RandomFillConfig implements RuntimeConfig
 	private Integer _maxDirectoriesPerLevel;
 	
 	private Integer _maxDirectoryDepth;
+	
+	private Integer _maxLeafObjects;
 	
 	private Integer _maxObjectSize;
 	

@@ -19,6 +19,7 @@ public class RandomFill extends Workload
 	public RandomFill(int maxVolumes,
                       String pathSeparator,
                       int maxDirectoriesPerLevel,
+                      int maxLeafObjects,
                       int maxObjectSize,
                       int maxObjectsPerDirectory,
                       int maxDirectoryDepth)
@@ -28,6 +29,7 @@ public class RandomFill extends Workload
 		_maxVolumes = maxVolumes;
 		_pathSeparator = pathSeparator;
 		_maxDirectoriesPerLevel = maxDirectoriesPerLevel;
+		_maxLeafObjects = maxLeafObjects;
 		_maxObjectSize = maxObjectSize;
 		_maxObjectsPerDirectory = maxObjectsPerDirectory;
 		_maxDirectoryDepth = maxDirectoryDepth;
@@ -54,6 +56,8 @@ public class RandomFill extends Workload
 	private final int _maxDirectoriesPerLevel;
 
 	private final int _maxDirectoryDepth;
+	
+	private final int _maxLeafObjects;
 
 	private final int _maxObjectSize;
 	
@@ -97,10 +101,12 @@ public class RandomFill extends Workload
 	                                                                  "")));
 	    }
 
-	    retval = Stream.concat(retval, createObjectsOperations(volumeName, parentDir));
-
 	    if (depth < _maxDirectoryDepth)
 	    {
+	        retval = Stream.concat(retval, createObjectsOperations(volumeName,
+	                                                               parentDir,
+	                                                               _maxObjectsPerDirectory));
+	        
 	        retval = Stream.concat(retval, Stream.generate(
                     () ->
                     {
@@ -113,11 +119,19 @@ public class RandomFill extends Workload
                     }).limit(Fds.Random.nextInt(_maxDirectoriesPerLevel))
 	                  .flatMap(s -> s));
 	    }
+	    else
+	    {
+	        retval = Stream.concat(retval, createObjectsOperations(volumeName,
+	                                                               parentDir,
+	                                                               _maxLeafObjects));
+	    }
 
 	    return retval;
 	}
 
-	private Stream<Operation> createObjectsOperations(String volumeName, String parentPath)
+	private Stream<Operation> createObjectsOperations(String volumeName,
+	                                                  String parentPath,
+	                                                  int maxObjects)
 	{
 	    if (volumeName == null) throw new NullArgumentException("volumeName");
 	    if (parentPath == null) throw new NullArgumentException("parentPath");
@@ -135,6 +149,6 @@ public class RandomFill extends Workload
                     return new CreateObject(volumeName, fullPath, content);
                 });
         
-        return createObjects.limit(Fds.Random.nextInt(_maxObjectsPerDirectory));
+        return createObjects.limit(Fds.Random.nextInt(maxObjects));
 	}
 }
