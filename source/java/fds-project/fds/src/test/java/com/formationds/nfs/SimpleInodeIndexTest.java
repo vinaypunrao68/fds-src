@@ -19,7 +19,7 @@ public class SimpleInodeIndexTest {
     @Test
     public void testIndex() throws Exception {
         ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE);
-        Io io = new MemoryIo();
+        TransactionalIo io = new MemoryTransactionalIo();
         SimpleInodeIndex index = new SimpleInodeIndex(io, exportResolver);
         int exportId = exportResolver.exportId(VOLUME);
         int parentId = 3;

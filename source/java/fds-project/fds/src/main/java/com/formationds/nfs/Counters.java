@@ -35,12 +35,12 @@ public class Counters {
         objectCacheMiss,
         objectCacheHit,
         deferredMetadataMutation,
+        deferredObjectMutation,
 
         AM_statBlob,
         AM_updateMetadataTx,
-        AM_getBlobWithMeta,
-        AM_updateBlobOnce_objectAndMetadata,
-        AM_updateBlob;
+        AM_getBlob,
+        AM_updateBlobTx, AM_volumeContents;
     }
 
     public long reset(Key key) {

@@ -7,7 +7,7 @@ import static org.junit.Assert.assertTrue;
 public class InodeAllocatorTest {
     @Test
     public void testAllocate() throws Exception {
-        MemoryIo io = new MemoryIo();
+        MemoryTransactionalIo io = new MemoryTransactionalIo();
         InodeAllocator allocator = new InodeAllocator(io);
         long first = allocator.allocate("foo");
         long second = allocator.allocate("foo");
