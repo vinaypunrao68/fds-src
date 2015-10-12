@@ -95,7 +95,6 @@ class VolumeDesc : public HasState {
     // Async Replication
     bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
     bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
-    fds_volid_t primaryVolUUID {invalid_vol_id}; // When (replica == true), volUUID of the primary volume (residing in a different local domain)
 
     FDS_ProtocolInterface::ResourceState     state;
 
