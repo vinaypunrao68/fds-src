@@ -13,8 +13,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.*;
 
-public class IoTransactionsTest {
-
+public class TransactionalIoTest {
     private String domain;
     private String volume;
     private String blobName;
@@ -23,12 +22,22 @@ public class IoTransactionsTest {
     private TransactionalIo transactionalIo;
 
     @Test
+    public void testRename() throws Exception {
+        transactionalIo.mutateMetadata(domain, volume, blobName, true, (meta) -> meta.put("foo", "bar"));
+        assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
+
+        String newName = "ploop";
+        transactionalIo.renameBlob(domain, volume, blobName, newName);
+        assertEquals("bar", ioOps.readMetadata(domain, volume, newName).get().get("foo"));
+    }
+
+    @Test
     public void testMapAndMutateMetadata() throws Exception {
-        transactionalIo.mutateMetadata(domain, volume, blobName, (meta) -> meta.put("foo", "bar"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, true, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
         assertEquals("bar", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
 
-        transactionalIo.mutateMetadata(domain, volume, blobName, meta -> meta.put("foo", "panda"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, false, meta -> meta.put("foo", "panda"));
         assertEquals("panda", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
         assertEquals("panda", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
     }
@@ -55,26 +64,13 @@ public class IoTransactionsTest {
     }
 
     @Test
-    public void testDirectMutate() throws Exception {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("foo", "bar");
-        ByteBuffer buffer = ByteBuffer.allocate(objectSize);
-        buffer.putInt(42);
-        buffer.position(0);
-        transactionalIo.mutateMetadata(domain, volume, blobName, new HashMap<>(), false);
-        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), buffer.duplicate(), metadata);
-        ByteBuffer result = ioOps.readCompleteObject(domain, volume, blobName, new ObjectOffset(0), objectSize);
-        assertEquals(42, result.getInt());
-    }
-
-    @Test
     public void testMapAndMutateObjects() throws Exception {
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("foo", "bar");
         transactionalIo.mutateMetadata(domain, volume, blobName, new HashMap<>(), false);
         transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> new ObjectAndMetadata(metadata, ByteBuffer.allocate(10)));
+                false, oov -> new ObjectAndMetadata(metadata, ByteBuffer.allocate(10)));
 
         ByteBuffer byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
@@ -86,7 +82,7 @@ public class IoTransactionsTest {
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
 
-        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
+        transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), false,
                 ov -> {
                     ByteBuffer buf = ov.getBuf();
                     buf.putInt(42);
@@ -107,6 +103,6 @@ public class IoTransactionsTest {
         blobName = UUID.randomUUID().toString();
         objectSize = 42;
         ioOps = new MemoryIoOps();
-        transactionalIo = new IoTransactions(ioOps, new Counters());
+        transactionalIo = new TransactionalIo(new DeferredIoOps(ioOps, new Counters()));
     }
 }

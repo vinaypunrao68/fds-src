@@ -39,7 +39,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testUpdate() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        IoTransactions txs = new IoTransactions(io, new Counters());
+        TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
@@ -55,7 +55,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testLookup() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        IoTransactions txs = new IoTransactions(io, new Counters());
+        TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
@@ -77,7 +77,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testListDirectory() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        IoTransactions txs = new IoTransactions(io, new Counters());
+        TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);

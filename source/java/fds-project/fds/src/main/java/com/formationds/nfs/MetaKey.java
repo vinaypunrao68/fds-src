@@ -32,4 +32,13 @@ class MetaKey {
         result = 31 * result + blobName.hashCode();
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "MetaKey{" +
+                "domain='" + domain + '\'' +
+                ", volume='" + volume + '\'' +
+                ", blobName='" + blobName + '\'' +
+                '}';
+    }
 }
