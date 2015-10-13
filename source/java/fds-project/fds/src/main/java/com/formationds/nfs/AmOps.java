@@ -139,6 +139,7 @@ public class AmOps implements IoOps {
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         try {
             unwindExceptions(() -> asyncAm.deleteBlob(domain, volume, blobName).get());
+            LOG.debug("AM.deleteBlob, volume=" + volume + ", blobName=" + blobName);
         } catch (ApiException e) {
             if (e.getErrorCode().equals(ErrorCode.MISSING_RESOURCE)) {
                 return;

@@ -1,24 +1,16 @@
 package com.formationds.smoketest;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
-
-import javax.security.auth.Subject;
-
+import com.formationds.apis.*;
+import com.formationds.commons.Fds;
+import com.formationds.hadoop.FdsFileSystem;
+import com.formationds.nfs.*;
+import com.formationds.protocol.*;
+import com.formationds.util.ByteBufferUtility;
+import com.formationds.xdi.AsyncStreamer;
+import com.formationds.xdi.RealAsyncAm;
+import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.collect.Maps;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
@@ -27,34 +19,15 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.TxDescriptor;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.VolumeType;
-import com.formationds.commons.Fds;
-import com.formationds.hadoop.FdsFileSystem;
-import com.formationds.nfs.AmOps;
-import com.formationds.nfs.Counters;
-import com.formationds.nfs.DeferredIoOps;
-import com.formationds.nfs.ExportResolver;
-import com.formationds.nfs.InodeIndex;
-import com.formationds.nfs.InodeMetadata;
-import com.formationds.nfs.SimpleInodeIndex;
-import com.formationds.nfs.TransactionalIo;
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.protocol.PatternSemantics;
-import com.formationds.util.ByteBufferUtility;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.collect.Maps;
+import javax.security.auth.Subject;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
+
+import static org.junit.Assert.*;
 
 
 @Ignore
@@ -64,6 +37,17 @@ public class AsyncAmTest extends BaseAmTest {
     private Counters counters;
 
     @Test
+    public void testStatBlob() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.allocate(OBJECT_SIZE), OBJECT_SIZE, new ObjectOffset(0), metadata).get();
+        for (int i = 0; i < 1000; i++) {
+            BlobDescriptor bd = asyncAm.statBlob(domainName, volumeName, blobName).get();
+            assertEquals("world", bd.getMetadata().get("hello"));
+            bd.getMetadata().clear();
+        }
+    }
+    @Test
     public void testUpdate() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
@@ -72,9 +56,9 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
 
-        index.index(NFS_EXPORT_ID, dir, child);
+        index.index(NFS_EXPORT_ID, false, dir);
         child = child.withUpdatedAtime();
-        index.index(NFS_EXPORT_ID, child);
+        index.index(NFS_EXPORT_ID, false, child);
         List<DirectoryEntry> list = index.list(dir, NFS_EXPORT_ID);
         assertEquals(1, list.size());
     }
@@ -91,7 +75,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "panda")
                 .withLink(barDir.getFileId(), "lemur");
 
-        index.index(NFS_EXPORT_ID, fooDir, child);
+        index.index(NFS_EXPORT_ID, false, fooDir);
         assertEquals(child, index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").get());
         assertEquals(child, index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").get());
         assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "baboon").isPresent());
@@ -116,7 +100,7 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(NFS_EXPORT_ID, fooDir, barDir, blue, red);
+        index.index(NFS_EXPORT_ID, false, fooDir);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());

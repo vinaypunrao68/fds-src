@@ -85,13 +85,13 @@ public class InodeMap {
     }
 
     public Inode create(InodeMetadata metadata, long exportId) throws IOException {
-        return doUpdate(metadata, exportId);
+        return doUpdate(metadata, exportId, false);
     }
 
-    private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
+    private Inode doUpdate(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, true, (x) -> {
+        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, deferrable, (x) -> {
             x.clear();
             x.putAll(metadata.asMap());
             return null;
@@ -113,7 +113,7 @@ public class InodeMap {
 
     public void update(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry, exportId);
+            doUpdate(entry, exportId, true);
         }
     }
 

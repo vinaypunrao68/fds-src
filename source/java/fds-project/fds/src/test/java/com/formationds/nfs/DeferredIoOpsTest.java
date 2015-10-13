@@ -31,11 +31,16 @@ public class DeferredIoOpsTest {
     @Test
     public void testRenameBlob() throws Exception {
         MemoryIoOps backend = new MemoryIoOps();
-        IoOps io = new DeferredIoOps(backend, new Counters());
+        IoOps deferredIo = new DeferredIoOps(backend, new Counters());
         Map<String, String> map = new HashMap<>();
         map.put("hello", "world");
-        io.writeMetadata(DOMAIN, VOLUME, BLOB, map, false);
-        byte[] bytes = ByteBufferUtility.randomBytes(10).array();
-        io.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), ByteBuffer.wrap(bytes), bytes.length, true);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, map, false);
+        byte[] bytes = ByteBufferUtility.randomBytes(OBJECT_SIZE).array();
+        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), ByteBuffer.wrap(bytes), bytes.length, true);
+        assertArrayEquals(bytes, deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE).array());
+
+        deferredIo.renameBlob(DOMAIN, VOLUME, BLOB, "schmoops");
+        assertArrayEquals(bytes, backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).array());
+        assertArrayEquals(bytes, backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).array());
     }
 }

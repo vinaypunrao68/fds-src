@@ -32,10 +32,7 @@ public class FdsLuceneDirectory extends Directory {
         this.volume = volume;
         this.objectSize = objectSize;
         locks = new ConcurrentHashMap<>();
-        Counters counters = new Counters();
-        DeferredIoOps deferredIo = new DeferredIoOps(ops, counters);
-        deferredIo.start();
-        io = new TransactionalIo(deferredIo);
+        io = new TransactionalIo(ops);
         chunker = new Chunker(io);
     }
 
@@ -64,31 +61,13 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public IndexOutput createOutput(String fileName, IOContext ioContext) throws IOException {
-        OutputStream out = new OutputStream() {
-            long position = io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName(fileName), false, metadata -> {
-                if (metadata.size() == 0) {
-                    metadata.put(NAME, fileName);
-                    metadata.put(SIZE, Long.toString(0l));
-                }
-                return Long.parseLong(metadata.get(SIZE));
-            });
+        String blobName = blobName(fileName);
+        boolean exists = io.mapMetadata(BlockyVfs.DOMAIN, volume, blobName, metadata -> metadata.isPresent());
+        if (exists) {
+            io.deleteBlob(BlockyVfs.DOMAIN, volume, blobName);
+        }
 
-            @Override
-            public void write(int b) throws IOException {
-                write(new byte[]{(byte) b}, 0, 1);
-            }
-
-            @Override
-            public void write(byte[] b, int off, int len) throws IOException {
-                byte[] buf = new byte[len];
-                System.arraycopy(b, off, buf, 0, len);
-                chunker.write(BlockyVfs.DOMAIN, volume, blobName(fileName), objectSize, buf, position, len, metadata -> {
-                    position += len;
-                    metadata.put(SIZE, Long.toString(position));
-                    return null;
-                });
-            }
-        };
+        OutputStream out = new ChunkedOutputStream(io, BlockyVfs.DOMAIN, volume, blobName, objectSize);
         return new OutputStreamIndexOutput(fileName, out, objectSize);
     }
 
@@ -116,7 +95,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public IndexInput openInput(String indexFile, IOContext ioContext) throws IOException {
         LOG.debug("open input " + indexFile);
-        return new FdsIndexInput(indexFile);
+        return new FdsIndexInput(io, indexFile, BlockyVfs.DOMAIN, volume, blobName(indexFile), objectSize);
     }
 
     @Override
@@ -134,31 +113,49 @@ public class FdsLuceneDirectory extends Directory {
     public void close() throws IOException {
     }
 
-    private class FdsIndexInput extends IndexInput {
+    public static class FdsIndexInput extends IndexInput {
+        private String resourceName;
+        private Chunker chunker;
         private final long length;
         private final long offset;
         private long position;
+        private String domain;
+        private String volume;
         private String blobName;
+        private int objectSize;
+        private TransactionalIo io;
 
-        public FdsIndexInput(String indexFileName) throws IOException {
-            super(indexFileName);
-            this.blobName = blobName(indexFileName);
+        public FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
+            super(resourceName);
+            this.io = io;
+            this.resourceName = resourceName;
+            chunker = new Chunker(io);
+            this.domain = domain;
+            this.volume = volume;
+            this.blobName = blobName;
+            this.objectSize = objectSize;
             this.offset = 0;
             this.position = 0;
             this.length = io.mapMetadata(BlockyVfs.DOMAIN, volume, blobName, om -> Long.parseLong(om.get().get(SIZE)));
         }
 
-        public FdsIndexInput(String resourceName, String blobName, long offset, long length) {
+        private FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
             super(resourceName);
+            this.io = io;
+            this.resourceName = resourceName;
+            chunker = new Chunker(io);
+            this.domain = domain;
+            this.volume = volume;
             this.blobName = blobName;
+            this.objectSize = objectSize;
             this.offset = offset;
-            this.length = length;
             this.position = offset;
+            this.length = length;
         }
 
         @Override
         public IndexInput clone() {
-            FdsIndexInput indexInput = new FdsIndexInput(toString(), blobName, offset, length());
+            FdsIndexInput indexInput = new FdsIndexInput(io, toString(), domain, volume, blobName, objectSize, offset, length);
             indexInput.position = this.position;
             return indexInput;
         }
@@ -184,7 +181,7 @@ public class FdsLuceneDirectory extends Directory {
 
         @Override
         public IndexInput slice(String name, long offset, long length) throws IOException {
-            return new FdsIndexInput(name, blobName, offset + this.offset, length);
+            return new FdsIndexInput(io, name, domain, volume, blobName, objectSize, offset + this.offset, length);
         }
 
         @Override
@@ -197,9 +194,10 @@ public class FdsLuceneDirectory extends Directory {
         @Override
         public void readBytes(byte[] bytes, int offset, int length) throws IOException {
             byte[] buf = new byte[length];
-            chunker.read(BlockyVfs.DOMAIN, volume, blobName, objectSize, buf, position + this.offset, length);
+            chunker.read(BlockyVfs.DOMAIN, volume, blobName, objectSize, buf, position, length);
             position += length;
             System.arraycopy(buf, 0, bytes, offset, length);
         }
     }
+
 }
