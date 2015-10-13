@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
-    private final Io io;
+    private final TransactionalIo io;
     private final ExportResolver exportResolver;
     public static final Inode ROOT;
     public static final InodeMetadata ROOT_METADATA;
@@ -27,12 +27,11 @@ public class InodeMap {
 
     private final Chunker chunker;
 
-    public InodeMap(Io io, ExportResolver exportResolver) {
+    public InodeMap(TransactionalIo io, ExportResolver exportResolver) {
         this.exportResolver = exportResolver;
         this.io = io;
         chunker = new Chunker(io);
     }
-
 
     public Optional<InodeMetadata> stat(Inode inode) throws IOException {
         if (isRoot(inode)) {
@@ -48,6 +47,10 @@ public class InodeMap {
 
     public static String blobName(Inode inode) {
         return "inode-" + InodeMetadata.fileId(inode);
+    }
+
+    public static String blobName(long fileId) {
+        return "inode-" + fileId;
     }
 
     public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {
@@ -72,6 +75,7 @@ public class InodeMap {
                         .withUpdatedSize(byteCount);
                 map.clear();
                 map.putAll(last[0].asMap());
+                return null;
             });
             return last[0];
         } catch (Exception e) {
@@ -87,9 +91,10 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, (x) -> {
+        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, true, (x) -> {
             x.clear();
             x.putAll(metadata.asMap());
+            return null;
         });
         return metadata.asInode(exportId);
     }

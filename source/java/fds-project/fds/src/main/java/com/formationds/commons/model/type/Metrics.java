@@ -42,7 +42,11 @@ public enum Metrics {
     /**
      * gets from SSD and cache
      */
-    SSD_GETS( "SSD Gets" );
+    SSD_GETS( "SSD Gets" ),
+    /**
+     * Gets from just HDD
+     */
+    HDD_GETS( "HDD Gets" );
 
     public static EnumSet<Metrics> FIREBREAK = EnumSet.of(Metrics.STC_SIGMA,
                                                           Metrics.LTC_SIGMA,
@@ -61,7 +65,7 @@ public enum Metrics {
                                                                Metrics.LBYTES);
     
     public static final EnumSet<Metrics> PERFORMANCE_BREAKDOWN = EnumSet.of( Metrics.PUTS,
-    																		 Metrics.GETS,
+    																		 Metrics.HDD_GETS,
     																		 Metrics.SSD_GETS);
 
     private static final String UNKNOWN_METRIC =

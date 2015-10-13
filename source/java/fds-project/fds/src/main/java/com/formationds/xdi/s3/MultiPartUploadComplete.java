@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;
@@ -11,6 +12,7 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.BlobInfo;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.io.BlobSpecifier;
 import org.apache.commons.codec.binary.Hex;
 
 import javax.xml.stream.XMLEventReader;
@@ -24,6 +26,7 @@ import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class MultiPartUploadComplete implements SyncRequestHandler {
     private Xdi xdi;
@@ -79,37 +82,25 @@ public class MultiPartUploadComplete implements SyncRequestHandler {
     public Resource handle(HttpContext ctx) throws Exception {
         String bucket = ctx.getRouteParameter("bucket");
         String objectName = ctx.getRouteParameter("object");
-        String uploadId = ctx.getQueryParameters().get("uploadId").iterator().next();
-        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
+        Optional<String> uploadId = ctx.getQueryParameters().get("uploadId").stream().findAny();
+        if(!uploadId.isPresent())
+            throw new Exception("upload id is not present");
+
+        BlobSpecifier specifier = new BlobSpecifier(S3Endpoint.FDS_S3, bucket, S3Namespace.user().blobName(objectName));
+        MultipartUpload multipart = xdi.multipart(token, specifier, uploadId.get());
 
         //TODO: verify etag map
         Map<Integer, String> etagMap = deserializeEtagMap(ctx.getInputStream());
 
-        // TODO: do this read asynchronously
-        List<PartInfo> partInfoList = mops.getParts();
-
-        String systemVolume = xdi.getSystemVolumeName(token);
-        Map<String, String> metadata = new HashMap<>();
-        OutputStream outputStream = xdi.openForWriting(token, S3Endpoint.FDS_S3, bucket, objectName, metadata);
-        DigestOutputStream digestOutputStream = new DigestOutputStream(outputStream, MessageDigest.getInstance("MD5"));
-
-        for(PartInfo bd : partInfoList) {
-            BlobInfo blobInfo = xdi.getBlobInfo(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName()).get();
-            xdi.readToOutputStream(token, blobInfo, digestOutputStream).get();
-        }
-
-        digestOutputStream.close();
-        byte[] digest = digestOutputStream.getMessageDigest().digest();
-
-        for(PartInfo bd : partInfoList)
-            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, bd.descriptor.getName()).get();
+        BlobDescriptor descriptor = multipart.complete().get();
+        String etag = descriptor.getMetadata().get("etag");
 
         XmlElement response = new XmlElement("CompleteMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")
                 .withValueElt("Location", "http://localhost:8000/" + bucket + "/" + objectName) // TODO: get real URI
                 .withValueElt("Bucket", bucket)
                 .withValueElt("Key", objectName)
-                .withValueElt("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
+                .withValueElt("ETag", "\"" + etag + "\"");
 
         return new XmlResource(response.documentString());
     }

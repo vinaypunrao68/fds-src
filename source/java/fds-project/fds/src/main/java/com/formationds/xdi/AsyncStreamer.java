@@ -214,7 +214,7 @@ public class AsyncStreamer {
         try {
             VolumeDescriptor volumeDescriptor = configurationApi.statVolume(domain, volume);
             cf.complete(volumeDescriptor);
-        } catch (TException e) {
+        } catch (Exception e) {
             cf.completeExceptionally(e);
         }
 

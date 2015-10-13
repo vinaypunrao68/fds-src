@@ -10,10 +10,10 @@ import java.util.Optional;
 import java.util.Set;
 
 public class SimpleInodeIndex implements InodeIndex {
-    private Io io;
+    private TransactionalIo io;
     private ExportResolver exportResolver;
 
-    public SimpleInodeIndex(Io io, ExportResolver exportResolver) {
+    public SimpleInodeIndex(TransactionalIo io, ExportResolver exportResolver) {
         this.io = io;
         this.exportResolver = exportResolver;
     }
@@ -44,9 +44,10 @@ public class SimpleInodeIndex implements InodeIndex {
             Map<Long, String> links = entry.getLinks();
             for (long parentId : links.keySet()) {
                 String blobName = blobName(parentId, links.get(parentId));
-                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, metadata -> {
+                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, true, metadata -> {
                     metadata.clear();
                     metadata.putAll(entry.asMap());
+                    return null;
                 });
             }
         }
