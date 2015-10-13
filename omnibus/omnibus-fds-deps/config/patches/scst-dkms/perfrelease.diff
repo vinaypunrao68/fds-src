@@ -8,3 +8,14 @@
  	cd scst && $(MAKE) $@
  	cd iscsi-scst && $(MAKE) include/iscsi_scst_itf_ver.h && $(MAKE) mods
  	cd scst_local && $(MAKE) $@
+--- a/usr/src/scst-3.0.0.4838/iscsi-scst/include/iscsi_scst.h	2015-10-13 09:28:20.179794917 -0700
++++ b/usr/src/scst-3.0.0.4838/iscsi-scst/include/iscsi_scst.h	2015-10-13 09:28:40.523794219 -0700
+@@ -182,7 +182,7 @@
+ 	char full_initiator_name[ISCSI_FULL_NAME_LEN];
+ };
+ 
+-#define	DEFAULT_NR_QUEUED_CMNDS	32
++#define	DEFAULT_NR_QUEUED_CMNDS	128
+ #define	MIN_NR_QUEUED_CMNDS	1
+ #define	MAX_NR_QUEUED_CMNDS	2048
+ 
