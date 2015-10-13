@@ -29,6 +29,8 @@ public class SimpleInodeIndexTest {
         InodeMetadata daughter = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, sueId, exportId).withLink(parentId, SUE);
         InodeMetadata son = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, johnId, exportId).withLink(parentId, JOHN);
         index.index(StubExportResolver.EXPORT_ID, false, parent);
+        index.index(StubExportResolver.EXPORT_ID, false, daughter);
+        index.index(StubExportResolver.EXPORT_ID, false, son);
         Optional<InodeMetadata> result = index.lookup(parent.asInode(StubExportResolver.EXPORT_ID), SUE);
         assertEquals(sueId, result.get().getFileId());
         List<DirectoryEntry> children = index.list(parent, StubExportResolver.EXPORT_ID);

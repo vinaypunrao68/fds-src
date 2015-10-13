@@ -23,7 +23,7 @@ public class TransactionalIoTest {
 
     @Test
     public void testRename() throws Exception {
-        transactionalIo.mutateMetadata(domain, volume, blobName, true, (meta) -> meta.put("foo", "bar"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, false, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
 
         String newName = "ploop";
@@ -33,7 +33,7 @@ public class TransactionalIoTest {
 
     @Test
     public void testMapAndMutateMetadata() throws Exception {
-        transactionalIo.mutateMetadata(domain, volume, blobName, true, (meta) -> meta.put("foo", "bar"));
+        transactionalIo.mutateMetadata(domain, volume, blobName, false, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
         assertEquals("bar", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
 

@@ -72,7 +72,7 @@ public class AmOps implements IoOps {
             return unwindExceptions(() -> {
                 counters.increment(Counters.Key.AM_getBlob);
                 ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, objectSize, objectOffset).get();
-                LOG.debug("AM.readObject, volume=" + volumeName + ", blobName=" + blobName + ", buf=" + byteBuffer.remaining());
+                LOG.debug("AM.readObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + byteBuffer.remaining());
                 if (byteBuffer.remaining() == 0) {
                     byteBuffer = ByteBuffer.allocate(objectSize);
                 }
@@ -101,7 +101,7 @@ public class AmOps implements IoOps {
                 int length = dupe.remaining();
                 asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
                 asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                LOG.debug("AM.writeObject, volume=" + volume + ", blobName=" + blobName + ", buf=" + length);
+                LOG.debug("AM.writeObject, volume=" + volume + ", blobName=" + blobName + "objectOffset=" + objectOffset.getValue() + ", buf" + length);
                 return null;
             });
         } catch (ApiException e) {
