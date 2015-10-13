@@ -122,6 +122,7 @@ public class AmOps implements IoOps {
             return unwindExceptions(() -> {
                 counters.increment(Counters.Key.AM_volumeContents);
                 List<BlobMetadata> result = asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, null, BlobListOrder.UNSPECIFIED, false).get()
+                        .getBlobs()
                         .stream()
                         .map(bd -> new BlobMetadata(bd.getName(), bd.getMetadata()))
                         .collect(Collectors.toList());
