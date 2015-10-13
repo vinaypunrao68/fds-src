@@ -245,6 +245,10 @@ void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,
     }
 }
 
+void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t> &nullarg) {
+	// TODO
+}
+
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                   boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg)
 {

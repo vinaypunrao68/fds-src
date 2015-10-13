@@ -559,6 +559,12 @@ Error SvcMgr::getDMT(int maxAttempts) {
 	return err;
 }
 
+Error SvcMgr::getVolumeDescriptors(volDescListPtr list, int maxAttempts) {
+	Error err(ERR_OK);
+
+	return err;
+}
+
 const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }

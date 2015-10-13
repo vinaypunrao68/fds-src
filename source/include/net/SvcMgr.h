@@ -118,6 +118,7 @@ struct SvcKeyException : std::exception {
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
+using volDescListPtr = boost::shared_ptr<std::list<fpi::CtrlNotifyVolAdd>>;
 
 
 /*--------------- Primary classes --------------*/
@@ -396,6 +397,16 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return
     */
     Error getDMT(int maxAttempts = -1);
+
+    /**
+     * @brief Gets a list of volumes descriptors
+     *
+     * @param vdl - a boost ptr to populate a list
+     * @param maxAttempts - maximum attempts to try before giving up
+     *
+     * @return ERR_OK if volume received, else ERR_NOT_FOUND if nothing in the vdl
+     */
+    Error getVolumeDescriptors(volDescListPtr list, int maxAttempts = 10);
 
     /**
     * @brief Return true if e is an error service layer should handle
