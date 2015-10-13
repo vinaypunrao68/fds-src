@@ -206,15 +206,12 @@ ScstDevice::execSessionCmd() {
         << "] Init [" << sess.initiator_name
         << "] Targ [" << sess.target_name << "]";
     auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching) {
-        ++sessions;
+    if (attaching && (0 == sessions++ || 0 == volume_size)) {
         // Attach the volume to AM if we haven't already
-        if (0 == volume_size) {
-            auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-            return scstOps->init(volName, amProcessor, task); // Defer
-        }
+        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+        return scstOps->init(volName, amProcessor, task); // Defer
     } else {
-        if (0 == --sessions) {
+        if (0 > sessions && 0 == --sessions) {
             scstOps->detachVolume();
         }
     }
