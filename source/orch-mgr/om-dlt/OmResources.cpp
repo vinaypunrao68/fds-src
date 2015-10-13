@@ -1769,7 +1769,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         } else {
             // SvcMap updates and broadcast for AM/DM/SM will happen at the end of setUpNewNode
             // Once the scheduling delay is removed, it probably makes sense to allow
-            // updates to continue as previously done
+            // updates to occur here as previously done
             addRegisteringSvc(svcInfo);
         }
     }

@@ -1475,9 +1475,10 @@ OM_PmAgent::send_start_service
 
             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
             // This check should prevent service state changes stepping on each other
-            // if change requests come in too quickly
-            if ( !((serviceStatus == fpi::SVC_STATUS_INACTIVE) ||
-                (serviceStatus == fpi::SVC_STATUS_ADDED) )) {
+            // if change requests come in too quickly. A service can only be started
+            // if it has been added, or transitioned to inactive after stopping
+            if (!((serviceStatus == fpi::SVC_STATUS_INACTIVE) ||
+                  (serviceStatus == fpi::SVC_STATUS_ADDED))) {
                 LOGERROR << "Service:" << std::hex
                          << svcuuid.svc_uuid << std::dec
                          << " is not INACTIVE or ADDED, will not start";
