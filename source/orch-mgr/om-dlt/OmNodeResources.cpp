@@ -177,7 +177,6 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
         log = "Send notify add volume ";
         if (vol != NULL) {
             vol->vol_fmt_desc_pkt(&pkt->vol_desc);
-            vol->vol_populate_fdsp_descriptor(pkt);
         } else {
             /* TODO(Vy): why we need to send dummy data? */
             pkt->vol_desc.vol_name  = *vname;

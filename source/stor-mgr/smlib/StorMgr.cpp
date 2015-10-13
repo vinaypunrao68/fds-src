@@ -285,6 +285,9 @@ void ObjectStorMgr::mod_enable_service()
                 handleDltUpdate();
             }
             // else ok if no DLT yet
+
+            // Get the volume descriptors from OM
+            getAllVolumeDescriptors();
         }
 
         // Enable stats collection in SM for stats streaming
@@ -1479,6 +1482,61 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     }
 
     return err;
+}
+
+Error
+ObjectStorMgr::getAllVolumeDescriptors()
+{
+	Error err(ERR_OK);
+	fpi::GetAllVolumeDescriptors list;
+    err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
+
+    if (!err.ok()) {
+    	return err;
+    }
+
+    for (auto volAdd : list.volumeList) {
+    	VolumeDesc vdb(volAdd.vol_desc);
+    	fds_volid_t volumeId (vdb.volUUID);
+
+		GLOGNOTIFY << "Pulled create for vol "
+				   << "[" << std::hex << volumeId << std::dec << ", "
+				   << vdb.getName() << "]";
+
+		Error err = regVol(vdb);
+		if (err.ok()) {
+			StorMgrVolume * vol = getVol(volumeId);
+			fds_assert(vol != NULL);
+
+			fds_volid_t queueId = vol->getQueue()->getVolUuid();
+			if (!getQueue(queueId)) {
+				err = regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
+					vol->getQueue().get()));
+			}
+
+			if (!err.ok()) {
+				// most likely axceeded min iops
+				deregVol(volumeId);
+			}
+		}
+		if (!err.ok()) {
+			GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+					  << std::dec << " " << err;
+		}
+
+		// Start the hybrid tier migration on the first volume add call. The volume information
+		// is propagated after DLT update, and this can cause missing volume and associated volume
+		// policy.
+		// Although this is called every time when a volume is added, but hybrid tier migration
+		// controller will decided if it need to start tier migration or not.
+		SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
+		err = objectStore->tieringControlCmd(&tierCmd);
+		if (err != ERR_OK) {
+			LOGWARN << "Failed to enable Hybrid Tier Migration";
+		}
+    }
+
+	return err;
 }
 
 

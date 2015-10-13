@@ -254,9 +254,9 @@ populate_voldesc_list(fpi::GetAllVolumeDescriptors &list, VolumeInfo::pointer vo
 		return;
 	}
 	list.volumeList.emplace_back();
-	auto volAddPtr = boost::make_shared<fpi::CtrlNotifyVolAdd>(list.volumeList.back());
-	vol->vol_populate_fdsp_descriptor(volAddPtr);
-	LOGDEBUG << "Populated list with volume " << vol->vol_get_name();
+	auto &volAdd = list.volumeList.back();
+	vol->vol_populate_fdsp_descriptor(volAdd);
+	LOGDEBUG << "Populated list with volume " << volAdd.vol_desc.vol_name;
 
 }
 
@@ -271,7 +271,6 @@ void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return
     _return.volumeList.clear();
 
     volumes->vol_foreach<fpi::GetAllVolumeDescriptors&>(_return, populate_voldesc_list);
-
 }
 
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,

@@ -2381,31 +2381,14 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      * broadcast here.
      */
 
-    // TODO remove broadcast volume list
     if (om_local_domain_up()) {
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             om_dlt_update_cluster();
-            om_locDomain->om_bcast_vol_list(newNode);
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-            // Send the DMT to DMs.
             om_dmt_update_cluster();
-            if (fPrevRegistered) {
-                om_locDomain->om_bcast_vol_list(newNode);
-                LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
-            }
         }
     } else {
         local_domain_event(RegNodeEvt(uuid, msg->node_type));
-
-        // on domain re-activate, ok so send volume list right away
-        // on restarting from persistent state, none of the volumes will
-        // be loaded yet at this point, so broadcast will be NOOP
-        // Do not broadcast volumes to AMs!!! An AM will get volume info when
-        // it receives an IO for that volume
-        if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
-            om_locDomain->om_bcast_vol_list(newNode);
-            LOGDEBUG << "bcasting vol as domain is NOT up :" << msg->node_type;
-        }
     }
 
     LOGNORMAL << "Scheduled task 'setupNewNode' finished, uuid " 
