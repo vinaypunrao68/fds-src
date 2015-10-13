@@ -3284,7 +3284,16 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             loopCount = 0
             while loopCount < 10 and not svcs:
                 try:
-                    svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+                    '''
+                    (example) svcs = 
+                    [[7231149486617828611, 'am', 1444690515, '127.0.0.1', 7003, 'Active'],
+                     [7231149486617828609, 'sm', 1444690512, '127.0.0.1', 7001, 'Active'],
+                     [7231149486617828610, 'dm', 1444690509, '127.0.0.1', 7002, 'Active'],
+                     [7231149486617828608, 'pm', 1444690480, '127.0.0.1', 7000, 'Active'],
+                     [1028, 'om', 1444690486, '127.0.0.1', 7004, 'Active']]
+                    '''
+                    # Now find just the one node by filtering out the first 6 digits
+                    svcs = filter(lambda x: str(x[0])[:6] == str(long(passed_node_uuid, 16))[:6], svcs)
                     break
                 except:
                     loopCount += 1
@@ -3325,7 +3334,16 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         loopCount = 0
         while loopCount < 10:
             try:
-                svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+                '''
+                (example) svcs = 
+                [[7231149486617828611, 'am', 1444690515, '127.0.0.1', 7003, 'Active'],
+                 [7231149486617828609, 'sm', 1444690512, '127.0.0.1', 7001, 'Active'],
+                 [7231149486617828610, 'dm', 1444690509, '127.0.0.1', 7002, 'Active'],
+                 [7231149486617828608, 'pm', 1444690480, '127.0.0.1', 7000, 'Active'],
+                 [1028, 'om', 1444690486, '127.0.0.1', 7004, 'Active']]
+                '''
+                # Now find just the one node by filtering out the first 6 digits
+                svcs = filter(lambda x: str(x[0])[:6] == str(long(passed_node_uuid, 16))[:6], svcs)
                 svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
                 break
             except:
