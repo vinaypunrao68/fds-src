@@ -5,6 +5,7 @@ import com.formationds.nfs.*;
 import com.formationds.xdi.AsyncAm;
 import org.apache.log4j.Logger;
 import org.apache.lucene.store.*;
+import org.junit.Ignore;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -12,6 +13,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Ignore
 public class FdsLuceneDirectory extends Directory {
     private static final Logger LOG = Logger.getLogger(FdsLuceneDirectory.class);
     public static final String INDEX_FILE_PREFIX = "index-";
