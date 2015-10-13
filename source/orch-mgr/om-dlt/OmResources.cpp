@@ -2369,18 +2369,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     // tell parent PM Agent about its new service
     newNode->set_node_state(fpi::FDS_Node_Up);
-    // ANNA -- I don't want to mess with platform service state, so
-    // calling this method for SM and DM only. The register service method
-    // set correct discovered/active state for these services based on
-    // whether this is known service or restarting service. We are
-    // going to set node state based on service state in svc map
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
-        smAgent->set_state_from_svcmap();
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
-        dmAgent->set_state_from_svcmap();
-    }
 
     if ((msg->node_uuid).uuid != 0) {
         err = pmNodes->handle_register_service((msg->node_uuid).uuid,
@@ -2395,6 +2383,49 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             LOGWARN << "handler_register_service returned error: " << err
                 << " type:" << msg->node_type;
         }
+    }
+
+    /*
+     * Update the service layer service map up front so that any subsequent
+     * communication with that service will work. We have already done this
+     * for the PM at the end of om_register_service, so only do updates for other svcs
+    */
+    if (msg->node_type != fpi::FDSP_PLATFORM) {
+
+        SvcInfoPtr infoPtr;
+        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
+
+        if (err == ERR_OK) {
+            LOGNOTIFY <<"Update and broadcast svcMap for svc:"
+                      << std::hex
+                      << infoPtr->svc_id.svc_uuid.svc_uuid
+                      << std::dec;
+
+            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*infoPtr});
+            configDB->updateSvcMap(*infoPtr);
+            om_locDomain->om_bcast_svcmap();
+
+            // Now erase the svc from the the local tracking vector
+            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
+
+        } else {
+            LOGERROR << "Could not broadcast svcMap for service:"
+                     << std::hex << uuid.uuid_get_val()
+                     << std::dec << " , not found";
+        }
+    }
+
+    // ANNA -- I don't want to mess with platform service state, so
+    // calling this method for SM and DM only. The register service method
+    // set correct discovered/active state for these services based on
+    // whether this is known service or restarting service. We are
+    // going to set node state based on service state in svc map
+    if (msg->node_type == fpi::FDSP_STOR_MGR) {
+        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+        smAgent->set_state_from_svcmap();
+    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+        dmAgent->set_state_from_svcmap();
     }
 
 
@@ -2475,36 +2506,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     LOGNORMAL << "Scheduled task 'setupNewNode' finished, uuid " 
               << std::hex << uuid << std::dec;
-
-    /*
-     * Update the service layer service map up front so that any subsequent
-     * communication with that service will work. We have already done this
-     * for the PM at the end of om_register_service, so only do updates for other svcs
-    */
-    if (msg->node_type != fpi::FDSP_PLATFORM) {
-
-        SvcInfoPtr infoPtr;
-        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
-
-        if (err == ERR_OK) {
-            LOGNOTIFY <<"Update and broadcast svcMap for svc:"
-                      << std::hex
-                      << infoPtr->svc_id.svc_uuid.svc_uuid
-                      << std::dec;
-
-            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*infoPtr});
-            configDB->updateSvcMap(*infoPtr);
-            om_locDomain->om_bcast_svcmap();
-
-            // Now erase the svc from the the local tracking vector
-            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
-
-        } else {
-            LOGERROR << "Could not broadcast svcMap for service:"
-                     << std::hex << uuid.uuid_get_val()
-                     << std::dec << " , not found";
-        }
-    }
 }
 
 // om_del_services
