@@ -22,6 +22,7 @@ import org.apache.lucene.store.Directory;
 import org.joda.time.DateTime;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -30,6 +31,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+@Ignore
 public class FdsLuceneDirectoryTest {
     public static final List<String> KEYS = Lists.newArrayList("giraffe", "turtle", "panda", "lemur");
     public static final List<Long> VOLUMES = Lists.newArrayList(1l, 2l, 3l, 4l);
