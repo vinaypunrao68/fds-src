@@ -1428,7 +1428,7 @@ DataMgr::getAllVolumeDescriptors()
     	return err;
     }
 
-    for (auto volAdd : list.volumeList) {
+    for (auto const& volAdd : list.volumeList) {
     	VolumeDesc desc(volAdd.vol_desc);
     	fds_volid_t vol_uuid (desc.volUUID);
     	GLOGNOTIFY << "Pulled create for vol "

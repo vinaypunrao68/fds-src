@@ -560,20 +560,22 @@ Error SvcMgr::getDMT(int maxAttempts) {
 }
 
 Error SvcMgr::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int maxAttempts) {
-	Error err(ERR_OK);
+	Error err(ERR_NOT_FOUND);
 	int triedCnt = 0;
-	while (true) {
+	while (maxAttempts > triedCnt++) {
 		try {
 			getAllVolumeDescriptorsData(list);
+			if (list.volumeList.size() > 0) {
+				err = ERR_OK;
+			} else {
+				// Could potentially not be an error, but we should have gotten SYSTEM_VOLUME
+				// at least... so return ERR_NOT_FOUND
+			}
 			break;
 		} catch (Exception &e) {
 			LOGWARN << "Failed to get volume descriptor: " << e.what() << ". Attempt# " << triedCnt;
 		} catch (...) {
 			LOGWARN << "Failed to get volume descriptor. Attempt# " << triedCnt;
-		}
-		triedCnt++;
-		if (triedCnt == maxAttempts) {
-			return ERR_NOT_FOUND;
 		}
 	}
 

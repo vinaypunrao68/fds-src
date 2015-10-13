@@ -1495,18 +1495,18 @@ ObjectStorMgr::getAllVolumeDescriptors()
     	return err;
     }
 
-    for (auto volAdd : list.volumeList) {
+    for (const auto& volAdd : list.volumeList) {
     	VolumeDesc vdb(volAdd.vol_desc);
     	fds_volid_t volumeId (vdb.volUUID);
 
-		GLOGNOTIFY << "Pulled create for vol "
-				   << "[" << std::hex << volumeId << std::dec << ", "
-				   << vdb.getName() << "]";
+    	GLOGNOTIFY << "Pulled create for vol "
+    			<< "[" << std::hex << volumeId << std::dec << ", "
+				<< vdb.getName() << "]";
 
 		Error err = regVol(vdb);
 		if (err.ok()) {
 			StorMgrVolume * vol = getVol(volumeId);
-			fds_assert(vol != NULL);
+			fds_assert(vol);
 
 			fds_volid_t queueId = vol->getQueue()->getVolUuid();
 			if (!getQueue(queueId)) {

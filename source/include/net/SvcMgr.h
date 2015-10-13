@@ -399,12 +399,12 @@ struct SvcMgr : HasModuleProvider, Module {
     /**
      * @brief Gets a list of volumes descriptors
      *
-     * @param vdl - a boost ptr to populate a list
+     * @param list - actual list to be populated with data
      * @param maxAttempts - maximum attempts to try before giving up
      *
-     * @return ERR_OK if volume received, else ERR_NOT_FOUND if nothing in the vdl
+     * @return ERR_OK if volume received, else ERR_NOT_FOUND if nothing in the list
      */
-    Error getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int maxAttempts = 10);
+    Error getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int const maxAttempts = 10);
 
     /**
     * @brief Return true if e is an error service layer should handle
