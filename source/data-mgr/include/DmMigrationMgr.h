@@ -17,8 +17,8 @@ namespace fds {
 class DmIoReqHandler;
 
 class DmMigrationMgr : public DmMigrationBase {
-	using DmMigrationExecMap = std::unordered_map<fds_volid_t, DmMigrationExecutor::shared_ptr>;
-    using DmMigrationClientMap = std::unordered_map<fds_volid_t, DmMigrationClient::shared_ptr>;
+	using DmMigrationExecMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationExecutor::shared_ptr>;
+    using DmMigrationClientMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationClient::shared_ptr>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -162,11 +162,9 @@ class DmMigrationMgr : public DmMigrationBase {
 
     /**
      * Source side DM:
-     * Sends the finishVolResync msg to show that there's no more forwarding.
-     * We want it done ASAP because volume I/O is quiesced on the dest side.
+     * On any commit, the source DM will need to broadcast to other destination DMs
+     * that are all receiving migraion regarding this volume ID.
      */
-    Error sendFinishFwdMsg(fds_volid_t volId);
-
     Error forwardCatalogUpdate(fds_volid_t volId,
     						   DmIoCommitBlobTx *commitBlobReq,
     						   blob_version_t blob_version,
@@ -177,7 +175,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * In the case no forwards is sent, this will finish the migration
      */
-    Error finishActiveMigration(fds_volid_t volId);
+    Error finishActiveMigration(NodeUuid destUuid, fds_volid_t volId);
 
 
     /**
@@ -290,13 +288,13 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * Gets an ptr to the migration executor. Used internally.
      */
-    DmMigrationExecutor::shared_ptr getMigrationExecutor(fds_volid_t uniqueId);
+    DmMigrationExecutor::shared_ptr getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId);
 
     /**
      * Source side DM:
      * Gets an ptr to the migration client. Used as part of forwarding, etc.
      */
-    DmMigrationClient::shared_ptr getMigrationClient(fds_volid_t uniqueId);
+    DmMigrationClient::shared_ptr getMigrationClient(std::pair<NodeUuid, fds_volid_t> uniqueId);
 
    /**
      * Destination side DM:
@@ -322,7 +320,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * Callback for migrationExecutor. Not the callback from client.
      */
-    void migrationExecutorDoneCb(fds_volid_t volId, const Error &result);
+    void migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, const Error &result);
 
 
     /**
