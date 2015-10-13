@@ -1758,12 +1758,20 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         }
 
         /*
-         * Update the service layer service map up front so that any subsequent 
+         * Update the service layer service map up front for PM so that any subsequent
          * communication with that service will work.
          */
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-        configDB->updateSvcMap(*svcInfo);
-        om_locDomain->om_bcast_svcmap();
+        if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
+            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+            configDB->updateSvcMap(*svcInfo);
+            om_locDomain->om_bcast_svcmap();
+
+        } else {
+            // SvcMap updates and broadcast for AM/DM/SM will happen at the end of setUpNewNode
+            // Once the scheduling delay is removed, it probably makes sense to allow
+            // updates to continue as previously done
+            addRegisteringSvc(svcInfo);
+        }
     }
     catch(const Exception& e)
     {
@@ -2042,6 +2050,65 @@ bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
     }
 
     return bRetCode;
+}
+
+void OM_NodeDomainMod::addRegisteringSvc(SvcInfoPtr infoPtr)
+{
+    SCOPEDWRITE(svcRegVecLock);
+    registeringSvcs.push_back(infoPtr);
+    LOGDEBUG << "Added svc:" << std::hex << infoPtr->svc_id.svc_uuid.svc_uuid
+             << std::dec << " to tracking vector(size:"
+             << registeringSvcs.size() << ")";
+}
+
+Error
+OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
+{
+    Error err(ERR_OK);
+
+    SCOPEDREAD(svcRegVecLock);
+
+    std::vector<SvcInfoPtr>::iterator iter;
+    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
+                        [uuid](SvcInfoPtr info)->bool
+                        {
+                            return uuid == info->svc_id.svc_uuid.svc_uuid;
+                        });
+    if (iter == registeringSvcs.end()) {
+        return Error(ERR_NOT_FOUND);
+    }
+
+    infoPtr = *iter;
+
+    return err;
+}
+
+void OM_NodeDomainMod::removeRegisteredSvc(int64_t uuid)
+{
+    SCOPEDWRITE(svcRegVecLock);
+
+    // Repeating the logic from above is safest, since we cannot
+    // guarantee the validity of an iterator from the above get
+    // function, if other threads came in and modified the vector
+    // before we have had a chance to enter the remove
+    std::vector<SvcInfoPtr>::iterator iter;
+    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
+                        [uuid](SvcInfoPtr info)->bool
+                        {
+                            return uuid == info->svc_id.svc_uuid.svc_uuid;
+                        });
+
+    if (iter != registeringSvcs.end()) {
+        registeringSvcs.erase(iter);
+
+        LOGDEBUG <<"Erased registered svc:"
+                 << std::hex << uuid
+                 << std::dec << " from tracking vector(size:"
+                 << registeringSvcs.size() << ")";
+
+    } else {
+        LOGERROR << "Error in erasing registered svc from tracking vector";
+    }
 }
 
 void OM_NodeDomainMod::fromSvcInfoToFDSP_RegisterNodeTypePtr( 
@@ -2408,6 +2475,36 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     LOGNORMAL << "Scheduled task 'setupNewNode' finished, uuid " 
               << std::hex << uuid << std::dec;
+
+    /*
+     * Update the service layer service map up front so that any subsequent
+     * communication with that service will work. We have already done this
+     * for the PM at the end of om_register_service, so only do updates for other svcs
+    */
+    if (msg->node_type != fpi::FDSP_PLATFORM) {
+
+        SvcInfoPtr infoPtr;
+        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
+
+        if (err == ERR_OK) {
+            LOGNOTIFY <<"Update and broadcast svcMap for svc:"
+                      << std::hex
+                      << infoPtr->svc_id.svc_uuid.svc_uuid
+                      << std::dec;
+
+            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*infoPtr});
+            configDB->updateSvcMap(*infoPtr);
+            om_locDomain->om_bcast_svcmap();
+
+            // Now erase the svc from the the local tracking vector
+            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
+
+        } else {
+            LOGERROR << "Could not broadcast svcMap for service:"
+                     << std::hex << uuid.uuid_get_val()
+                     << std::dec << " , not found";
+        }
+    }
 }
 
 // om_del_services

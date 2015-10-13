@@ -1473,6 +1473,17 @@ OM_PmAgent::send_start_service
 
             fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, item.svc_type);
 
+            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+            // This check should prevent service state changes stepping on each other
+            // if change requests come in too quickly
+            if ( !((serviceStatus == fpi::SVC_STATUS_INACTIVE) ||
+                (serviceStatus == fpi::SVC_STATUS_ADDED) )) {
+                LOGERROR << "Service:" << std::hex
+                         << svcuuid.svc_uuid << std::dec
+                         << " is not INACTIVE or ADDED, will not start";
+                return Error(ERR_NOT_READY);
+            }
+
             for (auto existingItem : existingSvcs)
             {
                 // We *must* be able to find the associated svc in the svcMap
@@ -1565,41 +1576,76 @@ OM_PmAgent::send_stop_service
 
         fds_mutex::scoped_lock l(dbNodeInfoLock);
 
-         // Set SM service state to stopped
-        if ( stop_sm && activeSmAgent ) {
-             LOGDEBUG << "Will stop SM service "
-                      << std::hex
-                      << ( activeSmAgent->get_uuid() ).uuid_get_val()
-                      << std::dec;
+        fpi::SvcUuid svcuuid;
+        fpi::SvcUuid pmSvcUuid;
+        pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
 
-             change_service_state( configDB,
-                                   ( activeSmAgent->get_uuid() ).uuid_get_val(),
-                                   fpi::SVC_STATUS_STOPPED );
-         }
+        if (stop_sm) {
+            fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
+            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+
+            if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                LOGDEBUG << "Will stop SM service "
+                         << std::hex
+                         << svcuuid.svc_uuid
+                         << std::dec;
+
+                change_service_state( configDB,
+                                      svcuuid.svc_uuid,
+                                      fpi::SVC_STATUS_STOPPED );
+            } else {
+                LOGERROR << "Service" << std::hex
+                         << svcuuid.svc_uuid << std::dec
+                         << "is not active so cannot stop";
+                return Error(ERR_NOT_READY);
+            }
+        }
 
          // Set DM service state to stopped
-         if ( stop_dm && activeDmAgent ) {
+         if (stop_dm) {
+             fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
+             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
 
-             LOGDEBUG << "Will stop DM service "
-                      << std::hex
-                      << ( activeDmAgent->get_uuid() ).uuid_get_val()
-                      << std::dec;
+             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
 
-             change_service_state( configDB,
-                                   ( activeDmAgent->get_uuid() ).uuid_get_val(),
-                                   fpi::SVC_STATUS_STOPPED );
+                 LOGDEBUG << "Will stop DM service "
+                          << std::hex
+                          << svcuuid.svc_uuid
+                          << std::dec;
+
+                 change_service_state( configDB,
+                                       svcuuid.svc_uuid,
+                                       fpi::SVC_STATUS_STOPPED );
+             } else {
+                 LOGERROR << "Service" << std::hex
+                          << svcuuid.svc_uuid << std::dec
+                          << "is not active so cannot stop";
+                 return Error(ERR_NOT_READY);
+
+             }
          }
 
          // Set AM service state to stopped
-         if ( stop_am && activeAmAgent ) {
-             LOGDEBUG << "Will stop AM service "
-                      << std::hex
-                      << ( activeAmAgent->get_uuid() ).uuid_get_val()
-                      << std::dec;
+         if (stop_am) {
+             fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
+             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
 
-             change_service_state( configDB,
-                                   ( activeAmAgent->get_uuid() ).uuid_get_val(),
-                                   fpi::SVC_STATUS_STOPPED );
+             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+                 LOGDEBUG << "Will stop AM service "
+                          << std::hex
+                          << svcuuid.svc_uuid
+                          << std::dec;
+
+                 change_service_state( configDB,
+                                       svcuuid.svc_uuid,
+                                       fpi::SVC_STATUS_STOPPED );
+             } else {
+                 LOGERROR << "Service" << std::hex
+                          << svcuuid.svc_uuid << std::dec
+                          << "is not active so cannot stop";
+                 return Error(ERR_NOT_READY);
+             }
          }
 
         fpi::NotifyStopServiceMsgPtr stopServiceMsg =
