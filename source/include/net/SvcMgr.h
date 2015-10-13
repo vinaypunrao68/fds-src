@@ -118,8 +118,6 @@ struct SvcKeyException : std::exception {
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
-using volDescListPtr = boost::shared_ptr<std::list<fpi::CtrlNotifyVolAdd>>;
-
 
 /*--------------- Primary classes --------------*/
 /**
@@ -406,7 +404,7 @@ struct SvcMgr : HasModuleProvider, Module {
      *
      * @return ERR_OK if volume received, else ERR_NOT_FOUND if nothing in the vdl
      */
-    Error getVolumeDescriptors(volDescListPtr list, int maxAttempts = 10);
+    Error getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int maxAttempts = 10);
 
     /**
     * @brief Return true if e is an error service layer should handle
@@ -498,6 +496,11 @@ struct SvcMgr : HasModuleProvider, Module {
      * TODO(Neil): should throw an exception for timeout?
      */
     void getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt);
+
+    /**
+     * @brief Method to retrieve volume descriptors
+     */
+    void getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list);
 
     /**
     * @brief Do an async notification to OM that service is down

@@ -2380,6 +2380,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      * the getDLT() and getDMT() methods, instead of waiting for the OM to
      * broadcast here.
      */
+
+    // TODO remove broadcast volume list
     if (om_local_domain_up()) {
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             om_dlt_update_cluster();
