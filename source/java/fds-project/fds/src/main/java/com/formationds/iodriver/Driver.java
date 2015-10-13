@@ -2,42 +2,28 @@ package com.formationds.iodriver;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.Workload;
 
 /**
  * Coordinates executing a workload on an endpoint.
- * 
- * @param <EndpointT> The type of endpoint to run the workload on.
- * @param <WorkloadT> The type of workload to run on the endpoint.
  */
-// @eclipseFormat:off
-public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
-                          WorkloadT extends Workload<EndpointT, ?>>
-// @eclipseFormat:on
+public final class Driver
 {
     /**
      * Constructor.
      * 
      * @param endpoint The endpoint to run {@code workload} on.
      * @param workload The workload to run on {@code endpoint}.
-     * @param listener Receives events during the workload run.
      * @param validator Performs final check on the data {@code listener} gathered.
      */
-    public Driver(EndpointT endpoint,
-                  WorkloadT workload,
-                  AbstractWorkflowEventListener listener,
-                  Validator validator)
+    public Driver(Endpoint endpoint, Workload workload, Validator validator)
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (workload == null) throw new NullArgumentException("workload");
-        if (listener == null) throw new NullArgumentException("listener");
         if (validator == null) throw new NullArgumentException("validator");
 
         _endpoint = endpoint;
-        _listener = listener;
         _workload = workload;
         _validator = validator;
     }
@@ -47,11 +33,13 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @throws ExecutionException when an error occurs running the workload setup.
      */
-    public void ensureSetUp() throws ExecutionException
+    public void ensureSetUp(WorkloadContext context) throws ExecutionException
     {
+        if (context == null) throw new NullArgumentException("context");
+        
         if (!_isSetUp)
         {
-            getWorkload().setUp(getEndpoint(), getListener());
+            getWorkload().setUp(getEndpoint(), context);
             _isSetUp = true;
         }
     }
@@ -61,11 +49,13 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @throws ExecutionException when an error occurs running the workload teardown.
      */
-    public void ensureTearDown() throws ExecutionException
+    public void ensureTearDown(WorkloadContext context) throws ExecutionException
     {
+        if (context == null) throw new NullArgumentException("context");
+        
         if (_isSetUp)
         {
-            getWorkload().tearDown(getEndpoint(), getListener());
+            getWorkload().tearDown(getEndpoint(), context);
             _isSetUp = false;
         }
     }
@@ -75,19 +65,9 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @return The current property value.
      */
-    public EndpointT getEndpoint()
+    public Endpoint getEndpoint()
     {
         return _endpoint;
-    }
-
-    /**
-     * Get the event listener.
-     * 
-     * @return The current property value.
-     */
-    public AbstractWorkflowEventListener getListener()
-    {
-        return _listener;
     }
 
     /**
@@ -95,12 +75,12 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @return 0 for success, other for failure.
      */
-    public int getResult()
+    public int getResult(WorkloadContext context)
     {
-        AbstractWorkflowEventListener listener = getListener();
+        if (context == null) throw new NullArgumentException("context");
+        
         Validator validator = getValidator();
-
-        if (validator.isValid(listener))
+        if (validator.isValid(context))
         {
             return 0;
         }
@@ -126,47 +106,46 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
      * 
      * @return The current property value.
      */
-    public WorkloadT getWorkload()
+    public Workload getWorkload()
     {
         return _workload;
     }
-    
+
     /**
      * Run the {@link #getWorkload() workload}.
      * 
      * @throws ExecutionException when an error occurs during execution.
      */
-    public void runWorkload() throws ExecutionException
+    public void runWorkload(WorkloadContext context) throws ExecutionException
     {
-        ensureSetUp();
-        AbstractWorkflowEventListener listener = getListener();
+        if (context == null) throw new NullArgumentException("context");
+        
+        ensureSetUp(context);
         try
         {
-            getWorkload().runOn(getEndpoint(), listener);
+            getWorkload().runOn(getEndpoint(), context);
         }
         finally
         {
-            ensureTearDown();
+            ensureTearDown(context);
         }
-        listener.finished();
     }
 
-    /**
-     * Set the event listener.
-     * 
-     * @param listener The property value to set.
-     */
-    public void setListener(AbstractWorkflowEventListener listener)
+    public static Driver newDriver(Endpoint endpoint,
+                                   Workload workload,
+                                   Validator validator)
     {
-        if (listener == null) throw new NullArgumentException("listener");
-        
-        _listener = listener;
+        if (endpoint == null) throw new NullArgumentException("endpoint");
+        if (workload == null) throw new NullArgumentException("workload");
+        if (validator == null) throw new NullArgumentException("validator");
+
+        return new Driver(endpoint, workload, validator);
     }
     
     /**
      * The service endpoint that {@link #_workload} is run on.
      */
-    private final EndpointT _endpoint;
+    private final Endpoint _endpoint;
 
     /**
      * Whether {@link #_workload} has run its setup routine on {@link #_endpoint} without running
@@ -175,14 +154,9 @@ public final class Driver<EndpointT extends Endpoint<EndpointT, ?>,
     private boolean _isSetUp;
 
     /**
-     * Observes events from {@link #_workload}.
-     */
-    private AbstractWorkflowEventListener _listener;
-
-    /**
      * The instructions to run on {@link #_endpoint}.
      */
-    private final WorkloadT _workload;
+    private final Workload _workload;
 
     /**
      * Checks the data gathered by {@link #_listener} and determines if {@link #_workload} was

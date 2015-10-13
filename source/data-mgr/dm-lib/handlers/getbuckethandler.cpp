@@ -64,6 +64,7 @@ void GetBucketHandler::handleQueueItem(DmRequest *dmRequest) {
     DmIoGetBucket *request = static_cast<DmIoGetBucket*>(dmRequest);
 
     fpi::BlobDescriptorListType& blobVec = request->response->blob_descr_list;
+    auto& skippedPrefixes = request->response->skipped_prefixes;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic error "-Wswitch-enum"
     switch (request->message->patternSemantics)
@@ -99,13 +100,23 @@ void GetBucketHandler::handleQueueItem(DmRequest *dmRequest) {
     }
 
     case PatternSemantics::PREFIX:
-        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
-                dmRequest->volId, request->message->pattern, "", blobVec);
+        helper.err = dataManager.timeVolCat_
+                               ->queryIface()
+                               ->listBlobsWithPrefix(dmRequest->volId,
+                                                     request->message->pattern,
+                                                     "",
+                                                     blobVec,
+                                                     skippedPrefixes);
         break;
 
     case PatternSemantics::PREFIX_AND_DELIMITER:
-        helper.err = dataManager.timeVolCat_->queryIface()->listBlobsWithPrefix(
-                dmRequest->volId, request->message->pattern, request->message->delimiter, blobVec);
+        helper.err = dataManager.timeVolCat_
+                               ->queryIface()
+                               ->listBlobsWithPrefix(dmRequest->volId,
+                                                     request->message->pattern,
+                                                     request->message->delimiter,
+                                                     blobVec,
+                                                     skippedPrefixes);
         break;
 
     default:

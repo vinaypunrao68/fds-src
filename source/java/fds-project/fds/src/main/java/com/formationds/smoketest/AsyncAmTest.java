@@ -1,16 +1,24 @@
 package com.formationds.smoketest;
 
-import com.formationds.apis.*;
-import com.formationds.commons.Fds;
-import com.formationds.hadoop.FdsFileSystem;
-import com.formationds.nfs.*;
-import com.formationds.protocol.*;
-import com.formationds.util.ByteBufferUtility;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.collect.Maps;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
+
+import javax.security.auth.Subject;
+
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
@@ -19,15 +27,34 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import javax.security.auth.Subject;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
-
-import static org.junit.Assert.*;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.VolumeType;
+import com.formationds.commons.Fds;
+import com.formationds.hadoop.FdsFileSystem;
+import com.formationds.nfs.AmOps;
+import com.formationds.nfs.Counters;
+import com.formationds.nfs.DeferredIoOps;
+import com.formationds.nfs.ExportResolver;
+import com.formationds.nfs.InodeIndex;
+import com.formationds.nfs.InodeMetadata;
+import com.formationds.nfs.SimpleInodeIndex;
+import com.formationds.nfs.TransactionalIo;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.PatternSemantics;
+import com.formationds.util.ByteBufferUtility;
+import com.formationds.xdi.AsyncStreamer;
+import com.formationds.xdi.RealAsyncAm;
+import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.collect.Maps;
 
 
 @Ignore
@@ -201,12 +228,28 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testVolumeContents() throws Exception {
-        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName,
+                                                               volumeName,
+                                                               Integer.MAX_VALUE,
+                                                               0,
+                                                               "",
+                                                               PatternSemantics.PCRE,
+                                                               "",
+                                                               BlobListOrder.UNSPECIFIED,
+                                                               false).get().getBlobs();
         assertEquals(0, contents.size());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
-        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        contents = asyncAm.volumeContents(domainName,
+                                          volumeName,
+                                          Integer.MAX_VALUE,
+                                          0,
+                                          "",
+                                          PatternSemantics.PCRE,
+                                          "",
+                                          BlobListOrder.UNSPECIFIED,
+                                          false).get().getBlobs();
         assertEquals(1, contents.size());
     }
 
@@ -218,14 +261,30 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
         asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
         String filter = "^/[^/]+$";
-        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, filter, PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
+                                                                  volumeName,
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  filter, 
+                                                                  PatternSemantics.PCRE,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false).get().getBlobs();
         assertEquals(1, descriptors.size());
     }
 
     @Test
     @Ignore
     public void testListVolumeContents() throws Exception {
-        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, "panda", Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
+                                                                  "panda",
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  "",
+                                                                  PatternSemantics.PCRE,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false).get().getBlobs();
         for (BlobDescriptor descriptor : descriptors) {
             System.out.println(descriptor.getName());
         }
@@ -454,7 +513,15 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
-                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN, "nonExistingVolume", Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.LEXICOGRAPHIC, false).get());
+                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,
+                                             "nonExistingVolume",
+                                             Integer.MAX_VALUE,
+                                             0,
+                                             "",
+                                             PatternSemantics.PCRE,
+                                             "",
+                                             BlobListOrder.LEXICOGRAPHIC,
+                                             false).get());
     }
 
     private static ConfigurationService.Iface configService;

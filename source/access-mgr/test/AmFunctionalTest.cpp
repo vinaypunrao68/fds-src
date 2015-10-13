@@ -184,9 +184,11 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
     void attachVolumeResponse(boost::shared_ptr<apis::RequestId>& requestId,
                               boost::shared_ptr<fpi::VolumeAccessMode>& mode) override {}
     void volumeContents(const apis::RequestId& requestId,
-                        const std::vector<fpi::BlobDescriptor> & response) override {}
+                        const std::vector<fpi::BlobDescriptor>& blobs,
+                        const std::vector<std::string>& skippedPrefixes) override {}
     void volumeContents(boost::shared_ptr<apis::RequestId>& requestId,
-                        boost::shared_ptr<std::vector<fpi::BlobDescriptor> >& response) override {}
+                        boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& blobs,
+                        boost::shared_ptr<std::vector<std::string>>& skippedPrefixes) override {}
     void renameBlobResponse(const apis::RequestId& requestId,
                             const fpi::BlobDescriptor& response) override {}
     void renameBlobResponse(boost::shared_ptr<apis::RequestId>& requestId,
@@ -319,7 +321,8 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
 
     void volumeContentsResp(const Error &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
-                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents) override { completeOp(error); }
+                            boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents,
+                            boost::shared_ptr<std::vector<std::string>>& skippedPrefixes) override { completeOp(error); }
 
     void setVolumeMetadataResp(const Error &error,
                                boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error) ;}

@@ -1,6 +1,7 @@
 package com.formationds.iodriver.workloads;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -9,19 +10,17 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.codepoetics.protonpack.StreamUtils;
-
+import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
+import com.formationds.iodriver.operations.FireEvent;
 import com.formationds.iodriver.operations.LambdaS3Operation;
-import com.formationds.iodriver.operations.ReportStart;
-import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.operations.SetBucketQos;
-import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.operations.SetVolumeQos;
+import com.formationds.iodriver.operations.StatVolume;
 import com.formationds.iodriver.validators.RateLimitValidator;
 import com.formationds.iodriver.validators.Validator;
 
@@ -29,7 +28,7 @@ import com.formationds.iodriver.validators.Validator;
  * Workload that creates a single volume, sets its throttle at a given number of IOPS, and then
  * attempts to exceed those IOPS.
  */
-public final class S3RateLimitTestWorkload extends S3Workload
+public final class S3RateLimitTestWorkload extends QosWorkload
 {
     @Override
     public Optional<Validator> getSuggestedValidator()
@@ -41,12 +40,9 @@ public final class S3RateLimitTestWorkload extends S3Workload
      * Constructor.
      * 
      * @param iops The number of IOPS to set throttle to.
-     * @param logOperations Whether to log all operations executed by this workload.
      */
-    public S3RateLimitTestWorkload(int iops, boolean logOperations)
+    public S3RateLimitTestWorkload(int iops)
     {
-        super(logOperations);
-        
         if (iops <= 0)
         {
             throw new IllegalArgumentException("Must have some IOPS to test. " + iops
@@ -60,25 +56,36 @@ public final class S3RateLimitTestWorkload extends S3Workload
         _stopTime = null;
         _targetState = null;
     }
+    
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
+    @Override
+    public Class<?> getEndpointType()
+    {
+        return FdsEndpoint.class;
+    }
 
     @Override
-    protected List<Stream<S3Operation>> createOperations()
+    protected List<Stream<Operation>> createOperations()
     {
         // Creates the same object 100 times with random content. Same thing actual load will do,
         // 100 times should be enough to get the right stuff in cache so we're running at steady
         // state.
-        Stream<S3Operation> warmup =
+        Stream<Operation> warmup =
                 Stream.generate(() -> UUID.randomUUID().toString())
-                      .<S3Operation>map(content -> new CreateObject(_bucketName,
+                      .<Operation>map(content -> new CreateObject(_bucketName,
                                                                     _objectName,
-                                                                    content,
-                                                                    false))
+                                                                    content))
                       .limit(100);
 
-        Stream<S3Operation> reportStart = Stream.of(new ReportStart(_bucketName));
+        Stream<Operation> reportStart = Stream.of(
+                new FireEvent<>(() -> new VolumeStarted(Instant.now(), _bucketName)));
 
         // Set the stop time for 10 seconds from when this operation is hit.
-        Stream<S3Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
+        Stream<Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
         {
             if (_stopTime == null)
             {
@@ -88,7 +95,7 @@ public final class S3RateLimitTestWorkload extends S3Workload
 
         // The full test load, just creates the same object repeatedly with different content as
         // fast as possible for 10 seconds.
-        Stream<S3Operation> load =
+        Stream<Operation> load =
                 StreamUtils.takeWhile(Stream.generate(() -> UUID.randomUUID().toString())
                                             .map(content -> new CreateObject(_bucketName,
                                                                              _objectName,
@@ -96,9 +103,10 @@ public final class S3RateLimitTestWorkload extends S3Workload
                                       op -> ZonedDateTime.now().isBefore(_stopTime));
 
         // Report completion of the test.
-        Stream<S3Operation> reportStop = Stream.of(new ReportStop(_bucketName));
+        Stream<Operation> reportStop = Stream.of(
+                new FireEvent<>(() -> new VolumeStopped(Instant.now(), _bucketName)));
 
-        Stream<S3Operation> retval = Stream.empty();
+        Stream<Operation> retval = Stream.empty();
         retval = Stream.concat(retval, warmup);
         retval = Stream.concat(retval, reportStart);
         retval = Stream.concat(retval, startTestTiming);
@@ -108,10 +116,10 @@ public final class S3RateLimitTestWorkload extends S3Workload
     }
 
     @Override
-    protected Stream<S3Operation> createSetup()
+    protected Stream<Operation> createSetup()
     {
         return Stream.of(new CreateBucket(_bucketName),
-                         new StatBucketVolume(_bucketName, settings -> _originalState = settings),
+                         new StatVolume(_bucketName, settings -> _originalState = settings),
                          new LambdaS3Operation(() ->
                          {
                              _targetState =
@@ -122,12 +130,11 @@ public final class S3RateLimitTestWorkload extends S3Workload
                                                            _originalState.getCommitLogRetention(),
                                                            _originalState.getMediaPolicy());
                          }),
-                         new SetBucketQos(() -> _targetState),
-                         new AddToReporter(_bucketName, () -> _targetState));
+                         new SetVolumeQos(() -> _targetState));
     }
 
     @Override
-    protected Stream<S3Operation> createTeardown()
+    protected Stream<Operation> createTeardown()
     {
         return Stream.of(new DeleteBucket(_bucketName));
     }

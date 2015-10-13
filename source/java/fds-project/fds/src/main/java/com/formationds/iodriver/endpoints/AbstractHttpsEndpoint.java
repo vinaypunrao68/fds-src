@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -12,20 +11,16 @@ import javax.net.ssl.SSLSocketFactory;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.Uris;
-import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.operations.AbstractHttpOperation;
+import com.formationds.commons.util.logging.Logger;
 
 /**
  * Endpoint that only accepts HTTPS connections.
  * 
  * @param <ThisT> The implementing class.
- * @param <OperationT> Type of operations that may be visited.
  */
 // @eclipseFormat:off
-public abstract class AbstractHttpsEndpoint<
-        ThisT extends AbstractHttpsEndpoint<ThisT, OperationT>,
-        OperationT extends AbstractHttpOperation<OperationT, ThisT>>
-extends AbstractHttpEndpoint<ThisT, OperationT>
+public abstract class AbstractHttpsEndpoint<ThisT extends AbstractHttpsEndpoint<ThisT>>
+        extends AbstractBaseHttpEndpoint<ThisT, HttpsURLConnection>
 // @eclipseFormat:on
 {
     /**
@@ -75,9 +70,11 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
      * @param logger Log target.
      * @param trusting Whether normally-untrusted certificates are accepted.
      */
-    public AbstractHttpsEndpoint(URL url, Logger logger, boolean trusting)
+    public AbstractHttpsEndpoint(URL url,
+                                 Logger logger,
+                                 boolean trusting)
     {
-        super(url, logger);
+        super(url, logger, HttpsURLConnection.class);
 
         String scheme = url.getProtocol();
         if (scheme == null || !scheme.equalsIgnoreCase("https"))
@@ -98,11 +95,12 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
     {
         return _trusting;
     }
-
+    
     /**
      * Extend this class to allow deep copies even when superclass private members aren't available.
      */
-    protected class CopyHelper extends AbstractHttpEndpoint<ThisT, OperationT>.CopyHelper
+    protected class CopyHelper
+            extends AbstractBaseHttpEndpoint<ThisT, HttpsURLConnection>.CopyHelper
     {
         /**
          * Whether normally-untrusted certificates should be accepted.
@@ -123,38 +121,19 @@ extends AbstractHttpEndpoint<ThisT, OperationT>
     }
 
     @Override
-    protected HttpsURLConnection openConnection() throws IOException
-    {
-        return (HttpsURLConnection)super.openConnection();
-    }
-
-    @Override
-    protected URLConnection openConnection(URL url) throws IOException
+    protected HttpsURLConnection openConnection(URL url) throws IOException
     {
         if (url == null) throw new NullArgumentException("url");
 
-        URLConnection connection = super.openConnection(url);
+        HttpsURLConnection connection = super.openConnection(url);
 
         if (isTrusting())
         {
-            if (connection instanceof HttpsURLConnection)
-            {
-                HttpsURLConnection typedConnection = (HttpsURLConnection)connection;
-
-                typedConnection.setSSLSocketFactory(_trustingSocketFactory);
-                typedConnection.setHostnameVerifier(_trustingHostnameVerifier);
-            }
+            connection.setSSLSocketFactory(_trustingSocketFactory);
+            connection.setHostnameVerifier(_trustingHostnameVerifier);
         }
 
         return connection;
-    }
-
-    @Override
-    protected HttpsURLConnection openRelativeConnection(URI relativeUri) throws IOException
-    {
-        if (relativeUri == null) throw new NullArgumentException("relativeUri");
-
-        return (HttpsURLConnection)super.openRelativeConnection(relativeUri);
     }
 
     /**

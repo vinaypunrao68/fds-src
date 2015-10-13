@@ -108,6 +108,7 @@ struct GetBucketCallback {
     const char **commonPrefixes = NULL;
 
     boost::shared_ptr<std::vector<fpi::BlobDescriptor>> vecBlobs;
+    boost::shared_ptr<std::vector<std::string>> skippedPrefixes;
 };
 
 struct StatVolumeCallback {

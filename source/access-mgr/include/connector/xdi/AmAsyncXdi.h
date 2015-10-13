@@ -120,7 +120,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
 
     void volumeContentsResp(const api_type::error_type &error,
                             api_type::handle_type& requestId,
-                            api_type::shared_descriptor_vec_type& volContents) override;
+                            api_type::shared_descriptor_vec_type& volContents,
+                            api_type::shared_string_vec_type& skippedPrefixes) override;
 
     void setVolumeMetadataResp(const api_type::error_type &error,
                                api_type::handle_type& requestId) override;

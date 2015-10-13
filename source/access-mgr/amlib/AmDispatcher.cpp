@@ -1276,6 +1276,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
               cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
+              cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
@@ -1319,6 +1320,8 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
         cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
         cb->vecBlobs->swap(response->blob_descr_list);
+        cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>();
+        cb->skippedPrefixes->swap(response->skipped_prefixes);
     }
     amReq->proc_cb(error);
 }
