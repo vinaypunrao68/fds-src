@@ -48,7 +48,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
         }
-        IoTransactions txs = new IoTransactions(ops, counters);
+        TransactionalIo txs = new TransactionalIo(ops);
         inodeMap = new InodeMap(txs, resolver);
         allocator = new InodeAllocator(txs);
         this.exportResolver = resolver;

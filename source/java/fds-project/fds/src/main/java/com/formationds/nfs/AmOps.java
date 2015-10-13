@@ -92,7 +92,7 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, ByteBuffer buf, int objectSize) throws IOException {
+    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, ByteBuffer buf, int objectSize, boolean deferrable) throws IOException {
         try {
             unwindExceptions(() -> {
                 counters.increment(Counters.Key.AM_updateBlobTx);
@@ -117,15 +117,16 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public List<Map<String, String>> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         try {
             return unwindExceptions(() -> {
                 counters.increment(Counters.Key.AM_volumeContents);
-                return asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, "/", BlobListOrder.UNSPECIFIED, false).get()
-                        .getBlobs()
+                List<BlobMetadata> result = asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, null, BlobListOrder.UNSPECIFIED, false).get()
                         .stream()
-                        .map(bd -> bd.getMetadata())
+                        .map(bd -> new BlobMetadata(bd.getName(), bd.getMetadata()))
                         .collect(Collectors.toList());
+                LOG.debug("AM.volumeContents, volume=" + volume + ", count=" + result.size());
+                return result;
             });
         } catch (Exception e) {
             LOG.error("AM.volumeContents() TX got an Exception, volume=" + volume + ", prefix=" + blobNamePrefix, e);
@@ -145,6 +146,17 @@ public class AmOps implements IoOps {
             throw new IOException(e);
         } catch (Exception e) {
             LOG.error("AM.deleteBlob() failed, volume=" + volume + ", blobName=" + blobName, e);
+            throw new IOException(e);
+        }
+    }
+
+    @Override
+    public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
+        try {
+            unwindExceptions(() -> asyncAm.renameBlob(domain, volumeName, oldName, newName));
+            LOG.debug("AM.renameBlob, volume=" + volumeName + ", oldName=" + oldName + ", newName=" + newName);
+        } catch (Exception e) {
+            LOG.error("AM.renameBlob() failed, volume=" + volumeName + ", blobName=" + oldName, e);
             throw new IOException(e);
         }
     }

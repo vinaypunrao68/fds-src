@@ -138,7 +138,11 @@ public class InodeMetadata {
     }
 
     public long getFileId() {
-        return Long.parseLong(metadata.get(NFS_FILE_ID));
+        try {
+            return Long.parseLong(metadata.get(NFS_FILE_ID));
+        } catch (NumberFormatException e) {
+            throw e;
+        }
     }
 
     public boolean isDirectory() {
