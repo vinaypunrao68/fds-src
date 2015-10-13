@@ -350,6 +350,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             throw new NoEntException();
         }
 
+
+
         InodeMetadata updated = metadata.get().update(stat);
 
         parallel(() -> null,
@@ -409,70 +411,10 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         nfsace4[] nfsAces = metadata.get().getNfsAces();
         List<ACE> aces = new ArrayList<>(nfsAces.length);
         for (nfsace4 nfsAce : nfsAces) {
-            aces.add(valueOf(nfsAce, idMap));
+            aces.add(AccessControl.makeAceFromNfsace4(nfsAce, idMap));
         }
-        Access access = checkAcl(subject, aces, stat.getUid(), stat.getGid(), accessMask);
-        return access;
+        return AccessControl.check(subject, aces, stat.getUid(), stat.getGid(), accessMask);
     }
-
-
-    private ACE valueOf(nfsace4 ace, NfsIdMapping idMapping) throws BadOwnerException {
-        String principal = ace.who.toString();
-        int type = ace.type.value.value;
-        int flags = ace.flag.value.value;
-        int mask = ace.access_mask.value.value;
-
-        int id = -1;
-        Who who = Who.fromAbbreviation(principal);
-        if (who == null) {
-            // not a special pricipal
-            boolean isGroup = AceFlags.IDENTIFIER_GROUP.matches(flags);
-            if (isGroup) {
-                who = Who.GROUP;
-                id = idMapping.principalToGid(principal);
-            } else {
-                who = Who.USER;
-                id = idMapping.principalToUid(principal);
-            }
-        }
-        return new ACE(AceType.valueOf(type), flags, mask, who, id, ACE.DEFAULT_ADDRESS_MSK);
-    }
-
-    private Access checkAcl(Subject subject, List<ACE> acl, int owner, int group, int access) {
-        for (ACE ace : acl) {
-            int flag = ace.getFlags();
-            if ((flag & ACE4_INHERIT_ONLY_ACE) != 0) {
-                continue;
-            }
-
-            if ((ace.getType() != AceType.ACCESS_ALLOWED_ACE_TYPE) && (ace.getType() != AceType.ACCESS_DENIED_ACE_TYPE)) {
-                continue;
-            }
-
-            int ace_mask = ace.getAccessMsk();
-            if ((ace_mask & access) == 0) {
-                continue;
-            }
-
-            Who who = ace.getWho();
-
-            if ((who == Who.EVERYONE)
-                    || (who == Who.OWNER & Subjects.hasUid(subject, owner))
-                    || (who == Who.OWNER_GROUP & Subjects.hasGid(subject, group))
-                    || (who == Who.GROUP & Subjects.hasGid(subject, ace.getWhoID()))
-                    || (who == Who.USER & Subjects.hasUid(subject, ace.getWhoID()))) {
-
-                if (ace.getType() == AceType.ACCESS_DENIED_ACE_TYPE) {
-                    return Access.DENY;
-                } else {
-                    return Access.ALLOW;
-                }
-            }
-        }
-
-        return Access.UNDEFINED;
-    }
-
 
     private interface IoAction {
         public void execute() throws IOException;
