@@ -143,3 +143,6 @@
 
 -   name: Install NBD-Client
     apt: name=nbd-client
+
+-   name: install fds-stats deps
+    apt: name=fds-stats-deps force=yes state=latest update_cache=yes
