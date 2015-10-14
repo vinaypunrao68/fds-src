@@ -101,6 +101,9 @@
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
 
+    - name: install latest fds-stats-deps package
+      apt: name=fds-stats-deps force=yes state=latest update_cache=yes cache_valid_time=600
+
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
 
