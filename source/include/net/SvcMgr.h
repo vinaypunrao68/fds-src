@@ -119,7 +119,6 @@ using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 using SvcInfoPredicate = std::function<bool (const fpi::SvcInfo&)>;
 using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>;
 
-
 /*--------------- Primary classes --------------*/
 /**
 * @brief Overall manager class for service layer
@@ -398,6 +397,16 @@ struct SvcMgr : HasModuleProvider, Module {
     Error getDMT(int maxAttempts = -1);
 
     /**
+     * @brief Gets a list of volumes descriptors
+     *
+     * @param list - actual list to be populated with data
+     * @param maxAttempts - maximum attempts to try before giving up
+     *
+     * @return ERR_OK if volume received, else ERR_NOT_FOUND if nothing in the list
+     */
+    Error getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int const maxAttempts = 10);
+
+    /**
     * @brief Return true if e is an error service layer should handle
     *
     * @param e
@@ -487,6 +496,11 @@ struct SvcMgr : HasModuleProvider, Module {
      * TODO(Neil): should throw an exception for timeout?
      */
     void getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt);
+
+    /**
+     * @brief Method to retrieve volume descriptors
+     */
+    void getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list);
 
     /**
     * @brief Do an async notification to OM that service is down

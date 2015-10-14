@@ -140,6 +140,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         return ERR_OK;
     }
 
+    /**
+     * Pull the volume descriptors from OM using service layer implementation.
+     * Then populate the volumes into DM.
+     */
+    Error getAllVolumeDescriptors();
+
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**

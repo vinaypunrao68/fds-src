@@ -90,4 +90,10 @@ service OMSvc extends svc_api.PlatNetSvc {
   * @param NULL
   */
   svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
+
+  /**
+   * @brief Called to get the volume descriptors
+   * @param NULL
+   */
+   svc_api.GetAllVolumeDescriptors getAllVolumeDescriptors(1: i64 nullarg) throws (1: common.ApiException e);
 }
