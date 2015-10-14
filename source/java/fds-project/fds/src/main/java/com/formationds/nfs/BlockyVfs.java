@@ -21,6 +21,7 @@ import org.dcache.nfs.vfs.*;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +44,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     private final Counters counters;
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = new AmOps(asyncAm, counters);
+        IoOps ops = TimeoutHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();

@@ -38,6 +38,7 @@ enum ErrorCode {
     RESOURCE_NOT_EMPTY,
     SERVICE_NOT_READY,
     SERVICE_SHUTTING_DOWN,
+    TIMEOUT,
 }
 
 enum PatternSemantics {
