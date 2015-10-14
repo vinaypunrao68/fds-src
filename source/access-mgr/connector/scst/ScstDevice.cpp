@@ -310,7 +310,7 @@ void ScstDevice::execUserCmd() {
                     memcpy(&buffer[2], device_id_header, sizeof(device_id_header));
 
                     // If our buffer is big enough, copy the vendor id
-                    if (16 >= buflen) {
+                    if (16 <= buflen) {
                         memcpy(buffer + 8, vendor_name, sizeof(vendor_name));
                     }
                     break;
@@ -347,11 +347,11 @@ void ScstDevice::execUserCmd() {
                 memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
 
                 // Conditionally fill out the additional vendor/device id
-                if (16 >= buflen) {
-                    memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
-                    if (32 >= buflen) {
+                if (16 <= buflen) {
+                    memcpy(&buffer[8], vendor_name, sizeof(vendor_name));
+                    if (32 <= buflen) {
                         memcpy(&buffer[16], product_id, sizeof(product_id));
-                        if (36 >= buflen) {
+                        if (36 <= buflen) {
                             memcpy(&buffer[32], "BETA", 4);
                         }
                     }
