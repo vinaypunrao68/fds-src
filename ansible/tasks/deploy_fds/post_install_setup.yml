@@ -111,13 +111,6 @@
         - post-install
         - influxdb
 
--   name: Copy trafficgen script to /root /home/parallels/fds-src/source/Build/linux-x86_64.debug/tools
-    copy: src=../../../source/Build/linux-x86_64.debug/tools/trafficgen
-        dest=/fds/sbin/trafficgen
-        mode=0755
-    tags:
-        - post-install
-
 -   name: put upstart configs in place
     template:
         src=../templates/deploy_fds/upstart/fds-{{item}}.conf.j2
