@@ -37,17 +37,6 @@ public class AsyncAmTest extends BaseAmTest {
     private Counters counters;
 
     @Test
-    public void testStatBlob() throws Exception {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("hello", "world");
-        asyncAm.updateBlobOnce(domainName, volumeName, blobName, 0, ByteBuffer.allocate(OBJECT_SIZE), OBJECT_SIZE, new ObjectOffset(0), metadata).get();
-        for (int i = 0; i < 1000; i++) {
-            BlobDescriptor bd = asyncAm.statBlob(domainName, volumeName, blobName).get();
-            assertEquals("world", bd.getMetadata().get("hello"));
-            bd.getMetadata().clear();
-        }
-    }
-    @Test
     public void testUpdate() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
@@ -57,6 +46,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(dir.getFileId(), "panda");
 
         index.index(NFS_EXPORT_ID, false, dir);
+        index.index(NFS_EXPORT_ID, false, child);
         child = child.withUpdatedAtime();
         index.index(NFS_EXPORT_ID, false, child);
         List<DirectoryEntry> list = index.list(dir, NFS_EXPORT_ID);
@@ -76,6 +66,7 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(barDir.getFileId(), "lemur");
 
         index.index(NFS_EXPORT_ID, false, fooDir);
+        index.index(NFS_EXPORT_ID, false, child);
         assertEquals(child, index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").get());
         assertEquals(child, index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").get());
         assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "baboon").isPresent());
@@ -101,6 +92,9 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "red");
 
         index.index(NFS_EXPORT_ID, false, fooDir);
+        index.index(NFS_EXPORT_ID, false, barDir);
+        index.index(NFS_EXPORT_ID, false, blue);
+        index.index(NFS_EXPORT_ID, false, red);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());
