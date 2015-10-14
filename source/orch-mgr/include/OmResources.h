@@ -941,7 +941,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services(const NodeUuid& node_uuid);
+    void om_activate_known_services(bool domainRestart, const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service
