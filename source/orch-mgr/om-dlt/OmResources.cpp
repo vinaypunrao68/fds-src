@@ -1794,19 +1794,38 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid)
       fds_bool_t startDM = false;
       fds_bool_t startSM = false;
 
+      fpi::SvcUuid svcuuid;
+      fpi::SvcUuid pmSvcUuid;
+      pmSvcUuid.svc_uuid = node_uuid.uuid_get_val();
+
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
-          startAM = true;
+          fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
+          fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+
+          if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+              startAM = true;
+          }
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
-          startDM = true;
+          fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
+          fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+
+          if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+              startDM = true;
+          }
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
-          startSM = true;
+          fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
+          fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+
+          if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+              startSM = true;
+          }
       }
 
       if ( startAM || startDM || startSM )
