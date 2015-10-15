@@ -9,11 +9,38 @@
 
 namespace fds {
 
+/**
+* @brief Scans objects in a volume and updates bloomfilter
+*/
+struct VolumeObjectRefScanner : ObjectRefScanner {
+    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
+    Error init();
+    virtual Error scan() override;
+    virtual Error postScan() override;
+
+    virtual bool isComplete()  const override { return (itr != nullptr && !(itr->Valid())); }
+    virtual std::string logString() const override { return logStr; }
+
+    bool                                            bInited;
+    fds_volid_t                                     volId;
+    Catalog::MemSnap                                snap;
+    std::unique_ptr<Catalog::catalog_iterator_t>    itr;
+    std::string                                     logStr;
+    util::BloomFilter                               bloomfilter; 
+
+};
+
+/**
+* @brief Scans objects in a snapshot and updates bloomfilter
+*/
+struct SnapshotRefScanner : ObjectRefScanner {
+};
+
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
   Module("RefcountScanner"),
   dataMgr(dm),
-  handler(*dm)
+  qosHelper(*dm)
 {
     // TODO(Rao): assign other memebers
 }
@@ -26,7 +53,7 @@ void ObjectRefMgr::mod_startup() {
             [this] () {
             /* Immediately post to threadpool so we don't hold up timer thread */
             auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
-            handler.addToQueue(req);
+            qosHelper.addToQueue(req);
             }));
     timer->schedule(scanTask, scanIntervalSec);
     // TODO(Rao): Set members based on config
@@ -43,90 +70,127 @@ void ObjectRefMgr::scan() {
     }
 
     if (currentItr != scanList.end()) {
-        auto current = *currentItr;
         /* Scan step */
-        Error e = current->scan();
+        Error e = currentItr->scan();
         if (e != ERR_OK) {
             /* Report the error and move on */
-            GLOGWARN<< "Failed to scan: " << current->logString() << " " << e;
+            GLOGWARN<< "Failed to scan: " << currentItr->logString() << " " << e;
+            currentItr->postScan();
             currentItr++;
         } else {
-            if (current->isComplete()) {
-                // TODO(Rao): necessary cleanups
+            if (currentItr->isComplete()) {
+                currentItr->postScan();
                 currentItr++;
             }
         }
     }
 
     if (currentItr != scanList.end()) {
+        /* Schedule next scan step */
         auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
-        handler.addToQueue(req);
+        qosHelper.addToQueue(req);
     } else {
+        /* Schedule another scan cycle */
         auto timer = MODULEPROVIDER()->getTimer();
         timer->schedule(scanTask, scanIntervalSec);
     }
 }
 
-//TODO(Rao): Support scanning of multiple snapshots
-struct VolumeObjectRefScanner : ObjectRefScanner {
-    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
-    : ObjectRefScanner(m),
+void ObjectRefMgr::buildScanList() {
+    // TODO(Rao): Get list of volumes and create volume contexts for each volume
+}
+
+VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
+{
+    std::stringstream ss;
+    ss << "VolumeRefScannerContext:" << vId;
+    logStr = ss.str();
+
+    scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, vId)));
+    // TODO(Rao): Add snapshots as well
+    itr = scanners.begin();
+}
+
+Error VolumeRefScannerContext::scan() {
+    Error e = ERR_OK;
+    if (itr != scanners.end()) {
+        auto scanner = *itr;
+        e = scanner->scan();
+        if (e != ERR_OK) {
+            GLOGWARN<< "Failed to scan: " << scanner->logString() << " " << e;
+            scanner->postScan();
+            itr++;
+        } else {
+            if (scanner->isComplete()) {
+                scanner->postScan();
+                itr++;
+            }
+        }
+    }
+    return e;
+}
+
+Error VolumeRefScannerContext::postScan() {
+    // TODO(Rao): Either write the bloom filter to  a file or schedule a task to send the
+    // bloom filters to SMs
+    return ERR_OK;
+}
+
+bool VolumeRefScannerContext::isComplete() const {
+    return itr == scanners.end();
+}
+
+std::string VolumeRefScannerContext::logString() const {
+    return logStr;
+}
+
+VolumeObjectRefScanner::VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
+: ObjectRefScanner(m),
     bInited(false),
     volId(vId)
-    {
-        std::stringstream ss;
-        ss << "VolumeObjectRefScanner:" << volId;
-        logStr = ss.str();
-    }
+{
+    std::stringstream ss;
+    ss << "VolumeObjectRefScanner:" << volId;
+    logStr = ss.str();
+}
 
-    Error init() {
-        /* Create snapshot */
-        auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
-        auto err = volcatIf->getVolumeSnapshot(volId, snap);
-        if (err != ERR_OK) {
-            return err;
-        }
-        // TODO(Rao): Start the iterator based on snapshot
-        // We should lock the volume as well to protect against deletions
+Error VolumeObjectRefScanner::init() {
+    /* Create snapshot */
+    auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
+    auto err = volcatIf->getVolumeSnapshot(volId, snap);
+    if (err != ERR_OK) {
         return err;
     }
+    // TODO(Rao): Start the iterator based on snapshot
+    // We should lock the volume as well to protect against deletions
+    return err;
+}
 
-    virtual Error scan() override {
-        if (!bInited) {
-            auto error = init();
-            if (error != ERR_OK) {
-                GLOGWARN << "Failed to initialize " << logString();
-                return error;
-            }
-            bInited = true;
+Error VolumeObjectRefScanner::scan() {
+    if (!bInited) {
+        auto error = init();
+        if (error != ERR_OK) {
+            GLOGWARN << "Failed to initialize " << logString();
+            return error;
         }
-
-        std::list<ObjectID> objects;
-        auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
-        volcatIf->getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
-        for (const auto &id : objects) {
-            bloomfilter.add(id);
-        }
-
-        return ERR_OK;
+        bInited = true;
     }
 
-    virtual bool isComplete()  override { return (itr != nullptr && !(itr->Valid())); }
-    virtual std::string logString() override { return logStr; }
+    std::list<ObjectID> objects;
+    auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
+    volcatIf->getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
+    for (const auto &id : objects) {
+        bloomfilter.add(id);
+    }
 
-    bool                                            bInited;
-    fds_volid_t                                     volId;
-    Catalog::MemSnap                                snap;
-    std::unique_ptr<Catalog::catalog_iterator_t>    itr;
-    std::string                                     logStr;
-    util::BloomFilter                               bloomfilter; 
+    return ERR_OK;
+}
 
-};
-
-struct SnapshotRefScanner : ObjectRefScanner {
-};
-
-
-
+Error VolumeObjectRefScanner::postScan() {
+    auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
+    auto err = volcatIf->freeVolumeSnapshot(volId, snap);
+    // TODO(Rao): Update the aggregate bloomfilter
+    return err;
+}
 
 }  // namespace fds

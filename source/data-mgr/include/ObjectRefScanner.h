@@ -17,6 +17,7 @@ namespace fds {
 struct ObjectRefMgr;
 struct DataMgr;
 
+
 /**
 * @brief Object reference scanner interface
 */
@@ -26,8 +27,9 @@ struct ObjectRefScanner {
     }
     virtual ~ObjectRefScanner() {}
     virtual Error scan() = 0;
-    virtual bool isComplete() = 0;
-    virtual std::string logString() = 0;
+    virtual Error postScan() = 0;
+    virtual bool isComplete() const = 0;
+    virtual std::string logString() const = 0;
 
  protected:
     ObjectRefMgr        *objRefMgr;
@@ -35,7 +37,23 @@ struct ObjectRefScanner {
 using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
 
 /**
-* @brief Manages collection of ObjectRefScanner one for each volume.
+* @brief Manages collection of ObjectRefScanner.  Each ObjectRefScanner represents
+* either a volume  or a snapshot
+*/
+struct VolumeRefScannerContext {
+    VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId);
+    Error scan();
+    Error postScan();
+    bool isComplete() const;
+    std::string logString() const;
+
+    std::string                                     logStr;
+    std::list<ObjectRefScannerPtr>                  scanners;
+    std::list<ObjectRefScannerPtr>::iterator        itr;
+};
+
+/**
+* @brief Manages collection of VolumeRefScannerContext one for each volume.
 * 1. Scan of all of the volumes is scheduled on timer at configured interval
 * 2. During each scan cycle all the volumes are scanned.  Scan cycle is broken up
 * into small scan steps.
@@ -70,14 +88,14 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     };
 
     DataMgr                                     *dataMgr;
-    dm::Handler                                 handler;
+    dm::Handler                                 qosHelper;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;
     std::mutex                                  scannerLock;
     State                                       state;
-    std::list<ObjectRefScannerPtr>              scanList;
-    std::list<ObjectRefScannerPtr>::iterator    currentItr;
+    std::list<VolumeRefScannerContext>          scanList;
+    std::list<VolumeRefScannerContext>::iterator currentItr;
 };
 
 }  // namespace fds
