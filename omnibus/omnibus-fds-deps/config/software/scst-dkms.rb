@@ -17,6 +17,7 @@ build do
   command "dpkg-deb -x *.deb ./", env:env
 
   # Extract the code
+  patch source: "3.19_kernel_support.diff", plevel: 1
   patch source: "perfrelease.diff", plevel: 1
 
   # Copy to distribution
