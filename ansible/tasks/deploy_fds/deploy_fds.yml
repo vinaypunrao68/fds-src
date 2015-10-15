@@ -14,7 +14,7 @@
 - include: install_deps.yml
 
 - include: ../deploy_scst/deploy_scst.yml
-  when: fds_ft_am_scst_enabled == "true"
+  when: fds_ft_am_scst_enabled is defined and fds_ft_am_scst_enabled == "true"
 
 - include: install_fds.yml
 
