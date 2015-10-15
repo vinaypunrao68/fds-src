@@ -59,6 +59,7 @@ enum  FDSPMsgTypeId {
   NotifyStopServiceMsgTypeId                = 1024;
   NotifyAddServiceMsgTypeId                 = 1025;
   NotifyRemoveServiceMsgTypeId              = 1036;
+  GetAllVolumeDescriptorsTypeId             = 1037;
 
   /** Volume messages; common for AM, DM, SM. */
   CtrlNotifyVolAddTypeId                    = 2020;

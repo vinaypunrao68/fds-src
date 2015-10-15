@@ -1,0 +1,10 @@
+---
+-   name: add dkms config to system
+    file: path=/{{ item }} src=/opt/fds-deps/embedded/{{ item }} owner=root group=root state=link
+    with_items:
+        - 'etc/dkms'
+        - 'usr/share/debhelper/autoscripts/postinst-dkms'
+        - 'usr/share/debhelper/autoscripts/prerm-dkms'
+        - 'usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm'
+    tags:
+        - install-deps

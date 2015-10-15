@@ -37,6 +37,10 @@ end
 dependency "preparation"
 
 # fds-deps dependencies/components
+dependency "dkms"
+dependency "scst-dkms"
+dependency "scstadmin"
+dependency "iscsi-scst"
 dependency "python"
 dependency "badger"
 dependency "pip"
@@ -67,7 +71,6 @@ dependency "google-perftools"
 dependency "leveldb"
 dependency "pycurl"
 dependency "python-scp"
-dependency "libcryptopp"
 dependency "server-jre"
 dependency "mdadm"
 dependency "influxdb"

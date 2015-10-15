@@ -46,6 +46,11 @@ static constexpr fds_int64_t invalid_vol_token = -1;
  */
 class VolumeDesc : public HasState {
   public:
+	/**
+	 * NOTE: prior to adding new fields here,
+	 * any of these that are needed for thrift interface should be updated
+	 * in VolumeInfo::vol_populate_fdsp_descriptor
+	 */
     // Basic ID information.
     std::string            name;
     int                    tennantId;  // Tennant id that owns the volume
