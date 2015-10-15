@@ -9,6 +9,8 @@
 #include <string>
 #include <fds_module.h>
 #include <fds_module_provider.h>
+#include <dmhandler.h>
+#include <fds_timer.h>
 
 namespace fds {
 /* Forward declarations */
@@ -67,6 +69,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
         RUNNING
     };
 
+    DataMgr                                     *dataMgr;
     dm::Handler                                 handler;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;

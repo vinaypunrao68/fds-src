@@ -12,6 +12,7 @@ namespace fds {
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
   Module("RefcountScanner"),
+  dataMgr(dm),
   handler(*dm)
 {
     // TODO(Rao): assign other memebers
@@ -78,7 +79,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
         logStr = ss.str();
     }
 
-    void init() {
+    Error init() {
         /* Create snapshot */
         auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
         auto err = volcatIf->getVolumeSnapshot(volId, snap);
@@ -101,7 +102,8 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
         }
 
         std::list<ObjectID> objects;
-        getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
+        auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
+        volcatIf->getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
         for (const auto &id : objects) {
             bloomfilter.add(id);
         }
@@ -117,7 +119,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
     Catalog::MemSnap                                snap;
     std::unique_ptr<Catalog::catalog_iterator_t>    itr;
     std::string                                     logStr;
-    BloomFilter                                     bloomfilter; 
+    util::BloomFilter                               bloomfilter; 
 
 };
 

@@ -140,7 +140,7 @@ class VolumeCatalogQueryIface {
     virtual Error getObjectIds(fds_volid_t volId,
                                const uint32_t &maxObjs,
                                const Catalog::MemSnap &snap,
-                               std::unique_ptr<catalog_iterator_t>& dbItr,
+                               std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
                                std::list<ObjectID> &objects) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'

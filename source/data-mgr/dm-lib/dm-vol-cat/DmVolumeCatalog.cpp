@@ -486,7 +486,7 @@ Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
 Error DmVolumeCatalog::getObjectIds(fds_volid_t volId,
                                     const uint32_t &maxObjs,
                                     const Catalog::MemSnap &snap,
-                                    std::unique_ptr<catalog_iterator_t>& dbItr,
+                                    std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
                                     std::list<ObjectID> &objects) {
     GET_VOL_N_CHECK_DELETED(volId);
     vol->getObjectIds(maxObjs, snap, dbItr, objects);
