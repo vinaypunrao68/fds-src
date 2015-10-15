@@ -59,3 +59,5 @@ int SqliteDB::getValue(const std::string& query, fds_uint64_t& value) {
     sqlite3_finalize(stmt);
     return errorCode;
 }
+
+}
