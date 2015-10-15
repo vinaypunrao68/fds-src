@@ -43,8 +43,8 @@ void MetaDataList::toFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
     mlist.reserve(size());
     for (const auto& cit : *this) {
         fpi::FDSP_MetaDataPair mpair;
-        mpair.key = cit.first;
-        mpair.value = cit.second;
+        mpair.key = std::move(cit.first);
+        mpair.value = std::move(cit.second);
         mlist.push_back(mpair);
     }
 }
