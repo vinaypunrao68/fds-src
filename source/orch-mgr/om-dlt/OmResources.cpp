@@ -1759,16 +1759,19 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         }
 
         /*
-         * Update the service layer service map up front for PM so that any subsequent
+         * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
          */
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
             configDB->updateSvcMap(*svcInfo);
             om_locDomain->om_bcast_svcmap();
 
         } else {
-            // SvcMap updates and broadcast for AM/DM/SM will happen at the end of setUpNewNode
+            // ConfigDB updates and broadcast for AM/DM/SM will happen at the end of setUpNewNode
+            // This is so that any access of the service state will return ACTIVE only after
+            // the associated service agents, uuids have been set up, and not before.
             // Once the scheduling delay is removed, it probably makes sense to allow
             // updates to occur here as previously done
             addRegisteringSvc(svcInfo);
@@ -2435,7 +2438,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*infoPtr});
             configDB->updateSvcMap(*infoPtr);
             om_locDomain->om_bcast_svcmap();
 
