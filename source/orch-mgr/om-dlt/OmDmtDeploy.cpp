@@ -626,18 +626,17 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     dst.dms_to_ack.clear();
 
     if (!src.dmResync)  {
-		for (NodeUuidSet::const_iterator cit = addDms.cbegin();
-			 cit != addDms.cend();
-			 ++cit) {
-			OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
-			LOGDEBUG << "bcasting vol on dmt deploy: ";
-			// dm_agent->dump_agent_info();
-			fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
-			if (count > 0) {
-				dst.dms_to_ack.insert(*cit);
-			}
-		}
-		LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
+        for (NodeUuidSet::const_iterator cit = addDms.cbegin();
+        		cit != addDms.cend(); ++cit) {
+            OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
+            LOGDEBUG << "bcasting vol on dmt deploy: ";
+            // dm_agent->dump_agent_info();
+            fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
+		    if (count > 0) {
+			    dst.dms_to_ack.insert(*cit);
+		    }
+        }
+        LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
 				 << " DMs to acks volume notify";
     } else {
     	/*
