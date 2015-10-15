@@ -100,12 +100,18 @@ VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
 }
 
 Error
-VolumePlacement::computeDMT(const ClusterMap* cmap)
+VolumePlacement::computeDMT(const ClusterMap* cmap, fds_bool_t dmResync)
 {
     Error err(ERR_OK);
     fds_uint64_t next_version = startDmtVersion;
     fds_uint32_t depth = curDmtDepth;
     DMT *newDmt = NULL;
+
+    if (dmResync) {
+    	fds_assert(dmtMgr->hasCommittedDMT());
+    	fds_assert(depth > 0);
+    	LOGDEBUG << "DM Resync in progress. DMT calculation should remain the same.";
+    }
 
     // if we alreay have commited DMT, next version is inc 1
     if (dmtMgr->hasCommittedDMT()) {
@@ -145,7 +151,7 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
             // make it a target, just return an error so that state machine
             // knows not to proceed with commiting it, etc...
             DMTPtr commitedDmt = dmtMgr->getDMT(DMT_COMMITTED);
-            if (*commitedDmt == *newDmt) {
+            if (!dmResync && (*commitedDmt == *newDmt)) {
                 LOGDEBUG << "Newly computed DMT is the same as committed DMT."
                          << " Not going to commit";
                 LOGDEBUG << *dmtMgr;
