@@ -1,0 +1,20 @@
+---
+-   name: check_scst_install
+    shell: service scst status
+    ignore_errors: True
+    register: scst_running
+    tags:
+        - shutdown
+
+-   name: shutdown_scst
+    service: name=scst state=stopped
+    when: scst_running|success
+    tags:
+        - shutdown
+
+-   name: kill_all_iscsi_targets
+    shell: pkill -9 -f iscsi-scstd || true
+    ignore_errors: True
+    when: scst_running|success
+    tags:
+        - shutdown
