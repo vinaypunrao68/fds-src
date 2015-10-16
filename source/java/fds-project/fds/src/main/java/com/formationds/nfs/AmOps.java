@@ -37,7 +37,7 @@ public class AmOps implements IoOps {
         try {
             counters.increment(Counters.Key.AM_statBlob);
             BlobDescriptor blobDescriptor = unwindExceptions(() -> asyncAm.statBlob(domain, volumeName, blobName).get());
-            LOG.debug("AM.readMetadata, " + description + ", fieldCount=" + blobDescriptor.metadata.size());
+            LOG.debug("AM.readMetadata, " + description + ", fieldCount=" + blobDescriptor.getMetadata().size());
             return Optional.of(blobDescriptor.getMetadata());
         } catch (ApiException e) {
             switch (e.getErrorCode()) {
