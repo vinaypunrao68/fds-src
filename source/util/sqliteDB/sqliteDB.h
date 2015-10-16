@@ -3,6 +3,9 @@
  */
 
 #include <sqlite3.h>
+#include <util/Log.h>
+#include <fds_error.h>
+#include <fds_types.h>
 
 namespace fds {
 
@@ -16,14 +19,10 @@ class SqliteDB {
         int execute(const std::string &query);
         int getIntValue(const std::string &query,
                         fds_uint64_t &value);
-        int getIntValues(const std::string &query,
-                         std::vector<fds_uint64_t> &value);
-        int getTextValue(const std::string &query,
-                         std::string &value);
         int getTextValues(const std::string &query,
                           std::vector<std::string> &value);
-        inline void checkAndLog(const int& errorCode,
-                                const std::string& msg) {
+        inline void checkAndLog(const int &errorCode,
+                                const std::string &msg) {
             if (errorCode != SQLITE_OK) {
                 LOGERROR << msg << " Error code: " << errorCode
                          << " " << sqlite3_errmsg(db);

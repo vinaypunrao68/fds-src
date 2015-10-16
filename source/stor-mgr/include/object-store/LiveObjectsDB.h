@@ -1,10 +1,17 @@
 /**
  * Copyright 2015 Formation Data Systems, Inc.
  */
+#ifndef SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_LIVEOBJECTSDB_H_
+#define SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_LIVEOBJECTSDB_H_
 
-#include <util/sqliteDB.h>
+#include <string>
+#include <vector>
+
+#include <util/sqliteDB/sqliteDB.h>
 #include <util/timeutils.h>
 #include <util/stringutils.h>
+
+#include <fds_error.h>
 
 namespace fds {
 
@@ -16,17 +23,19 @@ class LiveObjectsDB {
         std::unique_ptr<SqliteDB> db = nullptr;
 
     public:
-        LiveObjectDB(const std::string& dbFilePath);
+        explicit LiveObjectsDB(const std::string& dbFilePath);
         Error createLiveObjectsTblAndIdx();
-        Error addObjectSet(fds_token_id& smToken,
-                           fds_vol_id& volId,
-                           TimeStamp& timeStamp,
-                           std::string objectSetFilePath);
-        Error removeObjectSet(fds_token_id& smToken,
-                              fds_vol_id& volId);
-        Error findObjectSetsPerToken(fds_toke_id& smToken,
+        Error addObjectSet(const fds_token_id &smToken,
+                           const fds_volid_t &volId,
+                           const TimeStamp &timeStamp,
+                           const std::string &objectSetFilePath);
+        Error removeObjectSet(const fds_token_id &smToken,
+                              const fds_volid_t &volId);
+        Error findObjectSetsPerToken(const fds_token_id &smToken,
                                      std::vector<std::string> &objSetFilenames);
-        ~LiveObjectDB() { }
+        ~LiveObjectsDB() { }
 };
 
 } // end namespace fds
+
+#endif // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_LIVEOBJECTSDB_H_
