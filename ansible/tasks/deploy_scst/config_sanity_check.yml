@@ -1,0 +1,23 @@
+---
+-   name: check_dkms_installed
+    stat: path={{ item }}
+    with_items:
+        - /opt/fds-deps/embedded/usr/sbin/dkms
+        -  /opt/fds-deps/embedded/etc/dkms
+        -  /opt/fds-deps/embedded/var/lib/dkms
+        -  /opt/fds-deps/embedded/usr/share/debhelper/autoscripts
+        -  /opt/fds-deps/embedded/usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm
+    ignore_errors: True
+    register: dkms_installed
+    tags:
+
+-   name: check_dkms_configured
+    stat: path={{ item }}
+    with_items:
+        - /etc/dkms
+        - /usr/share/debhelper/autoscripts/postinst-dkms
+        - /usr/share/debhelper/autoscripts/prerm-dkms
+        - /usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm
+    ignore_errors: True
+    register: dkms_configured
+    tags:

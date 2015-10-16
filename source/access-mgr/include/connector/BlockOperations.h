@@ -151,7 +151,7 @@ class BlockOperations
     void updateBlobOnceResp    (const error_type &, handle_type&) override {}
     void updateMetadataResp    (const error_type &, handle_type&) override {}
     void renameBlobResp        (const error_type &, handle_type&, resp_api_type::shared_descriptor_type&) override {}
-    void volumeContentsResp    (const error_type &, handle_type&, resp_api_type::shared_descriptor_vec_type&) override {}  // NOLINT
+    void volumeContentsResp    (const error_type &, handle_type&, resp_api_type::shared_descriptor_vec_type&, resp_api_type::shared_string_vec_type&) override {}  // NOLINT
     void volumeStatusResp      (const error_type &, handle_type&, resp_api_type::shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const error_type &, handle_type&) override {}  // NOLINT
     void getVolumeMetadataResp (const error_type &, handle_type&, resp_api_type::shared_meta_type&) override {}  // NOLINT

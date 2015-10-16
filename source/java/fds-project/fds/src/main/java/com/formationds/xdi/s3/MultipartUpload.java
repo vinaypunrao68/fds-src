@@ -232,11 +232,11 @@ public class MultipartUpload {
 
     public CompletableFuture<List<PartInfo>> listParts() {
         Pattern pattern = Pattern.compile(".*part-([0-9]+)$");
-        return am.volumeContents(specifier.getDomainName(), specifier.getVolumeName(), 20000, 0, uploadBlobName(""), PatternSemantics.PREFIX, BlobListOrder.UNSPECIFIED, false)
+        return am.volumeContents(specifier.getDomainName(), specifier.getVolumeName(), 20000, 0, uploadBlobName(""), PatternSemantics.PCRE, null, BlobListOrder.UNSPECIFIED, false)
                 .thenApply(contents -> {
                     ArrayList<PartInfo> parts = new ArrayList<>();
 
-                    for (BlobDescriptor desc : contents) {
+                    for (BlobDescriptor desc : contents.getBlobs()) {
                         Matcher matcher = pattern.matcher(desc.getName());
                         if (matcher.matches()) {
                             try {

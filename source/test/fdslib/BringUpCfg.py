@@ -421,6 +421,8 @@ class FdsNodeConfig(FdsConfig):
         else:
             log_dir = _log_dir
 
+        if self.nd_cmd_line_options['install'] is True:
+            self.nd_agent.ssh_exec_fds("mkdir -p /fds/var/logs/")
         print "Start platform daemon on %s in %s" % (self.nd_host_name(),fds_dir)
 
         # When running from the test harness, we want to wait for results

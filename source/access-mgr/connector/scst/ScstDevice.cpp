@@ -206,15 +206,12 @@ ScstDevice::execSessionCmd() {
         << "] Init [" << sess.initiator_name
         << "] Targ [" << sess.target_name << "]";
     auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching) {
-        ++sessions;
+    if (attaching && (0 == sessions++ || 0 == volume_size)) {
         // Attach the volume to AM if we haven't already
-        if (0 == volume_size) {
-            auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-            return scstOps->init(volName, amProcessor, task); // Defer
-        }
+        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+        return scstOps->init(volName, amProcessor, task); // Defer
     } else {
-        if (0 == --sessions) {
+        if (0 > sessions && 0 == --sessions) {
             scstOps->detachVolume();
         }
     }
@@ -313,7 +310,7 @@ void ScstDevice::execUserCmd() {
                     memcpy(&buffer[2], device_id_header, sizeof(device_id_header));
 
                     // If our buffer is big enough, copy the vendor id
-                    if (16 >= buflen) {
+                    if (16 <= buflen) {
                         memcpy(buffer + 8, vendor_name, sizeof(vendor_name));
                     }
                     break;
@@ -350,11 +347,11 @@ void ScstDevice::execUserCmd() {
                 memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
 
                 // Conditionally fill out the additional vendor/device id
-                if (16 >= buflen) {
-                    memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
-                    if (32 >= buflen) {
+                if (16 <= buflen) {
+                    memcpy(&buffer[8], vendor_name, sizeof(vendor_name));
+                    if (32 <= buflen) {
                         memcpy(&buffer[16], product_id, sizeof(product_id));
-                        if (36 >= buflen) {
+                        if (36 <= buflen) {
                             memcpy(&buffer[32], "BETA", 4);
                         }
                     }

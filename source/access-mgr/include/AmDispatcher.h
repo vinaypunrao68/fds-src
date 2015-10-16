@@ -376,6 +376,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Configurable timeouts and defaults (ms)
      */
+    uint32_t message_timeout_default { 0 };
     uint32_t message_timeout_io { 0 };
 
     /**

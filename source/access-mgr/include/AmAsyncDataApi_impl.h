@@ -117,7 +117,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
                                        shared_string_type& delimiter) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetBucketCallback* cb, Error const& e) mutable -> void {
-        p->volumeContentsResp(e, requestId, cb->vecBlobs);
+        p->volumeContentsResp(e, requestId, cb->vecBlobs, cb->skippedPrefixes);
     };
 
     auto callback = create_async_handler<GetBucketCallback>(std::move(closure));

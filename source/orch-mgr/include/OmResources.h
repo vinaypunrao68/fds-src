@@ -1037,8 +1037,10 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Updates cluster map membership and does DLT
+     * bool dmPrevRegistered - if the DMT needs to be updated in accordance
+     * with DM Resync design, which is to issue the same DMT but ++version.
      */
-    virtual void om_dmt_update_cluster();
+    virtual void om_dmt_update_cluster(bool dmPrevRegistered = false);
     virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
 

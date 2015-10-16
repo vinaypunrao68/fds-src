@@ -8,6 +8,7 @@ import com.formationds.protocol.SvcUuid;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.CtrlNotifyDLTUpdate;
 import com.formationds.protocol.svc.CtrlNotifyDMTUpdate;
+import com.formationds.protocol.svc.GetAllVolumeDescriptors;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.thrift.TException;
@@ -44,5 +45,11 @@ public class OmSvcHandler extends PlatNetSvcHandlerBase<OMSvc.Iface> implements 
     public CtrlNotifyDLTUpdate getDLT( long nullarg ) throws TException {
         logger.trace( "getDLT" );
         return super.getOmNativePlatformClientFactory().getClient().getDLT( nullarg );
+    }
+    
+    @Override
+    public GetAllVolumeDescriptors getAllVolumeDescriptors( long nullarg ) throws TException {
+        logger.trace( "getAllVolumeDescriptors" );
+    	return super.getOmNativePlatformClientFactory().getClient().getAllVolumeDescriptors( nullarg );
     }
 }

@@ -1,6 +1,9 @@
 package com.formationds.iodriver.workloads;
 
+import java.io.Closeable;
+import java.io.PrintStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -13,28 +16,28 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import com.codepoetics.protonpack.StreamUtils;
-import com.google.common.collect.ImmutableMap;
-
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.WorkloadContext;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.operations.AddToReporter;
 import com.formationds.iodriver.operations.AwaitGate;
 import com.formationds.iodriver.operations.CreateBucket;
 import com.formationds.iodriver.operations.CreateObject;
 import com.formationds.iodriver.operations.DeleteBucket;
+import com.formationds.iodriver.operations.FireEvent;
 import com.formationds.iodriver.operations.LambdaS3Operation;
-import com.formationds.iodriver.operations.ReportStart;
-import com.formationds.iodriver.operations.ReportStop;
-import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.operations.SetBucketQos;
-import com.formationds.iodriver.operations.StatBucketVolume;
+import com.formationds.iodriver.operations.Operation;
+import com.formationds.iodriver.operations.SetVolumeQos;
+import com.formationds.iodriver.operations.StatVolume;
+import com.formationds.iodriver.reporters.QosProgressReporter;
 import com.formationds.iodriver.validators.AssuredRateValidator;
 import com.formationds.iodriver.validators.Validator;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * Workload that ensures that a volume always receives its assured IOPS rate.
  */
-public final class S3AssuredRateTestWorkload extends S3Workload
+public final class S3AssuredRateTestWorkload extends QosWorkload
 {
     @Override
     public Optional<Validator> getSuggestedValidator()
@@ -42,20 +45,26 @@ public final class S3AssuredRateTestWorkload extends S3Workload
         return Optional.of(new AssuredRateValidator());
     }
     
+    @Override
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadContext context)
+    {
+        if (output == null) throw new NullArgumentException("output");
+        if (context == null) throw new NullArgumentException("context");
+        
+        return Optional.of(new QosProgressReporter(output, context));
+    }
+
     /**
      * Constructor.
      *
      * @param competingBuckets The number of buckets to compete against the test bucket's assured
      *            rate.
      * @param systemThrottle The maximum IOPS allowed by the system.
-     * @param logOperations Whether to log all operations executed by this workload.
      */
     public S3AssuredRateTestWorkload(int competingBuckets,
-                                     int systemThrottle,
-                                     boolean logOperations)
+                                     int systemThrottle)
     {
-        super(logOperations);
-        
         if (competingBuckets < 1)
         {
             throw new IllegalArgumentException("competingBuckets must be at least 1, passed "
@@ -93,26 +102,38 @@ public final class S3AssuredRateTestWorkload extends S3Workload
     }
 
     @Override
-    protected List<Stream<S3Operation>> createOperations()
+    public boolean doDryRun()
+    {
+        return true;
+    }
+    
+    @Override
+    public Class<?> getEndpointType()
+    {
+        return FdsEndpoint.class;
+    }
+    
+    @Override
+    protected List<Stream<Operation>> createOperations()
     {
         Stream<String> bucketNames =
                 StreamSupport.stream(_bucketStates.keySet().spliterator(), false);
 
-        Stream<Stream<S3Operation>> operations =
+        Stream<Stream<Operation>> operations =
                 bucketNames.map(bucketName -> createBucketOperations(bucketName));
 
-        List<Stream<S3Operation>> retval = operations.collect(Collectors.toList());
+        List<Stream<Operation>> retval = operations.collect(Collectors.toList());
         return retval;
     }
 
     @Override
-    protected Stream<S3Operation> createSetup()
+    protected Stream<Operation> createSetup()
     {
         return Stream.concat(createSetupAssuredBucket(), createSetupCompetingBuckets());
     }
 
     @Override
-    protected Stream<S3Operation> createTeardown()
+    protected Stream<Operation> createTeardown()
     {
         return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
                             .map(bucketName -> new DeleteBucket(bucketName));
@@ -180,31 +201,31 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      *
      * @return A list of operations to execute against the given bucket.
      */
-    private Stream<S3Operation> createBucketOperations(String bucketName)
+    private Stream<Operation> createBucketOperations(String bucketName)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
         // Creates the same object 100 times with random content. Same thing actual load will do,
         // 100 times should be enough to get the right stuff in cache so we're running at steady
         // state.
-        Stream<S3Operation> warmup =
+        Stream<Operation> warmup =
                 Stream.generate(() -> UUID.randomUUID().toString())
-                      .<S3Operation>map(content -> new CreateObject(bucketName,
+                      .<Operation>map(content -> new CreateObject(bucketName,
                                                                     _objectName,
-                                                                    content,
-                                                                    false))
+                                                                    content))
                       .limit(100);
 
         // Wait for everyone to warm up.
-        Stream<S3Operation> awaitWarmup = Stream.of(new AwaitGate(_warmupGate));
+        Stream<Operation> awaitWarmup = Stream.of(new AwaitGate(_warmupGate));
 
         // Start timing the test.
-        Stream<S3Operation> reportStart = Stream.of(new ReportStart(bucketName));
+        Stream<Operation> reportStart = Stream.of(
+                new FireEvent<>(() -> new VolumeStarted(Instant.now(), bucketName)));
 
         // Set the stop time for 10 seconds from when this operation is hit. We don't want to do a
         // map lookup every operation, so capture the state instead of looking it up each time.
         BucketState bucketState = _bucketStates.get(bucketName);
-        Stream<S3Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
+        Stream<Operation> startTestTiming = Stream.of(new LambdaS3Operation(() ->
         {
             if (bucketState.stopTestTime == null)
             {
@@ -214,7 +235,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
 
         // The full test load, just creates the same object repeatedly with different content as
         // fast as possible for 10 seconds.
-        Stream<S3Operation> load =
+        Stream<Operation> load =
                 StreamUtils.takeWhile(Stream.generate(() -> UUID.randomUUID().toString())
                                             .map(content -> new CreateObject(bucketName,
                                                                              _objectName,
@@ -222,9 +243,10 @@ public final class S3AssuredRateTestWorkload extends S3Workload
                                       op -> ZonedDateTime.now().isBefore(bucketState.stopTestTime));
 
         // Report completion of the test.
-        Stream<S3Operation> reportStop = Stream.of(new ReportStop(bucketName));
+        Stream<Operation> reportStop = Stream.of(
+                new FireEvent<>(() -> new VolumeStopped(Instant.now(), bucketName)));
 
-        Stream<S3Operation> retval = Stream.empty();
+        Stream<Operation> retval = Stream.empty();
         retval = Stream.concat(retval, warmup);
         retval = Stream.concat(retval, awaitWarmup);
         retval = Stream.concat(retval, reportStart);
@@ -239,11 +261,11 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      *
      * @return A list of operations.
      */
-    private Stream<S3Operation> createSetupAssuredBucket()
+    private Stream<Operation> createSetupAssuredBucket()
     {
         int minAssuredIops = _competingBuckets * VOLUME_HARD_MIN;
         int headroom = _systemThrottle - minAssuredIops;
-        int testAssured = (int)(headroom * 0.95);  // Take 95% of the system's I/O capacity to
+        int testAssured = (int)(headroom * 0.85);  // Take 85% of the system's I/O capacity to
                                                    // ensure there's really competition.
 
         return createSetupBucket(_assuredBucketName, testAssured);
@@ -256,7 +278,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      *
      * @return A list of operations.
      */
-    private Stream<S3Operation> createSetupCompetingBucket(String bucketName)
+    private Stream<Operation> createSetupCompetingBucket(String bucketName)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
@@ -269,7 +291,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      *
      * @return A list of operations.
      */
-    private Stream<S3Operation> createSetupCompetingBuckets()
+    private Stream<Operation> createSetupCompetingBuckets()
     {
         return StreamSupport.stream(_bucketStates.keySet().spliterator(), false)
                             .filter(bucketName -> !bucketName.equals(_assuredBucketName))
@@ -284,7 +306,7 @@ public final class S3AssuredRateTestWorkload extends S3Workload
      *
      * @return A list of operations.
      */
-    private Stream<S3Operation> createSetupBucket(String bucketName, int assured)
+    private Stream<Operation> createSetupBucket(String bucketName, int assured)
     {
         if (bucketName == null) throw new NullArgumentException("bucketName");
 
@@ -309,12 +331,11 @@ public final class S3AssuredRateTestWorkload extends S3Workload
         };
 
         CreateBucket createBucket = new CreateBucket(bucketName);
-        StatBucketVolume statBucket = new StatBucketVolume(bucketName, qosSetter);
+        StatVolume statBucket = new StatVolume(bucketName, qosSetter);
         LambdaS3Operation setTarget = new LambdaS3Operation(setQosParams);
-        SetBucketQos setQosToTarget = new SetBucketQos(qosGetter);
-        AddToReporter addToReporter = new AddToReporter(bucketName, qosGetter);
+        SetVolumeQos setQosToTarget = new SetVolumeQos(qosGetter);
 
-        return Stream.of(createBucket, statBucket, setTarget, setQosToTarget, addToReporter);
+        return Stream.of(createBucket, statBucket, setTarget, setQosToTarget);
     }
 
     static

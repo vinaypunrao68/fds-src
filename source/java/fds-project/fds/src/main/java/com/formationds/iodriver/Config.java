@@ -1,7 +1,5 @@
 package com.formationds.iodriver;
 
-import java.io.PrintStream;
-import java.io.PrintWriter;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
@@ -19,23 +17,17 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
 
+import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.commons.RuntimeConfig;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.logging.ConsoleLogger;
-import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.WorkflowEventListener;
-import com.formationds.iodriver.validators.RateLimitValidator;
-import com.formationds.iodriver.validators.Validator;
 import com.formationds.iodriver.workloads.S3AssuredRateTestWorkload;
 import com.formationds.iodriver.workloads.S3RateLimitTestWorkload;
 import com.formationds.iodriver.workloads.Workload;
@@ -43,7 +35,7 @@ import com.formationds.iodriver.workloads.Workload;
 /**
  * Global configuration for {@link com.formationds.iodriver}.
  */
-public final class Config
+public final class Config extends AbstractConfig
 {
     /**
      * Actions that can be logged.
@@ -57,130 +49,74 @@ public final class Config
     }
     
     /**
-     * The interactive console.
-     */
-    public final static class Console
-    {
-        /**
-         * Get the best guess on the current console height.
-         *
-         * @return The current console height, or 25 if it cannot be determined.
-         */
-        public static int getHeight()
-        {
-            return getEnvInt("LINES", 25);
-        }
-
-        /**
-         * Get the best guess on the current console width.
-         *
-         * @return The current console width, or 80 if it cannot be determined.
-         */
-        public static int getWidth()
-        {
-            return getEnvInt("COLUMNS", 80);
-        }
-
-        private static int getEnvInt(String varName, int defaultValue)
-        {
-            if (varName == null) throw new NullArgumentException("varName");
-
-            String valueString = System.getenv(varName);
-            if (valueString == null)
-            {
-                return defaultValue;
-            }
-
-            try
-            {
-                return Integer.parseInt(valueString);
-            }
-            catch (NumberFormatException e)
-            {
-                return defaultValue;
-            }
-        }
-    }
-
-    /**
      * Default static configuration not pulled from command-line.
      */
-    public final static class Defaults
+    public final static class Defaults extends AbstractConfig.Defaults
     {
-        /**
-         * Get the default endpoint.
-         * 
-         * @return An endpoint to the local system default S3 interface.
-         */
-        public static S3Endpoint getEndpoint()
+        public static FdsEndpoint getFdsEndpoint()
         {
-            return _endpoint;
+            return _fdsEndpoint;
         }
-
-        /**
-         * Get the default event listener.
-         * 
-         * @return A stats-gathering and 1-input-many-output event hub.
-         */
-        public static WorkflowEventListener getListener()
+        
+        public static OmV7Endpoint getOmV7Endpoint()
         {
-            return _listener;
+            return _omV7Endpoint;
         }
-
+        
         /**
-         * Get the default logger.
-         * 
-         * @return A system console logger that writes to standard output.
-         */
-        public static Logger getLogger()
-        {
-            return _logger;
-        }
-
-        /**
-         * Get the default validator.
+         * Get the default OM v8 API endpoint.
          *
-         * @return A validator that ensures a volumes IOPS did not exceed its configured throttle.
+         * @return An endpoint to the local system.
          */
-        public static Validator getValidator()
+        public static OmV8Endpoint getOmV8Endpoint()
         {
-            return _validator;
+            return _omV8Endpoint;
+        }
+
+        /**
+         * Get the default S3 endpoint.
+         * 
+         * @return An endpoint to the local system.
+         */
+        public static S3Endpoint getS3Endpoint()
+        {
+            return _s3Endpoint;
         }
 
         static
         {
-            Logger newLogger = new ConsoleLogger();
-
             try
             {
-                URI s3Endpoint = Fds.getS3Endpoint();
-                String s3EndpointText = s3Endpoint.toString();
+                URI s3EndpointUrl = Fds.getS3Endpoint();
+                String s3EndpointText = s3EndpointUrl.toString();
 
-                URI apiBase = Fds.Api.getBase();
+                @SuppressWarnings("deprecation")
+                URI v7ApiBase = Fds.Api.V07.getBase();
                 URI v8ApiBase = Fds.Api.V08.getBase();
-                OrchestrationManagerEndpoint omEndpoint =
-                        new OrchestrationManagerEndpoint(apiBase,
-                                                         "admin",
-                                                         "admin",
-                                                         newLogger,
-                                                         true,
-                                                         new OrchestrationManagerEndpoint(v8ApiBase,
-                                                                                          "admin",
-                                                                                          "admin",
-                                                                                          newLogger,
-                                                                                          true,
-                                                                                          null));
+                OmV8Endpoint omEndpointV8 = new OmV8Endpoint(v8ApiBase,
+                                                             "admin",
+                                                             "admin",
+                                                             AbstractConfig.Defaults.getLogger(),
+                                                             true);
+                OmV7Endpoint omEndpointV7 = new OmV7Endpoint(v7ApiBase,
+                                                             "admin",
+                                                             "admin",
+                                                             AbstractConfig.Defaults.getLogger(),
+                                                             true);
+                S3Endpoint s3 = new S3Endpoint(s3EndpointText,
+                                               omEndpointV8,
+                                               AbstractConfig.Defaults.getLogger());
 
-                _endpoint = new S3Endpoint(s3EndpointText, omEndpoint, newLogger);
+                _fdsEndpoint = new FdsEndpoint(omEndpointV7, omEndpointV8, s3);
+                _s3Endpoint = s3;
+                _omV7Endpoint = omEndpointV7;
+                _omV8Endpoint = omEndpointV8;
             }
             catch (MalformedURLException e)
             {
                 // Should be impossible.
                 throw new IllegalStateException(e);
             }
-            _listener = new WorkflowEventListener(newLogger);
-            _logger = newLogger;
-            _validator = new RateLimitValidator();
         }
 
         /**
@@ -191,25 +127,19 @@ public final class Config
             throw new UnsupportedOperationException("Instantiating a utility class.");
         }
 
-        /**
-         * Default endpoint.
-         */
-        private static final S3Endpoint _endpoint;
+        private static final FdsEndpoint _fdsEndpoint;
 
         /**
-         * Default event listener.
+         * Default S3 endpoint.
          */
-        private static final WorkflowEventListener _listener;
+        private static final S3Endpoint _s3Endpoint;
 
+        private static final OmV7Endpoint _omV7Endpoint;
+        
         /**
-         * Default logger.
+         * Default version-8 API OM endpoint.
          */
-        private static final Logger _logger;
-
-        /**
-         * Default validator.
-         */
-        private static final Validator _validator;
+        private static final OmV8Endpoint _omV8Endpoint;
     }
 
     /**
@@ -219,14 +149,36 @@ public final class Config
      */
     public Config(String[] args)
     {
-        if (args == null) throw new NullArgumentException("args");
-
-        _args = args;
+    	super(args);
+        
         _availableWorkloadNames = null;
-        _commandLine = null;
         _disk_iops_max = -1;
         _disk_iops_min = -1;
         _workloadName = null;
+    }
+
+    @Override
+    public void addOptions(Options options)
+    {
+    	if (options == null) throw new NullArgumentException("options");
+    	
+    	super.addOptions(options);
+    	
+        options.addOption("d",
+                          "debug",
+                          true,
+                          "Operations to debug. Available operations are "
+                          + String.join(", ",
+                                        StreamSupport.stream(Arrays.asList(LogTargets.values())
+                                                                   .spliterator(),
+                                                             false)
+                                                     .map(logTarget -> logTarget.toString())
+                                                     .collect(Collectors.toList())));
+        options.addOption("w",
+                          "workload",
+                          true,
+                          "The workload to run. Available options are "
+                          + String.join(", ", getAvailableWorkloadNames()) + ".");
     }
 
     /**
@@ -245,44 +197,7 @@ public final class Config
         final int systemThrottle = getSystemIopsMax();
         
         return new S3AssuredRateTestWorkload(competingBuckets,
-                                             systemThrottle,
-                                             getOperationLogging());
-    }
-    
-    /**
-     * Get the endpoint to run workloads on.
-     * 
-     * @return The specified configuration.
-     */
-    public S3Endpoint getEndpoint()
-    {
-        // TODO: Allow this to be specified.
-        return Defaults.getEndpoint();
-    }
-
-    /**
-     * Get configuration that is determined dynamically at runtime.
-     * 
-     * @return The current runtime configuration.
-     */
-    public Fds.Config getRuntimeConfig()
-    {
-        if (_runtimeConfig == null)
-        {
-            _runtimeConfig = new Fds.Config("iodriver", _args);
-        }
-        return _runtimeConfig;
-    }
-
-    /**
-     * Get the configured listener.
-     * 
-     * @return An event hub.
-     */
-    public WorkflowEventListener getListener()
-    {
-        // TODO: ALlow this to be configured.
-        return Defaults.getListener();
+                                             systemThrottle);
     }
 
     /**
@@ -312,17 +227,6 @@ public final class Config
         return _logTargets;
     }
     
-    /**
-     * Get the configured logger.
-     * 
-     * @return A logger.
-     */
-    public Logger getLogger()
-    {
-        // TODO: Allow this to be configured.
-        return Defaults.getLogger();
-    }
-
     /**
      * Get whether to log individual operations.
      * 
@@ -397,42 +301,81 @@ public final class Config
                                              + " IOPS of headroom, not enough for a good test.");
         }
 
-        return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded, getOperationLogging());
+        return new S3RateLimitTestWorkload(systemThrottle - headroomNeeded);
     }
 
+    /**
+     * Get the user-selected workload.
+     * 
+     * @return A workload.
+     * 
+     * @throws ParseException when the command-line arguments cannot be parsed.
+     * @throws ConfigurationException when system configuration is invalid.
+     */
     // @eclipseFormat:off
-    public <WorkloadT extends Workload<EndpointT, OperationT>,
-            EndpointT extends Endpoint<EndpointT, OperationT>,
-            OperationT extends Operation<OperationT, EndpointT>>
-    WorkloadT getSelectedWorkload(Class<EndpointT> endpointType,
-                                  Class<OperationT> operationType)
-    throws ParseException, ConfigurationException
+    public Workload getSelectedWorkload() throws ParseException, ConfigurationException
     // @eclipseFormat:on
     {
-        if (endpointType == null) throw new NullArgumentException("endpointType");
-        if (operationType == null) throw new NullArgumentException("operationType");
-
         String workloadName = getSelectedWorkloadName();
-        Class<?> myClass = getClass();
-        Method workloadFactoryMethod;
+        Method workloadFactoryMethod = null;
+        RuntimeConfig workloadFactory = null;
         try
         {
-            // HACK: We should allow the annotation to specify the workload name, and then store
-            //       a map. We definitely shouldn't be adding and removing the pre/suffixes in two
-            //       very different places (see getAvailableWorkloadNames()).
-            workloadFactoryMethod = myClass.getMethod("get" + workloadName + "Workload");
+            Stream<RuntimeConfig> configs = Stream.concat(Stream.of(this),
+                                                          getConfigs().stream());
+            
+        	NoSuchMethodException finalE = null;
+        	for (RuntimeConfig config : configs.toArray(size -> new RuntimeConfig[size]))
+        	{
+        	    Class<?> clazz = config.getClass();
+        		try
+        		{
+                    // HACK: We should allow the annotation to specify the workload name, and then
+        			//       store a map. We definitely shouldn't be adding and removing the
+        			//       pre/suffixes in two very different places (see
+        			//       getAvailableWorkloadNames()).
+        			workloadFactoryMethod = clazz.getMethod("get" + workloadName + "Workload");
+        			workloadFactory = config;
+        		}
+        		catch (NoSuchMethodException e)
+        		{
+        			if (finalE == null)
+        			{
+        				finalE = e;
+        			}
+        			else
+        			{
+        				finalE.addSuppressed(e);
+        			}
+        		}
+        	}
+        	
+            if (workloadFactoryMethod == null)
+            {
+            	if (finalE == null)
+            	{
+            		throw new ConfigurationException("No method get" + workloadName + "Workload() "
+            										 + "found.");
+            	}
+            	else
+            	{
+            		throw new ConfigurationException("Error looking up workload method get"
+            										 + workloadName + "Workload().", finalE);
+            	}
+            }
         }
-        catch (NoSuchMethodException | SecurityException e)
+        catch (SecurityException e)
         {
-            throw new ConfigurationException("No such method " + workloadName + "().");
+            throw new ConfigurationException("Security error looking up method name get"
+            						         + workloadName + "Workload().", e);
         }
 
-        Workload<?, ?> workload;
+        Workload workload;
         try
         {
             try
             {
-                workload = (Workload<?, ?>)workloadFactoryMethod.invoke(this);
+                workload = (Workload)workloadFactoryMethod.invoke(workloadFactory);
             }
             catch (InvocationTargetException e)
             {
@@ -456,140 +399,20 @@ public final class Config
             throw new ConfigurationException("Unexpected error building workload.", t);
         }
 
-        if (!workload.getEndpointType().equals(endpointType))
-        {
-            throw new ConfigurationException("Workload endpoint type of "
-                                             + workload.getEndpointType().getName()
-                                             + " is not the requested type of " + endpointType
-                                             + ".");
-        }
-        if (!workload.getOperationType().equals(operationType))
-        {
-            throw new ConfigurationException("Workload operation type of "
-                                             + workload.getOperationType().getName()
-                                             + " is not the requested type of " + operationType
-                                             + ".");
-        }
-        @SuppressWarnings("unchecked")
-        WorkloadT retval = (WorkloadT)workload;
-
-        return retval;
+        return workload;
     }
 
-    /**
-     * Get the configured validator.
-     * 
-     * @return A validator.
-     */
-    public Validator getValidator()
+    @Override
+    protected String getProgramName()
     {
-        // TODO: Allow this to be configured.
-        return Defaults.getValidator();
+    	return "iodriver";
     }
-
-    /**
-     * Determine if help should be shown. This is true if either the user requests it or the
-     * command-line cannot be parsed.
-     *
-     * @return Whether help should be shown.
-     */
-    public boolean isHelpNeeded()
-    {
-        try
-        {
-            return isHelpRequested();
-        }
-        catch (ParseException e)
-        {
-            return true;
-        }
-    }
-
-    /**
-     * Determine if we know that the user requested that help be shown.
-     *
-     * @return Whether the command-line was successfully parsed and the help option was specified.
-     */
-    public boolean isHelpExplicitlyRequested()
-    {
-        try
-        {
-            return isHelpRequested();
-        }
-        catch (ParseException e)
-        {
-            return false;
-        }
-    }
-
-    /**
-     * Determine if the user requested that help be shown.
-     *
-     * @return Whether the user requested that help be shown.
-     *
-     * @throws ParseException when command-line arguments could not be parsed.
-     */
-    public boolean isHelpRequested() throws ParseException
-    {
-        CommandLine commandLine = getCommandLine();
-
-        return commandLine.hasOption("help");
-    }
-
-    /**
-     * Show the command-line help on standard output.
-     */
-    public void showHelp()
-    {
-        showHelp(System.out);
-    }
-
-    /**
-     * Show the command-line help.
-     *
-     * @param stream Where to show the help.
-     */
-    public void showHelp(PrintStream stream)
-    {
-        if (stream == null) throw new NullArgumentException("stream");
-
-        // We intentionally don't close a stream we don't own.
-        PrintWriter writer = new PrintWriter(stream);
-        showHelp(writer);
-    }
-
-    /**
-     * Show the command-line help.
-     *
-     * @param writer Where to show the help.
-     */
-    public void showHelp(PrintWriter writer)
-    {
-        if (writer == null) throw new NullArgumentException("writer");
-
-        HelpFormatter formatter = new HelpFormatter();
-        int width = Console.getWidth();
-        Options options = getOptions();
-        formatter.printHelp(writer, width, "iodriver", null, options, 0, 2, null, true);
-
-        writer.flush();
-    }
-
-    /**
-     * Raw command-line arguments.
-     */
-    private final String[] _args;
-
+    
     /**
      * Workloads that may be chosen to run, {@code null} prior to
      * {@link #getAvailableWorkloadNames()}.
      */
     private Collection<String> _availableWorkloadNames;
-
-    /**
-     * The parsed command-line. {@code null} prior to {@link #getCommandLine()}.
-     */
-    private CommandLine _commandLine;
 
     /**
      * Maximum IOPS allowed by the system, {@code -1} prior to {@link #getSystemIopsMax()}.
@@ -605,22 +428,6 @@ public final class Config
      * Things that should be logged.
      */
     private EnumSet<LogTargets> _logTargets;
-    
-    /**
-     * The command-line options supported. {@code null} prior to {@link #getOptions()}.
-     */
-    private Options _options;
-
-    /**
-     * {@code null} unless an error occurred while parsing command-line options, the error that
-     * occurred.
-     */
-    private ParseException _replayParseError;
-
-    /**
-     * Runtime configuration {@link #getRuntimeConfig()}.
-     */
-    private Fds.Config _runtimeConfig;
 
     /**
      * The name of the user-selected workload. {@code null} prior to
@@ -637,8 +444,6 @@ public final class Config
     {
         if (_availableWorkloadNames == null)
         {
-            Class<?> myClass = getClass();
-
             Predicate<Member> memberIsPublic = member -> Modifier.isPublic(member.getModifiers());
             Predicate<AnnotatedElement> memberHasAnnotation =
                     member ->
@@ -658,10 +463,20 @@ public final class Config
                                      .replaceAll("Workload$", "");
                     };
 
-            Stream<Method> myMethods = Stream.of(myClass.getMethods());
-            Stream<Method> myPublicMethods = myMethods.filter(memberIsPublic);
-            Stream<Method> myAnnotatedMethods = myPublicMethods.filter(memberHasAnnotation);
-            Stream<Method> methodsWithNoArguments = myAnnotatedMethods.filter(methodHasNoArguments);
+        	Class<?>[] classes =
+        			Stream.concat(Stream.of(getClass()),
+        			              getConfigs().stream().map(c -> c.getClass()))
+        			      .toArray(size -> new Class[size]);
+        	@SuppressWarnings("unchecked")
+            Class<? extends RuntimeConfig>[] typedClasses =
+        	        (Class<? extends RuntimeConfig>[])classes;
+        	
+        	Stream<Method> methods = Arrays.asList(typedClasses)
+        	                               .stream().flatMap(c -> Arrays.asList(c.getMethods())
+        	                                                            .stream());
+        	Stream<Method> publicMethods = methods.filter(memberIsPublic);
+            Stream<Method> annotatedMethods = publicMethods.filter(memberHasAnnotation);
+            Stream<Method> methodsWithNoArguments = annotatedMethods.filter(methodHasNoArguments);
             Stream<Method> methodsWithCorrectReturnType =
                     methodsWithNoArguments.filter(methodHasCorrectReturnType);
             Stream<String> availableWorkloadNames =
@@ -670,73 +485,6 @@ public final class Config
             _availableWorkloadNames = availableWorkloadNames.collect(Collectors.toSet());
         }
         return _availableWorkloadNames;
-    }
-
-    /**
-     * Get the parsed command line.
-     *
-     * @return The current property value.
-     * @throws ParseException
-     */
-    private CommandLine getCommandLine() throws ParseException
-    {
-        if (_commandLine == null)
-        {
-            if (_replayParseError == null)
-            {
-                try
-                {
-                    Options options = getOptions();
-                    CommandLineParser parser = new PosixParser();
-
-                    _commandLine = parser.parse(options, _args);
-                }
-                catch (ParseException e)
-                {
-                    _replayParseError = e;
-                    throw e;
-                }
-            }
-            else
-            {
-                throw _replayParseError;
-            }
-        }
-        return _commandLine;
-    }
-
-    /**
-     * Get the supported command-line options.
-     *
-     * @return The current property value.
-     */
-    private Options getOptions()
-    {
-        if (_options == null)
-        {
-            Options newOptions = new Options();
-            newOptions.addOption("d",
-                                 "debug",
-                                 true,
-                                 "Operations to debug. Available operations are "
-                                 + String.join(", ",
-                                               StreamSupport.stream(Arrays.asList(LogTargets.values())
-                                                                          .spliterator(),
-                                                                    false)
-                                                            .map(logTarget -> logTarget.toString())
-                                                            .collect(Collectors.toList())));
-            newOptions.addOption("r", "fds-root", true, "Set the root folder for FDS install.");
-            newOptions.addOption("h", "help", false, "Show this help screen.");
-            newOptions.addOption("w",
-                                 "workload",
-                                 true,
-                                 "The workload to run. Available options are "
-                                 + String.join(", ", getAvailableWorkloadNames())
-                                 + ".");
-
-            _options = newOptions;
-        }
-        return _options;
     }
 
     /**

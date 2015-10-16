@@ -2492,17 +2492,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         om_locDomain->om_bcast_stream_reg_list(newNode);
     }
 
-    // Let this new node know about existing DLT if this is not SM or AM node
-    // DLT deploy state machine will take care of SMs
-    // AMs would have done the getDLT() call after it finished registered.
-    // TODO(Andrew): this should change into dissemination of the cur cluster map.
-    if ((msg->node_type != fpi::FDSP_STOR_MGR) &&
-            (msg->node_type != fpi::FDSP_ACCESS_MGR)) {
-        OM_Module *om = OM_Module::om_singleton();
-        DataPlacement *dp = om->om_dataplace_mod();
-        OM_SmAgent::agt_cast_ptr(newNode)->om_send_dlt(dp->getCommitedDlt());
-    }
-
     // AM & SM services query for a DMT on startup, and DM node will get DMT
     // as part of a state machine; so not broadcasting DMT to any service!
 
@@ -2514,13 +2503,13 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      * the getDLT() and getDMT() methods, instead of waiting for the OM to
      * broadcast here.
      */
+
     if (om_local_domain_up()) {
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             om_dlt_update_cluster();
-            om_locDomain->om_bcast_vol_list(newNode);
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Send the DMT to DMs.
-            om_dmt_update_cluster();
+            om_dmt_update_cluster(fPrevRegistered);
             if (fPrevRegistered) {
                 om_locDomain->om_bcast_vol_list(newNode);
                 LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
@@ -2528,16 +2517,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
     } else {
         local_domain_event(RegNodeEvt(uuid, msg->node_type));
-
-        // on domain re-activate, ok so send volume list right away
-        // on restarting from persistent state, none of the volumes will
-        // be loaded yet at this point, so broadcast will be NOOP
-        // Do not broadcast volumes to AMs!!! An AM will get volume info when
-        // it receives an IO for that volume
-        if (msg->node_type != fpi::FDSP_ACCESS_MGR) {
-            om_locDomain->om_bcast_vol_list(newNode);
-            LOGDEBUG << "bcasting vol as domain is NOT up :" << msg->node_type;
-        }
     }
 
     LOGNORMAL << "Scheduled task 'setupNewNode' finished, uuid " 
@@ -2663,11 +2642,14 @@ OM_NodeDomainMod::om_shutdown_domain()
 }
 
 void
-OM_NodeDomainMod::om_dmt_update_cluster() {
+OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
-    dmtMod->dmt_deploy_event(DmtDeployEvt());
+    if (dmPrevRegistered) {
+    	LOGDEBUG << "Domain module dmResync case";
+    }
+    dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
     // in case there are no volume acknowledge to wait
     dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }

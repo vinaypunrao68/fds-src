@@ -38,23 +38,26 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testUpdate() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        TransactionalIo txs = new TransactionalIo(io);
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(dir.getFileId(), "panda");
 
-        index.index(NFS_EXPORT_ID, dir, child);
+        index.index(NFS_EXPORT_ID, false, dir);
+        index.index(NFS_EXPORT_ID, false, child);
         child = child.withUpdatedAtime();
-        index.index(NFS_EXPORT_ID, child);
+        index.index(NFS_EXPORT_ID, false, child);
         List<DirectoryEntry> list = index.list(dir, NFS_EXPORT_ID);
         assertEquals(1, list.size());
     }
 
     @Test
     public void testLookup() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        TransactionalIo txs = new TransactionalIo(io);
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
 
@@ -62,7 +65,8 @@ public class AsyncAmTest extends BaseAmTest {
                 .withLink(fooDir.getFileId(), "panda")
                 .withLink(barDir.getFileId(), "lemur");
 
-        index.index(NFS_EXPORT_ID, fooDir, child);
+        index.index(NFS_EXPORT_ID, false, fooDir);
+        index.index(NFS_EXPORT_ID, false, child);
         assertEquals(child, index.lookup(fooDir.asInode(NFS_EXPORT_ID), "panda").get());
         assertEquals(child, index.lookup(barDir.asInode(NFS_EXPORT_ID), "lemur").get());
         assertFalse(index.lookup(fooDir.asInode(NFS_EXPORT_ID), "baboon").isPresent());
@@ -74,8 +78,9 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testListDirectory() throws Exception {
-        AmIo amIo = new AmIo(asyncAm, counters, true);
-        InodeIndex index = new SimpleInodeIndex(amIo, new MyExportResolver());
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        TransactionalIo txs = new TransactionalIo(io);
+        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
 
@@ -86,7 +91,10 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(NFS_EXPORT_ID, fooDir, barDir, blue, red);
+        index.index(NFS_EXPORT_ID, false, fooDir);
+        index.index(NFS_EXPORT_ID, false, barDir);
+        index.index(NFS_EXPORT_ID, false, blue);
+        index.index(NFS_EXPORT_ID, false, red);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());
@@ -198,12 +206,28 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testVolumeContents() throws Exception {
-        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> contents = asyncAm.volumeContents(domainName,
+                                                               volumeName,
+                                                               Integer.MAX_VALUE,
+                                                               0,
+                                                               "",
+                                                               PatternSemantics.PCRE,
+                                                               "",
+                                                               BlobListOrder.UNSPECIFIED,
+                                                               false).get().getBlobs();
         assertEquals(0, contents.size());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
-        contents = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        contents = asyncAm.volumeContents(domainName,
+                                          volumeName,
+                                          Integer.MAX_VALUE,
+                                          0,
+                                          "",
+                                          PatternSemantics.PCRE,
+                                          "",
+                                          BlobListOrder.UNSPECIFIED,
+                                          false).get().getBlobs();
         assertEquals(1, contents.size());
     }
 
@@ -215,14 +239,30 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
         asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
         String filter = "^/[^/]+$";
-        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0, filter, PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
+                                                                  volumeName,
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  filter, 
+                                                                  PatternSemantics.PCRE,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false).get().getBlobs();
         assertEquals(1, descriptors.size());
     }
 
     @Test
     @Ignore
     public void testListVolumeContents() throws Exception {
-        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName, "panda", Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+        List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
+                                                                  "panda",
+                                                                  Integer.MAX_VALUE,
+                                                                  0,
+                                                                  "",
+                                                                  PatternSemantics.PCRE,
+                                                                  "",
+                                                                  BlobListOrder.UNSPECIFIED,
+                                                                  false).get().getBlobs();
         for (BlobDescriptor descriptor : descriptors) {
             System.out.println(descriptor.getName());
         }
@@ -451,7 +491,15 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
-                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN, "nonExistingVolume", Integer.MAX_VALUE, 0, "", PatternSemantics.PCRE, BlobListOrder.LEXICOGRAPHIC, false).get());
+                () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,
+                                             "nonExistingVolume",
+                                             Integer.MAX_VALUE,
+                                             0,
+                                             "",
+                                             PatternSemantics.PCRE,
+                                             "",
+                                             BlobListOrder.LEXICOGRAPHIC,
+                                             false).get());
     }
 
     private static ConfigurationService.Iface configService;

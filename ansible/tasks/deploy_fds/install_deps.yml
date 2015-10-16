@@ -132,3 +132,14 @@
     apt: deb="/home/deploy/fds-deps.deb"
     tags:
       - install-local
+
+-   name: Install python-dev
+    apt: name=python-dev
+
+-   name: Install pip
+    apt: name=python-pip
+
+-   pip: name=psutil version=3.1.1
+
+-   name: Install NBD-Client
+    apt: name=nbd-client

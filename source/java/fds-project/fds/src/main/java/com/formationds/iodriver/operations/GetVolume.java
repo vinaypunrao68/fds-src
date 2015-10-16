@@ -10,11 +10,12 @@ import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.Uris;
+import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 
-public final class GetVolume extends OrchestrationManagerOperation
+public final class GetVolume extends AbstractOmV8Operation
 {
     public GetVolume(long id, Consumer<? super Volume> setter)
     {
@@ -25,17 +26,17 @@ public final class GetVolume extends OrchestrationManagerOperation
     }
     
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint,
-                     HttpsURLConnection connection,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(OmV8Endpoint endpoint,
+                       HttpsURLConnection connection,
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
         
         try
         {
-            _setter.accept(ObjectModelHelper.toObject(endpoint.doGet(connection), Volume.class));
+            _setter.accept(ObjectModelHelper.toObject(endpoint.doRead(connection), Volume.class));
         }
         catch (HttpException e)
         {
@@ -53,7 +54,13 @@ public final class GetVolume extends OrchestrationManagerOperation
         
         return apiBase.relativize(getVolume);
     }
-    
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "GET";
+    }
+
     private final long _id;
     
     private final Consumer<? super Volume> _setter;
