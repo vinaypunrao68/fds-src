@@ -161,7 +161,7 @@ namespace fds {
          *         ERR_NOT_READY if newly computed DMT is the same
          *          as currently commited DMT
          */
-        Error computeDMT(const ClusterMap* cmap, fds_bool_t dmResync);
+        Error computeDMT(const ClusterMap* cmap);
 
         /**
          * Start rebalance volume meta among DM nodes

@@ -97,8 +97,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     {
         DST_Waiting() : waitingTimer(new FdsTimer()),
                         waitingTimerTask(
-                                new WaitingTimerTask(*waitingTimer)),
-						dmResync(false) {}
+                                new WaitingTimerTask(*waitingTimer)) {}
 
         ~DST_Waiting() {
             waitingTimer->destroy();
@@ -108,11 +107,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            dmResync = e.dmResync;
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString() << " resync: " << dmResync;
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString() << " resync: " << dmResync;
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
         }
 
         /**
@@ -120,11 +118,6 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         */
         FdsTimerPtr waitingTimer;
         FdsTimerTaskPtr waitingTimerTask;
-
-        /**
-         * Bool for resync
-         */
-        fds_bool_t dmResync;
     };
     struct DST_Rebalance : public msm::front::state<>
     {
@@ -577,12 +570,13 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     	LOGDEBUG << cit.uuid_get_val();
     }
 
+    fds_assert(evt.dmResync == (resync_nodes > 0));
 
     // this method computes new DMT and sets as target if
     // 1. newly computed DMT is different from the current commited DMT
     // or
     // 2. We're in a DM Resync state, in which we bump the DMT version.
-    Error err = vp->computeDMT(cm, evt.dmResync);
+    Error err = vp->computeDMT(cm);
     bret = err.ok();
     if (err == ERR_INVALID_ARG) {
         // this should not happen if we don't have any removed DMs
@@ -629,10 +623,11 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_Module* om = OM_Module::om_singleton();
     ClusterMap* cm = om->om_clusmap_mod();
     NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+    fds_bool_t dmResync = cm->getDmResyncServices().size() ? true : false;
 
     dst.dms_to_ack.clear();
 
-    if (!src.dmResync)  {
+    if (!dmResync)  {
         for (NodeUuidSet::const_iterator cit = addDms.cbegin();
         		cit != addDms.cend(); ++cit) {
             OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
