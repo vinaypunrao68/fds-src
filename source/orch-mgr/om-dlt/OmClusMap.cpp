@@ -137,8 +137,8 @@ ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
 Error
 ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
                       const NodeList &addNodes,
-                      const NodeList &rmNodes) {
-    TRACEFUNC;
+                      const NodeList &rmNodes,
+					  const NodeList &dmResyncNodes) {
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;
@@ -187,9 +187,33 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             addedDMs.insert(uuid);
         }
     }
+
+	for (NodeList::const_iterator it = dmResyncNodes.cbegin();
+		 it != dmResyncNodes.cend();
+		 it++) {
+		uuid = (*it)->get_uuid();
+		if (svc_type == fpi::FDSP_STOR_MGR) {
+			// Invalid use case
+			fds_assert(0);
+		} else {
+			curDmMap[uuid] = (*it);
+			resyncDMs.insert(uuid);
+		}
+	}
+
     // Increase the version following the update
     version++;
+
     return err;
+}
+
+Error
+ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
+                      const NodeList &addNodes,
+                      const NodeList &rmNodes) {
+    TRACEFUNC;
+    NodeList dummy;
+    return (updateMap(svc_type, addNodes, rmNodes, dummy));
 }
 
 //
@@ -301,6 +325,12 @@ ClusterMap::getRemovedServices(fpi::FDSP_MgrIdType svc_type) const {
             fds_panic("Unknown MgrIdType %u", svc_type);
     }
     return std::unordered_set<NodeUuid, UuidHash>();
+}
+
+std::unordered_set<NodeUuid, UuidHash>
+ClusterMap::getDmResyncServices() const {
+    TRACEFUNC;
+    return resyncDMs;
 }
 
 NodeUuidSet

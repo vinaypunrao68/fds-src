@@ -264,6 +264,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 
         // for each DM in target column, find all DMs that will need to
         // sync volume metadata
+        // TODO(Neil) - hack this new_dms
         NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
         LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
                  << " meta for vol " << volid;

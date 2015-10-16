@@ -2513,6 +2513,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     if (dmPrevRegistered) {
+    	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
     dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));

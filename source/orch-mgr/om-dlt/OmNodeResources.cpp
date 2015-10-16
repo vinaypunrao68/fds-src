@@ -2360,6 +2360,16 @@ OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
     rs_mtx.unlock();
 }
 
+void
+OM_AgentContainer::agent_reactivate(NodeAgent::pointer agent)
+{
+	TRACEFUNC;
+	if (container_type() != fpi::FDSP_DATA_MGR) return;
+    rs_mtx.lock();
+	dm_resync_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
+    rs_mtx.unlock();
+}
+
 // om_splice_nodes_pend
 // --------------------
 //
@@ -2371,6 +2381,16 @@ OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
     addNodes->splice(addNodes->begin(), node_up_pend);
     rmNodes->splice(rmNodes->begin(), node_down_pend);
     rs_mtx.unlock();
+}
+
+void
+OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes, NodeList *dmResyncNodes)
+{
+	TRACEFUNC;
+	fds_scoped_lock lk(rs_mtx);
+    addNodes->splice(addNodes->begin(), node_up_pend);
+    rmNodes->splice(rmNodes->begin(), node_down_pend);
+    dmResyncNodes->splice(dmResyncNodes->begin(), dm_resync_pend);
 }
 
 void

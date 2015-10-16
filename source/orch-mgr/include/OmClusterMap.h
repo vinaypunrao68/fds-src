@@ -57,7 +57,11 @@ class ClusterMap : public Module {
      * committed DMT
      */
     std::unordered_set<NodeUuid, UuidHash> removedDMs;
-
+    /**
+     * Cached set of DM services restarted since the currently
+     * committed DMT
+     */
+    std::unordered_set<NodeUuid, UuidHash> resyncDMs;
 
     /**
      * Current version of the combined SM and DM map
@@ -128,6 +132,14 @@ class ClusterMap : public Module {
                     const NodeList &rmNodes);
 
     /**
+     * Update the cluster map with DM Resync specific use cases
+     */
+    Error updateMap(fpi::FDSP_MgrIdType svc_type,
+                    const NodeList &addNodes,
+                    const NodeList &rmNodes,
+					const NodeList &dmResyncNodes);
+
+    /**
      * Returns a copy of the list of services added
      * since previous cluster map version.
      */
@@ -139,6 +151,13 @@ class ClusterMap : public Module {
      */
     std::unordered_set<NodeUuid, UuidHash>
             getRemovedServices(fpi::FDSP_MgrIdType svc_type) const;
+
+    /**
+     * Returns a copy of the list of services removed
+     * since previous cluster map version.
+     */
+    std::unordered_set<NodeUuid, UuidHash>
+            getDmResyncServices() const;
 
     /**
      * If the given UUID service exists in the ordered map

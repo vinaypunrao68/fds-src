@@ -539,7 +539,7 @@ bool
 DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     fds_bool_t bret = false;
-    NodeList addNodes, rmNodes;
+    NodeList addNodes, rmNodes, resyncNodes;
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -547,15 +547,17 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     OM_DmContainer::pointer dmNodes = loc_domain->om_dm_nodes();
 
     // get pending DMs removal/additions
-    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
-    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
+    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes, &resyncNodes);
+    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes, resyncNodes);
     fds_uint32_t added_nodes = (cm->getAddedServices(fpi::FDSP_DATA_MGR)).size();
     fds_uint32_t rm_nodes = (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size();
+    fds_uint32_t resync_nodes = cm->getDmResyncServices().size();
     fds_uint32_t nonFailedDms = cm->getNumNonfailedMembers(fpi::FDSP_DATA_MGR);
     fds_uint32_t totalDms = cm->getNumMembers(fpi::FDSP_DATA_MGR);
 
     LOGDEBUG << "Added DMs size: " << added_nodes
              << " Removed DMs size: " << rm_nodes
+			 << " Resyncing DMs size: " << resync_nodes
              << " Total DMs: " << totalDms
              << " Non-failed DMs: " << nonFailedDms;
 
@@ -566,6 +568,11 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     }
     LOGDEBUG << "Removed nodes: ";
     for (auto cit : cm->getRemovedServices(fpi::FDSP_DATA_MGR))
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+    LOGDEBUG << "Resyncing DM nodes: ";
+    for (auto cit : cm->getDmResyncServices())
     {
     	LOGDEBUG << cit.uuid_get_val();
     }
@@ -706,6 +713,7 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
+    // TODO(Neil) - hack rebalance to have a list of resync nodes
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
     // TODO(xxx) need to handle this error
     fds_verify(err.ok());
