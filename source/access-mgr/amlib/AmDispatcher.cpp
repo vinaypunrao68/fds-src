@@ -77,7 +77,9 @@ AmDispatcher::start() {
     } else {
         // Set a custom time for the io messages to dm and sm
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
-        LOGNOTIFY << "AM IO timeout set to: " << message_timeout_io  << " ms";
+        message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
+        LOGNOTIFY << "AM Thrift timeout: " << message_timeout_default << " ms"
+                  << " IO timeout: " << message_timeout_io  << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {
@@ -238,7 +240,7 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
-    multiReq->setTimeoutMs(timeout);
+    multiReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     multiReq->setPayload(message_type_id(*payload), payload);
     return multiReq;
 }
@@ -273,7 +275,7 @@ AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
-    multiReq->setTimeoutMs(timeout);
+    multiReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     multiReq->setPayload(message_type_id(*payload), payload);
     return multiReq;
 }
@@ -296,7 +298,7 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
     failoverReq->onResponseCb(cb);
-    failoverReq->setTimeoutMs(timeout);
+    failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
     return failoverReq;
 }
@@ -320,7 +322,7 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
     auto primary = boost::make_shared<DltObjectIdEpProvider>(primary_nodes);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dlt_version);
     failoverReq->onResponseCb(cb);
-    failoverReq->setTimeoutMs(timeout);
+    failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
     return failoverReq;
 }
