@@ -97,7 +97,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     {
         DST_Waiting() : waitingTimer(new FdsTimer()),
                         waitingTimerTask(
-                                new WaitingTimerTask(*waitingTimer)) {}
+                                new WaitingTimerTask(*waitingTimer)),
+						dmResync(false) {}
 
         ~DST_Waiting() {
             waitingTimer->destroy();
@@ -107,10 +108,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            dmResync = e.dmResync;
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString() << " resync: " << dmResync;
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            LOGDEBUG << "DST_Waiting. Evt: " << e.logString() << " resync: " << dmResync;
         }
 
         /**
@@ -118,6 +120,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         */
         FdsTimerPtr waitingTimer;
         FdsTimerTaskPtr waitingTimerTask;
+
+        /**
+         * Bool for resync
+         */
+        fds_bool_t dmResync;
     };
     struct DST_Rebalance : public msm::front::state<>
     {
@@ -564,9 +571,11 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     }
 
 
-    // this method computes new DMT and sets as target *only* if
-    // newly computed DMT is different from the current commited DMT
-    Error err = vp->computeDMT(cm);
+    // this method computes new DMT and sets as target if
+    // 1. newly computed DMT is different from the current commited DMT
+    // or
+    // 2. We're in a DM Resync state, in which we bump the DMT version.
+    Error err = vp->computeDMT(cm, evt.dmResync);
     bret = err.ok();
     if (err == ERR_INVALID_ARG) {
         // this should not happen if we don't have any removed DMs
@@ -590,6 +599,11 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                  << " FIX IT!";
     }
 
+    if (!bret && evt.dmResync) {
+    	LOGDEBUG << "DMT did not change, but dmResync requested";
+    	bret = true;
+    }
+
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;
     return bret;
 }
@@ -603,8 +617,6 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    // DmtDeployEvt dplyEvt = (DmtDeployEvt)evt;
-
     // if we have any volumes, send volumes to DMs that are added to cluster map
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
@@ -612,19 +624,28 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
 
     dst.dms_to_ack.clear();
-    for (NodeUuidSet::const_iterator cit = addDms.cbegin();
-         cit != addDms.cend();
-         ++cit) {
-        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
-        LOGDEBUG << "bcasting vol on dmt deploy: ";
-        // dm_agent->dump_agent_info();
-        fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
-        if (count > 0) {
-            dst.dms_to_ack.insert(*cit);
+
+    if (!src.dmResync)  {
+        for (NodeUuidSet::const_iterator cit = addDms.cbegin();
+        		cit != addDms.cend(); ++cit) {
+            OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
+            LOGDEBUG << "bcasting vol on dmt deploy: ";
+            // dm_agent->dump_agent_info();
+            fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
+		    if (count > 0) {
+			    dst.dms_to_ack.insert(*cit);
+		    }
         }
+        LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
+				 << " DMs to acks volume notify";
+    } else {
+    	/*
+    	 * In case of Resync, there's no volume management changes. The newly restarted
+    	 * DM will have its service layer pull the volume descriptor, so no need to
+    	 * waste resources broadcasting unchanged vol desc's to all the nodes.
+    	 */
+    	LOGDEBUG << "DM Resync OM DmtFSM. Will not broadcast volume descriptors";
     }
-    LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
-             << " DMs to acks volume notify";
 }
 
 /* DACT_Waiting
