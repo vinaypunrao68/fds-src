@@ -95,7 +95,7 @@ public class InodeMetadata {
     }
 
     public InodeMetadata(BlobDescriptor blobDescriptor) {
-        this.metadata = blobDescriptor.metadata;
+        this.metadata = blobDescriptor.getMetadata();
     }
 
     public Map<String, String> asMap() {

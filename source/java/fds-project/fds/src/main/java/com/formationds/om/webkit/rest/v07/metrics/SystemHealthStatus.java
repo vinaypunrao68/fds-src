@@ -336,7 +336,7 @@ public class SystemHealthStatus implements RequestHandler {
         final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
         	.filter( (s) -> {
 
-                if ( s.node_state.equals( FDSP_NodeState.FDS_Node_Discovered ) ){
+                if ( s.getNode_state().equals( FDSP_NodeState.FDS_Node_Discovered ) ){
 	        		return false;
 	        	}
 

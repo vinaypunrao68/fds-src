@@ -288,7 +288,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testStatVolume() throws Exception {
         VolumeStatus volumeStatus = asyncAm.volumeStatus(domainName, volumeName).get();
-        assertEquals(0, volumeStatus.blobCount);
+        assertEquals(0, volumeStatus.getBlobCount());
     }
 
     @Test

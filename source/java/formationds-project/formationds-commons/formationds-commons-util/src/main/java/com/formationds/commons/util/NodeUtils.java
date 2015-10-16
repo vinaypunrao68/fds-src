@@ -45,11 +45,11 @@ public class NodeUtils
     public static String mapToSvcUuidAndName( final SvcUuid uuid )
     {
         return String.format( "%x:%s",
-                              uuid.svc_uuid,
+                              uuid.getSvc_uuid( ),
                               mapToSvcName(
                                   new ResourceUUID(
                                       BigInteger.valueOf(
-                                          uuid.svc_uuid ) ).type( ) ) );
+                                          uuid.getSvc_uuid( ) ) ).type( ) ) );
     }
 
     /**
@@ -88,7 +88,7 @@ public class NodeUtils
                            " incarnation: %d" +
                            " status: %s( %d )",
                            NodeUtils.mapToSvcUuidAndName( svc.getSvc_id( )
-                                                            .svc_uuid ),
+                                                            .getSvc_uuid( ) ),
                            svc.getIp( ),
                            svc.getSvc_port( ),
                            svc.getIncarnationNo( ),

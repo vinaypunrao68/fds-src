@@ -79,7 +79,7 @@ public class ExternalModelConverter {
         
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
-        if ( internalUser.isFdsAdmin ) {
+        if ( internalUser.isIsFdsAdmin() ) {
             roleId = 0L;
         }
 
@@ -506,7 +506,7 @@ public class ExternalModelConverter {
 
         DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume );
 
-        Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
+        Instant extCreation = Instant.ofEpochMilli( internalVolume.getDateCreated() );
 
         return new Volume( volumeId,
                            extName,

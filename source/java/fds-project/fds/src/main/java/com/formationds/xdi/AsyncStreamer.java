@@ -48,7 +48,7 @@ public class AsyncStreamer {
     public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
         CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
         CompletableFuture<BlobWithMetadata> getObject0Future = volumeDescriptorFuture
-                .thenCompose(vd -> asyncAm.getBlobWithMeta(domain, volume, blob, vd.getPolicy().maxObjectSizeInBytes, new ObjectOffset((long) 0)));
+                .thenCompose(vd -> asyncAm.getBlobWithMeta(domain, volume, blob, vd.getPolicy().getMaxObjectSizeInBytes(), new ObjectOffset((long) 0)));
         return getObject0Future.thenCompose(bwm ->
                 volumeDescriptorFuture
                         .thenApply(vd -> new BlobInfo(domain, volume, blob,
