@@ -1763,13 +1763,13 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
          * communication with that service will work.
          */
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+        om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
             configDB->updateSvcMap(*svcInfo);
-            om_locDomain->om_bcast_svcmap();
 
         } else {
-            // ConfigDB updates and broadcast for AM/DM/SM will happen at the end of setUpNewNode
+            // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
             // This is so that any access of the service state will return ACTIVE only after
             // the associated service agents, uuids have been set up, and not before.
             // Once the scheduling delay is removed, it probably makes sense to allow
@@ -2423,9 +2423,9 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     }
 
     /*
-     * Update the service layer service map up front so that any subsequent
-     * communication with that service will work. We have already done this
-     * for the PM at the end of om_register_service, so only do updates for other svcs
+     *  We have already performed svclayer map update and broadcast for all services.
+     *  For PM configDB updates are done along with svcLayer updates in om_register_svc
+     *  Update the configDB svcMap now for other services
     */
     if (msg->node_type != fpi::FDSP_PLATFORM) {
 
@@ -2433,19 +2433,18 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
 
         if (err == ERR_OK) {
-            LOGNOTIFY <<"Update and broadcast svcMap for svc:"
+            LOGNOTIFY <<"Update configDB svcMap for svc:"
                       << std::hex
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
             configDB->updateSvcMap(*infoPtr);
-            om_locDomain->om_bcast_svcmap();
 
             // Now erase the svc from the the local tracking vector
             removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
 
         } else {
-            LOGERROR << "Could not broadcast svcMap for service:"
+            LOGERROR << "Could not update ConfigDB svcMap for service:"
                      << std::hex << uuid.uuid_get_val()
                      << std::dec << " , not found";
         }
