@@ -1,6 +1,10 @@
 ---
 -   name: build scst kernel module
-    shell: /opt/fds-deps/embedded/usr/sbin/dkms install scst/3.0.0.4838
+    shell: /opt/fds-deps/embedded/usr/sbin/dkms {{ item }} scst/3.0.0.4838
+    with_items:
+        - 'add'
+        - 'build'
+        - 'install'
     tags:
       - install
 
