@@ -1037,12 +1037,21 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     if (!bSuccess) {
         if (isPrimary) {
             failedPrimaries_.push_back(epReq);
-            GLOGWARN << fds::logString(*header) << " response from primary failed";
+            GLOGWARN << fds::logString(*header) << " response from primary failed - "
+                     << "[rcvd acks: " << (int)primaryAckdCnt_ << " of " << (int)primariesCnt_
+                     << " failed:" << failedPrimaries_.size() << "] - [total: "<< (int)totalAckdCnt_ << "]";
         } else {
             failedOptionals_.push_back(epReq);
-            GLOGWARN << fds::logString(*header) << " response from optional failed";
+            GLOGWARN << fds::logString(*header) << " response from optional failed : "  << failedOptionals_.size();
         }
     }
+
+    GLOGDEBUG   << "[acks= total:" << (int)totalAckdCnt_ << "/" << epReqs_.size()
+                << " primary:" << (int)primaryAckdCnt_ << " / " << (int)primariesCnt_
+                << " failed-primary:" << failedPrimaries_.size()
+                << " failed-optionals:" << failedOptionals_.size()
+                << " reqid: " << static_cast<SvcRequestId>(header->msg_src_id)
+                << "]";
 
     /* Invoke response cb once all primaries responded */
     if (primaryAckdCnt_ == primariesCnt_ &&
