@@ -25,6 +25,11 @@
         SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
     }
+
+// get the global service request handler
+#define SVC_REQUEST_HANDLER(...) \
+    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()
+
 /*
  * Use this macro for registering FDSP message handlers
  * @param FDSPMsgT - fdsp message type
@@ -33,6 +38,12 @@
 #define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
     REGISTER_FDSP_MSG_HANDLER_GENERIC(this, FDSPMsgT, func)
 
+// This will register the function with the global svc handler
+#define REGISTER_GLOBAL_MSG_HANDLER(FDSPMsgT, func) \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(SVC_REQUEST_HANDLER(), FDSPMsgT, func)
+
+#define SEND_ASYNC_RESP(...) \
+    SVC_REQUEST_HANDLER()->sendAsyncResp(__VA_ARGS__)
 
 // note : CALLBACK & CALLBACK2 are same
 #define BIND_MSG_CALLBACK(func, header , ...) \
