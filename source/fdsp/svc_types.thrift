@@ -220,6 +220,12 @@ enum  FDSPMsgTypeId {
   EmptyMsgTypeId                            = 11;
   StatStreamMsgTypeId                       = 12;
 
+  /** File Transfer **/
+  FileTransferMsgTypeId                     = 900;
+  FileTransferRespMsgTypeId;
+  FileTransferVerifyMsgTypeId;
+  FileTransferVerifyRespMsgTypeId;
+
   /** Node/service event messages. */
   NodeSvcInfoTypeId                         = 1000;
   UuidBindMsgTypeId                         = 1001;

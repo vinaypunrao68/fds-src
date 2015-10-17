@@ -152,7 +152,8 @@ namespace fds {
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \
     /* Endpoint doesn't exist */    \
-    ADD(ERR_EP_NON_EXISTANT, ,"  "), \
+    ADD(ERR_EP_NON_EXISTANT, ,"  "),        \
+    ADD(ERR_CHECKSUM_MISMATCH, ,"  "),        \
     \
     /* SVC Request realted */   \
     ADD(ERR_SVC_REQUEST_FAILED,= 4000," "), \
