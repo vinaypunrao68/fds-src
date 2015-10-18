@@ -4,9 +4,9 @@
 
 package com.formationds.commons.util;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

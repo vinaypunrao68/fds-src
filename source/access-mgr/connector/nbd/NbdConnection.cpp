@@ -355,7 +355,7 @@ NbdConnection::io_reply(ev::io &watcher) {
         response[2].iov_base = &current_response->handle;
         response[2].iov_len = sizeof(current_response->handle);
         response[1].iov_base = to_iovec(&error_ok);
-        if (!current_response->getError().ok()) {
+        if (fpi::OK != current_response->getError()) {
             err = current_response->getError();
             response[1].iov_base = to_iovec(&error_bad);
             LOGERROR << "Returning error: " << err;

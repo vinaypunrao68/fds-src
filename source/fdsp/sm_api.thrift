@@ -4,8 +4,8 @@
 
 include "sm_types.thrift"
 
-include "common.thrift"
 include "svc_api.thrift"
+include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm
@@ -19,7 +19,7 @@ namespace java com.formationds.protocol.sm
  */
 struct AddObjectRefMsg {
   /** List of objects to reference */
-  1: list<common.FDS_ObjectIdType>  objIds;
+  1: list<svc_types.FDS_ObjectIdType>  objIds;
   /** Source volume */
   2: i64                            srcVolId;
   /** Destination volume */
@@ -41,7 +41,7 @@ struct  DeleteObjectMsg {
   /** Volume referencing object. */
   1: i64                        volId;
   /** Object identifier */
-  2: common.FDS_ObjectIdType    objId; 
+  2: svc_types.FDS_ObjectIdType    objId; 
   /** DELETE is a forwarded request during SM token migration 
    *  By default, false
    */
@@ -61,7 +61,7 @@ struct GetObjectMsg {
   /** Volume identifier */
   1: required i64    			volume_id;
   /** Object identifier  */
-  2: required common.FDS_ObjectIdType 	data_obj_id;
+  2: required svc_types.FDS_ObjectIdType 	data_obj_id;
 }
 
 /**
@@ -81,7 +81,7 @@ struct PutObjectMsg {
   /** Volume identifier. */
   1: i64    			        volume_id;
   /** Object identifier. */
-  2: common.FDS_ObjectIdType 	data_obj_id;
+  2: svc_types.FDS_ObjectIdType 	data_obj_id;
   /** PUT is a forwarded request during SM token migration.
    *  By default, false
    */

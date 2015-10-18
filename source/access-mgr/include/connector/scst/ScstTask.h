@@ -73,7 +73,6 @@ ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const asc
 void
 ScstTask::setResponseBuffer(uint8_t* buf, size_t buf_len)
 {
-    fds_assert(buf);
     reply.exec_reply.pbuf = (unsigned long)buf;
     reply.exec_reply.resp_data_len = buf_len;
 }

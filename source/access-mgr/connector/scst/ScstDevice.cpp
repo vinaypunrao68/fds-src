@@ -608,7 +608,7 @@ ScstDevice::respondTask(BlockTask* response) {
 
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
-        if (!scst_response->getError().ok()) {
+        if (fpi::OK != scst_response->getError()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else {
             auto buffer = scst_response->getResponseBuffer();
@@ -623,11 +623,11 @@ ScstDevice::respondTask(BlockTask* response) {
                 buf = scst_response->getNextReadBuffer(context);
             }
         }
-    } else if (!scst_response->getError().ok()) {
+    } else if (fpi::OK != scst_response->getError()) {
         if (scst_response->isWrite()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            scst_response->setResult(-((uint32_t)scst_response->getError().GetErrno()));
+            scst_response->setResult(-((uint32_t)scst_response->getError()));
         }
     }
 

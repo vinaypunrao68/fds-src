@@ -4,9 +4,9 @@
 
 package com.formationds.commons.util;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.SvcID;
+import com.formationds.protocol.svc.types.SvcUuid;
 
 import java.math.BigInteger;
 import java.util.Objects;

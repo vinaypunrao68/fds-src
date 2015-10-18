@@ -14,6 +14,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
+#include "fdsp/common_types.h"
 #include "fds_types.h"
 #include "concurrency/RwLock.h"
 #include "fdsp/xdi_types.h"
@@ -115,7 +116,7 @@ class BlockOperations
     void drainUpdateChain(uint64_t const offset,
                           boost::shared_ptr<std::string> buf,
                           handle_type* queued_handle_ptr,
-                          Error const error);
+                          fpi::ErrorCode const error);
 
     uint32_t getObjectCount(uint32_t length, uint64_t offset);
 

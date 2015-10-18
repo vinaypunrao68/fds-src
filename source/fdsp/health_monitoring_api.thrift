@@ -4,7 +4,7 @@
  */
 
 include "health_monitoring_types.thrift"
-include "common.thrift"
+include "svc_types.thrift"
 
 /**
  * @author    Donavan Nelson <donavan @ formationds.com>
@@ -35,6 +35,6 @@ struct NotifyHealthReport {
  * alive
  */
 struct HeartbeatMessage {
-    1: common.FDSP_Uuid svcUuid,
+    1: svc_types.FDSP_Uuid svcUuid,
     2: double timestamp;
 }

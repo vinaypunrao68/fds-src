@@ -8,9 +8,9 @@ import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
@@ -713,7 +713,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots( long volumeId ) throws TException {
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots( long volumeId ) throws TException {
         return getConfig().listSnapshots( volumeId );
     }
 
