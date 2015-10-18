@@ -140,11 +140,11 @@ public final class Main
             // First try to deserialize any provided input files.
             Optional<SystemContent> aContentWrapper =
                     tunnel(IOException.class,
-                           in -> { return inputAPath.map(in); },
+                           inputAPath::map,
                            (Path path) -> _getSystemContent(path, gson));
             Optional<SystemContent> bContentWrapper =
                     tunnel(IOException.class,
-                           in -> { return inputBPath.map(in); },
+                           inputBPath::map,
                            (Path path) -> _getSystemContent(path, gson));
             
             // We can only use the default endpoint once.

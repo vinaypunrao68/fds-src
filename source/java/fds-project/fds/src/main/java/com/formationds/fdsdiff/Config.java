@@ -102,7 +102,7 @@ public final class Config extends AbstractConfig
 	{
 	    return _endpointA == null
 	           ? (_endpointA = tunnel(ConfigurationException.class,
-	                                  in -> { return getEndpointAHost().map(in); },
+	                                  getEndpointAHost()::map,
 	                                  (String h) -> getFdsEndpoint(h)))
 	           : _endpointA;
 	}
@@ -111,7 +111,7 @@ public final class Config extends AbstractConfig
 	{
 	    return _endpointB == null
 	           ? (_endpointB = tunnel(ConfigurationException.class,
-                                      in -> { return getEndpointBHost().map(in); },
+                                      getEndpointBHost()::map,
                                       (String h) -> getFdsEndpoint(h)))
 	           : _endpointB;
 	}
