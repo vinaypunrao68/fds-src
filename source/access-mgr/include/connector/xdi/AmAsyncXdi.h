@@ -11,6 +11,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "util/Log.h"
+
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "fdsp/AsyncXdiServiceResponse.h"
@@ -38,7 +40,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi<boost::shared_ptr<apis::Req
     std::mutex client_lock;
     client_ptr asyncRespClient;
     std::string serverIp;
-    fds_uint32_t serverPort;
+    uint32_t serverPort;
 
     void initiateClientConnect();
 
@@ -226,7 +228,7 @@ struct AmAsyncXdiRequest
     // TODO(bszmyd): Tue 13 Jan 2015 04:00:24 PM PST
     // Delete these when we can. These are the synchronous forwarding.
     void you_should_not_be_here()
-    { fds_panic("You shouldn't be here."); }
+    { return; }
     void abortBlobTx(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const std::string& blobName, const apis::TxDescriptor& txDesc)  // NOLINT
     { you_should_not_be_here(); }
     void attachVolume(const apis::RequestId& requestId, const std::string& domainName, const std::string& volumeName, const fpi::VolumeAccessMode& mode)  // NOLINT

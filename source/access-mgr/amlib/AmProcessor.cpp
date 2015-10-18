@@ -401,25 +401,27 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     // been responded to, in that case drop on the floor.
     Error err = volTable->markIODone(amReq);
     if (err.ok() && amReq->cb) {
-        fpi::ErrorCode code;
-        switch (error.GetErrno()) {
-            case ERR_DUPLICATE:
-            case ERR_HASH_COLLISION:
-            case ERR_VOL_DUPLICATE:
-                code = fpi::RESOURCE_ALREADY_EXISTS;
-                break;;
-            case ERR_NOT_FOUND:
-            case ERR_BLOB_NOT_FOUND:
-            case ERR_CAT_ENTRY_NOT_FOUND:
-            case ERR_VOL_NOT_FOUND:
-                code = fpi::MISSING_RESOURCE;
-                break;;
-            case ERR_VOLUME_ACCESS_DENIED:
-                code = fpi::SERVICE_NOT_READY;
-                break;;
-            default:
-                code = fpi::BAD_REQUEST;
-                break;;
+        fpi::ErrorCode code {fpi::OK};
+        if (!error.ok()) {
+            switch (error.GetErrno()) {
+                case ERR_DUPLICATE:
+                case ERR_HASH_COLLISION:
+                case ERR_VOL_DUPLICATE:
+                    code = fpi::RESOURCE_ALREADY_EXISTS;
+                    break;;
+                case ERR_NOT_FOUND:
+                case ERR_BLOB_NOT_FOUND:
+                case ERR_CAT_ENTRY_NOT_FOUND:
+                case ERR_VOL_NOT_FOUND:
+                    code = fpi::MISSING_RESOURCE;
+                    break;;
+                case ERR_VOLUME_ACCESS_DENIED:
+                    code = fpi::SERVICE_NOT_READY;
+                    break;;
+                default:
+                    code = fpi::BAD_REQUEST;
+                    break;;
+            }
         }
         amReq->cb->call(code);
     }

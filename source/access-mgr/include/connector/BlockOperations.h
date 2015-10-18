@@ -15,10 +15,7 @@
 #include <boost/lockfree/spsc_queue.hpp>
 
 #include "fdsp/common_types.h"
-#include "fds_types.h"
-#include "concurrency/RwLock.h"
 #include "fdsp/xdi_types.h"
-#include "concurrency/Mutex.h"
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "connector/BlockTask.h"
@@ -132,12 +129,12 @@ class BlockOperations
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
     boost::shared_ptr<std::string> domainName;
-    boost::shared_ptr<fds_int32_t> blobMode;
+    boost::shared_ptr<int32_t> blobMode;
     boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    fds_mutex respLock;
+    std::mutex respLock;
     response_map_type responses;
 
     sector_type sector_map;

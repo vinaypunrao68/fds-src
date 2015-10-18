@@ -31,10 +31,17 @@ extern "C" {
 }
 
 #include <ev++.h>
+#include <boost/make_shared.hpp>
+
+// TODO(bszmyd): Sun 18 Oct 2015 04:44:55 PM MDT
+// REMOVE THIS!!!!
+// =================
+#include "fds_process.h"
+#include "fds_config.hpp"
+#include "util/Log.h"
+// =================
 
 #include "connector/scst/ScstTarget.h"
-#include "fds_process.h"
-#include "fds_volume.h"
 #include "fdsp/config_types_types.h"
 extern "C" {
 #include "connector/scst/scst_user.h"

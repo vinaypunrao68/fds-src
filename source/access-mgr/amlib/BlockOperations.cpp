@@ -46,7 +46,7 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
     volumeName = vol_name;
 
     {   // add response that we will fill in with data
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -71,7 +71,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
     BlockTask* resp = NULL;
 
     {
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -134,7 +134,7 @@ BlockOperations::read(BlockTask* resp) {
     auto offset = resp->getOffset();
 
     {   // add response that we will fill in with data
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -171,7 +171,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
     resp->setObjectCount(objCount);
 
     {   // add response that we will fill in with data
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -252,7 +252,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
              << " seqId " << seqId;
 
     {
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -298,7 +298,7 @@ BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type& reques
              << " seqId " << seqId;
 
     {
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -355,7 +355,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
     while (update_queued) {
         BlockTask* queued_resp = nullptr;
         {
-            fds_mutex::scoped_lock l(respLock);
+            std::lock_guard<std::mutex> l(respLock);
             auto it = responses.find(queued_handle.handle);
             if (responses.end() != it) {
                 queued_resp = it->second;
@@ -419,7 +419,7 @@ BlockOperations::finishResponse(BlockTask* response) {
     // block connector will free resp, just accounting here
     bool done_responding, response_removed;
     {
-        fds_mutex::scoped_lock l(respLock);
+        std::lock_guard<std::mutex> l(respLock);
         response_removed = (1 == responses.erase(response->getHandle()));
         done_responding = responses.empty();
     }
@@ -441,7 +441,7 @@ BlockOperations::finishResponse(BlockTask* response) {
 void
 BlockOperations::shutdown()
 {
-    fds_mutex::scoped_lock l(respLock);
+    std::lock_guard<std::mutex> l(respLock);
     shutting_down = true;
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {

@@ -28,10 +28,11 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lockfree/queue.hpp>
 
-#include "fds_types.h"
 #include "connector/scst/ScstCommon.h"
 #include "connector/scst/scst_user.h"
 #include "connector/BlockOperations.h"
+
+#undef COPY
 
 struct scst_user_get_cmd;
 
