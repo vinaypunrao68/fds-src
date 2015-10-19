@@ -533,12 +533,14 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
         }
 
         if (ERR_OK == e) {
-            // Update the blob size in the commit data
+            // Update the blob size and metadata in the commit data
+            fpi::FDSP_MetaDataList metaList;
             e = volcat->getBlobMeta(volid,
                                     commit_data->name,
                                     nullptr,
                                     &commit_data->blobSize,
-                                    nullptr);
+                                    &metaList);
+            commit_data->metaDataList = boost::make_shared<MetaDataList>(metaList);
 
             // if the operation suceeded, update cached copy of sequence_id
             dataManager_.getVolumeMeta(volid, false)->setSequenceId(seq_id);
