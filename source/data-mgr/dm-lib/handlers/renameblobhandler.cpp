@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -67,6 +68,13 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
                                                                      dmt_version,
                                                                      typedRequest->seq_id);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleCommitNewBlob(e, d); };
+
+    (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
+        std::bind(&RenameBlobHandler::handleResponseCleanUp,
+                  this,
+                  std::placeholders::_1,
+                  typedRequest->commitReq);
+
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
@@ -179,7 +187,10 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
     auto typedRequest = commitOnceReq->parent;
     auto source_tx = boost::make_shared<const BlobTxId>(typedRequest->message->source_tx_id);
     auto& dmt_version = typedRequest->message->dmt_version;
-    delete commitOnceReq;
+
+    if (!static_cast<DmIoCommitBlobTx*>(commitOnceReq)->usedForMigration) {
+        delete commitOnceReq;
+    }
 
     // Mock a commit request
     typedRequest->commitReq = new DmIoCommitBlobOnce<DmIoRenameBlob>(typedRequest->volId,
@@ -188,6 +199,14 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
                                                                      dmt_version,
                                                                      typedRequest->seq_id);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleDeleteOldBlob(e, d); };
+
+    (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
+        std::bind(&RenameBlobHandler::handleResponseCleanUp,
+                  this,
+                  std::placeholders::_1,
+                  typedRequest->commitReq);
+
+
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
@@ -242,7 +261,10 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
 void RenameBlobHandler::handleDeleteOldBlob(Error const& e, DmRequest* dmRequest) {
     auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoRenameBlob>*>(dmRequest);
     DmIoRenameBlob* parent = commitOnceReq->parent;
-    delete commitOnceReq;
+
+    if (!static_cast<DmIoCommitBlobTx*>(commitOnceReq)->usedForMigration) {
+        delete commitOnceReq;
+    }
 
     QueueHelper helper(dataManager, parent);
     helper.err = e;
@@ -263,6 +285,10 @@ void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                            fpi::RenameBlobRespMsg());
     }
 
+    delete dmRequest;
+}
+
+void RenameBlobHandler::handleResponseCleanUp(Error const& e, DmRequest* dmRequest) {
     delete dmRequest;
 }
 
