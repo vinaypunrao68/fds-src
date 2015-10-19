@@ -38,13 +38,24 @@ void MetaDataList::updateMetaDataPair(const std::string& key,
 //
 // Copies metadata into fdsp metadata list structure
 //
-void MetaDataList::toFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
+void MetaDataList::moveToFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
     mlist.clear();
     mlist.reserve(size());
     for (const auto& cit : *this) {
         fpi::FDSP_MetaDataPair mpair;
         mpair.key = std::move(cit.first);
         mpair.value = std::move(cit.second);
+        mlist.push_back(mpair);
+    }
+}
+
+void MetaDataList::copyToFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
+    mlist.clear();
+    mlist.reserve(size());
+    for (const auto& cit : *this) {
+        fpi::FDSP_MetaDataPair mpair;
+        mpair.key = cit.first;
+        mpair.value = cit.second;
         mlist.push_back(mpair);
     }
 }
