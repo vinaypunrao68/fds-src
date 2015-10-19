@@ -185,6 +185,8 @@ namespace fds
                 rs_unregister(agent);
             }
 
+            virtual void agent_reactivate(NodeAgent::pointer agent) {}
+
             /**
              * Register and unregister a node agent.
              */

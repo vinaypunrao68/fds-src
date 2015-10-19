@@ -373,6 +373,9 @@ class OM_AgentContainer : public AgentContainer
     virtual void agent_activate(NodeAgent::pointer agent);
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
+    // In case of a DM, we need to add it to a resync list. Otherwise it's a no-op
+    virtual void agent_reactivate(NodeAgent::pointer agent);
+
     /**
      * For derived classes, this would allow them to return the correct type.
      */
@@ -390,6 +393,7 @@ class OM_AgentContainer : public AgentContainer
      * set and leaves other pending nodes pending
      */
     void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes, NodeList *dmResyncNodes);
     void om_splice_nodes_pend(NodeList *addNodes,
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
@@ -397,6 +401,7 @@ class OM_AgentContainer : public AgentContainer
   protected:
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
+    NodeList                                 dm_resync_pend;
 
     explicit OM_AgentContainer(FdspNodeType id);
     virtual ~OM_AgentContainer() {}
