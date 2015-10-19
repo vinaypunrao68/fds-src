@@ -10,6 +10,11 @@ import http.client
 # import requests
 import random
 import pickle
+#For multipart uploads
+from boto.s3.connection import OrdinaryCallingFormat
+from boto.s3.key import Key
+from boto.s3.bucket import Bucket
+from filechunkio import FileChunkIO
 
 class Histogram:
     def __init__(self, N = 1, M = 0):
@@ -91,6 +96,53 @@ def create_file_queue(n,size):
         files.append(create_random_file(size))
     return files
 
+#TODO Make size variable
+def do_multipart():
+	#Size= 50MB
+	source_size = 1024*1024*50
+	fname = create_random_file(source_size)
+
+	#setup for s3 connection sample from fds-s3-compliance.py
+	conn = boto.connect_s3(
+		aws_access_key_id = 'blablabla',
+		aws_secret_access_key = 'kekekeke',
+		host = 'localhost',
+		port = 8000,
+		is_secure = False,
+		calling_format = boto.s3.connection.OrdinaryCallingFormat())
+
+	_buck_name = "BUCKET" + str(random.randint(0,100000))	
+	buck = conn.create_bucket(_buck_name)
+
+	_key_name = os.path.basename(fname)
+	mp = buck.initiate_multipart_upload(_key_name)
+
+	#chunk size 5MB
+	#TODO Make chunk_size variable
+	chunk_size = 1024 * 1024 * 5
+	chunk_count = int(math.ceil(source_size / chunk_size))
+
+	#Upload file in parts
+	for i in range(chunk_count + 1):
+		offset = chunk_size * i
+		bytes = min(chunk_size, source_size - offset)
+		with FileChunkIO(fname, 'r', offset=offset, bytes=bytes) as fp:
+			mp.upload_part_from_file(fp, part_num=i + 1)
+
+	mp.complete_upload()
+	
+	#Validate Upload
+	_key = Key(buck)
+	_key.key = _key_name
+	_key.get_contents_to_filename(fname + "_verify")
+	diff_code = os.system('diff ' + fname + ' ' + fname '_verify')
+	if diff_code != 0:
+		raise Exception('File corrupted!')
+
+	os.system('rm ' + fname + '_verify')	
+	
+	c.close()
+
 def do_put(conn, target, fname):
     e = None
     body = open(fname,"rb").read()
@@ -167,6 +219,11 @@ def task(task_id, n_reqs, req_type, vol, files,
         # FIXME: need to skip first samples
         update_latency_stats(stats, time_start, time_end)
         stats["reqs"] += 1
+        if r1.status != 200:
+            stats["fails"] += 1
+    conn.close()
+    # print ("Done with volume", vol, "thread:", task_id)
+    with counters.get_lock():
         if r1.status != 200:
             stats["fails"] += 1
     conn.close()
@@ -286,7 +343,7 @@ def main(options,files):
     # Finally, join processes
     for t in tids:
         t.join()
-
+	
     if options.get_reuse == True and options.req_type == "PUT":
         dump_uploaded(uploaded)
     print ("Options:", options, "Stats:", stats)
@@ -310,7 +367,7 @@ if __name__ == "__main__":
     parser.add_option("-t", "--threads", dest = "threads", type = "int", default = 1, help = "Number of threads")
     # FIXME: specify total number of request
     parser.add_option("-n", "--num-requests", dest = "n_reqs", type = "int", default = 1, help = "Number of requests per volume")
-    parser.add_option("-T", "--type", dest = "req_type", default = "PUT", help = "PUT/GET/DELETE")
+    parser.add_option("-T", "--type", dest = "req_type", default = "PUT", help = "PUT/GET/DELETE/MULTIPART")
     parser.add_option("-s", "--file-size", dest = "file_size", type = "int", default = 4096, help = "File size in bytes")
     parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "Number of files")
     parser.add_option("-v", "--num-volumes", dest = "num_volumes", type = "int", default = 1, help = "Number of volumes")
@@ -328,8 +385,3 @@ if __name__ == "__main__":
         files = create_file_queue(options.num_files, options.file_size)
         time.sleep(5)
     else:
-        files = Queue()
-    print ("Starting...")
-    main(options,files)
-    print ("Done.")
-
