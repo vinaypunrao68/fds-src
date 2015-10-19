@@ -94,7 +94,7 @@ service AsyncXdiServiceResponse {
 
     oneway void attachVolumeResponse(1:RequestId requestId, 2:common.VolumeAccessMode mode),
 
-    oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> response),
+    oneway void volumeContents(1:RequestId requestId, 2:list<common.BlobDescriptor> blobs, 3:list<string> skippedPrefixes),
 
     oneway void setVolumeMetadataResponse(1:RequestId requestId),
 

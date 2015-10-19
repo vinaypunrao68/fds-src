@@ -1,11 +1,11 @@
 #!/bin/bash
 
-for i in ../lib/java/\* ; do {
+for i in /fds/lib/java/\* ; do {
     CLASSPATH=$CLASSPATH:$i;
 } done
 
 CLASSPATH=$CLASSPATH
 
-java -classpath $CLASSPATH \
+/opt/fds-deps/embedded/jre/bin/java -classpath $CLASSPATH \
      com.formationds.util.TrafficGen $*
 

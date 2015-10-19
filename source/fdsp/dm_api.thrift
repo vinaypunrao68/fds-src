@@ -42,6 +42,7 @@ struct GetBucketMsg {
  */
 struct GetBucketRspMsg {
   1: required dm_types.BlobDescriptorListType     blob_descr_list;
+  2:          list<string>                        skipped_prefixes = [];
 }
 
 /**

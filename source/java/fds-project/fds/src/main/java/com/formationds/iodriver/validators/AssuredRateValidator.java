@@ -1,72 +1,167 @@
 package com.formationds.iodriver.validators;
 
+import static com.formationds.commons.util.Strings.javaString;
+
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.formationds.commons.NullArgumentException;
+import com.formationds.iodriver.WorkloadContext;
+import com.formationds.iodriver.events.Validated;
 import com.formationds.iodriver.model.VolumeQosPerformance;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener.VolumeQosStats;
+import com.formationds.iodriver.validators.AssuredRateValidator.ValidationResult.VolumeResult;
+import com.formationds.iodriver.workloads.QosWorkload;
+import com.formationds.iodriver.workloads.QosWorkload.VolumeQosStats;
+import com.google.common.collect.ImmutableList;
 
-public class AssuredRateValidator implements Validator
+public final class AssuredRateValidator implements Validator
 {
-    @Override
-    public boolean isValid(AbstractWorkflowEventListener listener)
+    public final static class ValidationResult extends com.formationds.iodriver.reporters.ValidationResult
     {
-        if (listener == null) throw new NullArgumentException("listener");
+        public final static class VolumeResult extends com.formationds.iodriver.reporters.ValidationResult
+        {
+            public VolumeResult(boolean isValid, String volumeName, int assured, double iops)
+            {
+                super(isValid);
+                
+                if (volumeName == null) throw new NullArgumentException("volumeName");
+                
+                _assured = assured;
+                _iops = iops;
+                _volumeName = volumeName;
+            }
+            
+            @Override
+            public String toString()
+            {
+                NumberFormat iopsFormatter = NumberFormat.getNumberInstance();
+                iopsFormatter.setMinimumFractionDigits(2);
+                iopsFormatter.setMaximumFractionDigits(2);
+                
+                NumberFormat deviationFormatter = NumberFormat.getPercentInstance();
+                deviationFormatter.setMinimumFractionDigits(2);
+                deviationFormatter.setMaximumFractionDigits(2);
+                
+                return javaString(_volumeName) + ":"
+                       + " Assured: " + _assured
+                       + " IOPS: " + iopsFormatter.format(_iops)
+                       + " Deviation: " + deviationFormatter.format((_iops - _assured) / _assured)
+                       + " " + (isValid() ? "PASS" : "FAIL");
+            }
+            
+            private final int _assured;
+            
+            private final double _iops;
+            
+            private final String _volumeName;
+        }
         
+        public ValidationResult(boolean isValid,
+                                int targetIops,
+                                double totalIops,
+                                Iterable<VolumeResult> volumeResults)
+        {
+            super(isValid);
+            
+            if (volumeResults == null) throw new NullArgumentException("volumeResults");
+            
+            _targetIops = targetIops;
+            _totalIops = totalIops;
+            _volumeResults = ImmutableList.copyOf(volumeResults);
+        }
+        
+        @Override
+        public String toString()
+        {
+            NumberFormat iopsFormatter = NumberFormat.getNumberInstance();
+            iopsFormatter.setMinimumFractionDigits(2);
+            iopsFormatter.setMaximumFractionDigits(2);
+            
+            NumberFormat deviationFormatter = NumberFormat.getPercentInstance();
+            deviationFormatter.setMinimumFractionDigits(2);
+            deviationFormatter.setMaximumFractionDigits(2);
+            
+            return "Assured rate validation:"
+                   + " Target IOPS: " + iopsFormatter.format(_targetIops)
+                   + " Actual IOPS: " + iopsFormatter.format(_totalIops)
+                   + " Deviation: " + deviationFormatter.format((_totalIops - _targetIops) / _targetIops)
+                   + " " + (isValid() ? "PASS" : "FAIL") + "\n"
+                   + _volumeResults.stream()
+                                   .map(Objects::toString)
+                                   .collect(Collectors.joining("\n"));
+        }
+        
+        private final int _targetIops;
+        
+        private final double _totalIops;
+        
+        private final ImmutableList<VolumeResult> _volumeResults;
+    }
+    
+    @Override
+    public boolean isValid(WorkloadContext context)
+    {
+        if (context == null) throw new NullArgumentException("context");
+        if (!(context instanceof QosWorkload.Context))
+        {
+            throw new IllegalArgumentException("context must come from newContext().");
+        }
+        
+        QosWorkload.Context typedContext = (QosWorkload.Context)context;
+
+        List<VolumeResult> volumeResults = new ArrayList<>();
         boolean failed = false;
         int totalAssuredIops = 0;
         double totalIops = 0.0;
-        for (String volumeName : listener.getVolumes())
+        for (String volumeName : typedContext.getVolumes())
         {
-            VolumeQosStats stats = listener.getStats(volumeName);
+            VolumeQosStats stats = typedContext.getStats(volumeName);
             VolumeQosSettings params = stats.params;
             VolumeQosPerformance perf = stats.performance;
             
-            Instant start = perf.getStart();
-            Instant stop = perf.getStop();
-            if (start == null)
+            if (perf.isStopped())
             {
-                throw new IllegalStateException("Volume " + volumeName + " has not been started.");
-            }
-            if (stop == null)
-            {
-                throw new IllegalStateException("Volume " + volumeName + " has not been stopped.");
-            }
-            
-            int assured = params.getIopsAssured();
-            Duration duration = Duration.between(start, stop);
-            double durationInSeconds = duration.toMillis() / 1000.0;
-            double iops = perf.getOps() / durationInSeconds;
-            double deviation = (iops - assured) / assured;
+                Instant start = perf.getStart();
+                Instant stop = perf.getStop();
 
-            totalAssuredIops += assured;
-            totalIops += iops;
+                int assured = params.getIopsAssured();
+                Duration duration = Duration.between(start, stop);
+                double durationInSeconds = duration.toMillis() / 1000.0;
+                double iops = perf.getOps() / durationInSeconds;
+                double deviation = (iops - assured) / assured;
 
-            System.out.println(volumeName + ": A:" + params.getIopsAssured() + ", T:"
-                               + params.getIopsThrottle() + "): " + perf.getOps() + " / "
-                               + durationInSeconds + " = " + iops + "(" + deviation * 100.0 + "%).");
-            
-            // We must be within at least 3% of our assured rate to call it success. If we're more
-            // than 50% over, we're probably not hitting QoS limits hard enough.
-            if (deviation < -0.05 || deviation > 0.50)
-            {
-                failed = true;
+                // We must get at least 95% of our assured rate to call it success. If we're more
+                // than 50% over, there may have not been enough competition for this to be a good
+                // test.
+                boolean isValid = deviation >= -0.05 && deviation <= 0.5;
+                
+                totalAssuredIops += assured;
+                totalIops += iops;
+                volumeResults.add(new VolumeResult(isValid, volumeName, assured, iops));
+                
+                failed |= !isValid;
             }
         }
         
-        double totalDeviation = (totalIops - totalAssuredIops) / totalAssuredIops;
-        System.out.println("Total system IOPS: " + totalIops + "(" + totalDeviation * 100.0 + "%.");
-
         // If we can go over 10% of what we requested for assured, we're not stressing the system
         // hard enough.
-        if (Math.abs(totalDeviation) > 0.1)
+        if (Math.abs((totalIops - totalAssuredIops) / totalAssuredIops) > 0.2)
         {
             failed = true;
         }
 
+        context.sendIfRegistered(new Validated(Instant.now(),
+                                               new ValidationResult(!failed,
+                                                                    totalAssuredIops,
+                                                                    totalIops,
+                                                                    volumeResults)));
+        
         return !failed;
     }
 }

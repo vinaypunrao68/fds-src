@@ -25,7 +25,7 @@ public class Chunker {
 
         for (long i = startObject; remaining[0] > 0; i++) {
             int toBeWritten = Math.min(objectSize - startOffset[0], remaining[0]);
-            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), (ov) -> {
+            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), true, (ov) -> {
                 mutator.mutate(ov.getMetadata());
                 ByteBuffer buf = ov.getBuf().slice();
                 buf.position(startOffset[0]);

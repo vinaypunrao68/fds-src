@@ -118,7 +118,8 @@ class VolumeCatalogQueryIface {
     virtual Error listBlobsWithPrefix (fds_volid_t volume_id,
                                        std::string const& prefix,
                                        std::string const& delimiter,
-                                       fpi::BlobDescriptorListType& results) = 0;
+                                       fpi::BlobDescriptorListType& results,
+                                       std::vector<std::string>& skippedPrefixes) = 0;
 
     /**
      * Returns blob (descriptor + offset to object_id mappings) for a blob_id

@@ -71,8 +71,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     }
 
     @Override
-    public void volumeContents(RequestId requestId, List<BlobDescriptor> blobDescriptors) throws TException {
-        complete(requestId, blobDescriptors);
+    public void volumeContents(RequestId requestId, List<BlobDescriptor> blobDescriptors, List<String> skippedPrefixes) throws TException {
+        complete(requestId, new VolumeContents(blobDescriptors, skippedPrefixes));
     }
 
     @Override

@@ -296,7 +296,7 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
              */
             auto svcHandle = boost::make_shared<SvcHandle>(MODULEPROVIDER(), e);
             svcHandleMap_.emplace(std::make_pair(e.svc_id.svc_uuid, svcHandle));
-            GLOGDEBUG << "svcmap updaete.  svcuuid: "
+            GLOGDEBUG << "svcmap update.  svcuuid: "
                 << mapToSvcUuidAndName(e.svc_id.svc_uuid)
                 << " is new.  Incarnation: " << e.incarnationNo;
         } else {

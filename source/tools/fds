@@ -87,6 +87,7 @@ function usage() {
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log "   : $(yellow --om-debug-port) java debugger port #"
+    log "   : $(yellow --xdi-debug-port) java debugger port #"
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
     echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
@@ -240,6 +241,11 @@ function startApp() {
                     om)
                         if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
                             params="--debug-port=${OM_DEBUG_PORT}"
+                        fi
+                        ;;
+                    xdi)
+                        if [[ ! -z "${XDI_DEBUG_PORT}" ]]; then
+                            params="--debug-port=${XDI_DEBUG_PORT}"
                         fi
                         ;;
                     *)
@@ -684,6 +690,20 @@ do
             ;;
         --om-debug-port=*)
             OM_DEBUG_PORT="${opt#*=}"
+            ;;
+        --xdi-debug-port)
+            (( n++ ))
+            if [[ $n -ge $# ]]; then
+                logerror "value expected for xdi-debug-port"
+                usage
+            fi
+            XDI_DEBUG_PORT="${args[$n]}"
+            ;;
+        --xdi-debug-port=*)
+            XDI_DEBUG_PORT="${opt#*=}"
+            ;;
+        -i|--from-install-dir)
+            run_from_install_dir=1
             ;;
         -h|--help)
             usage

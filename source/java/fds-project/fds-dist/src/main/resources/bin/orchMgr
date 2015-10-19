@@ -21,7 +21,7 @@ do
       DEBUG_PORT="${i#*=}"
       # This is used to create DEBUG_OPTS, don't pass to OM.
       ;;
-
+      
     *)
       # Pass this arg on to OM.
       NEW_ARGS+=("${i}")

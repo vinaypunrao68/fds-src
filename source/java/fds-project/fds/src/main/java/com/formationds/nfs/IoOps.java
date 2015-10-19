@@ -15,10 +15,12 @@ public interface IoOps {
 
     public ByteBuffer readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int objectSize) throws IOException;
 
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize) throws IOException;
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize, boolean deferrable) throws IOException;
 
     public void deleteBlob(String domain, String volumeName, String blobName) throws IOException;
 
-    public List<Map<String, String>> scan(String domain, String volume, String blobNamePrefix) throws IOException;
+    public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException;
+
+    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException;
 
 }

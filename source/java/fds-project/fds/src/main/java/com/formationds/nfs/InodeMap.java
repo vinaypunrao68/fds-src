@@ -33,7 +33,6 @@ public class InodeMap {
         chunker = new Chunker(io);
     }
 
-
     public Optional<InodeMetadata> stat(Inode inode) throws IOException {
         if (isRoot(inode)) {
             return Optional.of(ROOT_METADATA);
@@ -76,6 +75,7 @@ public class InodeMap {
                         .withUpdatedSize(byteCount);
                 map.clear();
                 map.putAll(last[0].asMap());
+                return null;
             });
             return last[0];
         } catch (Exception e) {
@@ -91,9 +91,10 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, (x) -> {
+        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, true, (x) -> {
             x.clear();
             x.putAll(metadata.asMap());
+            return null;
         });
         return metadata.asInode(exportId);
     }
