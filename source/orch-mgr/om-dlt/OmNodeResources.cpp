@@ -1565,27 +1565,27 @@ OM_PmAgent::send_stop_service
 
         fds_mutex::scoped_lock l(dbNodeInfoLock);
 
-        fpi::SvcUuid svcuuid;
+        fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
         fpi::SvcUuid pmSvcUuid;
         pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
 
         if (stop_sm) {
-            fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
-            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+            fds::retrieveSvcId(pmSvcUuid.svc_uuid, smSvcId, fpi::FDSP_STOR_MGR);
+            fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(smSvcId.svc_uuid );
 
             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
 
                 LOGDEBUG << "Will stop SM service "
                          << std::hex
-                         << svcuuid.svc_uuid
+                         << smSvcId.svc_uuid
                          << std::dec;
 
                 change_service_state( configDB,
-                                      svcuuid.svc_uuid,
+                                      smSvcId.svc_uuid,
                                       fpi::SVC_STATUS_STOPPED );
             } else {
                 LOGERROR << "Service" << std::hex
-                         << svcuuid.svc_uuid << std::dec
+                         << smSvcId.svc_uuid << std::dec
                          << "is not active so cannot stop";
                 return Error(ERR_NOT_READY);
             }
@@ -1593,22 +1593,22 @@ OM_PmAgent::send_stop_service
 
          // Set DM service state to stopped
          if (stop_dm) {
-             fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
-             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+             fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
+             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
 
              if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
 
                  LOGDEBUG << "Will stop DM service "
                           << std::hex
-                          << svcuuid.svc_uuid
+                          << dmSvcId.svc_uuid
                           << std::dec;
 
                  change_service_state( configDB,
-                                       svcuuid.svc_uuid,
+                         dmSvcId.svc_uuid,
                                        fpi::SVC_STATUS_STOPPED );
              } else {
                  LOGERROR << "Service" << std::hex
-                          << svcuuid.svc_uuid << std::dec
+                          << dmSvcId.svc_uuid << std::dec
                           << "is not active so cannot stop";
                  return Error(ERR_NOT_READY);
 
@@ -1617,21 +1617,21 @@ OM_PmAgent::send_stop_service
 
          // Set AM service state to stopped
          if (stop_am) {
-             fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
-             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(svcuuid.svc_uuid );
+             fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
+             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
 
              if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
                  LOGDEBUG << "Will stop AM service "
                           << std::hex
-                          << svcuuid.svc_uuid
+                          << amSvcId.svc_uuid
                           << std::dec;
 
                  change_service_state( configDB,
-                                       svcuuid.svc_uuid,
+                                       amSvcId.svc_uuid,
                                        fpi::SVC_STATUS_STOPPED );
              } else {
                  LOGERROR << "Service" << std::hex
-                          << svcuuid.svc_uuid << std::dec
+                          << amSvcId.svc_uuid << std::dec
                           << "is not active so cannot stop";
                  return Error(ERR_NOT_READY);
              }
@@ -1646,7 +1646,8 @@ OM_PmAgent::send_stop_service
         auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
         req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStopServiceMsg), stopServiceMsg);
         req->onResponseCb(std::bind(&OM_PmAgent::send_stop_services_resp, this,
-                                    stop_sm, stop_dm, stop_am, shutdownNode,
+                                    stop_sm, stop_dm, stop_am, smSvcId, dmSvcId, amSvcId,
+                                    shutdownNode,
                                     std::placeholders::_1, std::placeholders::_2,
                                     std::placeholders::_3));
         req->setTimeoutMs(10000);
@@ -1664,6 +1665,9 @@ void
 OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                                     fds_bool_t stop_dm,
                                     fds_bool_t stop_am,
+                                    fpi::SvcUuid smSvcId,
+                                    fpi::SvcUuid dmSvcId,
+                                    fpi::SvcUuid amSvcId,
                                     fds_bool_t shutdownNode,
                                     EPSvcRequest* req,
                                     const Error& error,
@@ -1679,25 +1683,25 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
 
     if (error.ok()) {
          // Set SM service state to inactive
-        if ( stop_sm && activeSmAgent ) {
+        if ( stop_sm ) {
              change_service_state( configDB,
-                                   ( activeSmAgent->get_uuid() ).uuid_get_val(),
+                                   smSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
              activeSmAgent = nullptr;
          }
 
          // Set DM service state to inactive
-         if ( stop_dm && activeDmAgent ) {
+         if ( stop_dm ) {
              change_service_state( configDB,
-                                   ( activeDmAgent->get_uuid() ).uuid_get_val(),
+                                   dmSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
              activeDmAgent = nullptr;
          }
 
          // Set AM service state to inactive
-         if ( stop_am && activeAmAgent ) {
+         if ( stop_am ) {
              change_service_state( configDB,
-                                   ( activeAmAgent->get_uuid() ).uuid_get_val(),
+                                   amSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
              activeAmAgent = nullptr;
          }
@@ -1707,6 +1711,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  << " not updating local state of PM agent .... " << error;
     }
 
+    // On OM restart, cannot depend on agents being set. This logic
+    // should still not do any harm either way
     if (!activeSmAgent && !activeDmAgent && !activeAmAgent){
         if (shutdownNode) {
         // Node is being shutdown, change the state of platform
