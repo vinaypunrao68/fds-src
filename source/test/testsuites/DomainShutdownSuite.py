@@ -74,7 +74,7 @@ def suiteConstruction(self, action="kill-uninst"):
                 if "action" in scenario.nd_conf_dict:
                     action = scenario.nd_conf_dict['action']
                     if (action.count("uninst") > 0) and scenario == last_scenario:
-                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSTeardownCluster())
+                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSTeardownDomain())
 
     return suite
 

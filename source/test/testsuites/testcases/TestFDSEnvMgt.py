@@ -360,8 +360,8 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
 
 
 # This class contains attributes and methods to test
-# AWS cluster with given inventory file name tag.
-class TestFDSTeardownCluster(TestCase.FDSTestCase):
+# AWS domain with given inventory file name tag.
+class TestFDSTeardownDomain(TestCase.FDSTestCase):
     def __init__(self, parameters = None, node=None):
         """
         When run by a qaautotest module test runner,
