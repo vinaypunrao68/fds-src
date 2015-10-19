@@ -1115,6 +1115,9 @@ void DataMgr::mod_enable_service() {
         // get DMT from OM if DMT already exist
         MODULEPROVIDER()->getSvcMgr()->getDMT();
         MODULEPROVIDER()->getSvcMgr()->getDLT();
+
+        // Get the volume descriptors from OM
+        getAllVolumeDescriptors();
     }
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
@@ -1412,6 +1415,31 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_msg  = "FDSP_ERR_FAILED";
         msg_hdr->err_code = err.GetErrno();
     }
+}
+
+Error
+DataMgr::getAllVolumeDescriptors()
+{
+	Error err(ERR_OK);
+	fpi::GetAllVolumeDescriptors list;
+    err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
+
+    if (!err.ok()) {
+    	return err;
+    }
+
+    for (auto const& volAdd : list.volumeList) {
+    	VolumeDesc desc(volAdd.vol_desc);
+    	fds_volid_t vol_uuid (desc.volUUID);
+    	GLOGNOTIFY << "Pulled create for vol "
+    			<< "[" << vol_uuid << ", "
+				<< desc.getName() << "]";
+    	err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
+                        vol_uuid,
+                        &desc);
+    }
+
+	return err;
 }
 
 namespace dmutil {

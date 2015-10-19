@@ -185,7 +185,6 @@
         - python-argh
         - python-boto
         - python-thrift
-        - libcryptopp-dev
         - libncurses5-dev
         - lintian
         - libhiredis0.10

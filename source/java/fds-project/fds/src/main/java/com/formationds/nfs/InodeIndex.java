@@ -12,7 +12,7 @@ public interface InodeIndex {
 
     List<DirectoryEntry> list(InodeMetadata inodeMetadata, long exportId) throws IOException;
 
-    void index(long exportId, InodeMetadata... entries) throws IOException;
+    void index(long exportId, boolean deferrable, InodeMetadata entry) throws IOException;
 
     void remove(long exportId, InodeMetadata inodeMetadata) throws IOException;
 

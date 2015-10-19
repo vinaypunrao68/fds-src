@@ -155,6 +155,8 @@ AmVolumeTable::registerVolume(const VolumeDesc& volDesc)
                       << " (iops_throttle=" << volDesc.iops_throttle
                       << ", iops_assured=" << volDesc.iops_assured
                       << ", prio=" << volDesc.relativePrio << ")"
+                      << ", primary=" << volDesc.primary
+                      << ", replica=" << volDesc.replica
                       << " result: " << err.GetErrstr();
             return err;
         } else {

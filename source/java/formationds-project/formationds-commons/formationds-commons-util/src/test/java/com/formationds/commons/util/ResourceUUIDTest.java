@@ -100,7 +100,7 @@ public class ResourceUUIDTest
     {
         Assert.assertTrue(
             ResourceUUID.getUuid4Type( new ResourceUUID( PM_UUID_STR ).uuid(),
-                                       FDSP_MgrIdType.FDSP_PLATFORM ).svc_uuid ==
+                                       FDSP_MgrIdType.FDSP_PLATFORM ).getSvc_uuid( ) ==
             new ResourceUUID( PM_UUID_STR ).longValue( ) );
     }
 
@@ -109,7 +109,7 @@ public class ResourceUUIDTest
     {
         Assert.assertTrue(
             ResourceUUID.getUuid4Type( new ResourceUUID( PM_UUID_STR ).uuid(),
-                                       FDSP_MgrIdType.FDSP_STOR_MGR ).svc_uuid ==
+                                       FDSP_MgrIdType.FDSP_STOR_MGR ).getSvc_uuid( ) ==
             new ResourceUUID( SM_UUID_STR ).longValue( ) );
     }
 
@@ -118,7 +118,7 @@ public class ResourceUUIDTest
     {
         Assert.assertTrue(
             ResourceUUID.getUuid4Type( new ResourceUUID( PM_UUID_STR ).uuid(),
-                                       FDSP_MgrIdType.FDSP_DATA_MGR ).svc_uuid ==
+                                       FDSP_MgrIdType.FDSP_DATA_MGR ).getSvc_uuid( ) ==
             new ResourceUUID( DM_UUID_STR ).longValue( ) );
     }
 
@@ -127,7 +127,7 @@ public class ResourceUUIDTest
     {
         Assert.assertTrue(
             ResourceUUID.getUuid4Type( new ResourceUUID( PM_UUID_STR ).uuid(),
-                                       FDSP_MgrIdType.FDSP_ACCESS_MGR ).svc_uuid ==
+                                       FDSP_MgrIdType.FDSP_ACCESS_MGR ).getSvc_uuid( ) ==
             new ResourceUUID( AM_UUID_STR ).longValue( ) );
     }
 }

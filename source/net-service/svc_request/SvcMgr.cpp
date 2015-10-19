@@ -559,6 +559,29 @@ Error SvcMgr::getDMT(int maxAttempts) {
 	return err;
 }
 
+Error SvcMgr::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int maxAttempts) {
+	Error err(ERR_NOT_FOUND);
+	int triedCnt = 0;
+	while (maxAttempts > triedCnt++) {
+		try {
+			getAllVolumeDescriptorsData(list);
+			if (list.volumeList.size() > 0) {
+				err = ERR_OK;
+			} else {
+				// Could potentially not be an error, but we should have gotten SYSTEM_VOLUME
+				// at least... so return ERR_NOT_FOUND
+			}
+			break;
+		} catch (Exception &e) {
+			LOGWARN << "Failed to get volume descriptor: " << e.what() << ". Attempt# " << triedCnt;
+		} catch (...) {
+			LOGWARN << "Failed to get volume descriptor. Attempt# " << triedCnt;
+		}
+	}
+
+	return err;
+}
+
 const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
@@ -615,6 +638,15 @@ void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
 	fds_verify(omSvcRpc);
 
 	omSvcRpc->getDLT(fdsp_dlt, nullarg);
+}
+
+void SvcMgr::getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list)
+{
+	int nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getAllVolumeDescriptors(list, nullarg);
 }
 
 void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)

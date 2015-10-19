@@ -22,10 +22,12 @@ typedef boost::msm::back::state_machine<DmtDplyFSM> FSM_DplyDMT;
 class DmtDeployEvt
 {
   public:
-    DmtDeployEvt() {}
+    explicit DmtDeployEvt(fds_bool_t _inReSync) : dmResync(_inReSync) {}
     std::string logString() const {
         return "DmtDeployEvt";
     }
+
+    fds_bool_t dmResync;  // if true, DMT computation will be for DM Resync
 };
 
 class DmtRecoveryEvt

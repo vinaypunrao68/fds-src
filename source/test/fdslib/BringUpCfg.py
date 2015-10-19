@@ -74,17 +74,13 @@ class FdsNodeConfig(FdsConfig):
                     log.error("Need to provide inventory file name to run tests against deployed nodes")
                     sys.exit(1)
 
-                ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
+                ips_array = TestUtils.read_ips_from_tmp(cmd_line_options['inventory_file'])
                 if (ips_array.__len__() < (nodeId+1)):
                     # In this IPs count mismatch, we ignore extra IPs in cfg file
                     log.warning ("Number of ips give in inventory are less than nodes in cfg file")
 
                 else:
-                    if 'om' in self.nd_conf_dict:
-                        #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
-                        self.nd_conf_dict['ip'] = ips_array[nodeId]
-                    else:
-                        self.nd_conf_dict['ip'] = ips_array[nodeId]
+                    self.nd_conf_dict['ip'] = ips_array[nodeId]
 
                     # In this case, the deployment scripts always sets "/fds" as fds_root
                     # regardless of test configuration.
@@ -895,14 +891,14 @@ class FdsConfigFile(object):
         self.cfg_parser    = None
         self.cfg_localHost = None
         self.inventory = inventory_file
-        self.cfg_is_fds_installed = install
+        self.cfg_remote_fds_deploy = install
         self.rt_env = rt_env
 
     def config_parse(self):
         cmd_line_options = {
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun,
-            'install': self.cfg_is_fds_installed,
+            'install': self.cfg_remote_fds_deploy,
             'inventory_file' : self.inventory
         }
         self.cfg_parser = ConfigParser.ConfigParser()
@@ -912,6 +908,16 @@ class FdsConfigFile(object):
             sys.exit (1)
 
         nodeID = 0
+        number_of_nodes = 0
+        for section in self.cfg_parser.sections():
+            if re.match('node', section):
+                number_of_nodes += 1
+
+        if self.cfg_remote_fds_deploy is True:
+            inventory_file = cmd_line_options['inventory_file']
+            install_result = TestUtils.deploy_on_AWS(self,number_of_nodes,inventory_file)
+            assert(install_result,True)
+
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
@@ -939,7 +945,7 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    if self.cfg_is_fds_installed is True and n.nd_conf_dict['ip'] == 'localhost':
+                    if self.cfg_remote_fds_deploy is True and n.nd_conf_dict['ip'] == 'localhost':
                         # It's an extra IP in cfg and ignore it while running against AWS
                         print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
                     else:

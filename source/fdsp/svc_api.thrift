@@ -70,6 +70,16 @@ struct CtrlNotifySnapVol {
 }
 
 /**
+ * A pull model similar to getDLT/getDMT that asks OM to send a list
+ * of all the volume descriptors. This msg is simply an "ask"
+ * and the response will contain the list of volumes.
+ * Note: Similar to above, right now these are all NotifyVolAdd
+ */
+struct GetAllVolumeDescriptors {
+    1: list<CtrlNotifyVolAdd> volumeList;
+}
+
+/**
  * Debug message for hybrid tiering
  */
 struct CtrlStartHybridTierCtrlrMsg

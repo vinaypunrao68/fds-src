@@ -512,20 +512,17 @@ def getAuth(self, om_ip):
 
         continue
 
-def get_ips_from_inventory(inventory_file_name,rt_env):
-    filename = inventory_file_name
-    path = rt_env.env_fdsSrc + "test/testsuites/templates/ansible-inventory/"
-    with open(path+filename) as f:
-        ips_array = []
-        lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            if (line.startswith('[')):
-                continue
-            elif not line :
-                break
-            else:
-                ips_array.append(line.rstrip('\n'))
+def read_ips_from_tmp(inventory_file_name):
+    filepath = '/tmp/'+inventory_file_name+'_ips.txt'
+    f = open(filepath, "r")
+    contents = f.readlines()
+    f.close()
+    contents[0]=contents[0].replace('OM_HOST','')
+    ips_array = []
+
+    for i in contents:
+        ips_array.append(i.strip())
+
     return ips_array
 
 def node_is_up(self,om_ip,node_id):
@@ -536,3 +533,18 @@ def node_is_up(self,om_ip,node_id):
     else:
         return False
 
+def deploy_on_AWS(self, number_of_nodes, inventory_file):
+    deploy_script = 'deploy_fds_ec2.sh'
+    deb_location = 'nightly'
+    deploy_script_dir = os.path.join(self.rt_env.env_fdsSrc, '../ansible/scripts/')
+    cur_dir = os.getcwd()
+    os.chdir(deploy_script_dir)
+    cmd = './%s %s %s %s' %(deploy_script,inventory_file, number_of_nodes, deb_location)
+    status = os.system(cmd)
+    os.chdir(cur_dir)
+    if status != 0:
+        self.log.error("FDS package installation on AWS nodes returned status %d." %
+                           (status))
+        return False
+
+    return True

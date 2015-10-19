@@ -1,0 +1,13 @@
+---
+- include: config_sanity_check.yml
+
+- include: stop_scst.yml
+
+- include: uninstall_scst.yml
+  when: skip_uninstall is not defined or (skip_uninstall is defined and skip_uninstall == False)
+
+- include: install_deps.yml
+
+- include: install_scst.yml
+
+- include: start_scst.yml
