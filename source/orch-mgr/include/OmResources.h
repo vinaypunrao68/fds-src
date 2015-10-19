@@ -21,6 +21,7 @@
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+#include <concurrency/RwLock.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -49,6 +50,7 @@ class OM_ControlRespHandler;
 struct NodeDomainFSM;
 
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
+typedef boost::shared_ptr<fpi::SvcInfo> SvcInfoPtr;
 
 /**
  * Agent interface to communicate with the remote node.  This is the communication
@@ -939,7 +941,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services(const NodeUuid& node_uuid);
+    void om_activate_known_services(bool domainRestart, const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service
@@ -1061,6 +1063,14 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(ShutAckEvt const &evt);
     void local_domain_event(DeactAckEvt const &evt);
 
+    /**
+     * Methods related to tracking registering services
+     * for svcMap updates
+     */
+    void addRegisteringSvc(SvcInfoPtr infoPtr);
+    Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
+    void removeRegisteredSvc(int64_t uuid);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1088,6 +1098,11 @@ class OM_NodeDomainMod : public Module
     FSM_NodeDomain                  *domain_fsm;
     // to protect access to msm process_event
     fds_mutex                       fsm_lock;
+
+    // Vector to track registering services and
+    // locks to protect accesses
+    fds_rwlock svcRegVecLock;
+    std::vector<SvcInfoPtr> registeringSvcs;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
