@@ -14,17 +14,17 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
     if (!db) { return ERR_INVALID; }
 
     std::string query = "create table if not exists liveObjTbl"
-                        " (smToken integer, volId integer,"
+                        " (smToken integer, volId integer, dmUuid integer,"
                         " timeStamp integer not null, filename text not null)";
 
     if (db->execute(query.c_str())) {
-        LOGERROR << "Failed creating live objects table";
+        LOGERROR << "Failed to create live objects table";
         return ERR_INVALID;
     }
 
     query = "create index if not exists smTokenIdx on liveObjTbl (smToken, volId)";
     if (db->execute(query.c_str())) {
-        LOGERROR << "Failed creating smToken index on live object table";
+        LOGERROR << "Failed to create smToken index on live object table";
         return ERR_INVALID;
     }
     return ERR_OK;
@@ -32,17 +32,18 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
 
 Error LiveObjectsDB::addObjectSet(const fds_token_id &smToken,
                                   const fds_volid_t &volId,
+                                  const fds_uint64_t &dmUUID,
                                   const TimeStamp &timeStamp,
                                   const std::string &objectSetFilePath) {
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("insert into liveObjTbl "
-                                        "(smToken, volId, timeStamp, filename) "
-                                        "values (%ld, %ld, %ld, '%s')",
-                                        smToken, volId.get(), timeStamp,
+                                        "(smToken, volId, dmUuid, timeStamp, filename) "
+                                        "values (%ld, %ld, %ld, %ld, '%s')",
+                                        smToken, volId.get(), dmUUID, timeStamp,
                                         objectSetFilePath.c_str());
     if (db->execute(query.c_str())) {
-        LOGERROR << "Failed adding object set to live object table";
+        LOGERROR << "Failed to add object set to live object table";
         return ERR_INVALID;
     }
     return ERR_OK;
