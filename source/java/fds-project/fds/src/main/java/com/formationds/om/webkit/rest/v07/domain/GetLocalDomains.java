@@ -58,9 +58,9 @@ public class GetLocalDomains
 
       for (com.formationds.apis.LocalDomain localDomain : localDomains) {
           array.put(new JSONObject()
-                          .put("name", localDomain.name)
-                          .put("id", localDomain.id)
-                          .put("site", localDomain.site));
+                          .put("name", localDomain.getName())
+                          .put("id", localDomain.getId())
+                          .put("site", localDomain.getSite()));
       }
 
       return new JsonResource(array);

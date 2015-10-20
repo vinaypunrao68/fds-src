@@ -163,7 +163,7 @@ public class QueryHelper {
 
                 // only the FDS admin is allowed to get data about the capacity limit
                 // of the system
-                if ( authorizer.userFor( token ).isFdsAdmin ){
+                if ( authorizer.userFor( token ).isIsFdsAdmin() ){
                 	
 	                // TODO finish implementing -- once the platform has total system capacity
 	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )

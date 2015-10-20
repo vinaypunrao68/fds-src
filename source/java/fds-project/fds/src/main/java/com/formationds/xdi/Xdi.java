@@ -211,7 +211,7 @@ public class Xdi {
     }
 
     public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out) throws Exception {
-        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.getBlobDescriptor().byteCount);
+        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.getBlobDescriptor().getByteCount());
     }
 
     public OutputStream openForWriting(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {

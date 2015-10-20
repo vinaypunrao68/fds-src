@@ -71,7 +71,7 @@ public class UpdatePassword implements RequestHandler {
 
     public Resource execute( com.formationds.apis.User currentUser, User inputUser, String password ) throws TException {
         
-    	if (!currentUser.isFdsAdmin && inputUser.getId() != currentUser.getId()) {
+    	if (!currentUser.isIsFdsAdmin() && inputUser.getId() != currentUser.getId()) {
     		throw new ApiException( "Access denied.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
 

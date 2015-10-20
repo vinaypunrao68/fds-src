@@ -500,7 +500,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 long iopsMax,
                                                 int relPrio ) throws TException {
         FDSP_PolicyInfoType qosPolicy = getConfig().createQoSPolicy( policyName, iopsMin, iopsMax, relPrio );
-        EventManager.notifyEvent( OmEvents.CREATE_QOS_POLICY, qosPolicy.policy_name );
+        EventManager.notifyEvent( OmEvents.CREATE_QOS_POLICY, qosPolicy.getPolicy_name() );
         return qosPolicy;
     }
 
@@ -540,7 +540,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 int relPrio ) throws TException {
         FDSP_PolicyInfoType policy = getConfig().modifyQoSPolicy( currentPolicyName, newPolicyName,
                                                                   iopsMin, iopsMax, relPrio );
-        EventManager.notifyEvent( OmEvents.MODIFY_QOS_POLICY, policy.policy_name );
+        EventManager.notifyEvent( OmEvents.MODIFY_QOS_POLICY, policy.getPolicy_name() );
         return policy;
     }
 

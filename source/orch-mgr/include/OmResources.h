@@ -21,6 +21,7 @@
 #include <dlt.h>
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
+#include <concurrency/RwLock.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -49,6 +50,7 @@ class OM_ControlRespHandler;
 struct NodeDomainFSM;
 
 typedef boost::msm::back::state_machine<NodeDomainFSM> FSM_NodeDomain;
+typedef boost::shared_ptr<fpi::SvcInfo> SvcInfoPtr;
 
 /**
  * Agent interface to communicate with the remote node.  This is the communication
@@ -371,6 +373,9 @@ class OM_AgentContainer : public AgentContainer
     virtual void agent_activate(NodeAgent::pointer agent);
     virtual void agent_deactivate(NodeAgent::pointer agent);
 
+    // In case of a DM, we need to add it to a resync list. Otherwise it's a no-op
+    virtual void agent_reactivate(NodeAgent::pointer agent);
+
     /**
      * For derived classes, this would allow them to return the correct type.
      */
@@ -388,6 +393,7 @@ class OM_AgentContainer : public AgentContainer
      * set and leaves other pending nodes pending
      */
     void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes, NodeList *dmResyncNodes);
     void om_splice_nodes_pend(NodeList *addNodes,
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
@@ -395,6 +401,7 @@ class OM_AgentContainer : public AgentContainer
   protected:
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
+    NodeList                                 dm_resync_pend;
 
     explicit OM_AgentContainer(FdspNodeType id);
     virtual ~OM_AgentContainer() {}
@@ -944,7 +951,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services(const NodeUuid& node_uuid);
+    void om_activate_known_services(bool domainRestart, const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service
@@ -1040,8 +1047,10 @@ class OM_NodeDomainMod : public Module
 
     /**
      * Updates cluster map membership and does DLT
+     * bool dmPrevRegistered - if the DMT needs to be updated in accordance
+     * with DM Resync design, which is to issue the same DMT but ++version.
      */
-    virtual void om_dmt_update_cluster();
+    virtual void om_dmt_update_cluster(bool dmPrevRegistered = false);
     virtual void om_dmt_waiting_timeout();
     virtual void om_dlt_update_cluster();
 
@@ -1063,6 +1072,14 @@ class OM_NodeDomainMod : public Module
     void local_domain_event(ShutdownEvt const &evt);
     void local_domain_event(ShutAckEvt const &evt);
     void local_domain_event(DeactAckEvt const &evt);
+
+    /**
+     * Methods related to tracking registering services
+     * for svcMap updates
+     */
+    void addRegisteringSvc(SvcInfoPtr infoPtr);
+    Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
+    void removeRegisteredSvc(int64_t uuid);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
@@ -1091,6 +1108,11 @@ class OM_NodeDomainMod : public Module
     FSM_NodeDomain                  *domain_fsm;
     // to protect access to msm process_event
     fds_mutex                       fsm_lock;
+
+    // Vector to track registering services and
+    // locks to protect accesses
+    fds_rwlock svcRegVecLock;
+    std::vector<SvcInfoPtr> registeringSvcs;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
