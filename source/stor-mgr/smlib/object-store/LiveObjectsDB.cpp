@@ -14,17 +14,17 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
     if (!db) { return ERR_INVALID; }
 
     std::string query = "create table if not exists liveObjTbl"
-                        " (smToken integer, volId integer, dmUuid integer,"
-                        " timeStamp integer not null, filename text not null)";
+                        " (smtoken integer, volid integer, dmuuid integer,"
+                        " timestamp integer not null, filename text not null)";
 
     if (db->execute(query.c_str())) {
         LOGERROR << "Failed to create live objects table";
         return ERR_INVALID;
     }
 
-    query = "create index if not exists smTokenIdx on liveObjTbl (smToken, volId)";
+    query = "create index if not exists smTokenIdx on liveObjTbl (smtoken, volid)";
     if (db->execute(query.c_str())) {
-        LOGERROR << "Failed to create smToken index on live object table";
+        LOGERROR << "Failed to create smtoken index on live object table";
         return ERR_INVALID;
     }
     return ERR_OK;
@@ -38,7 +38,7 @@ Error LiveObjectsDB::addObjectSet(const fds_token_id &smToken,
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("insert into liveObjTbl "
-                                        "(smToken, volId, dmUuid, timeStamp, filename) "
+                                        "(smtoken, volid, dmuuid, timestamp, filename) "
                                         "values (%ld, %ld, %ld, %ld, '%s')",
                                         smToken, volId.get(), dmUUID, timeStamp,
                                         objectSetFilePath.c_str());
@@ -54,11 +54,11 @@ Error LiveObjectsDB::removeObjectSet(const fds_token_id &smToken,
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("delete from liveObjTbl "
-                                        "where smToken=%ld and volId=%ld",
+                                        "where smtoken=%ld and volid=%ld",
                                         smToken, volId.get());
     if (db->execute(query.c_str())) {
         LOGERROR << "Failed deleting object set from live object table"
-                 << " of smToken = " << smToken << " and volId = " << volId.get();;
+                 << " of smtoken = " << smToken << " and volid = " << volId.get();;
         return ERR_INVALID;
     }
     return ERR_OK;
@@ -68,10 +68,10 @@ Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
                                             std::vector<std::string> &objSetFilenames) {
     if (!db) { return ERR_INVALID; }
 
-    std::string query = util::strformat("select filename from liveObjTbl where smToken=%ld", smToken);
+    std::string query = util::strformat("select filename from liveObjTbl where smtoken=%ld", smToken);
     if (db->getTextValues(query.c_str(), objSetFilenames)) {
         LOGERROR << "Failed getting filenames from live object table"
-                 << " for smToken = " << smToken;
+                 << " for smtoken = " << smToken;
         return ERR_INVALID;
     }
     return ERR_OK;
