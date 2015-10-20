@@ -67,6 +67,7 @@ def suiteConstruction(self, action="kill-uninst"):
             # This one will take care of other product artifacts such as SHM files.
             suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
         else:
+            # We add kill-uninst scenario only if it is last scenario in cfg file because deployment is done only once even before first scenario runs TODO: Pooja
             scenarios = fdscfg.rt_get_obj('cfg_scenarios')
             number_of_scenarios = len(scenarios)
             last_scenario = scenarios[number_of_scenarios-1]
@@ -79,7 +80,7 @@ def suiteConstruction(self, action="kill-uninst"):
     return suite
 
 if __name__ == '__main__':
-	
+
     # Handle FDS specific commandline arguments.
     log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
@@ -99,4 +100,3 @@ if __name__ == '__main__':
 
     test_suite = suiteConstruction(self=None)
     runner.run(test_suite)
-
