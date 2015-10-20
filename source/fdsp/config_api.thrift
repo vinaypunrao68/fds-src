@@ -575,4 +575,211 @@ service ConfigurationService {
    */
   void deleteQoSPolicy(1:string policy_name)
       throws (1: common.ApiException e),
+
+  /* Subscription Management */
+
+  /**
+   * These APIs are only valid within the context of the Master Domain.
+   */
+
+  /**
+   * Create a subscription.
+   *
+   * @param subName: A string. The name of the subscription.
+   * @param tenantID: An i64. The ID of the Tenant owning the subscription.
+   * @param primaryDomainID: An i32. The ID of the local domain where the primary volume is located.
+   * @param primaryVolumeID: An i64. The ID of the primary volume within the context of the primary domain.
+   * @param replicaDomainID: An i32. The ID of the local domain where the replica volume is to be located.
+   * @param subType: An i32. One of the config_types.SubscriptionType enumerated values indicating the type of
+   *    subscription.
+   * @param schedType: An i32. One of the config_types.SubscriptionScheduleType enumerated values indicating the type
+   *    of refresh schedule.
+   * @param intervalSize: An i64. The interval quantity associated with schedType.
+   *
+   * @return i64: ID of the created subscription.
+   */
+  i64 createSubscription(
+        1: string   subName,
+        2: i64      tenantID,
+        3: i32      primaryDomainID,
+        4: i64      primaryVolumeID,
+        5: i32      replicaDomainID,
+        6: config_types.SubscriptionType subType,
+        7: config_types.SubscriptionScheduleType schedType,
+        8: i64      intervalSize)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List subscriptions.
+   *
+   * Several different ways to list subscriptions thought to be useful
+   * either externally or internally are provided.
+   */
+
+  /**
+   * List all subscriptions defined in the global domain.
+   *
+   * @param ignore: An i32. Thrift has difficulty with empty formal parameter lists.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list <config_types.SubscriptionDescriptor> listSubscriptionsAll(1: i32 ignore)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions defined in the global domain for the given tenant.
+   *
+   * @param tenantID: An i64. The ID of the Tenant whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list <config_types.SubscriptionDescriptor> listTenantSubscriptionsAll(1: i64 tenantID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given primary domain.
+   *
+   * @param primaryDomainID: An i32. The ID of the primary domain whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listSubscriptionsPrimaryDomain(1: i32 primaryDomainID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given primary domain and tenant.
+   *
+   * @param primaryDomainID: An i32. The ID of the primary domain whose subscriptions are to be listed.
+   * @param tenantID: An i64. The ID of the Tenant whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listTenantSubscriptionsPrimaryDomain(1: i32 primaryDomainID, 2: i64 tenantID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given replica domain.
+   *
+   * @param replicaDomainID: An i32. The ID of the replica domain whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listSubscriptionsReplicaDomain(1: i32 replicaDomainID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given replica domain and tenant.
+   *
+   * @param replicaDomainID: An i32. The ID of the replica domain whose subscriptions are to be listed.
+   * @param tenantID: An i64. The ID of the Tenant whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listTenantSubscriptionsReplicaDomain(1: i32 replicaDomainID, 2: i64 tenantID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given primary volume.
+   *
+   * @param primaryVolumeID: An i64. The ID of the primary volume whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listSubscriptionsPrimaryVolume(1: i64 primaryVolumeID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * List all subscriptions for the given replica volume.
+   *
+   * @param replicaVolumeID: An i64. The ID of the replica volume whose subscriptions are to be listed.
+   *
+   * @return list<config_types.SubscriptionDescriptor>: The requested subscriptions.
+   */
+  list<config_types.SubscriptionDescriptor> listSubscriptionsReplicaVolume(1: i64 replicaVolumeID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain);
+
+  /**
+   * Retrieve subscription information from subscription name.
+   *
+   * @param subName: A string. The name of the subscription whose details are to be returned.
+   * @param tenantID: An i64. The ID of the Tenant whose subscription is named. (Multiple tenants may have like
+   *                  named subscriptions.)
+   *
+   * @return config_types.SubscriptionDescriptor: The details of the named subscription.
+   */
+  config_types.SubscriptionDescriptor getSubscriptionInfoName(1: string subName, 2: i64 tenantID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain,
+            3: config_types.SubscriptionNotFound notFound);
+
+  /**
+   * Retrieve subscription information from subscription ID.
+   *
+   * @param subID: An i64. The numeric identifier of the subscription whose details are to be returned.
+   *
+   * @return config_types.SubscriptionDescriptor: The details of the named subscription.
+   */
+  config_types.SubscriptionDescriptor getSubscriptionInfoID(1: i64 subID)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain,
+            3: config_types.SubscriptionNotFound notFound);
+
+  /**
+   * Update subscription attributes. The following are *not* modifiable:
+   * id, tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+   *
+   * @param subMods all subscription attributes with modifications applied. "id" must be supplied. Changes to the
+   *    following are rejected: tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+   *
+   * @return void.
+   */
+  void updateSubscription(1: config_types.SubscriptionDescriptor subMods)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain,
+            3: config_types.SubscriptionNotFound notFound,
+            4: config_types.SubscriptionNotModified notModified);
+
+  /**
+   * Delete a subscription identified by subscription name.
+   *
+   * @param subName: An string. The name of the subscription to be deleted.
+   * @param tenantID: An i64. The ID of the Tenant whose subscription is named. (Multiple tenants may have like
+   *                  named subscriptions.)
+   * @param dematerialize: A bool. "true" if the replica volume contents resulting from the subscription are to be
+   *    deleted. If setting "true" results in all replica volume contents being deleted, the volume will be deleted
+   *    as well.
+   *
+   * @return void
+   */
+  void deleteSubscriptionName(1: string subName, 2: i64 tenantID, 3: bool dematerialize)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain,
+            3: config_types.SubscriptionNotFound notFound,
+            4: config_types.SubscriptionNotModified notModified);
+
+  /**
+   * Delete a subscription identified by subscription ID.
+   *
+   * @param subID: An i64. The numeric identifier of the subscription to be deleted.
+   * @param dematerialize: A bool. "true" if the replica volume contents resulting from the subscription are to be
+   *    deleted. If setting "true" results in all replica volume contents being deleted, the volume will be deleted as
+   *    well.
+   *
+   * @return void
+   */
+  void deleteSubscriptionID(1: i64 subID, 2: bool dematerialize)
+    throws (1: common.ApiException e,
+            2: common.NotMasterDomain notMasterDomain,
+            3: config_types.SubscriptionNotFound notFound,
+            4: config_types.SubscriptionNotModified notModified);
+
 }

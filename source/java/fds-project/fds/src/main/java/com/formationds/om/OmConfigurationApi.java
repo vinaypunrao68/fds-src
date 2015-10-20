@@ -744,6 +744,267 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return clonedVolumeId;
     }
 
+    /* Subscription Management */
+    /**
+     * Create a subscription.
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription.
+     * @param primaryDomainID: ID of the local domain in which the primary copy of the replicated volume resides.
+     * @param primaryVolumeID: ID of the volume which is the source of replication.
+     * @param replicaDomainID: ID of the local domain in which the replica copy of the replicated volume resides.
+     * @param subType: Indicates whether the replication mechanism for this subscription is content-based or
+     *                 transaction-based.
+     * @param schedType: For content-based replication, specifies what kind of scheduling mechanism is to be used.
+     * @param intervalSize: For content-based replication, specifies the quantity upon which the scheduling mechanism
+     *                      is based. 5 might be every 5 minutes or every 5 MB of change depending upon schedType,
+     *                      for example.
+     * @return ID of the created subscription. 0 if creation failed.
+     * @throws TException
+     */
+    @Override
+    public long createSubscription(String subName,
+                                   long tenantID,
+                                   int primaryDomainID,
+                                   long primaryVolumeID,
+                                   int replicaDomainID,
+                                   com.formationds.apis.SubscriptionType subType,
+                                   com.formationds.apis.SubscriptionScheduleType schedType,
+                                   long intervalSize)
+            throws TException {
+        long id = getConfig().createSubscription(subName,
+                                              tenantID,
+                                              primaryDomainID,
+                                              primaryVolumeID,
+                                              replicaDomainID,
+                                              subType,
+                                              schedType,
+                                              intervalSize);
+
+        EventManager.notifyEvent(OmEvents.CREATE_SUBSCRIPTION,
+                                 subName,
+                                 tenantID,
+                                 primaryDomainID,
+                                 primaryVolumeID,
+                                 replicaDomainID);
+
+        return id;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain.
+     *
+     * @param ignore: Crutch for Thrift when no parameters required.
+     * @return List of subscriptions and their detail. May be empty if no subscriptions defined in the global domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsAll(int ignore)
+            throws TException {
+        return getConfig().listSubscriptionsAll(ignore);
+    }
+
+    /**
+     * List all subscriptions defined in the global domain for the identified tenant.
+     *
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions owned by the tenant and their detail. May be empty if no subscriptions defined
+     *         in the global domain for the identified tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsAll(long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsAll(tenantID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @return List of subscriptions with the identified primary domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified primary domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryDomain(int primaryDomainID)
+            throws TException {
+        return getConfig().listSubscriptionsPrimaryDomain(primaryDomainID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain and tenant.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified primary domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified primary domain and tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsPrimaryDomain(int primaryDomainID, long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsPrimaryDomain(primaryDomainID, tenantID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @return List of subscriptions with the identified replica domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified replica domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaDomain(int replicaDomainID)
+            throws TException {
+        return getConfig().listSubscriptionsReplicaDomain(replicaDomainID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain and tenant.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified replica domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified replica domain and tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsReplicaDomain(int replicaDomainID, long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsReplicaDomain(replicaDomainID, tenantID);
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as primary. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param primaryVolumeID: ID of the volume which is named as "primary" for the subscription.
+     * @return List of subscriptions with the identified primary volume and their detail. May be empty if no
+     *         subscriptions defined for the identified primary volume.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryVolume(long primaryVolumeID)
+            throws TException {
+        return getConfig().listSubscriptionsPrimaryVolume(primaryVolumeID);
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as replica. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param replicaVolumeID: ID of the volume which is named as "replica" for the subscription.
+     * @return List of subscriptions with the identified replica volume and their detail. May be empty if no
+     *         subscriptions defined for the identified replica volume.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaVolume(long replicaVolumeID)
+            throws TException {
+        return getConfig().listSubscriptionsReplicaVolume(replicaVolumeID);
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @return Details of subscription for the identified tenant and with the given name.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoName(String subName, long tenantID)
+            throws TException {
+        return getConfig().getSubscriptionInfoName(subName, tenantID);
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by the globally unique ID.
+     *
+     * @param subID: ID of the subscription whose details are to be retrieved.
+     * @return Details of subscription identified.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoID(long subID)
+            throws TException {
+        return getConfig().getSubscriptionInfoID(subID);
+    }
+
+    /**
+     * Update the indicated subscription.
+     *
+     * @param subMods: Using the ID included in the subMods object, replace the current subscription contents with
+     *                 the contents provided here. subMods content that cannot be modified includes tenantID, primaryDomainID,
+     *                 primaryVolumeID, and replicaDomainID.
+     * @return Nothing.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws SubscriptionAttributeNotModifiable: The changed attribute cannot be modified.
+     * @throws TException
+     */
+    @Override
+    public void updateSubscription(com.formationds.apis.SubscriptionDescriptor subMods)
+            throws TException {
+        getConfig().updateSubscription(subMods);
+
+        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+                                 subMods.name,
+                                 subMods.tenantID,
+                                 subMods.primaryDomainID,
+                                 subMods.primaryVolumeID,
+                                 subMods.replicaDomainID);
+    }
+
+    /**
+     * Delete the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionName(String subName, long tenantID, boolean dematerialize)
+            throws TException {
+        getConfig().deleteSubscriptionName(subName, tenantID, dematerialize);
+
+        String doDemat = (dematerialize) ? "with" : "without";
+
+        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+                                 subName,
+                                 tenantID,
+                                 doDemat);
+    }
+
+    /**
+     * Delete the subscription identified by its globally unique ID.
+     *
+     * @param subID: ID of the subscription to be deleted.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionID(long subID, boolean dematerialize)
+            throws TException {
+        getConfig().deleteSubscriptionID(subID, dematerialize);
+
+        String doDemat = (dematerialize) ? "with" : "without";
+
+        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+                subID,
+                doDemat);
+    }
+
     private synchronized CachedConfiguration getCache() {
         return cache;
     }

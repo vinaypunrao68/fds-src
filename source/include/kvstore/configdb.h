@@ -27,6 +27,14 @@ struct ConfigException : std::runtime_error {
 };
 
 struct ConfigDB : KVStore {
+
+    typedef enum {
+        CONFIGDB_EXCEPTION, // Exception reported by ConfigDB.
+        NOT_FOUND,          // Successful ConfigDB access, but nothing found matching inquiry.
+        NOT_UPDATED,        // Successful ConfigDB access, but requested updated could not be made.
+        SUCCESS             // Successful ConfigDB access and object(s) to be updated or queried found.
+    } ReturnType;
+
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
     virtual ~ConfigDB();
     fds_uint64_t getLastModTimeStamp();
@@ -151,15 +159,18 @@ struct ConfigDB : KVStore {
 
     // Subscriptions
     fds_subid_t getNewSubscriptionId();
-    bool setSubscriptionState(fds_subid_t id, fpi::ResourceState state);
-    bool addSubscription(const Subscription& subscription);
-    bool updateSubscription(const Subscription& subscription);
-    bool deleteSubscription(fds_subid_t id);
-    bool subscriptionExists(fds_subid_t id);
-    bool subscriptionExists(const std::string& name);
-    bool getSubscriptionIds(std::vector<fds_subid_t>& ids);
-    bool getSubscriptions(std::vector<Subscription>& subscriptions);
-    bool getSubscription(fds_subid_t id, Subscription& subscription);
+    ReturnType setSubscriptionState(fds_subid_t id, fpi::ResourceState state);
+    fds_subid_t putSubscription(const Subscription &subscription, const bool isNew = true);
+    ReturnType updateSubscription(const Subscription& subscription);
+    ReturnType deleteSubscription(fds_subid_t id);
+    ReturnType subscriptionExists(fds_subid_t id);
+    ReturnType subscriptionExists(const std::string& name, const std::int64_t tenantId);
+    ReturnType getSubscriptionIds(std::vector<fds_subid_t>& ids);
+    fds_subid_t getSubscriptionId(const std::string& name, const std::int64_t tenantId);
+    ReturnType getSubscriptions(std::vector<Subscription>& subscriptions);
+    ReturnType getTenantSubscriptions(std::int64_t tenantId, std::vector<Subscription>& subscriptions);
+    ReturnType getSubscription(fds_subid_t id, Subscription& subscription);
+    ReturnType getSubscription(const std::string& name, const std::int64_t tenantId, Subscription& subscription);
 
   protected:
     void setModified();

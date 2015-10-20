@@ -78,7 +78,21 @@ public enum OmEvents implements EventDescriptor {
     START_SERVICE(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.INFO,
     		"Service {0} was started in the system.", "serviceId"),
     START_SERVICE_ERROR(EventType.SYSTEM_EVENT, EventCategory.SYSTEM, EventSeverity.ERROR,
-    		"Starting of service {0} failed.", "serviceId");
+    		"Starting of service {0} failed.", "serviceId"),
+
+    /** Subscription Stuff **/
+    CREATE_SUBSCRIPTION(EventCategory.SYSTEM,
+            "Created subscription {0} for tenant {1} with primary domain {2} and primary volume {3} and replica domain {4}.",
+            "subName", "tenantID", "primaryDomainID", "primaryVolumeID", "replicaDomainID"),
+    UPDATE_SUBSCRIPTION(EventCategory.SYSTEM,
+            "Updated subscription {0} for tenant {1} with primary domain {2} and primary volume {3} and replica domain {4}.",
+            "subName", "tenantID", "primaryDomainID", "primaryVolumeID", "replicaDomainID"),
+    DELETE_SUBSCRIPTION_Name(EventCategory.SYSTEM,
+            "Deleted subscription {0} for tenant {1} {2} dematerialization.",
+            "subName", "tenantID", "doDemat"),
+    DELETE_SUBSCRIPTION_ID(EventCategory.SYSTEM,
+            "Deleted subscription {0} {2} dematerialization.",
+            "subID", "doDemat");
 
     private final EventType     type;
     private final EventCategory category;
