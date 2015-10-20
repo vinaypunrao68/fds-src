@@ -58,7 +58,7 @@ apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
 apps["rabbitmq"]="rabbitmq"
-apps["stats"]="fds-stats-service"
+apps["stats"]="stats.service.Main"
 
 declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
@@ -440,7 +440,7 @@ function getAppPid() {
     elif [[  $name == "xdi"  ]]; then
         pid="$(pgrep -f com.formationds.am.Main)"
     elif [[  $name == "stats"  ]]; then
-        pid="$(pgrep -f fds-stats-service)"
+        pid="$(pgrep -f com.formationds.stats.service.Main)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
