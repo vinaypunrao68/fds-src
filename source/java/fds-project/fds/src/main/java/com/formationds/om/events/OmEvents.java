@@ -87,7 +87,7 @@ public enum OmEvents implements EventDescriptor {
     UPDATE_SUBSCRIPTION(EventCategory.SYSTEM,
             "Updated subscription {0} for tenant {1} with primary domain {2} and primary volume {3} and replica domain {4}.",
             "subName", "tenantID", "primaryDomainID", "primaryVolumeID", "replicaDomainID"),
-    DELETE_SUBSCRIPTION_Name(EventCategory.SYSTEM,
+    DELETE_SUBSCRIPTION_NAME(EventCategory.SYSTEM,
             "Deleted subscription {0} for tenant {1} {2} dematerialization.",
             "subName", "tenantID", "doDemat"),
     DELETE_SUBSCRIPTION_ID(EventCategory.SYSTEM,

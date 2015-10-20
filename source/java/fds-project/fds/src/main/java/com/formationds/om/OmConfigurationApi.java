@@ -913,7 +913,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @param subName: Subscription name. Unique within the global domain for the given tenant.
      * @param tenantID: ID of the tenant owning the subscription named.
      * @return Details of subscription for the identified tenant and with the given name.
-     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
      * @throws TException
      */
     @Override
@@ -927,7 +926,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      *
      * @param subID: ID of the subscription whose details are to be retrieved.
      * @return Details of subscription identified.
-     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
      * @throws TException
      */
     @Override
@@ -943,8 +941,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      *                 the contents provided here. subMods content that cannot be modified includes tenantID, primaryDomainID,
      *                 primaryVolumeID, and replicaDomainID.
      * @return Nothing.
-     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
-     * @throws SubscriptionAttributeNotModifiable: The changed attribute cannot be modified.
      * @throws TException
      */
     @Override
@@ -968,7 +964,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @param tenantID: ID of the tenant owning the subscription named.
      * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
      * @return Nothing.
-     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
      * @throws TException
      */
     @Override
@@ -978,7 +973,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
         String doDemat = (dematerialize) ? "with" : "without";
 
-        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+        EventManager.notifyEvent(OmEvents.DELETE_SUBSCRIPTION_NAME,
                                  subName,
                                  tenantID,
                                  doDemat);
@@ -990,7 +985,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @param subID: ID of the subscription to be deleted.
      * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
      * @return Nothing.
-     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
      * @throws TException
      */
     @Override
@@ -1000,7 +994,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
         String doDemat = (dematerialize) ? "with" : "without";
 
-        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+        EventManager.notifyEvent(OmEvents.DELETE_SUBSCRIPTION_ID,
                 subID,
                 doDemat);
     }
