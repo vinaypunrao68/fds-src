@@ -21,6 +21,7 @@ import org.dcache.nfs.vfs.*;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +44,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     private final Counters counters;
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = new AmOps(asyncAm, counters);
+        IoOps ops = TimeoutHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
@@ -94,7 +95,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         return parallel(
                 () -> inodeMap.create(metadata, parent.exportIndex()),
                 () -> inodeMap.update(parent.exportIndex(), updatedParent),
-                () -> inodeIndex.index(parent.exportIndex(), metadata, updatedParent));
+                () -> inodeIndex.index(parent.exportIndex(), false, metadata),
+                () -> inodeIndex.index(parent.exportIndex(), true, updatedParent));
     }
 
     @Override
@@ -133,7 +135,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             if (!statResult.isPresent()) {
                 LOG.debug("Creating export root for volume " + path);
                 Inode inode = inodeMap.create(inodeMetadata, exportId);
-                inodeIndex.index(exportId, inodeMetadata);
+                inodeIndex.index(exportId, false, inodeMetadata);
                 return inode;
             } else {
                 return statResult.get().asInode(exportId);
@@ -165,11 +167,10 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         InodeMetadata updatedParentMetadata = parentMetadata.get().withUpdatedTimestamps();
-
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
-
         inodeMap.update(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
-        inodeIndex.index(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
+        inodeIndex.index(parent.exportIndex(), true, updatedParentMetadata);
+        inodeIndex.index(parent.exportIndex(), false, updatedLinkMetadata);
         return link;
     }
 
@@ -231,7 +232,9 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         parallel(() -> null,
                 () -> inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination),
                 () -> inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName),
-                () -> inodeIndex.index(source.exportIndex(), updatedSource, updatedLink, updatedDestination));
+                () -> inodeIndex.index(source.exportIndex(), true, updatedSource),
+                () -> inodeIndex.index(source.exportIndex(), false, updatedLink),
+                () -> inodeIndex.index(source.exportIndex(), true, updatedDestination));
 
         return true;
     }
@@ -298,11 +301,11 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             inodeIndex.remove(parentInode.exportIndex(), updatedLink);
         } else {
             inodeMap.update(parentInode.exportIndex(), updatedLink);
-            inodeIndex.index(parentInode.exportIndex(), updatedLink);
+            inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
         }
 
         inodeMap.update(parentInode.exportIndex(), updatedParent);
-        inodeIndex.index(parentInode.exportIndex(), updatedParent);
+        inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
     }
 
     @Override
@@ -322,7 +325,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
         InodeMetadata updated = inodeMap.write(inode, data, offset, count);
-        inodeIndex.index(inode.exportIndex(), updated);
+        inodeIndex.index(inode.exportIndex(), true, updated);
         counters.increment(Counters.Key.write);
         counters.increment(Counters.Key.bytesWritten, count);
         return new WriteResult(stabilityLevel, Math.max(data.length, count));
@@ -355,11 +358,13 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             throw new NoEntException();
         }
 
+
+
         InodeMetadata updated = metadata.get().update(stat);
 
         parallel(() -> null,
                 () -> inodeMap.update(inode.exportIndex(), updated),
-                () -> inodeIndex.index(inode.exportIndex(), updated));
+                () -> inodeIndex.index(inode.exportIndex(), true, updated));
     }
 
     @Override
@@ -385,7 +390,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updated = metadata.get().withNfsAces(acl);
 
         inodeMap.update(inode.exportIndex(), updated);
-        inodeIndex.index(inode.exportIndex(), updated);
+        inodeIndex.index(inode.exportIndex(), true, updated);
     }
 
     @Override
@@ -414,70 +419,10 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         nfsace4[] nfsAces = metadata.get().getNfsAces();
         List<ACE> aces = new ArrayList<>(nfsAces.length);
         for (nfsace4 nfsAce : nfsAces) {
-            aces.add(valueOf(nfsAce, idMap));
+            aces.add(AccessControl.makeAceFromNfsace4(nfsAce, idMap));
         }
-        Access access = checkAcl(subject, aces, stat.getUid(), stat.getGid(), accessMask);
-        return access;
+        return AccessControl.check(subject, aces, stat.getUid(), stat.getGid(), accessMask);
     }
-
-
-    private ACE valueOf(nfsace4 ace, NfsIdMapping idMapping) throws BadOwnerException {
-        String principal = ace.who.toString();
-        int type = ace.type.value.value;
-        int flags = ace.flag.value.value;
-        int mask = ace.access_mask.value.value;
-
-        int id = -1;
-        Who who = Who.fromAbbreviation(principal);
-        if (who == null) {
-            // not a special pricipal
-            boolean isGroup = AceFlags.IDENTIFIER_GROUP.matches(flags);
-            if (isGroup) {
-                who = Who.GROUP;
-                id = idMapping.principalToGid(principal);
-            } else {
-                who = Who.USER;
-                id = idMapping.principalToUid(principal);
-            }
-        }
-        return new ACE(AceType.valueOf(type), flags, mask, who, id, ACE.DEFAULT_ADDRESS_MSK);
-    }
-
-    private Access checkAcl(Subject subject, List<ACE> acl, int owner, int group, int access) {
-        for (ACE ace : acl) {
-            int flag = ace.getFlags();
-            if ((flag & ACE4_INHERIT_ONLY_ACE) != 0) {
-                continue;
-            }
-
-            if ((ace.getType() != AceType.ACCESS_ALLOWED_ACE_TYPE) && (ace.getType() != AceType.ACCESS_DENIED_ACE_TYPE)) {
-                continue;
-            }
-
-            int ace_mask = ace.getAccessMsk();
-            if ((ace_mask & access) == 0) {
-                continue;
-            }
-
-            Who who = ace.getWho();
-
-            if ((who == Who.EVERYONE)
-                    || (who == Who.OWNER & Subjects.hasUid(subject, owner))
-                    || (who == Who.OWNER_GROUP & Subjects.hasGid(subject, group))
-                    || (who == Who.GROUP & Subjects.hasGid(subject, ace.getWhoID()))
-                    || (who == Who.USER & Subjects.hasUid(subject, ace.getWhoID()))) {
-
-                if (ace.getType() == AceType.ACCESS_DENIED_ACE_TYPE) {
-                    return Access.DENY;
-                } else {
-                    return Access.ALLOW;
-                }
-            }
-        }
-
-        return Access.UNDEFINED;
-    }
-
 
     private interface IoAction {
         public void execute() throws IOException;

@@ -30,6 +30,9 @@ def suiteConstruction(self, action="kill-uninst"):
     Domain Shutdown test suite.
     """
     suite = unittest.TestSuite()
+    genericTestCase = testcases.TestCase.FDSTestCase()
+    fdscfg = genericTestCase.parameters["fdscfg"]
+
 
     if action.count("remove") > 0:
         # One test case to remove the domain services.
@@ -58,10 +61,20 @@ def suiteConstruction(self, action="kill-uninst"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
-        # Cleanup FDS installation directory.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
-        # This one will take care of other product artifacts such as SHM files.
-        suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
+        if fdscfg.rt_obj.cfg_remote_fds_deploy is not True:
+            # Cleanup FDS installation directory.
+            suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
+            # This one will take care of other product artifacts such as SHM files.
+            suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
+        else:
+            scenarios = fdscfg.rt_get_obj('cfg_scenarios')
+            number_of_scenarios = len(scenarios)
+            last_scenario = scenarios[number_of_scenarios-1]
+            for scenario in scenarios:
+                if "action" in scenario.nd_conf_dict:
+                    action = scenario.nd_conf_dict['action']
+                    if (action.count("uninst") > 0) and scenario == last_scenario:
+                        suite.addTest(testcases.TestFDSEnvMgt.TestFDSTeardownDomain())
 
     return suite
 

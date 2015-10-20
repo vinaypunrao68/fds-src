@@ -55,7 +55,7 @@ public class ListNodes
     	logger.debug( "Size of service list: {}", list.size( ) );
     	for ( FDSP_Node_Info_Type aNode : list )
     	{
-    		logger.debug( "Node name: {} uuid: {} ", aNode.node_name, aNode.node_uuid );
+    		logger.debug( "Node name: {} uuid: {} ", aNode.getNode_name(), aNode.getNode_uuid() );
     	}
 
         Map<Long, List<FDSP_Node_Info_Type>> groupedServices =

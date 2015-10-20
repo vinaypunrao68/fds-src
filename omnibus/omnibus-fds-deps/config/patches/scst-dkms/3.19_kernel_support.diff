@@ -1,0 +1,678 @@
+diff --git a/usr/src/scst-3.0.0.4838/Makefile b/usr/src/scst-3.0.0.4838/Makefile
+index e4b4bc8..67b9fb1 100644
+--- a/usr/src/scst-3.0.0.4838/Makefile
++++ b/usr/src/scst-3.0.0.4838/Makefile
+@@ -6,9 +6,6 @@ all:
+ 	cd scst && $(MAKE) 2perf
+ 	cd scst && $(MAKE) $@
+ 	cd iscsi-scst && $(MAKE) include/iscsi_scst_itf_ver.h && $(MAKE) mods
+-	cd scst_local && $(MAKE) $@
+-	cd qla2x00t && BUILD_2X_MODULE=y CONFIG_SCSI_QLA_FC=y CONFIG_SCSI_QLA2XXX_TARGET=y $(MAKE) $@ 
+-	cd qla2x00t/qla2x00-target && BUILD_2X_MODULE=y CONFIG_SCSI_QLA_FC=y CONFIG_SCSI_QLA2XXX_TARGET=y $(MAKE) $@
+ 
+ fcst:
+ 	cd fcst && cp ../scst/src/Module*.symvers . && $(MAKE) -C $(KDIR) SUBDIRS=$(shell pwd)/fcst BUILD_INI=m SCST_INC_DIR=$(shell pwd)/scst/include
+diff --git a/usr/src/scst-3.0.0.4838/dkms.conf b/usr/src/scst-3.0.0.4838/dkms.conf
+index 870a8b4..c1fa47b 100644
+--- a/usr/src/scst-3.0.0.4838/dkms.conf
++++ b/usr/src/scst-3.0.0.4838/dkms.conf
+@@ -38,15 +38,15 @@
+ BUILT_MODULE_NAME[10]="iscsi-scst"
+ BUILT_MODULE_LOCATION[10]="iscsi-scst/kernel/"
+ DEST_MODULE_LOCATION[10]="/extra/scst/"
+-BUILT_MODULE_NAME[11]="scst_local"
+-BUILT_MODULE_LOCATION[11]="scst_local/"
+-DEST_MODULE_LOCATION[11]="/extra/scst/"
+-BUILT_MODULE_NAME[12]="qla2xxx_scst"
+-BUILT_MODULE_LOCATION[12]="qla2x00t/"
+-DEST_MODULE_LOCATION[12]="/extra/scst/"
+-BUILT_MODULE_NAME[13]="qla2x00tgt"
+-BUILT_MODULE_LOCATION[13]="qla2x00t/qla2x00-target/"
+-DEST_MODULE_LOCATION[13]="/extra/scst/"
++#BUILT_MODULE_NAME[11]="scst_local"
++#BUILT_MODULE_LOCATION[11]="scst_local/"
++#DEST_MODULE_LOCATION[11]="/extra/scst/"
++#BUILT_MODULE_NAME[12]="qla2xxx_scst"
++#BUILT_MODULE_LOCATION[12]="qla2x00t/"
++#DEST_MODULE_LOCATION[12]="/extra/scst/"
++#BUILT_MODULE_NAME[13]="qla2x00tgt"
++#BUILT_MODULE_LOCATION[13]="qla2x00t/qla2x00-target/"
++#DEST_MODULE_LOCATION[13]="/extra/scst/"
+ #BUILT_MODULE_NAME[14]="fcst"
+ #BUILT_MODULE_LOCATION[14]="fcst/"
+ #DEST_MODULE_LOCATION[14]="/extra/scst/"
+diff --git a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/conn.c b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/conn.c
+index 7407ab1..d0785e2 100644
+--- a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/conn.c
++++ b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/conn.c
+@@ -796,7 +796,7 @@ static int conn_setup_sock(struct iscsi_conn *conn)
+ 
+ 	TRACE_DBG("%llx", (long long unsigned int)session->sid);
+ 
+-	conn->sock = SOCKET_I(conn->file->f_dentry->d_inode);
++	conn->sock = SOCKET_I(file_inode(conn->file));
+ 
+ 	if (conn->sock->ops->sendpage == NULL) {
+ 		PRINT_ERROR("Socket for sid %llx doesn't support sendpage()",
+@@ -895,7 +895,7 @@ static int iscsi_conn_alloc(struct iscsi_session *session,
+ 		       (long long unsigned int)session->sid, info->cid);
+ 
+ 	/* Changing it, change ISCSI_CONN_IOV_MAX as well !! */
+-	conn->read_iov = (struct iovec *)get_zeroed_page(GFP_KERNEL);
++	conn->read_iov = (void *)get_zeroed_page(GFP_KERNEL);
+ 	if (conn->read_iov == NULL) {
+ 		res = -ENOMEM;
+ 		goto out_err_free_conn;
+diff --git a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.c b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.c
+index 17f4fa9..a576707 100644
+--- a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.c
++++ b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.c
+@@ -1407,7 +1407,7 @@ static void cmnd_prepare_get_rejected_immed_data(struct iscsi_cmnd *cmnd)
+ 	struct iscsi_conn *conn = cmnd->conn;
+ 	struct scatterlist *sg = cmnd->sg;
+ 	char __user *addr;
+-	u32 size;
++	u32 size, s, e;
+ 	unsigned int i;
+ 
+ 	TRACE_ENTRY();
+@@ -1440,18 +1440,22 @@ static void cmnd_prepare_get_rejected_immed_data(struct iscsi_cmnd *cmnd)
+ 		cmnd->own_sg = 1;
+ 	}
+ 
+-	addr = (char __force __user *)(page_address(sg_page(&sg[0])));
+-	conn->read_size = size;
+-	for (i = 0; size > PAGE_SIZE; i++, size -= PAGE_SIZE) {
++	addr = page_address(sg_page(&sg[0]));
++	for (s = size, i = 0; s > 0; i++, s -= e) {
+ 		/* We already checked pdu.datasize in check_segment_length() */
+ 		sBUG_ON(i >= ISCSI_CONN_IOV_MAX);
+ 		conn->read_iov[i].iov_base = addr;
+-		conn->read_iov[i].iov_len = PAGE_SIZE;
++		e = min_t(u32, s, PAGE_SIZE);
++		conn->read_iov[i].iov_len = e;
+ 	}
+-	conn->read_iov[i].iov_base = addr;
+-	conn->read_iov[i].iov_len = size;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	iov_iter_kvec(&conn->read_msg.msg_iter, READ | ITER_KVEC,
++		      conn->read_iov, i, size);
++#else
+ 	conn->read_msg.msg_iov = conn->read_iov;
+-	conn->read_msg.msg_iovlen = ++i;
++	conn->read_msg.msg_iovlen = i;
++	conn->read_size = size;
++#endif
+ 
+ out:
+ 	TRACE_EXIT();
+@@ -1532,6 +1536,7 @@ static int cmnd_prepare_recv_pdu(struct iscsi_conn *conn,
+ 	struct scatterlist *sg = cmd->sg;
+ 	unsigned int bufflen = cmd->bufflen;
+ 	unsigned int idx, i, buff_offs;
++	const u32 read_size = size;
+ 	int res = 0;
+ 
+ 	TRACE_ENTRY();
+@@ -1546,9 +1551,6 @@ static int cmnd_prepare_recv_pdu(struct iscsi_conn *conn,
+ 	idx = offset >> PAGE_SHIFT;
+ 	offset &= ~PAGE_MASK;
+ 
+-	conn->read_msg.msg_iov = conn->read_iov;
+-	conn->read_size = size;
+-
+ 	i = 0;
+ 	while (1) {
+ 		unsigned int sg_len;
+@@ -1572,7 +1574,6 @@ static int cmnd_prepare_recv_pdu(struct iscsi_conn *conn,
+ 			TRACE_DBG("idx=%d, i=%d, offset=%u, size=%d, addr=%p",
+ 				idx, i, offset, size, addr);
+ 			conn->read_iov[i].iov_len = size;
+-			conn->read_msg.msg_iovlen = i+1;
+ 			break;
+ 		}
+ 		conn->read_iov[i].iov_len = sg_len;
+@@ -1591,16 +1592,26 @@ static int cmnd_prepare_recv_pdu(struct iscsi_conn *conn,
+ 				size);
+ 			mark_conn_closed(conn);
+ 			res = -EINVAL;
+-			break;
++			goto out;
+ 		}
+ 
+ 		idx++;
+ 		offset = 0;
+ 	}
+ 
+-	TRACE_DBG("msg_iov=%p, msg_iovlen=%zd",
+-		conn->read_msg.msg_iov, conn->read_msg.msg_iovlen);
++	i++;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	iov_iter_kvec(&conn->read_msg.msg_iter, READ | ITER_KVEC,
++		      conn->read_iov, i, read_size);
++#else
++	conn->read_msg.msg_iov = conn->read_iov;
++	conn->read_msg.msg_iovlen = i;
++	conn->read_size = read_size;
++#endif
+ 
++	TRACE_DBG("msg_iov=%p, msg_iovlen=%u", conn->read_iov, i);
++
++out:
+ 	TRACE_EXIT_RES(res);
+ 	return res;
+ }
+@@ -1740,7 +1751,6 @@ static int nop_out_start(struct iscsi_cmnd *cmnd)
+ 	size = cmnd->pdu.datasize;
+ 
+ 	if (size) {
+-		conn->read_msg.msg_iov = conn->read_iov;
+ 		if (cmnd->pdu.bhs.itt != ISCSI_RESERVED_TAG) {
+ 			struct scatterlist *sg;
+ 
+@@ -1761,10 +1771,9 @@ static int nop_out_start(struct iscsi_cmnd *cmnd)
+ 
+ 			for (i = 0; i < cmnd->sg_cnt; i++) {
+ 				conn->read_iov[i].iov_base =
+-					(void __force __user *)(page_address(sg_page(&sg[i])));
++					page_address(sg_page(&sg[i]));
+ 				tmp = min_t(u32, size, PAGE_SIZE);
+ 				conn->read_iov[i].iov_len = tmp;
+-				conn->read_size += tmp;
+ 				size -= tmp;
+ 			}
+ 			sBUG_ON(size != 0);
+@@ -1776,10 +1785,9 @@ static int nop_out_start(struct iscsi_cmnd *cmnd)
+ 			 */
+ 			for (i = 0; i < (signed)ISCSI_CONN_IOV_MAX; i++) {
+ 				conn->read_iov[i].iov_base =
+-					(void __force __user *)(page_address(dummy_page));
++					page_address(dummy_page);
+ 				tmp = min_t(u32, size, PAGE_SIZE);
+ 				conn->read_iov[i].iov_len = tmp;
+-				conn->read_size += tmp;
+ 				size -= tmp;
+ 			}
+ 
+@@ -1787,9 +1795,15 @@ static int nop_out_start(struct iscsi_cmnd *cmnd)
+ 			sBUG_ON(size != 0);
+ 		}
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++		iov_iter_kvec(&conn->read_msg.msg_iter, READ | ITER_KVEC,
++			      conn->read_iov, i, cmnd->pdu.datasize);
++#else
++		conn->read_msg.msg_iov = conn->read_iov;
+ 		conn->read_msg.msg_iovlen = i;
+-		TRACE_DBG("msg_iov=%p, msg_iovlen=%zd", conn->read_msg.msg_iov,
+-			conn->read_msg.msg_iovlen);
++		conn->read_size = cmnd->pdu.datasize;
++#endif
++		TRACE_DBG("msg_iov=%p, msg_iovlen=%d", conn->read_iov, i);
+ 	}
+ 
+ out:
+diff --git a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.h b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.h
+index 2ee4da9..150227c 100644
+--- a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.h
++++ b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/iscsi.h
+@@ -283,9 +283,13 @@ struct iscsi_conn {
+ 	 */
+ 	struct iscsi_cmnd *read_cmnd;
+ 	struct msghdr read_msg;
+-	u32 read_size;
+ 	int read_state;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	struct kvec *read_iov;
++#else
++	u32 read_size;
+ 	struct iovec *read_iov;
++#endif
+ 	struct task_struct *rx_task;
+ 	uint32_t rpadding;
+ 
+diff --git a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/nthread.c b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/nthread.c
+index 57d4396..7065f2c 100644
+--- a/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/nthread.c
++++ b/usr/src/scst-3.0.0.4838/iscsi-scst/kernel/nthread.c
+@@ -617,9 +617,14 @@ static inline void iscsi_conn_init_read(struct iscsi_conn *conn,
+ {
+ 	conn->read_iov[0].iov_base = data;
+ 	conn->read_iov[0].iov_len = len;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	iov_iter_kvec(&conn->read_msg.msg_iter, READ | ITER_KVEC,
++		      conn->read_iov, 1, len);
++#else
+ 	conn->read_msg.msg_iov = conn->read_iov;
+ 	conn->read_msg.msg_iovlen = 1;
+ 	conn->read_size = len;
++#endif
+ 	return;
+ }
+ 
+@@ -680,8 +685,8 @@ static int do_recv(struct iscsi_conn *conn)
+ {
+ 	int res;
+ 	mm_segment_t oldfs;
+-	struct msghdr msg;
+-	int first_len;
++	struct msghdr *msg;
++	int read_size;
+ 
+ 	EXTRACHECKS_BUG_ON(conn->read_cmnd == NULL);
+ 
+@@ -697,45 +702,46 @@ static int do_recv(struct iscsi_conn *conn)
+ 	 */
+ 
+ restart:
+-	memset(&msg, 0, sizeof(msg));
+-	msg.msg_iov = conn->read_msg.msg_iov;
+-	msg.msg_iovlen = conn->read_msg.msg_iovlen;
+-	first_len = msg.msg_iov->iov_len;
++	msg = &conn->read_msg;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	read_size = msg->msg_iter.count;
++#else
++	read_size = conn->read_size;
++#endif
+ 
+ 	oldfs = get_fs();
+ 	set_fs(get_ds());
+-	res = sock_recvmsg(conn->sock, &msg, conn->read_size,
++	res = sock_recvmsg(conn->sock, msg, read_size,
+ 			   MSG_DONTWAIT | MSG_NOSIGNAL);
+ 	set_fs(oldfs);
+ 
+-	TRACE_DBG("msg_iovlen %zd, first_len %d, read_size %d, res %d",
+-		msg.msg_iovlen, first_len, conn->read_size, res);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	TRACE_DBG("nr_segs %zd, bytes_left %zd, res %d",
++		  msg->msg_iter.nr_segs, msg->msg_iter.count, res);
++#else
++	TRACE_DBG("msg_iovlen %zd, read_size %d, res %d", msg->msg_iovlen,
++		  read_size, res);
++#endif
+ 
+ 	if (res > 0) {
+ 		/*
+-		 * To save some considerable effort and CPU power we
+-		 * suppose that TCP functions adjust
+-		 * conn->read_msg.msg_iov and conn->read_msg.msg_iovlen
+-		 * on amount of copied data. This BUG_ON is intended
+-		 * to catch if it is changed in the future.
++		 * To save CPU cycles we suppose that sock_recvmsg() adjusts
++		 * msg->msg_iov and msg->msg_iovlen. The BUG_ON() statement
++		 * below verifies this.
+ 		 */
+-		sBUG_ON((res >= first_len) &&
+-			(conn->read_msg.msg_iov->iov_len != 0));
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++		sBUG_ON(msg->msg_iter.count + res != read_size);
++		res = msg->msg_iter.count;
++#else
++		/* To do: restore msg->msg_iov check. */
+ 		conn->read_size -= res;
+-		if (conn->read_size != 0) {
+-			if (res >= first_len) {
+-				int done = 1 + ((res - first_len) >> PAGE_SHIFT);
+-				TRACE_DBG("done %d", done);
+-				conn->read_msg.msg_iov += done;
+-				conn->read_msg.msg_iovlen -= done;
+-			}
+-		}
+ 		res = conn->read_size;
++#endif
+ 	} else {
+ 		switch (res) {
+ 		case -EAGAIN:
+ 			TRACE_DBG("EAGAIN received for conn %p", conn);
+-			res = conn->read_size;
++			res = read_size;
+ 			break;
+ 		case -ERESTARTSYS:
+ 			TRACE_DBG("ERESTARTSYS received for conn %p", conn);
+@@ -821,7 +827,7 @@ static int iscsi_rx_check_ddigest(struct iscsi_conn *conn)
+ static int process_read_io(struct iscsi_conn *conn, int *closed)
+ {
+ 	struct iscsi_cmnd *cmnd = conn->read_cmnd;
+-	int res;
++	int bytes_left, res;
+ 
+ 	TRACE_ENTRY();
+ 
+@@ -910,10 +916,15 @@ static int process_read_io(struct iscsi_conn *conn, int *closed)
+ 			break;
+ 
+ 		case RX_END:
+-			if (unlikely(conn->read_size != 0)) {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++			bytes_left = conn->read_msg.msg_iter.count;
++#else
++			bytes_left = conn->read_size;
++#endif
++			if (unlikely(bytes_left != 0)) {
+ 				PRINT_CRIT_ERROR("conn read_size !=0 on RX_END "
+ 					"(conn %p, op %x, read_size %d)", conn,
+-					cmnd_opcode(cmnd), conn->read_size);
++					cmnd_opcode(cmnd), bytes_left);
+ 				sBUG();
+ 			}
+ 			conn->read_cmnd = NULL;
+@@ -921,7 +932,11 @@ static int process_read_io(struct iscsi_conn *conn, int *closed)
+ 
+ 			cmnd_rx_end(cmnd);
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++			EXTRACHECKS_BUG_ON(conn->read_msg.msg_iter.count != 0);
++#else
+ 			EXTRACHECKS_BUG_ON(conn->read_size != 0);
++#endif
+ 
+ 			/*
+ 			 * To maintain fairness. Res must be 0 here anyway, the
+diff --git a/usr/src/scst-3.0.0.4838/scst/include/scst.h b/usr/src/scst-3.0.0.4838/scst/include/scst.h
+index 8401f24..cb0f46b 100644
+--- a/usr/src/scst-3.0.0.4838/scst/include/scst.h
++++ b/usr/src/scst-3.0.0.4838/scst/include/scst.h
+@@ -246,6 +246,17 @@ static inline unsigned int queue_max_hw_sectors(struct request_queue *q)
+ #endif
+ #endif
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 9, 0)
++/*
++ * See also patch "new helper: file_inode(file)" (commit ID
++ * 496ad9aa8ef448058e36ca7a787c61f2e63f0f54).
++ */
++static inline struct inode *file_inode(const struct file *f)
++{
++	return f->f_path.dentry->d_inode;
++}
++#endif
++
+ #ifndef __list_for_each
+ /* ToDo: cleanup when both are the same for all relevant kernels */
+ #define __list_for_each list_for_each
+diff --git a/usr/src/scst-3.0.0.4838/scst/src/dev_handlers/scst_vdisk.c b/usr/src/scst-3.0.0.4838/scst/src/dev_handlers/scst_vdisk.c
+index 8aa6576..3cc9c58 100644
+--- a/usr/src/scst-3.0.0.4838/scst/src/dev_handlers/scst_vdisk.c
++++ b/usr/src/scst-3.0.0.4838/scst/src/dev_handlers/scst_vdisk.c
+@@ -820,7 +820,7 @@ static void vdisk_blockio_check_flush_support(struct scst_vdisk_dev *virt_dev)
+ 		goto out;
+ 	}
+ 
+-	inode = fd->f_dentry->d_inode;
++	inode = file_inode(fd);
+ 
+ 	if (!S_ISBLK(inode->i_mode)) {
+ 		PRINT_ERROR("%s is NOT a block device", virt_dev->filename);
+@@ -861,7 +861,7 @@ static void vdisk_check_tp_support(struct scst_vdisk_dev *virt_dev)
+ 	}
+ 
+ 	if (virt_dev->blockio) {
+-		struct inode *inode = fd->f_dentry->d_inode;
++		struct inode *inode = file_inode(fd);
+ 		if (!S_ISBLK(inode->i_mode)) {
+ 			PRINT_ERROR("%s is NOT a block device",
+ 				virt_dev->filename);
+@@ -923,7 +923,7 @@ static int vdisk_get_file_size(const char *filename, bool blockio,
+ 		goto out;
+ 	}
+ 
+-	inode = fd->f_dentry->d_inode;
++	inode = file_inode(fd);
+ 
+ 	if (blockio && !S_ISBLK(inode->i_mode)) {
+ 		PRINT_ERROR("File %s is NOT a block device", filename);
+@@ -1383,8 +1383,8 @@ static int vdisk_open_fd(struct scst_vdisk_dev *virt_dev, bool read_only)
+ 			    virt_dev->filename, res);
+ 		goto out;
+ 	}
+-	virt_dev->bdev = virt_dev->blockio ?
+-		virt_dev->fd->f_dentry->d_inode->i_bdev : NULL;
++	virt_dev->bdev = virt_dev->blockio ? file_inode(virt_dev->fd)->i_bdev :
++		NULL;
+ 	res = 0;
+ 
+ out:
+@@ -2995,7 +2995,7 @@ static int vdisk_unmap_range(struct scst_cmd *cmd,
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 27)
+ 		sector_t start_sector = start_lba << (cmd->dev->block_shift - 9);
+ 		sector_t nr_sects = blocks << (cmd->dev->block_shift - 9);
+-		struct inode *inode = fd->f_dentry->d_inode;
++		struct inode *inode = file_inode(fd);
+ 		gfp_t gfp = cmd->cmd_gfp_mask;
+ #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 31)
+ 		err = blkdev_issue_discard(inode->i_bdev, start_sector, nr_sects, gfp);
+@@ -3195,7 +3195,7 @@ static void vdev_blockio_get_unmap_params(struct scst_vdisk_dev *virt_dev,
+ 			goto out;
+ 		}
+ 
+-		q = bdev_get_queue(fd->f_dentry->d_inode->i_bdev);
++		q = bdev_get_queue(file_inode(fd)->i_bdev);
+ 		if (q == NULL) {
+ 			PRINT_ERROR("No queue for device %s", virt_dev->filename);
+ 			goto out_close;
+@@ -4654,8 +4654,7 @@ static int vdisk_fsync_fileio(loff_t loff,
+ 	file = virt_dev->fd;
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 32)
+-	res = sync_page_range(file->f_dentry->d_inode, file->f_mapping,
+-		loff, len);
++	res = sync_page_range(file_inode(file), file->f_mapping, loff, len);
+ #else
+ #if 0	/* For sparse files we might need to sync metadata as well */
+ 	res = generic_write_sync(file, loff, len);
+diff --git a/usr/src/scst-3.0.0.4838/scst/src/scst_lib.c b/usr/src/scst-3.0.0.4838/scst/src/scst_lib.c
+index 44132e9..cb15965 100644
+--- a/usr/src/scst-3.0.0.4838/scst/src/scst_lib.c
++++ b/usr/src/scst-3.0.0.4838/scst/src/scst_lib.c
+@@ -9791,8 +9791,7 @@ int scst_vfs_fsync(struct file *file, loff_t loff, loff_t len)
+ {
+ 	int res;
+ 
+-	res = sync_page_range(file->f_dentry->d_inode, file->f_mapping,
+-			loff, len);
++	res = sync_page_range(file_inode(file), file->f_mapping, loff, len);
+ 	return res;
+ }
+ #endif
+@@ -9834,7 +9833,7 @@ int scst_copy_file(const char *src, const char *dest)
+ 		goto out_close;
+ 	}
+ 
+-	inode = file_src->f_dentry->d_inode;
++	inode = file_inode(file_src);
+ 
+ 	if (S_ISREG(inode->i_mode))
+ 		/* Nothing to do */;
+@@ -10051,7 +10050,7 @@ static int __scst_read_file_transactional(const char *file_name,
+ 		goto out;
+ 	}
+ 
+-	inode = file->f_dentry->d_inode;
++	inode = file_inode(file);
+ 
+ 	if (S_ISREG(inode->i_mode))
+ 		/* Nothing to do */;
+@@ -10136,7 +10135,7 @@ int scst_get_file_mode(const char *path)
+ 		res = PTR_ERR(file);
+ 		goto out;
+ 	}
+-	res = file->f_dentry->d_inode->i_mode;
++	res = file_inode(file)->i_mode;
+ 	filp_close(file, NULL);
+ 
+ out:
+diff --git a/usr/src/scst-3.0.0.4838/scst/src/scst_pres.c b/usr/src/scst-3.0.0.4838/scst/src/scst_pres.c
+index cc06ac3..ca7a297 100644
+--- a/usr/src/scst-3.0.0.4838/scst/src/scst_pres.c
++++ b/usr/src/scst-3.0.0.4838/scst/src/scst_pres.c
+@@ -678,7 +678,7 @@ static int scst_pr_do_load_device_file(struct scst_device *dev,
+ 		goto out;
+ 	}
+ 
+-	inode = file->f_dentry->d_inode;
++	inode = file_inode(file);
+ 
+ 	if (S_ISREG(inode->i_mode))
+ 		/* Nothing to do */;
+diff --git a/usr/src/scst-3.0.0.4838/scst/src/scst_proc.c b/usr/src/scst-3.0.0.4838/scst/src/scst_proc.c
+index 2a3bc19..7fede7b 100644
+--- a/usr/src/scst-3.0.0.4838/scst/src/scst_proc.c
++++ b/usr/src/scst-3.0.0.4838/scst/src/scst_proc.c
+@@ -269,7 +269,7 @@ int scst_proc_log_entry_write(struct file *file, const char __user *buf,
+ 	unsigned long level = 0, oldlevel;
+ 	char *buffer, *p, *e;
+ 	const struct scst_trace_log *t;
+-	char *data = PDE_DATA(file->f_dentry->d_inode);
++	char *data = PDE_DATA(file_inode(file));
+ 
+ 	TRACE_ENTRY();
+ 
+@@ -1390,7 +1390,7 @@ static ssize_t scst_proc_scsi_tgt_write(struct file *file,
+ 					const char __user *buf,
+ 					size_t length, loff_t *off)
+ {
+-	struct scst_tgt *vtt = PDE_DATA(file->f_dentry->d_inode);
++	struct scst_tgt *vtt = PDE_DATA(file_inode(file));
+ 	ssize_t res = 0;
+ 	char *buffer;
+ 	char *start;
+@@ -1545,7 +1545,7 @@ static ssize_t scst_proc_scsi_dev_handler_write(struct file *file,
+ 						const char __user *buf,
+ 						size_t length, loff_t *off)
+ {
+-	struct scst_dev_type *dev_type = PDE_DATA(file->f_dentry->d_inode);
++	struct scst_dev_type *dev_type = PDE_DATA(file_inode(file));
+ 	ssize_t res = 0;
+ 	char *buffer;
+ 	char *start;
+@@ -1913,7 +1913,7 @@ static ssize_t scst_proc_groups_devices_write(struct file *file,
+ 	int res, action, rc, read_only = 0;
+ 	char *buffer, *p, *e = NULL;
+ 	unsigned int virt_lun;
+-	struct scst_acg *acg = PDE_DATA(file->f_dentry->d_inode);
++	struct scst_acg *acg = PDE_DATA(file_inode(file));
+ 	struct scst_acg_dev *acg_dev = NULL, *acg_dev_tmp;
+ 	struct scst_device *d, *dev = NULL;
+ 
+@@ -2150,7 +2150,7 @@ static ssize_t scst_proc_groups_names_write(struct file *file,
+ {
+ 	int res = length, rc = 0, action;
+ 	char *buffer, *p, *pp = NULL;
+-	struct scst_acg *acg = PDE_DATA(file->f_dentry->d_inode);
++	struct scst_acg *acg = PDE_DATA(file_inode(file));
+ 	struct scst_acn *n, *nn;
+ 
+ 	TRACE_ENTRY();
+diff --git a/usr/src/scst-3.0.0.4838/scst/src/scst_targ.c b/usr/src/scst-3.0.0.4838/scst/src/scst_targ.c
+index 175af61..bdfe5ee 100644
+--- a/usr/src/scst-3.0.0.4838/scst/src/scst_targ.c
++++ b/usr/src/scst-3.0.0.4838/scst/src/scst_targ.c
+@@ -29,6 +29,7 @@
+ #include <linux/kthread.h>
+ #include <linux/delay.h>
+ #include <linux/ktime.h>
++#include <scsi/sg.h>
+ 
+ #ifdef INSIDE_KERNEL_TREE
+ #include <scst/scst.h>
+@@ -5957,7 +5958,14 @@ static int scst_target_reset(struct scst_mgmt_cmd *mcmd)
+ 		/* dev->scsi_dev must be non-NULL here */
+ 		TRACE(TRACE_MGMT, "Resetting host %d bus ",
+ 			dev->scsi_dev->host->host_no);
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++		{
++			int arg = SG_SCSI_RESET_TARGET;
++
++			rc = scsi_ioctl_reset(dev->scsi_dev,
++					      (__force __user int *)&arg);
++		}
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+ 		rc = scsi_reset_provider(dev->scsi_dev, SCSI_TRY_RESET_TARGET);
+ #else
+ 		rc = scsi_reset_provider(dev->scsi_dev, SCSI_TRY_RESET_BUS);
+@@ -6020,7 +6028,16 @@ static int scst_lun_reset(struct scst_mgmt_cmd *mcmd)
+ 	if (dev->scsi_dev != NULL) {
+ 		TRACE(TRACE_MGMT, "Resetting host %d bus ",
+ 		      dev->scsi_dev->host->host_no);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++		{
++			int arg = SG_SCSI_RESET_DEVICE;
++
++			rc = scsi_ioctl_reset(dev->scsi_dev,
++					      (__force __user int *)&arg);
++		}
++#else
+ 		rc = scsi_reset_provider(dev->scsi_dev, SCSI_TRY_RESET_DEVICE);
++#endif
+ 		TRACE(TRACE_MGMT, "scsi_reset_provider(%s) returned %d",
+ 		      dev->virt_name, rc);
+ #if 0
+diff --git a/usr/src/scst-3.0.0.4838/scst_local/scst_local.c b/usr/src/scst-3.0.0.4838/scst_local/scst_local.c
+index 88c6840..cbe9e3b 100644
+--- a/usr/src/scst-3.0.0.4838/scst_local/scst_local.c
++++ b/usr/src/scst-3.0.0.4838/scst_local/scst_local.c
+@@ -1018,6 +1018,12 @@ static int scst_local_queuecommand_lck(struct scsi_cmnd *SCpnt,
+ 	}
+ 
+ 	scst_cmd_set_tag(scst_cmd, SCpnt->tag);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	if (SCpnt->device->tagged_supported && SCpnt->device->simple_tags)
++		scst_cmd_set_queue_type(scst_cmd, SCST_CMD_QUEUE_SIMPLE);
++	else
++		scst_cmd_set_queue_type(scst_cmd, SCST_CMD_QUEUE_UNTAGGED);
++#else
+ 	switch (scsi_get_tag_type(SCpnt->device)) {
+ 	case MSG_SIMPLE_TAG:
+ 		scst_cmd_set_queue_type(scst_cmd, SCST_CMD_QUEUE_SIMPLE);
+@@ -1033,6 +1039,7 @@ static int scst_local_queuecommand_lck(struct scsi_cmnd *SCpnt,
+ 		scst_cmd_set_queue_type(scst_cmd, SCST_CMD_QUEUE_UNTAGGED);
+ 		break;
+ 	}
++#endif
+ 
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 25))
+ 	/*
+@@ -1169,7 +1176,14 @@ static int scst_local_get_max_queue_depth(struct scsi_device *sdev)
+ 	return res;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33) || \
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++
++static int scst_local_change_queue_depth(struct scsi_device *sdev, int depth)
++{
++	return scsi_change_queue_depth(sdev, depth);
++}
++
++#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33) || \
+     defined(CONFIG_SUSE_KERNEL) || \
+     !(!defined(RHEL_RELEASE_CODE) || \
+      RHEL_RELEASE_CODE -0 < RHEL_RELEASE_VERSION(6, 1))
+@@ -1249,10 +1263,12 @@ static int scst_local_slave_configure(struct scsi_device *sdev)
+ 	PRINT_INFO("Configuring queue depth %d on sdev %p (tagged supported %d)",
+ 		mqd, sdev, sdev->tagged_supported);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
+ 	if (sdev->tagged_supported)
+ 		scsi_activate_tcq(sdev, mqd);
+ 	else
+ 		scsi_deactivate_tcq(sdev, mqd);
++#endif
+ 
+ 	TRACE_EXIT();
+ 	return 0;
+@@ -1628,6 +1644,9 @@ static struct scsi_host_template scst_lcl_ini_driver_template = {
+ #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 25))
+ 	.eh_target_reset_handler	= scst_local_target_reset,
+ #endif
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
++	.use_blk_tags			= true,
++#endif
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33) || \
+     defined(CONFIG_SUSE_KERNEL) || \
+     !(!defined(RHEL_RELEASE_CODE) || \
+--- dkms.conf	2015-10-15 15:04:42.583412883 -0600
++++ dkms.conf.new	2015-10-15 15:06:06.748575164 -0600

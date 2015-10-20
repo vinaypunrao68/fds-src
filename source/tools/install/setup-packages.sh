@@ -39,7 +39,6 @@ fdsbasedebs=(
     fds-leveldb
     fds-python-scp
     fds-jdk-default
-    libcryptopp-dev
 )
 
 python_packages=(

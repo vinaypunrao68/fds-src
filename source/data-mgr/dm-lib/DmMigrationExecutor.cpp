@@ -99,7 +99,7 @@ DmMigrationExecutor::startMigration()
         LOGERROR << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
         if (migrDoneCb) {
-        	migrDoneCb(volDesc.volUUID, err);
+        	migrDoneCb(srcDmSvcUuid, volDesc.volUUID, err);
         }
     	dataMgr.dmMigrationMgr->abortMigration();
     }
@@ -187,9 +187,10 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                    << std::hex << msg->volume_id << std::dec
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
-        blobDescListMutex.lock();
-        blobDescList.emplace_back(make_pair(msg, cb));
-        blobDescListMutex.unlock();
+        {
+        	fds_scoped_lock lock(blobDescListMutex);
+        	blobDescList.emplace_back(make_pair(msg, cb));
+        }
         err = ERR_NOT_READY;
     } else {
 		/**
@@ -274,26 +275,26 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         }
     }
 
-    blobDescListMutex.lock();
+    {
+		fds_scoped_lock lock(blobDescListMutex);
+		/**
+		 * Set the sequence number appropriately.
+		 */
+		deltaBlobsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
 
-    /**
-     * Set the sequence number appropriately.
-     */
-    deltaBlobsSeqNum.setSeqNum(msg->msg_seq_id, msg->last_msg_seq_id);
-
-    /**
-     * If all the sequence numbers are present for the blobs, then send apply the queued
-     * blob descriptors in this thread context.
-     * It's possible that all desciptors have already been received.
-     * So, any descriptors in the queue should be flushed.
-     */
-    if (deltaBlobsSeqNum.isSeqNumComplete()) {
-        LOGMIGRATE << "blob sequence number is complete for volume="
-                   << std::hex << volumeUuid << std::dec
-                   << ".  Apply queued blob descriptors.";
-        err = applyQueuedBlobDescs();
+		/**
+		 * If all the sequence numbers are present for the blobs, then send apply the queued
+		 * blob descriptors in this thread context.
+		 * It's possible that all desciptors have already been received.
+		 * So, any descriptors in the queue should be flushed.
+		 */
+		if (deltaBlobsSeqNum.isSeqNumComplete()) {
+			LOGMIGRATE << "blob sequence number is complete for volume="
+					   << std::hex << volumeUuid << std::dec
+					   << ".  Apply queued blob descriptors.";
+			err = applyQueuedBlobDescs();
+		}
     }
-    blobDescListMutex.unlock();
 
 	return err;
 }
@@ -426,7 +427,7 @@ DmMigrationExecutor::testStaticMigrationComplete() {
         }
 
         if (migrDoneCb) {
-            migrDoneCb(volDesc.volUUID, ERR_OK);
+            migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_OK);
         }
     }
 }
@@ -484,7 +485,7 @@ DmMigrationExecutor::finishActiveMigration()
 {
 	fds_scoped_lock lock(progressLock);
 	migrationProgress = MIGRATION_COMPLETE;
-	LOGMIGRATE << "No forwards was sent, resuming IO for volume " << volumeUuid;
+    LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
 	return ERR_OK;
@@ -509,7 +510,7 @@ DmMigrationExecutor::abortMigration()
         	migrationProgress = MIGRATION_ABORTED;
         	if (migrDoneCb) {
         		LOGMIGRATE << "Abort migration called.";
-        		migrDoneCb(volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
+        		migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         	}
         }
     }

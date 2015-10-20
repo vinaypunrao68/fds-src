@@ -10,19 +10,16 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.webkit.rest.v08.snapshots.GetSnapshot;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
 import java.util.Map;
-
-import javax.servlet.http.HttpServletResponse;
 
 public class CloneVolumeFromSnapshot implements RequestHandler {
 
@@ -54,9 +51,12 @@ public class CloneVolumeFromSnapshot implements RequestHandler {
 		
 		logger.debug( "Snapshot time was {}(sec), using that to instigate cloning operation.", snapshot.getCreationTime().getEpochSecond() );
 		
-		(new CloneVolumeFromTime( getAuthorizer(), getToken() )).cloneFromTime( volumeId, newVolume, snapshot.getCreationTime().getEpochSecond() );
+		CloneVolumeFromTime cloneEndpoint = new CloneVolumeFromTime( getAuthorizer(), getToken() );
+		Volume clonedVolume = cloneEndpoint.cloneFromTime( volumeId, newVolume, snapshot.getCreationTime().getEpochSecond() );
 		
-		return new JsonResource( (new JSONObject()).put( "status", "ok" ), HttpServletResponse.SC_OK );
+		String jVolume = ObjectModelHelper.toJSON( clonedVolume );
+		
+		return new TextResource( jVolume );
 	}
 
 	private Authorizer getAuthorizer(){

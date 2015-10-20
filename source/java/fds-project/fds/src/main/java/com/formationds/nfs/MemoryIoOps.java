@@ -88,7 +88,7 @@ public class MemoryIoOps implements IoOps {
                 .filter(k -> k.blobName.startsWith(blobNamePrefix))
                 .map(k -> new BlobMetadata(k.blobName, metadataCache.get(k)))
                 .collect(Collectors.toList());
-        LOG.debug("MemoryIO.scan, volume=" + volume + ", prefix=" + blobNamePrefix);
+        LOG.debug("MemoryIO.scan, volume=" + volume + ", prefix=" + blobNamePrefix + ", count=" + result.size());
         return result;
     }
 

@@ -1,0 +1,33 @@
+---
+-   name: uninstall scst kernel module
+    shell: /opt/fds-deps/embedded/usr/sbin/dkms uninstall scst/3.0.0.4838
+    ignore_errors: True
+    tags:
+      - uninstall
+
+-   name: remove scst kernel module
+    shell: /opt/fds-deps/embedded/usr/sbin/dkms remove scst/3.0.0.4838 --all
+    ignore_errors: True
+    tags:
+      - uninstall
+
+-   name: uninstall scst debs
+    apt: name={{item}}
+        state=absent
+        purge=yes
+    with_items:
+        - scstadmin
+        - iscsi-scst
+        - scst-dkms
+        - scst-dkms
+    tags:
+        - uninstall
+
+-   name: uninstall dkms
+    apt: name={{item}}
+        state=absent
+        purge=yes
+    with_items:
+        - dkms
+    tags:
+        - uninstall
