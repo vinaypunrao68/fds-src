@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
