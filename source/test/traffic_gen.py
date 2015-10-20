@@ -11,6 +11,8 @@ import http.client
 import random
 import pickle
 #For multipart uploads
+import math
+import boto
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from boto.s3.bucket import Bucket
@@ -97,35 +99,30 @@ def create_file_queue(n,size):
     return files
 
 #TODO Make size variable
-def do_multipart():
-	#Size= 50MB
-	source_size = 1024*1024*50
-	fname = create_random_file(source_size)
-
+def do_multipart(target_volume,target_file,fname,fsize):
 	#setup for s3 connection sample from fds-s3-compliance.py
 	conn = boto.connect_s3(
-		aws_access_key_id = 'blablabla',
-		aws_secret_access_key = 'kekekeke',
+		aws_access_key_id = 'admin',
+		aws_secret_access_key = 'admin',
 		host = 'localhost',
 		port = 8000,
-		is_secure = False,
-		calling_format = boto.s3.connection.OrdinaryCallingFormat())
+                is_secure = False,
+                calling_format = boto.s3.connection.OrdinaryCallingFormat())
 
-	_buck_name = "BUCKET" + str(random.randint(0,100000))	
-	buck = conn.create_bucket(_buck_name)
+	_buck_name = "bucket" + str(random.randint(0,100000))	
+	buck = conn.create_bucket(target_volume)
 
-	_key_name = os.path.basename(fname)
-	mp = buck.initiate_multipart_upload(_key_name)
+	mp = buck.initiate_multipart_upload(target_file)
 
-	#chunk size 5MB
+	#chunk size 10MB
 	#TODO Make chunk_size variable
-	chunk_size = 1024 * 1024 * 5
-	chunk_count = int(math.ceil(source_size / chunk_size))
+	chunk_size = 1024 * 1024 * 10
+	chunk_count = int(math.ceil(fsize / chunk_size))
 
 	#Upload file in parts
 	for i in range(chunk_count + 1):
 		offset = chunk_size * i
-		bytes = min(chunk_size, source_size - offset)
+		bytes = min(chunk_size, fsize - offset)
 		with FileChunkIO(fname, 'r', offset=offset, bytes=bytes) as fp:
 			mp.upload_part_from_file(fp, part_num=i + 1)
 
@@ -133,15 +130,15 @@ def do_multipart():
 	
 	#Validate Upload
 	_key = Key(buck)
-	_key.key = _key_name
-	_key.get_contents_to_filename(fname + "_verify")
-	diff_code = os.system('diff ' + fname + ' ' + fname '_verify')
+	_key.key = target_file
+	_key.get_contents_to_filename(target_file)
+	diff_code = os.system("diff " + fname + " " + target_file)
 	if diff_code != 0:
 		raise Exception('File corrupted!')
 
-	os.system('rm ' + fname + '_verify')	
-	
-	c.close()
+	#os.system("rm " + target_file)	
+	#os.system("rm " + fname)	
+	conn.close()
 
 def do_put(conn, target, fname):
     e = None
@@ -164,6 +161,7 @@ def task(task_id, n_reqs, req_type, vol, files,
     used_files = set()
     stats = dict(init_stats())
     i = barrier.wait()
+    multipart_error=0
     if task_id == 0:
         time_start_volume[vol] = time.time()
         print ("starting timer -  thread:", task_id, "volume", vol, "time:", time_start_volume[vol])
@@ -184,8 +182,23 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             # print "PUT", file_idx
-            e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
+            e = do_put(conn, "volume%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
+        elif req_type == "MULTIPART":
+            if options.put_seq is True:
+                file_idx = (stats["reqs"] + int(options.n_reqs/options.threads) * task_id) % options.num_files
+                assert not (file_idx in used_files)
+                used_files.add(file_idx)
+            elif options.put_duplicate is True:
+                file_idx = i % options.num_files
+            else:
+                file_idx = random.randint(0, options.num_files - 1)
+            uploaded.add(file_idx)
+            try:
+                e = do_multipart("volume%d" % (vol), "file%d" % (file_idx), files[file_idx],options.file_size)
+            except:
+                print("File Corrupted on /volume%d/file%d" % (vol,file_idx))
+                multipart_error=1
         elif req_type == "GET":
             if len(prev_uploaded[vol]) > 0:
                 file_idx = random.sample(prev_uploaded[vol], 1)[0]
@@ -213,20 +226,30 @@ def task(task_id, n_reqs, req_type, vol, files,
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
         elif req_type == "NOP":
             time.sleep(.008)
-        r1 = conn.getresponse()
-        time_end = time.time()
-        r1.read()
-        # FIXME: need to skip first samples
-        update_latency_stats(stats, time_start, time_end)
-        stats["reqs"] += 1
-        if r1.status != 200:
-            stats["fails"] += 1
+        if req_type == "MULTIPART":
+            time_end = time.time()
+            update_latency_stats(stats, time_start, time_end)
+            if multipart_error == 1:
+                stats["fails"]+=1
+                multipart_error=0
+            else:
+                stats["reqs"] += 1
+        else:
+            r1 = conn.getresponse()
+            time_end = time.time()
+            r1.read()
+            # FIXME: need to skip first samples
+            update_latency_stats(stats, time_start, time_end)
+            stats["reqs"] += 1
+            if r1.status != 200:
+                stats["fails"] += 1
     conn.close()
     # print ("Done with volume", vol, "thread:", task_id)
-    with counters.get_lock():
-        if r1.status != 200:
-            stats["fails"] += 1
-    conn.close()
+    if req_type != "MULTIPART":
+        with counters.get_lock():
+            if r1.status != 200:
+                stats["fails"] += 1
+        conn.close()
     # print ("Done with volume", vol, "thread:", task_id)
     with counters.get_lock():
         counters[vol] += 1
@@ -324,7 +347,7 @@ def main(options,files):
     # print ("qsize:", queue.qsize())
     while queue.qsize() < (options.num_volumes * options.threads):
         #print (".qsize:", queue.qsize())
-        time.sleep(.5)  # FIXME: this delay need to be large enough, likely some race here
+        time.sleep(1)  # FIXME: this delay need to be large enough, likely some race here
     time.sleep(1)
     # pull and aggregate stats
     used_files = set()
@@ -362,6 +385,7 @@ def main(options,files):
 # TODO: delete
 # FIXME: what happen if i use a different numbe rof volumes for put and get?
 # TODO: time history of latencies
+# TODO: Add 
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-t", "--threads", dest = "threads", type = "int", default = 1, help = "Number of threads")
@@ -380,8 +404,19 @@ if __name__ == "__main__":
     parser.add_option("-D", "--put-duplicate", dest = "put_duplicate",  default = False, action = "store_true", help = "Generate duplicate put objects in each volume")
 
     (options, args) = parser.parse_args()
+	#If multipart and filesize is less than 5MB - return error
+    if options.req_type == "MULTIPART" and options.file_size < (1024 * 1024 * 10):
+        raise Exception("Filesize for Multipart upload must be greater than 10MB")
     if options.req_type == "PUT" or options.req_type == "7030":
         print ("Creating files")
         files = create_file_queue(options.num_files, options.file_size)
         time.sleep(5)
+    elif options.req_type == "MULTIPART":
+        print ("Creating files")
+        files = create_file_queue(options.num_files, options.file_size)
+        time.sleep(5)
     else:
+        files=Queue()
+    print ("Starting...")
+    main(options,files)
+    print ("Done.")
