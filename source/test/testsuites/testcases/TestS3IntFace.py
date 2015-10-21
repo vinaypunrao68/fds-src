@@ -334,7 +334,7 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
@@ -403,7 +403,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
@@ -468,11 +468,7 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        if self.parameters['install']is None:
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        else:
-            bin_dir = "/fds/bin"
-        print bin_dir
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
@@ -561,11 +557,7 @@ class TestS3VerifyMBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        if self.parameters['install']is None:
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        else:
-            bin_dir = "/fds/bin"
-
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False
@@ -636,11 +628,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-        if self.parameters['install']is None:
-            bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
-        else:
-            bin_dir = "/fds/bin"
-
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False
