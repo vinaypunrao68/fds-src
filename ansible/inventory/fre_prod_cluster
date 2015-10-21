@@ -19,6 +19,7 @@ fds_sm_data_verify=false
 fds_sm_data_verify_background=false
 fds_ft_restart_failed_children_processes=false
 fds_ft_common_enable_volume_open_support=false
+fds_ft_periodic_expunge=false
 ssl_enabled=true
 ssl_api_hostname=prod-fds.formationds.com
 ssl_web_hostname=prod-web.formationds.com
