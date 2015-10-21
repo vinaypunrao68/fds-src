@@ -58,6 +58,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     }
 }
 
+// NOTE: counterpart of outputting to FDSP : VolumeInfo::vol_populate_fdsp_descriptor
 VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     name = voldesc.vol_name;
     tennantId = voldesc.tennantId;
@@ -78,7 +79,6 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     contCommitlogRetention = voldesc.contCommitlogRetention;
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
-    state = voldesc.state;
     if (volUUID == invalid_vol_id) {
         GLOGWARN << "volume id is invalid";
     }

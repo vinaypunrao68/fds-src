@@ -90,13 +90,14 @@ public class DebugWebapp {
                     sb.append(makeImgLink(Counters.Key.objectCacheMiss));
                     sb.append(makeImgLink(Counters.Key.objectCacheHit));
                     sb.append(makeImgLink(Counters.Key.deferredMetadataMutation));
+                    sb.append(makeImgLink(Counters.Key.deferredObjectMutation));
 
                     sb.append("<h1>AM activity</h1>");
                     sb.append(makeImgLink(Counters.Key.AM_statBlob));
                     sb.append(makeImgLink(Counters.Key.AM_updateMetadataTx));
-                    sb.append(makeImgLink(Counters.Key.AM_getBlobWithMeta));
-                    sb.append(makeImgLink(Counters.Key.AM_updateBlobOnce_objectAndMetadata));
-                    sb.append(makeImgLink(Counters.Key.AM_updateBlob));
+                    sb.append(makeImgLink(Counters.Key.AM_getBlob));
+                    sb.append(makeImgLink(Counters.Key.AM_updateBlobTx));
+                    sb.append(makeImgLink(Counters.Key.AM_volumeContents));
 
                     sb.append("</body></html>");
                     OutputStreamWriter osw = new OutputStreamWriter(outputStream);
@@ -173,7 +174,15 @@ public class DebugWebapp {
         @Override
         public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
             String volumeName = routeParameters.get("volume");
-            List<BlobDescriptor> bds = asyncAm.volumeContents("", volumeName, 100, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+            List<BlobDescriptor> bds = asyncAm.volumeContents("",
+                                                              volumeName,
+                                                              100,
+                                                              0,
+                                                              "",
+                                                              PatternSemantics.PCRE,
+                                                              "",
+                                                              BlobListOrder.UNSPECIFIED,
+                                                              false).get().getBlobs();
             JSONArray array = new JSONArray();
             for (BlobDescriptor bd : bds) {
                 JSONObject o = new JSONObject();

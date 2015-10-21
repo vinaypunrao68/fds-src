@@ -223,7 +223,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error listBlobsWithPrefix (fds_volid_t volId,
                                std::string const& prefix,
                                std::string const& delimiter,
-                               fpi::BlobDescriptorListType& results) override;
+                               fpi::BlobDescriptorListType& results,
+                               std::vector<std::string>& skippedPrefixes) override;
 
     /**
      * Updates committed blob in the Volume Catalog.

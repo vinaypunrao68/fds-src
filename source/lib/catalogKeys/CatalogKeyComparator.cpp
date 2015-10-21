@@ -130,20 +130,29 @@ BlobMetadataKey CatalogKeyComparator::getIncremented (BlobMetadataKey const& key
 
     if (blobName.empty())
     {
-        // Next after an empty string is the lowest possible string.
-        return BlobMetadataKey{string{1, '\0'}};
+        // Empty key signifies seek to end.
+        return BlobMetadataKey{string{}};
     }
     else
     {
-        if (static_cast<unsigned char>(blobName.back()) == numeric_limits<unsigned char>::max())
+        auto lastIncrementableCharacter = blobName.size();
+        while (lastIncrementableCharacter >= 1
+               && blobName[lastIncrementableCharacter - 1] == numeric_limits<unsigned char>::max())
         {
-            // Last character can't be incremented, so tack on the lowest character.
-            return BlobMetadataKey{blobName + string{1, '\0'}};
+            --lastIncrementableCharacter;
+        }
+
+        if (lastIncrementableCharacter == 0)
+        {
+            // Nothing can be incremented, seek to end.
+            return BlobMetadataKey{string{}};
         }
         else
         {
-            // Easy case, just increment the last character.
-            ++blobName[blobName.size() - 1];
+            // Increment the last (least significant) character that can be incremented, then
+            // truncate. All keys with prefix "key" will be skipped.
+            ++blobName[lastIncrementableCharacter - 1];
+            blobName = blobName.substr(0, lastIncrementableCharacter);
             return BlobMetadataKey{blobName};
         }
     }

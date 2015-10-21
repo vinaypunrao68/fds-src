@@ -46,6 +46,11 @@ static constexpr fds_int64_t invalid_vol_token = -1;
  */
 class VolumeDesc : public HasState {
   public:
+	/**
+	 * NOTE: prior to adding new fields here,
+	 * any of these that are needed for thrift interface should be updated
+	 * in VolumeInfo::vol_populate_fdsp_descriptor
+	 */
     // Basic ID information.
     std::string            name;
     int                    tennantId;  // Tennant id that owns the volume
@@ -57,7 +62,7 @@ class VolumeDesc : public HasState {
     FDS_ProtocolInterface::FDSP_VolType volType;
     double                 capacity;  // Volume capacity is in MB
     double                 maxQuota;  // Quota % of capacity tho should alert
-    int                    replicaCnt;  // Number of replicas reqd for this volume
+    int                    redundancyCnt;  // Number of redundant copies reqd for this volume for accessability
     fds_uint32_t           maxObjSizeInBytes;
 
     // Advanced settings
@@ -91,6 +96,10 @@ class VolumeDesc : public HasState {
     // in seconds
     fds_uint64_t           timelineTime;
     // in millis
+
+    // Async Replication
+    bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
+    bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
 
     FDS_ProtocolInterface::ResourceState     state;
 

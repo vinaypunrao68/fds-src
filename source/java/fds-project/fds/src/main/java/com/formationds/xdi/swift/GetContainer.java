@@ -7,6 +7,7 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.PatternSemantics;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.W3cXmlResource;
@@ -15,6 +16,7 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
@@ -24,6 +26,7 @@ import org.w3c.dom.Element;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,7 +50,16 @@ public class GetContainer  implements SwiftRequestHandler {
         ResponseFormat format = obtainFormat(request);
         List<BlobDescriptor> descriptors = null;
         try {
-            descriptors = xdi.volumeContents(token, accountName, containerName, limit, 0, "", BlobListOrder.UNSPECIFIED, false).get();
+            descriptors = xdi.volumeContents(token,
+                                             accountName,
+                                             containerName,
+                                             limit,
+                                             0,
+                                             "",
+                                             BlobListOrder.UNSPECIFIED,
+                                             false,
+                                             PatternSemantics.PCRE,
+                                             "").get().getBlobs();
         } catch (TException e) {
             throw new ApiException("Not found", ErrorCode.MISSING_RESOURCE);
         }

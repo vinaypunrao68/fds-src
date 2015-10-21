@@ -3243,13 +3243,14 @@ class TestAMVerifyDown(TestCase.FDSTestCase):
 #It randomly chooses a fault to inject from a given set of faults passed
 #as parameter to the testcase in the system test.
 class TestServiceInjectFault(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node='random_node', service=None, faultName=None):
+    def __init__(self, parameters=None, node='random_node', service=None, faultName=None, disable=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_ServiceFaultInjection,
                                              "Test setting fault injection")
         self.passedNode = node
         self.passedService = service
+        self.passedDisable = disable
         self.passedFaultName = faultName.split(' ')
 
     def test_ServiceFaultInjection(self):
@@ -3266,6 +3267,7 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
         svc_map = plat_svc.SvcMap(fdscfg.rt_om_node.nd_conf_dict['ip'],
                                   fdscfg.rt_om_node.nd_conf_dict['fds_port'])
         svcs = svc_map.list()
+        self.log.info("Svc map: {}".format(svcs))
 
         if self.passedNode is not None and self.passedNode != "random_node":
             self.passedNode = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.passedNode)
@@ -3278,7 +3280,27 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
             # First filter out only services belonging to the specified node
             # Use a little voodoo to match service UUIDs to the node UUID
-            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+            
+            loopCount = 0
+            while loopCount < 10 and not svcs:
+                try:
+                    '''
+                    (example) svcs = 
+                    [[7231149486617828611, 'am', 1444690515, '127.0.0.1', 7003, 'Active'],
+                     [7231149486617828609, 'sm', 1444690512, '127.0.0.1', 7001, 'Active'],
+                     [7231149486617828610, 'dm', 1444690509, '127.0.0.1', 7002, 'Active'],
+                     [7231149486617828608, 'pm', 1444690480, '127.0.0.1', 7000, 'Active'],
+                     [1028, 'om', 1444690486, '127.0.0.1', 7004, 'Active']]
+                    '''
+                    # Now find just the one node by filtering out the first 6 digits
+                    svcs = filter(lambda x: str(x[0])[:6] == str(long(passed_node_uuid, 16))[:6], svcs)
+                    break
+                except:
+                    loopCount += 1
+                    svc_map.refresh()
+                    svcs = svc_map.list()
+                    self.log.info("After refresh Svc map: {}".format(svcs))
+
             if not svcs:
                 self.log.error("Unable to find the service belonging to such node")
                 return False;
@@ -3306,20 +3328,41 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
 
         # Svc map will be a list of lists in the form:
         # [ [uuid, svc_name, ???, ip, port, is_active?] ]
-        if self.passedService not in svcs:
-            self.log.info("Not in svcs... retrying")
-            self.log.info("Passed_node_uuid: {} passed_in: {} svcs: {}".format(passed_node_uuid, self.passedService, svcs))
-            status = self.passedNode.nd_populate_metadata(om_node=om_node)
-            passed_node_uuid = self.passedNode.nd_uuid
-            svcs = filter(lambda x: str(x[0])[:-1] == str(long(passed_node_uuid, 16))[:-1], svcs)
+        self.passedNode.nd_populate_metadata(om_node=om_node)
+        passed_node_uuid = self.passedNode.nd_uuid
 
-        svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+        loopCount = 0
+        while loopCount < 10:
+            try:
+                '''
+                (example) svcs = 
+                [[7231149486617828611, 'am', 1444690515, '127.0.0.1', 7003, 'Active'],
+                 [7231149486617828609, 'sm', 1444690512, '127.0.0.1', 7001, 'Active'],
+                 [7231149486617828610, 'dm', 1444690509, '127.0.0.1', 7002, 'Active'],
+                 [7231149486617828608, 'pm', 1444690480, '127.0.0.1', 7000, 'Active'],
+                 [1028, 'om', 1444690486, '127.0.0.1', 7004, 'Active']]
+                '''
+                # Now find just the one node by filtering out the first 6 digits
+                svcs = filter(lambda x: str(x[0])[:6] == str(long(passed_node_uuid, 16))[:6], svcs)
+                svc_uuid = filter(lambda x: self.passedService in x, svcs)[0][0]
+                break
+            except:
+                loopCount += 1
+                svc_map.refresh()
+                svcs = svc_map.list()
+                self.log.info("After refresh Svc map: {}".format(svcs))
+
         if not svc_uuid:
             self.log.error("Unable to find the servcie UUID")
             return False
 
         # set the actual injection
-        res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
+        if self.passedDisable is None:
+            res = svc_map.client(svc_uuid).setFault('enable name=' + chosenFault)
+        else:
+            self.log.info("Disabling chosen fault")
+            res = svc_map.client(svc_uuid).setFault('disable name=' + chosenFault)
+
         if res:
             return True
 

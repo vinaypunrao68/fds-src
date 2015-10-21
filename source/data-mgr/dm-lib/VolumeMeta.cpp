@@ -65,7 +65,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->capacity = pVol->capacity;
     v_desc->volType = pVol->volType;
     v_desc->maxQuota = pVol->maxQuota;
-    v_desc->replicaCnt = pVol->replicaCnt;
+    v_desc->redundancyCnt = pVol->redundancyCnt;
 
     v_desc->consisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
     v_desc->appWorkload = pVol->appWorkload;

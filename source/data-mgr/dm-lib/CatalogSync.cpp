@@ -252,9 +252,6 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     asyncCatUpdReq->setTimeoutMs(5000);
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(CatalogSync::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
-    // TODO(Andrew): It is incorrect to send unordered, async messages to the
-    // destination DM. The requests can be received out of order on the network.
-    // The updates should either be A) tagged with an order or B) sent serially.
     asyncCatUpdReq->invoke();
 
     return err;

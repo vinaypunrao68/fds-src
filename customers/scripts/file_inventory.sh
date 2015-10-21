@@ -1,4 +1,4 @@
-#~/bin/bash
+#!/bin/bash
 
 declare -a buckets
 range_counts=""
@@ -6,6 +6,8 @@ skip_empty="0"
 SKIP_EMPTY="--skip-empty"
 SKIP_EMPTY_SHORT="-skip-empty"
 SKIP_EMPTY_ALT="-s"
+
+brief=0
 
 function update_bucket
 {
@@ -22,8 +24,8 @@ function update_bucket
 
 function range_counter
 {
-   #  0 to 1KB  10KB  20KB  40KB  70KB  100KB  200KB  400KB  700KB  1MB     2MB     4MB     7MB     10MB     20MB     30MB      50MB    100MB     200MB     400MB     700MB     1GB        2GB        4GB        7GB        10GB        20GB        40GB        70GB
-   ranges="1000 10000 20000 40000 70000 100000 200000 400000 700000 1000000 2000000 4000000 7000000 10000000 20000000 40000000 70000000 100000000 200000000 400000000 700000000 1000000000 2000000000 4000000000 7000000000 10000000000 20000000000 40000000000 70000000000"
+   #       0                             1KB  2KB  4Kb  7KB  10KB  20KB  40KB  70KB  100KB  200KB  400KB  700KB  1MB     2MB     4MB     7MB     10MB     20MB     30MB      50MB    100MB     200MB     400MB     700MB     1GB        2GB        4GB        7GB        10GB        20GB        40GB        70GB
+   ranges="0 10 20 40 70 100 200 400 700 1000 2000 4000 7000 10000 20000 40000 70000 100000 200000 400000 700000 1000000 2000000 4000000 7000000 10000000 20000000 40000000 70000000 100000000 200000000 400000000 700000000 1000000000 2000000000 4000000000 7000000000 10000000000 20000000000 40000000000 70000000000"
 
    range_counts=""
    old_range=0
@@ -35,18 +37,28 @@ function range_counter
       printf "\n  Ranges (in bytes)            Total File Count by Range\n"
       for range in ${ranges}
       do
-         printf "%12d to %-12d %8d\n" $(( ${old_range} +1 )) ${range} ${buckets[${old_range}]}
+         if [[ ${range} -eq 0 ]]
+         then
+            printf "%12d %24d\n" ${range} ${buckets[${range}]}
+         else
+            printf "%12d to %-12d %8d\n" $(( ${old_range} +1 )) ${range} ${buckets[${range}]}
+         fi
          old_range=${range}
       done
 
-      printf "%12d to %-12s %8d\n" $(( ${old_range} +1 )) "~" ${buckets[${old_range}]}
+      printf "%12d to %-12s %8d\n" $(( ${old_range} +1 )) "~" ${buckets[${range}]}
 
       return
    fi
 
    for range in ${ranges}
    do
-      count=$( find ${1} -maxdepth 1 -type f \( -size +${old_range}c -a -size -${range}c \) -o -size ${range}c |wc -l )
+      if [[ ${range} -eq 0 ]]
+      then
+         count=$( find ${1} -maxdepth 1 -type f -size ${range}c |wc -l )
+      else
+         count=$( find ${1} -maxdepth 1 -type f \( -size +${old_range}c -a -size -${range}c \) -o -size ${range}c |wc -l )
+      fi
 
       if [[ ${count} -gt 0 ]]
       then
@@ -68,7 +80,7 @@ function range_counter
    if [[ ${count} -gt 0 ]]
    then
       update_bucket ${old_range} ${count}
-   fi 
+   fi
 
    range_counts="${range_counts}:${count}"
 }
@@ -78,7 +90,7 @@ function help
    echo "Usage:  $0 [--skip-empty] [directory]"
    echo
    echo "    --skip-empty will not display directories with no files"
-   echo "    directory, path to report on, defaults to './' (optional)" 
+   echo "    directory, path to report on, defaults to './' (optional)"
 
    exit
 }
@@ -124,6 +136,12 @@ do
    fi
 
    range_counter ${d}
+
+   if [[ ${brief} -eq 1 ]]
+   then
+      echo -n "."
+      continue
+   fi
 
    printf "%6s %8s %8s %10s   %-39s %s \n" ${file_count} ${directory_size}"mb" ${small_file} ${large_file} ${range_counts} ${d}
 done

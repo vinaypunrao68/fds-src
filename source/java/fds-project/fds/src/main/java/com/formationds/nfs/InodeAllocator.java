@@ -7,12 +7,12 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class InodeAllocator {
-    private Io io;
+    private TransactionalIo io;
     private static final String NUMBER_WELL = "number-well";
     public static final long START_VALUE = 256;
     private final ConcurrentHashMap<String, Long> cache;
 
-    public InodeAllocator(Io io) {
+    public InodeAllocator(TransactionalIo io) {
         this.io = io;
         cache = new ConcurrentHashMap<>(256, .5f, 512);
     }

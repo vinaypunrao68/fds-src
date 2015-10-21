@@ -36,6 +36,7 @@ class AmAsyncResponseApi {
     typedef sp<BlobDescriptor> shared_descriptor_type;
     typedef sp<VolumeDesc> shared_vol_descriptor_type;
     typedef sp<std::vector<BlobDescriptor>> shared_descriptor_vec_type;
+    typedef sp<std::vector<std::string>> shared_string_vec_type;
     typedef sp<FDS_ProtocolInterface::VolumeAccessMode> shared_vol_mode_type;
     typedef sp<apis::TxDescriptor> shared_tx_ctx_type;
     typedef sp<apis::VolumeStatus> shared_status_type;
@@ -76,7 +77,8 @@ class AmAsyncResponseApi {
     virtual void volumeContentsResp(
         const error_type &error,
         handle_type& requestId,
-        shared_descriptor_vec_type& volContents) = 0;
+        shared_descriptor_vec_type& volContents,
+        shared_string_vec_type& skippedPrefixes) = 0;
 
     virtual void setVolumeMetadataResp(const error_type &error,
                                        handle_type& requestId) = 0;

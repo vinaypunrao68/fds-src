@@ -72,19 +72,19 @@ public class GetLocalDomainServices
 
       for (FDSP_Node_Info_Type service : Services) {
           array.put(new JSONObject()
-                          .put("node_id", service.node_id)
-                          .put("node_state", service.node_state)
-                          .put("node_type", service.node_type)
-                          .put("node_name", service.node_name)
-                          .put("ip_hi_addr", service.ip_hi_addr)
-                          .put("ip_lo_addr", service.ip_lo_addr)
-                          .put("control_port", service.control_port)
-                          .put("data_port", service.data_port)
-                          .put("migration_port", service.migration_port)
-                          .put("node_uuid", service.node_uuid)
-                          .put("service_uuid", service.service_uuid)
-                          .put("node_root", service.node_root)
-                          .put("metasync_port", service.metasync_port)
+                          .put("node_id", service.getNode_id())
+                          .put("node_state", service.getNode_state())
+                          .put("node_type", service.getNode_type())
+                          .put("node_name", service.getNode_name())
+                          .put("ip_hi_addr", service.getIp_hi_addr())
+                          .put("ip_lo_addr", service.getIp_lo_addr())
+                          .put("control_port", service.getControl_port())
+                          .put("data_port", service.getData_port())
+                          .put("migration_port", service.getMigration_port())
+                          .put("node_uuid", service.getNode_uuid())
+                          .put("service_uuid", service.getService_uuid())
+                          .put("node_root", service.getNode_root())
+                          .put("metasync_port", service.getMetasync_port())
                           );
       }
 

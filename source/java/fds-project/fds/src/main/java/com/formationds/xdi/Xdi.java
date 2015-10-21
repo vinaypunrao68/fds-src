@@ -111,9 +111,28 @@ public class Xdi {
         return result;
     }
 
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(AuthenticationToken token, String domainName, String volumeName, int count, long offset, String pattern, BlobListOrder orderBy, boolean descending) throws ApiException, TException {
+    public CompletableFuture<VolumeContents> volumeContents(AuthenticationToken token,
+                                                                  String domainName,
+                                                                  String volumeName,
+                                                                  int count,
+                                                                  long offset,
+                                                                  String pattern,
+                                                                  BlobListOrder orderBy,
+                                                                  boolean descending,
+                                                                  PatternSemantics patternSemantics,
+                                                                  String delimiter)
+              throws ApiException, TException
+    {
         attemptVolumeAccess(token, volumeName, Intent.read);
-        return asyncAm.volumeContents(domainName, volumeName, count, offset, pattern, PatternSemantics.PCRE, orderBy, descending);
+        return asyncAm.volumeContents(domainName,
+                                      volumeName,
+                                      count,
+                                      offset,
+                                      pattern,
+                                      patternSemantics,
+                                      delimiter,
+                                      orderBy,
+                                      descending);
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(AuthenticationToken token, String domainName, String volumeName, String blobName) throws ApiException, TException {
@@ -192,7 +211,7 @@ public class Xdi {
     }
 
     public CompletableFuture<Void> readToOutputStream(AuthenticationToken token, BlobInfo blobInfo, OutputStream out) throws Exception {
-        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.getBlobDescriptor().byteCount);
+        return this.readToOutputStream(token, blobInfo, out, 0, blobInfo.getBlobDescriptor().getByteCount());
     }
 
     public OutputStream openForWriting(AuthenticationToken token, String domainName, String volumeName, String blobName, Map<String, String> metadata) throws Exception {
@@ -234,7 +253,7 @@ public class Xdi {
     	// Note: explicit casts added to workaround issues with type inference in Eclipse compiler
         return asyncAm.startBlobTx(domain, volume, blob, 1)
                 .thenCompose(tx -> asyncAm.updateMetadata(domain, volume, blob, tx, metadataMap).thenApply(x -> tx))
-                .thenCompose(tx -> asyncAm.commitBlobTx(domain, volume, blob, (TxDescriptor) tx));
+                .thenCompose(tx -> asyncAm.commitBlobTx(domain, volume, blob, (TxDescriptor)tx));
     }
 
     public AuthenticationToken authenticate(String login, String password) throws LoginException {

@@ -532,7 +532,7 @@ bool
 DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     fds_bool_t bret = false;
-    NodeList addNodes, rmNodes;
+    NodeList addNodes, rmNodes, resyncNodes;
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -540,20 +540,42 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     OM_DmContainer::pointer dmNodes = loc_domain->om_dm_nodes();
 
     // get pending DMs removal/additions
-    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
-    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
+    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes, &resyncNodes);
+    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes, resyncNodes);
     fds_uint32_t added_nodes = (cm->getAddedServices(fpi::FDSP_DATA_MGR)).size();
     fds_uint32_t rm_nodes = (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size();
+    fds_uint32_t resync_nodes = cm->getDmResyncServices().size();
     fds_uint32_t nonFailedDms = cm->getNumNonfailedMembers(fpi::FDSP_DATA_MGR);
     fds_uint32_t totalDms = cm->getNumMembers(fpi::FDSP_DATA_MGR);
 
     LOGDEBUG << "Added DMs size: " << added_nodes
              << " Removed DMs size: " << rm_nodes
+			 << " Resyncing DMs size: " << resync_nodes
              << " Total DMs: " << totalDms
              << " Non-failed DMs: " << nonFailedDms;
 
-    // this method computes new DMT and sets as target *only* if
-    // newly computed DMT is different from the current commited DMT
+    LOGDEBUG << "Added nodes: ";
+    for (auto cit : cm->getAddedServices(fpi::FDSP_DATA_MGR))
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+    LOGDEBUG << "Removed nodes: ";
+    for (auto cit : cm->getRemovedServices(fpi::FDSP_DATA_MGR))
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+    LOGDEBUG << "Resyncing DM nodes: ";
+    for (auto cit : cm->getDmResyncServices())
+    {
+    	LOGDEBUG << cit.uuid_get_val();
+    }
+
+    fds_assert(evt.dmResync == (resync_nodes > 0));
+
+    // this method computes new DMT and sets as target if
+    // 1. newly computed DMT is different from the current commited DMT
+    // or
+    // 2. We're in a DM Resync state, in which we bump the DMT version.
     Error err = vp->computeDMT(cm);
     bret = err.ok();
     if (err == ERR_INVALID_ARG) {
@@ -578,6 +600,11 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                  << " FIX IT!";
     }
 
+    if (!bret && evt.dmResync) {
+    	LOGDEBUG << "DMT did not change, but dmResync requested";
+    	bret = true;
+    }
+
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;
     return bret;
 }
@@ -591,27 +618,36 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    // DmtDeployEvt dplyEvt = (DmtDeployEvt)evt;
-
     // if we have any volumes, send volumes to DMs that are added to cluster map
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     ClusterMap* cm = om->om_clusmap_mod();
     NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+    fds_bool_t dmResync = cm->getDmResyncServices().size() ? true : false;
 
     dst.dms_to_ack.clear();
-    for (NodeUuidSet::const_iterator cit = addDms.cbegin();
-         cit != addDms.cend();
-         ++cit) {
-        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
-        LOGDEBUG << "bcasting vol on dmt deploy: ";
-        fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
-        if (count > 0) {
-            dst.dms_to_ack.insert(*cit);
+
+    if (!dmResync)  {
+        for (NodeUuidSet::const_iterator cit = addDms.cbegin();
+        		cit != addDms.cend(); ++cit) {
+            OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
+            LOGDEBUG << "bcasting vol on dmt deploy: ";
+            // dm_agent->dump_agent_info();
+            fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
+		    if (count > 0) {
+			    dst.dms_to_ack.insert(*cit);
+		    }
         }
+        LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
+				 << " DMs to acks volume notify";
+    } else {
+    	/*
+    	 * In case of Resync, there's no volume management changes. The newly restarted
+    	 * DM will have its service layer pull the volume descriptor, so no need to
+    	 * waste resources broadcasting unchanged vol desc's to all the nodes.
+    	 */
+    	LOGDEBUG << "DM Resync OM DmtFSM. Will not broadcast volume descriptors";
     }
-    LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
-             << " DMs to acks volume notify";
 }
 
 /* DACT_Waiting
@@ -672,6 +708,7 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
+    // TODO(Neil) - hack rebalance to have a list of resync nodes
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
     // TODO(xxx) need to handle this error
     fds_verify(err.ok());
@@ -1035,6 +1072,10 @@ void
 DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DACT_EndError";
+    // End of error handling for FSM. Not balancing volume anymore so turn it off.
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    vp->notifyEndOfRebalancing();
 }
 
 // DACT_ChkEndErr

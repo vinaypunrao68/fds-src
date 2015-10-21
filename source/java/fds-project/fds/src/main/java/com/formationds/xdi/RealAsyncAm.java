@@ -18,7 +18,6 @@ import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.joda.time.Duration;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +33,7 @@ public class RealAsyncAm implements AsyncAm {
     private AsyncRequestStatistics statistics;
 
     public RealAsyncAm(String amHost, int amPort, int responseServerPort) throws Exception {
-        this(amHost, amPort, responseServerPort, 30, TimeUnit.SECONDS);
+        this(amHost, amPort, responseServerPort, 10, TimeUnit.SECONDS);
     }
 
     public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
@@ -122,9 +121,28 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, BlobListOrder order, boolean descending) {
-        return scheduleAsync(rid -> {
-            oneWayAm.volumeContents(rid, domainName, volumeName, count, offset, pattern, patternSemantics, order, descending, "/");
+    public CompletableFuture<VolumeContents> volumeContents(String domainName,
+                                                            String volumeName,
+                                                            int count,
+                                                            long offset,
+                                                            String pattern,
+                                                            PatternSemantics patternSemantics,
+                                                            String delimiter,
+                                                            BlobListOrder order,
+                                                            boolean descending)
+    {
+        return scheduleAsync(rid ->
+        {
+            oneWayAm.volumeContents(rid,
+                                    domainName,
+                                    volumeName,
+                                    count,
+                                    offset,
+                                    pattern,
+                                    patternSemantics,
+                                    order,
+                                    descending,
+                                    delimiter);
         });
     }
 
