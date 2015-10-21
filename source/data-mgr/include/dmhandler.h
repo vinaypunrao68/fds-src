@@ -134,6 +134,7 @@ struct RenameBlobHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::RenameBlobMsg> & message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseCleanUp(Error const& e, DmRequest* dmRequest);
 };
 
 struct GetBlobMetaDataHandler : Handler {
