@@ -11,10 +11,9 @@
 #include <fds_defines.h>
 #include <fdsp/filetransfer_api_types.h>
 
-#define FT_CHUNKSIZE 2*MB
-
 namespace fds { 
 class EPSvcRequest;
+class SvcMgr;
 namespace net {
 // fwd decl
 struct FileTransferService;
@@ -31,20 +30,26 @@ struct FileTransferHandle {
     TYPE_SHAREDPTR(FileTransferHandle);
     FileTransferHandle(const std::string& srcFile,
                        const std::string& destFile,
-                       const fpi::SvcUuid& svcId);
+                       const fpi::SvcUuid& svcId,
+                       FileTransferService* ftService);
 
     bool hasMoreData() const;
     bool getNextChunk(std::string& data);
         
     ~FileTransferHandle();
 
-    const std::string& srcFile;
-    const std::string& destFile;
-    const fpi::SvcUuid& svcId;
+    const std::string srcFile;
+    const std::string destFile;
+    const fpi::SvcUuid svcId;
     OnTransferCallback cb;
     fds_uint64_t getHashCode() const;
+    const std::string& getCheckSum() const;
+    void done(const Error& error);
+    bool hasStarted() const;
+    bool isComplete() const;
   protected:
-        
+    FileTransferService* ftService = NULL;
+    std::string checkSum;
     std::ifstream is;
     bool fDeleteFileAfterTransfer = false;
     fds_uint64_t fileSize = 0;
@@ -52,10 +57,11 @@ struct FileTransferHandle {
     fds_int64_t lastOffset = -1;
     friend struct FileTransferService;
     friend std::ostream& operator <<(std::ostream& os, const FileTransferHandle& handle);
+    friend std::ostream& operator <<(std::ostream& os, const FileTransferHandle::ptr& handle);
 };
 
 struct FileTransferService : HasLogger {
-    explicit FileTransferService(const std::string& destDir);
+    explicit FileTransferService(const std::string& destDir, SvcMgr* svcMgr = NULL);
     bool send(const fpi::SvcUuid &svcId,
               const std::string& srcFile,
               const std::string& destFile,
@@ -90,15 +96,19 @@ struct FileTransferService : HasLogger {
     void sendVerifyResponse(SHPTR<fpi::AsyncHdr>& asyncHdr,
                             SHPTR<fpi::FileTransferVerifyMsg>& message,
                             const Error &e);
-                
+
+    void dump();
+    void done(fds_uint64_t hashCode, const Error& error);
   protected:
     std::string destDir;
     bool exists(fds_uint64_t hashCode);
     FileTransferHandle::ptr get(fds_uint64_t hashCode);
+    SvcMgr* svcMgr;
     std::map<fds_uint64_t, SHPTR<FileTransferHandle> > transferMap;
 
 };
 std::ostream& operator <<(std::ostream& os, const FileTransferHandle& handle);
+std::ostream& operator <<(std::ostream& os, const FileTransferHandle::ptr& handle);
 } // namespace net
 } // namespace fds
 #endif  // SOURCE_INCLUDE_NET_FILETRANSFERSERVICE_H_
