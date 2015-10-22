@@ -69,7 +69,7 @@ int SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
     return errorCode;
 }
 
-int SqliteDB::getTextValues(const std::string &query, std::vector<std::string> &value) {
+int SqliteDB::getTextValues(const std::string &query, std::set<std::string> &value) {
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -83,7 +83,7 @@ int SqliteDB::getTextValues(const std::string &query, std::vector<std::string> &
         switch (errorCode) {
             case SQLITE_ROW:
                 data.assign(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
-                value.push_back(data);
+                value.insert(data);
                 break;
             case SQLITE_DONE:
                 break;

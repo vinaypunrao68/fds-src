@@ -77,6 +77,11 @@ class ObjectDB {
     fds::Error PersistentSnap(const std::string& fileName,
                               leveldb::CopyEnv **env);
 
+    /**
+     * Get all the keys of k-v pairs stored in object DB.
+     */
+    fds::Error GetKeys();
+
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl
                 << histo_all.ToString() << std::endl;

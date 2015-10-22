@@ -14,10 +14,12 @@
 #include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <object-store/LiveObjectsDB.h>
 #include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
 
@@ -50,6 +52,8 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    LiveObjectsDB::unique_ptr bloomFilterTable;
 
     enum ObjectStoreState {
         /**
@@ -315,6 +319,10 @@ class ObjectStore : public Module, public boost::noncopyable {
     inline fds_bool_t isUnavailable() const {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
+
+   void evaluateObjectSets(const fds_token_id& smToken,
+                           const diskio::DataTier& tier,
+                           diskio::TokenStat &tokStats);
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

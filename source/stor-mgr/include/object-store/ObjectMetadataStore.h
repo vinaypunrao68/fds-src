@@ -92,6 +92,11 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
                                const ObjectID& objId);
 
     /**
+     * Gets all keys of object db for a given SM token.
+     */
+    std::string<ObjectID> getMetaDbKeys(const fds_token_id &smToken);
+
+    /**
      * Make a snapshot of metadata of given SM token and
      * calls notifFn method
      */
