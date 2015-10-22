@@ -361,7 +361,7 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volId, const std::string & blobNa
         if (blobSize)
             { *blobSize = blobMeta.desc.blob_size; }
         if (metaList)
-            { blobMeta.meta_list.toFdspPayload(*metaList); }
+            { blobMeta.meta_list.moveToFdspPayload(*metaList); }
     }
 
     return rc;

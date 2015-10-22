@@ -120,7 +120,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         return;
     }
 
-    meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
+    meta_list->moveToFdspPayload(commitBlobReq->rspMsg.meta_list);
     commitBlobReq->rspMsg.byteCount = blobSize;
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
