@@ -9,6 +9,13 @@
 
 namespace fds {
 
+inline std::string bloomfilterkey(const std::string &tag,
+                                  const fds_volid_t& volId,
+                                  const fds_token_id &tokenId)
+{
+    return util::strformat("%s_vol%ld_tok%d", tag.c_str(), volId, tokenId);
+}
+
 /**
 * @brief Scans objects in a volume and updates bloomfilter
 */
@@ -26,8 +33,6 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
     Catalog::MemSnap                                snap;
     std::unique_ptr<Catalog::catalog_iterator_t>    itr;
     std::string                                     logStr;
-    util::BloomFilter                               bloomfilter; 
-
 };
 
 /**
@@ -35,6 +40,89 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
 */
 struct SnapshotRefScanner : ObjectRefScanner {
 };
+
+BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
+: basePath(path),
+  maxCacheSize(cacheSize),
+  bloomfilterBits(1*MB),
+  accessCnt(1)
+{
+}
+
+BloomFilterStore::~BloomFilterStore() {
+}
+
+util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
+    auto deserializer = serialize::getFileDeserializer(basePath + key);
+    auto bloomfilter = util::BloomFilterPtr(new util::BloomFilter(bloomfilterBits));
+    auto readSize = bloomfilter.read(deserializer);
+    fds_verify(readSize == bloomfilterBits/8);
+    return bloomfilter;
+}
+
+void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfilter) {
+    auto serializer = serialize::getFileSerializer(basePath + key);
+    auto writeSize = bloomfilter.write(serializer);
+    fds_verify(writeSize == bloomfilterBits/8);
+}
+
+void BloomFilterStore::addToCache(const std::string &key, util::BloomFilterPtr bloomfilter) {
+    BFNode newNode;
+    newNode.accessCnt = accessCnt;
+    newNode.key = key;
+    newNode.bloomfilter = bloomfilter;
+    cache.push_front(newNode);
+    accessCnt++;
+
+    /* Evict an entry if needed */
+    if (cache.size() >= maxCacheSize) {
+        auto &back = cache.back();
+        save(back.key, back.bloomfilter);
+        cache.pop_back();
+    }
+    fds_assert(cache.size() < maxCacheSize);
+}
+
+util::BloomFilterPtr BloomFilterStore::getFromCache(const std::string &key) {
+    auto itr = cache.begin();
+    for (; itr != cache.end(); itr++) {
+        if (itr->key == key) {
+            break;
+        }
+    }
+    if (itr == cache.end()) {
+        return nullptr;
+    }
+
+    /* Update the access count and move the found entry to front of the cache */
+    itr->accessCnt = accessCnt;
+    accessCnt++;
+    cache.splice(cache.begin(), cache, itr);
+    return cache.begin()->bloomfilter;
+}
+
+util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create = true) {
+    util::BloomFilterPtr bloomfilter;
+    /* Check in the index */
+    auto itr = index.find(key);
+    if (itr == index.end()) {
+        if (!create) {
+            return bloomfilter;
+        }
+        /* Create empty bloomfilter and add to index and cache */
+        bloomfilter.reset(new util::BloomFilter(bloomfilterBits));
+        addToCache(key, bloomfilter);
+        index.insert(key);
+    } else {
+        /* Check in cache */
+        auto bloomfilter = getFromCache(key);
+        if (!bloomfilter) {
+            bloomfilter = load(key);
+            addToCache(bloomfilter);
+        }
+    }
+    return bloomfilter;
+}
 
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
@@ -46,6 +134,9 @@ ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 }
 
 void ObjectRefMgr::mod_startup() {
+    auto dmUserRepo = MODULEPROVIDER()->proc_fdsroot()->dir_user_repo_dm();
+    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo), 5);
+
     auto timer = MODULEPROVIDER()->getTimer();
     scanTask = boost::shared_ptr<FdsTimerTask>(
         new FdsTimerFunctionTask(
@@ -98,6 +189,7 @@ void ObjectRefMgr::scan() {
 
 void ObjectRefMgr::buildScanList() {
     // TODO(Rao): Get list of volumes and create volume contexts for each volume
+    // TODO(Rao): Initialize aggr bloomfilters
 }
 
 VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
@@ -176,20 +268,49 @@ Error VolumeObjectRefScanner::scan() {
         bInited = true;
     }
 
+    auto currentDlt = objRefMgr->getCurrentDlt();
+    std::map<fds_token_id, std::list<ObjectID>> tokenObjects;
     std::list<ObjectID> objects;
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
-    volcatIf->getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects); 
-    for (const auto &id : objects) {
-        bloomfilter.add(id);
-    }
+    volcatIf->getObjectIds(volId, objRefMgr->getMaxEntriesToScan(), snap, itr, objects);
 
+    /* Bucketize the objects into tokens */
+    for (const auto &oid : objects) {
+        tokenObjects[currentDlt->getToken(oid)].push_back(oid);
+    }
+    objects.clear();
+
+    /* Update token bloomfilter one at a time.  We do this because bloomfilters can be
+     * quite large.  Processing one bloomfilter at a timer allows us to efficient with
+     * memory usage
+     */
+    auto bfStore = objRefMgr->getBloomFiltersStore();
+    for (const auto &kv : tokenObjects) {
+        auto bloomfilter = bfStore->get(bloomfilterkey("bf", volId, kv.first);
+        auto &objects = kv.second;
+        for (const auto &oid : objects) {
+            bloomfilter.add(oid);
+        }
+    }
+    
     return ERR_OK;
 }
 
 Error VolumeObjectRefScanner::postScan() {
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
     auto err = volcatIf->freeVolumeSnapshot(volId, snap);
-    // TODO(Rao): Update the aggregate bloomfilter
+    if (err != ERR_OK) {
+       GLOGWARN << "Failed to release snapshot for volId: " << volId; 
+    }
+
+    auto bfStore = objRefMgr->getBloomFiltersStore();
+    auto tokenCnt = objRefMgr->getCurrentDlt()->getNumTokens();
+    for (uint32_t token = 0; token < tokenCnt; token++) {
+        auto bloomfilter = bfStore->get(bloomfilterkey("bf", volId, token), false);
+        if (!bloomfilter) continue;
+        auto aggrbloomfilter = bfStore->get(bloomfilterkey("aggr", volId, token));
+        aggrbloomfilter->merge(*bloomfilter);
+    }
     return err;
 }
 

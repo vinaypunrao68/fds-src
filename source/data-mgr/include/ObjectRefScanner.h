@@ -19,6 +19,41 @@ struct DataMgr;
 
 
 /**
+* @brief Manages bloomfilters.
+* -Bloomfilters are stored in filesystem.
+* -Based on cache size, recently used bloomfilters are kept in memory
+*/
+struct BloomFilterStore {
+    BloomFilterStore(const std::string &path, uint32_t cacheSize);
+    virtual ~BloomFilterStore();
+    BloomFilterPtr get(const std::string &key, bool create = true);
+
+ protected:
+    BloomFilterPtr load(const std::string &key);
+    void save(const std::string &key, BloomFilterPtr bloomfilter);
+    void addToCache(const std::string &key, util::BloomFilterPtr bloomfilter);
+    util::BloomFilterPtr getFromCache(const std::string &key);
+
+    struct BFNode {
+        uint32_t                accessCnt;
+        std::string             key;
+        util::BloomFilterPtr    bloomfilter;
+    };
+    /* Path where all bloomfilters managed by this store are stored */
+    std::string                             basePath;
+    /* Maximum bloomfilters to keep in cache */
+    uint32_t                                maxCacheSize;
+    /* Size of each bloomfilter in bits */
+    uint32_t                                bloomfilterBits;
+    /* set of bloomfilter names/keys being managed */
+    std::set<std::string>                   index;
+    /* bloomfilter cache */
+    std::list<BFNode>                       cache;
+    /* access counter used by the cache.  Updated on every cache acesss. */
+    uint32_t                                accessCnt;
+};
+
+/**
 * @brief Object reference scanner interface
 */
 struct ObjectRefScanner {
@@ -72,8 +107,11 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     * one at a time.
     */
     void scan();
-    inline DataMgr* getDataMgr() { return dataMgr; }
-    inline uint32_t getMaxEntriesToScan() { return maxEntriesToScan; }
+
+    inline DataMgr* getDataMgr() const { return dataMgr; }
+    inline uint32_t getMaxEntriesToScan() const { return maxEntriesToScan; }
+    inline DLT* getCurrentDlt() const { return currentDlt; }
+    inline BloomFilterStore* getBloomFiltersStore() const {return bfStore.get(); }
 
  protected:
     /**
@@ -88,6 +126,8 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     };
 
     DataMgr                                     *dataMgr;
+    DLT                                         *currentDlt;
+    std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;

@@ -37,6 +37,8 @@ struct BloomFilter {
     SHPTR<boost::dynamic_bitset<> > bits;
 };
 
+using BloomFilterPtr = SHPTR<BloomFilter>;
+
 
 }  // namespace util
 }  // namespace fds
