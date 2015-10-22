@@ -538,6 +538,10 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
+    if (!(objStorMgr->getVol(putReq->getVolId()))) {
+        putObjectCb(asyncHdr, ERR_VOL_NOT_FOUND, NULL);
+    }
+
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
     fiu_do_on("svc.drop.putobject", return);
