@@ -41,7 +41,7 @@ class LiveObjectsDB {
         Error removeObjectSet(const fds_token_id &smToken,
                               const fds_volid_t &volId);
         Error findObjectSetsPerToken(const fds_token_id &smToken,
-                                     std::vector<std::string> &objSetFilenames);
+                                     std::set<std::string> &objSetFilenames);
         ~LiveObjectsDB() { }
 };
 

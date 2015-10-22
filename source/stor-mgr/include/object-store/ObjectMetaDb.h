@@ -133,6 +133,8 @@ class ObjectMetadataDb {
      */
     static std::string getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId);
 
+    std::vector<ObjectID> getKeys(const fds_token_id &smToken);
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token

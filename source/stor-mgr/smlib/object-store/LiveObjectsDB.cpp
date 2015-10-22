@@ -65,7 +65,7 @@ Error LiveObjectsDB::removeObjectSet(const fds_token_id &smToken,
 }
 
 Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
-                                            std::vector<std::string> &objSetFilenames) {
+                                            std::set<std::string> &objSetFilenames) {
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("select filename from liveObjTbl where smtoken=%ld", smToken);

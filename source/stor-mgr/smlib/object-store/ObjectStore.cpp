@@ -18,6 +18,7 @@
 #include <object-store/TieringConfig.h>
 #include <include/util/disk_utils.h>
 
+
 namespace fds {
 
 template <typename T, typename Cb>
@@ -53,6 +54,11 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2,
+                                                  std::placeholders::_3),
+                                        std::bind(&ObjectStore::evaluateObjectSets,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
                                                   std::placeholders::_3))),
           metaStore(new ObjectMetadataStore("SM Object Metadata Storage Module",
                                             std::bind(&ObjectStore::updateMediaTrackers,
@@ -65,6 +71,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
+          bloomFilterTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db"),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
@@ -1552,6 +1559,50 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
         LOGNOTIFY << "Close and delete token files for smTokens ";
         dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
     }
+}
+
+void
+ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
+                                const diskio::DataTier& tier,
+                                diskio::TokenStat &tokStats) {
+
+   /**
+    * 0) Check if the bloom filter vector is null,
+    *    if so: 
+    *       Get all the bloom filters from live object table and
+    *       deserialize it to vector of bloom filters.
+    *       a) See if the size is same for all bloom filters, if
+    *          so merge all the same sized bloom filters to reduce
+    *          the number of bloom filters required in memory.
+    * 
+    * 1) Get access to metadata db for this SM Token.
+    *
+    * 2) Create an iterator of leveldb.
+    *
+    * 3) For each object in leveldb, iterate through all
+    *    the bloom filters to figure out if the object is
+    *    present in any of the bloom filters or not.
+    *    If not present, update the timestamp of the object
+    *    in it's metadata to the current timestamp and
+    *    update the count.
+    * 
+    *  4) Also, keep a count of the number of objects
+    *     and number of reclaimable objects.
+    *
+    *  5) Fill in TokenStat and return.
+    */
+
+    std::set<std::string> bfFileNames;
+    bloomFilterTable->findObjectSetsPerToken(smToken, bfFileNames);
+    std::vector<BloomFilter> bloomFilters;
+
+    for (auto eachFile : bfFileNames) {
+        serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
+        bloomFilters.push_back(BloomFilter().read(d));
+    }
+
+    std::string<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
+
 }
 
 /**
