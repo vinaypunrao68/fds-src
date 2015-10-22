@@ -1047,15 +1047,16 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     }
 
     GLOGDEBUG   << "[acks= total:" << (int)totalAckdCnt_ << "/" << epReqs_.size()
-                << " primary:" << (int)primaryAckdCnt_ << " / " << (int)primariesCnt_
-                << " failed-primary:" << failedPrimaries_.size()
-                << " failed-optionals:" << failedOptionals_.size()
-                << " reqid: " << static_cast<SvcRequestId>(header->msg_src_id)
+                << " primary:" << (int)primaryAckdCnt_ << "/" << (int)primariesCnt_
+                << " fail-primary:" << failedPrimaries_.size()
+                << " fail-optional:" << failedOptionals_.size()
+                << " reqid:" << static_cast<SvcRequestId>(header->msg_src_id)
+                << " cb:" << (respCb_!=NULL)
                 << "]";
 
     /* Invoke response cb once all primaries responded */
-    if (primaryAckdCnt_ == primariesCnt_ &&
-        respCb_) {
+    if (primaryAckdCnt_ == primariesCnt_ && respCb_) {
+        GLOGDEBUG << "primacks rcvd for reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
         // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
         // Shouldn't be using the last error we get...something else more intelligent?
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
@@ -1067,6 +1068,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
      * if required.
      */
     if (totalAckdCnt_ == epReqs_.size()) {
+        GLOGDEBUG << "allacks rcvd reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
         // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
         // Shouldn't be using the last error we get...something else more intelligent?
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
