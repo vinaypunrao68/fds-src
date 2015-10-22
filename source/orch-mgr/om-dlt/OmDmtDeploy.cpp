@@ -570,8 +570,6 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     	LOGDEBUG << cit.uuid_get_val();
     }
 
-    fds_assert(evt.dmResync == (resync_nodes > 0));
-
     // this method computes new DMT and sets as target if
     // 1. newly computed DMT is different from the current commited DMT
     // or
@@ -600,7 +598,14 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                  << " FIX IT!";
     }
 
-    if (!bret && evt.dmResync) {
+    /**
+     * There is a possibility that a node was queued up during the previous
+     * run of the meta-state machine (MSM).
+     * As part of DST_Close, a timer task is started to retry the state maching from
+     * the top so that we can catch nodes that happened in this scenario.
+     * So we cannot depend on evt.dmResync as a guarantee for state.
+     */
+    if (!bret && resync_nodes) {
     	LOGDEBUG << "DMT did not change, but dmResync requested";
     	bret = true;
     }
