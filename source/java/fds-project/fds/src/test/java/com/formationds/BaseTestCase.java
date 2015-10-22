@@ -5,8 +5,8 @@ package com.formationds;
 
 import FDS_ProtocolInterface.FDSP_AnnounceDiskCapability;
 import FDS_ProtocolInterface.FDSP_RegisterNodeType;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 
 import java.util.UUID;
 

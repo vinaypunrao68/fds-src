@@ -357,7 +357,6 @@ namespace fds
         // Check for a sdX || virtual box || device mapper  device
         block = strstr(raw, "block/sd");
         if (!block) block = strstr(raw, "block/xvd");
-        if (!block) block = strstr(raw, "block/dm-");
 
         if (!block) return false;
 

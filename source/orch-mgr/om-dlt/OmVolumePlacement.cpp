@@ -100,12 +100,13 @@ VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
 }
 
 Error
-VolumePlacement::computeDMT(const ClusterMap* cmap, fds_bool_t dmResync)
+VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
     Error err(ERR_OK);
     fds_uint64_t next_version = startDmtVersion;
     fds_uint32_t depth = curDmtDepth;
     DMT *newDmt = NULL;
+    fds_bool_t dmResync = cmap->getDmResyncServices().size() ? true : false;
 
     if (dmResync) {
     	fds_assert(dmtMgr->hasCommittedDMT());
@@ -220,6 +221,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     fds_uint32_t vol_count = volumes->rs_container_snapshot(&vol_ary);
     NodeUuidSet rmNodes = cmap->getRemovedServices(fpi::FDSP_DATA_MGR);
     NodeUuidSet nonFailedDms = cmap->getNonfailedServices(fpi::FDSP_DATA_MGR);
+    NodeUuidSet resyncNodes = cmap->getDmResyncServices();
     // List used for sending DMVolumeMigrationGroup
     std::list<fpi::FDSP_VolumeDescType> volDescList;
     /**
@@ -264,8 +266,14 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 
         // for each DM in target column, find all DMs that will need to
         // sync volume metadata
+        // new_dms will contain new DMs that are in the target DMT but not in the committed DMT
         NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
-        LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
+        // Now put nodes that need to undergo resync as part of the "new" Dms
+        for (const auto cit : resyncNodes) {
+        	new_dms.insert(cit);
+        }
+        LOGDEBUG << "Found " << new_dms.size() << " DMs " << " (" << resyncNodes.size()
+        		<< " resyncing DM's) that need to get"
                  << " meta for vol " << volid;
 
         // get list of candidates to resync from
@@ -273,7 +281,11 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         fds_uint32_t rows = (getNumOfPrimaryDMs() > 0) ? getNumOfPrimaryDMs() : cmt_col->getLength();
         NodeUuidSet srcCandidates = cmt_col->getUuids(rows);
         // exclude DMs that were removed
-        for (auto dm : rmNodes) {
+        for (const auto dm : rmNodes) {
+            srcCandidates.erase(dm);
+        }
+        // exclude DMs that need to undergo resync
+        for (const auto dm : resyncNodes) {
             srcCandidates.erase(dm);
         }
 
@@ -308,6 +320,15 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 // do not sync to this DM
                 new_dms.erase(nosyncDm);
                 // but everyone should sync from this DM
+                /**
+                 * WARNING: This is a very edge case and is a last resort.
+                 * There's no other pretty solution. We try to keep a number
+                 * of primaries > 1 so that we don't get into this situation.
+                 * The secondary DMs is most likely to be behind the primaries
+                 * so we could potentially have data loss in this scenario.
+                 * But the pro is that we at least can have a functional
+                 * volume.
+                 */
                 srcCandidates.clear();
                 srcCandidates.insert(nosyncDm);
             } else {

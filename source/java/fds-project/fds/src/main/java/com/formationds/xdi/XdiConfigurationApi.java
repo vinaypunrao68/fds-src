@@ -6,9 +6,9 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -379,7 +379,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
 
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId)
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots(long volumeId)
             throws ApiException, org.apache.thrift.TException {
         return config.listSnapshots(volumeId);
     }

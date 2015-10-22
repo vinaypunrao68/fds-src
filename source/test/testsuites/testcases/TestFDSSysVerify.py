@@ -17,6 +17,8 @@ import os.path
 import fnmatch
 import time
 import re
+from fabric.contrib.files import *
+from fabric.context_managers import cd
 
 def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
@@ -179,16 +181,57 @@ def canonMatch(canon, fileToCheck):
     return True
 
 
-def areTokenFilesUpdated(dev_dir, media_type):
-    drives = os.listdir(dev_dir)
-    for drive in drives:
-        if fnmatch.fnmatch(drive, media_type + "-*"):
-            drive_files = os.listdir(dev_dir + drive)
-            for drive_file in drive_files:
-                if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
-                    token_file_size = os.stat(dev_dir + drive + "/" + drive_file).st_size
-                    if token_file_size > 0:
-                        return True
+def areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type):
+    env.user='root'
+    env.password='passwd'
+    env.host_string = node_ip
+    internal_ip = run("hostname")
+
+    # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
+    print("internal_ip[%s]" % internal_ip)
+    result = sudo("echo '' >> /etc/hosts")
+    result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+    result = sudo("echo '' >> /etc/hosts")
+
+    with cd(dev_dir):
+        drives_string = run('ls')
+        drives = drives_string.split()
+        for drive in drives:
+            if fnmatch.fnmatch(drive, media_type + "-*"):
+                with cd(dev_dir+ drive):
+                    drive_files_str = run('ls')
+                    drive_files = drive_files_str.split()
+                    for drive_file in drive_files:
+                        if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
+                            with cd (dev_dir+ drive):
+                                cmd = "du -b %s | cut -f1"%(drive_file)
+                                token_file_size = sudo(cmd)
+                                token_file_size = int(token_file_size)
+                                if token_file_size > 0:
+                                    return True
+    return False
+
+def areTokenFilesUpdated(self, dev_dir, media_type):
+    fdscfg = self.parameters["fdscfg"]
+    nodes = fdscfg.rt_obj.cfg_nodes
+    for node in nodes:
+        if node.nd_conf_dict['node-name']== self.passedNode:
+            node_ip = node.nd_conf_dict['ip']
+            break
+    if node_ip is None:
+        raise Exception
+    if node_ip == 'localhost':
+        drives = os.listdir(dev_dir)
+        for drive in drives:
+            if fnmatch.fnmatch(drive, media_type + "-*"):
+                drive_files = os.listdir(dev_dir + drive)
+                for drive_file in drive_files:
+                    if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
+                        token_file_size = os.stat(dev_dir + drive + "/" + drive_file).st_size
+                        if token_file_size > 0:
+                            return True
+    else:
+        return areTokenFilesUpdated_AWS(node_ip,dev_dir,media_type)
     return False
 
 # This class contains the attributes and methods to test
@@ -583,12 +626,14 @@ class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
             self.log.error("Parameter missing values.")
             raise Exception
 
-        fds_dir = "/fds/" + self.passedNode
+        fds_dir = "/fds"
+        if self.parameters['install'] is not True:
+           fds_dir = fds_dir +'/'+ self.passedNode
 
         self.log.info("Looking in ssd devices of node %s for token files. And fds_dir is %s"
                        % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return areTokenFilesUpdated(dev_dir, "ssd")
+        return areTokenFilesUpdated(self,dev_dir, "ssd")
 
 
 #This class checks for updates in the token files of hard disk drives attached to the cluster
@@ -612,12 +657,14 @@ class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
             self.log.error("Parameter missing values.")
             raise Exception
 
-        fds_dir = "/fds/" + self.passedNode
+        fds_dir = "/fds"
+        if self.parameters['install'] is not True:
+           fds_dir = fds_dir +'/'+ self.passedNode
 
         self.log.info("Looking in hdd devices of node %s for token files. And fds_dir is %s"
                        % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return areTokenFilesUpdated(dev_dir, "hdd")
+        return areTokenFilesUpdated(self, dev_dir, "hdd")
 
 
 #This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
@@ -641,12 +688,14 @@ class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
             self.log.error("Parameter missing values.")
             raise Exception
 
-        fds_dir = "/fds/" + self.passedNode
+        fds_dir = "/fds"
+        if self.parameters['install'] is not True:
+           fds_dir = fds_dir +'/'+ self.passedNode
 
         self.log.info("Looking in ssd and hdd devices of node %s for token files. And fds_dir is %s"
                        % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return (areTokenFilesUpdated(dev_dir, "ssd") and areTokenFilesUpdated(dev_dir, "hdd"))
+        return (areTokenFilesUpdated(self,dev_dir, "ssd") and areTokenFilesUpdated(self,dev_dir, "hdd"))
 
 
 #This class enables and runs the garbage collector on all the SMs in the cluster

@@ -47,7 +47,7 @@ public class ListSnapshots implements RequestHandler {
 		
 		logger.debug( "Looking for snapshots for volume: {}.", volumeId );
 		
-		List<com.formationds.protocol.Snapshot> internalSnapshots = getConfigApi().listSnapshots( volumeId );
+		List<com.formationds.protocol.svc.types.Snapshot> internalSnapshots = getConfigApi().listSnapshots( volumeId );
 		
 		List<Snapshot> externalSnapshots = new ArrayList<>();
 		

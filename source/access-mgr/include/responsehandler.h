@@ -13,6 +13,7 @@
 #include <fds_typedefs.h>
 #include <fdsp/dm_types_types.h>
 #include <fdsp/xdi_types.h>
+#include <fdsp/common_types.h>
 #include <fdsp/config_types_types.h>
 #include <blob/BlobTypes.h>
 
@@ -35,14 +36,9 @@ struct VolumeDesc;
  */
 
 struct Callback {
-    FDSN_Status status = FDSN_StatusErrorUnknown;
-    Error error = ERR_MAX;
+    fpi::ErrorCode error = fpi::OK;
 
-    void operator()(FDSN_Status status = FDSN_StatusErrorUnknown);
-    void call(FDSN_Status status);
-    void call(Error err);
-    bool isStatusSet();
-    bool isErrorSet();
+    void call(fpi::ErrorCode err);
 
     virtual void call() = 0;
     virtual ~Callback() = default;

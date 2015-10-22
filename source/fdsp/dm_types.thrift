@@ -7,6 +7,7 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm.types
 
 include "common.thrift"
+include "svc_types.thrift"
 
 /**
  * Volume status information.
@@ -60,7 +61,7 @@ typedef list<i64> vol_List_Type
 struct FDSP_metaData
 {
   1: vol_List_Type  volList;
-  2: common.SvcUuid  node_uuid;
+  2: svc_types.SvcUuid  node_uuid;
 }
 
 /**
@@ -74,7 +75,7 @@ typedef list<FDSP_metaData> FDSP_metaDataList
  */
 struct FDSP_BlobObjectInfo {
  1: i64 offset,
- 2: common.FDS_ObjectIdType data_obj_id,
+ 2: svc_types.FDS_ObjectIdType data_obj_id,
  3: i64 size
 }
 
@@ -110,8 +111,8 @@ struct FDSP_DMT_Type {
  * Used for OM to tell DM to pull volume descriptors from other DMs.
  */
 struct DMVolumeMigrationGroup {
-  1:  common.SvcUuid          source,
-  2:  list<common.FDSP_VolumeDescType> VolDescriptors,
+  1:  svc_types.SvcUuid          source,
+  2:  list<svc_types.FDSP_VolumeDescType> VolDescriptors,
 }
 
 /**

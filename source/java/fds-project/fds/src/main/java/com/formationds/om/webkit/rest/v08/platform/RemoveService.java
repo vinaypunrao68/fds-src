@@ -23,7 +23,7 @@ import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
 import com.formationds.protocol.svc.types.SvcInfo;

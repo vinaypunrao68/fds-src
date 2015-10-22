@@ -1,5 +1,20 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * scst/ScstTask.h
+ *
+ * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2015, Formation Data Systems
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_SCST_SCSTTASK_H_
@@ -58,7 +73,6 @@ ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const asc
 void
 ScstTask::setResponseBuffer(uint8_t* buf, size_t buf_len)
 {
-    fds_assert(buf);
     reply.exec_reply.pbuf = (unsigned long)buf;
     reply.exec_reply.resp_data_len = buf_len;
 }
