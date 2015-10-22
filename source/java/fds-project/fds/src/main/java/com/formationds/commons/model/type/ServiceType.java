@@ -1,8 +1,8 @@
 package com.formationds.commons.model.type;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_NodeState;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.commons.model.AccessManagerService;
 import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.OrchestrationManagerService;

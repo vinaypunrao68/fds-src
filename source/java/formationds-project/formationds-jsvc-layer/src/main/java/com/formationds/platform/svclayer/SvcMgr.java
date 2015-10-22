@@ -3,7 +3,7 @@
  */
 package com.formationds.platform.svclayer;
 
-import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 
 // TODO: placeholder if we want to mirror C++ design in Java.  Not absolutely sure it is necessary.
 public class SvcMgr {

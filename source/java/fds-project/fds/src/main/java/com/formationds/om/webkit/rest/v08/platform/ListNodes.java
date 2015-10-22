@@ -9,7 +9,7 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.NodeUtils;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;

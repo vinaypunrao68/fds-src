@@ -1,7 +1,7 @@
 package com.formationds.om.helper;
 
 import com.formationds.apis.MediaPolicy;
-import com.formationds.protocol.FDSP_MediaPolicy;
+import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 
 /**
  * This class will switch between an FDSP thrift media policy and a com.formation.apis.MediaPolicy

@@ -1,9 +1,9 @@
 /*
- * ScstTask.cpp
+ * scst/ScstCommon.h
  *
  * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
  * Copyright (c) 2015, Formation Data Systems
- *
+ *  
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
@@ -17,26 +17,28 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "connector/scst/ScstTask.h"
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCOMMON_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCOMMON_H_
 
-extern "C" {
-#include <sys/ioctl.h>
-}
+// Forward declare so we can hide the ev++.h include
+// in the cpp file so that it doesn't conflict with
+// the libevent headers in Thrift.
+namespace ev {
+class io;
+class async;
+class dynamic_loop;
+}  // namespace ev
 
 namespace fds
 {
 
-ScstTask::ScstTask(uint32_t hdl, uint32_t sc) :
-    BlockTask(hdl)
-{
-    reply.cmd_h = hdl;
-    reply.subcode = sc;
-    if (SCST_USER_EXEC == sc) {
-        reply.exec_reply.reply_type = SCST_EXEC_REPLY_COMPLETED;
-        reply.exec_reply.status = GOOD;
-
-    }
-}
-
+    enum class ScstError : uint8_t {
+        scst_not_found,
+        scst_error,
+    };
 
 }  // namespace fds
+
+#define READ_CAPACITY_16    0x9E
+
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCOMMON_H_

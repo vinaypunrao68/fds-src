@@ -5,7 +5,7 @@
 package com.formationds.commons.util;
 
 import com.formationds.commons.TestBase;
-import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import org.junit.Assert;
 import org.junit.Test;
 

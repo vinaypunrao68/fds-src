@@ -4,7 +4,7 @@ package com.formationds.om.webkit.rest.v07.platform;
  * 
  * This class is for adding a node into an FDS domain
  */
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.FDSP_ActivateOneNodeType;
 import com.formationds.om.events.EventManager;

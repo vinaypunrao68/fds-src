@@ -2,6 +2,11 @@ package com.formationds.util;
 
 import com.formationds.apis.*;
 import com.formationds.apis.FDSP_ModifyVolType;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.ResourceState;
+import com.formationds.protocol.svc.types.Snapshot;
 import com.formationds.protocol.*;
 import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -431,7 +436,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
         return null;
     }
 

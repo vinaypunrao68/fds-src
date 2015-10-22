@@ -6,8 +6,8 @@ package com.formationds.commons.util;
 
 import com.formationds.commons.TestBase;
 import com.formationds.commons.util.net.service.ServiceMap;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcUuid;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;

@@ -1,5 +1,20 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * ScstDevice.cpp
+ *
+ * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2015, Formation Data Systems
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "connector/scst/ScstDevice.h"
@@ -16,10 +31,17 @@ extern "C" {
 }
 
 #include <ev++.h>
+#include <boost/make_shared.hpp>
+
+// TODO(bszmyd): Sun 18 Oct 2015 04:44:55 PM MDT
+// REMOVE THIS!!!!
+// =================
+#include "fds_process.h"
+#include "fds_config.hpp"
+#include "util/Log.h"
+// =================
 
 #include "connector/scst/ScstTarget.h"
-#include "fds_process.h"
-#include "fds_volume.h"
 #include "fdsp/config_types_types.h"
 extern "C" {
 #include "connector/scst/scst_user.h"
@@ -67,7 +89,7 @@ ScstDevice::ScstDevice(std::string const& vol_name,
 
     // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
     // REGISTER a device
-    static scst_user_dev_desc scst_descriptor {
+    scst_user_dev_desc scst_descriptor {
         (unsigned long)DEV_USER_VERSION, // Constant
         (unsigned long)"GPL",       // License string
         TYPE_DISK,                  // Device type
@@ -593,7 +615,7 @@ ScstDevice::respondTask(BlockTask* response) {
 
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
-        if (!scst_response->getError().ok()) {
+        if (fpi::OK != scst_response->getError()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else {
             auto buffer = scst_response->getResponseBuffer();
@@ -608,11 +630,11 @@ ScstDevice::respondTask(BlockTask* response) {
                 buf = scst_response->getNextReadBuffer(context);
             }
         }
-    } else if (!scst_response->getError().ok()) {
+    } else if (fpi::OK != scst_response->getError()) {
         if (scst_response->isWrite()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            scst_response->setResult(-((uint32_t)scst_response->getError().GetErrno()));
+            scst_response->setResult(-((uint32_t)scst_response->getError()));
         }
     }
 

@@ -3,7 +3,7 @@ package com.formationds.spike;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.google.common.collect.Lists;
 import org.junit.Test;
 
