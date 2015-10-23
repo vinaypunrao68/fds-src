@@ -1799,22 +1799,22 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
 
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
-          LOGDEBUG << " PM UUID: " << std::hex << node_uuid << std::dec
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                    << " found Access Manager";
           startAM = true;
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
-          LOGDEBUG << " PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Access Manager";
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                   << " found Data Manager";
           startDM = true;
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
-          LOGDEBUG << " PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Access Manager";
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                   << " found Storage Manager";
           startSM = true;
       }
 
@@ -1834,8 +1834,8 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
                                   svcInfoList);
 
           if (svcInfoList.size() == 0) {
-              LOGWARN <<"No services found to start for node:"
-                         << std::hex << node_uuid << std::dec;
+              LOGWARN << "No services found to start for node:"
+                      << std::hex << node_uuid << std::dec;
           }
           else
           {
