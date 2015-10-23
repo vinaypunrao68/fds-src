@@ -968,8 +968,9 @@ namespace fds
                     {
                         fpi::SvcStateChangeRespPtr amMessage (new fpi::SvcStateChangeResp());
                         amMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        amMessage->actionCode = 1;
-                        amMessage->svcType = fpi::FDSP_ACCESS_MGR;
+                        amMessage->actionCode         = 1;
+                        amMessage->svcType            = fpi::FDSP_ACCESS_MGR;
+
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING != m_nodeInfo.javaAMState)
                         {
                             if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
@@ -996,10 +997,9 @@ namespace fds
                     case fpi::FDSP_DATA_MGR:
                     {
                         fpi::SvcStateChangeRespPtr dmMessage (new fpi::SvcStateChangeResp());
-
                         dmMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        dmMessage->actionCode = 1;
-                        dmMessage->svcType = fpi::FDSP_DATA_MGR;
+                        dmMessage->actionCode         = 1;
+                        dmMessage->svcType            = fpi::FDSP_DATA_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.dmState)
                         {
@@ -1026,10 +1026,9 @@ namespace fds
                     case fpi::FDSP_STOR_MGR:
                     {
                         fpi::SvcStateChangeRespPtr smMessage (new fpi::SvcStateChangeResp());
-
                         smMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        smMessage->actionCode = 1;
-                        smMessage->svcType = fpi::FDSP_STOR_MGR;
+                        smMessage->actionCode         = 1;
+                        smMessage->svcType            = fpi::FDSP_STOR_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.smState)
                         {
