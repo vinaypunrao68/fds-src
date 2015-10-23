@@ -270,6 +270,12 @@ ObjectMetadataDb::get(fds_volid_t volId,
         // Object not found. Return.
         fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
         if (mediaTrackerFn) {
+            if (err == ERR_NOT_FOUND
+                && DiskUtils::diskFileTest(
+                            smDiskMap->getDiskPath(
+                                smDiskMap->getDiskId(objId, metaTier)))) {
+                err = ERR_DISK_READ_FAILED;
+            }
             mediaTrackerFn(smTokId, metaTier, err);
         }
         return NULL;
