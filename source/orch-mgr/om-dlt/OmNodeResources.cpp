@@ -1446,7 +1446,7 @@ OM_PmAgent::send_start_service
     }
 
     if ( node_state() != FDS_ProtocolInterface::FDS_Node_Discovered ) {
-        LOGDEBUG << "Node state is discovered, changing to up."
+        LOGDEBUG << "Node state is discovered, changing to up.";
         set_node_state(fpi::FDS_Node_Up);
     }
 
