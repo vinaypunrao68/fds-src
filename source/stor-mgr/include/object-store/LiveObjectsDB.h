@@ -42,6 +42,8 @@ class LiveObjectsDB {
                               const fds_volid_t &volId);
         Error findObjectSetsPerToken(const fds_token_id &smToken,
                                      std::set<std::string> &objSetFilenames);
+        Error findAssociatedVols(const fds_token_id &smToken,
+                                 std::set<fds_uint64_t> volumes);
         ~LiveObjectsDB() { }
 };
 

@@ -77,4 +77,17 @@ Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
     return ERR_OK;
 }
 
+Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
+                                        std::set<fds_uint64_t> volumes) {
+    if (!db) { return ERR_INVALID; }
+
+    std::string query = util::strformat("select volid from liveObjTbl where smtoken=%ld", smToken);
+    if (db->getIntValues(query.c_str(), volumes)) {
+        LOGERROR << "Failed getting volume associations from live object table"
+                 << " for objects in smtoken = " << smToken;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
 } // end namespace fds
