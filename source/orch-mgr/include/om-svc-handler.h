@@ -91,6 +91,9 @@ namespace fds {
 
       void heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                           boost::shared_ptr<fpi::HeartbeatMessage>& msg);
+
+      void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                              boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

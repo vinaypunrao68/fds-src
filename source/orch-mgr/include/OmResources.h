@@ -248,6 +248,9 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
                              bool domainRestart, bool startNode);
+
+    void send_start_service_resp(FDS_ProtocolInterface::FDSP_MgrIdType type,
+                                 fpi::SvcUuid pmSvcUuid, int32_t actionTaken);
     /**
      * Send 'stop service' message to Platform
      */
