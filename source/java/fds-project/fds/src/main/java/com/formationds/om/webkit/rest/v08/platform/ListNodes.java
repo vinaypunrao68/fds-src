@@ -53,7 +53,6 @@ public class ListNodes
     	List<FDSP_Node_Info_Type> list = getConfigApi().ListServices(0);
 
     	logger.debug( "Size of service list: {}", list.size( ) );
-
         Map<Long, List<FDSP_Node_Info_Type>> groupedServices =
             NodeUtils.groupNodes( list, getConfiguration().getOMNodeUuid() );
 
