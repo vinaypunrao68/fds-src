@@ -119,7 +119,8 @@ enum  FDSPMsgTypeId {
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
   CtrlTokenMigrationAbortTypeId             = 9001;
-
+  SvcStateChangeRespTypeId                  = 9002;
+  
   /** SM Type Ids*/
   GetObjectMsgTypeId                        = 10000;
   GetObjectRespTypeId                       = 10001;

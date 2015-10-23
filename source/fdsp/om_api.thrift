@@ -53,6 +53,16 @@ struct CtrlSvcEvent {
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }
 
+// Service action responses from PM
+struct SvcStateChangeResp {
+  /* Type of the service for which state change req came in */
+  1: common.FDSP_MgrIdType svcType;
+  /* Id of the PM that handled the request */
+  2: common.SvcUuid          pmSvcUuid;
+  /* This value(0/1) will indicate (no-op/op success) */
+  3: i32                     actionCode;
+}
+
 // Make NotifyHealthReport defined within the fpi namespace.
 typedef health_monitoring_api.NotifyHealthReport NotifyHealthReport
 typedef health_monitoring_api.HeartbeatMessage HeartbeatMessage

@@ -58,6 +58,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
     REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
+    REGISTER_FDSP_MSG_HANDLER(fpi::SvcStateChangeResp, svcStateChangeResp);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -307,6 +308,18 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                                        (timeSinceEpoch).count();
 
     gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
+}
+
+void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                                      boost::shared_ptr<fpi::SvcStateChangeResp>& msg)
+{
+    LOGDEBUG << "Received state change response from PM for svc type:"
+             << msg->svcType;
+    NodeUuid node_uuid(msg->pmSvcUuid);
+    OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
+            om_loc_domain_ctrl()->om_pm_agent(node_uuid);
+
+    agent->send_start_service_resp(msg->svcType, msg->pmSvcUuid, msg->actionCode);
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
