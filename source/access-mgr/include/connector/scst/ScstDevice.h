@@ -77,6 +77,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     std::string const volumeName;
     int scstDev {-1};
     size_t volume_size {0};
+    char serial_number[33];
     size_t sessions {0};
 
     std::shared_ptr<AmProcessor> amProcessor;

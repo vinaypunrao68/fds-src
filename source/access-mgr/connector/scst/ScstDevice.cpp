@@ -73,6 +73,8 @@ ScstDevice::ScstDevice(std::string const& vol_name,
           logical_block_size(512ul),
           readyResponses(4000)
 {
+    // When we are first up, the serial number is just spaces.
+    snprintf(serial_number, sizeof(serial_number), "%32.0lX", 0ul);
     {
         FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
         standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
@@ -312,10 +314,12 @@ void ScstDevice::execUserCmd() {
                     /* |                                 ...                                   |*/
                     static uint8_t const serial_number_header [] = {
                         0,
-                        8,
-                        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '  // Blank
+                        32
                     };
                     memcpy(&buffer[2], serial_number_header, std::min((size_t)buflen, sizeof(serial_number_header)));
+                    memcpy(&buffer[2] + sizeof(serial_number_header),
+                           serial_number,
+                           std::min(buflen - sizeof(serial_number_header), sizeof(serial_number) - 1));
                     break;
                 case 0x83: // Device ID
                     /* |                                 PAGE                                  |*/
@@ -649,10 +653,12 @@ void
 ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
     if (volDesc) {
-        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-            << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-        physical_block_size = volDesc->maxObjSizeInBytes;
         volume_size = (volDesc->capacity * Mi);
+        physical_block_size = volDesc->maxObjSizeInBytes;
+        snprintf(serial_number, sizeof(serial_number), "%.32lX", volDesc->GetID().get());
+        LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
+            << "B and object size: 0x" << physical_block_size
+            << "B with serial: " << serial_number;
     }
 }
 
