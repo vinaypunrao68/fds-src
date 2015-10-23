@@ -1616,15 +1616,52 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
 
     std::set<std::string> bfFileNames;
     bloomFilterTable->findObjectSetsPerToken(smToken, bfFileNames);
-    std::vector<BloomFilter> bloomFilters;
+    std::vector<BloomFilter> objectSets;
+    typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
+
+    std::set<fds_uint64_t> volumes;
+    bloomFilterTable->findAssociatedVols(volumes);
 
     for (auto eachFile : bfFileNames) {
         serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
-        bloomFilters.push_back(BloomFilter().read(d));
+        objectSets.push_back(BloomFilter().read(d));
     }
 
-    std::string<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
+    std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
 
+    for (auto oid : allKeys) {
+        for (ObjSetIter iter = objectSets.begin();
+             iter != objectSets.end(); ++iter) {
+            if (iter->lookup(oid)) {
+                break;
+            }
+        }
+
+        /**
+         * Time to update count and timestamps based on the bloom filter.
+         */
+        if (iter == objectSets.end()) {
+            Error err(ERR_OK);
+            bool shouldUpdateMeta = true;
+            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
+            std::vector<fds_volid_t> volAssocs;
+            objMeta->getAssociatedVolumes(volAssocs);
+
+            for (auto associatedVol : volAssocs) {
+                if (volumes.find(associatedVol) == volumes.end()) {
+                    shouldUpdateMeta = false;
+                    break;
+                }
+            }
+
+            if (shouldUpdateMeta) {
+                ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                updatedMeta->updateTimestamp();
+                updatedMeta->incrementDeleteCount();
+                metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
+            }
+        }
+    }
 }
 
 /**
