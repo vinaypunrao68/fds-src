@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+include "FDSP.thrift"
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
