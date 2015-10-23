@@ -1447,7 +1447,9 @@ OM_PmAgent::send_start_service
 
     // Check to ensure that the node is up.
     if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
-        LOGDEBUG << "Attempting to start services on a node that is not up";
+        LOGDEBUG << "Attempting to start services on node UUID( "
+                 << std::hex << svc_uuid.svc_uuid << std::dec
+                 << " ) but its not up; current state: " << node_state();
         return Error(ERR_INVALID_ARG);
     }
 
