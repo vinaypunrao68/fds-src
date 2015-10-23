@@ -11,7 +11,6 @@ public interface EndUserMessages
 {
     // configuration service end user messages
     String CS_ACCESS_DENIED =
-        "Access to configuration service is currently blocked, " +
-        "the domain isn't in a start that is operation can continue. " +
-        "Please retry later.";
+        "Access to configuration service is currently blocked, the domain " +
+        "is either 'down' or 'starting'. Please retry once the domain has started.";
 }
