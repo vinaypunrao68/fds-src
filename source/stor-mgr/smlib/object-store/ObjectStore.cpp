@@ -76,6 +76,7 @@ ObjectStore::ObjectStore(const std::string &modName,
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
+   liveObjectsTable->createLiveObjectsTblAndIdx();
 }
 
 ObjectStore::~ObjectStore() {
@@ -1584,6 +1585,112 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
         LOGNOTIFY << "Close and delete token files for smTokens ";
         dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
     }
+}
+void
+ObjectStore::addObjectSet(const fds_token_id &smToken,
+                          const fds_volid_t &volId,
+                          const fds_uint64_t &dmUUID,
+                          const std::string &objectSetFilePath) {
+    liveObjectsTable->addObjectSet(smToken, volId, dmUUID,
+                                   util::getTimeStampNanos(),
+                                   objectSetFilePath);
+}
+
+void
+ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
+                                const diskio::DataTier& tier,
+                                diskio::TokenStat &tokStats) {
+
+   /**
+    * 0) Check if the bloom filter vector is null,
+    *    if so: 
+    *       Get all the bloom filters from live object table and
+    *       deserialize it to vector of bloom filters.
+    *       a) See if the size is same for all bloom filters, if
+    *          so merge all the same sized bloom filters to reduce
+    *          the number of bloom filters required in memory.
+    * 
+    * 1) Get access to metadata db for this SM Token.
+    *
+    * 2) Create an iterator of leveldb.
+    *
+    * 3) For each object in leveldb, iterate through all
+    *    the bloom filters to figure out if the object is
+    *    present in any of the bloom filters or not.
+    *    If not present, update the timestamp of the object
+    *    in it's metadata to the current timestamp and
+    *    update the count.
+    * 
+    *  4) Also, keep a count of the number of objects
+    *     and number of reclaimable objects.
+    *
+    *  5) Fill in TokenStat and return.
+    */
+
+    std::set<std::string> bfFileNames;
+    liveObjectsTable->findObjectSetsPerToken(smToken, bfFileNames);
+    std::vector<BloomFilter> objectSets;
+    typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
+
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAssociatedVols(smToken, volumes);
+
+    for (auto eachFile : bfFileNames) {
+        serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
+        BloomFilter bf;
+        bf.read(d);
+        objectSets.push_back(bf);
+    }
+
+    std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
+    fds_uint64_t totalNumObjs = allKeys.size();
+    fds_uint64_t objsToDelete = 0;
+
+    for (auto oid : allKeys) {
+        ObjSetIter iter = objectSets.begin();
+        for (iter; iter != objectSets.end(); ++iter) {
+            if (iter->lookup(oid)) {
+                break;
+            }
+        }
+
+        /**
+         * Time to update count and timestamps based on the bloom filter.
+         */
+        if (iter == objectSets.end()) {
+            Error err(ERR_OK);
+            bool shouldUpdateMeta = true;
+            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
+            std::vector<fds_volid_t> volAssocs;
+            objMeta->getAssociatedVolumes(volAssocs);
+
+            for (auto associatedVol : volAssocs) {
+                if (volumes.find(associatedVol) == volumes.end()) {
+                    shouldUpdateMeta = false;
+                    break;
+                }
+            }
+
+            /** Gurpreet: Create table of last contact for DM
+             */
+            if (shouldUpdateMeta) {
+                ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                updatedMeta->updateTimestamp();
+                if (updatedMeta->incrementDeleteCount() >= OBJ_DELETE_COUNT_THRESHOLD) {
+                    ++objsToDelete;
+                }
+                metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
+            }
+        }
+    }
+
+    /**
+     * Update token stats so that Scavenger can take a decision to run Token Compactor
+     * on this SM token.
+     */
+    tokStats.tkn_id = smToken;
+    tokStats.tkn_tot_size = totalNumObjs;
+    tokStats.tkn_reclaim_size = objsToDelete;
 }
 
 void

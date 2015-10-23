@@ -195,9 +195,9 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
     boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
-                                                   const ObjectID &objId,
-                                                   ObjMetaData::const_ptr objMetaData,
-                                                   Error& err);
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -320,9 +320,14 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
-   void evaluateObjectSets(const fds_token_id& smToken,
-                           const diskio::DataTier& tier,
-                           diskio::TokenStat &tokStats);
+    void evaluateObjectSets(const fds_token_id& smToken,
+                            const diskio::DataTier& tier,
+                            diskio::TokenStat &tokStats);
+
+    void addObjectSet(const fds_token_id &smToken,
+                      const fds_volid_t &volId,
+                      const fds_uint64_t &dmUUID,
+                      const std::string &objectSetFilePath);
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
