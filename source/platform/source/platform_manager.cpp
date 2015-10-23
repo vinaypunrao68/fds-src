@@ -971,7 +971,7 @@ namespace fds
                     case fpi::FDSP_ACCESS_MGR:
                     {
                         FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
-                        amChangeInfo.actionCode = 1;
+                        amChangeInfo.actionCode = fpi::STARTED;
                         amChangeInfo.svcType    = fpi::FDSP_ACCESS_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING != m_nodeInfo.javaAMState)
@@ -982,7 +982,7 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                amChangeInfo.actionCode = 0;
+                                amChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start services request for AM services, but they are already running.";
                             }
                         }
@@ -998,7 +998,7 @@ namespace fds
                     case fpi::FDSP_DATA_MGR:
                     {
                         FDS_ProtocolInterface::SvcChangeReqInfo dmChangeInfo;
-                        dmChangeInfo.actionCode = 1;
+                        dmChangeInfo.actionCode = fpi::STARTED;
                         dmChangeInfo.svcType    = fpi::FDSP_DATA_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.dmState)
@@ -1009,7 +1009,7 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                dmChangeInfo.actionCode = 0;
+                                dmChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already running.";
                             }
                         }
@@ -1025,7 +1025,7 @@ namespace fds
                     case fpi::FDSP_STOR_MGR:
                     {
                         FDS_ProtocolInterface::SvcChangeReqInfo smChangeInfo;
-                        smChangeInfo.actionCode = 1;
+                        smChangeInfo.actionCode = fpi::STARTED;
                         smChangeInfo.svcType    = fpi::FDSP_STOR_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.smState)
@@ -1036,7 +1036,7 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                smChangeInfo.actionCode = 0;
+                                smChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already running.";
                             }
                         }
