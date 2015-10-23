@@ -1527,9 +1527,7 @@ void OM_PmAgent::send_start_service_resp
     // to happen
     for (auto item : changeList) {
 
-        //actionCode:0 implies the PM did nothing since it found services running
-        //actionCode:1 implies the PM spawned new service processes
-        if (!item.actionCode) {
+        if (item.actionCode == fpi::NO_ACTION) {
             fpi::SvcUuid svcUuid;
             // Retrieve the specific service id
             fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
