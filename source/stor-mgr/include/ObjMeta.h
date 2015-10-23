@@ -124,6 +124,14 @@ class ObjMetaData : public serialize::Serializable {
 
     void getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) const;
 
+    fds_uint8_t getDeleteCount() const;
+
+    void incrementDeleteCount();
+
+    TimeStamp getTimeStamp() const;
+
+    void updateTimestamp(TimeStamp &currentTime);
+
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
     fds_bool_t onTier(diskio::DataTier tier) const;
@@ -153,6 +161,7 @@ class ObjMetaData : public serialize::Serializable {
 
     /* Volume association entries */
     std::vector<obj_assoc_entry_t> assoc_entry;
+
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
