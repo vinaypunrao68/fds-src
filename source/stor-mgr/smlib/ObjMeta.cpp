@@ -18,6 +18,8 @@ ObjMetaData::ObjMetaData()
 
     obj_map.obj_magic = meta_obj_map_magic_value;
     obj_map.obj_map_ver = meta_obj_map_version;
+    obj_map.obj_access_time = getTimeStampNanos();
+    obj_map.delete_count = 0;
 
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
@@ -869,6 +871,25 @@ ObjMetaData::isVolAssocReconciled(fds_uint64_t& totalVolRefCnt,
     }
 
     return reconciled;
+}
+
+fds_uint8_t
+ObjMetaData::incrementDeleteCount() {
+    return ++obj_map.delete_count;
+}
+
+fds_uint8_t
+ObjMetaData::getDeleteCount() const {
+    return obj_map.delete_count;
+}
+void
+ObjMetaData::updateTimestamp(const TimeStamp &currentTime) {
+    obj_map.obj_access_time = getTimeStampNanos();
+}
+
+TimeStamp
+ObjMetaData::getTimeStamp() const {
+    return obj_map.obj_access_time;
 }
 
 fds_bool_t

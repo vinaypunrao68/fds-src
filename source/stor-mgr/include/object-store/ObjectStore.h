@@ -53,7 +53,7 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
 
-    LiveObjectsDB::unique_ptr bloomFilterTable;
+    LiveObjectsDB::unique_ptr liveObjectsTable;
 
     enum ObjectStoreState {
         /**
