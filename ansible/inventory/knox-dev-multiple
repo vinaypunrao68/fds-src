@@ -1,13 +1,15 @@
 [knox-dev-multiple]
 # list ips here
-
+#
+#
+#
 [knox-dev-multiple:vars]
 clean_fds=yes
 force=true
 fds_log_severity=io
 ansible_sudo=true
 ansible_sudo_pass=
-ansible_ssh_user=vagran
+ansible_ssh_user=vagrant
 ansible_ssh_pass=vagrant
 deploy_artifact=nightly
 fds_build=release
