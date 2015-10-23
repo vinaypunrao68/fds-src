@@ -8,6 +8,7 @@ import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
+import com.formationds.om.helper.EndUserMessages;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
@@ -764,7 +765,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             }
             return cache;
         } catch ( TException te ) {
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
         }
     }
 
