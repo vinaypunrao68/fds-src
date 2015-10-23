@@ -221,7 +221,7 @@ function startApp() {
     esac
 
     # start rabbit mq if needed
-    case "$appname" in
+    case ${appname} in
         stats|all|rabbitmq)
             loginfo "Starting RabbitMQ server..."
             ${RABBITDIR}/rabbitmq-server start &
@@ -435,11 +435,11 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-    if [[ $name == "om" ]]; then
+    if [[ ${name} == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
-    elif [[  $name == "xdi"  ]]; then
+    elif [[  ${name} == "xdi"  ]]; then
         pid="$(pgrep -f com.formationds.am.Main)"
-    elif [[  $name == "stats"  ]]; then
+    elif [[  ${name} == "stats"  ]]; then
         pid="$(pgrep -f com.formationds.stats.service.Main)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
