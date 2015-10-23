@@ -54,13 +54,12 @@ struct CtrlSvcEvent {
 }
 
 // Service action responses from PM
+// Keeping it generic, though we use it currently only for start
 struct SvcStateChangeResp {
-  /* Type of the service for which state change req came in */
-  1: common.FDSP_MgrIdType svcType;
+  /* List of services that have received change requests */
+  1: om_types.SvcChangeInfoList changeList;
   /* Id of the PM that handled the request */
-  2: common.SvcUuid          pmSvcUuid;
-  /* This value(0/1) will indicate (no-op/op success) */
-  3: i32                     actionCode;
+  2: common.SvcUuid             pmSvcUuid;
 }
 
 // Make NotifyHealthReport defined within the fpi namespace.

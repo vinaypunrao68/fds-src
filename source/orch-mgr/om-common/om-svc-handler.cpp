@@ -313,13 +313,15 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                                       boost::shared_ptr<fpi::SvcStateChangeResp>& msg)
 {
-    LOGDEBUG << "Received state change response from PM for svc type:"
-             << msg->svcType;
+    LOGDEBUG << "Received state change response from PM:"
+             << std::hex << msg->pmSvcUuid.svc_uuid << std::dec
+             << " for start request";
+
     NodeUuid node_uuid(msg->pmSvcUuid);
     OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
             om_loc_domain_ctrl()->om_pm_agent(node_uuid);
 
-    agent->send_start_service_resp(msg->svcType, msg->pmSvcUuid, msg->actionCode);
+    agent->send_start_service_resp(msg->pmSvcUuid, msg->changeList);
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,

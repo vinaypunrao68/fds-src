@@ -957,6 +957,10 @@ namespace fds
             auto serviceList = startServiceMsg->services;
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            fpi::SvcStateChangeRespPtr message (new fpi::SvcStateChangeResp());
+            message->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
 
             for (auto const &vectItem : serviceList)
             {
@@ -966,10 +970,9 @@ namespace fds
                 {
                     case fpi::FDSP_ACCESS_MGR:
                     {
-                        fpi::SvcStateChangeRespPtr amMessage (new fpi::SvcStateChangeResp());
-                        amMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        amMessage->actionCode         = 1;
-                        amMessage->svcType            = fpi::FDSP_ACCESS_MGR;
+                        FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
+                        amChangeInfo.actionCode = 1;
+                        amChangeInfo.svcType    = fpi::FDSP_ACCESS_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING != m_nodeInfo.javaAMState)
                         {
@@ -979,14 +982,12 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                amMessage->actionCode = 0;
+                                amChangeInfo.actionCode = 0;
                                 LOGDEBUG << "No operation performed, received a start services request for AM services, but they are already running.";
                             }
                         }
 
-                        auto amRequest = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-                        amRequest->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), amMessage);
-                        amRequest->invoke();
+                        message->changeList.push_back(amChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (BARE_AM);
@@ -996,10 +997,9 @@ namespace fds
 
                     case fpi::FDSP_DATA_MGR:
                     {
-                        fpi::SvcStateChangeRespPtr dmMessage (new fpi::SvcStateChangeResp());
-                        dmMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        dmMessage->actionCode         = 1;
-                        dmMessage->svcType            = fpi::FDSP_DATA_MGR;
+                        FDS_ProtocolInterface::SvcChangeReqInfo dmChangeInfo;
+                        dmChangeInfo.actionCode = 1;
+                        dmChangeInfo.svcType    = fpi::FDSP_DATA_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.dmState)
                         {
@@ -1009,14 +1009,13 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                dmMessage->actionCode = 0;
+                                dmChangeInfo.actionCode = 0;
                                 LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already running.";
                             }
                         }
 
-                        auto dmRequest = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-                        dmRequest->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), dmMessage);
-                        dmRequest->invoke();
+
+                        message->changeList.push_back(dmChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (DATA_MANAGER);
@@ -1025,10 +1024,9 @@ namespace fds
 
                     case fpi::FDSP_STOR_MGR:
                     {
-                        fpi::SvcStateChangeRespPtr smMessage (new fpi::SvcStateChangeResp());
-                        smMessage->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
-                        smMessage->actionCode         = 1;
-                        smMessage->svcType            = fpi::FDSP_STOR_MGR;
+                        FDS_ProtocolInterface::SvcChangeReqInfo smChangeInfo;
+                        smChangeInfo.actionCode = 1;
+                        smChangeInfo.svcType    = fpi::FDSP_STOR_MGR;
 
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.smState)
                         {
@@ -1038,14 +1036,13 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
-                                smMessage->actionCode = 0;
+                                smChangeInfo.actionCode = 0;
                                 LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already running.";
                             }
                         }
 
-                        auto smRequest = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-                        smRequest->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), smMessage);
-                        smRequest->invoke();
+                        message->changeList.push_back(smChangeInfo);
+
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (STORAGE_MANAGER);
@@ -1059,6 +1056,9 @@ namespace fds
                     } break;
                 }
             }
+
+            request->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), message);
+            request->invoke();
 
             m_startQueueCondition.notify_one();
         }

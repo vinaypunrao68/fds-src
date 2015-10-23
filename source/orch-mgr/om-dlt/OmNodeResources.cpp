@@ -1520,31 +1520,35 @@ OM_PmAgent::send_start_service
 
 void OM_PmAgent::send_start_service_resp
     (
-    FDS_ProtocolInterface::FDSP_MgrIdType type,
     fpi::SvcUuid pmSvcUuid,
-    int32_t actionTaken )
+    fpi::SvcChangeInfoList changeList)
 {
     // If the PM took no action, then it means the service is already active;
     // transition the state to active since we don't expect registration 
     // to happen
-    if (!actionTaken) {
-        fpi::SvcUuid svcUuid;
-        // Retrieve the specific service id
-        fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, type);
+    for (auto item : changeList) {
 
-        LOGDEBUG << "PM took no action on start, will set service: "
-                 << std::hex << svcUuid.svc_uuid
-                 << std::dec << " state to ACTIVE";
+        //actionCode:0 implies the PM did nothing since it found services running
+        //actionCode:1 implies the PM spawned new service processes
+        if (!item.actionCode) {
+            fpi::SvcUuid svcUuid;
+            // Retrieve the specific service id
+            fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
 
-        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        fds_mutex::scoped_lock l(dbNodeInfoLock);
+            LOGDEBUG << "PM took no action on start, will set service: "
+                     << std::hex << svcUuid.svc_uuid
+                     << std::dec << " state to ACTIVE";
 
-        // Update the service state to active
-        change_service_state( configDB,
-                              svcUuid.svc_uuid,
-                              fpi::SVC_STATUS_ACTIVE );
-    } else {
-        LOGDEBUG <<"PM started new processes, service registrations to follow";
+            kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+            fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+            // Update the service state to active
+            change_service_state( configDB,
+                                  svcUuid.svc_uuid,
+                                  fpi::SVC_STATUS_ACTIVE );
+        }else {
+            LOGDEBUG <<"PM started new processes, service registrations to follow";
+        }
     }
 }
 
