@@ -169,47 +169,50 @@ public class NodeUtils
         final List<FDSP_Node_Info_Type> omNodeList =
             grouped.get( omNodeUuid );
 
-        if( omNodeList == null || omNodeList.isEmpty( ) )
+        //noinspection StatementWithEmptyBody
+        if( omNodeList != null && !omNodeList.isEmpty( ) )
         {
-            logger.warn( "No OM node found, leaving unmodified. " +
-                         "OM Node UUID not set to default?" );
-        }
-        else if( omNodeList.size( ) > 1 )
-        {
-            logger.warn( "More then one OM, only expected one, " +
-                         "leaving unmodified. OM Node UUID not set to default?" );
-        }
-        else
-        {
-            final FDSP_Node_Info_Type om = omNodeList.get( 0 );
-
-            for( final List<FDSP_Node_Info_Type> services : grouped.values() )
+            // leave everything as it is
+            if( omNodeList.size( ) > 1 )
             {
-                Long nodeUUID = null;
-                final List<FDSP_Node_Info_Type> _omNode = new ArrayList<>( );
+                // Multi-OM will cause this to fail.
+                logger.warn( "More then one OM, only expected one, " +
+                             "leaving unmodified. OM Node UUID not set to default?" );
+            }
+            else
+            {
+                final FDSP_Node_Info_Type om = omNodeList.get( 0 );
 
-                for( final FDSP_Node_Info_Type service : services )
+                for( final List<FDSP_Node_Info_Type> services : grouped.values( ) )
                 {
-                    if( service.getNode_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) )
-                    {
-                        if( service.getNode_root( )
-                                   .equalsIgnoreCase(
-                                       om.getNode_root( ) ) )
-                        {
-                            nodeUUID = service.getNode_uuid();
-                            _omNode.add( om );
-                            _omNode.addAll( grouped.get( nodeUUID ) );
+                    Long nodeUUID = null;
+                    final List<FDSP_Node_Info_Type> _omNode
+                        = new ArrayList<>( );
 
-                            break;
+                    for( final FDSP_Node_Info_Type service : services )
+                    {
+                        if( service.getNode_type( )
+                                   .equals( FDSP_MgrIdType.FDSP_PLATFORM ) )
+                        {
+                            if( service.getNode_root( )
+                                       .equalsIgnoreCase(
+                                           om.getNode_root( ) ) )
+                            {
+                                nodeUUID = service.getNode_uuid( );
+                                _omNode.add( om );
+                                _omNode.addAll( grouped.get( nodeUUID ) );
+
+                                break;
+                            }
                         }
                     }
-                }
 
-                if( nodeUUID != null )
-                {
-                    grouped.replace( nodeUUID, _omNode );
-                    grouped.remove( om.getNode_uuid() );
-                    break;
+                    if( nodeUUID != null )
+                    {
+                        grouped.replace( nodeUUID, _omNode );
+                        grouped.remove( om.getNode_uuid( ) );
+                        break;
+                    }
                 }
             }
         }
