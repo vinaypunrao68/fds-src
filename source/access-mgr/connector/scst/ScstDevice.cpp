@@ -402,14 +402,16 @@ void ScstDevice::execUserCmd() {
                      << "] subpage[" << (uint32_t)subpage << "]";
 
             // We do not support any persistent pages, subpages
-            if (0x01 & pc ||
-                0x00 != subpage ||
-                0x3F != page_code) {
+            if (0x01 & pc || 0x00 != subpage) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
 
-            auto& buflen = scsi_cmd.bufflen;
+            size_t buflen = scsi_cmd.bufflen;
+            if (buflen < 4) {
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
+            }
             bzero(buffer, buflen);
 
             size_t param_cursor = 0ull;
@@ -425,7 +427,7 @@ void ScstDevice::execUserCmd() {
             }
 
             // Append block descriptor if enabled
-            if (!dbd) {
+            if ((param_cursor + 8 <= buflen) && !dbd) {
                 buffer[param_cursor - 1] = 0x08; // Set descriptor size
                 uint64_t num_blocks = volume_size / logical_block_size;
                 LOGDEBUG << "Num blocks: [0x" << std::hex << num_blocks
@@ -433,7 +435,35 @@ void ScstDevice::execUserCmd() {
                 // Number of LBAs (or 0xFFFFFFFF if bigger than 4GiB)
                 *reinterpret_cast<uint32_t*>(&buffer[param_cursor]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
                 *reinterpret_cast<uint32_t*>(&buffer[param_cursor+4]) = htobe32(logical_block_size);
-                param_cursor += 8;
+            }
+            param_cursor += 8;
+
+            // Add pages that were requested
+            switch (page_code) {
+            case 0x3F: // ALL pages please
+            case 0x08: // Caching Mode Page
+                if (param_cursor + 20 <= buflen) {
+                    LOGDEBUG << "Adding caching page.";
+                    uint32_t blocks_per_object = physical_block_size / logical_block_size;
+                    buffer[param_cursor]        = 0x08;
+                    buffer[param_cursor + 1]    = 0x12;
+                    buffer[param_cursor + 2]    = 0b00011000;
+                    auto prefetch_size = htobe16(std::min(blocks_per_object, (uint32_t)UINT16_MAX));
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 6]) = prefetch_size;
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 8]) = prefetch_size;
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 10]) = prefetch_size;
+                    buffer[param_cursor + 12]   = 0b01000000;
+                    buffer[param_cursor + 14]   = 0xFF;
+                    buffer[param_cursor + 15]   = 0xFF;
+                }
+                param_cursor += 20;
+                if (0x3F != page_code) break;;
+            case 0x0A: // Control Mode Page
+                {
+                }
+                break;;
+            default:
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
             }
 
             // Set data length
