@@ -247,9 +247,14 @@ void ScstDevice::execUserCmd() {
     auto& op_code = scsi_cmd.cdb[0];
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
 
+    // We may need to allocate a buffer for SCST, if we do and fail we'll need
+    // to clean it up rather than expect a release command for it
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+        task->setResponseBuffer(buffer, false);
+    } else {
+        task->setResponseBuffer(buffer, true);
     }
 
     // Poor man's goto
@@ -347,7 +352,7 @@ void ScstDevice::execUserCmd() {
                     continue;
                 }
                 buffer[1] = page; // Identity of the page we're returning
-                task->setResponseBuffer(buffer, buffer[3] + 4);
+                task->setResponseLength(std::min(buflen, buffer[3] + 4));
             } else {
                 LOGDEBUG << "Standard inquiry requested.";
                 /* /-----------------------------------------------------------------------\
@@ -384,7 +389,7 @@ void ScstDevice::execUserCmd() {
                     }
 
                 }
-                task->setResponseBuffer(buffer, buffer[4] + 5);
+                task->setResponseLength(std::min(buflen, buffer[4] + 5));
             }
         }
         break;
@@ -409,7 +414,7 @@ void ScstDevice::execUserCmd() {
 
             size_t buflen = scsi_cmd.bufflen;
             if (buflen < 4) {
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                // Too small to even calculate the mode data length
                 continue;
             }
             bzero(buffer, buflen);
@@ -466,11 +471,11 @@ void ScstDevice::execUserCmd() {
 
             // Set data length
             if (MODE_SENSE == op_code) {
-                buffer[0] = param_cursor - 1;
+                buffer[0] = std::min(param_cursor - 1, (size_t)UINT8_MAX);
             } else {
-                buffer[1] = param_cursor - 2;
+                *reinterpret_cast<uint16_t*>(&buffer[0]) = htobe16(std::min(param_cursor - 2, (size_t)UINT16_MAX));
             }
-            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
+            task->setResponseLength(std::min(buflen, param_cursor));
         }
         break;
     case READ_6:
@@ -489,7 +494,6 @@ void ScstDevice::execUserCmd() {
                   << "] Handle[0x" << cmd.cmd_h << "]";
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
-            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
             return scstOps->read(task);
         }
         break;
@@ -503,13 +507,13 @@ void ScstDevice::execUserCmd() {
             if (READ_CAPACITY == op_code) {
                 *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
                 *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
-                task->setResponseBuffer(buffer, 8);
+                task->setResponseLength(8);
             } else {
                 *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
                 *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
                 // Number of logic blocks per object as a power of 2
                 buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
-                task->setResponseBuffer(buffer, 32);
+                task->setResponseLength(32);
             }
         }
         break;
@@ -669,6 +673,7 @@ ScstDevice::respondTask(BlockTask* response) {
                 i += buf->length();
                 buf = scst_response->getNextReadBuffer(context);
             }
+            scst_response->setResponseLength(i);
         }
     } else if (fpi::OK != scst_response->getError()) {
         if (scst_response->isWrite()) {
