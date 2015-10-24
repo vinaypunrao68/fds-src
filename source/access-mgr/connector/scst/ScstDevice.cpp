@@ -285,6 +285,7 @@ void ScstDevice::execUserCmd() {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
+            bzero(buffer, buflen);
 
             buffer[0] = TYPE_DISK;
             // Check EVPD bit
@@ -394,26 +395,31 @@ void ScstDevice::execUserCmd() {
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
             uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
             uint8_t& subpage = scsi_cmd.cdb[3];
-            LOGTRACE << "Mode Sense: "
+            LOGDEBUG << "Mode Sense: "
                      << " dbd[" << std::hex << dbd
                      << "] pc[" << std::hex << (uint32_t)pc
                      << "] page_code[" << (uint32_t)page_code
                      << "] subpage[" << (uint32_t)subpage << "]";
 
-            // We do not support any subpages
-            if (0x00 != subpage) {
+            // We do not support any persistent pages, subpages
+            if (0x01 & pc ||
+                0x00 != subpage ||
+                0x3F != page_code) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
 
+            auto& buflen = scsi_cmd.bufflen;
+            bzero(buffer, buflen);
+
             size_t param_cursor = 0ull;
             if (MODE_SENSE == op_code) {
                 buffer[1] = TYPE_DISK;  // Block device type
-                buffer[2] = 0b00010000; // Support for FUA/DPO
+                buffer[2] = 0b00000000; // Device specific params
                 param_cursor = 4;
             } else {
                 buffer[2] = TYPE_DISK;  // Block device type
-                buffer[3] = 0b00010000; // Support for FUA/DPO
+                buffer[3] = 0b00000000; // Device specific params
                 buffer[4] = 0b00000000; // LLBA disabled
                 param_cursor = 8;
             }
@@ -422,9 +428,11 @@ void ScstDevice::execUserCmd() {
             if (!dbd) {
                 buffer[param_cursor - 1] = 0x08; // Set descriptor size
                 uint64_t num_blocks = volume_size / logical_block_size;
+                LOGDEBUG << "Num blocks: [0x" << std::hex << num_blocks
+                         << "] of size [0x" << logical_block_size << "]";
                 // Number of LBAs (or 0xFFFFFFFF if bigger than 4GiB)
                 *reinterpret_cast<uint32_t*>(&buffer[param_cursor]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
-                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+5]) = htobe32(logical_block_size);
+                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+4]) = htobe32(logical_block_size);
                 param_cursor += 8;
             }
 
