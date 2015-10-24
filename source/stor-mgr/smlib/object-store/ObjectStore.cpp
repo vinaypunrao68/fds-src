@@ -642,7 +642,7 @@ ObjectStore::getObject(fds_volid_t volId,
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
 
     /**
-     * Additional handling for not found error type.
+     * Additional handling for error type: not found.
      * If metadata not found in db, do a small disk test to make sure metadata
      * indeed is not present in the db and it's not because of failure to read
      * from the presistent media.
