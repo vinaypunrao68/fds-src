@@ -80,7 +80,7 @@ class ObjectDB {
     /**
      * Get all the keys of k-v pairs stored in object DB.
      */
-    fds::Error GetKeys();
+    std::vector<ObjectID>  GetKeys() const;
 
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl

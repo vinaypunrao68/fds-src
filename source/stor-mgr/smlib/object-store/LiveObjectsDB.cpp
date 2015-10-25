@@ -78,7 +78,7 @@ Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
 }
 
 Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
-                                        std::set<fds_uint64_t> volumes) {
+                                        std::set<fds_uint64_t> &volumes) {
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("select volid from liveObjTbl where smtoken=%ld", smToken);

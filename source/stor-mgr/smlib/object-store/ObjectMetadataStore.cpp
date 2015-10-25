@@ -149,7 +149,7 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
     return err;
 }
 
-std::string<ObjectID>
+std::vector<ObjectID>
 ObjectMetadataStore::getMetaDbKeys(const fds_token_id &smToken) {
    return metaDb_->getKeys(smToken); 
 }
