@@ -168,11 +168,11 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
         GETVOLMETA
     };
 
-    void verifyResponse(const Error &error) {
+    void verifyResponse(const fpi::ErrorCode &error) {
         if (am->getProcessor()->isShuttingDown()) {
-            ASSERT_EQ(ERR_SHUTTING_DOWN, error);
+            ASSERT_EQ(fpi::SERVICE_SHUTTING_DOWN, error);
         } else {
-            ASSERT_EQ(ERR_OK, error);
+            ASSERT_EQ(fpi::OK, error);
         }
     }
 
@@ -258,76 +258,76 @@ class AmLoadProc : public boost::enable_shared_from_this<AmLoadProc>,
                                boost::shared_ptr<fpi::ErrorCode>& errorCode,
                                boost::shared_ptr<std::string>& message) override {}
 
-    void completeOp(const Error &error) {
-        ASSERT_EQ(ERR_OK, error);
+    void completeOp(const fpi::ErrorCode &error) {
+        ASSERT_EQ(fpi::OK, error);
         if (totalOps == ++opsDone) {
             asyncStopNano = util::getTimeStampNanos();
             done_cond.notify_all();
         }
     }
 
-    void attachVolumeResp(const Error &error,
+    void attachVolumeResp(const fpi::ErrorCode &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
                           boost::shared_ptr<VolumeDesc>& volDesc,
                           boost::shared_ptr<fpi::VolumeAccessMode>& mode) override { completeOp(error); }
 
-    void detachVolumeResp(const Error &error,
+    void detachVolumeResp(const fpi::ErrorCode &error,
                           boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void startBlobTxResp(const Error &error,
+    void startBlobTxResp(const fpi::ErrorCode &error,
                          boost::shared_ptr<apis::RequestId>& requestId,
                          boost::shared_ptr<apis::TxDescriptor>& txDesc) override { completeOp(error); }
 
-    void updateBlobResp(const Error &error,
+    void updateBlobResp(const fpi::ErrorCode &error,
                         boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void updateBlobOnceResp(const Error &error,
+    void updateBlobOnceResp(const fpi::ErrorCode &error,
                             boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void updateMetadataResp(const Error &error,
+    void updateMetadataResp(const fpi::ErrorCode &error,
                         boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void abortBlobTxResp(const Error &error,
+    void abortBlobTxResp(const fpi::ErrorCode &error,
                          boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void commitBlobTxResp(const Error &error,
+    void commitBlobTxResp(const fpi::ErrorCode &error,
                           boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error); }
 
-    void getBlobResp(const Error &error,
+    void getBlobResp(const fpi::ErrorCode &error,
                      boost::shared_ptr<apis::RequestId>& requestId,
                      const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                      int& length) override { completeOp(error); }
 
-    void getBlobWithMetaResp(const Error &error,
+    void getBlobWithMetaResp(const fpi::ErrorCode &error,
                              boost::shared_ptr<apis::RequestId>& requestId,
                              const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                              int& length,
                              boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override { completeOp(error); }
 
-    void statBlobResp(const Error &error,
+    void statBlobResp(const fpi::ErrorCode &error,
                       boost::shared_ptr<apis::RequestId>& requestId,
                       boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override { completeOp(error); }
 
-    void renameBlobResp(const Error &error,
+    void renameBlobResp(const fpi::ErrorCode &error,
                         boost::shared_ptr<apis::RequestId>& requestId,
                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) override { completeOp(error); }
 
-    void deleteBlobResp(const Error &error,
+    void deleteBlobResp(const fpi::ErrorCode &error,
                         boost::shared_ptr<apis::RequestId>& requestId) override  { completeOp(error); }
 
-    void volumeStatusResp(const Error &error,
+    void volumeStatusResp(const fpi::ErrorCode &error,
                           boost::shared_ptr<apis::RequestId>& requestId,
                           boost::shared_ptr<apis::VolumeStatus>& volumeStatus) override { completeOp(error); }
 
-    void volumeContentsResp(const Error &error,
+    void volumeContentsResp(const fpi::ErrorCode &error,
                             boost::shared_ptr<apis::RequestId>& requestId,
                             boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents,
                             boost::shared_ptr<std::vector<std::string>>& skippedPrefixes) override { completeOp(error); }
 
-    void setVolumeMetadataResp(const Error &error,
+    void setVolumeMetadataResp(const fpi::ErrorCode &error,
                                boost::shared_ptr<apis::RequestId>& requestId) override { completeOp(error) ;}
 
-    void getVolumeMetadataResp(const Error &error,
+    void getVolumeMetadataResp(const fpi::ErrorCode &error,
                                boost::shared_ptr<apis::RequestId>& requestId,
                                boost::shared_ptr<std::map<std::string, std::string>>& metadata) override { completeOp(error); }
 

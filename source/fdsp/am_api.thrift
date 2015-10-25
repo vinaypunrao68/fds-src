@@ -4,7 +4,7 @@
 
 include "am_types.thrift"
 
-include "common.thrift"
+include "svc_types.thrift"
 include "svc_api.thrift"
 
 namespace cpp FDS_ProtocolInterface
@@ -19,7 +19,7 @@ namespace java com.formationds.protocol.am
  */
 struct CtrlNotifyThrottle {
   /** Domain throttle specification */
-  1: common.FDSP_ThrottleMsgType        throttle;
+  1: svc_types.FDSP_ThrottleMsgType        throttle;
 }
 
 /**

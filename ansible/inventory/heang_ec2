@@ -11,14 +11,14 @@
 # The 'awo-bh-01' is necessary for now, as Ansible's wait_for and
 #  delegate_to modules don't play nice together at this time.
 localhost
-awo-bh-01 fds_deploy_local_deps=no
+awo-bh-01 fds_deploy_local_deps=no fds_build=debug
 
 [heang_ec2:vars]
-clean_fds=no
+clean_fds=yes
 ansible_ssh_user=deploy
 cluster_location=awo
 deploy_artifact=nightly
-fds_build=release
+fds_build=debug
 fds_default_nic=eth0
 fds_deploy_local_deps=no
 fds_om_host="{{ groups[group_names[0]][0] }}"
@@ -28,4 +28,4 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 fds_ft_common_enable_multi_om_support=true
 fds_om_host_count=3
-fds_om_influxdb_url="http://{{ fds_om_host }}:8086"
+fds_only_install=yes

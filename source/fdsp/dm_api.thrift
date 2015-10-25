@@ -6,6 +6,7 @@
 include "common.thrift"
 include "dm_types.thrift"
 include "svc_api.thrift"
+include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
@@ -96,7 +97,7 @@ struct SetVolumeMetadataMsgRsp {
  * add those structures to this message?
  */
 struct CreateSnapshotMsg {
-    1:common.Snapshot snapshot
+    1:svc_types.Snapshot snapshot
 }
 /**
  * Response contains the ID of the newly created snapshot.
@@ -441,7 +442,7 @@ struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
    3:string method
-   4:common.SvcUuid dest,
+   4:svc_types.SvcUuid dest,
    5:list<i64> volumes,
    6:i32 sample_freq_seconds,
    7:i32 duration_seconds,

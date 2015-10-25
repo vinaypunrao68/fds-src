@@ -132,6 +132,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
         return (currentState.load() == METADATA_STORE_INITING);
     }
 
+    diskio::DataTier getMetadataTier() const;
+
   private:
     enum ObjectMetadataStoreState {
         METADATA_STORE_INITING,

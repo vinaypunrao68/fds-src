@@ -10,8 +10,8 @@ import com.formationds.commons.model.Service;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceType;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -45,7 +45,7 @@ public class ListNodes
                             final Map<String, String> routeParameters )
         throws Exception {
 
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list =
+        List<com.formationds.protocol.svc.types.FDSP_Node_Info_Type> list =
             configPathClient.ListServices(0);
         logger.debug("Size of service list: {}", list.size());
 
@@ -75,7 +75,7 @@ public class ListNodes
      *
      * @return Returns {@link Map} of keys {@link String} and value {@link Node}
      */
-    public Map<String, Node> computeNodeMap( List<com.formationds.protocol.FDSP_Node_Info_Type> list ){
+    public Map<String, Node> computeNodeMap( List<com.formationds.protocol.svc.types.FDSP_Node_Info_Type> list ){
     	
     	final Map<String,Node> clusterMap = new HashMap<>( );
         

@@ -22,7 +22,7 @@ import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -57,7 +57,7 @@ public class MutateService implements RequestHandler {
 
         final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
        
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
+        List<com.formationds.protocol.svc.types.FDSP_Node_Info_Type> list = client.ListServices( 0 );
         
         ListNodes listNodes = new ListNodes( client );
         Map<String, Node> nodes = listNodes.computeNodeMap( list );

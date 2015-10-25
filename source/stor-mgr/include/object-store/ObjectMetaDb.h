@@ -135,6 +135,13 @@ class ObjectMetadataDb {
 
     std::vector<ObjectID> getKeys(const fds_token_id &smToken);
 
+    /**
+     * Get info about where SM metadata is residing. Disk or flash.
+     */
+    inline diskio::DataTier getMetaTierInfo() const {
+        return metaTier;
+    }
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token
