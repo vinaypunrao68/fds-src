@@ -71,7 +71,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          bloomFilterTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db"),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db"),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
@@ -544,7 +544,7 @@ ObjectStore::putObject(fds_volid_t volId,
     // We expect the data put to be atomic.
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
-    // on a subsequent scavenger pass.
+    // on a subsequent GC run.
     if (err.ok() ||
         ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
@@ -605,6 +605,8 @@ ObjectStore::putObject(fds_volid_t volId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+    updatedMeta->updateTimestamp();
+    updatedMeta->resetDeleteCount();
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
 
@@ -1615,12 +1617,12 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     */
 
     std::set<std::string> bfFileNames;
-    bloomFilterTable->findObjectSetsPerToken(smToken, bfFileNames);
+    liveObjectsTable->findObjectSetsPerToken(smToken, bfFileNames);
     std::vector<BloomFilter> objectSets;
     typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
 
     std::set<fds_uint64_t> volumes;
-    bloomFilterTable->findAssociatedVols(volumes);
+    liveObjectsTable->findAssociatedVols(volumes);
 
     for (auto eachFile : bfFileNames) {
         serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
@@ -1628,6 +1630,8 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     }
 
     std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
+    fds_uint64_t totalNumObjs = allKeys.size();
+    fds_uint64_t objsToDelete = 0;
 
     for (auto oid : allKeys) {
         for (ObjSetIter iter = objectSets.begin();
@@ -1654,14 +1658,26 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 }
             }
 
+            /** Gurpreet: Create table of last contact for DM
+             */
             if (shouldUpdateMeta) {
                 ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                 updatedMeta->updateTimestamp();
-                updatedMeta->incrementDeleteCount();
+                if (updatedMeta->incrementDeleteCount() >= THRESHOLD_DELETE_COUNT) {
+                    ++objsToDelete;
+                }
                 metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
             }
         }
     }
+
+    /**
+     * Update token stats so that Scavenger can take a decision to run Token Compactor
+     * on this SM token.
+     */
+    tokStats.tkn_id = smToken;
+    tokStats.tkn_tot_size = totalNumObjs;
+    tokStats.tkn_reclaim_size = objsToDelete;
 }
 
 /**
