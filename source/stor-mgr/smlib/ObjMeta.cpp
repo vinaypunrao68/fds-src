@@ -878,6 +878,11 @@ ObjMetaData::incrementDeleteCount() {
     return ++obj_map.delete_count;
 }
 
+void
+ObjMetaData::resetDeleteCount() {
+    obj_map.delete_count = 0;
+}
+
 fds_uint8_t
 ObjMetaData::getDeleteCount() const {
     return obj_map.delete_count;

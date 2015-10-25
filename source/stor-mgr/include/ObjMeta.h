@@ -128,6 +128,8 @@ class ObjMetaData : public serialize::Serializable {
 
     void incrementDeleteCount();
 
+    void resetDeleteCount();
+
     TimeStamp getTimeStamp() const;
 
     void updateTimestamp(TimeStamp &currentTime);

@@ -28,7 +28,7 @@ class SqliteDB {
         int getIntValue(const std::string &query,
                         fds_uint64_t &value);
         int getIntValues(const std::string &query,
-                         std::set<std::string> &value);
+                         std::set<fds_uint64_t> &value);
         int getTextValues(const std::string &query,
                           std::set<std::string> &value);
         inline void logOnError(const int &errorCode,
