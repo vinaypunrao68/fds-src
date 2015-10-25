@@ -104,9 +104,9 @@ ScstDevice::ScstDevice(std::string const& vol_name,
                 0,                                          // partial transfer length
                 SCST_TST_0_SINGLE_TASK_SET,                 // task set sharing
                 0,                                          // task mgmt only (on fault)
-                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // reordering however
+                SCST_QUEUE_ALG_0_RESTRICTED_REORDER,        // maintain consistency in reordering
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
-                0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
+                1, 0, 0, 0                                  // TAS/SWP/DSENSE/ORDER MGMT
         },
         logical_block_size,         // Block size
         0,                          // PR cmd Notifications
@@ -542,8 +542,40 @@ void ScstDevice::execUserCmd() {
                 param_cursor += 20;
                 if (0x3F != page_code) break;;
             case 0x0A: // Control Mode Page
-                {
+                if (param_cursor + 12 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |            TST           |TMF_ONLY| DPICZ  |D_SENSE | GLTSD  |  RLEC  |
+                     * |       QUEUE ALG MODIFIER          |  NUAR  |      QERR       |  obsl  |
+                     * |   VS   |  RAC   | UA_INTLCK_CTRL  |  SWP   |           obsl           |
+                     * |  ATO   |  TAS   | ATMPE  |  RWWP  |  resv  |      AUTOLOAD MODE       |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * |                           BUSY TIMEOUT......                          |
+                     * |                           ............PERIOD                          |
+                     * |                           EXTENDED SELF TEST                          |
+                     * |                           ...COMPLETION TIME                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const control_page [] = {
+                        0x0A,
+                        0x0A,
+                        0b00000000,
+                        0b00001000,
+                        0b00000000,
+                        0b01000000,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    };
+                    LOGTRACE << "Adding control page.";
+                    memcpy(&buffer[param_cursor], control_page, sizeof(control_page));
                 }
+                param_cursor += 12;
                 break;;
             default:
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
