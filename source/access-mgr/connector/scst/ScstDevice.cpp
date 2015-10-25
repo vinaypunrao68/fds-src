@@ -444,9 +444,89 @@ void ScstDevice::execUserCmd() {
             // Add pages that were requested
             switch (page_code) {
             case 0x3F: // ALL pages please
+            case 0x01: // Read-Write Error Recovery Page
+                if (param_cursor + 12 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |  AWRE  |  ARRE  |   TB   |   RC   |  EER   |  PER   |  DTE   |  DCR   |
+                     * |                            READ RETRY COUNT                           |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * | LBPERE |                    resv                    |      MMC-6      |
+                     * |                           WRITE RETRY COUNT                           |
+                     * |                                  resv                                 |
+                     * |                           RECOVERY.........                           |
+                     * |                           ........TIME LIMIT                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const error_recovery_page [] = {
+                        0b00000001,
+                        0x0A,
+                        0b00000111,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0b00000000,
+                        0,
+                        0,
+                        0,
+                        0,
+                    };
+                    LOGTRACE << "Adding r/w error recovery page.";
+                    memcpy(&buffer[param_cursor], error_recovery_page, sizeof(error_recovery_page));
+                }
+                param_cursor += 12;
+                if (0x3F != page_code) break;;
+            case 0x02: // Disconnect-Reconnect Page
+                if (param_cursor + 16 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |                           BUFFER FULL RATIO                           |
+                     * |                           BUFFER EMPTY RATIO                          |
+                     * |                           BUS INACTIVITY....                          |
+                     * |                           .............LIMIT                          |
+                     * |                           DISCONNECT........                          |
+                     * |                           ........TIME LIMIT                          |
+                     * |                           CONNECT...........                          |
+                     * |                           ........TIME LIMIT                          |
+                     * |                           MAXIMUM...........                          |
+                     * |                           ........BURST SIZE                          |
+                     * |  EMDP  |     FAIR ARBITRATION    |  DIMM  |            DTDC           |
+                     * |                                  resv                                 |
+                     * |                           FIRST.............                          |
+                     * |                           ........BURST SIZE                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const disc_reconnect_page [] = {
+                        0x02,
+                        0x0E,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0b00000000,
+                        0,
+                        0,
+                        0,
+                    };
+                    LOGTRACE << "Adding disconnect-reconnect page.";
+                    memcpy(&buffer[param_cursor], disc_reconnect_page, sizeof(disc_reconnect_page));
+                }
+                param_cursor += 16;
+                if (0x3F != page_code) break;;
             case 0x08: // Caching Mode Page
                 if (param_cursor + 20 <= buflen) {
-                    LOGDEBUG << "Adding caching page.";
+                    LOGTRACE << "Adding caching page.";
                     uint32_t blocks_per_object = physical_block_size / logical_block_size;
                     buffer[param_cursor]        = 0x08;
                     buffer[param_cursor + 1]    = 0x12;
