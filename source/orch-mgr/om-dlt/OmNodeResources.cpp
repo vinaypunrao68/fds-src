@@ -1437,6 +1437,13 @@ OM_PmAgent::send_start_service
         set_node_state(fpi::FDS_Node_Up);
     }
 
+    if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
+        LOGDEBUG << "Node UUID(" 
+                 << std::hex << svc_uuid.svc_uuid << std::dec
+                 << ") state is discovered, changing to up.";
+        set_node_state(fpi::FDS_Node_Up);
+    }
+
     // Check to ensure that the node is up.
     if (node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         LOGDEBUG << "Attempting to start services on a node that is not up";
