@@ -126,13 +126,13 @@ class ObjMetaData : public serialize::Serializable {
 
     fds_uint8_t getDeleteCount() const;
 
-    void incrementDeleteCount();
+    fds_uint8_t incrementDeleteCount();
 
     void resetDeleteCount();
 
-    TimeStamp getTimeStamp() const;
+    util::TimeStamp getTimeStamp() const;
 
-    void updateTimestamp(TimeStamp &currentTime);
+    void updateTimestamp();
 
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
