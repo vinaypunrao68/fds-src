@@ -67,8 +67,8 @@ if __name__ == '__main__':
 
     test_suite = suiteConstruction(self=None, install= install)
 
-    #If there is no redeployment then teardown the cluster
-    if reusecluster is False:
+    #For remote nodes, if reusecluster is false then tear down the domain
+    if install is True and reusecluster is False:
         test_suite.addTest(testcases.TestFDSEnvMgt.TestFDSTeardownDomain())
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not
