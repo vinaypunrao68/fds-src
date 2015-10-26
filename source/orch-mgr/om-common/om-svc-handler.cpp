@@ -315,7 +315,11 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNORMAL << "Received Health Report: "
               << msg->healthReport.serviceInfo.svc_id.svc_name
               << " state: " << msg->healthReport.serviceState
-              << " status: " << msg->healthReport.statusCode;
+              << " status: " << msg->healthReport.statusCode 
+              << " uuid: " 
+              << std::hex 
+              << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+              << std::dec;
 
     ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
     fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
@@ -336,11 +340,14 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
             healthReportError(service_type, msg);
             break;
         case fpi::HEALTH_STATE_UNREACHABLE:
-            LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
-                      << " in state " << msg->healthReport.serviceState;
+            LOGERROR << "Handling unreachable event for service " 
+                     << msg->healthReport.serviceInfo.name
+                     << " in state " 
+                     << msg->healthReport.serviceState;
             // Track this error event as a timeout. We're assuming a timeout is
             // indistingusable from a service being unreachable.
             event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
+            healthReportUnreachable( service_type, msg ); 
             break;
         case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
             // Generally dispatched by PM when it sees a service's process abort unexpectedly
@@ -455,6 +462,35 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
         comp_type == fpi::FDSP_ACCESS_MGR,
         nullptr, dummyErr, nullptr);
 	 }
+}
+
+void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                            boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
+{
+    // we only handle specific erorrs from SM and DM for now
+    if ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) 
+    {
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+        OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+        if (agent) 
+        {
+            Error reportError(msg->healthReport.statusCode);
+            LOGERROR << "Will set service to failed state: "
+                     << msg->healthReport.serviceInfo.name
+                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+            agent->set_node_state(fpi::FDS_Node_Down);
+            domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
+        }
+        else
+        {
+            LOGDEBUG << "Got unreachable health report from service "
+                     << msg->healthReport.serviceInfo.svc_id.svc_name
+                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec
+                     << " that OM does not know about; ignoring";
+        }
+        return;
+    }
 }
 
 void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
