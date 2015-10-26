@@ -33,7 +33,7 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
 Error LiveObjectsDB::addObjectSet(const fds_token_id &smToken,
                                   const fds_volid_t &volId,
                                   const fds_uint64_t &dmUUID,
-                                  const TimeStamp &timeStamp,
+                                  const util::TimeStamp &timeStamp,
                                   const std::string &objectSetFilePath) {
     if (!db) { return ERR_INVALID; }
 
@@ -78,14 +78,19 @@ Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
 }
 
 Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
-                                        std::set<fds_uint64_t> &volumes) {
+                                        std::set<fds_volid_t> &volumes) {
     if (!db) { return ERR_INVALID; }
 
+    std::set<fds_uint64_t> volumeSet;
     std::string query = util::strformat("select volid from liveObjTbl where smtoken=%ld", smToken);
-    if (db->getIntValues(query.c_str(), volumes)) {
+    if (db->getIntValues(query.c_str(), volumeSet)) {
         LOGERROR << "Failed getting volume associations from live object table"
                  << " for objects in smtoken = " << smToken;
         return ERR_INVALID;
+    }
+
+    for (auto volId : volumeSet) {
+        volumes.insert(fds_volid_t(volId));
     }
     return ERR_OK;
 }

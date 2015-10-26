@@ -17,9 +17,10 @@
 #include <utility>
 #include <object-store/TieringConfig.h>
 #include <include/util/disk_utils.h>
-
+#include <util/bloomfilter.h>
 
 namespace fds {
+using util::BloomFilter;
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<fds_uint16_t>>
@@ -71,7 +72,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db"),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db")),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
@@ -1621,12 +1622,14 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     std::vector<BloomFilter> objectSets;
     typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
 
-    std::set<fds_uint64_t> volumes;
-    liveObjectsTable->findAssociatedVols(volumes);
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAssociatedVols(smToken, volumes);
 
     for (auto eachFile : bfFileNames) {
         serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
-        objectSets.push_back(BloomFilter().read(d));
+        BloomFilter bf;
+        bf.read(d);
+        objectSets.push_back(bf);
     }
 
     std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
@@ -1634,8 +1637,8 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     fds_uint64_t objsToDelete = 0;
 
     for (auto oid : allKeys) {
-        for (ObjSetIter iter = objectSets.begin();
-             iter != objectSets.end(); ++iter) {
+        ObjSetIter iter = objectSets.begin();
+        for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
                 break;
             }
@@ -1663,7 +1666,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
             if (shouldUpdateMeta) {
                 ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                 updatedMeta->updateTimestamp();
-                if (updatedMeta->incrementDeleteCount() >= THRESHOLD_DELETE_COUNT) {
+                if (updatedMeta->incrementDeleteCount() >= OBJ_DELETE_COUNT_THRESHOLD) {
                     ++objsToDelete;
                 }
                 metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);

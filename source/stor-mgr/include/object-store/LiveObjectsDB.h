@@ -31,6 +31,7 @@ class LiveObjectsDB {
         std::unique_ptr<SqliteDB> db = nullptr;
 
     public:
+        typedef std::unique_ptr<LiveObjectsDB> unique_ptr;
         explicit LiveObjectsDB(const std::string& dbFilePath);
         Error createLiveObjectsTblAndIdx();
         Error addObjectSet(const fds_token_id &smToken,
@@ -43,7 +44,7 @@ class LiveObjectsDB {
         Error findObjectSetsPerToken(const fds_token_id &smToken,
                                      std::set<std::string> &objSetFilenames);
         Error findAssociatedVols(const fds_token_id &smToken,
-                                 std::set<fds_uint64_t> volumes);
+                                 std::set<fds_volid_t> &volumes);
         ~LiveObjectsDB() { }
 };
 

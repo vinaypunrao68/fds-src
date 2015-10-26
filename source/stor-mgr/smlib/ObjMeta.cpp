@@ -18,7 +18,7 @@ ObjMetaData::ObjMetaData()
 
     obj_map.obj_magic = meta_obj_map_magic_value;
     obj_map.obj_map_ver = meta_obj_map_version;
-    obj_map.obj_access_time = getTimeStampNanos();
+    obj_map.obj_access_time = util::getTimeStampNanos();
     obj_map.delete_count = 0;
 
     phy_loc = &obj_map.loc_map[0];
@@ -888,11 +888,11 @@ ObjMetaData::getDeleteCount() const {
     return obj_map.delete_count;
 }
 void
-ObjMetaData::updateTimestamp(const TimeStamp &currentTime) {
-    obj_map.obj_access_time = getTimeStampNanos();
+ObjMetaData::updateTimestamp() {
+    obj_map.obj_access_time = util::getTimeStampNanos();
 }
 
-TimeStamp
+util::TimeStamp
 ObjMetaData::getTimeStamp() const {
     return obj_map.obj_access_time;
 }
