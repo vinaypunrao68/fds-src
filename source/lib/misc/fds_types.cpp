@@ -71,8 +71,12 @@ namespace fds {
     }
 
     ObjectID::ObjectID(const std::string& oid) {
-        fds_verify(oid.size() == sizeof(digest));
-        memcpy(digest, oid.c_str(), sizeof(digest));
+        fds_assert(oid.size() == sizeof(digest));
+        if (oid.size() != sizeof(digest)) {
+            GLOGERROR << "Invalid object id size " << oid.size();
+        } else {
+            memcpy(digest, oid.c_str(), sizeof(digest));
+        }
     }
 
     ObjectID::~ObjectID() { }
@@ -166,8 +170,12 @@ namespace fds {
      * Verifies the hex string and its format
      */
     ObjectID& ObjectID::operator=(const std::string& hexStr) {
-        fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
-        fds_verify(hexStr.size() == (40 + 2));  // Account for 0x
+        fds_assert(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
+        fds_assert(hexStr.size() == (40 + 2));  // Account for 0x
+        if ((hexStr.compare(0, 2, "0x") != 0) || hexStr.size() != (40 + 2)) {
+            GLOGERROR << "Object ID creation failed. Invalid input string";
+            return *this;
+        }
         char a, b;
         uint j = 0;
         // Start the offset at 2 to account of 0x
