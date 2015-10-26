@@ -915,7 +915,7 @@ class FdsConfigFile(object):
             if re.match('node', section):
                 number_of_nodes += 1
 
-        if cmd_line_options['install'] is True and cmd_line_options['reusecluster'] is False:
+        if cmd_line_options['install'] is True and cmd_line_options['reusecluster'] is not True:
             inventory_file = cmd_line_options['inventory_file']
             install_result = TestUtils.deploy_on_AWS(self,number_of_nodes,inventory_file)
             assert(install_result,True)
