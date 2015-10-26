@@ -134,16 +134,16 @@
       - install-local
 
 -   name: Install python-dev
-    when: fds_only_install is not defined or (fds_only_install is defined and fds_only_install == "no")
+    when: fds_only_install is defined and fds_only_install == "yes"
     apt: name=python-dev
 
 -   name: Install pip
-    when: fds_only_install is not defined or (fds_only_install is defined and fds_only_install == "no")
+    when: fds_only_install is defined and fds_only_install == "yes"
     apt: name=python-pip
 
 -   pip: name=psutil version=3.1.1
-    when: fds_only_install is not defined or (fds_only_install is defined and fds_only_install == "no")
+    when: fds_only_install is defined and fds_only_install == "yes"
 
 -   name: Install NBD-Client
-    when: fds_only_install is not defined or (fds_only_install is defined and fds_only_install == "no")
+    when: fds_only_install is defined and fds_only_install == "yes"
     apt: name=nbd-client
