@@ -520,11 +520,11 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
 
                             elif (action.count("add")) > 0:
                                 if service == "pm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "dm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "sm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "am":
                                     suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
 

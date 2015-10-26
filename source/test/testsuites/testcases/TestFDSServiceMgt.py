@@ -888,7 +888,6 @@ class TestAWSDMAdd(TestCase.FDSTestCase):
         service.type = 'DM'
         self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
         add_service = node_service.add_service(node_id, service)
-
         if (type(add_service).__name__ == 'FdsError'):
             if self.expect_to_fail:
                 if isinstance(add_service, FdsError):
