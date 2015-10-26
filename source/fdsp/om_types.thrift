@@ -6,7 +6,7 @@ namespace java com.formationds.protocol
 namespace java com.formationds.protocol.om.types
 namespace java com.formationds.protocol.pm.types
 
-
+include "common.thrift"
 include "pm_types.thrift"
 
 exception OmRegisterException {
