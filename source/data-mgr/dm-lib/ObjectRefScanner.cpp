@@ -5,41 +5,20 @@
 #include <lib/Catalog.h>
 #include <ObjectRefScanner.h>
 #include <DataMgr.h>
-#include <util/bloomfilter.h>
+#include <util/stringutils.h>
 
 namespace fds {
 
-inline std::string bloomfilterkey(const std::string &tag,
-                                  const fds_volid_t& volId,
-                                  const fds_token_id &tokenId)
+inline std::string volTokBloomFilterKey(const fds_volid_t& volId, 
+                                     const fds_token_id &tokenId)
 {
-    return util::strformat("%s_vol%ld_tok%d", tag.c_str(), volId, tokenId);
+    return util::strformat("vol%ld_tok%d", volId, tokenId);
 }
 
-/**
-* @brief Scans objects in a volume and updates bloomfilter
-*/
-struct VolumeObjectRefScanner : ObjectRefScanner {
-    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
-    Error init();
-    virtual Error scan() override;
-    virtual Error postScan() override;
-
-    virtual bool isComplete()  const override { return (itr != nullptr && !(itr->Valid())); }
-    virtual std::string logString() const override { return logStr; }
-
-    bool                                            bInited;
-    fds_volid_t                                     volId;
-    Catalog::MemSnap                                snap;
-    std::unique_ptr<Catalog::catalog_iterator_t>    itr;
-    std::string                                     logStr;
-};
-
-/**
-* @brief Scans objects in a snapshot and updates bloomfilter
-*/
-struct SnapshotRefScanner : ObjectRefScanner {
-};
+inline std::string aggrBloomFilterKey(const fds_token_id &tokenId)
+{
+    return util::strformat("aggr_tok%d", tokenId);
+}
 
 BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
 : basePath(path),
@@ -55,14 +34,14 @@ BloomFilterStore::~BloomFilterStore() {
 util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
     auto deserializer = serialize::getFileDeserializer(basePath + key);
     auto bloomfilter = util::BloomFilterPtr(new util::BloomFilter(bloomfilterBits));
-    auto readSize = bloomfilter.read(deserializer);
+    auto readSize = bloomfilter->read(deserializer);
     fds_verify(readSize == bloomfilterBits/8);
     return bloomfilter;
 }
 
 void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfilter) {
     auto serializer = serialize::getFileSerializer(basePath + key);
-    auto writeSize = bloomfilter.write(serializer);
+    auto writeSize = bloomfilter->write(serializer);
     fds_verify(writeSize == bloomfilterBits/8);
 }
 
@@ -101,7 +80,7 @@ util::BloomFilterPtr BloomFilterStore::getFromCache(const std::string &key) {
     return cache.begin()->bloomfilter;
 }
 
-util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create = true) {
+util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) {
     util::BloomFilterPtr bloomfilter;
     /* Check in the index */
     auto itr = index.find(key);
@@ -118,7 +97,7 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create =
         auto bloomfilter = getFromCache(key);
         if (!bloomfilter) {
             bloomfilter = load(key);
-            addToCache(bloomfilter);
+            addToCache(key, bloomfilter);
         }
     }
     return bloomfilter;
@@ -135,7 +114,7 @@ ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 
 void ObjectRefMgr::mod_startup() {
     auto dmUserRepo = MODULEPROVIDER()->proc_fdsroot()->dir_user_repo_dm();
-    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo), 5);
+    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo.c_str()), 5));
 
     auto timer = MODULEPROVIDER()->getTimer();
     scanTask = boost::shared_ptr<FdsTimerTask>(
@@ -166,11 +145,11 @@ void ObjectRefMgr::scan() {
         if (e != ERR_OK) {
             /* Report the error and move on */
             GLOGWARN<< "Failed to scan: " << currentItr->logString() << " " << e;
-            currentItr->postScan();
+            currentItr->finishScan(e);
             currentItr++;
         } else {
             if (currentItr->isComplete()) {
-                currentItr->postScan();
+                currentItr->finishScan(ERR_OK);
                 currentItr++;
             }
         }
@@ -188,12 +167,14 @@ void ObjectRefMgr::scan() {
 }
 
 void ObjectRefMgr::buildScanList() {
+    currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     // TODO(Rao): Get list of volumes and create volume contexts for each volume
-    // TODO(Rao): Initialize aggr bloomfilters
 }
 
 VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
+: ObjectRefScanner(m)
 {
+    volId = vId;
     std::stringstream ss;
     ss << "VolumeRefScannerContext:" << vId;
     logStr = ss.str();
@@ -201,6 +182,7 @@ VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vI
     scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, vId)));
     // TODO(Rao): Add snapshots as well
     itr = scanners.begin();
+    state = SCANNING;
 }
 
 Error VolumeRefScannerContext::scan() {
@@ -210,11 +192,11 @@ Error VolumeRefScannerContext::scan() {
         e = scanner->scan();
         if (e != ERR_OK) {
             GLOGWARN<< "Failed to scan: " << scanner->logString() << " " << e;
-            scanner->postScan();
+            scanner->finishScan(e);
             itr++;
         } else {
             if (scanner->isComplete()) {
-                scanner->postScan();
+                scanner->finishScan(ERR_OK);
                 itr++;
             }
         }
@@ -222,14 +204,29 @@ Error VolumeRefScannerContext::scan() {
     return e;
 }
 
-Error VolumeRefScannerContext::postScan() {
-    // TODO(Rao): Either write the bloom filter to  a file or schedule a task to send the
-    // bloom filters to SMs
+Error VolumeRefScannerContext::finishScan(const Error &e) {
+    state = COMPLETE;
+    completionError = e;
+    if (e != ERR_OK) {
+        /* Scan completed with an error.  Nothing more to do */
+        return ERR_OK;
+    }
+
+    /* For each token update the aggregate bloom filter */
+    auto bfStore = objRefMgr->getBloomFiltersStore();
+    auto tokenCnt = objRefMgr->getCurrentDlt()->getNumTokens();
+    for (uint32_t token = 0; token < tokenCnt; token++) {
+        auto bloomfilter = bfStore->get(volTokBloomFilterKey(volId, token), false);
+        if (!bloomfilter) continue;
+        auto aggrbloomfilter = bfStore->get(aggrBloomFilterKey(token));
+        aggrbloomfilter->merge(*bloomfilter);
+    }
+    objRefMgr->getScanSuccessVols().push_back(volId);
     return ERR_OK;
 }
 
 bool VolumeRefScannerContext::isComplete() const {
-    return itr == scanners.end();
+    return (state == COMPLETE || itr == scanners.end());
 }
 
 std::string VolumeRefScannerContext::logString() const {
@@ -259,13 +256,13 @@ Error VolumeObjectRefScanner::init() {
 }
 
 Error VolumeObjectRefScanner::scan() {
-    if (!bInited) {
+    if (state == INIT) {
         auto error = init();
         if (error != ERR_OK) {
             GLOGWARN << "Failed to initialize " << logString();
             return error;
         }
-        bInited = true;
+        state = SCANNING;
     }
 
     auto currentDlt = objRefMgr->getCurrentDlt();
@@ -286,31 +283,25 @@ Error VolumeObjectRefScanner::scan() {
      */
     auto bfStore = objRefMgr->getBloomFiltersStore();
     for (const auto &kv : tokenObjects) {
-        auto bloomfilter = bfStore->get(bloomfilterkey("bf", volId, kv.first);
+        auto bloomfilter = bfStore->get(volTokBloomFilterKey(volId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
-            bloomfilter.add(oid);
+            bloomfilter->add(oid);
         }
     }
     
     return ERR_OK;
 }
 
-Error VolumeObjectRefScanner::postScan() {
+Error VolumeObjectRefScanner::finishScan(const Error &e) {
+    state = COMPLETE;
+    completionError = e;
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
     auto err = volcatIf->freeVolumeSnapshot(volId, snap);
     if (err != ERR_OK) {
        GLOGWARN << "Failed to release snapshot for volId: " << volId; 
     }
 
-    auto bfStore = objRefMgr->getBloomFiltersStore();
-    auto tokenCnt = objRefMgr->getCurrentDlt()->getNumTokens();
-    for (uint32_t token = 0; token < tokenCnt; token++) {
-        auto bloomfilter = bfStore->get(bloomfilterkey("bf", volId, token), false);
-        if (!bloomfilter) continue;
-        auto aggrbloomfilter = bfStore->get(bloomfilterkey("aggr", volId, token));
-        aggrbloomfilter->merge(*bloomfilter);
-    }
     return err;
 }
 

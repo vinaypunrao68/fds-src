@@ -11,6 +11,7 @@
 #include <fds_module_provider.h>
 #include <dmhandler.h>
 #include <fds_timer.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
 /* Forward declarations */
@@ -26,11 +27,11 @@ struct DataMgr;
 struct BloomFilterStore {
     BloomFilterStore(const std::string &path, uint32_t cacheSize);
     virtual ~BloomFilterStore();
-    BloomFilterPtr get(const std::string &key, bool create = true);
+    util::BloomFilterPtr get(const std::string &key, bool create = true);
 
  protected:
-    BloomFilterPtr load(const std::string &key);
-    void save(const std::string &key, BloomFilterPtr bloomfilter);
+    util::BloomFilterPtr load(const std::string &key);
+    void save(const std::string &key, util::BloomFilterPtr bloomfilter);
     void addToCache(const std::string &key, util::BloomFilterPtr bloomfilter);
     util::BloomFilterPtr getFromCache(const std::string &key);
 
@@ -58,16 +59,27 @@ struct BloomFilterStore {
 */
 struct ObjectRefScanner {
     explicit ObjectRefScanner(ObjectRefMgr* m)
-    : objRefMgr(m) {
+    : objRefMgr(m),
+      state(INIT),
+      completionError(ERR_OK)
+    {
     }
     virtual ~ObjectRefScanner() {}
     virtual Error scan() = 0;
-    virtual Error postScan() = 0;
+    virtual Error finishScan(const Error &e) = 0;
     virtual bool isComplete() const = 0;
     virtual std::string logString() const = 0;
 
  protected:
+    enum State {
+        INIT,
+        SCANNING,
+        COMPLETE
+    };
+
     ObjectRefMgr        *objRefMgr;
+    State               state;
+    Error               completionError;
 };
 using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
 
@@ -75,16 +87,42 @@ using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
 * @brief Manages collection of ObjectRefScanner.  Each ObjectRefScanner represents
 * either a volume  or a snapshot
 */
-struct VolumeRefScannerContext {
+struct VolumeRefScannerContext : ObjectRefScanner {
     VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId);
     Error scan();
-    Error postScan();
+    Error finishScan(const Error &e);
     bool isComplete() const;
     std::string logString() const;
 
+    fds_volid_t                                     volId;
     std::string                                     logStr;
     std::list<ObjectRefScannerPtr>                  scanners;
     std::list<ObjectRefScannerPtr>::iterator        itr;
+};
+
+/**
+* @brief Scans objects in a volume and updates bloomfilter
+*/
+struct VolumeObjectRefScanner : ObjectRefScanner {
+    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
+    Error init();
+    virtual Error scan() override;
+    virtual Error finishScan(const Error &e) override;
+
+    virtual bool isComplete()  const override { return (itr != nullptr && !(itr->Valid())); }
+    virtual std::string logString() const override { return logStr; }
+
+    bool                                            bInited;
+    fds_volid_t                                     volId;
+    Catalog::MemSnap                                snap;
+    std::unique_ptr<Catalog::catalog_iterator_t>    itr;
+    std::string                                     logStr;
+};
+
+/**
+* @brief Scans objects in a snapshot and updates bloomfilter
+*/
+struct SnapshotRefScanner : ObjectRefScanner {
 };
 
 /**
@@ -110,8 +148,9 @@ struct ObjectRefMgr : HasModuleProvider, Module {
 
     inline DataMgr* getDataMgr() const { return dataMgr; }
     inline uint32_t getMaxEntriesToScan() const { return maxEntriesToScan; }
-    inline DLT* getCurrentDlt() const { return currentDlt; }
+    inline const DLT* getCurrentDlt() const { return currentDlt; }
     inline BloomFilterStore* getBloomFiltersStore() const {return bfStore.get(); }
+    std::list<fds_volid_t>& getScanSuccessVols() { return scanSuccessVols; }
 
  protected:
     /**
@@ -119,23 +158,17 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     */
     void buildScanList();
 
-    enum State {
-        DISABLED,
-        SCHEDULED,
-        RUNNING
-    };
-
     DataMgr                                     *dataMgr;
-    DLT                                         *currentDlt;
+    const DLT                                   *currentDlt;
     std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;
     std::mutex                                  scannerLock;
-    State                                       state;
     std::list<VolumeRefScannerContext>          scanList;
     std::list<VolumeRefScannerContext>::iterator currentItr;
+    std::list<fds_volid_t>                      scanSuccessVols;
 };
 
 }  // namespace fds
