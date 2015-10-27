@@ -134,7 +134,7 @@
       - install-local
 
 -   name: install fds-stats deps
-      apt: name=fds-stats-deps force=yes state=latest update_cache=yes
+    apt: name=fds-stats-deps force=yes state=latest update_cache=yes
 
 -   name: install fds-stats-service deb
     apt: name=fds-stats-service force=yes state=latest update_cache=yes
