@@ -35,17 +35,20 @@ fi
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
+RABBITDIR="/opt/fds-stats-deps/embedded/bin"
+STATSDIR="/opt/fds-stats/embedded"
 
 ########################################################################
 
 REDIS_ARG=
 
 # Variables
-applist="pm om dm sm am xdi"
+applist="pm om dm sm am xdi stats rabbitmq"
 declare -A proc
 proc["am"]="bare_am"
 proc["xdi"]="java"
 proc["om"]="java"
+proc["stats"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
@@ -54,6 +57,8 @@ apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
+apps["rabbitmq"]="rabbitmq"
+apps["stats"]="stats.service.Main"
 
 declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
@@ -215,6 +220,16 @@ function startApp() {
             ;;
     esac
 
+    # start rabbit mq if needed
+    case ${appname} in
+        stats|all|rabbitmq)
+            loginfo "Starting RabbitMQ server..."
+            ${RABBITDIR}/rabbitmq-server start &
+	    loginfo "Starting stats service..."
+            ${STATSDIR}/scripts/fds-stats-service &
+            ;;
+    esac
+
     for name in $justapps ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(getAppPid $name)
@@ -278,6 +293,13 @@ function stopApp() {
             if [ "$CMD" != "clean" ]; then
                 stopInfluxDB
             fi
+            ;;
+    esac
+
+    # Stop the stats service and rabbitmq
+    case "$appname" in
+        stats|rabbitmq|all)
+            ${RABBITDIR}/rabbitmqctl -q stop >> /dev/null
             ;;
     esac
 
@@ -413,10 +435,12 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-    if [[ $name == "om" ]]; then
+    if [[ ${name} == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
-    elif [[  $name == "xdi"  ]]; then
+    elif [[  ${name} == "xdi"  ]]; then
         pid="$(pgrep -f com.formationds.am.Main)"
+    elif [[  ${name} == "stats"  ]]; then
+        pid="$(pgrep -f com.formationds.stats.service.Main)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
