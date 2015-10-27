@@ -771,7 +771,8 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // commit DMT
     vp->commitDMT();
 
-    // broadcast DMT to DMs first, once we receive acks, will broadcast to AMs
+    // broadcast DMT to DMs first, once we receive acks, will broadcast
+    // to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
                                                        vp->getCommittedDMT());
     // there are must be nodes to which we send new DMT
