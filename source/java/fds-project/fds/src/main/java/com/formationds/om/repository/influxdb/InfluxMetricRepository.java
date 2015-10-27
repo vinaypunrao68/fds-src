@@ -9,6 +9,7 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.EndUserMessages;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.helper.VolumeDatapointHelper;
@@ -348,7 +349,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             return volumeDescriptors.stream().map( VolumeDescriptor::getVolId ).collect( Collectors.toList() );
 
         } catch (TException te ) {
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
         }
     }
 

@@ -1215,14 +1215,6 @@ OM_PmAgent::send_add_service
     TRACEFUNC;
     Error err(ERR_OK);
 
-
-    // We only do addService from 'discovered' state or 'node up' state
-    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
-        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
-        LOGERROR << "Node is in invalid state";
-        return Error(ERR_INVALID_ARG);
-    }
-
     bool add_sm = false;
     bool add_dm = false;
     bool add_am = false;
@@ -1442,6 +1434,13 @@ OM_PmAgent::send_start_service
         fds::change_service_state( configDB,
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_ACTIVE );
+        set_node_state(fpi::FDS_Node_Up);
+    }
+
+    if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
+        LOGDEBUG << "Node UUID(" 
+                 << std::hex << svc_uuid.svc_uuid << std::dec
+                 << ") state is discovered, changing to up.";
         set_node_state(fpi::FDS_Node_Up);
     }
 
@@ -1714,9 +1713,9 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fds_mutex::scoped_lock l(dbNodeInfoLock);
 
-    if (error.ok()) {
+    if ( error.ok() ) {
          // Set SM service state to inactive
-        if ( stop_sm ) {
+        if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    smSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
@@ -1724,7 +1723,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          }
 
          // Set DM service state to inactive
-         if ( stop_dm ) {
+         if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    dmSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
@@ -1732,7 +1731,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          }
 
          // Set AM service state to inactive
-         if ( stop_am ) {
+         if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    amSvcId.svc_uuid,
                                    fpi::SVC_STATUS_INACTIVE );
@@ -1913,6 +1912,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
+
+    fpi::SvcUuid svcuuid;
 
     if (configDB->getNodeServices(nodeUuid, services))
     {

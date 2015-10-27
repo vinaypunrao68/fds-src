@@ -87,31 +87,6 @@ AmAsyncXdiResponse::initiateClientConnect() {
     }
 }
 
-boost::shared_ptr<fpi::ErrorCode>
-AmAsyncXdiResponse::mappedErrorCode(Error const& error) const {
-    auto code = boost::make_shared<fpi::ErrorCode>();
-    switch (error.GetErrno()) {
-        case ERR_DUPLICATE:
-        case ERR_HASH_COLLISION:
-        case ERR_VOL_DUPLICATE:
-            *code = fpi::RESOURCE_ALREADY_EXISTS;
-            break;;
-        case ERR_NOT_FOUND:
-        case ERR_BLOB_NOT_FOUND:
-        case ERR_CAT_ENTRY_NOT_FOUND:
-        case ERR_VOL_NOT_FOUND:
-            *code = fpi::MISSING_RESOURCE;
-            break;;
-        case ERR_VOLUME_ACCESS_DENIED:
-            *code = fpi::SERVICE_NOT_READY;
-            break;;
-        default:
-            *code = fpi::BAD_REQUEST;
-            break;;
-    }
-    return code;
-}
-
 void
 AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& requestId,
                        boost::shared_ptr<int32_t>& port) {
@@ -120,21 +95,21 @@ AmAsyncXdiResponse::handshakeComplete(boost::shared_ptr<apis::RequestId>& reques
 }
 
 void
-AmAsyncXdiResponse::attachVolumeResp(const Error &error,
+AmAsyncXdiResponse::attachVolumeResp(const fpi::ErrorCode &error,
                                      boost::shared_ptr<apis::RequestId>& requestId,
                                      boost::shared_ptr<VolumeDesc>& volDesc,
                                      boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::attachVolumeResponse, requestId, mode);
     }
 }
 
 void
-AmAsyncXdiResponse::detachVolumeResp(const Error &error,
+AmAsyncXdiResponse::detachVolumeResp(const fpi::ErrorCode &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
     // XXX(bszmyd): Mon 22 Jun 2015 08:59:38 AM MDT
     // Not implemented for Xdi
@@ -142,124 +117,124 @@ AmAsyncXdiResponse::detachVolumeResp(const Error &error,
 }
 
 void
-AmAsyncXdiResponse::startBlobTxResp(const Error &error,
+AmAsyncXdiResponse::startBlobTxResp(const fpi::ErrorCode &error,
                                     boost::shared_ptr<apis::RequestId>& requestId,
                                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::startBlobTxResponse, requestId, txDesc);
     }
 }
 
 void
-AmAsyncXdiResponse::abortBlobTxResp(const Error &error,
+AmAsyncXdiResponse::abortBlobTxResp(const fpi::ErrorCode &error,
                                     boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::abortBlobTxResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::commitBlobTxResp(const Error &error,
+AmAsyncXdiResponse::commitBlobTxResp(const fpi::ErrorCode &error,
                                      boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::commitBlobTxResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::updateBlobResp(const Error &error,
+AmAsyncXdiResponse::updateBlobResp(const fpi::ErrorCode &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::updateBlobResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::updateBlobOnceResp(const Error &error,
+AmAsyncXdiResponse::updateBlobOnceResp(const fpi::ErrorCode &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::updateBlobOnceResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::updateMetadataResp(const Error &error,
+AmAsyncXdiResponse::updateMetadataResp(const fpi::ErrorCode &error,
                                        boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::updateMetadataResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::renameBlobResp(const Error &error,
+AmAsyncXdiResponse::renameBlobResp(const fpi::ErrorCode &error,
                                    boost::shared_ptr<apis::RequestId>& requestId,
                                    boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::renameBlobResponse, requestId, blobDesc);
     }
 }
 
 void
-AmAsyncXdiResponse::deleteBlobResp(const Error &error,
+AmAsyncXdiResponse::deleteBlobResp(const fpi::ErrorCode &error,
                                    boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::deleteBlobResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::statBlobResp(const Error &error,
+AmAsyncXdiResponse::statBlobResp(const fpi::ErrorCode &error,
                                  boost::shared_ptr<apis::RequestId>& requestId,
                                  boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::statBlobResponse, requestId, blobDesc);
     }
 }
 
 void
-AmAsyncXdiResponse::volumeStatusResp(const Error &error,
+AmAsyncXdiResponse::volumeStatusResp(const fpi::ErrorCode &error,
                                      boost::shared_ptr<apis::RequestId>& requestId,
                                      boost::shared_ptr<apis::VolumeStatus>& volumeStatus) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::volumeStatus, requestId, volumeStatus);
     }
@@ -267,54 +242,54 @@ AmAsyncXdiResponse::volumeStatusResp(const Error &error,
 
 void
 AmAsyncXdiResponse::volumeContentsResp(
-        const Error &error,
+        const fpi::ErrorCode &error,
         boost::shared_ptr<apis::RequestId>& requestId,
         boost::shared_ptr<std::vector<fpi::BlobDescriptor>>& volContents,
         boost::shared_ptr<std::vector<std::string>>& skippedPrefixes) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::volumeContents, requestId, volContents, skippedPrefixes);
     }
 }
 
 void
-AmAsyncXdiResponse::setVolumeMetadataResp(const Error &error,
+AmAsyncXdiResponse::setVolumeMetadataResp(const fpi::ErrorCode &error,
                                           boost::shared_ptr<apis::RequestId>& requestId) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::setVolumeMetadataResponse, requestId);
     }
 }
 
 void
-AmAsyncXdiResponse::getVolumeMetadataResp(const Error &error,
+AmAsyncXdiResponse::getVolumeMetadataResp(const fpi::ErrorCode &error,
                                           boost::shared_ptr<apis::RequestId>& requestId,
                                           api_type::shared_meta_type& metadata) {
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         xdiClientCall(&client_type::getVolumeMetadataResponse, requestId, metadata);
     }
 }
 
 void
-AmAsyncXdiResponse::getBlobResp(const Error &error,
+AmAsyncXdiResponse::getBlobResp(const fpi::ErrorCode &error,
                                 boost::shared_ptr<apis::RequestId>& requestId,
                                 const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                                 int& length) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
         // When Xdi and AmProc support vectored reads, return the whole
@@ -326,16 +301,16 @@ AmAsyncXdiResponse::getBlobResp(const Error &error,
 }
 
 void
-AmAsyncXdiResponse::getBlobWithMetaResp(const Error &error,
+AmAsyncXdiResponse::getBlobWithMetaResp(const fpi::ErrorCode &error,
                                         boost::shared_ptr<apis::RequestId>& requestId,
                                         const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                                         int& length,
                                         boost::shared_ptr<fpi::BlobDescriptor>& blobDesc) {
     static auto empty_buffer = boost::make_shared<std::string>(0, 0x00);
-    if (!error.ok()) {
+    if (fpi::OK != error) {
         boost::shared_ptr<std::string> message(boost::make_shared<std::string>());
-        auto errorCode = mappedErrorCode(error);
-        xdiClientCall(&client_type::completeExceptionally, requestId, errorCode, message);
+        auto code = boost::make_shared<fpi::ErrorCode>(error);
+        xdiClientCall(&client_type::completeExceptionally, requestId, code, message);
     } else {
         // TODO(bszmyd): Mon 27 Apr 2015 06:17:05 PM MDT
         // When Xdi and AmProc support vectored reads, return the whole

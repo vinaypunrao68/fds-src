@@ -46,7 +46,7 @@ struct CtrlTokenMigrationAbort {
  */
 struct CtrlSvcEvent {
   /** Uuid of service which caused error */
-  1: required common.SvcUuid    evt_src_svc_uuid;
+  1: required svc_types.SvcUuid    evt_src_svc_uuid;
   /** Error Code */
   2: required i32               evt_code;
   /** Message causing the Error */
@@ -84,7 +84,7 @@ service OMSvc extends svc_api.PlatNetSvc {
   *
   * @return
   */
-  svc_types.SvcInfo getSvcInfo(1: common.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
+  svc_types.SvcInfo getSvcInfo(1: svc_types.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
 
   /**
   * @brief Called by other managers to pull the DMT

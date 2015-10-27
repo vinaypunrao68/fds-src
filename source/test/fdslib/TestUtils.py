@@ -82,7 +82,7 @@ def get_options(pyUnit):
                    "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
-                   "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
+                   "[-v|--verbose] [-y|--reusecluster] [-r|--dryrun]> [-i|--install]>"
 
     # FDS: Changed to option i/ini_file from c/config to prevent clashing with PyUnit's c/catch option.
     parser.add_option("-q", "--qat-file", action="store", type="string",
@@ -124,6 +124,8 @@ def get_options(pyUnit):
     # FDS: Add a couple of FDS-specific options.
     parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
                       help = 'enable verbosity')
+    parser.add_option('-y', '--reusecluster', action = 'store_true', dest = 'reusecluster',
+                      help = 'Dont deploy or teardown domain, use existing nodes and then clean them instead of uninstalling')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
     parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
@@ -155,7 +157,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None, pyUnitReuseCluster = False):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
