@@ -14,6 +14,8 @@
 #include <fiu-control.h>
 #include <fdsp/sm_types_types.h>
 #include <util/Log.h>
+#include <util/bloomfilter.h>
+#include <object-store/LiveObjectsDB.h>
 #include <fdsp_utils.h>
 #include <fds_types.h>
 #include <ObjectId.h>
@@ -34,6 +36,7 @@ static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 static TestVolume::ptr volume1;
 static TestVolume::ptr largeCapVolume;
+static TestVolume::ptr vlargeCapVolume;
 static TestVolume::ptr largeObjVolume;
 static TestVolume::ptr migrVolume;
 
@@ -221,6 +224,57 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
         threads_[x] = NULL;
     }
     threads_.clear();
+}
+
+TEST_F(SmObjectStoreTest, evaluate_object_sets) {
+    Error err(ERR_OK);
+    fds_token_id smToken = 1;
+    vlargeCapVolume.reset(new TestVolume(fds_volid_t(200), "ut_vol_vcapacity",
+                                        20, 0,
+                                        TestVolume::STORE_OP_PUT,
+                                        400, 4096, smToken));
+    volTbl->registerVolume(vlargeCapVolume->voldesc_);
+
+
+    std::unique_ptr<util::BloomFilter> bf(new util::BloomFilter());
+
+    // populate store
+    for (fds_uint32_t i = 0; i < (vlargeCapVolume->testdata_).dataset_.size(); ++i) {
+        ObjectID oid = (vlargeCapVolume->testdata_).dataset_[i];
+        boost::shared_ptr<std::string> data =
+                (vlargeCapVolume->testdata_).dataset_map_[oid].getObjectData();
+        bool alternate_flag = true;
+        std::cout << "smToken = " << SmDiskMap::smTokenId(oid, bitsPerDltToken)
+                  << " objectId = " << oid;
+        if (SmDiskMap::smTokenId(oid, bitsPerDltToken) == 1) {
+            err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false);
+            if (alternate_flag) {
+                bf->add(oid);
+                alternate_flag = false;
+            } else {
+                alternate_flag = true;
+            }
+            EXPECT_TRUE(err.ok());
+        }
+    }
+    std::string bfFileName("vlargeCapVolume.bf");
+    serialize::Serializer* s=serialize::getFileSerializer(bfFileName);
+    if (bf->write(s) <= 0) {
+        std::cout << "read failed" << std::endl;
+    }
+    delete s;
+
+    objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID, 1, bfFileName);
+
+    diskio::TokenStat tokStats;
+
+    objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
+
+    fds_uint64_t toDelete = tokStats.tkn_tot_size / 2;
+    EXPECT_EQ(tokStats.tkn_reclaim_size, toDelete);
+
+    float_t used_pct = objectStore->getUsedCapacityAsPct();
+    EXPECT_TRUE(used_pct > 0);
 }
 
 TEST_F(SmObjectStoreTest, one_thread_puts) {

@@ -76,6 +76,7 @@ ObjectStore::ObjectStore(const std::string &modName,
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
+   liveObjectsTable->createLiveObjectsTblAndIdx();
 }
 
 ObjectStore::~ObjectStore() {
@@ -1584,6 +1585,15 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
         LOGNOTIFY << "Close and delete token files for smTokens ";
         dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
     }
+}
+void
+ObjectStore::addObjectSet(const fds_token_id &smToken,
+                          const fds_volid_t &volId,
+                          const fds_uint64_t &dmUUID,
+                          const std::string &objectSetFilePath) {
+    liveObjectsTable->addObjectSet(smToken, volId, dmUUID,
+                                   util::getTimeStampNanos(),
+                                   objectSetFilePath);
 }
 
 void

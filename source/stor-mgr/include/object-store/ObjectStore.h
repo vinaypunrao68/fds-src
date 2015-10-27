@@ -320,10 +320,15 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
-   void evaluateObjectSets(const fds_token_id& smToken,
+    void evaluateObjectSets(const fds_token_id& smToken,
                            const diskio::DataTier& tier,
                            diskio::TokenStat &tokStats);
 
+    void addObjectSet(const fds_token_id &smToken,
+                      const fds_volid_t &volId,
+                      const fds_uint64_t &dmUUID,
+                      const std::string &objectSetFilePath);
+ 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
     Error tieringControlCmd(SmTieringCmd* tierCmd);

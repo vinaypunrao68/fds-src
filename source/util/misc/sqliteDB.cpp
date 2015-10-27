@@ -69,7 +69,7 @@ int SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
     return errorCode;
 }
 
-int SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &value) {
+bool SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &value) {
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -90,10 +90,10 @@ int SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &val
         }
     } while (errorCode == SQLITE_ROW);
     sqlite3_finalize(stmt);
-    return errorCode;
+    return (errorCode == SQLITE_DONE);
 }
 
-int SqliteDB::getTextValues(const std::string &query, std::set<std::string> &value) {
+bool SqliteDB::getTextValues(const std::string &query, std::set<std::string> &value) {
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -116,7 +116,7 @@ int SqliteDB::getTextValues(const std::string &query, std::set<std::string> &val
         }
     } while (errorCode == SQLITE_ROW);
     sqlite3_finalize(stmt);
-    return errorCode;
+    return (errorCode == SQLITE_DONE);
 }
 
 } // end namespace fds
