@@ -64,6 +64,7 @@ namespace fds
                     svcs.push_back( svc );
 
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+                    configDB->updateSvcMap( svc );
 
                     LOGDEBUG << "Successfully updated svcmaps service ID ( " 
                              << std::hex << svc_uuid << std::dec 

@@ -344,10 +344,12 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                      << msg->healthReport.serviceInfo.name
                      << " in state " 
                      << msg->healthReport.serviceState;
+
+            healthReportUnreachable( service_type, msg );
+
             // Track this error event as a timeout. We're assuming a timeout is
-            // indistingusable from a service being unreachable.
+            // indistinguishable from a service being unreachable.
             event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
-            healthReportUnreachable( service_type, msg ); 
             break;
         case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
             // Generally dispatched by PM when it sees a service's process abort unexpectedly
@@ -467,8 +469,8 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
-    // we only handle specific erorrs from SM and DM for now
-    if ( (svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) 
+    // we only handle specific errors from SM and DM for now
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
     {
         auto domain = OM_NodeDomainMod::om_local_domain();
         NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
@@ -478,12 +480,21 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                  << msg->healthReport.serviceInfo.name
                  << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
         
+        OM_NodeAgent::pointer agent = domain->om_all_agent( uuid );
+        if ( agent )
+        {
+            /*
+             *  required so that DMT/DLT will see it as a failed service
+             */
+            agent->set_node_state( fpi::FDS_Node_Down );
+        }
+
         /*
          * change the state and update service map; then broadcast updated service map
-         */         
+         */
         domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type );
-        // domain->om_service_down( reportError, uuid, svc_type );
-        
+        domain->om_service_down( reportError, uuid, svc_type );
+
         return;
     }
 }
@@ -492,7 +503,7 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
                                      boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
     Error reportError(msg->healthReport.statusCode);
 
-    // we only handle specific erorrs from SM and DM for now
+    // we only handle specific errors from SM and DM for now
     if ((svc_type == fpi::FDSP_STOR_MGR) ||
         (svc_type == fpi::FDSP_DATA_MGR)) {
         if ((reportError == ERR_SERVICE_CAPACITY_FULL) ||
