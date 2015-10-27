@@ -550,7 +550,7 @@ DataPlacement::mod_init(SysParams const *const param) {
     LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
               << ", dlt depth " << curDltDepth
               << ", algorithm " << algo_type_str
-              <<", number of primary SMs" << numOfPrimarySMs;
+              << ", number of primary SMs " << numOfPrimarySMs;
 
     return 0;
 }
