@@ -1924,18 +1924,17 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                     // This is done so that a removed node
                     // can be re-added back if needed
 
-                    LOGDEBUG << "Changing PM state to DISCOVERED";
+                    LOGNOTIFY << "All services removed, setting node: "
+                              << get_node_name() << ":"
+                              << std::hex
+                              << get_uuid().uuid_get_val()
+                              << std::dec << "back to discovered";
+
+                    set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
+
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
                                                fpi::SVC_STATUS_DISCOVERED );
-                    
-                    // Also set the node state to discovered
-                    set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
-
-                    LOGNOTIFY << "Removed node: " << get_node_name() << ":"
-                              << std::hex
-                              << get_uuid().uuid_get_val()
-                              << std::dec << " from configDB";
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
