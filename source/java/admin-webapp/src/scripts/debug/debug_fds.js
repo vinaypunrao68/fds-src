@@ -5,7 +5,9 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
     $scope.timeLabels = [ '15 minutes ago', 'Now' ];
-    $scope.amPutReqs = { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]};
+    $scope.statChoices = [{name: 'AM Put Requests', value: 'AM_PUT_OBJ_REQ'}];
+    $scope.chart1Data = { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]};
+    $scope.chart1Choice = undefined;
     
     var pollId = -1;
     var myQueue = '';
@@ -21,7 +23,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         var points = Math.round( 60*60*$scope.duration / interval );
         
         for ( var i = 0; i < points; i++ ){
-            $scope.amPutReqs.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
+            $scope.chart1Data.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
         }
     };
     
@@ -86,7 +88,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
                     });
         };
             
-        var declareExchange = function( resopnse ){
+        var declareExchange = function( response ){
             
             var route = 'api/exchanges/%2F/admin';
             var data = {

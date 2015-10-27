@@ -7,7 +7,8 @@
     <button class="btn btn-primary skinny" ng-click="stop()">Stop Profiling</button>
 
     <div style="width: 450px;height: 200px;margin-top: 24px;">
-        <stats-line-chart ng-model="amPutReqs" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="AM_PUT_OBJ_REQ" title="AM PUT Requests" duration="duration"></stats-line-chart>
+        <fui-dropdown selected="chart1Choice" items="statChoices"></fui-dropdown>
+        <stats-line-chart ng-model="chart1Data" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="AM_PUT_OBJ_REQ" title="chart1Choice" duration="duration"></stats-line-chart>
     </div>
     
     <div style="height: 100px;"></div>
