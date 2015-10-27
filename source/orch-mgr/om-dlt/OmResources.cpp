@@ -2651,11 +2651,22 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType) {
-    if (svcType == fpi::FDSP_STOR_MGR) {
+                                  fpi::FDSP_MgrIdType svcType) 
+{
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if (svcType == fpi::FDSP_STOR_MGR)
+    {
+        change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE ); 
+        om_locDomain->om_bcast_svcmap();
+
         // this is SM -- notify DLT state machine
         om_dlt_update_cluster();
-    } else if (svcType == fpi::FDSP_DATA_MGR) {
+    }
+    else if (svcType == fpi::FDSP_DATA_MGR)
+    {
+        change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE ); 
+        om_locDomain->om_bcast_svcmap();
+
         // this is DM -- notify DMT state machine
         om_dmt_update_cluster();
     }

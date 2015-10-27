@@ -35,9 +35,29 @@ namespace fds
          */
         if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
         {
-            LOGDEBUG << "Successfully changed service ID ( " 
+            LOGDEBUG << "Successfully updated configdbs service ID ( " 
                      << std::hex << svc_uuid << std::dec << " ) "
                      << "state to ( " << svc_status << " )";
+
+            fpi::SvcInfo svc;
+            fpi::SvcUuid svcUuid;
+            svcUuid.svc_uuid = svc_uuid;
+
+            bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
+            if ( ret )
+            {
+                svc.incarnationNo = util::getTimeStampSeconds();
+                svc.svc_status = svc_status;
+
+                std::vector<fpi::SvcInfo> svcs;
+                svcs.push_back( svc );
+
+                MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+
+                LOGDEBUG << "Successfully updated svcmaps service ID ( " 
+                         << std::hex << svc_uuid << std::dec << " ) "
+                         << "state to ( " << svc_status << " )";     
+            }     
         }
         else
         {

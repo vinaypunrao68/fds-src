@@ -468,18 +468,19 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
     // we only handle specific erorrs from SM and DM for now
-    if ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) 
+    if ( (svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) 
     {
         auto domain = OM_NodeDomainMod::om_local_domain();
         NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
         OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
-        if (agent) 
+        if ( agent ) 
         {
             Error reportError(msg->healthReport.statusCode);
             LOGERROR << "Will set service to failed state: "
                      << msg->healthReport.serviceInfo.name
                      << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
             agent->set_node_state(fpi::FDS_Node_Down);
+
             domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
         }
         else
