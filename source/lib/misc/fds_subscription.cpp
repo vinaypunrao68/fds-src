@@ -108,58 +108,6 @@ std::ostream& operator<<(std::ostream& os, const Subscription&subscription) {
               << " ]";
 }
 
-uint32_t Subscription::write(serialize::Serializer* s) const {
-    uint32_t b = 0;
-    b += s->writeI64(id);
-    b += s->writeI64(tenantID);
-    b += s->writeI32(primaryDomainID);
-    b += s->writeI64(primaryVolumeID.get());
-    b += s->writeI32(replicaDomainID);
-    b += s->writeI64(createTime);
-    b += s->writeI32(state);
-    b += s->writeI32(type);
-    b += s->writeI32(scheduleType);
-    b += s->writeI64(intervalSize);
-    b += s->writeString(name);
-    return b;
-}
-
-uint32_t Subscription::read(serialize::Deserializer* d) {
-    uint32_t b = 0;
-
-    fds_uint64_t _id;
-    b += d->readI64(_id);
-    id = fds_subid_t(_id);
-
-    b += d->readI64(tenantID);
-    b += d->readI32(primaryDomainID);
-
-    b += d->readI64(_id);
-    primaryVolumeID = fds_volid_t(_id);
-
-    b += d->readI32(replicaDomainID);
-    b += d->readI64(createTime);
-
-    int intVal;
-    b += d->readI32(intVal);
-    state = FDS_ProtocolInterface::ResourceState(intVal);
-
-    b += d->readI32(intVal);
-    type = apis::SubscriptionType(intVal);
-
-    b += d->readI32(intVal);
-    scheduleType = apis::SubscriptionScheduleType(intVal);
-
-    b += d->readI64(intervalSize);
-    b += d->readString(name);
-
-    return b;
-}
-
-uint32_t Subscription::getEstimatedSize() const {
-    return 5*4 + 5*8 + 4 + name.length();
-}
-
 /**
  * Copy a Subscription instance into a SubscriptionDescriptor instance ready for Thrift.
  *

@@ -26,12 +26,12 @@ using fds_subid_t = std::int64_t;
 static fds_subid_t const invalid_sub_id(0);
 
 /**
- * Basic class for a subscription. This is intended
- * to be a cachable/passable description of a subscription instance.
- * The authoritative subscription information is stored on the OM.
+ * The Subscription class captures the details for asynchronously replicating
+ * a volume from a "primary" local domain to a "replica" local domain. While
+ * Subscription state is created at and persisted in the master domain, it
+ * may be cached for convenience at local domains.
  */
-class Subscription final : public HasState,
-                           public serialize::Serializable {
+class Subscription final : public HasState {
     public:
         Subscription() = default;
 
@@ -139,10 +139,6 @@ class Subscription final : public HasState,
 
         // Serialization.
         std::string ToString();
-
-        uint32_t virtual write(serialize::Serializer*  s) const;
-        uint32_t virtual read(serialize::Deserializer* d);
-        uint32_t virtual getEstimatedSize() const;
 
         static void makeSubscription(Subscription& subscription, const apis::SubscriptionDescriptor& subscriptionDesc);
         static void makeSubscriptionDescriptor(apis::SubscriptionDescriptor& subscriptionDesc, const Subscription& subscription);
