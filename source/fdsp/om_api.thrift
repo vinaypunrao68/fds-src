@@ -59,7 +59,7 @@ struct SvcStateChangeResp {
   /* List of services that have received change requests */
   1: om_types.SvcChangeInfoList changeList;
   /* Id of the PM that handled the request */
-  2: common.SvcUuid             pmSvcUuid;
+  2: svc_types.SvcUuid          pmSvcUuid;
 }
 
 // Make NotifyHealthReport defined within the fpi namespace.
