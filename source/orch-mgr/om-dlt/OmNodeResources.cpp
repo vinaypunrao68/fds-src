@@ -1273,6 +1273,12 @@ OM_PmAgent::send_add_service
 
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
+    // A pristine node will need to be added to the DB but a previously
+    // removed node will already exist
+    if (!configDB->nodeExists(get_uuid())) {
+        configDB->addNode(*getNodeInfo());
+    }
+
     switch ( node_state() )
     {
         case fpi::FDS_Node_Discovered:
