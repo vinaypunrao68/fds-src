@@ -336,27 +336,36 @@ void ScstDevice::execUserCmd() {
                     param_cursor += sizeof(serial_number) - 1;
                     break;
                 case 0x83: // Device ID
-                    /* |                                 PAGE                                  |*/
-                    /* |                                LENGTH                                 |*/
-                    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-                    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-                    static uint8_t const device_id_header [] = {
-                        0,
-                        12,
-                        0x02,       // ASCII
-                        0b00000001, // T10 Vendor ID
-                        0,
-                        8           // ID Length
-                    };
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
+                    {
+                        /* |                                 PAGE                                  |*/
+                        /* |                                LENGTH                                 |*/
+                        /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+                        /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+                        /* |                                 resv                                  |*/
+                        /* |                          DESIGNATOR LENGTH                            |*/
+                        uint8_t device_id_header [] = {
+                            0,
+                            0,
+                            0x52,       // iSCSI / ASCII
+                            0b10100001, // T10 Vendor ID
+                            0,
+                            0           // ID Length
+                        };
+                        auto const targetName = scst_target->targetName();
+                        if (param_cursor < buflen) {
+                            *reinterpret_cast<uint16_t*>(&device_id_header) = htobe16(targetName.size() + 5);
+                            device_id_header[5] = targetName.size() + 1;
+                            memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
+                        }
+                        param_cursor += sizeof(device_id_header);
+                        if (param_cursor < buflen) {
+                            memcpy(&buffer[param_cursor],
+                                   targetName.c_str(),
+                                   std::min(buflen - param_cursor - 1, targetName.size()));
+                        }
+                        param_cursor += targetName.size() + 1; // name is null terminated
                     }
-                    param_cursor += sizeof(device_id_header);
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor], vendor_name, std::min(buflen - param_cursor, sizeof(vendor_name)));
-                    }
-                    param_cursor += sizeof(vendor_name);
-                    break;
+                    break;;
                 default:
                     LOGERROR << "Request for unsupported page code.";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
