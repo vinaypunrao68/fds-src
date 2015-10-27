@@ -19,7 +19,7 @@ public class Service extends AbstractResource<Long> {
         INITIALIZING,
         SHUTTING_DOWN,
         STANDBY,         // To reflect PM state when the node is down
-    	DISCOVERED;      // State of PM after node has been removed
+        DISCOVERED;      // State of PM after node has been removed
     }
     
     public static class ServiceStatus{
