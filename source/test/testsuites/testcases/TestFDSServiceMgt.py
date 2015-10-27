@@ -576,6 +576,7 @@ class TestDMStop(TestCase.FDSTestCase):
                     #if dm is running then only stop it
                     dm_service = node_service.stop_service(node_cli.id,node_cli.services['DM'][0].id)
                     dm_state = dm_service.status.state
+                    time.sleep(5)
                 assert dm_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active DM service not found on %s ." % (node.nd_conf_dict['node-name']))
@@ -1201,6 +1202,7 @@ class TestSMStop(TestCase.FDSTestCase):
                     #if dm is running then only stop it
                     sm_service = node_service.stop_service(node_cli.id,node_cli.services['SM'][0].id)
                     sm_state = sm_service.status.state
+                    time.sleep(5)
                 assert sm_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active SM service not found on %s ." % (node.nd_conf_dict['node-name']))
@@ -2787,6 +2789,7 @@ class TestAMStop(TestCase.FDSTestCase):
                     #if am is running then only stop it
                     am_service = node_service.stop_service(node_cli.id,node_cli.services['AM'][0].id)
                     am_state = am_service.status.state
+                    time.sleep(5)
                 assert am_state == "NOT_RUNNING"
             except IndexError:
                 self.log.error("Active AM service not found on %s ." % (node.nd_conf_dict['node-name']))
