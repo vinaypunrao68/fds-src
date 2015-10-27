@@ -1215,6 +1215,13 @@ OM_PmAgent::send_add_service
     TRACEFUNC;
     Error err(ERR_OK);
 
+    // We only do addService from 'discovered' state or 'node up' state
+    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
+        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+        LOGERROR << "Node is in invalid state";
+        return Error(ERR_INVALID_ARG);
+    }
+
     bool add_sm = false;
     bool add_dm = false;
     bool add_am = false;
@@ -1266,39 +1273,30 @@ OM_PmAgent::send_add_service
 
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-
-    if (!configDB->nodeExists(get_uuid())) {
-        // For now store only if the node was not known to DB
-        configDB->addNode(*getNodeInfo());
-        switch ( node_state() )
-        {
-            case fpi::FDS_Node_Discovered:
-            case fpi::FDS_Node_Up:
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_ACTIVE );
-                break;
-            case fpi::FDS_Start_Migration:
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_INVALID );
-                break;
-            case fpi::FDS_Node_Down:
-            case fpi::FDS_Node_Rmvd:
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_INACTIVE );
-                break;
-            case fpi::FDS_Node_Standby:
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_STANDBY );
-                break;
-        }
-
-            LOGNOTIFY << "Adding node " << get_node_name() << ":"
-                << std::hex << get_uuid().uuid_get_val() << std::dec
-                << " to configDB";
+    switch ( node_state() )
+    {
+        case fpi::FDS_Node_Discovered:
+        case fpi::FDS_Node_Up:
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_ACTIVE );
+            break;
+        case fpi::FDS_Start_Migration:
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_INVALID );
+            break;
+        case fpi::FDS_Node_Down:
+        case fpi::FDS_Node_Rmvd:
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_INACTIVE );
+            break;
+        case fpi::FDS_Node_Standby:
+            fds::change_service_state( configDB,
+                                       get_uuid().uuid_get_val(),
+                                       fpi::SVC_STATUS_STANDBY );
+            break;
     }
 
     // The svcInfos list usually also contains the OM and the PM
@@ -1923,15 +1921,21 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
             if (removeNode) {
                 if (configDB->nodeExists(get_uuid())) {
 
-                // Remove node from the configDB
-                // PM and node state should already be set in the
-                // stop_service code
-                configDB->removeNode(get_uuid());
+                    // This is done so that a removed node
+                    // can be re-added back if needed
 
-                LOGNOTIFY << "Removed node: " << get_node_name() << ":"
-                << std::hex
-                << get_uuid().uuid_get_val()
-                << std::dec << " from configDB";
+                    LOGDEBUG << "Changing PM state to DISCOVERED";
+                    fds::change_service_state( configDB,
+                                               get_uuid().uuid_get_val(),
+                                               fpi::SVC_STATUS_DISCOVERED );
+                    
+                    // Also set the node state to discovered
+                    set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
+
+                    LOGNOTIFY << "Removed node: " << get_node_name() << ":"
+                              << std::hex
+                              << get_uuid().uuid_get_val()
+                              << std::dec << " from configDB";
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
