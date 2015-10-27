@@ -22,6 +22,10 @@ namespace fds
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status );
+    void change_service_state( kvstore::ConfigDB* configDB,
+                               const fds_uint64_t svc_uuid, 
+                               const fpi::ServiceStatus svc_status,
+                               const bool updateSvcMap );
     
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
     fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);

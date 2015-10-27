@@ -472,24 +472,18 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
     {
         auto domain = OM_NodeDomainMod::om_local_domain();
         NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-        OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
-        if ( agent ) 
-        {
-            Error reportError(msg->healthReport.statusCode);
-            LOGERROR << "Will set service to failed state: "
-                     << msg->healthReport.serviceInfo.name
-                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
-            agent->set_node_state(fpi::FDS_Node_Down);
-
-            domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
-        }
-        else
-        {
-            LOGDEBUG << "Got unreachable health report from service "
-                     << msg->healthReport.serviceInfo.svc_id.svc_name
-                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec
-                     << " that OM does not know about; ignoring";
-        }
+        Error reportError(msg->healthReport.statusCode);
+        
+        LOGERROR << "Will set service to failed state: "
+                 << msg->healthReport.serviceInfo.name
+                 << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+        
+        /*
+         * change the state and update service map; then broadcast updated service map
+         */         
+        domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type );
+        // domain->om_service_down( reportError, uuid, svc_type );
+        
         return;
     }
 }

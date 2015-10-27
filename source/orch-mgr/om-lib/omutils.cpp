@@ -29,34 +29,46 @@ namespace fds
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
+    {
+        change_service_state( configDB, svc_uuid, svc_status, false );
+    }
+
+    void change_service_state( kvstore::ConfigDB* configDB,
+                               const fds_uint64_t svc_uuid, 
+                               const fpi::ServiceStatus svc_status,
+                               const bool updateSvcMap )
     {       
         /*
          * Update configDB with the new status for the given service on the given node
          */
         if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
         {
-            LOGDEBUG << "Successfully updated configdbs service ID ( " 
-                     << std::hex << svc_uuid << std::dec << " ) "
-                     << "state to ( " << svc_status << " )";
-
-            fpi::SvcInfo svc;
             fpi::SvcUuid svcUuid;
             svcUuid.svc_uuid = svc_uuid;
+            
+            LOGDEBUG << "Successfully updated configdbs service ID ( " 
+                     << std::hex << svc_uuid << std::dec 
+                     << " ) state to ( " << svc_status << " )";
 
-            bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
-            if ( ret )
-            {
-                svc.incarnationNo = util::getTimeStampSeconds();
-                svc.svc_status = svc_status;
+            if ( updateSvcMap )
+            {       
+                fpi::SvcInfo svc;
 
-                std::vector<fpi::SvcInfo> svcs;
-                svcs.push_back( svc );
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
+                if ( ret )
+                {
+                    svc.incarnationNo = util::getTimeStampSeconds();
+                    svc.svc_status = svc_status;
 
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+                    std::vector<fpi::SvcInfo> svcs;
+                    svcs.push_back( svc );
 
-                LOGDEBUG << "Successfully updated svcmaps service ID ( " 
-                         << std::hex << svc_uuid << std::dec << " ) "
-                         << "state to ( " << svc_status << " )";     
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+
+                    LOGDEBUG << "Successfully updated svcmaps service ID ( " 
+                             << std::hex << svc_uuid << std::dec 
+                             << " ) state to ( " << svc_status << " )";     
+                }
             }     
         }
         else
