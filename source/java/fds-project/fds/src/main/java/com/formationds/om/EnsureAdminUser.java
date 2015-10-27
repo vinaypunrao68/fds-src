@@ -13,6 +13,8 @@ import java.util.UUID;
 class EnsureAdminUser {
     private final static Logger LOG = Logger.getLogger(EnsureAdminUser.class);
     public static final String ADMIN_USERNAME = "admin";
+    public static final String STATS_USERNAME = "stats-service";
+    public static final String STATS_PASSWORD = "$t@t$";
 
     /**
      * Bootstrap the admin user if not already defined.
@@ -43,6 +45,20 @@ class EnsureAdminUser {
             // secure password.
             config.createUser(ADMIN_USERNAME, new HashedPassword().hash(ADMIN_USERNAME), UUID.randomUUID().toString(), true);
             LOG.info("First time boot, created admin user");
+        }
+        
+        boolean hasStats = config.allUsers(0).stream()
+                .filter(u -> STATS_USERNAME.equals(u.getIdentifier()))
+                .findFirst()
+                .isPresent();
+        
+        if (!hasAdmin) {
+            // TODO: default passwords are a security risk (even when "secure" passwords are used).
+            // Installer should set or admin webapp should detect that this is a first time boot
+            // and step the customer through first-time configuration steps, including defining a
+            // secure password.
+            config.createUser(STATS_USERNAME, new HashedPassword().hash(STATS_PASSWORD), UUID.randomUUID().toString(), true);
+            LOG.info("First time boot, created stats user");
         }
     }
 }
