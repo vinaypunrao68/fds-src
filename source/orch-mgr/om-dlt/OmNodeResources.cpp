@@ -1931,7 +1931,6 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                     // can be re-added back if needed
 
                     LOGNOTIFY << "All services removed, setting node: "
-                              << get_node_name() << ":"
                               << std::hex
                               << get_uuid().uuid_get_val()
                               << std::dec << "back to discovered";
