@@ -819,7 +819,8 @@ struct DmIoMigrationTxState : DmRequest {
 
 struct DmFunctor : DmRequest {
     DmFunctor(const fds_volid_t &volId, const std::function<void()>& f)
-    : DmRequest(volId, "", "", 0, FDS_DM_FUNCTOR)
+    : DmRequest(volId, "", "", 0, FDS_DM_FUNCTOR),
+      func(f)
     {}
 
     std::function<void()>       func;

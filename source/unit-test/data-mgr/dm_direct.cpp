@@ -5,6 +5,7 @@
 #include "./dm_mocks.h"
 #include "./dm_gtest.h"
 #include "./dm_utils.h"
+#include <ObjectRefScanner.h>
 
 #include <testlib/SvcMsgFactory.h>
 #include <vector>
@@ -74,13 +75,6 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     EXPECT_EQ(ERR_OK, cb.e);
 }
 
-TEST_F(DmUnitTest, AddVolume) {
-    for (fds_uint32_t i = 1; i < dmTester->volumes.size(); i++) {
-        EXPECT_EQ(ERR_OK, dmTester->addVolume(i));
-    }
-    printStats();
-}
-
 static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnce * dmUpdCatReq) {
     TIMEDBLOCK("process") {
         dataMgr->handlers[FDS_CAT_UPD_ONCE]->handleQueueItem(dmUpdCatReq);
@@ -88,6 +82,32 @@ static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnc
     }
     EXPECT_EQ(ERR_OK, cb->e);
     taskCount.done();
+}
+
+static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_OK, cb->e);
+    taskCount.done();
+}
+
+static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
+    taskCount.done();
+}
+
+
+TEST_F(DmUnitTest, AddVolume) {
+    for (fds_uint32_t i = 1; i < dmTester->volumes.size(); i++) {
+        EXPECT_EQ(ERR_OK, dmTester->addVolume(i));
+    }
+    printStats();
 }
 
 TEST_F(DmUnitTest, PutBlobOnce) {
@@ -170,13 +190,21 @@ TEST_F(DmUnitTest, PutBlob) {
     printStats();
 }
 
-static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_OK, cb->e);
-    taskCount.done();
+TEST_F(DmUnitTest, ObjectRefMg) {
+    dataMgr->features.setQosEnabled(true);
+
+    concurrency::TaskStatus waiter;
+
+    ObjectRefMgr refMgr(dmTester, dataMgr);
+    refMgr.mod_startup();
+    refMgr.scanOnce([&waiter](ObjectRefMgr *refMgr) {
+        waiter.done();
+    });
+
+    EXPECT_TRUE(waiter.await(5000));
+    refMgr.dumpStats();
+
+    dataMgr->features.setQosEnabled(false);
 }
 
 TEST_F(DmUnitTest, QueryCatalog) {
@@ -203,15 +231,6 @@ TEST_F(DmUnitTest, QueryCatalog) {
     if (profile)
         ProfilerStop();
     printStats();
-}
-
-static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
-    taskCount.done();
 }
 
 TEST_F(DmUnitTest, QueryInvalidOffset) {

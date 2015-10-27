@@ -5,20 +5,10 @@
 #include <lib/Catalog.h>
 #include <ObjectRefScanner.h>
 #include <DataMgr.h>
-#include <util/stringutils.h>
+#include <boost/filesystem.hpp>
 
 namespace fds {
-
-inline std::string volTokBloomFilterKey(const fds_volid_t& volId, 
-                                     const fds_token_id &tokenId)
-{
-    return util::strformat("vol%ld_tok%d", volId, tokenId);
-}
-
-inline std::string aggrBloomFilterKey(const fds_token_id &tokenId)
-{
-    return util::strformat("aggr_tok%d", tokenId);
-}
+namespace bfs = boost::filesystem;
 
 BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
 : basePath(path),
@@ -26,23 +16,27 @@ BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
   bloomfilterBits(1*MB),
   accessCnt(1)
 {
+    /* Remove any existing files from path...and recreate that directory */
+    bfs::path p(basePath.c_str());
+    bfs::remove_all(p);
+    bfs::create_directory(p);
+    fds_assert(bfs::exists(p));
 }
 
 BloomFilterStore::~BloomFilterStore() {
+    // purge();
 }
 
 util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
     auto deserializer = serialize::getFileDeserializer(basePath + key);
     auto bloomfilter = util::BloomFilterPtr(new util::BloomFilter(bloomfilterBits));
     auto readSize = bloomfilter->read(deserializer);
-    fds_verify(readSize == bloomfilterBits/8);
     return bloomfilter;
 }
 
 void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfilter) {
     auto serializer = serialize::getFileSerializer(basePath + key);
     auto writeSize = bloomfilter->write(serializer);
-    fds_verify(writeSize == bloomfilterBits/8);
 }
 
 void BloomFilterStore::addToCache(const std::string &key, util::BloomFilterPtr bloomfilter) {
@@ -103,45 +97,82 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) 
     return bloomfilter;
 }
 
+void BloomFilterStore::sync() {
+   for (const auto &item : cache) {
+        save(item.key, item.bloomfilter);
+   }
+}
+
+void BloomFilterStore::purge() {
+    cache.clear();
+    for (const auto &item : index) {
+        auto ret = bfs::remove(bfs::path(item.c_str()));
+        if (ret != 0) {
+            GLOGWARN << "Failed to remove bloomfilter: " << item << " ret: " << ret;
+        }
+    }
+    index.clear();
+}
+
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
   Module("RefcountScanner"),
   dataMgr(dm),
-  qosHelper(*dm)
+  qosHelper(*dm),
+  scanCntr(0),
+  objectsScannedCntr(0)
 {
-    // TODO(Rao): assign other memebers
 }
 
 void ObjectRefMgr::mod_startup() {
-    auto dmUserRepo = MODULEPROVIDER()->proc_fdsroot()->dir_user_repo_dm();
-    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo.c_str()), 5));
+    auto config = MODULEPROVIDER()->get_conf_helper();
+    enabled = config.get<bool>("objectrefscan.enabled", false);
+    scanIntervalSec = std::chrono::seconds(config.get<int>("objectrefscan.interval",
+                                                           172800 /* 2 days */));
+    maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);
 
-    auto timer = MODULEPROVIDER()->getTimer();
-    scanTask = boost::shared_ptr<FdsTimerTask>(
-        new FdsTimerFunctionTask(
-            *timer,
-            [this] () {
-            /* Immediately post to threadpool so we don't hold up timer thread */
-            auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
-            qosHelper.addToQueue(req);
-            }));
-    timer->schedule(scanTask, scanIntervalSec);
-    // TODO(Rao): Set members based on config
-    // TODO(Rao): schdule scanner based on config
+    /* Only if enabled is set we start timer based scanning */
+    if (enabled) {
+        auto timer = MODULEPROVIDER()->getTimer();
+        scanTask = boost::shared_ptr<FdsTimerTask>(
+            new FdsTimerFunctionTask(
+                *timer,
+                [this] () {
+                /* Immediately post to threadpool so we don't hold up timer thread */
+                auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+                qosHelper.addToQueue(req);
+                }));
+        timer->schedule(scanTask, scanIntervalSec);
+    }
 }
 
 void ObjectRefMgr::mod_shutdown() {
 }
 
-// TODO(Rao): Check if we need any synchronization
-void ObjectRefMgr::scan() {
+void ObjectRefMgr::scanOnce(ObjectRefMgr::ScanDoneCb cb) {
+    fds_verify(enabled == false);
+
+    scandoneCb = cb;
+    auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+    qosHelper.addToQueue(req);
+}
+
+void ObjectRefMgr::dumpStats() const {
+    GLOGNOTIFY << "Scan run#: " << scanCntr
+            << " # of volumes: " << scanList.size()
+            << " # of scanned volumes: " << scanSuccessVols.size()
+            << " # of scanned objects: " << objectsScannedCntr
+            << " # of generated bloomfilters: " << bfStore->getIndexSize();
+}
+
+void ObjectRefMgr::scanStep() {
     if (scanList.size() == 0) {
-        buildScanList();
+        prescanInit();
     }
 
     if (currentItr != scanList.end()) {
         /* Scan step */
-        Error e = currentItr->scan();
+        Error e = currentItr->scanStep();
         if (e != ERR_OK) {
             /* Report the error and move on */
             GLOGWARN<< "Failed to scan: " << currentItr->logString() << " " << e;
@@ -157,22 +188,47 @@ void ObjectRefMgr::scan() {
 
     if (currentItr != scanList.end()) {
         /* Schedule next scan step */
-        auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scan, this));
+        auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
         qosHelper.addToQueue(req);
     } else {
+        /* Scan finished */
+        bfStore->sync();
+        dumpStats();
+        if (scandoneCb) {
+            scandoneCb(this);
+        }
         /* Schedule another scan cycle */
-        auto timer = MODULEPROVIDER()->getTimer();
-        timer->schedule(scanTask, scanIntervalSec);
+        if (enabled) {
+            auto timer = MODULEPROVIDER()->getTimer();
+            timer->schedule(scanTask, scanIntervalSec);
+        }
     }
 }
 
-void ObjectRefMgr::buildScanList() {
+void ObjectRefMgr::prescanInit()
+{
+    /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-    // TODO(Rao): Get list of volumes and create volume contexts for each volume
+
+    /* Build a list of volumes to scan */
+    std::vector<fds_volid_t> vols;
+    dataMgr->getActiveVolumes(vols);
+    for (const auto &v : vols) {
+        scanList.push_back(VolumeRefScannerContext(this, v));
+    }
+    currentItr = scanList.begin();
+
+    /* Init bloomfilter store */
+    auto dmUserRepo = MODULEPROVIDER()->proc_fdsroot()->dir_user_repo_dm();
+    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo.c_str()), 5));
+
+    /* Scan cycle counters */
+    scanCntr++;
+    objectsScannedCntr = 0;
 }
 
 VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
-: ObjectRefScanner(m)
+: ObjectRefScannerIf(m)
 {
     volId = vId;
     std::stringstream ss;
@@ -185,11 +241,11 @@ VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vI
     state = SCANNING;
 }
 
-Error VolumeRefScannerContext::scan() {
+Error VolumeRefScannerContext::scanStep() {
     Error e = ERR_OK;
     if (itr != scanners.end()) {
         auto scanner = *itr;
-        e = scanner->scan();
+        e = scanner->scanStep();
         if (e != ERR_OK) {
             GLOGWARN<< "Failed to scan: " << scanner->logString() << " " << e;
             scanner->finishScan(e);
@@ -216,9 +272,9 @@ Error VolumeRefScannerContext::finishScan(const Error &e) {
     auto bfStore = objRefMgr->getBloomFiltersStore();
     auto tokenCnt = objRefMgr->getCurrentDlt()->getNumTokens();
     for (uint32_t token = 0; token < tokenCnt; token++) {
-        auto bloomfilter = bfStore->get(volTokBloomFilterKey(volId, token), false);
+        auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, token), false);
         if (!bloomfilter) continue;
-        auto aggrbloomfilter = bfStore->get(aggrBloomFilterKey(token));
+        auto aggrbloomfilter = bfStore->get(ObjectRefMgr::aggrBloomFilterKey(token));
         aggrbloomfilter->merge(*bloomfilter);
     }
     objRefMgr->getScanSuccessVols().push_back(volId);
@@ -234,8 +290,7 @@ std::string VolumeRefScannerContext::logString() const {
 }
 
 VolumeObjectRefScanner::VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
-: ObjectRefScanner(m),
-    bInited(false),
+: ObjectRefScannerIf(m),
     volId(vId)
 {
     std::stringstream ss;
@@ -250,12 +305,11 @@ Error VolumeObjectRefScanner::init() {
     if (err != ERR_OK) {
         return err;
     }
-    // TODO(Rao): Start the iterator based on snapshot
-    // We should lock the volume as well to protect against deletions
+    // TODO(Rao): We should lock the volume as well to protect against deletions
     return err;
 }
 
-Error VolumeObjectRefScanner::scan() {
+Error VolumeObjectRefScanner::scanStep() {
     if (state == INIT) {
         auto error = init();
         if (error != ERR_OK) {
@@ -283,10 +337,11 @@ Error VolumeObjectRefScanner::scan() {
      */
     auto bfStore = objRefMgr->getBloomFiltersStore();
     for (const auto &kv : tokenObjects) {
-        auto bloomfilter = bfStore->get(volTokBloomFilterKey(volId, kv.first));
+        auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
             bloomfilter->add(oid);
+            objRefMgr->objectsScannedCntr++;
         }
     }
     

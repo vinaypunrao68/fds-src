@@ -11,6 +11,7 @@
 #include <fds_module_provider.h>
 #include <dmhandler.h>
 #include <fds_timer.h>
+#include <util/stringutils.h>
 #include <util/bloomfilter.h>
 
 namespace fds {
@@ -27,7 +28,30 @@ struct DataMgr;
 struct BloomFilterStore {
     BloomFilterStore(const std::string &path, uint32_t cacheSize);
     virtual ~BloomFilterStore();
+    /**
+    * @brief returns a refernce to stored bloomfilter.  When create is set to true
+    * if bloomfilter with key doesn't exist then a new bloomfilter is created and
+    * returned.  If create set to false and bloomfilter with key doesn't exit then
+    * null is returned.
+    *
+    * @param key
+    * @param create
+    *
+    * @return 
+    */
     util::BloomFilterPtr get(const std::string &key, bool create = true);
+
+    /**
+    * @brief Writes all the cached bloomfilters to filesystem
+    */
+    void sync();
+    
+    /**
+    * @brief clears out the index and removes all bloomfilters from the filesystem
+    */
+    void purge();
+
+    inline size_t getIndexSize() const { return index.size(); } 
 
  protected:
     util::BloomFilterPtr load(const std::string &key);
@@ -57,15 +81,15 @@ struct BloomFilterStore {
 /**
 * @brief Object reference scanner interface
 */
-struct ObjectRefScanner {
-    explicit ObjectRefScanner(ObjectRefMgr* m)
+struct ObjectRefScannerIf {
+    explicit ObjectRefScannerIf(ObjectRefMgr* m)
     : objRefMgr(m),
       state(INIT),
       completionError(ERR_OK)
     {
     }
-    virtual ~ObjectRefScanner() {}
-    virtual Error scan() = 0;
+    virtual ~ObjectRefScannerIf() {}
+    virtual Error scanStep() = 0;
     virtual Error finishScan(const Error &e) = 0;
     virtual bool isComplete() const = 0;
     virtual std::string logString() const = 0;
@@ -77,19 +101,22 @@ struct ObjectRefScanner {
         COMPLETE
     };
 
+    /* Reference to parent manager */
     ObjectRefMgr        *objRefMgr;
+    /* Current scanner state */
     State               state;
+    /* Status that scanner completed with */
     Error               completionError;
 };
-using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScanner>;
+using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScannerIf>;
 
 /**
 * @brief Manages collection of ObjectRefScanner.  Each ObjectRefScanner represents
 * either a volume  or a snapshot
 */
-struct VolumeRefScannerContext : ObjectRefScanner {
+struct VolumeRefScannerContext : ObjectRefScannerIf {
     VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId);
-    Error scan();
+    Error scanStep();
     Error finishScan(const Error &e);
     bool isComplete() const;
     std::string logString() const;
@@ -103,16 +130,15 @@ struct VolumeRefScannerContext : ObjectRefScanner {
 /**
 * @brief Scans objects in a volume and updates bloomfilter
 */
-struct VolumeObjectRefScanner : ObjectRefScanner {
+struct VolumeObjectRefScanner : ObjectRefScannerIf {
     VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
     Error init();
-    virtual Error scan() override;
+    virtual Error scanStep() override;
     virtual Error finishScan(const Error &e) override;
 
     virtual bool isComplete()  const override { return (itr != nullptr && !(itr->Valid())); }
     virtual std::string logString() const override { return logStr; }
 
-    bool                                            bInited;
     fds_volid_t                                     volId;
     Catalog::MemSnap                                snap;
     std::unique_ptr<Catalog::catalog_iterator_t>    itr;
@@ -122,7 +148,7 @@ struct VolumeObjectRefScanner : ObjectRefScanner {
 /**
 * @brief Scans objects in a snapshot and updates bloomfilter
 */
-struct SnapshotRefScanner : ObjectRefScanner {
+struct SnapshotRefScanner : ObjectRefScannerIf {
 };
 
 /**
@@ -135,16 +161,14 @@ struct SnapshotRefScanner : ObjectRefScanner {
 * appropriate bloom filter for the volume is update.
 */
 struct ObjectRefMgr : HasModuleProvider, Module {
+    using ScanDoneCb = std::function<void(ObjectRefMgr*)>;
     ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
     virtual ~ObjectRefMgr() = default;
     virtual void mod_startup();
     virtual void mod_shutdown();
-
-    /**
-    * @brief Runs the scanner for scanning volumes and snaps.  Currently we scan
-    * one at a time.
-    */
-    void scan();
+    /* Use this to manually start scan. Don't use it when timer based scan is enabled */
+    void scanOnce(ScanDoneCb cb);
+    void dumpStats() const;
 
     inline DataMgr* getDataMgr() const { return dataMgr; }
     inline uint32_t getMaxEntriesToScan() const { return maxEntriesToScan; }
@@ -152,16 +176,37 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     inline BloomFilterStore* getBloomFiltersStore() const {return bfStore.get(); }
     std::list<fds_volid_t>& getScanSuccessVols() { return scanSuccessVols; }
 
+    inline static std::string volTokBloomFilterKey(const fds_volid_t& volId, 
+                                                   const fds_token_id &tokenId) {
+        return util::strformat("vol%ld_tok%d", volId, tokenId);
+    }
+
+    inline static std::string aggrBloomFilterKey(const fds_token_id &tokenId) {
+        return util::strformat("aggr_tok%d", tokenId);
+    }
+    inline size_t getScanSuccessVolsCnt() const {return scanSuccessVols.size();}
+    inline uint64_t getObjectsScannedCntr() const { return objectsScannedCntr; }
+
  protected:
     /**
-    * @brief Builds up list of volumes and snapshots to scan
+    * @brief Runs the scanner for scanning volumes and snaps.  Currently we scan
+    * one at a time.
     */
-    void buildScanList();
+    void scanStep();
+    /**
+    * @brief Initialization before a scan cycle.  Builds up list of volumes and
+    * snapshots to scan
+    */
+    void prescanInit();
 
     DataMgr                                     *dataMgr;
     const DLT                                   *currentDlt;
     std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
+    /* Controls whether scanning based on timer is enabled or not.   NOTE it is still possible
+     * to run the scanner manually
+     */
+    bool                                        enabled;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;
@@ -169,6 +214,10 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     std::list<VolumeRefScannerContext>          scanList;
     std::list<VolumeRefScannerContext>::iterator currentItr;
     std::list<fds_volid_t>                      scanSuccessVols;
+    ScanDoneCb                                  scandoneCb;
+    uint32_t                                    scanCntr;
+    uint64_t                                    objectsScannedCntr;
+    friend class VolumeObjectRefScanner;
 };
 
 }  // namespace fds
