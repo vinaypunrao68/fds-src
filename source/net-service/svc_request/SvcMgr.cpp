@@ -748,8 +748,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
-//            fiu_do_on("svc.fault.unreachable",
-//                      LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
+            /**
+             * fault injection, if 'svc.fault.unreachable' is set the following lambda will execute
+             */
+            fiu_do_on("svc.fault.unreachable",
+                      LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
+
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
