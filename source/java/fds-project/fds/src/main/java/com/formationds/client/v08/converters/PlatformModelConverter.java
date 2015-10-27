@@ -12,8 +12,6 @@ import com.formationds.protocol.svc.types.SvcID;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -333,8 +331,8 @@ public class PlatformModelConverter
     	externalState = Optional.of( ServiceState.NOT_RUNNING );  
         break;
       case FDS_Node_Discovered:
-    	externalState = Optional.of( ServiceState.DISCOVERED );
-    	break;
+        externalState = Optional.of( ServiceState.DISCOVERED );
+        break;
       case FDS_Node_Up:
         externalState = Optional.of( ServiceState.RUNNING );
         break;
@@ -346,7 +344,7 @@ public class PlatformModelConverter
         break;
       case FDS_Node_Standby:
     	externalState = Optional.of( ServiceState.STANDBY );
-    	break;	
+    	break;
       default:
         externalState = Optional.of( ServiceState.RUNNING );
     }
