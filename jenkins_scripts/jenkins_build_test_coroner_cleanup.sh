@@ -331,7 +331,7 @@ function run_system_test_scenarios
 
     end_time=$(date +%s)
 
-    performance_report SYSTEM_TESTS $(( ${end_time} - ${start_time} ))
+    # performance_report SYSTEM_TESTS $(( ${end_time} - ${start_time} ))
 }
 
 function system_test_force_failure
