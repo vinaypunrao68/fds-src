@@ -1676,7 +1676,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
              */
             if ( isPlatformSvc( *svcInfo ) )
             {
-                if ( isKnownPM( *svcInfo ) )
+                if ( isKnownPM( *svcInfo ) && svcInfo->svc_status != fpi::SVC_STATUS_DISCOVERED)
                 {
                     LOGDEBUG << "Found well known platform service UUID ( "
                              << std::hex 
