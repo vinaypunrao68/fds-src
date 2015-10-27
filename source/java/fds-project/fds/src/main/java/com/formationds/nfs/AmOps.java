@@ -183,6 +183,11 @@ public class AmOps implements IoOps {
     }
 
     @Override
+    public void flush() throws IOException {
+
+    }
+
+    @Override
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         String description = "volume=" + volume + ", blobName=" + blobName;
 

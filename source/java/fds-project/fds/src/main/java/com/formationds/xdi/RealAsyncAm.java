@@ -17,6 +17,7 @@ import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.joda.time.Duration;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public class RealAsyncAm implements AsyncAm {
         this(amHost, amPort, responseServerPort, 10, TimeUnit.SECONDS);
     }
 
-    public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
+    public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws IOException {
         this.amHost = amHost;
         this.amPort = amPort;
         this.responsePort = responsePort;
@@ -45,7 +46,7 @@ public class RealAsyncAm implements AsyncAm {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() throws IOException {
         try {
             AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
@@ -88,7 +89,8 @@ public class RealAsyncAm implements AsyncAm {
 
         } catch (Exception e) {
             LOG.error("Error starting async AM", e);
-            throw e;
+            throw new IOException(e);
+
         }
     }
 
