@@ -133,6 +133,20 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // DM resources
     helper.markIoDone();
 
+    /**
+     * There are 2 cases here:
+     * 1.
+     * Per AM design, it will ensure that when a new DMT version is published, it will first
+     * finish all open transaction on the current, DMT before switching over to the new DMT.
+     * Because of this, the new DM (executor) will not receive any active I/O.
+     * 2.
+     * In the case of a DM communication error, the AM reports the DM down to OM, the OM
+     * then marks the DM inactive and publishes a new service map marking the DM as inactive.
+     * It then publishes a new DMT version, where if the DM (executor) was a primary, demotes
+     * it to a secondary. The resync then happens per case 1.
+     * Once the Resync is completed, a new service map is then published (this may need to be
+     * fixed due to the need for atomicity for new DMT + new service map in one shot).
+     */
     // do forwarding if needed and commit was successful
     fds_volid_t volId(commitBlobReq->volId);
 	if (!(dataManager.features.isTestModeEnabled()) &&

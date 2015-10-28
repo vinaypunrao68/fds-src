@@ -524,6 +524,11 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
     	}
     }
 
+    // The commitBlobReq is forwarded multiple times, but the localCb must be called only once.
+    fds_assert(commitBlobReq->usedForMigration);
+    commitBlobReq->localCb(err);
+    // commitReq must not be accessed from this point.
+
 	return err;
 }
 
