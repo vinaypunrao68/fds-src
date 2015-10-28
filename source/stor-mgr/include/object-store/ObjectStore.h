@@ -329,6 +329,8 @@ class ObjectStore : public Module, public boost::noncopyable {
                       const fds_uint64_t &dmUUID,
                       const std::string &objectSetFilePath);
  
+    void dropLiveObjectDB();
+
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
     Error tieringControlCmd(SmTieringCmd* tierCmd);

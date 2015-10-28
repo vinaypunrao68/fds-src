@@ -19,7 +19,7 @@
 #include <FdsRandom.h>
 
 namespace fds {
-static const fds_uint32_t bitsPerDltToken = 8;
+static const fds_uint32_t bitsPerDltToken = 16;
 
 /**
  * Dataset that contains objects (data not stored but can be recreated)

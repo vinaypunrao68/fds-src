@@ -1693,6 +1693,11 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     tokStats.tkn_reclaim_size = objsToDelete;
 }
 
+void
+ObjectStore::dropLiveObjectDB() {
+    liveObjectsTable->dropDB();
+}
+
 /**
  * Module initialization
  */

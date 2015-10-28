@@ -10,6 +10,10 @@ LiveObjectsDB::LiveObjectsDB(const std::string& dbFilePath) {
     db.reset(new SqliteDB(dbFilePath));
 }
 
+void LiveObjectsDB::dropDB() {
+    db->dropDB();
+}
+
 Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
     if (!db) { return ERR_INVALID; }
 
