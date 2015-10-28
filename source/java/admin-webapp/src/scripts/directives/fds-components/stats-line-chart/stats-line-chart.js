@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/stats-line-chart/stats-line-chart.html',
         // duration is in hours, interval is in seconds
-        scope: { data: '=ngModel', colors: '=?', lineColors: '=?', yLabelFunction: '=?', domainLabels: '=?', stat: '@', lineType: '@', duration: '=?', title:"=?", min: "=?", max: "=?" },
+        scope: { data: '=ngModel', colors: '=?', lineColors: '=?', yLabelFunction: '=?', domainLabels: '=?', stat: '=', lineType: '@', duration: '=?', title:"=?", min: "=?", max: "=?" },
         controller: function( $scope, $element ){
             
             if ( !angular.isDefined( $scope.duration ) ){
@@ -34,8 +34,9 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
                     
                     var data = newStats[i].payload;
                     data = JSON.parse( data );
-
+                    
                     if ( data.metricName === $scope.stat ){
+                        console.log( 'Found one: ' + data.metricName + ': ' + parseInt(data.metricValue / 100000 ) );
                         timeSum += parseInt( data.metricValue / 100000 );
                         numStats++;
                     }

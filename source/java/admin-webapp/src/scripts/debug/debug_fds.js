@@ -2,12 +2,19 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     $scope.stats = [];
     
+    $scope.isEnabled = true;
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
     $scope.timeLabels = [ '15 minutes ago', 'Now' ];
-    $scope.statChoices = [{name: 'AM Put Requests', value: 'AM_PUT_OBJ_REQ'}];
-    $scope.chart1Data = { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]};
-    $scope.chart1Choice = undefined;
+    $scope.statChoices = [{name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
+                          {name: 'AM GET Requests', value: 'AM_GET_OBJ_REQ'},
+                          {name: 'DM Transaction Latency', value: 'DM_TX_OP'},
+                          {name: 'Latency of PUT in SM', value: 'SM_PUT_IO'}];
+    $scope.chartData = [ { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]}];
+    $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[1], $scope.statChoices[2], $scope.statChoices[3]];
     
     var pollId = -1;
     var myQueue = '';
@@ -23,7 +30,9 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         var points = Math.round( 60*60*$scope.duration / interval );
         
         for ( var i = 0; i < points; i++ ){
-            $scope.chart1Data.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
+            for( var j = 0; j < $scope.chartData.length; j++ ){
+                $scope.chartData[j].series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
+            }
         }
     };
     
@@ -86,6 +95,8 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
                     function( response ){
                         alert( 'Failed to bind to a subscription' );
                     });
+            
+            $scope.isEnabled = false;
         };
             
         var declareExchange = function( response ){
@@ -130,6 +141,9 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         };
         
         makeBusCall( 'DELETE', 'api/queues/%2F/' + myQueue, data );
+        
+        myQueue = '';
+        $scope.isEnabled = true;
     };
     
     // take the messages and put them in the right stat arrays
