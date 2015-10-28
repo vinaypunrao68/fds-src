@@ -275,23 +275,28 @@ DataPlacement::beginRebalance() {
                     break;
                 }
             }
-            fds_verify(sourceUuid.uuid_get_val() !=0);
-            LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
-                       << " Source " << sourceUuid.uuid_get_val() << std::dec
-                       << " token " << tokId;
 
-            // find if there is already a migration group created for this src SM
-            fds_bool_t found = false;
-            for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
-                if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
-                    found = true;
-                    (startMigrMsg->migrations)[index].tokens.push_back(tokId);
-                    LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
-                             << ", source: " << sourceUuid.uuid_get_val() << std::dec
-                             << ", adding token " << tokId;
-                    break;
+//            fds_verify(sourceUuid.uuid_get_val() !=0);
+
+            if ( sourceUuid.uuid_get_val() > 0 ) {
+                LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
+                << " Source " << sourceUuid.uuid_get_val() << std::dec
+                << " token " << tokId;
+
+                // find if there is already a migration group created for this src SM
+                fds_bool_t found = false;
+                for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
+                    if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
+                        found = true;
+                        (startMigrMsg->migrations)[index].tokens.push_back(tokId);
+                        LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
+                        << ", source: " << sourceUuid.uuid_get_val() << std::dec
+                        << ", adding token " << tokId;
+                        break;
+                    }
                 }
             }
+
             if (!found) {
                 fpi::SMTokenMigrationGroup grp;
                 grp.source = sourceUuid.toSvcUuid();
