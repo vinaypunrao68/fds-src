@@ -132,16 +132,7 @@ public class Main {
         // we may need to modify it so other requests are intercepted and redirected through OM REST
         // client in the future)
 
-//        final OMConfigServiceClient omConfigServiceRestClient =
-//            RetryHelper.retry( "OMConfigServiceClient",
-//                               5,
-//                               TimeUnit.MINUTES,
-//                               ( ) -> new OMConfigServiceRestClientImpl(
-//                                   secretKey,
-//                                   "http",
-//                                   omHost,
-//                                   omHttpPort) );
-        LOG.debug( "Attempting to connect to configuration service, on " +
+        LOG.debug( "Attempting to connect to REST configuration API, on " +
                    omHost + ":" + omHttpPort + "." );
         final AsyncRetryExecutor asyncRetryExecutor =
             new AsyncRetryExecutor(
@@ -172,14 +163,8 @@ public class Main {
                                         omHost + ":" + omConfigPort );
         }
 
-//        final ConfigurationApi omCachedConfigProxy =
-//            RetryHelper.retry( "ConfigurationApi",
-//                               5,
-//                               TimeUnit.MINUTES,
-//                               ( ) -> OMConfigurationServiceProxy.newOMConfigProxy(
-//                                   omConfigServiceRestClient,
-//                                   clientFactory.remoteOmService( omHost,
-//                                                                  omConfigPort ) ) );
+        LOG.debug( "Attempting to connect to configuration API, on " +
+                   omHost + ":" + omHttpPort + "." );
         final CompletableFuture<ConfigurationApi> cfgApicompletableFuture =
             asyncRetryExecutor.getWithRetry(
                 ( ) -> {
@@ -195,12 +180,8 @@ public class Main {
                                         omHost + ":" + omConfigPort );
         }
 
-//        XdiConfigurationApi configCache =
-//            RetryHelper.retry( "XdiConfigurationApi",
-//                               5,
-//                               TimeUnit.MINUTES,
-//                               ( ) ->  );
-
+        LOG.debug( "Attempting to connect to XDI configuration API, on " +
+                   omHost + ":" + omHttpPort + "." );
         final CompletableFuture<XdiConfigurationApi> XdicompletableFuture =
             asyncRetryExecutor.getWithRetry(
                 ( ) -> {
