@@ -114,15 +114,12 @@ ScstTarget::addDevice(std::string const& volume_name) {
 
     lun_it->reset(device);
     device_map[volume_name] = lun_it;
-    lunsToMap.push_back(lun_number);
-    asyncWatcher->send();
-    return lun_number;
-}
-
-void
-ScstTarget::_mapReadyLUNs() {
-    for (auto& lun: lunsToMap) {
-        auto& device = lun_table[lun];
+    {
+        // Wait for device to attach before adding it to the LUN map
+        std::unique_lock<std::mutex> l(lunMapLock);
+        lunsToMap.push_back(lun_number);
+        asyncWatcher->send();
+        lunsMappedCv.wait(l, [this] () -> bool { return lunsToMap.empty(); });
 
         // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
         // We can support other target-drivers than iSCSI...TBD
@@ -132,13 +129,25 @@ ScstTarget::_mapReadyLUNs() {
         if (!lun_mgmt.is_open()) {
             GLOGERROR << "Could not map lun for [" << device->getName() << "]";
         }
-        lun_mgmt << "add " + device->getName() + " " + std::to_string(lun) << std::endl;
+        lun_mgmt << "add " + volume_name + " " + std::to_string(lun_number) << std::endl;
         lun_mgmt.close();
-
-        // Persist changes in the LUN table and device map
-        device->start(evLoop);
     }
-    lunsToMap.clear();
+    return lun_number;
+}
+
+void
+ScstTarget::_mapReadyLUNs() {
+    {
+        std::lock_guard<std::mutex> g(lunMapLock);
+        for (auto& lun: lunsToMap) {
+            auto& device = lun_table[lun];
+
+            // Persist changes in the LUN table and device map
+            device->start(evLoop);
+        }
+        lunsToMap.clear();
+    }
+    lunsMappedCv.notify_all();
 }
 
 void

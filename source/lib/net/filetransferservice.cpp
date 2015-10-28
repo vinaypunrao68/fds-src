@@ -213,7 +213,7 @@ void FileTransferService::handleVerifyResponse(FileTransferHandle::ptr handle,
         if (error.ok()) {
             // check sum matched so no need to transfer the file.
             LOGDEBUG << "dest has same file - no need to transfer : " << handle;
-        } else if (error == ERR_CHECKSUM_MISMATCH) {
+        } else if (error == ERR_CHECKSUM_MISMATCH || error == ERR_FILE_DOES_NOT_EXIST) {
             sendNextChunk(handle);
             return;
         }
@@ -224,9 +224,9 @@ void FileTransferService::handleVerifyResponse(FileTransferHandle::ptr handle,
             // successful transfer
         } else if (error == ERR_CHECKSUM_MISMATCH) {
             // some problem in transfer
+            LOGERROR << error << " : " << handle;
         }
     }
-
 
     handle->done(error);
 }
@@ -279,14 +279,18 @@ void FileTransferService::sendTransferResponse(SHPTR<fpi::AsyncHdr>& asyncHdr,
 void FileTransferService::handleVerifyRequest(SHPTR<fpi::AsyncHdr>& asyncHdr,
                                               SHPTR<fpi::FileTransferVerifyMsg>& message) {
     GLOGDEBUG << "here";
-    std::string destFile = destDir + message->filename;
-    std::string chksum = util::getFileChecksum(destFile);
     Error err;
-    if (chksum != message->checksum) {
-        GLOGERROR << "file checksum mismatch [orig:" << message->checksum
-                 << " new:" << chksum << "]"
-                 << " file:" << destFile;
-        err = ERR_CHECKSUM_MISMATCH;
+    std::string destFile = destDir + message->filename;
+    if (!util::fileExists(destFile)) {
+        err = ERR_FILE_DOES_NOT_EXIST;
+    } else {
+        std::string chksum = util::getFileChecksum(destFile);        
+        if (chksum != message->checksum) {
+            GLOGERROR << "file checksum mismatch [orig:" << message->checksum
+                      << " new:" << chksum << "]"
+                      << " file:" << destFile;
+            err = ERR_CHECKSUM_MISMATCH;
+        }
     }
 
     sendVerifyResponse(asyncHdr, message, err);

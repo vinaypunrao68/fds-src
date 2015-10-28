@@ -873,7 +873,7 @@ class FdsPkgInstallConfig(FdsConfig):
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, rt_env=None):
+    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, reusecluster = False, rt_env=None):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
@@ -891,15 +891,17 @@ class FdsConfigFile(object):
         self.cfg_parser    = None
         self.cfg_localHost = None
         self.inventory = inventory_file
-        self.cfg_remote_fds_deploy = install
+        self.cfg_remote_nodes = install
         self.rt_env = rt_env
+        self.cfg_reusecluster = reusecluster
 
     def config_parse(self):
         cmd_line_options = {
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun,
-            'install': self.cfg_remote_fds_deploy,
-            'inventory_file' : self.inventory
+            'install': self.cfg_remote_nodes,
+            'inventory_file' : self.inventory,
+            'reusecluster' : self.cfg_reusecluster
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
@@ -913,7 +915,7 @@ class FdsConfigFile(object):
             if re.match('node', section):
                 number_of_nodes += 1
 
-        if self.cfg_remote_fds_deploy is True:
+        if cmd_line_options['install'] is True and cmd_line_options['reusecluster'] is not True:
             inventory_file = cmd_line_options['inventory_file']
             install_result = TestUtils.deploy_on_AWS(self,number_of_nodes,inventory_file)
             assert(install_result,True)
@@ -945,7 +947,7 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    if self.cfg_remote_fds_deploy is True and n.nd_conf_dict['ip'] == 'localhost':
+                    if self.cfg_remote_nodes is True and n.nd_conf_dict['ip'] == 'localhost':
                         # It's an extra IP in cfg and ignore it while running against AWS
                         print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
                     else:
@@ -1012,7 +1014,7 @@ class FdsConfigRun(object):
             self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
-        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file, self.rt_env )
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file,opt.reusecluster, self.rt_env )
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.

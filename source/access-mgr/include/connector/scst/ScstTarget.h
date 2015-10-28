@@ -21,8 +21,10 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTTARGET_H_
 
 #include <array>
+#include <condition_variable>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -74,6 +76,8 @@ struct ScstTarget
     device_map_type device_map;
     lun_table_type lun_table;
 
+    std::condition_variable lunsMappedCv;
+    std::mutex lunMapLock;
     std::deque<int32_t> lunsToMap;
     void _mapReadyLUNs();
 

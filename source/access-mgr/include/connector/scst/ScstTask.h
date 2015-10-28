@@ -29,12 +29,21 @@ namespace fds
 struct ScstTask : public BlockTask {
 
     ScstTask(uint32_t handle, uint32_t sc);
-
+    ~ScstTask() {
+        // Free allocated buffer if we had a check condition
+        if (SAM_STAT_GOOD != reply.exec_reply.status
+            && reply.exec_reply.pbuf
+            && !buffer_in_sgv) {
+            free((void*)reply.exec_reply.pbuf);
+            reply.exec_reply.pbuf = 0ul;
+        }
+    }
 
     /** SCSI Setters */
     inline void checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq);
 
-    inline void setResponseBuffer(uint8_t* buf, size_t buf_len);
+    inline void setResponseBuffer(uint8_t* buf, bool const cached_buffer);
+    inline void setResponseLength(size_t const buf_len);
 
     void setResult(int32_t result)
     { reply.result = result; }
@@ -54,6 +63,9 @@ struct ScstTask : public BlockTask {
 
     // Sense buffer for check conditions
     uint8_t sense_buffer[18] {};
+
+    // If the buffer is known to SCST
+    bool buffer_in_sgv {false};
 };
 
 void
@@ -71,9 +83,14 @@ ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const asc
 }
 
 void
-ScstTask::setResponseBuffer(uint8_t* buf, size_t buf_len)
+ScstTask::setResponseBuffer(uint8_t* buf, bool const cached_buffer)
 {
+    buffer_in_sgv = cached_buffer;
     reply.exec_reply.pbuf = (unsigned long)buf;
+}
+
+void
+ScstTask::setResponseLength(size_t const buf_len) {
     reply.exec_reply.resp_data_len = buf_len;
 }
 

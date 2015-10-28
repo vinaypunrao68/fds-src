@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <thread>
 
 #include "fds_process.h"
 
@@ -97,7 +98,8 @@ void AccessMgr::initilizeConnectors() {
         /**
          * Initialize the Scst connector
          */
-        ScstConnector::start(weakProcessor);
+        auto t = std::thread(&ScstConnector::start, weakProcessor);
+        t.detach();
     }
 }
 
