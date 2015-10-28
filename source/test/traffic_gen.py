@@ -111,20 +111,14 @@ def create_file_queue(n, size):
     return files
 
 
-# TODO Make size variable
+def validate_files(file1, file2):
+    diff_code = os.system("diff " + file1 + " " + file2)
+    #print("%s || %s --> %d" % (file1, file2, diff_code))
+    return diff_code
 
-def do_multipart(target_volume, target_file, fname, fsize):
+def do_multipart(conn, target_volume, target_file, fname, fsize):
     # setup for s3 connection sample from fds-s3-compliance.py
     # print("Writing %s" %target_file)
-    conn = boto.connect_s3(
-        aws_access_key_id='admin',
-        aws_secret_access_key='admin',
-        host='localhost',
-        port=8000,
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat())
-
-    _buck_name = "bucket" + str(random.randint(0, 100000))
     buck = conn.create_bucket(target_volume)
 
     mp = buck.initiate_multipart_upload(target_file)
@@ -147,59 +141,49 @@ def do_multipart(target_volume, target_file, fname, fsize):
     _key = Key(buck)
     _key.key = target_file
     _key.get_contents_to_filename(target_file)
-    diff_code = os.system("diff " + fname + " " + target_file)
-    if diff_code != 0:
-        print(diff_code)
-        raise Exception('File corrupted!')
-    # os.system("rm " + target_file)
-    # os.system("rm " + fname)
+
+    if validate_files(fname, target_file) != 0:
+        raise Exception('File corrupted on Multipart Upload!')
+
+    #Clean old files (save space)
+    os.system("rm " + target_file)
+    #os.system("rm " + fname)
+
+
+def do_put(conn, target_vol, target_file, fname):
+    buck = conn.create_bucket(target_vol)
+    _key = Key(buck)
+    _key.key = target_file
+    _key.set_contents_from_filename(fname)
+
+    # Validate Upload
+    _key.get_contents_to_filename(target_file)
+    if validate_files(fname, target_file) != 0:
+        raise Exception('File corrupted on Put!')
     conn.close()
 
+    os.system("rm " + target_file)
 
-def do_put(target, target_file, fname):
-    print("T:%s // F:%s" % (target, fname))
-    conn = boto.connect_s3(
-        aws_access_key_id='admin',
-        aws_secret_access_key='admin',
-        host='localhost',
-        port=8000,
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat())
-    buck = conn.create_bucket(target_file)
-    k = Key(buck)
-    k.key = fname
-    k.set_contents_from_filename(fname)
-    conn.close()
-
-
-def do_get(target, target_file):
-    conn = boto.connect_s3(
-        aws_access_key_id='admin',
-        aws_secret_access_key='admin',
-        host='localhost',
-        port=8000,
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat())
-    buck = conn.get_bucket(target)
-    nonexistant = conn.lookup(target)
+def do_get(conn, target_vol, target_file):
+    buck = conn.get_bucket(target_vol)
+    nonexistant = conn.lookup(target_vol)
     if nonexistant is None:
         print("No such bucket!!")
-    rs = buck.list()
-    print(buck.name)
-    for kys in rs:
-        print(kys)
+    print(target_file)
+    #for k in buck.list():
+    #    print(k.name)
+    _key = Key(buck)
+    _key.key = target_file
+    fout, fname = tempfile.mkstemp(prefix="fdstrgen")
+    _key.get_contents_to_filename(fname)
+    os.close(fout)
+
+
+def do_delete(conn, target_vol, target_file):
+    buck = conn.get_bucket(target_vol)
     k = Key(buck)
     k.key = target_file
-    fout, fname = tempfile.mkstemp(prefix="fdsgetgen")
-    #k.get_contents_to_filename("tempss")
-    os.close(fout)
-    conn.close()
-
-
-def do_delete(conn, target):
-    e = None
-    conn.request("DELETE", target)
-    return e
+    k.delete()
 
 
 def task(task_id, n_reqs, req_type, vol, files,
@@ -208,12 +192,18 @@ def task(task_id, n_reqs, req_type, vol, files,
     stats = dict(init_stats())
     n = barrier.wait()
     # print("id:%d || barrier:%d" % (task_id,n))
-    multipart_error = 0
+    error = 0
     if task_id == 0:
         time_start_volume[vol] = time.time()
         print ("starting timer -  thread:", task_id, "volume", vol, "time:", time_start_volume[vol])
     uploaded = set()
-    conn = http.client.HTTPConnection(options.target_node + ":" + str(options.target_port))
+    conn = boto.connect_s3(
+        aws_access_key_id='admin',
+        aws_secret_access_key='admin',
+        host='localhost',
+        port=8000,
+        is_secure=False,
+        calling_format=boto.s3.connection.OrdinaryCallingFormat())
     for i in range(0, n_reqs):
         if options.heartbeat > 0 and i % options.heartbeat == 0:
             print ("heartbeat for", task_id, "volume_id:", vol, "i:", i)
@@ -229,7 +219,11 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             # print "PUT", file_idx
-            do_put("volume%d" % (vol), "file%d" % (file_idx), files[file_idx])
+            try:
+                do_put(conn, "volume%d" % vol, "file%d-%d-%d" % (file_idx, task_id, n), files[file_idx])
+            except:
+                print("Put File corrupted on /volume%d/file%d-%d-%d" % (vol, file_idx, task_id, n))
+                error = 1
             # files.task_done()
         elif req_type == "MULTIPART":
             if options.put_seq is True:
@@ -242,25 +236,25 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             try:
-                e = do_multipart("volume%d" % (vol), "file%d-%d-%d" % (file_idx, task_id, n), files[file_idx],
+                do_multipart(conn, "volume%d" % vol, "file%d-%d-%d-big" % (file_idx, task_id, n), files[file_idx],
                                  options.file_size)
             except:
-                print("File Corrupted on /volume%d/file%d-%d-%d" % (vol, file_idx, task_id, n))
-                multipart_error = 1
+                print("Multipart File Corrupted on /volume%d/file%d-%d-%d-big" % (vol, file_idx, task_id, n))
+                error = 1
         elif req_type == "GET":
             if len(prev_uploaded[vol]) > 0:
                 file_idx = random.sample(prev_uploaded[vol], 1)[0]
             else:
                 file_idx = random.randint(0, options.num_files - 1)
             # print "GET", file_idx
-            do_get("volume%d" % (vol), "file%d" % (file_idx))
+            do_get(conn, "volume%d" % vol, "file%d-%d-%d" % (file_idx, task_id, n))
         elif req_type == "DELETE":
             if len(prev_uploaded[vol]) > 0:
                 file_idx = random.sample(prev_uploaded[vol], 1)[
                     0]  # FIXME: this works only once, then uploaded should be cleared/updated
             else:
                 file_idx = random.randint(0, options.num_files - 1)
-            e = do_delete(conn, "/volume%d/file%d" % (vol, file_idx))
+            do_delete(conn, "volume%d" % (vol), "file%d-%d-%d" % (file_idx, task_id, n))
         elif req_type == "7030":
             if random.randint(1, 100) < 70:
                 # Possibly read a file that been already uploaded
@@ -268,31 +262,21 @@ def task(task_id, n_reqs, req_type, vol, files,
                     file_idx = random.sample(prev_uploaded[vol], 1)[0]
                 else:
                     file_idx = random.randint(0, options.num_files - 1)
-                e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
+                do_get(conn, "volume%d" % vol, "file%d" % file_idx)
             else:
                 # PUT a new file
                 file_idx = random.randint(0, options.num_files - 1)
-                e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
+                do_put(conn, "volume%d" % vol, "file%d" % file_idx, files[file_idx])
         elif req_type == "NOP":
             time.sleep(.008)
-        if req_type == "MULTIPART" or req_type == "PUT" or req_type == "GET:D":
-            time_end = time.time()
-            update_latency_stats(stats, time_start, time_end)
-            if multipart_error == 1:
-                stats["fails"] += 1
-                multipart_error = 0
-            else:
-                stats["reqs"] += 1
+        time_end = time.time()
+        update_latency_stats(stats, time_start, time_end)
+        if error == 1:
+            stats["fails"] += 1
+            error = 0
         else:
-            r1 = conn.getresponse()
-            time_end = time.time()
-            r1.read()
-            # FIXME: need to skip first samples
-            update_latency_stats(stats, time_start, time_end)
             stats["reqs"] += 1
-            print("Status--%d" % (r1.status))
-            if r1.status != 200:
-                stats["fails"] += 1
+
     conn.close()
     # print ("Done with volume", vol, "thread:", task_id)
     with counters.get_lock():
