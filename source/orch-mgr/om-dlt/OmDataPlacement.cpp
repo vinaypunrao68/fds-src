@@ -277,14 +277,14 @@ DataPlacement::beginRebalance() {
             }
 
 //            fds_verify(sourceUuid.uuid_get_val() !=0);
-
+            fds_bool_t found = false;
             if ( sourceUuid.uuid_get_val() > 0 ) {
                 LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
                 << " Source " << sourceUuid.uuid_get_val() << std::dec
                 << " token " << tokId;
 
                 // find if there is already a migration group created for this src SM
-                fds_bool_t found = false;
+
                 for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
                     if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
                         found = true;
