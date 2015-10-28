@@ -84,25 +84,6 @@ static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnc
     taskCount.done();
 }
 
-static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_OK, cb->e);
-    taskCount.done();
-}
-
-static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
-    taskCount.done();
-}
-
-
 TEST_F(DmUnitTest, AddVolume) {
     for (fds_uint32_t i = 1; i < dmTester->volumes.size(); i++) {
         EXPECT_EQ(ERR_OK, dmTester->addVolume(i));
@@ -190,226 +171,21 @@ TEST_F(DmUnitTest, PutBlob) {
     printStats();
 }
 
-TEST_F(DmUnitTest, QueryCatalog) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
+TEST_F(DmUnitTest, ObjectRefMg) {
+    dataMgr->features.setQosEnabled(true);
 
-    if (profile)
-        ProfilerStart("/tmp/dm_direct.prof");
+    concurrency::TaskStatus waiter;
 
-    TIMEDBLOCK("total QueryCatalog") {
-        taskCount.reset(NUM_BLOBS);
-        for (uint i = 0; i < NUM_BLOBS; i++) {
-            boost::shared_ptr<DMCallback> cb(new DMCallback());
-            auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-                dmTester->TESTVOLID.get(), dmTester->getBlobName(i), 0);
+    ObjectRefMgr refMgr(dmTester, dataMgr);
+    refMgr.mod_startup();
+    refMgr.scanOnce([&waiter](ObjectRefMgr *refMgr) {
+        waiter.done();
+    });
 
-            auto dmQryReq = new DmIoQueryCat(qryCat);
-            dmQryReq->cb = BIND_OBJ_CALLBACK(*cb.get(),
-                    DMCallback::handler, asyncHdr);
-            g_fdsprocess->proc_thrpool()->schedule(&testQueryCatalog, cb, dmQryReq);
-        }
-        taskCount.await();
-    }
+    EXPECT_TRUE(waiter.await(5000));
+    refMgr.dumpStats();
 
-    if (profile)
-        ProfilerStop();
-    printStats();
-}
-
-TEST_F(DmUnitTest, QueryInvalidOffset) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    if (profile)
-        ProfilerStart("/tmp/dm_direct.prof");
-
-    TIMEDBLOCK("total QueryInvalidOffset") {
-        taskCount.reset(NUM_BLOBS);
-        for (uint i = 0; i < NUM_BLOBS; i++) {
-            boost::shared_ptr<DMCallback> cb(new DMCallback());
-            // Query at the end of the blob
-            auto qryCat = SvcMsgFactory::newQueryCatalogMsg(
-                dmTester->TESTVOLID.get(), dmTester->getBlobName(i), BLOB_SIZE);
-
-            auto dmQryReq = new DmIoQueryCat(qryCat);
-            dmQryReq->cb = BIND_OBJ_CALLBACK(*cb.get(),
-                    DMCallback::handler, asyncHdr);
-            g_fdsprocess->proc_thrpool()->schedule(&testQueryInvalidOffset, cb, dmQryReq);
-        }
-        taskCount.await();
-    }
-
-    if (profile)
-        ProfilerStop();
-    printStats();
-}
-
-
-
-TEST_F(DmUnitTest, SetMeta) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-    std::string blobName;
-    uint64_t txnId;
-
-    fpi::FDSP_MetaDataPair metaData;
-    metaData.key = "blobType";
-    metaData.value = "test Blob S3";
-
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        txnId = dmTester->getNextTxnId();
-        blobName = dmTester->getBlobName(i);
-
-        // start tx
-        startTxn(dmTester->TESTVOLID, blobName, txnId);
-
-        // update
-        auto setBlobMeta = SvcMsgFactory::newSetBlobMetaDataMsg(dmTester->TESTVOLID.get(),
-                                                                dmTester->TESTBLOB);
-        setBlobMeta->txId  = txnId;
-        setBlobMeta->metaDataList.push_back(metaData);
-        auto dmSetMDReq = new DmIoSetBlobMetaData(setBlobMeta);
-        dmSetMDReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-
-        TIMEDBLOCK("process") {
-            dataMgr->handlers[FDS_SET_BLOB_METADATA]->handleQueueItem(dmSetMDReq);
-            cb.wait();
-        }
-        EXPECT_EQ(ERR_OK, cb.e);
-
-        // commit
-        commitTxn(dmTester->TESTVOLID, blobName, txnId);
-    }
-    printStats();
-}
-
-TEST_F(DmUnitTest, GetMeta) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    std::string blobName;
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        blobName = dmTester->getBlobName(i);
-        auto getBlobMeta = SvcMsgFactory::newGetBlobMetaDataMsg(
-            dmTester->TESTVOLID.get(), blobName);
-        auto dmReq = new DmIoGetBlobMetaData(dmTester->TESTVOLID,
-                                             getBlobMeta->blob_name,
-                                             getBlobMeta->blob_version,
-                                             getBlobMeta);
-        dmReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-        TIMEDBLOCK("process") {
-            dataMgr->handlers[FDS_GET_BLOB_METADATA]->handleQueueItem(dmReq);
-            cb.wait();
-        }
-        EXPECT_EQ(ERR_OK, cb.e);
-    }
-    printStats();
-}
-
-TEST_F(DmUnitTest, GetDMStats) {
-    DMCallback cb;
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    auto getDmStats = SvcMsgFactory::newGetDmStatsMsg(dmTester->TESTVOLID.get());
-    auto dmRequest = new DmIoGetSysStats(getDmStats);
-
-    dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_DM_SYS_STATS]->handleQueueItem(dmRequest);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
-    printStats();
-}
-
-TEST_F(DmUnitTest, GetBucket) {
-    DMCallback cb;
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    auto message = SvcMsgFactory::newGetBucketMsg(dmTester->TESTVOLID.get(), 0);
-    message->pattern = ".*test.*";
-    auto dmRequest = new DmIoGetBucket(message);
-
-    dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_LIST_BLOB]->handleQueueItem(dmRequest);
-        cb.wait();
-    }
-    EXPECT_EQ(ERR_OK, cb.e);
-    printStats();
-}
-
-TEST_F(DmUnitTest, DeleteBlob) {
-    DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
-
-    std::string blobName;
-    uint64_t txnId;
-
-    for (uint i = 0; i < NUM_BLOBS; i++) {
-        DMCallback cb;
-        txnId = dmTester->getNextTxnId();
-        blobName = dmTester->getBlobName(i);
-
-        // start tx
-        startTxn(dmTester->TESTVOLID, blobName, txnId);
-
-        // delete
-        auto message = SvcMsgFactory::newDeleteBlobMsg(dmTester->TESTVOLID.get(), blobName);
-        message->txId = txnId;
-        auto dmRequest = new DmIoDeleteBlob(message);
-        dmRequest->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
-        TIMEDBLOCK("process") {
-            dataMgr->handlers[FDS_DELETE_BLOB]->handleQueueItem(dmRequest);
-            cb.wait();
-        }
-        EXPECT_EQ(ERR_OK, cb.e);
-
-        // commit
-        commitTxn(dmTester->TESTVOLID, blobName, txnId);
-    }
-    printStats();
-}
-
-/**
- * Derived handler class for test responses.
- */
-struct UpdateCatalogOnceTestHandler : fds::dm::UpdateCatalogOnceHandler {
-    explicit UpdateCatalogOnceTestHandler(DataMgr& dataManager) :
-            UpdateCatalogOnceHandler(dataManager) {
-    }
-
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
-                        Error const& e,
-                        DmRequest* dmRequest) {
-        taskCount.done();
-    }
-    virtual ~UpdateCatalogOnceTestHandler() = default;
-};
-
-TEST_F(DmUnitTest, Serialization) {
-    // Network-level message structures
-    auto asyncHdr = boost::make_shared<fpi::AsyncHdr>();
-    auto putBlobOnce = boost::make_shared<fpi::UpdateCatalogOnceMsg>();
-    auto handler = boost::make_shared<UpdateCatalogOnceTestHandler>(*dataMgr);
-
-    // Setup the messages with some test data
-    putBlobOnce->blob_name = "Serial Test Blob";
-    putBlobOnce->volume_id = dmTester->TESTVOLID.get();
-    putBlobOnce->dmt_version = 1;
-    fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
-    taskCount.reset(NUM_BLOBS);
-    uint64_t txnId;
-    bool oldUturn = dataMgr->testUturnUpdateCat;
-    dataMgr->testUturnUpdateCat = true;
-
-    TIMEDBLOCK("process") {
-        for (uint i = 0; i < NUM_BLOBS; i++) {
-            handler->handleRequest(asyncHdr, putBlobOnce);
-        }
-        taskCount.await();
-    }
-    dataMgr->testUturnUpdateCat = oldUturn;
-    printStats();
+    dataMgr->features.setQosEnabled(false);
 }
 
 int main(int argc, char** argv) {

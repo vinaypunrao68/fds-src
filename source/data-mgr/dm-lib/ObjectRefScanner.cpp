@@ -263,6 +263,11 @@ Error VolumeRefScannerContext::scanStep() {
 Error VolumeRefScannerContext::finishScan(const Error &e) {
     state = COMPLETE;
     completionError = e;
+    
+    GLOGNOTIFY << "Finished scanning volume: " << volId
+        << " completion error: " << completionError
+        << " aggr objects scanned: " << objRefMgr->objectsScannedCntr;
+
     if (e != ERR_OK) {
         /* Scan completed with an error.  Nothing more to do */
         return ERR_OK;

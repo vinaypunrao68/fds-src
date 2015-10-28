@@ -217,6 +217,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     ScanDoneCb                                  scandoneCb;
     uint32_t                                    scanCntr;
     uint64_t                                    objectsScannedCntr;
+    friend class VolumeRefScannerContext;
     friend class VolumeObjectRefScanner;
 };
 
