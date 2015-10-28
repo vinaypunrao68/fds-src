@@ -213,7 +213,13 @@ void ScstDevice::execParseCmd() {
 
 void ScstDevice::execTaskMgmtCmd() {
     LOGDEBUG << "Task Management request.";
-    // We do not support Aborts/Resets/etc. at this point, so do nothing.
+    auto& tmf_cmd = cmd.tm_cmd;
+
+    if (SCST_TARGET_RESET == tmf_cmd.fn) {
+        // Reset the reservation if we get a target reset
+        reservation_session_id = invalid_session_id;
+    }
+
     fastReply(); // Setup the reply for the next ioctl
 }
 
