@@ -400,6 +400,18 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             node = None
             fdsNodes = None
 
+        #The expect_failure is added here to allow test scenario to test adding service to 
+        #a node that already has the same existing service running
+        if "expect_failure" in scenario.nd_conf_dict:
+            expect_to_fail = bool(scenario.nd_conf_dict['expect_failure'])
+        else:
+            expect_to_fail = False
+
+        if "expect_failed_msg" in scenario.nd_conf_dict:
+            expect_failed_msg = scenario.nd_conf_dict['expect_failed_msg']
+        else:
+            expect_failed_msg = None
+
         # Validate the service in question
         selectedServices = None
         if "services" in scenario.nd_conf_dict:
@@ -508,13 +520,13 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
 
                             elif (action.count("add")) > 0:
                                 if service == "pm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSPMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "dm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSDMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "sm":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSSMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                                 elif service == "am":
-                                    suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node))
+                                    suite.addTest(TestFDSServiceMgt.TestAWSAMAdd(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
 
                             elif (action.count("kill")) > 0:
                                 if service == "pm":
