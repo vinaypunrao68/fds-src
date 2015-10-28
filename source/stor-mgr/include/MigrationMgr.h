@@ -322,6 +322,8 @@ class MigrationMgr {
      */
     void dltTokenMigrationFailedCb(fds_token_id &smToken);
 
+    void checkAndRetryMigration();
+
     void retryTokenMigrForFailedDltTokens();
 
     void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
@@ -497,6 +499,8 @@ class MigrationMgr {
     fds_token_id retrySmTokenInProgress;
 
     boost::shared_ptr<FdsTimerTask> retryTokenMigrationTask;
+
+    fds_bool_t retryMigrSameSrcInProg {false};
 
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
