@@ -264,6 +264,26 @@ void ScstDevice::execUserCmd() {
         continue;
     }
 
+    // These commands do not require a reservation if one exists
+    bool ignore_res = false;
+    switch (op_code) {
+    case INQUIRY:
+    case LOG_SENSE:
+    case RELEASE:
+    case TEST_UNIT_READY:
+      ignore_res = true;
+    default:
+      break;
+    }
+
+    // Check current reservation
+    if (!ignore_res &&
+        invalid_session_id != reservation_session_id &&
+        reservation_session_id != scsi_cmd.sess_h) {
+        task->reservationConflict();
+        continue;
+    }
+
     switch (op_code) {
     case TEST_UNIT_READY:
         LOGTRACE << "Test Unit Ready received.";
@@ -678,6 +698,16 @@ void ScstDevice::execUserCmd() {
             // Right now our API expects the data in a boost shared_ptr :(
             auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
             return scstOps->write(buffer, task);
+        }
+        break;
+    case RESERVE:
+        LOGIO << "Reserving device [" << volumeName << "]";
+        reservation_session_id = scsi_cmd.sess_h;
+        break;
+    case RELEASE:
+        if (reservation_session_id == scsi_cmd.sess_h) {
+          LOGIO << "Releasing device [" << volumeName << "]";
+          reservation_session_id = invalid_session_id;
         }
         break;
     default:
