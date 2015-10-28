@@ -1517,6 +1517,39 @@ OM_PmAgent::send_start_service
     return err;
 }
 
+void OM_PmAgent::send_start_service_resp
+    (
+    fpi::SvcUuid pmSvcUuid,
+    fpi::SvcChangeInfoList changeList)
+{
+    // If the PM took no action, then it means the service is already active;
+    // transition the state to active since we don't expect registration 
+    // to happen
+    for (auto item : changeList) {
+
+        if (item.actionCode == fpi::NO_ACTION) {
+            fpi::SvcUuid svcUuid;
+            // Retrieve the specific service id
+            fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
+
+            LOGDEBUG << "PM took no action on start, will set service: "
+                     << std::hex << svcUuid.svc_uuid
+                     << std::dec << " state to ACTIVE";
+
+            kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+            fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+            // Update the service state to active
+            change_service_state( configDB,
+                                  svcUuid.svc_uuid,
+                                  fpi::SVC_STATUS_ACTIVE );
+        }else {
+            LOGDEBUG <<"PM started new processes, service registrations to follow";
+        }
+    }
+}
+
+
 /**
  * Name: send_stop_service
  * For provided list of services, send request to platform to stop

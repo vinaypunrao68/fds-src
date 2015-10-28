@@ -53,6 +53,15 @@ struct CtrlSvcEvent {
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
 }
 
+// Service action responses from PM
+// Keeping it generic, though we use it currently only for start
+struct SvcStateChangeResp {
+  /* List of services that have received change requests */
+  1: om_types.SvcChangeInfoList changeList;
+  /* Id of the PM that handled the request */
+  2: svc_types.SvcUuid          pmSvcUuid;
+}
+
 // Make NotifyHealthReport defined within the fpi namespace.
 typedef health_monitoring_api.NotifyHealthReport NotifyHealthReport
 typedef health_monitoring_api.HeartbeatMessage HeartbeatMessage
