@@ -316,7 +316,7 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     return err;
 }
 
-std::vector<ObjectID>  ObjectDB::GetKeys() const {
+std::vector<ObjectID> ObjectDB::GetKeys() const {
     fds::Error err(ERR_OK);
     std::vector<ObjectID> allKeys;
     leveldb::Iterator* it = db->NewIterator(read_options);

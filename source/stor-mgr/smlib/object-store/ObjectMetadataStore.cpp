@@ -149,11 +149,6 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
     return err;
 }
 
-std::vector<ObjectID>
-ObjectMetadataStore::getMetaDbKeys(const fds_token_id &smToken) {
-   return metaDb_->getKeys(smToken); 
-}
-
 diskio::DataTier
 ObjectMetadataStore::getMetadataTier() const {
     return metaDb_->getMetaTierInfo();

@@ -141,7 +141,6 @@ class ObjectMetadataDb {
     inline diskio::DataTier getMetaTierInfo() const {
         return metaTier;
     }
-    std::vector<ObjectID> getKeys(const fds_token_id &smToken);
 
   private:  // methods
     /**
