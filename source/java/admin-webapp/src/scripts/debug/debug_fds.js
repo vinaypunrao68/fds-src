@@ -2,14 +2,23 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     $scope.stats = [];
     
+    $scope.durations = [{name: '1hr', value: 1, timeLabels: ['1 hour ago', 'Now']},
+                        {name: '30min', value: 0.5, timeLabels: ['30 minutes ago', 'Now']},
+                        {name: '15min', value: 0.25, timeLabels: ['15 minutes ago', 'Now']},
+                        {name: '5min', value: (1/12), timeLabels: ['5 minutes ago', 'Now']},
+                        {name: '1min', value: (1/60), timeLabels: ['1 minute ago', 'Now']}];
+    
+    $scope.durationChoice = $scope.durations[2];
+    $scope.timeLabels = $scope.durationChoice.timeLabels;
+    
     $scope.isEnabled = true;
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
-    $scope.timeLabels = [ '15 minutes ago', 'Now' ];
     $scope.statChoices = [{name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
                           {name: 'AM GET Requests', value: 'AM_GET_OBJ_REQ'},
                           {name: 'DM Transaction Latency', value: 'DM_TX_OP'},
                           {name: 'Latency of PUT in SM', value: 'SM_PUT_IO'}];
+    
     $scope.chartData = [ { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
                          { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
                          { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
@@ -23,7 +32,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     var interval = 3;
     
     // duration to show in hours
-    $scope.duration = 0.25;
+    $scope.duration = $scope.durationChoice.value;
     
     var initData = function(){
         
@@ -162,6 +171,11 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         
         makeBusCall( 'POST', route, data ).then( handleStats, function(){} );
     };
+    
+    $scope.$watch( 'durationChoice', function( newVal ){
+        $scope.duration = newVal.value;
+        $scope.timeLabels = newVal.timeLabels;
+    });
     
     $scope.$on("$destroy", $scope.stop );
     

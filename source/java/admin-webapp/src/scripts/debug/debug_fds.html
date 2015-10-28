@@ -1,33 +1,44 @@
 <div ng-controller="debugController">
     <div class="header top-label">
-        <span class="sub-header" style="margin-bottom: 12px;">Debug</span>
+        <span class="sub-header" style="margin-bottom: 16px;">Debug</span>
     </div>
     
-    <button class="btn btn-primary skinny" ng-click="start()" enabled="isEnabled">Start Profiling</button>
-    <button class="btn btn-primary skinny" ng-click="stop()">Stop Profiling</button>
+    <button class="btn btn-primary skinny" ng-click="start()" ng-class="{ disabled : !isEnabled }">Start Profiling</button>
+    <button class="btn btn-primary skinny" ng-click="stop()" ng-class="{ disabled : isEnabled }">Stop Profiling</button>
 
-    <div class="flex">
+    <div style="margin: 12px;">
+        <button-bar ng-model="durationChoice" buttons="durations" label="name" disabled="!isEnabled"></button-bar>
+    </div>
     
-        <div style="width: 450px;height: 200px;margin: 12px;margin-top: 24px;" enabled="!isEnabled">
+    <div>
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
             <fui-dropdown selected="chartChoice[0]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
-            <stats-line-chart ng-model="chartData[0]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[0].value" title="chartChoice[0].name" duration="duration"></stats-line-chart>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[0]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[0].value" title="chartChoice[0].name" duration="duration"></stats-line-chart>
+            </div>
         </div>
 
-        <div style="width: 450px;height: 200px;margin: 12px;margin-top: 24px;">
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
             <fui-dropdown selected="chartChoice[1]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
-            <stats-line-chart ng-model="chartData[1]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[1].value" title="chartChoice[1].name" duration="duration"></stats-line-chart>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[1]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[1].value" title="chartChoice[1].name" duration="duration"></stats-line-chart>
+            </div>
         </div>
 
-        <div style="width: 450px;height: 200px;margin: 12px;margin-top: 24px;">
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
             <fui-dropdown selected="chartChoice[2]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
-            <stats-line-chart ng-model="chartData[2]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[2].value" title="chartChoice[2].name" duration="duration"></stats-line-chart>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[2]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[2].value" title="chartChoice[2].name" duration="duration"></stats-line-chart>
+            </div>
         </div>
 
-        <div style="width: 450px;height: 200px;margin: 12px;margin-top: 24px;">
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
             <fui-dropdown selected="chartChoice[3]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
-            <stats-line-chart ng-model="chartData[3]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[3].value" title="chartChoice[3].name" duration="duration"></stats-line-chart>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[3]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[3].value" title="chartChoice[3].name" duration="duration"></stats-line-chart>
+            </div>
         </div>
     </div>
-    
-    <div style="height: 100px;"></div>
+
+    <div style="height: 24px;"></div>
 </div>
