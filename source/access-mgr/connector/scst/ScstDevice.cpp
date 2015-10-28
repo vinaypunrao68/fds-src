@@ -104,7 +104,7 @@ ScstDevice::ScstDevice(std::string const& vol_name,
                 0,                                          // partial transfer length
                 SCST_TST_0_SINGLE_TASK_SET,                 // task set sharing
                 0,                                          // task mgmt only (on fault)
-                SCST_QUEUE_ALG_0_RESTRICTED_REORDER,        // maintain consistency in reordering
+                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // maintain consistency in reordering
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
                 1, 0, 0, 0                                  // TAS/SWP/DSENSE/ORDER MGMT
         },
@@ -618,7 +618,7 @@ void ScstDevice::execUserCmd() {
                         0x0A,
                         0x0A,
                         0b00000000,
-                        0b00001000,
+                        0b00011000,
                         0b00000000,
                         0b01000000,
                         0,
@@ -712,8 +712,10 @@ void ScstDevice::execUserCmd() {
         break;
     case RELEASE:
         if (reservation_session_id == scsi_cmd.sess_h) {
-          LOGIO << "Releasing device [" << volumeName << "]";
-          reservation_session_id = invalid_session_id;
+            LOGIO << "Releasing device [" << volumeName << "]";
+            reservation_session_id = invalid_session_id;
+        } else {
+            LOGNOTIFY << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
         }
         break;
     default:
