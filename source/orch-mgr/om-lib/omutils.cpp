@@ -190,11 +190,32 @@ namespace fds
 
 
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
-        if ((iter != svcInfos.end()) && amFlag)
+        if ( ( iter != svcInfos.end( ) ) && amFlag )
         {
             LOGDEBUG << "Erasing AM svcInfo from list";
             svcInfos.erase(iter);
         }
+    }
+
+    bool isNewerSvcInfoInstance( const fpi::SvcInfo svcInfo )
+    {
+        std::vector<fpi::SvcInfo> entries;
+        MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
+        if ( entries.size() > 0 )
+        {
+            for ( auto svc : entries )
+            {
+                if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
+                {
+                    if ( svc.incarnationNo <= svcInfo.incarnationNo )
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     std::vector<fpi::SvcInfo>::iterator isServicePresent
