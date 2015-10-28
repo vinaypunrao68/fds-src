@@ -118,7 +118,7 @@ def validate_files(file1, file2):
 
 def do_multipart(conn, target_volume, target_file, fname, fsize):
     # setup for s3 connection sample from fds-s3-compliance.py
-    # print("Writing %s" %target_file)
+    # print("%s --> %s/%s" % (fname, target_volume, target_file))
     buck = conn.create_bucket(target_volume)
 
     mp = buck.initiate_multipart_upload(target_file)
@@ -141,20 +141,21 @@ def do_multipart(conn, target_volume, target_file, fname, fsize):
     _key = Key(buck)
     _key.key = target_file
     _key.get_contents_to_filename(target_file)
-
     if validate_files(fname, target_file) != 0:
         raise Exception('File corrupted on Multipart Upload!')
 
-    #Clean old files (save space)
+    # Clean old files (save space)
     os.system("rm " + target_file)
-    #os.system("rm " + fname)
+    # os.system("rm " + fname)
 
 
 def do_put(conn, target_vol, target_file, fname):
     buck = conn.create_bucket(target_vol)
     _key = Key(buck)
     _key.key = target_file
-    _key.set_contents_from_filename(fname)
+    ret = _key.set_contents_from_filename(fname)
+    if ret != 4096:
+        print(target_file)
 
     # Validate Upload
     _key.get_contents_to_filename(target_file)
@@ -169,8 +170,8 @@ def do_get(conn, target_vol, target_file):
     nonexistant = conn.lookup(target_vol)
     if nonexistant is None:
         print("No such bucket!!")
-    print(target_file)
-    #for k in buck.list():
+    # print(target_file)
+    # for k in buck.list():
     #    print(k.name)
     _key = Key(buck)
     _key.key = target_file
@@ -181,9 +182,9 @@ def do_get(conn, target_vol, target_file):
 
 def do_delete(conn, target_vol, target_file):
     buck = conn.get_bucket(target_vol)
-    k = Key(buck)
-    k.key = target_file
-    k.delete()
+    _key = Key(buck)
+    _key.key = target_file
+    _key.delete()
 
 
 def task(task_id, n_reqs, req_type, vol, files,
@@ -204,6 +205,7 @@ def task(task_id, n_reqs, req_type, vol, files,
         port=8000,
         is_secure=False,
         calling_format=boto.s3.connection.OrdinaryCallingFormat())
+    # print("TaskID:", task_id, " || Volume:", vol)
     for i in range(0, n_reqs):
         if options.heartbeat > 0 and i % options.heartbeat == 0:
             print ("heartbeat for", task_id, "volume_id:", vol, "i:", i)
@@ -220,9 +222,10 @@ def task(task_id, n_reqs, req_type, vol, files,
             uploaded.add(file_idx)
             # print "PUT", file_idx
             try:
-                do_put(conn, "volume%d" % vol, "file%d-%d-%d" % (file_idx, task_id, n), files[file_idx])
+                # print("Put File on /volume%d/file%d-%d" % (vol, file_idx, task_id))
+                do_put(conn, "volume%d" % vol, "file%d-%d" % (file_idx, task_id), files[file_idx])
             except:
-                print("Put File corrupted on /volume%d/file%d-%d-%d" % (vol, file_idx, task_id, n))
+                print("Put File corrupted on /volume%d/file%d-%d" % (vol, file_idx, task_id))
                 error = 1
             # files.task_done()
         elif req_type == "MULTIPART":
@@ -236,10 +239,10 @@ def task(task_id, n_reqs, req_type, vol, files,
                 file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             try:
-                do_multipart(conn, "volume%d" % vol, "file%d-%d-%d-big" % (file_idx, task_id, n), files[file_idx],
+                do_multipart(conn, "volume%d" % vol, "file%d-%d-big" % (file_idx, task_id), files[file_idx],
                                  options.file_size)
             except:
-                print("Multipart File Corrupted on /volume%d/file%d-%d-%d-big" % (vol, file_idx, task_id, n))
+                print("Multipart File Corrupted on /volume%d/file%d-%d-big" % (vol, file_idx, task_id))
                 error = 1
         elif req_type == "GET":
             if len(prev_uploaded[vol]) > 0:
@@ -247,7 +250,7 @@ def task(task_id, n_reqs, req_type, vol, files,
             else:
                 file_idx = random.randint(0, options.num_files - 1)
             # print "GET", file_idx
-            do_get(conn, "volume%d" % vol, "file%d-%d-%d" % (file_idx, task_id, n))
+            do_get(conn, "volume%d" % vol, "file%d-%d" % (file_idx, task_id))
         elif req_type == "DELETE":
             if len(prev_uploaded[vol]) > 0:
                 file_idx = random.sample(prev_uploaded[vol], 1)[
@@ -360,7 +363,8 @@ def main(options, files):
     time_start_volume = Array("d", [0.0, ] * options.num_volumes)
     for i in range(0, options.threads):
         for v in range(options.num_volumes):
-            task_args = (i, reqs_per_thread[i], options.req_type, v, files,
+            # make sure each task has a unique thread id
+            task_args = (i*options.threads+v, reqs_per_thread[i], options.req_type, v, files,
                          queue, part_prev_uploaded[i], barrier, counters,
                          time_start_volume)
             t = Process(target=task, args=task_args)
@@ -419,7 +423,7 @@ def main(options, files):
 # TODO: option to reset counters
 # TODO: use pools and async: https://docs.python.org/3/library/multiprocessing.html#using-a-pool-of-workers
 # TODO: delete
-# FIXME: what happen if i use a different numbe rof volumes for put and get?
+# FIXME: what happen if i use a different number of volumes for put and get?
 # TODO: time history of latencies
 # TODO: Add 
 if __name__ == "__main__":
