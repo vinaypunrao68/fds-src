@@ -77,8 +77,7 @@ class DmMigrationClient : public DmMigrationBase {
      * Callback to ensure no error from forwarding.
      * Otherwise, fail the migration for now.
      */
-    void fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
-                                 EPSvcRequest* req,
+    void fwdCatalogUpdateMsgResp(EPSvcRequest* req,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
 
