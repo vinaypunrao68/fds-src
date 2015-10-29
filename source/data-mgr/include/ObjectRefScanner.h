@@ -168,6 +168,9 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */
     void scanOnce(ScanDoneCb cb);
+
+    util::BloomFilterPtr getTokenBloomFilter(const fds_token_id &tokenId);
+
     void dumpStats() const;
 
     inline DataMgr* getDataMgr() const { return dataMgr; }

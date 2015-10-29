@@ -205,6 +205,11 @@ void ObjectRefMgr::scanStep() {
     }
 }
 
+util::BloomFilterPtr ObjectRefMgr::getTokenBloomFilter(const fds_token_id &tokenId)
+{
+    return bfStore->get(aggrBloomFilterKey(tokenId), false);
+}
+
 void ObjectRefMgr::prescanInit()
 {
     /* Get the current dlt */
