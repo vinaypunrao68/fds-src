@@ -1674,7 +1674,6 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
              * object and leave it's metadata as it is.
              */
             if (objMeta->getTimeStamp() > ts) {
-                LOGDEBUG << "shouldUpdateMeta = false";
                 shouldUpdateMeta = false;
             }
 
@@ -1703,10 +1702,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * If the delete count for this object has reached the threshold
                  * then let the Scavenger know about it.
                  */
-                fds_uint32_t delCount = updatedMeta->incrementDeleteCount();
-                LOGDEBUG << "delCount = " << delCount;
-                if (delCount >= OBJ_DELETE_COUNT_THRESHOLD) {
-           //     if (updatedMeta->incrementDeleteCount() >= OBJ_DELETE_COUNT_THRESHOLD) {
+                if (updatedMeta->incrementDeleteCount() >= getObjectDelCnt()) {
                     ++objsToDelete;
                 }
                 metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);

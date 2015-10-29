@@ -118,6 +118,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     // Track when the last capacity message was sent
     float_t lastCapacityMessageSentAt;
 
+    // Maximum delete count for an object after which it will be up for gc'ing.
+    fds_uint8_t objDelCountThresh { 3 };
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
@@ -334,6 +337,14 @@ class ObjectStore : public Module, public boost::noncopyable {
                          const fds_volid_t &volId);
 
     void dropLiveObjectDB();
+
+    inline fds_uint8_t getObjectDelCnt() const {
+        return objDelCountThresh;
+    }
+
+    inline void setObjectDelCnt(fds_uint8_t &newCount) {
+        objDelCountThresh = newCount;
+    }
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
