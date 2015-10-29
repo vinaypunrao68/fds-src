@@ -23,7 +23,14 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
                          { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
                          { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
                          { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]}];
+    
+    $scope.min = undefined;
+    $scope.max = undefined;
+    $scope.syncRange = false;
+    
     $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[1], $scope.statChoices[2], $scope.statChoices[3]];
+    $scope.rangeMaximum = undefined;
+    $scope.rangeMinimum = undefined;
     
     var pollId = -1;
     var myQueue = '';
@@ -157,6 +164,43 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     
     // take the messages and put them in the right stat arrays
     var handleStats = function( response ){
+        
+        if ( $scope.syncRange === true ){
+            
+            var min = undefined;
+            var max = 0;
+            
+            // go through each data set
+            for ( var ii = 0; ii < $scope.chartData.length; ii++ ){
+                
+                var chartData = $scope.chartData[ii];
+                
+                // go through each series
+                for ( var jj = 0; jj < chartData.series.length; jj++ ){
+                    
+                    var series = chartData.series[jj];
+                    
+                    // go through each datapoint to find a min and max.
+                    for ( var kk = 0; kk < series.datapoints.length; kk++ ){
+                        
+                        var datapoint = series.datapoints[kk];
+                        
+                        if ( !angular.isDefined( min ) || datapoint.y < min ){
+                            min = datapoint.y;
+                        }
+                        
+                        if ( datapoint.x > max ){
+                            max = datapoint.x;
+                        }
+                        
+                    }// kk
+                }// jj
+            }// ii 
+            
+            $scope.rangeMinimum = min;
+            $scope.rangeMaximum = max;
+        }
+        
         $scope.$broadcast( 'fds::new_stats', response.data );
     };
     
