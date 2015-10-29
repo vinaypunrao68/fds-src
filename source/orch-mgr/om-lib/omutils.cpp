@@ -207,14 +207,19 @@ namespace fds
             {
                 if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
                 {
-                    if ( svc.incarnationNo <= svcInfo.incarnationNo )
+                    LOGDEBUG << "Svc: " << svcInfo.incarnationNo
+                             << " Map: " << svc.incarnationNo;
+
+                    if ( svc.incarnationNo < svcInfo.incarnationNo )
                     {
+                        LOGDEBUG << "Incarnation is newer than what is in service map, return true";
                         return true;
                     }
                 }
             }
         }
 
+        LOGDEBUG << "Incarnation is older than what is in service map, return false";
         return false;
     }
 
