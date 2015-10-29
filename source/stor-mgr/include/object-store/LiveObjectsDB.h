@@ -45,6 +45,8 @@ class LiveObjectsDB {
                                      std::set<std::string> &objSetFilenames);
         Error findAssociatedVols(const fds_token_id &smToken,
                                  std::set<fds_volid_t> &volumes);
+        Error findMinTimeStamp(const fds_token_id &smToken,
+                               TimeStamp &ts);
         void dropDB();
         ~LiveObjectsDB() { }
 };

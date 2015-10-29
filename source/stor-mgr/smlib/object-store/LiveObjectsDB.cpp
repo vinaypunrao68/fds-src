@@ -99,4 +99,17 @@ Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
     return ERR_OK;
 }
 
+Error LiveObjectsDB::findMinTimeStamp(const fds_token_id &smToken,
+                                      TimeStamp &ts) {
+    if (!db) { return ERR_INVALID; }
+
+    std::string query = util::strformat("select MIN(timestamp) from liveObjTbl where smtoken=%ld", smToken);
+    if (!(db->getIntValue(query.c_str(), ts))) {
+        LOGERROR << "Failed getting timestamp information from live object table"
+                 << " for objects in smtoken = " << smToken;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
 } // end namespace fds
