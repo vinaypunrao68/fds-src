@@ -270,8 +270,7 @@ DMTManager::~DMTManager() {
 
 Error DMTManager::add(DMT* dmt,
                       DMTType dmt_type,
-                      FDS_Table::callback_type const& cb,
-                      fds_bool_t dmResync) {
+                      FDS_Table::callback_type const& cb) {
 
     Error err(ERR_OK);
 
@@ -280,7 +279,7 @@ Error DMTManager::add(DMT* dmt,
     dmt_lock.write_lock();
 
     // will not add version that already exists
-    if (!dmResync && dmt_map.count(add_version) > 0) {
+    if (dmt_map.count(add_version) > 0) {
         dmt_lock.write_unlock();
         return ERR_DUPLICATE;
     }

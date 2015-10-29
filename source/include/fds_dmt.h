@@ -126,8 +126,7 @@ namespace fds {
         virtual ~DMTManager();
 
         Error add(DMT* dmt, DMTType dmt_type,
-                  FDS_Table::callback_type const& cb = nullptr,
-                  fds_bool_t dmResync = false);
+                  FDS_Table::callback_type const& cb = nullptr);
         Error addSerializedDMT(std::string& data,
                                FDS_Table::callback_type const& cb,
                                DMTType dmt_type);

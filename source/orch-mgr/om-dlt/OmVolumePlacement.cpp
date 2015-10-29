@@ -171,10 +171,6 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     err = dmtMgr->add(newDmt, DMT_TARGET);
     fds_verify(err.ok());
 
-    /**
-     * If it is duplicate, it's ok to just overwrite the "old" target with the one
-     * that just got recomputed.
-     */
     fds_verify(configDB != NULL);
     if (!configDB->storeDmt(*newDmt, "target")) {
         GLOGWARN << "unable to store dmt to config db "
