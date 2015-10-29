@@ -171,8 +171,6 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     err = dmtMgr->add(newDmt, DMT_TARGET);
     fds_verify(err.ok());
 
-    // TODO(Rao): Check with Anna if a lock is required
-    // store the dmt to config db
     fds_verify(configDB != NULL);
     if (!configDB->storeDmt(*newDmt, "target")) {
         GLOGWARN << "unable to store dmt to config db "
@@ -501,8 +499,10 @@ void
 VolumePlacement::undoTargetDmtCommit() {
     if (dmtMgr->hasTargetDMT()) {
         if (!hasNonCommitedTarget()) {
-            // we already assigned committed DMT target, revert
-            Error err = dmtMgr->commitDMT(prevDmtVersion);
+            LOGDEBUG << "Failure occured after commit - reverting committed DMT version to " << prevDmtVersion;
+            // we already assigned committed DMT target, revert.
+            // Note: the false here is to ensure that "target_version" is not wiped... so the unsetTarget below will work.
+            Error err = dmtMgr->commitDMT(prevDmtVersion, false);
             fds_verify(err.ok());
             prevDmtVersion = DMT_VER_INVALID;
         }
