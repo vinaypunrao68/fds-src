@@ -81,6 +81,8 @@ else
   echo "Syncing packages from local source"
   rsync -av ../../omnibus/omnibus-fds-platform/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
   rsync -av ../../omnibus/omnibus-fds-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
+  rsync -av ../../omnibus/omnibus-fds-stats-service/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
+  rsync -av ../../omnibus/omnibus-fds-stats-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
 fi
 
 # Make sure we have package files
