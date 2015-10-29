@@ -7,9 +7,6 @@
 artifactoryPullUser="builder"
 artifactoryPullPassword="h7qgA3fYr0P3"
 
-cpp_debug_static_libfds_fdsp="fdspStaticLibrary/debug/libfds-fdsp.a"
-cpp_release_static_libfds_fdsp="fdspStaticLibrary/release/libfds-fdsp.a"
-
 thrift_version="0.9.0"
 thrift_fdsp_versioned="fds-thrift-$thrift_version"
 thrift_tar_gz="$thrift_fdsp_versioned.tar.gz"
