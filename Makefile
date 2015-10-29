@@ -18,7 +18,7 @@ include $(topdir)/Makefile.incl
 .PHONY: use_thrift_from_artifactory
 
 use_thrift_from_artifactory:
-	source/tools/get-thrift.sh;
+	source/Build/mk-scripts/get-thrift.sh;
 
 .PHONY: coverage
 
