@@ -1,5 +1,0 @@
-topdir         := ..
-speedup        = -j $(threads)
-user_build_dir := compiler/cpp/src lib/cpp/src/thrift
-
-include $(topdir)/Makefile.incl
