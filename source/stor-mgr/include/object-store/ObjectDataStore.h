@@ -46,7 +46,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
 public:
     ObjectDataStore(const std::string &modName,
                     SmIoReqHandler *data_store,
-                    UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
+                    UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj(),
+                    EvaluateObjSetFn evalFn=EvaluateObjSetFn());
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
     typedef std::shared_ptr<ObjectDataStore> ptr;

@@ -21,6 +21,8 @@ void getSubDirectories(const std::string& dirname, std::vector<std::string>& vec
 
 // gets the list fo files in the given directory
 void getFiles(const std::string& dirname, std::vector<std::string>& vecDirs);
+
+std::string getFileChecksum(const std::string& filename);
 }  // namespace util
 }  // namespace fds
 
