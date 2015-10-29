@@ -1241,6 +1241,16 @@ OM_NodeDomainMod::om_local_domain_down()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
+// om_master_domain
+// ------------------
+//
+fds_bool_t
+OM_NodeDomainMod::om_master_domain()
+{
+    // TODO(Greg): Need some switch to check whether we are master - perhaps "domainID == 1"?
+    return true;
+}
+
 // domain_event
 // ------------
 //

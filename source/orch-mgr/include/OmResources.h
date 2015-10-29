@@ -885,6 +885,11 @@ class OM_NodeDomainMod : public Module
     static fds_bool_t om_local_domain_down();
 
     /**
+     * "true" if this is called within the Master Domain and hence, the Master OM.
+     */
+    static fds_bool_t om_master_domain();
+
+    /**
      * Accessors methods to retreive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */

@@ -422,7 +422,7 @@ void clear_doctext() {
  * Warning: if you mix tabs and spaces in a non-uniform way,
  * you will get what you deserve.
  */
-char* clean_up_doctext(char* doctext) {
+char* clean_up_doctext(char* doctext, long yylineno) {
   // Convert to C++ string, and remove Windows's carriage returns.
   string docstring = doctext;
   docstring.erase(
@@ -545,6 +545,7 @@ char* clean_up_doctext(char* doctext) {
     docstring += '\n';
   }
 
+  if (docstring.length() > strlen(doctext)) {printf("assert(docstring.length() <= strlen(doctext)) at line %d.\n", yylineno);};
   assert(docstring.length() <= strlen(doctext));
   strcpy(doctext, docstring.c_str());
   return doctext;

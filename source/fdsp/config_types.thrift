@@ -225,11 +225,11 @@ enum SubscriptionScheduleType {
  * Subscription attributes and status
  */
 struct SubscriptionDescriptor {
-  /** A string representing the subscription name. MUST be unique within the global domain. */
-  1: required string name;
-
   /** ID of the subscription. MUST be unique within the global domain. */
-  2: required i64 id;
+  1: required i64 id;
+
+  /** A string representing the subscription name. MUST be unique within the global domain/tenant. */
+  2: required string name;
 
   /** The administrating tenant ID. */
   3: required i64 tenantID;
@@ -257,4 +257,12 @@ struct SubscriptionDescriptor {
 
   /** When scheduling, the "size" of the interval the expiration of which results in a primary snapshot pushed to the replica. Units according to scheduleType. */
   11: required i64 intervalSize;
+}
+
+exception SubscriptionNotFound {
+  1: string message;
+}
+
+exception SubscriptionNotModified {
+  1: string message;
 }
