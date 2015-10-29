@@ -1877,6 +1877,45 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
     return retStatus;
 }
 
+bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
+{
+    bool isPresent = false;
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+
+        LOGDEBUG << "!ConfigDB getting service"
+                 << " uuid: " << std::hex << svc_uuid << std::dec;
+
+        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+        if ( reply.isOk() )
+        {
+            std::string value = reply.getString();
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( value, svcInfo );
+
+            int64_t id = svcInfo.svc_id.svc_uuid.svc_uuid;
+
+            if ( id != 0 ) {
+                isPresent = true;
+            } else {
+               isPresent = false;
+            }
+        }
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return isPresent;
+}
+
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
                        kvstore::NodeInfoType nodeInfo )
 {

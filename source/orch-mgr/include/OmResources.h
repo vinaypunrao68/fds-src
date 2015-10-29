@@ -248,6 +248,8 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
                              bool domainRestart, bool startNode);
+
+    void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
      * Send 'stop service' message to Platform
      */
@@ -257,6 +259,9 @@ class OM_PmAgent : public OM_NodeAgent
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
                                  fds_bool_t stop_am,
+                                 fpi::SvcUuid smSvcId,
+                                 fpi::SvcUuid dmSvcId,
+                                 fpi::SvcUuid amSvcId,
                                  fds_bool_t shutdownNode,
                                  EPSvcRequest* req,
                                  const Error& error,

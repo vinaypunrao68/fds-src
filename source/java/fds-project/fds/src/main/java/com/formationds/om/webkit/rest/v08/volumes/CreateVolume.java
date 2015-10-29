@@ -13,7 +13,7 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;

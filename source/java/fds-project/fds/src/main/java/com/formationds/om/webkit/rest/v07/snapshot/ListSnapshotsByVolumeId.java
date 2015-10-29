@@ -37,13 +37,13 @@ public class ListSnapshotsByVolumeId
 
     final long volumeId = requiredLong(routeParameters,
                                        REQ_PARAM_VOLUME_ID);
-    final List<com.formationds.protocol.Snapshot> _snapshots =
+    final List<com.formationds.protocol.svc.types.Snapshot> _snapshots =
         config.listSnapshots(volumeId);
     if (_snapshots == null || _snapshots.isEmpty()) {
       return new JsonResource(new JSONArray(snapshots));
     }
 
-    for (final com.formationds.protocol.Snapshot snapshot : _snapshots) {
+    for (final com.formationds.protocol.svc.types.Snapshot snapshot : _snapshots) {
       final Snapshot mSnapshot = new Snapshot();
 
       mSnapshot.setId( String.valueOf( snapshot.getSnapshotId() ) );

@@ -7,6 +7,7 @@ include "config_types.thrift"
 
 include "common.thrift"
 include "node_svc_api.thrift"
+include "svc_types.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -149,9 +150,9 @@ service ConfigurationService {
    *
    * @return Returns the list of FDSP_Node_Info_Type's.
    */
-  list<common.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
+  list<svc_types.FDSP_Node_Info_Type> listLocalDomainServices(1:string domainName)
       throws (1: common.ApiException e);
-  list<common.FDSP_Node_Info_Type> ListServices(1:i32 ignore),
+  list<svc_types.FDSP_Node_Info_Type> ListServices(1:i32 ignore),
 
   /**
    * Remove currently defined Services from the named Local Domain.
@@ -321,7 +322,7 @@ service ConfigurationService {
   string getVolumeName(1:i64 volumeId)
       throws (1: common.ApiException e),
 
-  common.FDSP_VolumeDescType GetVolInfo(1:config_types.FDSP_GetVolInfoReqType vol_info_req)
+  svc_types.FDSP_VolumeDescType GetVolInfo(1:config_types.FDSP_GetVolInfoReqType vol_info_req)
       throws (1:config_types.FDSP_VolumeNotFound not_found),
 
   /**
@@ -372,7 +373,7 @@ service ConfigurationService {
    */
   list<config_types.VolumeDescriptor> listVolumes(1:string domainName)
       throws (1: common.ApiException e),
-  list <common.FDSP_VolumeDescType> ListVolumes(1:i32 ignore),
+  list <svc_types.FDSP_VolumeDescType> ListVolumes(1:i32 ignore),
 
   /**
    * Register a statistic stream.
@@ -499,7 +500,7 @@ service ConfigurationService {
    *
    * @return Returns a list of snapshots
    */
-  list<common.Snapshot> listSnapshots(1:i64 volumeId)
+  list<svc_types.Snapshot> listSnapshots(1:i64 volumeId)
       throws (1: common.ApiException e),
 
   /**
@@ -537,9 +538,9 @@ service ConfigurationService {
    * @param rel_prio - An i32 representing the relative priority of requests against Volumes with this policy compared
    *                   to requests against Volumes with different relative priorities.
    *
-   * @return Returns common.FDSP_PolicyInfoType
+   * @return Returns svc_types.FDSP_PolicyInfoType
    */
-  common.FDSP_PolicyInfoType createQoSPolicy(1:string policy_name, 2:i64 iops_min, 3:i64 iops_max, 4:i32 rel_prio)
+  svc_types.FDSP_PolicyInfoType createQoSPolicy(1:string policy_name, 2:i64 iops_min, 3:i64 iops_max, 4:i32 rel_prio)
       throws (1: common.ApiException e),
 
   /**
@@ -547,7 +548,7 @@ service ConfigurationService {
    *
    * @return Returns a list of FDSP_PolicyInfoType objects
    */
-  list<common.FDSP_PolicyInfoType> listQoSPolicies(1:i64 unused)
+  list<svc_types.FDSP_PolicyInfoType> listQoSPolicies(1:i64 unused)
       throws (1: common.ApiException e),
 
   /**
@@ -562,9 +563,9 @@ service ConfigurationService {
    * @param rel_prio - An i32 representing the new relative priority of requests against Volumes with this policy compared
    *                   to requests against Volumes with different relative priorities.
    *
-   * @return Returns common.FDSP_PolicyInfoType containing the modified QoS Policy.
+   * @return Returns svc_types.FDSP_PolicyInfoType containing the modified QoS Policy.
    */
-  common.FDSP_PolicyInfoType modifyQoSPolicy(1:string current_policy_name, 2:string new_policy_name, 3:i64 iops_min,
+  svc_types.FDSP_PolicyInfoType modifyQoSPolicy(1:string current_policy_name, 2:string new_policy_name, 3:i64 iops_min,
                                              4:i64 iops_max, 5:i32 rel_prio)
       throws (1: common.ApiException e),
 

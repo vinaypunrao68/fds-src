@@ -5,12 +5,13 @@ import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_NodeState;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcID;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
+
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -220,6 +221,9 @@ public class PlatformModelConverter
 		case STANDBY:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_STANDBY;
 			break;
+		case DISCOVERED:
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_DISCOVERED;
+			break;
 		default: //Running,Initializing,Shutting Down
 	        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
 	        break;
@@ -327,6 +331,8 @@ public class PlatformModelConverter
     	externalState = Optional.of( ServiceState.NOT_RUNNING );  
         break;
       case FDS_Node_Discovered:
+        externalState = Optional.of( ServiceState.DISCOVERED );
+        break;
       case FDS_Node_Up:
         externalState = Optional.of( ServiceState.RUNNING );
         break;
@@ -368,6 +374,8 @@ public class PlatformModelConverter
         break;
       case STANDBY:
     	internalState = Optional.of( FDSP_NodeState.FDS_Node_Standby);
+      case DISCOVERED:
+    	internalState = Optional.of( FDSP_NodeState.FDS_Node_Discovered);
       default:
         internalState = Optional.of( FDSP_NodeState.FDS_Node_Up );
         break;

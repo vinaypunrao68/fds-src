@@ -1,4 +1,5 @@
 from svchelper import *
+from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 from restendpoint import *

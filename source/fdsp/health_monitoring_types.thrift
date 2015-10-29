@@ -3,7 +3,6 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
-include "common.thrift"
 include "svc_types.thrift"
 
 /**
@@ -32,7 +31,7 @@ enum HealthState {
 struct HealthInfoMessage {
   1: required svc_types.SvcInfo         serviceInfo;
   2: required HealthState               serviceState;
-  3: common.SvcID                       platformUUID;     // Only intended to be used when Platformd spoofs a HealthInfoMessage
+  3: svc_types.SvcID                       platformUUID;     // Only intended to be used when Platformd spoofs a HealthInfoMessage
   4: i32                                statusCode;       // This should be a value in fds_errno_t
   5: string                             statusInfo;
 }
