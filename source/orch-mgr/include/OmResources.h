@@ -962,7 +962,10 @@ class OM_NodeDomainMod : public Module
     */
     virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
 
-
+    virtual void
+    om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                          fpi::FDSP_MgrIdType svcType );
+    
     /**
      * Notification that service is down to DLT and DMT state machines
      * @param error timeout error or other error returned by the service
