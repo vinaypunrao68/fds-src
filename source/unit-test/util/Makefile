@@ -19,7 +19,8 @@ user_non_fds_libs := \
 	boost_filesystem \
 	boost_thread \
 	boost_date_time \
-    ssl crypto
+	ssl crypto \
+	sqlite3
 
 user_incl_dir     := \
 	$(util_dir) \
@@ -30,11 +31,12 @@ user_cpp          :=  $(wildcard *.cpp)
 
 user_no_style     := $(user_cpp) $(user_cc)
 user_bin_exe      := log_unit_test \
-                     fds_panic_test bloomtest utiltest
+                     fds_panic_test bloomtest utiltest sqlitedb
 
 log_unit_test     := log_unit_test.cpp
 fds_panic_test    := fds_panic_test.cpp
 bloomtest         := bloomtest.cpp
-utiltest         := utiltest.cpp
+utiltest          := utiltest.cpp
+sqlitedb          := sqliteDB.cpp
 include $(test_topdir)/Makefile.svc
 

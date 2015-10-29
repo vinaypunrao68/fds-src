@@ -19,6 +19,7 @@
 #include <FdsRandom.h>
 
 namespace fds {
+static const fds_uint32_t bitsPerDltToken = 16;
 
 /**
  * Dataset that contains objects (data not stored but can be recreated)
@@ -82,6 +83,9 @@ class TestDataset {
   public:  // methods
     void generateDataset(fds_uint32_t dataset_size,
                          fds_uint32_t obj_size);
+    void generateDatasetPerBucket(fds_uint32_t dataset_size,
+                                  fds_uint32_t obj_size,
+                                  fds_token_id bucket);
 };
 
 /* Volume descriptor and behavior used for testing */
@@ -104,7 +108,8 @@ class TestVolume {
                fds_uint32_t numOps,
                StoreOpType opType,
                fds_uint32_t datasetSize,
-               fds_uint32_t objSize);
+               fds_uint32_t objSize,
+               fds_token_id bucket=0);
     ~TestVolume() {}
 
     typedef boost::shared_ptr<TestVolume> ptr;
@@ -183,7 +188,8 @@ TestVolume::TestVolume(fds_volid_t volume_id,
                        fds_uint32_t numOps,
                        StoreOpType opType,
                        fds_uint32_t datasetSize,
-                       fds_uint32_t objSize)
+                       fds_uint32_t objSize,
+                       fds_token_id bucketId)
         : voldesc_(volname, volume_id) {
     voldesc_.iops_assured = 0;
     voldesc_.iops_throttle = 0;
@@ -191,7 +197,11 @@ TestVolume::TestVolume(fds_volid_t volume_id,
     voldesc_.mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     concurrency_ = concurrency;
     num_ops_ = numOps;
-    testdata_.generateDataset(datasetSize, objSize);
+    if (bucketId) {
+        testdata_.generateDatasetPerBucket(datasetSize, objSize, bucketId);
+    } else {
+        testdata_.generateDataset(datasetSize, objSize);
+    }
     op_type_ = opType;
 
     LOGDEBUG << "Volume " << volname << " will execute " << num_ops_
@@ -250,6 +260,41 @@ void TestDataset::generateDataset(fds_uint32_t dataset_size,
         dataset_.push_back(oid);
         dataset_map_[oid] = obj;
         LOGDEBUG << "Dataset: " << oid << " size " << dataset_map_[oid].size_
+                 << " rnum " << dataset_map_[oid].rnum_ << " (" << rnum
+                 << "," << rnum2 << ")";
+        rnum = (fds_uint32_t)rgen.genNum();
+        rnum2 = (fds_uint32_t)rgen.genNum();
+    }
+}
+
+void TestDataset::generateDatasetPerBucket(fds_uint32_t dataset_size,
+                                           fds_uint32_t obj_size,
+                                           fds_token_id bucket) {
+    fds_uint64_t seed = RandNumGenerator::getRandSeed();
+    RandNumGenerator rgen(seed);
+    fds_uint32_t rnum = (fds_uint32_t)rgen.genNum();
+    fds_uint32_t rnum2 = (fds_uint32_t)rgen.genNum();
+    // clear existing map
+    dataset_.clear();
+    dataset_map_.clear();
+    // populate dataset
+    for (fds_uint32_t i = 0; i < dataset_size; ++i) {
+        TestObject obj(obj_size, rnum, rnum2);
+        boost::shared_ptr<std::string> objData = obj.getObjectData();
+        ObjectID oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
+        // we want every object ID in the dataset to be unique
+        while ((dataset_map_.count(oid) > 0) ||
+               (SmDiskMap::smTokenId(oid, bitsPerDltToken) != bucket)) {
+            rnum = (fds_uint32_t)rgen.genNum();
+            obj.rnum_ = rnum;
+            obj.rnum2_ = rnum2;
+            objData = obj.getObjectData();
+            oid = ObjIdGen::genObjectId(objData->c_str(), objData->size());
+        }
+        dataset_.push_back(oid);
+        dataset_map_[oid] = obj;
+        LOGDEBUG << "Dataset: " << oid << " bucket " << SmDiskMap::smTokenId(oid, bitsPerDltToken)
+                 << " size " << dataset_map_[oid].size_
                  << " rnum " << dataset_map_[oid].rnum_ << " (" << rnum
                  << "," << rnum2 << ")";
         rnum = (fds_uint32_t)rgen.genNum();

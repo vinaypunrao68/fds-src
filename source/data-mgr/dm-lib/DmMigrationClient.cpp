@@ -450,17 +450,6 @@ DmMigrationClient::processBlobFilterSet2()
         return err;
     }
 
-    /**
-     * This is to make sure that in cases of static migration, we still send a "last"
-     * forward message to ensure that state machine keeps going.
-     * TODO - this is a potential for race condition. Need clean up after the shouldForwardIO
-     * method cleanup.
-     */
-    err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
-    if (!(commitLog->checkOutstandingTx(dmtVersion))) {
-    	sendFinishFwdMsg();
-    }
-
     // if completion handler is registered call it.
     if (migrDoneHandler) {
         LOGMIGRATE << "Calling migration client done handler";
@@ -525,6 +514,12 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
                                         const MetaDataList::const_ptr& meta_list)
 {
     Error err(ERR_OK);
+
+    /* Don't forward I/O if this particular client says no */
+	if (!forwardingIO.load(std::memory_order_relaxed)) {
+		return err;
+	}
+
     LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
                << std::dec << " blob " << commitBlobReq->blob_name;
 
@@ -536,7 +531,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
     fwdMsg->txId = 0;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
-    meta_list->toFdspPayload(fwdMsg->meta_list);
+    meta_list->copyToFdspPayload(fwdMsg->meta_list);
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response

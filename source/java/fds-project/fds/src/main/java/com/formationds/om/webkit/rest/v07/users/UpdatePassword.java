@@ -44,7 +44,7 @@ public class UpdatePassword implements RequestHandler {
     }
 
     public Resource execute(User currentUser, long userId, String password) throws TException {
-        if (!currentUser.isFdsAdmin && userId != currentUser.getId()) {
+        if (!currentUser.isIsFdsAdmin() && userId != currentUser.getId()) {
             return new JsonResource(new JSONObject().put("status", "Access denied"), HttpServletResponse.SC_UNAUTHORIZED);
         }
 
@@ -59,7 +59,7 @@ public class UpdatePassword implements RequestHandler {
         }
 
         User u = opt.get();
-        configCache.updateUser(u.id, u.getIdentifier(), hashedPassword, u.getSecret(), u.isIsFdsAdmin());
+        configCache.updateUser(u.getId(), u.getIdentifier(), hashedPassword, u.getSecret(), u.isIsFdsAdmin());
         return new JsonResource(new JSONObject().put("status", "OK"));
     }
 }

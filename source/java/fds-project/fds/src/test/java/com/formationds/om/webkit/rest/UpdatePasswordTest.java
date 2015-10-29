@@ -27,36 +27,36 @@ public class UpdatePasswordTest {
 
     @Test
     public void adminCanChangeAnyPassword() throws Exception {
-        AuthenticationToken authenticationToken = new AuthenticationToken(ADMIN.id, "foo");
+        AuthenticationToken authenticationToken = new AuthenticationToken(ADMIN.getId(), "foo");
         Authorizer authorizer = mock(Authorizer.class);
         when(authorizer.userFor(authenticationToken)).thenReturn(ADMIN);
 
         UpdatePassword action = new UpdatePassword(authenticationToken, cache, AuthenticationTokenTest.SECRET_KEY, authorizer);
-        Resource resource = action.execute(ADMIN, FAB.id, "foo");
-        verify(cache, times(1)).updateUser(eq(FAB.id), eq("fab"), anyString(), anyString(), eq(false));
+        Resource resource = action.execute(ADMIN, FAB.getId(), "foo");
+        verify(cache, times(1)).updateUser(eq(FAB.getId()), eq("fab"), anyString(), anyString(), eq(false));
         assertEquals(HttpServletResponse.SC_OK, resource.getHttpStatus());
     }
 
 
     @Test
     public void usersCanChangeTheirOwnPassword() throws Exception {
-        AuthenticationToken authenticationToken = new AuthenticationToken(FAB.id, "foo");
+        AuthenticationToken authenticationToken = new AuthenticationToken(FAB.getId(), "foo");
         Authorizer authorizer = mock(Authorizer.class);
         when(authorizer.userFor(authenticationToken)).thenReturn(FAB);
 
         UpdatePassword action = new UpdatePassword(authenticationToken, cache, AuthenticationTokenTest.SECRET_KEY, authorizer);
-        Resource resource = action.execute(FAB, FAB.id, "foo");
-        verify(cache, times(1)).updateUser(eq(FAB.id), eq("fab"), anyString(), anyString(), eq(false));
+        Resource resource = action.execute(FAB, FAB.getId(), "foo");
+        verify(cache, times(1)).updateUser(eq(FAB.getId()), eq("fab"), anyString(), anyString(), eq(false));
         assertEquals(HttpServletResponse.SC_OK, resource.getHttpStatus());
     }
 
     @Test
     public void usersCannotChangeAnotherUsersPassword() throws Exception {
-        AuthenticationToken authenticationToken = new AuthenticationToken(FAB.id, "foo");
+        AuthenticationToken authenticationToken = new AuthenticationToken(FAB.getId(), "foo");
         Authorizer authorizer = mock(Authorizer.class);
         when(authorizer.userFor(authenticationToken)).thenReturn(FAB);
         UpdatePassword action = new UpdatePassword(authenticationToken, cache, AuthenticationTokenTest.SECRET_KEY, authorizer);
-        Resource resource = action.execute(FAB, PANDA.id, "foo");
+        Resource resource = action.execute(FAB, PANDA.getId(), "foo");
         verify(cache, times(0)).updateUser(anyLong(), anyString(), anyString(), anyString(), anyBoolean());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, resource.getHttpStatus());
     }

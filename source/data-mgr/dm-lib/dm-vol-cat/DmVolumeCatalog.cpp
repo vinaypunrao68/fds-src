@@ -361,7 +361,7 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volId, const std::string & blobNa
         if (blobSize)
             { *blobSize = blobMeta.desc.blob_size; }
         if (metaList)
-            { blobMeta.meta_list.toFdspPayload(*metaList); }
+            { blobMeta.meta_list.moveToFdspPayload(*metaList); }
     }
 
     return rc;
@@ -456,13 +456,14 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volId, fpi::BlobDescriptorListType*
 Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
                                             std::string const& prefix,
                                             std::string const& delimiter,
-                                            fpi::BlobDescriptorListType& results)
+                                            fpi::BlobDescriptorListType& results,
+                                            std::vector<std::string>& skippedPrefixes)
 {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
     std::vector<BlobMetaDesc> blobMetaList;
-    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList);
+    Error rc = vol->getBlobMetaDescForPrefix(prefix, delimiter, blobMetaList, skippedPrefixes);
     if (!rc.ok())
     {
         LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
@@ -575,6 +576,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     const fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
     const fds_uint32_t oldLastObjSize = DmVolumeCatalog::getLastObjSize(oldBlobSize,
             vol->getObjSize());
+    // oldLastOffset -> the offset that the old blob ends on prior to the new put
     const fds_uint64_t oldLastOffset = oldBlobSize ? oldBlobSize - oldLastObjSize : 0;
     BlobObjList oldBlobObjList;
 
@@ -658,7 +660,12 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    mergeMetaList(blobMeta.meta_list, *metaList);
+    // Is it possible to have an empty incoming metaList but with one or more offsets?
+    // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
+    // it's possible.
+    if (metaList != nullptr) {
+    	mergeMetaList(blobMeta.meta_list, *metaList);
+    }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
     blobMeta.desc.blob_size = newBlobSize;
@@ -731,7 +738,12 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         newObjCount += 1;
     }
 
-    mergeMetaList(blobMeta.meta_list, *metaList);
+    // Is it possible to have an empty incoming metaList but with one or more offsets?
+    // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
+    // it's possible.
+    if (metaList != nullptr) {
+    	mergeMetaList(blobMeta.meta_list, *metaList);
+    }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;

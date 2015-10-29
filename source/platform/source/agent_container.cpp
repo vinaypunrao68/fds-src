@@ -55,6 +55,8 @@ namespace fds
         } else {
             LOGDEBUG << "Agent found for UUID: " << std::hex << uuid << std::dec << " OK.";
             err = ERR_DUPLICATE;
+            // This is only for DM
+            agent_reactivate(agent);
         }
         agent->node_fill_inventory(msg);
         *out = agent;

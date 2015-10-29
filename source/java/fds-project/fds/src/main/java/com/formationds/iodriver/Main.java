@@ -4,17 +4,21 @@
  */
 package com.formationds.iodriver;
 
+import java.io.Closeable;
+
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.endpoints.Endpoint;
+import com.formationds.iodriver.endpoints.FdsEndpoint;
+import com.formationds.iodriver.endpoints.OmV7Endpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
 import com.formationds.iodriver.endpoints.S3Endpoint;
-import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.operations.ExecutionException;
-import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.reporters.ConsoleProgressReporter;
-import com.formationds.iodriver.reporters.NullWorkflowEventListener;
 import com.formationds.iodriver.validators.NullValidator;
 import com.formationds.iodriver.validators.Validator;
-import com.formationds.iodriver.workloads.S3Workload;
+import com.formationds.iodriver.workloads.BenchmarkPrefixSearchConfig;
+import com.formationds.iodriver.workloads.RandomFillConfig;
+import com.formationds.iodriver.workloads.Workload;
 
 /**
  * Entry class for iodriver.
@@ -35,8 +39,12 @@ public final class Main
             if (args == null) throw new NullArgumentException("args");
 
             logger = Config.Defaults.getLogger();
-            
             Config config = new Config(args);
+            logger = config.getLogger();
+            
+            config.addConfig(new RandomFillConfig(config));
+            config.addConfig(new BenchmarkPrefixSearchConfig());
+
             if (handleHelp(config))
             {
                 if (config.isHelpExplicitlyRequested())
@@ -50,11 +58,7 @@ public final class Main
             }
             else
             {
-                result = runWorkloadDry(config);
-                if (result == 0)
-                {
-                    result = runWorkload(config);
-                }
+                result = runWorkload(config);
             }
         }
         catch (Exception ex)
@@ -77,6 +81,35 @@ public final class Main
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
 
+    private static Endpoint getCompatibleEndpoint(Workload workload)
+    {
+        if (workload == null) throw new NullArgumentException("workload");
+
+        Class<?> neededEndpointClass = workload.getEndpointType();
+        if (neededEndpointClass.isAssignableFrom(FdsEndpoint.class))
+        {
+            return Config.Defaults.getFdsEndpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(S3Endpoint.class))
+        {
+            // TODO: Make this configurable.
+            return Config.Defaults.getS3Endpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(OmV8Endpoint.class))
+        {
+            return Config.Defaults.getOmV8Endpoint();
+        }
+        else if (neededEndpointClass.isAssignableFrom(OmV7Endpoint.class))
+        {
+            return Config.Defaults.getOmV7Endpoint();
+        }
+        else
+        {
+            throw new UnsupportedOperationException(
+                    "Cannot find an endpoint of type " + neededEndpointClass.getName() + ".");
+        }
+    }
+    
     /**
      * Display help if necessary.
      *
@@ -112,54 +145,27 @@ public final class Main
     {
         if (config == null) throw new NullArgumentException("config");
 
-        AbstractWorkflowEventListener listener = config.getListener();
-        try (ConsoleProgressReporter reporter =
-                new ConsoleProgressReporter(System.out,
-                                            listener.started,
-                                            listener.stopped,
-                                            listener.volumeAdded))
+        try
         {
-            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
-            Validator validator = workload.getSuggestedValidator().orElse(config.getValidator());
-            
-            Driver<?, ?> driver =
-                    new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
-                                                       workload,
-                                                       listener,
-                                                       validator);
-            driver.runWorkload();
-            return driver.getResult();
+            Workload workload = config.getSelectedWorkload();
+            Endpoint endpoint = getCompatibleEndpoint(workload);
+
+            try (WorkloadContext context = workload.newContext(config.getLogger());
+                 Closeable reporter = workload.getSuggestedReporter(System.out, context)
+                                              .orElseGet(() -> new ConsoleProgressReporter(
+                                                      System.out,
+                                                      context)))
+            {
+                Validator validator = workload.getSuggestedValidator().orElse(new NullValidator());
+                                      
+                Driver driver = Driver.newDriver(endpoint, workload, validator);
+                driver.runWorkload(context);
+                return driver.getResult(context);
+            }
         }
         catch (Exception e)
         {
             throw new ExecutionException("Error executing workload.", e);
-        }
-    }
-    
-    private static int runWorkloadDry(Config config) throws ExecutionException
-    {
-        if (config == null) throw new NullArgumentException("config");
-        
-        AbstractWorkflowEventListener listener = new NullWorkflowEventListener(config.getLogger());
-        try (ConsoleProgressReporter reporter =
-                new ConsoleProgressReporter(System.out,
-                                            listener.started,
-                                            listener.stopped,
-                                            listener.volumeAdded))
-        {
-            S3Workload workload = config.getSelectedWorkload(S3Endpoint.class, S3Operation.class);
-            Validator validator = new NullValidator();
-            
-            Driver<?, ?> driver = new Driver<S3Endpoint, S3Workload>(config.getEndpoint(),
-                                                                     workload,
-                                                                     listener,
-                                                                     validator);
-            driver.runWorkload();
-            return driver.getResult();
-        }
-        catch (Exception e)
-        {
-            throw new ExecutionException("Error executing dry-run of workload.", e);
         }
     }
 }

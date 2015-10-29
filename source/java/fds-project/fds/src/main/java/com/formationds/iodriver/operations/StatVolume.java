@@ -1,28 +1,32 @@
 package com.formationds.iodriver.operations;
 
+import java.lang.reflect.Type;
 import java.net.URI;
+import java.time.Instant;
 import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import javax.net.ssl.HttpsURLConnection;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import com.formationds.apis.MediaPolicy;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.HttpException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint;
+import com.formationds.iodriver.endpoints.OmV8Endpoint;
+import com.formationds.iodriver.events.VolumeStatted;
 import com.formationds.iodriver.model.VolumeQosSettings;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Get the QoS settings for a volume.
  */
-public final class StatVolume extends OrchestrationManagerOperation
+@SuppressWarnings("serial")
+public final class StatVolume extends AbstractOmV8Operation
 {
     /**
      * Constructor.
@@ -40,56 +44,36 @@ public final class StatVolume extends OrchestrationManagerOperation
     }
 
     @Override
-    public void exec(OrchestrationManagerEndpoint endpoint,
-                     HttpsURLConnection connection,
-                     AbstractWorkflowEventListener reporter) throws ExecutionException
+    public void accept(OmV8Endpoint endpoint,
+                       HttpsURLConnection connection,
+                       WorkloadContext context) throws ExecutionException
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
         if (connection == null) throw new NullArgumentException("connection");
-        if (reporter == null) throw new NullArgumentException("reporter");
+        if (context == null) throw new NullArgumentException("context");
 
         String content;
         try
         {
-            content = endpoint.doGet(connection);
+            content = endpoint.doRead(connection);
         }
         catch (HttpException e)
         {
             throw new ExecutionException(e);
         }
 
-        JSONArray volumes;
-        try
-        {
-            volumes = new JSONArray(content);
-        }
-        catch (JSONException e)
-        {
-            throw new ExecutionException("Error parsing response: " + content, e);
-        }
+        List<Volume> volumes = ObjectModelHelper.toObject(content, _VOLUME_LIST_TYPE);
 
         boolean found = false;
-        for (int i = 0; i != volumes.length(); ++i)
+        for (Volume volume : volumes)
         {
+            context.sendIfRegistered(new VolumeStatted(Instant.now(), volume));
+            
             // FIXME: Need to deal with tenants.
-            JSONObject voldesc = volumes.optJSONObject(i);
-            if (voldesc != null && voldesc.getString("name").equals(_volumeName))
+            if (volume.getName().equals(_volumeName))
             {
-                JSONObject policy = voldesc.getJSONObject("policy");
-
-                int assured_rate = voldesc.getInt("sla");
-                int throttle_rate = voldesc.getInt("limit");
-                int priority = voldesc.getInt("priority");
-                long commit_log_retention = voldesc.getLong("commit_log_retention");
-                MediaPolicy mediaPolicy = MediaPolicy.valueOf(policy.getString("mediaPolicy"));
-                long id = Long.parseLong(voldesc.getString("id"));
-
-                _consumer.accept(new VolumeQosSettings(id,
-                                                       assured_rate,
-                                                       throttle_rate,
-                                                       priority,
-                                                       commit_log_retention,
-                                                       mediaPolicy));
+                _consumer.accept(VolumeQosSettings.fromVolume(volume));
+                
                 found = true;
                 break;
             }
@@ -103,7 +87,13 @@ public final class StatVolume extends OrchestrationManagerOperation
     @Override
     public URI getRelativeUri()
     {
-        return Fds.Api.getBase().relativize(Fds.Api.getVolumes());
+        return Fds.Api.V08.getBase().relativize(Fds.Api.V08.getVolumes());
+    }
+
+    @Override
+    public String getRequestMethod()
+    {
+        return "GET";
     }
 
     @Override
@@ -112,6 +102,11 @@ public final class StatVolume extends OrchestrationManagerOperation
         return Stream.concat(super.toStringMembers(),
                              Stream.of(memberToString("consumer", _consumer),
                                        memberToString("volumeName", _volumeName)));
+    }
+    
+    static
+    {
+        _VOLUME_LIST_TYPE = new TypeToken<List<Volume>>() {}.getType();
     }
     
     /**
@@ -123,4 +118,6 @@ public final class StatVolume extends OrchestrationManagerOperation
      * The name of the volume to stat.
      */
     private final String _volumeName;
+    
+    private static final Type _VOLUME_LIST_TYPE;
 }

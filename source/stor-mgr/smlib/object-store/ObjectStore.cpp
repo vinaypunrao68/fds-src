@@ -17,8 +17,10 @@
 #include <utility>
 #include <object-store/TieringConfig.h>
 #include <include/util/disk_utils.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
+using util::BloomFilter;
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<fds_uint16_t>>
@@ -53,6 +55,11 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2,
+                                                  std::placeholders::_3),
+                                        std::bind(&ObjectStore::evaluateObjectSets,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
                                                   std::placeholders::_3))),
           metaStore(new ObjectMetadataStore("SM Object Metadata Storage Module",
                                             std::bind(&ObjectStore::updateMediaTrackers,
@@ -65,9 +72,11 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db")),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
+   liveObjectsTable->createLiveObjectsTblAndIdx();
 }
 
 ObjectStore::~ObjectStore() {
@@ -537,7 +546,7 @@ ObjectStore::putObject(fds_volid_t volId,
     // We expect the data put to be atomic.
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
-    // on a subsequent scavenger pass.
+    // on a subsequent GC run.
     if (err.ok() ||
         ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
@@ -598,6 +607,8 @@ ObjectStore::putObject(fds_volid_t volId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+    updatedMeta->updateTimestamp();
+    updatedMeta->resetDeleteCount();
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
 
@@ -640,6 +651,28 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+
+    /**
+     * Additional handling for error type: not found.
+     * If metadata not found in db, do a small disk test to make sure metadata
+     * indeed is not present in the db and it's not because of failure to read
+     * from the presistent media.
+     */
+    if (err == ERR_NOT_FOUND) {
+        fds_token_id smToken = diskMap->smTokenId(objId);
+        diskio::DataTier metaTier = metaStore->getMetadataTier();
+        DiskId diskId = diskMap->getDiskId(objId, metaTier);
+        std::string path = diskMap->getDiskPath(diskId);
+
+        bool diskDown = DiskUtils::diskFileTest(path);
+        if (diskDown) {
+            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+        }
+        LOGERROR << "Failed to get object metadata" << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+        return nullptr;
+    }
+
     if (!err.ok()) {
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
@@ -1552,6 +1585,147 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
         LOGNOTIFY << "Close and delete token files for smTokens ";
         dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
     }
+}
+
+/**
+ * Add a new object set(bloom filter) received from a DM
+ * to the liveObjects Table
+ */
+void
+ObjectStore::addObjectSet(const fds_token_id &smToken,
+                          const fds_volid_t &volId,
+                          const fds_uint64_t &dmUUID,
+                          const util::TimeStamp &timeStamp,
+                          const std::string &objectSetFilePath) {
+    liveObjectsTable->addObjectSet(smToken, volId,
+                                   dmUUID, timeStamp,
+                                   objectSetFilePath);
+}
+
+/**
+ * Remove an existing object set from live object table
+ */
+void
+ObjectStore::removeObjectSet(const fds_token_id &smToken,
+                             const fds_volid_t &volId) {
+    liveObjectsTable->removeObjectSet(smToken, volId);
+}
+
+/**
+ * Check all the objects beloging to a given SM token
+ * for delete object criteria and let Scavenger know of it.
+ *
+ *
+ * TODO Optimizations (Gurpreet):
+ * 1) Check and merge all same sized bloom filters.
+ */
+void
+ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
+                                const diskio::DataTier& tier,
+                                diskio::TokenStat &tokStats) {
+
+    std::set<std::string> objectSetFileNames;
+    liveObjectsTable->findObjectSetsPerToken(smToken, objectSetFileNames);
+    std::vector<BloomFilter> objectSets;
+    typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
+
+    for (auto eachFile : objectSetFileNames) {
+        serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
+        BloomFilter bf;
+        bf.read(d);
+        objectSets.push_back(bf);
+    }
+
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAssociatedVols(smToken, volumes);
+
+    TimeStamp ts;
+    liveObjectsTable->findMinTimeStamp(smToken, ts);
+
+    std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
+    fds_uint64_t totalNumObjs = allKeys.size();
+    fds_uint64_t objsToDelete = 0;
+
+    for (auto oid : allKeys) {
+        ObjSetIter iter = objectSets.begin();
+        for (iter; iter != objectSets.end(); ++iter) {
+            if (iter->lookup(oid)) {
+                break;
+            }
+        }
+
+        if (iter == objectSets.end()) {
+            /**
+             * This means that object was not found in any of the object sets
+             * associated with this SM token. This means that object could have
+             * got deleted from the domain.
+             */
+            Error err(ERR_OK);
+            bool shouldUpdateMeta = true;
+            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
+
+            std::vector<fds_volid_t> volAssocs;
+            objMeta->getAssociatedVolumes(volAssocs);
+
+            /**
+             * Check if the object got updated recently(via a PUT).
+             * If so, then these object sets will have stale information
+             * regarding the state of the object. Ignore processing this
+             * object and leave it's metadata as it is.
+             */
+            if (objMeta->getTimeStamp() > ts) {
+                LOGDEBUG << "shouldUpdateMeta = false";
+                shouldUpdateMeta = false;
+            }
+
+            /**
+             * Check for the volumes to which this object is associated to.
+             * If the aggregated volume list from all the object sets of this
+             * SM token doesn't have all the volumes to which the object is
+             * associated to, then leave the object as it is because during
+             * this gc run we are missing information from some volumes who
+             * has interest in this object.
+             */
+            for (auto associatedVol : volAssocs) {
+                if (volumes.find(associatedVol) == volumes.end()) {
+                    shouldUpdateMeta = false;
+                    break;
+                }
+            }
+
+            /**
+             * Indeed update the timestamp and delete count for the object.
+             */
+            if (shouldUpdateMeta) {
+                ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                updatedMeta->updateTimestamp();
+                /**
+                 * If the delete count for this object has reached the threshold
+                 * then let the Scavenger know about it.
+                 */
+                fds_uint32_t delCount = updatedMeta->incrementDeleteCount();
+                LOGDEBUG << "delCount = " << delCount;
+                if (delCount >= OBJ_DELETE_COUNT_THRESHOLD) {
+           //     if (updatedMeta->incrementDeleteCount() >= OBJ_DELETE_COUNT_THRESHOLD) {
+                    ++objsToDelete;
+                }
+                metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
+            }
+        }
+    }
+
+    /**
+     * Update token stats so that Scavenger can take a
+     * decision to run Token Compactor on this SM token.
+     */
+    tokStats.tkn_id = smToken;
+    tokStats.tkn_tot_size = totalNumObjs;
+    tokStats.tkn_reclaim_size = objsToDelete;
+}
+
+void
+ObjectStore::dropLiveObjectDB() {
+    liveObjectsTable->dropDB();
 }
 
 /**

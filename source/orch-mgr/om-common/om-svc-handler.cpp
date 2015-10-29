@@ -58,6 +58,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlTokenMigrationAbort, AbortTokenMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
     REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
+    REGISTER_FDSP_MSG_HANDLER(fpi::SvcStateChangeResp, svcStateChangeResp);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -245,6 +246,34 @@ void OmSvcHandler::getSvcInfo(fpi::SvcInfo &_return,
     }
 }
 
+static void
+populate_voldesc_list(fpi::GetAllVolumeDescriptors &list, VolumeInfo::pointer vol)
+{
+	TRACEFUNC;
+	if (vol->isDeletePending() || vol->isStateDeleted()) {
+		LOGDEBUG << "Not sending volume " << vol->vol_get_name() << " due to deletion.";
+		return;
+	}
+	list.volumeList.emplace_back();
+	auto &volAdd = list.volumeList.back();
+	vol->vol_populate_fdsp_descriptor(volAdd);
+	LOGDEBUG << "Populated list with volume " << volAdd.vol_desc.vol_name;
+
+}
+
+void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t> &nullarg) {
+	OM_Module *om = OM_Module::om_singleton();
+	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
+	OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+
+    // First clear all the vol descriptors in the return list and
+    // then populate the list one by one
+    _return.volumeList.clear();
+
+    volumes->vol_foreach<fpi::GetAllVolumeDescriptors&>(_return, populate_voldesc_list);
+}
+
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                   boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg)
 {
@@ -279,6 +308,20 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                                        (timeSinceEpoch).count();
 
     gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
+}
+
+void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                                      boost::shared_ptr<fpi::SvcStateChangeResp>& msg)
+{
+    LOGDEBUG << "Received state change response from PM:"
+             << std::hex << msg->pmSvcUuid.svc_uuid << std::dec
+             << " for start request";
+
+    NodeUuid node_uuid(msg->pmSvcUuid);
+    OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
+            om_loc_domain_ctrl()->om_pm_agent(node_uuid);
+
+    agent->send_start_service_resp(msg->pmSvcUuid, msg->changeList);
 }
 
 void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,

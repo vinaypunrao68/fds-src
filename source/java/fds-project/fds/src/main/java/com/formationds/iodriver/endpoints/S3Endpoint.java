@@ -7,18 +7,18 @@ import com.amazonaws.SDKGlobalConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-
 import com.formationds.commons.NullArgumentException;
-import com.formationds.iodriver.endpoints.OrchestrationManagerEndpoint.AuthToken;
-import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
+import com.formationds.iodriver.endpoints.OmBaseEndpoint.AuthToken;
+import com.formationds.iodriver.operations.Operation;
 import com.formationds.iodriver.operations.S3Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 
 /**
  * An S3 service endpoint.
  */
-public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
+public final class S3Endpoint implements Endpoint
 {
     /**
      * Constructor.
@@ -30,7 +30,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
      * @throws MalformedURLException when {@code s3url} is not a valid absolute URL.
      */
     public S3Endpoint(String s3url,
-                      OrchestrationManagerEndpoint omEndpoint,
+                      OmBaseEndpoint<?> omEndpoint,
                       Logger logger) throws MalformedURLException
     {
         if (s3url == null) throw new NullArgumentException("s3url");
@@ -42,58 +42,54 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         _logger = logger;
     }
 
-    @Override
     public S3Endpoint copy()
     {
         CopyHelper copyHelper = new CopyHelper();
         return new S3Endpoint(copyHelper);
     }
 
-    @Override
-    // @eclipseFormat:off
-    public void doVisit(S3Operation operation,
-                        AbstractWorkflowEventListener listener) throws ExecutionException
-    // @eclipseFormat:on
-    {
-        if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
-
-        visit(operation, listener);
-    }
-
-    /**
-     * Get the Orchestration Manager endpoint used to authenticate.
-     * 
-     * @return An OM endpoint.
-     */
-    public OrchestrationManagerEndpoint getOmEndpoint()
-    {
-        return _omEndpoint;
-    }
-
     /**
      * Perform an operation on this endpoint.
      * 
      * @param operation The operation to perform.
-     * @param listener Report operations here.
      * 
      * @throws ExecutionException when an error occurs executing {@code operation}.
      */
     // @eclipseFormatter:off
     public void visit(S3Operation operation,
-                      AbstractWorkflowEventListener listener) throws ExecutionException
+                      WorkloadContext context) throws ExecutionException
     // @eclipseFormatter:on
     {
         if (operation == null) throw new NullArgumentException("operation");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
+        AmazonS3Client client;
         try
         {
-            operation.exec(this, getClient(), listener);
+            client = getClient();
         }
         catch (IOException e)
         {
-            throw new ExecutionException(e);
+            throw new ExecutionException("Error getting S3 client.", e);
+        }
+        
+        operation.accept(this, client, context);
+    }
+    
+    @Override
+    public void visit(Operation operation,
+                      WorkloadContext context) throws ExecutionException
+    {
+        if (operation == null) throw new NullArgumentException("operation");
+        if (context == null) throw new NullArgumentException("context");
+        
+        if (operation instanceof S3Operation)
+        {
+            visit((S3Operation)operation, context);
+        }
+        else
+        {
+            operation.accept(this, context);
         }
     }
 
@@ -101,10 +97,10 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
      * Extend this class to allow deep copies even when the private memebers of superclasses aren't
      * available.
      */
-    protected class CopyHelper extends Endpoint<S3Endpoint, S3Operation>.CopyHelper
+    protected class CopyHelper
     {
         public final Logger logger = _logger;
-        public final OrchestrationManagerEndpoint omEndpoint = _omEndpoint.copy();
+        public final OmBaseEndpoint<?> omEndpoint = _omEndpoint.copy();
         public final String s3url = _s3url;
     }
 
@@ -115,8 +111,6 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
      */
     protected S3Endpoint(CopyHelper helper)
     {
-        super(helper);
-
         _logger = helper.logger;
         _omEndpoint = helper.omEndpoint;
         _s3url = helper.s3url;
@@ -134,9 +128,67 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
         if (_client == null)
         {
             AuthToken authToken = _omEndpoint.getAuthToken();
-            _client =
-                    new AmazonS3Client(new BasicAWSCredentials(getOmEndpoint().getUsername(),
-                                                               authToken.toString()));
+            
+            // TODO: Logging should be configurable, but for now, we need this to be quiet.
+//            LogManager.getRootLogger().removeAllAppenders();
+//            LogManager.getRootLogger().addAppender(new Appender()
+//            {
+//                @Override public void addFilter(Filter newFilter) { }
+//                @Override public void clearFilters() { }
+//                @Override public void close() { }
+//                @Override public void doAppend(LoggingEvent event) { }
+//                @Override public void setErrorHandler(ErrorHandler errorHandler) { }
+//                @Override public void setLayout(Layout layout) { }
+//                @Override public void setName(String name) { }
+//
+//                @Override
+//                public ErrorHandler getErrorHandler()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public Filter getFilter()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public Layout getLayout()
+//                {
+//                    return null;
+//                }
+//
+//                @Override
+//                public String getName()
+//                {
+//                    return "FdsNullAppender";
+//                }
+//
+//                @Override
+//                public boolean requiresLayout()
+//                {
+//                    return false;
+//                }
+//            });
+            
+//            @SuppressWarnings("unchecked")
+//            List<org.apache.log4j.Logger> loggers =
+//                    Collections.<org.apache.log4j.Logger>list(LogManager.getCurrentLoggers());
+//            for (org.apache.log4j.Logger logger : loggers)
+//            {
+//                if (logger.getName().startsWith("com.amazon"))
+//                {
+//                    logger.setLevel(Level.OFF);
+//                }
+//            }
+            
+//            org.apache.log4j.Logger logger =
+//                    LogManager.getLogger(com.amazonaws.internal.config.InternalConfig.class);
+//            logger.setLevel(Level.OFF);
+            
+            _client = new AmazonS3Client(new BasicAWSCredentials(_omEndpoint.getUsername(),
+                                                                 authToken.toString()));
             _client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
             _client.setEndpoint(_s3url);
         }
@@ -156,7 +208,7 @@ public final class S3Endpoint extends Endpoint<S3Endpoint, S3Operation>
     /**
      * OM endpoint used to authenticate.
      */
-    private final OrchestrationManagerEndpoint _omEndpoint;
+    private final OmBaseEndpoint<?> _omEndpoint;
 
     /**
      * The base URL for requests.

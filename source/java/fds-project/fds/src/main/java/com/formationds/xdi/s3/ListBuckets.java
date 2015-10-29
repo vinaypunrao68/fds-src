@@ -5,7 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.ResourceState;
+import com.formationds.protocol.svc.types.ResourceState;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;

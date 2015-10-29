@@ -14,10 +14,8 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
-#include "fds_types.h"
-#include "concurrency/RwLock.h"
+#include "fdsp/common_types.h"
 #include "fdsp/xdi_types.h"
-#include "concurrency/Mutex.h"
 #include "AmAsyncResponseApi.h"
 #include "AmAsyncDataApi.h"
 #include "connector/BlockTask.h"
@@ -115,7 +113,7 @@ class BlockOperations
     void drainUpdateChain(uint64_t const offset,
                           boost::shared_ptr<std::string> buf,
                           handle_type* queued_handle_ptr,
-                          Error const error);
+                          fpi::ErrorCode const error);
 
     uint32_t getObjectCount(uint32_t length, uint64_t offset);
 
@@ -131,12 +129,12 @@ class BlockOperations
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
     boost::shared_ptr<std::string> domainName;
-    boost::shared_ptr<fds_int32_t> blobMode;
+    boost::shared_ptr<int32_t> blobMode;
     boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
     // for now we are supporting <=4K requests
     // so keep current handles for which we are waiting responses
-    fds_mutex respLock;
+    std::mutex respLock;
     response_map_type responses;
 
     sector_type sector_map;
@@ -151,7 +149,7 @@ class BlockOperations
     void updateBlobOnceResp    (const error_type &, handle_type&) override {}
     void updateMetadataResp    (const error_type &, handle_type&) override {}
     void renameBlobResp        (const error_type &, handle_type&, resp_api_type::shared_descriptor_type&) override {}
-    void volumeContentsResp    (const error_type &, handle_type&, resp_api_type::shared_descriptor_vec_type&) override {}  // NOLINT
+    void volumeContentsResp    (const error_type &, handle_type&, resp_api_type::shared_descriptor_vec_type&, resp_api_type::shared_string_vec_type&) override {}  // NOLINT
     void volumeStatusResp      (const error_type &, handle_type&, resp_api_type::shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const error_type &, handle_type&) override {}  // NOLINT
     void getVolumeMetadataResp (const error_type &, handle_type&, resp_api_type::shared_meta_type&) override {}  // NOLINT

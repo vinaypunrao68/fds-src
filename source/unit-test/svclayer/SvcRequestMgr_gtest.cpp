@@ -166,7 +166,7 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
                 svcStatusWaiter1.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter1.error;
 
-    /* Bring one service up.  Quorum request should fail */ 
+    /* Bring one service up.  Quorum request should fail */
     domain.spawn(1);
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
     domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter2);
@@ -175,7 +175,7 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
                 svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter2.error;
 
-    /* Bring both services up.  Quorum request should succeed */ 
+    /* Bring both services up.  Quorum request should succeed */
     domain.spawn(2);
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
     domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter3);
@@ -225,6 +225,27 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
         << "Error: " << svcStatusWaiter3.error;
     ASSERT_EQ(req->getFailedPrimaries().size(), 1);
     ASSERT_EQ(req->getFailedOptionals().size(), 0);
+}
+
+struct FTCallback : concurrency::TaskStatus {
+    void handle(const fpi::SvcUuid &svcId,
+                const std::string& srcFile,
+                const Error &e) {
+        GLOGNORMAL << "in callback : " << srcFile << " : " << e;
+        done();
+    }
+};
+
+TEST_F(SvcRequestMgrTest, filetransfer) {
+    int cnt = 2;
+    FakeSyncSvcDomain domain(cnt, confFile);
+    FTCallback cb;
+    fds::net::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
+    domain[0]->filetransfer->send(domain.getFakeSvcUuid(1), "/bin/ls", "test.txt", ftcb, false);
+    cb.await();
+    cb.reset(1);
+    domain[0]->filetransfer->send(domain.getFakeSvcUuid(1), "/bin/ls", "test.txt", ftcb, false);
+    cb.await();
 }
 
 int main(int argc, char** argv) {

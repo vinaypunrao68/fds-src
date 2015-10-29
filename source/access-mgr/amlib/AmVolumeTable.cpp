@@ -155,6 +155,8 @@ AmVolumeTable::registerVolume(const VolumeDesc& volDesc)
                       << " (iops_throttle=" << volDesc.iops_throttle
                       << ", iops_assured=" << volDesc.iops_assured
                       << ", prio=" << volDesc.relativePrio << ")"
+                      << ", primary=" << volDesc.primary
+                      << ", replica=" << volDesc.replica
                       << " result: " << err.GetErrstr();
             return err;
         } else {
@@ -236,7 +238,7 @@ AmVolumeTable::removeVolume(std::string const& volName, fds_volid_t const volId)
     wait_queue->remove_if(volName,
                           [] (AmRequest* amReq) {
                               if (amReq->cb)
-                                  amReq->cb->call(ERR_VOL_NOT_FOUND);
+                                  amReq->cb->call(fpi::MISSING_RESOURCE);
                               delete amReq;
                               return true;
                           });

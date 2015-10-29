@@ -1,0 +1,37 @@
+--- a/etc/scst.conf	2015-01-22 02:58:12.000000000 -0700
++++ b/etc/scst.conf	2015-10-12 10:22:51.456721769 -0600
+@@ -1,32 +1,10 @@
+-# Simple scst.conf example
++# SCST configuration for FormationONE
+ # See 'man scst.conf' for details and more examples
+ 
+ 
+-HANDLER vdisk_fileio {
+-   DEVICE disk1 {
+-		filename /dev/ram11
+-		nv_cache 1
+-   }
+-}
+-
+-HANDLER vdisk_blockio {
+-   DEVICE disk2 {
+-		filename /dev/ram12
+-   }
+-   DEVICE disk3 {
+-		filename /dev/ram13
+-   }
++HANDLER dev_user {
+ }
+ 
+ TARGET_DRIVER iscsi {
+ 	enabled 1
+-	TARGET iqn.2012-04.com.ubuntu:tgt1 {
+-		LUN 0 disk1
+-		LUN 1 disk2
+-		enabled 1
+-	}
+-	TARGET iqn.2012-04.com.ubuntu:tgt2 {
+-		LUN 0 disk3
+-		enabled 1
+-	}
+ }

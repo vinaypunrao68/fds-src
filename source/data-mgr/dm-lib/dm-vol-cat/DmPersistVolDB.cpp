@@ -190,47 +190,58 @@ Error DmPersistVolDB::getAllBlobMetaDesc(std::vector<BlobMetaDesc> & blobMetaLis
 
 Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
                                                 std::string const& delimiter,
-                                                std::vector<BlobMetaDesc>& blobMetaList)
+                                                std::vector<BlobMetaDesc>& blobMetaList,
+                                                std::vector<std::string>& skippedPrefixes)
 {
-    auto dbIt = catalog_->NewIterator();
-    fds_assert(dbIt);
-
-    auto& catalogOptions = catalog_->GetOptions();
-    auto& comparator = *catalogOptions.comparator;
-    auto& typedComparator = dynamic_cast<CatalogKeyComparator const&>(comparator);
-
-    BlobMetadataKey begin { prefix };
-    BlobMetadataKey end { typedComparator.getIncremented(begin) };
-
-    auto beginSlice { static_cast<leveldb::Slice>(begin) };
-    auto endSlice { static_cast<leveldb::Slice>(end) };
-
-    for (dbIt->Seek(begin); dbIt->Valid()
-                            && comparator.Compare(dbIt->key(), end) < 0; dbIt->Next())
+    if (prefix.empty() && delimiter.empty())
     {
-        fds_assert(dbIt->status().ok());
+        return getAllBlobMetaDesc(blobMetaList);
+    }
+    else
+    {
+        auto dbIt = catalog_->NewIterator();
+        fds_assert(dbIt);
 
-        BlobMetaDesc blobMetadata;
-        fds_verify(blobMetadata.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+        auto& catalogOptions = catalog_->GetOptions();
+        auto& comparator = *catalogOptions.comparator;
+        auto& typedComparator = dynamic_cast<CatalogKeyComparator const&>(comparator);
 
-        if (!delimiter.empty())
+        BlobMetadataKey begin { prefix };
+        BlobMetadataKey end { typedComparator.getIncremented(begin) };
+
+        auto beginSlice { static_cast<leveldb::Slice>(begin) };
+        auto endSlice { static_cast<leveldb::Slice>(end) };
+
+        for (prefix.empty() ? dbIt->SeekToFirst() : dbIt->Seek(begin);
+             dbIt->Valid() && (prefix.empty() || comparator.Compare(dbIt->key(), end) < 0);
+             dbIt->Next())
         {
-            auto& blobName = blobMetadata.desc.blob_name;
-            auto delimiterPosition = blobName.find(delimiter, prefix.size());
-            if (delimiterPosition != std::string::npos)
-            {
-                auto blobNameToDelimiter = blobName.substr(0, delimiterPosition + 1);
-                BlobMetadataKey blobNameToDelimiterEnd { blobNameToDelimiter };
+            fds_assert(dbIt->status().ok());
 
-                dbIt->Seek(typedComparator.getIncremented(blobNameToDelimiterEnd));
-                continue;
+            BlobMetaDesc blobMetadata;
+            fds_verify(blobMetadata.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+
+            if (!delimiter.empty())
+            {
+                auto& blobName = blobMetadata.desc.blob_name;
+                auto delimiterPosition = blobName.find(delimiter, prefix.size());
+                if (delimiterPosition != std::string::npos)
+                {
+                    auto blobNameToDelimiter = blobName.substr(0, delimiterPosition + 1);
+                    BlobMetadataKey blobNameToDelimiterEnd { blobNameToDelimiter };
+
+                    dbIt->Seek(typedComparator.getIncremented(blobNameToDelimiterEnd));
+
+                    skippedPrefixes.push_back(blobNameToDelimiter.substr(prefix.size()));
+                    continue;
+                }
             }
+
+            blobMetaList.push_back(blobMetadata);
         }
 
-        blobMetaList.push_back(blobMetadata);
+        return ERR_OK;
     }
-
-    return ERR_OK;
 }
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,

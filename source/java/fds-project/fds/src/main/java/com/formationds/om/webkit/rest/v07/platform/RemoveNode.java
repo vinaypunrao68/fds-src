@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v07.platform;
 
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.commons.model.Node;
@@ -44,7 +44,7 @@ public class RemoveNode
 
         final Long nodeUuid = requiredLong( routeParameters, "node_uuid" );
         
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list = client.ListServices( 0 );
+        List<com.formationds.protocol.svc.types.FDSP_Node_Info_Type> list = client.ListServices( 0 );
         Map<String, Node> nodeMap = (new ListNodes( client )).computeNodeMap(list);
 
         Node node = nodeMap.get( nodeUuid.toString() );

@@ -71,7 +71,19 @@ public class FdsServerOperations implements NbdServerOperations {
             if(!volumeExists)
                 return false;
 
-            boolean blobExists = asyncAm.volumeContents(FDS, exportName, 1, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get().stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
+            boolean blobExists = asyncAm.volumeContents(FDS,
+                                                        exportName,
+                                                        1,
+                                                        0,
+                                                        "",
+                                                        PatternSemantics.PCRE,
+                                                        "",
+                                                        BlobListOrder.UNSPECIFIED,
+                                                        false)
+                                        .get()
+                                        .getBlobs()
+                                        .stream().anyMatch(bd -> bd.getName()
+                                                                   .equals(BLOCK_DEV_NAME));
             // do an initial write to create the blob in FDS
             if(!blobExists) {
                 ByteBuf buf = Unpooled.buffer(4096);

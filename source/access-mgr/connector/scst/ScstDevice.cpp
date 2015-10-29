@@ -1,5 +1,20 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * ScstDevice.cpp
+ *
+ * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2015, Formation Data Systems
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
 #include "connector/scst/ScstDevice.h"
@@ -16,10 +31,17 @@ extern "C" {
 }
 
 #include <ev++.h>
+#include <boost/make_shared.hpp>
+
+// TODO(bszmyd): Sun 18 Oct 2015 04:44:55 PM MDT
+// REMOVE THIS!!!!
+// =================
+#include "fds_process.h"
+#include "fds_config.hpp"
+#include "util/Log.h"
+// =================
 
 #include "connector/scst/ScstTarget.h"
-#include "fds_process.h"
-#include "fds_volume.h"
 #include "fdsp/config_types_types.h"
 extern "C" {
 #include "connector/scst/scst_user.h"
@@ -51,6 +73,8 @@ ScstDevice::ScstDevice(std::string const& vol_name,
           logical_block_size(512ul),
           readyResponses(4000)
 {
+    // When we are first up, the serial number is just spaces.
+    snprintf(serial_number, sizeof(serial_number), "%16.0lX", 0ul);
     {
         FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
         standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
@@ -67,7 +91,7 @@ ScstDevice::ScstDevice(std::string const& vol_name,
 
     // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
     // REGISTER a device
-    static scst_user_dev_desc scst_descriptor {
+    scst_user_dev_desc scst_descriptor {
         (unsigned long)DEV_USER_VERSION, // Constant
         (unsigned long)"GPL",       // License string
         TYPE_DISK,                  // Device type
@@ -80,9 +104,9 @@ ScstDevice::ScstDevice(std::string const& vol_name,
                 0,                                          // partial transfer length
                 SCST_TST_0_SINGLE_TASK_SET,                 // task set sharing
                 0,                                          // task mgmt only (on fault)
-                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // reordering however
+                SCST_QUEUE_ALG_0_RESTRICTED_REORDER,        // maintain consistency in reordering
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
-                0, 0, 0, 0                                  // TAS/SWAP/DSENSE/ORDERING
+                1, 0, 0, 0                                  // TAS/SWP/DSENSE/ORDER MGMT
         },
         logical_block_size,         // Block size
         0,                          // PR cmd Notifications
@@ -206,15 +230,12 @@ ScstDevice::execSessionCmd() {
         << "] Init [" << sess.initiator_name
         << "] Targ [" << sess.target_name << "]";
     auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching) {
-        ++sessions;
+    if (attaching && (0 == sessions++ || 0 == volume_size)) {
         // Attach the volume to AM if we haven't already
-        if (0 == volume_size) {
-            auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-            return scstOps->init(volName, amProcessor, task); // Defer
-        }
+        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
+        return scstOps->init(volName, amProcessor, task); // Defer
     } else {
-        if (0 == --sessions) {
+        if (0 > sessions && 0 == --sessions) {
             scstOps->detachVolume();
         }
     }
@@ -226,9 +247,14 @@ void ScstDevice::execUserCmd() {
     auto& op_code = scsi_cmd.cdb[0];
     auto task = new ScstTask(cmd.cmd_h, SCST_USER_EXEC);
 
+    // We may need to allocate a buffer for SCST, if we do and fail we'll need
+    // to clean it up rather than expect a release command for it
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+        task->setResponseBuffer(buffer, false);
+    } else {
+        task->setResponseBuffer(buffer, true);
     }
 
     // Poor man's goto
@@ -259,13 +285,15 @@ void ScstDevice::execUserCmd() {
     case INQUIRY:
         {
             static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
-            auto& buflen = scsi_cmd.bufflen;
-            if (buflen < 8) {
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+            size_t buflen = scsi_cmd.bufflen;
+            size_t param_cursor = 0ull;
+            if (buflen < 4) {
                 continue;
             }
+            bzero(buffer, buflen);
 
             buffer[0] = TYPE_DISK;
+            param_cursor +=2;
             // Check EVPD bit
             if (scsi_cmd.cdb[1] & 0x01) {
                 auto& page = scsi_cmd.cdb[2];
@@ -283,7 +311,12 @@ void ScstDevice::execUserCmd() {
                         0x80,   // Unit Serial
                         0x83,   // Vendor ID Page
                     };
-                    memcpy(&buffer[2], supported_page_header, sizeof(supported_page_header));
+                    if (param_cursor < buflen) {
+                        memcpy(&buffer[param_cursor],
+                               supported_page_header,
+                               std::min(buflen - param_cursor, sizeof(supported_page_header)));
+                    }
+                    param_cursor += sizeof(supported_page_header);
                     break;
                 case 0x80: // Unit Serial
                     /* |                                 PAGE                                  |*/
@@ -293,37 +326,53 @@ void ScstDevice::execUserCmd() {
                     /* |                                 ...                                   |*/
                     static uint8_t const serial_number_header [] = {
                         0,
-                        8,
-                        ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '  // Blank
+                        16
                     };
-                    memcpy(&buffer[2], serial_number_header, std::min((size_t)buflen, sizeof(serial_number_header)));
+                    memcpy(&buffer[param_cursor], serial_number_header, sizeof(serial_number_header));
+                    param_cursor += sizeof(serial_number_header);
+                    if (param_cursor < buflen) {
+                        memcpy(&buffer[param_cursor], serial_number, std::min(buflen - param_cursor, sizeof(serial_number) - 1));
+                    }
+                    param_cursor += sizeof(serial_number) - 1;
                     break;
                 case 0x83: // Device ID
-                    /* |                                 PAGE                                  |*/
-                    /* |                                LENGTH                                 |*/
-                    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-                    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-                    static uint8_t const device_id_header [] = {
-                        0,
-                        12,
-                        0x02,       // ASCII
-                        0b00000001, // T10 Vendor ID
-                        8           // ID Length
-                    };
-                    memcpy(&buffer[2], device_id_header, sizeof(device_id_header));
-
-                    // If our buffer is big enough, copy the vendor id
-                    if (16 >= buflen) {
-                        memcpy(buffer + 8, vendor_name, sizeof(vendor_name));
+                    {
+                        /* |                                 PAGE                                  |*/
+                        /* |                                LENGTH                                 |*/
+                        /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+                        /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+                        /* |                                 resv                                  |*/
+                        /* |                          DESIGNATOR LENGTH                            |*/
+                        uint8_t device_id_header [] = {
+                            0,
+                            0,
+                            0x52,       // iSCSI / ASCII
+                            0b10100001, // T10 Vendor ID
+                            0,
+                            0           // ID Length
+                        };
+                        auto const targetName = scst_target->targetName();
+                        if (param_cursor < buflen) {
+                            *reinterpret_cast<uint16_t*>(&device_id_header) = htobe16(targetName.size() + 5);
+                            device_id_header[5] = targetName.size() + 1;
+                            memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
+                        }
+                        param_cursor += sizeof(device_id_header);
+                        if (param_cursor < buflen) {
+                            memcpy(&buffer[param_cursor],
+                                   targetName.c_str(),
+                                   std::min(buflen - param_cursor - 1, targetName.size()));
+                        }
+                        param_cursor += targetName.size() + 1; // name is null terminated
                     }
-                    break;
+                    break;;
                 default:
                     LOGERROR << "Request for unsupported page code.";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                     continue;
                 }
                 buffer[1] = page; // Identity of the page we're returning
-                task->setResponseBuffer(buffer, buffer[3] + 4);
+                task->setResponseLength(std::min(buflen, param_cursor));
             } else {
                 LOGDEBUG << "Standard inquiry requested.";
                 /* /-----------------------------------------------------------------------\
@@ -347,20 +396,30 @@ void ScstDevice::execUserCmd() {
                                                        'n', 'O', 'n', 'e', ' ', ' ', ' ', ' ' };
 
                 // Copy the fixed standard inquiry header above
-                memcpy( &buffer[2], standard_inquiry_header, sizeof(standard_inquiry_header));
+                memcpy(&buffer[param_cursor],
+                       standard_inquiry_header,
+                       std::min(buflen - param_cursor, sizeof(standard_inquiry_header)));
+                param_cursor += sizeof(standard_inquiry_header);
 
                 // Conditionally fill out the additional vendor/device id
-                if (16 >= buflen) {
-                    memcpy( &buffer[8], vendor_name, sizeof(vendor_name));
-                    if (32 >= buflen) {
-                        memcpy(&buffer[16], product_id, sizeof(product_id));
-                        if (36 >= buflen) {
-                            memcpy(&buffer[32], "BETA", 4);
-                        }
-                    }
-
+                if (param_cursor < buflen) {
+                    memcpy(&buffer[param_cursor],
+                           vendor_name,
+                           std::min(buflen - param_cursor, sizeof(vendor_name)));
                 }
-                task->setResponseBuffer(buffer, buffer[4] + 5);
+                param_cursor += sizeof(vendor_name);
+                if (param_cursor < buflen) {
+                    memcpy(&buffer[param_cursor],
+                           product_id,
+                           std::min(buflen - param_cursor, sizeof(product_id)));
+                }
+                param_cursor += sizeof(product_id);
+                if (param_cursor < buflen) {
+                    memcpy(&buffer[param_cursor], "BETA", std::min(buflen - param_cursor, 4ul));
+                }
+                param_cursor += 4;
+
+                task->setResponseLength(std::min(buflen, param_cursor));
             }
         }
         break;
@@ -371,47 +430,194 @@ void ScstDevice::execUserCmd() {
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
             uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
             uint8_t& subpage = scsi_cmd.cdb[3];
-            LOGTRACE << "Mode Sense: "
+            LOGDEBUG << "Mode Sense: "
                      << " dbd[" << std::hex << dbd
                      << "] pc[" << std::hex << (uint32_t)pc
                      << "] page_code[" << (uint32_t)page_code
                      << "] subpage[" << (uint32_t)subpage << "]";
 
-            // We do not support any subpages
-            if (0x00 != subpage) {
+            // We do not support any persistent pages, subpages
+            if (0x01 & pc || 0x00 != subpage) {
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
 
+            size_t buflen = scsi_cmd.bufflen;
+            if (buflen < 4) {
+                // Too small to even calculate the mode data length
+                continue;
+            }
+            bzero(buffer, buflen);
+
             size_t param_cursor = 0ull;
             if (MODE_SENSE == op_code) {
                 buffer[1] = TYPE_DISK;  // Block device type
-                buffer[2] = 0b00010000; // Support for FUA/DPO
+                buffer[2] = 0b00000000; // Device specific params
                 param_cursor = 4;
             } else {
                 buffer[2] = TYPE_DISK;  // Block device type
-                buffer[3] = 0b00010000; // Support for FUA/DPO
+                buffer[3] = 0b00000000; // Device specific params
                 buffer[4] = 0b00000000; // LLBA disabled
                 param_cursor = 8;
             }
 
             // Append block descriptor if enabled
-            if (!dbd) {
+            if ((param_cursor + 8 <= buflen) && !dbd) {
                 buffer[param_cursor - 1] = 0x08; // Set descriptor size
                 uint64_t num_blocks = volume_size / logical_block_size;
                 // Number of LBAs (or 0xFFFFFFFF if bigger than 4GiB)
                 *reinterpret_cast<uint32_t*>(&buffer[param_cursor]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
-                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+5]) = htobe32(logical_block_size);
-                param_cursor += 8;
+                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+4]) = htobe32(logical_block_size);
+            }
+            param_cursor += 8;
+
+            // Add pages that were requested
+            switch (page_code) {
+            case 0x3F: // ALL pages please
+            case 0x01: // Read-Write Error Recovery Page
+                if (param_cursor + 12 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |  AWRE  |  ARRE  |   TB   |   RC   |  EER   |  PER   |  DTE   |  DCR   |
+                     * |                            READ RETRY COUNT                           |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * | LBPERE |                    resv                    |      MMC-6      |
+                     * |                           WRITE RETRY COUNT                           |
+                     * |                                  resv                                 |
+                     * |                           RECOVERY.........                           |
+                     * |                           ........TIME LIMIT                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const error_recovery_page [] = {
+                        0b00000001,
+                        0x0A,
+                        0b00000111,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0b00000000,
+                        0,
+                        0,
+                        0,
+                        0,
+                    };
+                    LOGTRACE << "Adding r/w error recovery page.";
+                    memcpy(&buffer[param_cursor], error_recovery_page, sizeof(error_recovery_page));
+                }
+                param_cursor += 12;
+                if (0x3F != page_code) break;;
+            case 0x02: // Disconnect-Reconnect Page
+                if (param_cursor + 16 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |                           BUFFER FULL RATIO                           |
+                     * |                           BUFFER EMPTY RATIO                          |
+                     * |                           BUS INACTIVITY....                          |
+                     * |                           .............LIMIT                          |
+                     * |                           DISCONNECT........                          |
+                     * |                           ........TIME LIMIT                          |
+                     * |                           CONNECT...........                          |
+                     * |                           ........TIME LIMIT                          |
+                     * |                           MAXIMUM...........                          |
+                     * |                           ........BURST SIZE                          |
+                     * |  EMDP  |     FAIR ARBITRATION    |  DIMM  |            DTDC           |
+                     * |                                  resv                                 |
+                     * |                           FIRST.............                          |
+                     * |                           ........BURST SIZE                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const disc_reconnect_page [] = {
+                        0x02,
+                        0x0E,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0b00000000,
+                        0,
+                        0,
+                        0,
+                    };
+                    LOGTRACE << "Adding disconnect-reconnect page.";
+                    memcpy(&buffer[param_cursor], disc_reconnect_page, sizeof(disc_reconnect_page));
+                }
+                param_cursor += 16;
+                if (0x3F != page_code) break;;
+            case 0x08: // Caching Mode Page
+                if (param_cursor + 20 <= buflen) {
+                    LOGTRACE << "Adding caching page.";
+                    uint32_t blocks_per_object = physical_block_size / logical_block_size;
+                    buffer[param_cursor]        = 0x08;
+                    buffer[param_cursor + 1]    = 0x12;
+                    buffer[param_cursor + 2]    = 0b00011000;
+                    auto prefetch_size = htobe16(std::min(blocks_per_object, (uint32_t)UINT16_MAX));
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 6]) = prefetch_size;
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 8]) = prefetch_size;
+                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 10]) = prefetch_size;
+                    buffer[param_cursor + 12]   = 0b01000000;
+                    buffer[param_cursor + 14]   = 0xFF;
+                    buffer[param_cursor + 15]   = 0xFF;
+                }
+                param_cursor += 20;
+                if (0x3F != page_code) break;;
+            case 0x0A: // Control Mode Page
+                if (param_cursor + 12 <= buflen) {
+                    /* /-----------------------------------------------------------------------\
+                     * |   PS   |  SPF   |                      PAGE CODE                      |
+                     * |                              PAGE LENGTH                              |
+                     * |            TST           |TMF_ONLY| DPICZ  |D_SENSE | GLTSD  |  RLEC  |
+                     * |       QUEUE ALG MODIFIER          |  NUAR  |      QERR       |  obsl  |
+                     * |   VS   |  RAC   | UA_INTLCK_CTRL  |  SWP   |           obsl           |
+                     * |  ATO   |  TAS   | ATMPE  |  RWWP  |  resv  |      AUTOLOAD MODE       |
+                     * |                                  obsl                                 |
+                     * |                                  obsl                                 |
+                     * |                           BUSY TIMEOUT......                          |
+                     * |                           ............PERIOD                          |
+                     * |                           EXTENDED SELF TEST                          |
+                     * |                           ...COMPLETION TIME                          |
+                     * \_______________________________________________________________________/
+                     */
+                    static uint8_t const control_page [] = {
+                        0x0A,
+                        0x0A,
+                        0b00000000,
+                        0b00001000,
+                        0b00000000,
+                        0b01000000,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    };
+                    LOGTRACE << "Adding control page.";
+                    memcpy(&buffer[param_cursor], control_page, sizeof(control_page));
+                }
+                param_cursor += 12;
+                break;;
+            default:
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
             }
 
             // Set data length
             if (MODE_SENSE == op_code) {
-                buffer[0] = param_cursor - 1;
+                buffer[0] = std::min(param_cursor - 1, (size_t)UINT8_MAX);
             } else {
-                buffer[1] = param_cursor - 2;
+                *reinterpret_cast<uint16_t*>(&buffer[0]) = htobe16(std::min(param_cursor - 2, (size_t)UINT16_MAX));
             }
-            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
+            task->setResponseLength(std::min(buflen, param_cursor));
         }
         break;
     case READ_6:
@@ -430,7 +636,6 @@ void ScstDevice::execUserCmd() {
                   << "] Handle[0x" << cmd.cmd_h << "]";
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
-            task->setResponseBuffer(buffer, scsi_cmd.bufflen);
             return scstOps->read(task);
         }
         break;
@@ -444,13 +649,13 @@ void ScstDevice::execUserCmd() {
             if (READ_CAPACITY == op_code) {
                 *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
                 *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
-                task->setResponseBuffer(buffer, 8);
+                task->setResponseLength(8);
             } else {
                 *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
                 *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
                 // Number of logic blocks per object as a power of 2
                 buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
-                task->setResponseBuffer(buffer, 32);
+                task->setResponseLength(32);
             }
         }
         break;
@@ -596,7 +801,7 @@ ScstDevice::respondTask(BlockTask* response) {
 
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
-        if (!scst_response->getError().ok()) {
+        if (fpi::OK != scst_response->getError()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else {
             auto buffer = scst_response->getResponseBuffer();
@@ -610,12 +815,13 @@ ScstDevice::respondTask(BlockTask* response) {
                 i += buf->length();
                 buf = scst_response->getNextReadBuffer(context);
             }
+            scst_response->setResponseLength(i);
         }
-    } else if (!scst_response->getError().ok()) {
+    } else if (fpi::OK != scst_response->getError()) {
         if (scst_response->isWrite()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            scst_response->setResult(-((uint32_t)scst_response->getError().GetErrno()));
+            scst_response->setResult(-((uint32_t)scst_response->getError()));
         }
     }
 
@@ -630,10 +836,12 @@ void
 ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     // capacity is in MB
     if (volDesc) {
-        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-            << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
-        physical_block_size = volDesc->maxObjSizeInBytes;
         volume_size = (volDesc->capacity * Mi);
+        physical_block_size = volDesc->maxObjSizeInBytes;
+        snprintf(serial_number, sizeof(serial_number), "%.16lX", volDesc->GetID().get());
+        LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
+            << "B and object size: 0x" << physical_block_size
+            << "B with serial: " << serial_number;
     }
 }
 

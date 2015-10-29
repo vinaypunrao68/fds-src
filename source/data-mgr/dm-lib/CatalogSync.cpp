@@ -243,7 +243,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fwdMsg->blob_version = blob_version;
     fwdMsg->sequence_id = commitBlobReq->sequence_id;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
-    meta_list->toFdspPayload(fwdMsg->meta_list);
+    meta_list->moveToFdspPayload(fwdMsg->meta_list);
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
@@ -252,9 +252,6 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     asyncCatUpdReq->setTimeoutMs(5000);
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(CatalogSync::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
-    // TODO(Andrew): It is incorrect to send unordered, async messages to the
-    // destination DM. The requests can be received out of order on the network.
-    // The updates should either be A) tagged with an order or B) sent serially.
     asyncCatUpdReq->invoke();
 
     return err;

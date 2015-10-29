@@ -81,10 +81,10 @@ public class GetObject implements RequestHandler {
                 xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), 1 + range.rangeMax.get() - range.rangeMin.get());
 
             if (range.rangeMin.isPresent())
-                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), blobInfo.getBlobDescriptor().byteCount - range.rangeMin.get());
+                xdi.readToOutputStream(token, blobInfo, outputStream, range.rangeMin.get(), blobInfo.getBlobDescriptor().getByteCount() - range.rangeMin.get());
 
             if (range.rangeMax.isPresent())
-                xdi.readToOutputStream(token, blobInfo, outputStream, blobInfo.getBlobDescriptor().byteCount - range.rangeMax.get(), range.rangeMax.get());
+                xdi.readToOutputStream(token, blobInfo, outputStream, blobInfo.getBlobDescriptor().getByteCount() - range.rangeMax.get(), range.rangeMax.get());
 
             throw new Exception("Invalid range specified");
         } else {

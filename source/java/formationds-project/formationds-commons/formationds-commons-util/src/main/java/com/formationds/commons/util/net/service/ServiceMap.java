@@ -5,7 +5,7 @@
 package com.formationds.commons.util.net.service;
 
 import com.formationds.commons.util.NodeUtils;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.google.common.base.Preconditions;
 

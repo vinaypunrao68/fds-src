@@ -185,7 +185,7 @@ void generateVolumes(std::vector<boost::shared_ptr<VolumeDesc> > & volumes) {
         // vdesc->volType = fpi::FDSP_VOL_BLKDEV_TYPE;
         vdesc->capacity = 10 * 1024;  // 10GB
         vdesc->maxQuota = 90;
-        vdesc->replicaCnt = 1;
+        vdesc->redundancyCnt = 1;
         vdesc->maxObjSizeInBytes = MAX_OBJECT_SIZE;
 
         vdesc->writeQuorum = 1;

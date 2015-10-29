@@ -15,6 +15,7 @@
 #include <fds_dmt.h>
 #include <fdsp/config_types_types.h>
 #include <exception>
+#include <fds_subscription.h>
 namespace fds {
 struct node_data;
 
@@ -95,6 +96,7 @@ struct ConfigDB : KVStore {
     bool updateSvcMap(const fpi::SvcInfo& svcinfo);
     bool changeStateSvcMap( const int64_t svc_uuid, 
                             const fpi::ServiceStatus svc_status );
+    bool isPresentInSvcMap(const int64_t svc_uuid);
     /**
      * If service not found in configDB, returns SVC_STATUS_INVALID
      */
@@ -147,6 +149,18 @@ struct ConfigDB : KVStore {
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId, fpi::ResourceState state); //NOLINT
    bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
+
+    // Subscriptions
+    fds_subid_t getNewSubscriptionId();
+    bool setSubscriptionState(fds_subid_t id, fpi::ResourceState state);
+    bool addSubscription(const Subscription& subscription);
+    bool updateSubscription(const Subscription& subscription);
+    bool deleteSubscription(fds_subid_t id);
+    bool subscriptionExists(fds_subid_t id);
+    bool subscriptionExists(const std::string& name);
+    bool getSubscriptionIds(std::vector<fds_subid_t>& ids);
+    bool getSubscriptions(std::vector<Subscription>& subscriptions);
+    bool getSubscription(fds_subid_t id, Subscription& subscription);
 
   protected:
     void setModified();

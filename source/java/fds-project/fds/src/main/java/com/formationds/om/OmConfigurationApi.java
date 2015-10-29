@@ -8,9 +8,10 @@ import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.om.helper.EndUserMessages;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
@@ -500,7 +501,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 long iopsMax,
                                                 int relPrio ) throws TException {
         FDSP_PolicyInfoType qosPolicy = getConfig().createQoSPolicy( policyName, iopsMin, iopsMax, relPrio );
-        EventManager.notifyEvent( OmEvents.CREATE_QOS_POLICY, qosPolicy.policy_name );
+        EventManager.notifyEvent( OmEvents.CREATE_QOS_POLICY, qosPolicy.getPolicy_name() );
         return qosPolicy;
     }
 
@@ -540,7 +541,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 int relPrio ) throws TException {
         FDSP_PolicyInfoType policy = getConfig().modifyQoSPolicy( currentPolicyName, newPolicyName,
                                                                   iopsMin, iopsMax, relPrio );
-        EventManager.notifyEvent( OmEvents.MODIFY_QOS_POLICY, policy.policy_name );
+        EventManager.notifyEvent( OmEvents.MODIFY_QOS_POLICY, policy.getPolicy_name() );
         return policy;
     }
 
@@ -713,7 +714,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots( long volumeId ) throws TException {
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots( long volumeId ) throws TException {
         return getConfig().listSnapshots( volumeId );
     }
 
@@ -764,7 +765,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             }
             return cache;
         } catch ( TException te ) {
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
         }
     }
 

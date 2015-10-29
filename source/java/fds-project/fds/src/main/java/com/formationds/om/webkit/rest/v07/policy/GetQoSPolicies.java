@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v07.policy;
 
-import com.formationds.protocol.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -51,11 +51,11 @@ public class GetQoSPolicies
 
       for (FDSP_PolicyInfoType qosPolicy : qosPolicies) {
           array.put(new JSONObject()
-                          .put("policy_name", qosPolicy.policy_name)
-                          .put("policy_id", qosPolicy.policy_id)
-                          .put("iops_min", qosPolicy.iops_assured)
-                          .put("iops_max", qosPolicy.iops_throttle)
-                          .put("rel_prio", qosPolicy.rel_prio));
+                          .put("policy_name", qosPolicy.getPolicy_name())
+                          .put("policy_id", qosPolicy.getPolicy_id())
+                          .put("iops_min", qosPolicy.getIops_assured())
+                          .put("iops_max", qosPolicy.getIops_throttle())
+                          .put("rel_prio", qosPolicy.getRel_prio()));
       }
 
       return new JsonResource(array);
