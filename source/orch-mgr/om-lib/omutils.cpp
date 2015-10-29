@@ -197,7 +197,7 @@ namespace fds
         }
     }
 
-    bool isNewerSvcInfoInstance( const fpi::SvcInfo svcInfo )
+    bool isSameSvcInfoInstance( const fpi::SvcInfo svcInfo )
     {
         std::vector<fpi::SvcInfo> entries;
         MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
@@ -207,19 +207,22 @@ namespace fds
             {
                 if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
                 {
-                    LOGDEBUG << "Svc: " << svcInfo.incarnationNo
-                             << " Map: " << svc.incarnationNo;
+                    LOGDEBUG << "SvcInfo: " << svcInfo.incarnationNo
+                             << " SvcMap: " << svc.incarnationNo;
 
-                    if ( svc.incarnationNo < svcInfo.incarnationNo )
+                    /*
+                     * svcInfo and service map entries are the same, we can change the service state.
+                     */
+                    if ( svc.incarnationNo == svcInfo.incarnationNo )
                     {
-                        LOGDEBUG << "Incarnation is newer than what is in service map, return true";
+                        LOGDEBUG << "Service Map and Service have the same incarnation number, returning true.";
                         return true;
                     }
                 }
             }
         }
 
-        LOGDEBUG << "Incarnation is older than what is in service map, return false";
+        LOGDEBUG << "Service Map and Service donnot have the same incarnation number, returning false.";
         return false;
     }
 

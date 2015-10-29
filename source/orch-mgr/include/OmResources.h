@@ -969,7 +969,8 @@ class OM_NodeDomainMod : public Module
 
     virtual void
     om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
-                                          fpi::FDSP_MgrIdType svcType );
+                                          fpi::FDSP_MgrIdType svcType,
+                                          const fpi::ServiceStatus status );
     
     /**
      * Notification that service is down to DLT and DMT state machines
