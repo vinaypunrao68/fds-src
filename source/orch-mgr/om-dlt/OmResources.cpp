@@ -2085,9 +2085,11 @@ bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
 void OM_NodeDomainMod::addRegisteringSvc(SvcInfoPtr infoPtr)
 {
     SCOPEDWRITE(svcRegVecLock);
-    registeringSvcs.push_back(infoPtr);
+
+    int64_t uuid = infoPtr->svc_id.svc_uuid.svc_uuid;
+    registeringSvcs[uuid] = infoPtr;
     LOGDEBUG << "Added svc:" << std::hex << infoPtr->svc_id.svc_uuid.svc_uuid
-             << std::dec << " to tracking vector(size:"
+             << std::dec << " to tracking map(size:"
              << registeringSvcs.size() << ")";
 }
 
@@ -2098,17 +2100,15 @@ OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
 
     SCOPEDREAD(svcRegVecLock);
 
-    std::vector<SvcInfoPtr>::iterator iter;
-    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
-                        [uuid](SvcInfoPtr info)->bool
-                        {
-                            return uuid == info->svc_id.svc_uuid.svc_uuid;
-                        });
-    if (iter == registeringSvcs.end()) {
-        return Error(ERR_NOT_FOUND);
-    }
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
 
-    infoPtr = *iter;
+    iter = registeringSvcs.find(uuid);
+
+    if (iter != registeringSvcs.end()) {
+        infoPtr = iter->second;
+    } else {
+        err = ERR_NOT_FOUND;
+    }
 
     return err;
 }
@@ -2117,16 +2117,8 @@ void OM_NodeDomainMod::removeRegisteredSvc(int64_t uuid)
 {
     SCOPEDWRITE(svcRegVecLock);
 
-    // Repeating the logic from above is safest, since we cannot
-    // guarantee the validity of an iterator from the above get
-    // function, if other threads came in and modified the vector
-    // before we have had a chance to enter the remove
-    std::vector<SvcInfoPtr>::iterator iter;
-    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
-                        [uuid](SvcInfoPtr info)->bool
-                        {
-                            return uuid == info->svc_id.svc_uuid.svc_uuid;
-                        });
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
+    iter = registeringSvcs.find(uuid);
 
     if (iter != registeringSvcs.end()) {
         registeringSvcs.erase(iter);
