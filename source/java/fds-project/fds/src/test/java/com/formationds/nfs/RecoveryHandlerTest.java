@@ -58,7 +58,7 @@ public class RecoveryHandlerTest {
         IoOps withTimeoutHandling = RecoveryHandler.buildProxy(ops, 4, Duration.ofMillis(10));
         try {
             withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get();
-        } catch (RecoverableException e) {
+        } catch (IOException e) {
             assertEquals(4, exceptionCount.get());
             return;
         }
