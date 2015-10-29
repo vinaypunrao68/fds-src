@@ -21,7 +21,6 @@ thrift_release_bin_dir="Build/linux-x86_64.release/bin"
 
 make_directories_if_needed()
 {
-  echo "XXXXX"
   mkdir -p "${thrift_debug_lib_dir}"
   mkdir -p "${thrift_release_lib_dir}"
   mkdir -p "${thrift_include_dir}"
