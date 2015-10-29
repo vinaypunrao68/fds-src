@@ -1,8 +1,12 @@
 package com.formationds.index;
 
 import com.formationds.hadoop.OwnerGroupInfo;
-import com.formationds.nfs.IoOps;
-import com.formationds.nfs.TransactionalIo;
+import com.formationds.nfs.*;
+import com.formationds.nfs.deferred.CacheEntry;
+import com.formationds.nfs.deferred.EvictingCache;
+import com.formationds.util.ServerPortFinder;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.RealAsyncAm;
 import org.apache.log4j.Logger;
 import org.apache.lucene.store.*;
 import org.junit.Ignore;
@@ -10,28 +14,48 @@ import org.junit.Ignore;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Ignore
 public class FdsLuceneDirectory extends Directory {
     private static final Logger LOG = Logger.getLogger(FdsLuceneDirectory.class);
-    public static final String INDEX_FILE_PREFIX = "index-";
+    public static final String INDEX_FILE_PREFIX = "index/";
     public static final OwnerGroupInfo OWNER = new OwnerGroupInfo("fds", "fds");
     public static final String SIZE = "SIZE";
     public static final String LUCENE_RESOURCE_NAME = "NAME";
     private String domain;
-    private final String volume;
-    private final int objectSize;
-    private final ConcurrentHashMap<String, Lock> locks;
-    private final TransactionalIo io;
+    private String volume;
+    private int objectSize;
+    private EvictingCache<String, MemoryLock> locks;
+    private TransactionalIo io;
 
 
     public FdsLuceneDirectory(IoOps ops, String domain, String volume, int objectSize) {
+        init(domain, volume, objectSize);
+        io = new TransactionalIo(ops);
+    }
+
+    private void init(String domain, String volume, int objectSize) {
         this.domain = domain;
         this.volume = volume;
         this.objectSize = objectSize;
-        locks = new ConcurrentHashMap<>();
-        io = new TransactionalIo(ops);
+        locks = new EvictingCache<>(
+                (key, entry) -> entry.value.invalidate(),
+                "Lucene-FDS locks",
+                1000000, 1, TimeUnit.HOURS);
+        locks.start();
+    }
+
+    public FdsLuceneDirectory(String domain, String volume, int objectSize, String amHost, int amPort) throws IOException {
+        init(domain, volume, objectSize);
+        int serverPort = new ServerPortFinder().findPort("FdsLuceneDirectory AM client", 10000);
+        AsyncAm asyncAm = new RealAsyncAm(amHost, amPort, serverPort, 10, TimeUnit.MINUTES);
+        asyncAm.start();
+        Counters counters = new Counters();
+        AmOps amOps = new AmOps(asyncAm, counters);
+        DeferredIoOps deferredIo = new DeferredIoOps(amOps, counters);
+        deferredIo.start();
+        io = new TransactionalIo(deferredIo);
     }
 
     @Override
@@ -71,6 +95,7 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public void sync(Collection<String> collection) throws IOException {
+        io.flush();
     }
 
     @Override
@@ -94,18 +119,13 @@ public class FdsLuceneDirectory extends Directory {
     }
 
     @Override
-    public Lock makeLock(String s) {
-        return locks.compute(s, (k, v) -> {
-            if (v == null) {
-                v = new MemoryLock();
-            }
-
-            return v;
-        });
+    public Lock obtainLock(String name) throws IOException {
+        return locks.lock(name, c -> c.computeIfAbsent(name, k -> new CacheEntry<>(new MemoryLock(), true))).value;
     }
 
     @Override
     public void close() throws IOException {
+        io.flush();
     }
 
 }

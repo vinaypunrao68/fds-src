@@ -248,6 +248,8 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
                              bool domainRestart, bool startNode);
+
+    void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
      * Send 'stop service' message to Platform
      */
@@ -883,6 +885,11 @@ class OM_NodeDomainMod : public Module
     static fds_bool_t om_local_domain_down();
 
     /**
+     * "true" if this is called within the Master Domain and hence, the Master OM.
+     */
+    static fds_bool_t om_master_domain();
+
+    /**
      * Accessors methods to retreive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */
@@ -960,7 +967,10 @@ class OM_NodeDomainMod : public Module
     */
     virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
 
-
+    virtual void
+    om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                          fpi::FDSP_MgrIdType svcType );
+    
     /**
      * Notification that service is down to DLT and DMT state machines
      * @param error timeout error or other error returned by the service

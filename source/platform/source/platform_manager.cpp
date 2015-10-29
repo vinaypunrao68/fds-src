@@ -956,6 +956,12 @@ namespace fds
         {
             auto serviceList = startServiceMsg->services;
 
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            fpi::SvcStateChangeRespPtr message (new fpi::SvcStateChangeResp());
+            message->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
+
             for (auto const &vectItem : serviceList)
             {
                 LOGNORMAL << "received a start service for type:  " << vectItem.svc_type;
@@ -964,6 +970,10 @@ namespace fds
                 {
                     case fpi::FDSP_ACCESS_MGR:
                     {
+                        FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
+                        amChangeInfo.actionCode = fpi::STARTED;
+                        amChangeInfo.svcType    = fpi::FDSP_ACCESS_MGR;
+
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING != m_nodeInfo.javaAMState)
                         {
                             if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
@@ -972,9 +982,12 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
+                                amChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start services request for AM services, but they are already running.";
                             }
                         }
+
+                        message->changeList.push_back(amChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (BARE_AM);
@@ -984,6 +997,10 @@ namespace fds
 
                     case fpi::FDSP_DATA_MGR:
                     {
+                        FDS_ProtocolInterface::SvcChangeReqInfo dmChangeInfo;
+                        dmChangeInfo.actionCode = fpi::STARTED;
+                        dmChangeInfo.svcType    = fpi::FDSP_DATA_MGR;
+
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.dmState)
                         {
                             if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
@@ -992,9 +1009,13 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
+                                dmChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already running.";
                             }
                         }
+
+
+                        message->changeList.push_back(dmChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (DATA_MANAGER);
@@ -1003,6 +1024,10 @@ namespace fds
 
                     case fpi::FDSP_STOR_MGR:
                     {
+                        FDS_ProtocolInterface::SvcChangeReqInfo smChangeInfo;
+                        smChangeInfo.actionCode = fpi::STARTED;
+                        smChangeInfo.svcType    = fpi::FDSP_STOR_MGR;
+
                         if (fpi::SERVICE_NOT_RUNNING != m_nodeInfo.smState)
                         {
                             if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
@@ -1011,9 +1036,13 @@ namespace fds
                             }
                             else           // SERVICE_RUNNING
                             {
+                                smChangeInfo.actionCode = fpi::NO_ACTION;
                                 LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already running.";
                             }
                         }
+
+                        message->changeList.push_back(smChangeInfo);
+
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (STORAGE_MANAGER);
@@ -1027,6 +1056,9 @@ namespace fds
                     } break;
                 }
             }
+
+            request->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), message);
+            request->invoke();
 
             m_startQueueCondition.notify_one();
         }

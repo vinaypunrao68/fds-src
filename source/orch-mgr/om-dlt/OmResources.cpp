@@ -1241,6 +1241,16 @@ OM_NodeDomainMod::om_local_domain_down()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
+// om_master_domain
+// ------------------
+//
+fds_bool_t
+OM_NodeDomainMod::om_master_domain()
+{
+    // TODO(Greg): Need some switch to check whether we are master - perhaps "domainID == 1"?
+    return true;
+}
+
 // domain_event
 // ------------
 //
@@ -1676,7 +1686,8 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
              */
             if ( isPlatformSvc( *svcInfo ) )
             {
-                if ( isKnownPM( *svcInfo ) )
+                if ( (isKnownPM( *svcInfo )) &&
+                     (configDB->getStateSvcMap(svcInfo->svc_id.svc_uuid.svc_uuid) != fpi::SVC_STATUS_DISCOVERED))
                 {
                     LOGDEBUG << "Found well known platform service UUID ( "
                              << std::hex 
@@ -1689,6 +1700,17 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                                             fpi::FDSP_PLATFORM );
    
                     om_activate_known_services( false, pmUuid );
+                }
+                else if ((isKnownPM( *svcInfo)) &&
+                         (configDB->getStateSvcMap(svcInfo->svc_id.svc_uuid.svc_uuid) == fpi::SVC_STATUS_DISCOVERED))
+                {
+                    LOGDEBUG << "Known platform service UUID ( "
+                             << std::hex
+                             << svcInfo->svc_id.svc_uuid.svc_uuid
+                             << std::dec
+                             << " ), in discovered state. No associated services to start";
+
+                        svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
                 }
                 else
                 {
@@ -1981,10 +2003,10 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     /**
      * ignore any PMs that are running. They are expected.
      */
-    return ( ( amSvcs->size() > 0 ) ||  
-             ( smSvcs->size() > 0 ) || 
-             ( dmSvcs->size() > 0 ) ) 
-            ? true 
+    return ( ( amSvcs->size() > 0 ) ||
+             ( smSvcs->size() > 0 ) ||
+             ( dmSvcs->size() > 0 ) )
+            ? true
             : false;
 }
 
@@ -2649,13 +2671,26 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                                        fpi::FDSP_MgrIdType svcType)
+{
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE, true ); 
+    om_locDomain->om_bcast_svcmap();
+}
+
+void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType) {
-    if (svcType == fpi::FDSP_STOR_MGR) {
+                                  fpi::FDSP_MgrIdType svcType) 
+{
+    if (svcType == fpi::FDSP_STOR_MGR)
+    {
         // this is SM -- notify DLT state machine
         om_dlt_update_cluster();
-    } else if (svcType == fpi::FDSP_DATA_MGR) {
+    }
+    else if (svcType == fpi::FDSP_DATA_MGR)
+    {
         // this is DM -- notify DMT state machine
         om_dmt_update_cluster();
     }

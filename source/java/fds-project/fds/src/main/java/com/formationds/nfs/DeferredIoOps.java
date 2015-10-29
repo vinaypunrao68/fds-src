@@ -36,9 +36,10 @@ public class DeferredIoOps implements IoOps {
                 TimeUnit.MINUTES);
     }
 
-    public void start() {
+    public IoOps start() {
         metadataCache.start();
         objectCache.start();
+        return this;
     }
 
     @Override
@@ -127,6 +128,7 @@ public class DeferredIoOps implements IoOps {
         return results;
     }
 
+
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
         MetaKey oldMetaKey = new MetaKey(domain, volumeName, oldName);
@@ -174,5 +176,12 @@ public class DeferredIoOps implements IoOps {
                     return null;
                 }
         );
+    }
+
+
+    @Override
+    public void flush() throws IOException {
+        metadataCache.flush();
+        objectCache.flush();
     }
 }

@@ -26,6 +26,8 @@
 #include <util/stringutils.h>
 #include <util/timeutils.h>
 #include <net/PlatNetSvcHandler.h>
+#include <kvstore/configdb.h>  // For ConfigDB::ReturnType.
+
 
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
@@ -95,6 +97,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
+    /**
+     * Use this to detmerine whether we are the Master Domain as some commands
+     * may only be executed in the Master Domain.
+     */
+    void checkMasterDomain() {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        if (!domain->om_master_domain()) {
+            LOGERROR << "Exception: Local Domain not Master.";
+            fpi::NotMasterDomain e;
+            e.message = "Local Domain not Master.";
+            throw e;
+        }
+    }
+
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
     void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
@@ -152,6 +168,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
     void deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {}
+    int64_t createSubscription(const std::string& subName, const int64_t tenantID, const int32_t primaryDomainID, const int64_t primaryVolumeID, const int32_t replicaDomainID, const  ::fds::apis::SubscriptionType subType, const  ::fds::apis::SubscriptionScheduleType schedType, const int64_t intervalSize) {return 0;};
+    void listSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t ignore) {};
+    void listTenantSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t tenantID) {};
+    void listSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t primaryDomainID) {};
+    void listTenantSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t primaryDomainID, const int64_t tenantID) {};
+    void listSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t replicaDomainID) {};
+    void listTenantSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t replicaDomainID, const int64_t tenantID) {};
+    void listSubscriptionsPrimaryVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t primaryVolumeID) {};
+    void listSubscriptionsReplicaVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t replicaVolumeID) {};
+    void getSubscriptionInfoName( ::fds::apis::SubscriptionDescriptor& _return, const std::string& subName, const int64_t tenantID) {};
+    void getSubscriptionInfoID( ::fds::apis::SubscriptionDescriptor& _return, const int64_t subID) {};
+    void updateSubscription(const  ::fds::apis::SubscriptionDescriptor& subMods) {};
+    void deleteSubscriptionName(const std::string& subName, const int64_t tenantID, const bool dematerialize) {};
+    void deleteSubscriptionID(const int64_t subID, const bool dematerialize) {};
 
     // stubs to keep cpp compiler happy - END
 
@@ -1273,6 +1303,560 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
+
+    /** Subscription Management **/
+    /**
+     * Create a subscription.
+     *
+     * @param name - Name of the new Subscription. Must be unique within Global Domain/Tenant.
+     * @param tenantID - ID of the Tenant owning the new Subscription.
+     * @param primaryDomainID - ID of the Local Domain where the primary copy of the replicated volume is located.
+     * @param primaryVolumeID - ID of the primary volume as defined in the primary Domain.
+     * @param replicaDomainID - ID of the Local Domain where the replica copy of the replicated volume is located.
+     * @param subType - Flag indicating the type of asynchronous repliction used with this Subscription.
+     * @param schedType - For subscription types using a content-based replication technique, this flag indicates
+     *                    the type of scheduling (time, MB, num ops, etc.) using for this subscription.
+     * @param intervalSize - For subscription types using a content-based replication technique, this value defines
+     *                       the number of units for an interval to expire. Units are implied by schedType.
+     *
+     * @return int64_t - ID of the newly created Subscription.
+     */
+    int64_t createSubscription(boost::shared_ptr<std::string>& name,
+                               boost::shared_ptr<int64_t>& tenantID,
+                               boost::shared_ptr<int32_t>& primaryDomainID,
+                               boost::shared_ptr<int64_t>& primaryVolumeID,
+                               boost::shared_ptr<int32_t>& replicaDomainID,
+                               boost::shared_ptr< ::fds::apis::SubscriptionType>& subType,
+                               boost::shared_ptr< ::fds::apis::SubscriptionScheduleType>& schedType,
+                               boost::shared_ptr<int64_t>& intervalSize) {
+        checkMasterDomain();
+
+        Subscription subscription(name.get()->c_str(),
+                                  *tenantID,
+                                  *primaryDomainID,
+                                  fds_volid_t(static_cast<uint64_t>(*primaryVolumeID)),
+                                  *replicaDomainID,
+                                  apis::SubscriptionType(*subType),
+                                  apis::SubscriptionScheduleType(*schedType),
+                                  *intervalSize);
+        fds_subid_t id = om->getConfigDB()->putSubscription(subscription);
+
+        if (id == invalid_sub_id) {
+            LOGERROR << "Some issue in subscription creation: " << *name;
+            apiException("Error creating subscription [" + *name + "].");
+        } else {
+            LOGNOTIFY << "Subscription creation succeded. " << id << ": " << *name;
+        }
+
+        return id;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined in the global domain and their
+     *                  details. Could be empty.
+     * @param ignore - As the name suggests, not used for anything other than to make Thrift work nice.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                              boost::shared_ptr<int32_t>& ignore) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all subscriptions for the global domain.";
+            apiException("Error retrieving all subscriptions for the global domain.");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                apis::SubscriptionDescriptor subscription;
+                Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                _return.push_back(subscription);
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined in the global domain for the given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined in the global domain and tenant and their
+     *                  details. Could be empty.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                    boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getTenantID() == *tenantID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as primary.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as primary
+     *                  and their details. Could be empty.
+     * @param primaryDomainID - ID of the local domain identified as "primary" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int32_t>& primaryDomainID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary domain [" << primaryDomainIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + primaryDomainIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryDomainID() == *primaryDomainID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as primary and given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as primary
+     *                  and given tenant and their details. Could be empty.
+     * @param primaryDomainID - ID of the local domain identified as "primary" for the subscriptions to be retrieved.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                              boost::shared_ptr<int32_t>& primaryDomainID,
+                                              boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary domain [" << primaryDomainIDStr <<
+                            "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + primaryDomainIDStr +
+                                 "] and tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if ((subscriptions[i].getPrimaryDomainID() == *primaryDomainID) &&
+                    (subscriptions[i].getTenantID() == *tenantID)) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as replica.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as replica
+     *                  and their details. Could be empty.
+     * @param replicaDomainID - ID of the local domain identified as "replica" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int32_t>& replicaDomainID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica domain [" << replicaDomainIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + replicaDomainIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryDomainID() == *replicaDomainID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as replica and given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as replica
+     *                  and given tenant and their details. Could be empty.
+     * @param replicaDomainID - ID of the local domain identified as "replica" for the subscriptions to be retrieved.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                              boost::shared_ptr<int32_t>& replicaDomainID,
+                                              boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica domain [" << replicaDomainIDStr <<
+                     "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for the replica domain [" + replicaDomainIDStr +
+                         "] and tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if ((subscriptions[i].getPrimaryDomainID() == *replicaDomainID) &&
+                    (subscriptions[i].getTenantID() == *tenantID)) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given volume as primary. Since a volume may be owned by only one
+     * tenant, tenant is implied.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given volume as primary and their
+     *                  details. Could be empty.
+     * @param primaryVolumeID - ID of the volume identified as "primary" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsPrimaryVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int64_t>& primaryVolumeID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryVolumeIDStr = std::to_string(*primaryVolumeID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary volume [" << primaryVolumeIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary volume [" + primaryVolumeIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryVolumeID() == fds_volid_t(static_cast<uint64_t>(*primaryVolumeID))) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given volume as replica. Since a volume may be owned by only one
+     * tenant, tenant is implied.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given volume as replica and their
+     *                  details. Could be empty.
+     * @param replicaVolumeID - ID of the volume identified as "replica" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsReplicaVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int64_t>& replicaVolumeID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaVolumeIDStr = std::to_string(*replicaVolumeID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica volume [" << replicaVolumeIDStr << "].";
+            apiException("Error retrieving all subscriptions for the replica volume [" + replicaVolumeIDStr + "].");
+        } else {
+            _return.clear();
+
+            /**
+             * TODO(Greg): Implement mechanism to obtain replica volume ID from subscription.
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getReplicaVolumeID() == fds_volid_t(static_cast<uint64_t>(*replicaVolumeID))) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+             */
+            LOGWARN << "Listing subscirptions for a given replica volume not currently implemented.";
+        }
+    };
+
+    /**
+     * Retrieve all the details for the subscription identified by name and tenant ID. Note that it is not sufficient
+     * when referencing a subscription by name to not also provide the tenant ID since multiple tenants could have
+     * liked-named subsciptions.
+     *
+     * @param _return - An output parameter. The detail of the subscription identified by name and tenant ID.
+     * @param subName - Name of the subscription for whom details are to be retrieved.
+     * @param tenantID - ID of the tenant for whom the named subscription is to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void getSubscriptionInfoName( ::fds::apis::SubscriptionDescriptor& _return,
+                                  boost::shared_ptr<std::string>& subName,
+                                  boost::shared_ptr<int64_t>& tenantID) {
+        Subscription subscription;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscription(*subName, *tenantID, subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving subscription named [" << *subName << "] for tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving subscription named [" + *subName + "] for tenant [" + tenantIDStr + "].");
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Unable to locate subscription named [" << *subName << "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription named [" + *subName + "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::SUCCESS);
+            Subscription::makeSubscriptionDescriptor(_return, subscription);
+        }
+    };
+
+    /**
+     * Retrieve all the details for the subscription identified by unique ID.
+     *
+     * @param _return - An output parameter. The detail of the subscription identified by name and tenant ID.
+     * @param subID - ID of the subscription for whom details are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void getSubscriptionInfoID( ::fds::apis::SubscriptionDescriptor& _return,
+                                boost::shared_ptr<int64_t>& subID) {
+        Subscription subscription;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscription(*subID, subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string subIDStr = std::to_string(*subID);
+            LOGERROR << "Some issue with retrieving subscription by ID [" << subIDStr << "].";
+            apiException("Error retrieving subscription by ID [" + subIDStr + "].");
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            std::string subIDStr = std::to_string(*subID);
+            LOGERROR << "Unable to locate subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription ID [" + subIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::SUCCESS);
+            Subscription::makeSubscriptionDescriptor(_return, subscription);
+        }
+    };
+
+    /**
+     * Update subscription attributes. The following are *not* modifiable:
+     * id, tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+     *
+     * @param subMods - All subscription attributes with modifications applied. "id" must be supplied. Changes to the
+     *                  following are rejected: tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+     *
+     * @return void.
+     */
+    void updateSubscription(boost::shared_ptr< ::fds::apis::SubscriptionDescriptor>& subMods) {
+        checkMasterDomain();
+
+        Subscription subscription("dummy", invalid_sub_id);
+
+        Subscription::makeSubscription(subscription, *subMods);
+        std::string tenantIDStr = std::to_string(subscription.getTenantID());
+
+        auto ret = om->getConfigDB()->updateSubscription(subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGNOTIFY << "Subscription update succeded. " << tenantIDStr << ": " << subscription.getName();
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            LOGERROR << "Unable to locate subscription named [" << subscription.getName() <<
+                            "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription named [" + subscription.getName() +
+                        "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+            LOGERROR << "Unable to apply updates to subscription named [" << subscription.getName() <<
+                     "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotModified e;
+            e.message = "Unable to apply updates to subscription named [" + subscription.getName() +
+                        "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+            LOGERROR << "Some issue with updating subscription named [" << subscription.getName() <<
+                     "] for tenant [" << tenantIDStr << "].";
+            apiException("Error updating subscription named [" + subscription.getName() +
+                         "] for tenant [" + tenantIDStr + "].");
+        }
+    };
+
+    /**
+     * Delete the subscription identified by name and tenant ID. Optionally remove from the replica, those blobs maintained
+     * by the subscription. Note that it is not sufficient, when referencing a subscription by name to not also provide
+     * the tenant ID since multiple tenants could have liked-named subsciptions.
+     *
+     * @param subName - Name of the subscription to be deleted.
+     * @param tenantID - ID of the tenant for whom the named subscription is to be deleted.
+     * @param dematerialize - "true" if the replica volume contents resulting from the subscription are to be
+     *                        deleted. If setting "true" results in all replica volume contents being deleted, the
+     *                        volume will be deleted as well.
+     *
+     * @return Nothing.
+     */
+    void deleteSubscriptionName(boost::shared_ptr<std::string>& subName,
+                                boost::shared_ptr<int64_t>& tenantID,
+                                boost::shared_ptr<bool>& dematerialize) {
+        checkMasterDomain();
+
+        std::string tenantIDStr = std::to_string(*tenantID);
+
+        auto subID = om->getConfigDB()->getSubscriptionId(*subName, *tenantID);
+
+        if (subID == invalid_sub_id) {
+            LOGERROR << "Some issue with retrieving subscription ID for [" << *subName << "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving subscription ID for [" + *subName + "] and tenant [" + tenantIDStr + "].");
+        } else {
+            auto ret = om->getConfigDB()->deleteSubscription(subID);
+
+            if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+                LOGNOTIFY << "Subscription delete succeded for subscription named [" << *subName <<
+                             "] and tenant [" << tenantIDStr << "].";
+            } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+                LOGERROR << "Unable to locate subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+
+                apis::SubscriptionNotFound e;
+                e.message = "Unable to locate subscription named [" + *subName +
+                            "] for tenant [" + tenantIDStr + "].";
+                throw e;
+            } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+                LOGERROR << "Unable to delete subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+
+                apis::SubscriptionNotModified e;
+                e.message = "Unable to delete subscription named [" + *subName +
+                            "] for tenant [" + tenantIDStr + "].";
+                throw e;
+            } else {
+                fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+                LOGERROR << "Some issue with deleting subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+                apiException("Error deleting subscription named [" + *subName +
+                             "] for tenant [" + tenantIDStr + "].");
+            }
+        }
+
+        if (dematerialize) {
+            // TODO(Greg)
+        }
+    };
+
+    /**
+     * Delete the subscription identified by unique ID.
+     *
+     * @param subID - ID of the subscription to be deleted.
+     * @param dematerialize - "true" if the replica volume contents resulting from the subscription are to be
+     *                        deleted. If setting "true" results in all replica volume contents being deleted, the
+     *                        volume will be deleted as well.
+     *
+     * @return Nothing.
+     */
+    void deleteSubscriptionID(boost::shared_ptr<int64_t>& subID,
+                              boost::shared_ptr<bool>& dematerialize) {
+        checkMasterDomain();
+
+        std::string subIDStr = std::to_string(*subID);
+
+        auto ret = om->getConfigDB()->deleteSubscription(*subID);
+
+        if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGNOTIFY << "Subscription delete succeded for subscription ID [" << subIDStr << "].";
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            LOGERROR << "Unable to locate subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription ID [" + subIDStr + "].";
+            throw e;
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+            LOGERROR << "Unable to delete subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotModified e;
+            e.message = "Unable to delete subscription ID [" + subIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+            LOGERROR << "Some issue with deleting subscription ID [" << subIDStr << "].";
+            apiException("Error deleting subscription ID [" + subIDStr + "].");
+        }
+
+        if (dematerialize) {
+            // TODO(Greg)
+        }
+    };
 };
 }  // namespace apis
 

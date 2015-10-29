@@ -537,7 +537,7 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
             n = fdscfg.rt_om_node
 
         self.log.info("Restart Redis clean on %s." % n.nd_conf_dict['node-name'])
-        if fdscfg.rt_obj.cfg_remote_fds_deploy is True:
+        if fdscfg.rt_obj.cfg_remote_nodes is True:
             cmd = '/fds/sbin/redis.sh '
         else:
             cmd = './redis.sh '

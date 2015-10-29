@@ -93,6 +93,11 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
+    public void flush() throws IOException {
+
+    }
+
+    @Override
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         Set<ObjectKey> keys = new HashSet<>(objectCache.keySet());
         keys.forEach(ok -> {
