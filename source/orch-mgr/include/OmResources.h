@@ -1119,7 +1119,7 @@ class OM_NodeDomainMod : public Module
 
     // Vector to track registering services and
     // locks to protect accesses
-    fds_rwlock svcRegVecLock;
+    fds_rwlock svcRegMapLock;
     std::map<int64_t, SvcInfoPtr> registeringSvcs;
 };
 

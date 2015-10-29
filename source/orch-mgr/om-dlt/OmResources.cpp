@@ -2084,7 +2084,7 @@ bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
 
 void OM_NodeDomainMod::addRegisteringSvc(SvcInfoPtr infoPtr)
 {
-    SCOPEDWRITE(svcRegVecLock);
+    SCOPEDWRITE(svcRegMapLock);
 
     int64_t uuid = infoPtr->svc_id.svc_uuid.svc_uuid;
     registeringSvcs[uuid] = infoPtr;
@@ -2098,7 +2098,7 @@ OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
 {
     Error err(ERR_OK);
 
-    SCOPEDREAD(svcRegVecLock);
+    SCOPEDREAD(svcRegMapLock);
 
     std::map<int64_t, SvcInfoPtr>::iterator iter;
 
@@ -2115,7 +2115,7 @@ OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
 
 void OM_NodeDomainMod::removeRegisteredSvc(int64_t uuid)
 {
-    SCOPEDWRITE(svcRegVecLock);
+    SCOPEDWRITE(svcRegMapLock);
 
     std::map<int64_t, SvcInfoPtr>::iterator iter;
     iter = registeringSvcs.find(uuid);
