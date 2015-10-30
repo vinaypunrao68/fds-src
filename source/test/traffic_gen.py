@@ -421,11 +421,6 @@ def main(options, files):
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume
 # TODO: option to reset counters
-# TODO: use pools and async: https://docs.python.org/3/library/multiprocessing.html#using-a-pool-of-workers
-# TODO: delete
-# FIXME: what happen if i use a different number of volumes for put and get?
-# TODO: time history of latencies
-# TODO: Add 
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-t", "--threads", dest="threads", type="int", default=1, help="Number of threads")
@@ -447,7 +442,7 @@ if __name__ == "__main__":
     parser.add_option("-V", "--volume-stats", dest="volume_stats", default=False, action="store_true",
                       help="Enable per volume stats")
     parser.add_option("-S", "--put-seq", dest="put_seq", default=False, action="store_true",
-                      help="Generate put objects sequentially and uniquely")
+                      help="Gene rate put objects sequentially and uniquely")
     parser.add_option("-D", "--put-duplicate", dest="put_duplicate", default=False, action="store_true",
                       help="Generate duplicate put objects in each volume")
 
