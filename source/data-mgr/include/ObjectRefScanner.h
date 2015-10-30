@@ -184,7 +184,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
         return util::strformat("vol%ld_tok%d", volId, tokenId);
     }
 
-    inline static std::string aggrBloomFilterKey(const fds_token_id &tokenId) {
+    inline static std::string tokenBloomFilterKey(const fds_token_id &tokenId) {
         return util::strformat("aggr_tok%d", tokenId);
     }
     inline size_t getScanSuccessVolsCnt() const {return scanSuccessVols.size();}

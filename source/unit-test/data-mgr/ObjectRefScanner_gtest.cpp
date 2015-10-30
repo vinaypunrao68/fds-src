@@ -37,26 +37,29 @@ void addVolumes() {
     }
 }
 
-void issuePutBlobs() {
+void issuePutBlobs(const fds_volid_t &volId, uint32_t numBlobs, std::list<ObjectID> &addedObjs) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
     sequence_id_t seq_id = 0;
 
     // start tx
     DEFINE_SHARED_PTR(UpdateCatalogOnceMsg, putBlobOnce);
 
-    putBlobOnce->volume_id = dmTester->TESTVOLID.get();
+    putBlobOnce->volume_id = volId.get();
     putBlobOnce->dmt_version = 1;
     fds::UpdateBlobInfoNoData(putBlobOnce, MAX_OBJECT_SIZE, BLOB_SIZE);
+    for (const auto &obj : putBlobOnce->obj_list) {
+        addedObjs.push_back(ObjectID(obj.data_obj_id.digest));
+    }
 
-    taskCount.reset(NUM_BLOBS);
+    taskCount.reset(numBlobs);
     uint64_t txnId;
-    for (uint i = 0; i < NUM_BLOBS; i++) {
+    for (uint i = 0; i < numBlobs; i++) {
         boost::shared_ptr<DMCallback> cb(new DMCallback());
         txnId = dmTester->getNextTxnId();
         putBlobOnce->blob_name = dmTester->getBlobName(i);
         putBlobOnce->txId = txnId;
 
-        auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(dmTester->TESTVOLID,
+        auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,
                                                                              putBlobOnce->blob_name,
                                                                              putBlobOnce->blob_version,
                                                                              putBlobOnce->dmt_version,
@@ -75,10 +78,14 @@ void issuePutBlobs() {
 }
 
 TEST_F(DmUnitTest, ObjectRefMg) {
+    std::list<ObjectID> addedObjs;
 
     addVolumes();
-    issuePutBlobs();
+    issuePutBlobs(dmTester->TESTVOLID, NUM_BLOBS, addedObjs);
     
+    /* We disable to qos because issuePutBlobs() and addVolumes() don't use qos to schedule
+     * their work
+     */
     dataMgr->features.setQosEnabled(true);
 
     concurrency::TaskStatus waiter;
@@ -89,8 +96,18 @@ TEST_F(DmUnitTest, ObjectRefMg) {
         waiter.done();
     });
 
-    EXPECT_TRUE(waiter.await(5000));
+    ASSERT_TRUE(waiter.await(5000));
     refMgr.dumpStats();
+
+    const auto dlt = dmTester->getSvcMgr()->getCurrentDLT();
+    // std::sort(addedObjs.begin(), addedObjs.end());
+    for (const auto &obj : addedObjs) {
+        auto token = dlt->getToken(obj);
+        GLOGDEBUG << "mytest calculated objid: " << obj << " token: " << token;
+        auto bf = refMgr.getTokenBloomFilter(token);
+        ASSERT_TRUE(bf.get() != nullptr);
+        ASSERT_TRUE(bf->lookup(obj));
+    }
 
     dataMgr->features.setQosEnabled(false);
 }

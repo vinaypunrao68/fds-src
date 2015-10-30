@@ -86,9 +86,10 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) 
         bloomfilter.reset(new util::BloomFilter(bloomfilterBits));
         addToCache(key, bloomfilter);
         index.insert(key);
+        GLOGDEBUG << "Created bloomfilter: " << key;
     } else {
         /* Check in cache */
-        auto bloomfilter = getFromCache(key);
+        bloomfilter = getFromCache(key);
         if (!bloomfilter) {
             bloomfilter = load(key);
             addToCache(key, bloomfilter);
@@ -207,7 +208,7 @@ void ObjectRefMgr::scanStep() {
 
 util::BloomFilterPtr ObjectRefMgr::getTokenBloomFilter(const fds_token_id &tokenId)
 {
-    return bfStore->get(aggrBloomFilterKey(tokenId), false);
+    return bfStore->get(tokenBloomFilterKey(tokenId), false);
 }
 
 void ObjectRefMgr::prescanInit()
@@ -284,8 +285,8 @@ Error VolumeRefScannerContext::finishScan(const Error &e) {
     for (uint32_t token = 0; token < tokenCnt; token++) {
         auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, token), false);
         if (!bloomfilter) continue;
-        auto aggrbloomfilter = bfStore->get(ObjectRefMgr::aggrBloomFilterKey(token));
-        aggrbloomfilter->merge(*bloomfilter);
+        auto tokenbloomfilter = bfStore->get(ObjectRefMgr::tokenBloomFilterKey(token));
+        tokenbloomfilter->merge(*bloomfilter);
     }
     objRefMgr->getScanSuccessVols().push_back(volId);
     return ERR_OK;
@@ -350,6 +351,7 @@ Error VolumeObjectRefScanner::scanStep() {
         auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
+            GLOGDEBUG << "mytest calculated objid: " << oid << " token: " << kv.first;
             bloomfilter->add(oid);
             objRefMgr->objectsScannedCntr++;
         }
