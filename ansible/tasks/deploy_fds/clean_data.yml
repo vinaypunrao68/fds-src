@@ -10,8 +10,7 @@
         - /fds/var/stats
         - /corefiles/*
         - /fds/var/core/*.core
-        - /fds/dev/hdd-*/*
-        - /fds/dev/ssd-*/*
+        - /fds/dev/*
         - /fds/sys-repo
         - /fds/user-repo/*
         - /fds/var/redis/appendonly.aof
