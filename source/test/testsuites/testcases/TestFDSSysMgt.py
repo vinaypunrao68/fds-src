@@ -42,7 +42,6 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        #TODO:POOJA once we re done with fs-3007 , fdscli can be used ot activate the domain, this is temp work around
         nodes = fdscfg.rt_obj.cfg_nodes
         om_ip = om_node.nd_conf_dict['ip']
         for n in nodes:
