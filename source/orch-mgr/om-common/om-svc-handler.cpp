@@ -350,7 +350,13 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         case fpi::HEALTH_STATE_LIMITED:
         case fpi::HEALTH_STATE_SHUTTING_DOWN:
             LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
-                    << " state: " << msg->healthReport.serviceState << " not implemented yet.";
+                    << " state: "
+                    << msg->healthReport.serviceState
+                    << " uuid: "
+                    << std::hex
+                    << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+                    << std::dec
+                    << " -- not implemented yet.";
             break;
         case fpi::HEALTH_STATE_ERROR:
             healthReportError(service_type, msg);

@@ -2083,7 +2083,7 @@ OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
                                           EPSvcRequest* req,
                                           const Error& error,
                                           boost::shared_ptr<std::string> payload) {
-    LOGNORMAL << "ACK for deactivate services for node" << get_node_name()
+    LOGNORMAL << "ACK for deactivate services for node " << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
               << " deactivate am ? " << deactivate_am
               << " deactivate sm ? " << deactivate_sm
