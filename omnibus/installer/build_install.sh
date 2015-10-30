@@ -62,6 +62,8 @@ mkdir -p "${INSTALLDIR}/source/tools/install"
 mkdir -p "${INSTALLDIR}/source/platform/python"
 mkdir -p "${INSTALLDIR}/source/test"
 mkdir -p "${INSTALLDIR}/ansible"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg"
 mkdir -p "${DLTMP}"
 
 # If download is true - we download the artifacts vs. relying on them being local
@@ -86,7 +88,7 @@ else
 fi
 
 # Make sure we have package files
-for fn in "platform" "deps" ; do
+for fn in "platform" "deps" "stats-deps" "stats-service"; do
   if test -n "$(find ${INSTALLDIR}/omnibus/omnibus-fds-${fn}/pkg/ -maxdepth 1 -name '*.deb' -print -quit)" ; then
 		echo "Package ${fn} found"
 	else
