@@ -1,8 +1,5 @@
 package com.formationds.sc;
 import com.formationds.apis.*;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDS_ObjectIdType;
-import com.formationds.protocol.SvcUuid;
 import com.formationds.protocol.dm.QueryCatalogMsg;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.sm.GetObjectMsg;
@@ -20,8 +17,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class StorageClientTest {
@@ -54,7 +53,7 @@ public class StorageClientTest {
         }
     }
 
-    //@Test
+    @Test
     public void basicTest() throws Exception {
         HostAndPort omAddress = HostAndPort.fromParts("127.0.0.1", DEFAULT_OM_PORT);
         HostAndPort recvAddress = HostAndPort.fromParts("127.0.0.1", recvPort);

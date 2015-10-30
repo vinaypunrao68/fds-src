@@ -1,6 +1,5 @@
 package com.formationds.sc;
 
-import FDS_ProtocolInterface.FDSP_ActivateNodeType;
 import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.UpdateSvcMapMsg;
 import com.formationds.protocol.svc.types.*;

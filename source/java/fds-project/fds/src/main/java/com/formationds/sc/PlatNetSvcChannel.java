@@ -1,9 +1,9 @@
 package com.formationds.sc;
 
-import com.formationds.protocol.SvcUuid;
 import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.types.AsyncHdr;
 import com.formationds.protocol.svc.types.FDSPMsgTypeId;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.util.async.CompletableFutureUtility;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;

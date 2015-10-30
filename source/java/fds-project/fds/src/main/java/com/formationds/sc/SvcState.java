@@ -1,7 +1,5 @@
 package com.formationds.sc;
 
-import FDS_ProtocolInterface.FDSP_ActivateNodeType;
-import com.formationds.protocol.*;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.*;
 import com.formationds.protocol.svc.types.*;

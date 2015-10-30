@@ -2,16 +2,15 @@ package com.formationds.sc.api;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
-import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.protocol.*;
 import com.formationds.protocol.dm.QueryCatalogMsg;
 import com.formationds.protocol.dm.types.FDSP_BlobObjectInfo;
 import com.formationds.protocol.sm.GetObjectMsg;
 import com.formationds.protocol.sm.GetObjectResp;
-import com.formationds.protocol.svc.CtrlNotifyVolAdd;
-import com.formationds.protocol.svc.GetAllVolumeDescriptors;
 import com.formationds.protocol.svc.types.FDSPMsgTypeId;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.FDS_ObjectIdType;
 import com.formationds.sc.PlatNetSvcChannel;
 import com.formationds.sc.SvcState;
 import com.formationds.util.async.CompletableFutureUtility;
@@ -21,13 +20,10 @@ import com.formationds.xdi.VolumeContents;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 
 public class AmServiceApi implements AsyncAm {
     private final AsyncAm am;
@@ -39,7 +35,7 @@ public class AmServiceApi implements AsyncAm {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() {
         // assume it's been started already
     }
 
