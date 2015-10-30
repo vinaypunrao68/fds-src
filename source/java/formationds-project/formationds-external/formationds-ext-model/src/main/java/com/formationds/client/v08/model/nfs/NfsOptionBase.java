@@ -10,7 +10,7 @@ package com.formationds.client.v08.model.nfs;
 public abstract class NfsOptionBase<T>
     implements Cloneable
 {
-    public NfsOptionBase( )
+    protected NfsOptionBase( )
     {
         super();
     }
