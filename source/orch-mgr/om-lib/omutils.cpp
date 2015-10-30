@@ -207,13 +207,31 @@ namespace fds
             {
                 if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
                 {
-                    LOGDEBUG << "SvcInfo: " << svcInfo.incarnationNo
-                             << " SvcMap: " << svc.incarnationNo;
+                    LOGDEBUG << "service: " << svcInfo.name
+                             << " SvcInfo: " << svcInfo.incarnationNo
+                             << "  SvcMap: " << svc.incarnationNo
+                             << " status: " << svcInfo.svc_id.svc_status;
 
+                    if ( svcInfo.incarnationNo < svc.incarnationNo )
+                    {
+                        LOGDEBUG << "unreachable service "
+                                 << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is older!";
+                    }
+                    else if ( svcInfo.incarnationNo > svc.incarnationNo )
+                    {
+                        LOGDEBUG << "unreachable service "
+                        << svcInfo.name
+                        << " uuid( "
+                        << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                        << " ) incarnation number is newer!";
+                    }
                     /*
-                     * svcInfo and service map entries are the same, we can change the service state.
+                     * entries are the same, unreachable service and service map are the same
                      */
-                    if ( svc.incarnationNo == svcInfo.incarnationNo )
+                    else if ( svc.incarnationNo == svcInfo.incarnationNo )
                     {
                         LOGDEBUG << "Service Map and Service have the same incarnation number, returning true.";
                         return true;
@@ -222,7 +240,7 @@ namespace fds
             }
         }
 
-        LOGDEBUG << "Service Map and Service donnot have the same incarnation number, returning false.";
+        LOGDEBUG << "returning false.";
         return false;
     }
 
