@@ -77,9 +77,6 @@ public class ObjectModelHelper {
         private static final String CLASSNAME = "CLASSNAME";
         private static final String INSTANCE  = "INSTANCE";
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public NfsOptionBase deserialize( JsonElement json,
                                           Type typeOfT,
@@ -103,9 +100,6 @@ public class ObjectModelHelper {
             return context.deserialize( jsonObject.get( INSTANCE ), klass );
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public JsonElement serialize( NfsOptionBase src,
                                       Type typeOfSrc,
