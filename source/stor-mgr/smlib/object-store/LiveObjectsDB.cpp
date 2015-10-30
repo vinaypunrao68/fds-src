@@ -10,6 +10,10 @@ LiveObjectsDB::LiveObjectsDB(const std::string& dbFilePath) {
     db.reset(new SqliteDB(dbFilePath));
 }
 
+void LiveObjectsDB::dropDB() {
+    db->dropDB();
+}
+
 Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
     if (!db) { return ERR_INVALID; }
 
@@ -33,7 +37,7 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
 Error LiveObjectsDB::addObjectSet(const fds_token_id &smToken,
                                   const fds_volid_t &volId,
                                   const fds_uint64_t &dmUUID,
-                                  const TimeStamp &timeStamp,
+                                  const util::TimeStamp &timeStamp,
                                   const std::string &objectSetFilePath) {
     if (!db) { return ERR_INVALID; }
 
@@ -65,13 +69,44 @@ Error LiveObjectsDB::removeObjectSet(const fds_token_id &smToken,
 }
 
 Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
-                                            std::vector<std::string> &objSetFilenames) {
+                                            std::set<std::string> &objSetFilenames) {
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("select filename from liveObjTbl where smtoken=%ld", smToken);
-    if (db->getTextValues(query.c_str(), objSetFilenames)) {
+    if (!(db->getTextValues(query.c_str(), objSetFilenames))) {
         LOGERROR << "Failed getting filenames from live object table"
                  << " for smtoken = " << smToken;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
+Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
+                                        std::set<fds_volid_t> &volumes) {
+    if (!db) { return ERR_INVALID; }
+
+    std::set<fds_uint64_t> volumeSet;
+    std::string query = util::strformat("select volid from liveObjTbl where smtoken=%ld", smToken);
+    if (!(db->getIntValues(query.c_str(), volumeSet))) {
+        LOGERROR << "Failed getting volume associations from live object table"
+                 << " for objects in smtoken = " << smToken;
+        return ERR_INVALID;
+    }
+
+    for (auto volId : volumeSet) {
+        volumes.insert(fds_volid_t(volId));
+    }
+    return ERR_OK;
+}
+
+Error LiveObjectsDB::findMinTimeStamp(const fds_token_id &smToken,
+                                      TimeStamp &ts) {
+    if (!db) { return ERR_INVALID; }
+
+    std::string query = util::strformat("select MIN(timestamp) from liveObjTbl where smtoken=%ld", smToken);
+    if (!(db->getIntValue(query.c_str(), ts))) {
+        LOGERROR << "Failed getting timestamp information from live object table"
+                 << " for objects in smtoken = " << smToken;
         return ERR_INVALID;
     }
     return ERR_OK;

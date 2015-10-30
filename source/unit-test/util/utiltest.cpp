@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include <util/timeutils.h>
+#include <util/path.h>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -21,7 +22,7 @@ struct UtilTest : ::testing::Test {
     }
 };
 
-TEST_F(UtilTest, basic) {
+TEST_F(UtilTest, time) {
 
     EXPECT_EQ(1, util::getSecondsFromHumanTime("1"));
     EXPECT_EQ(2, util::getSecondsFromHumanTime("2s"));
@@ -36,6 +37,10 @@ TEST_F(UtilTest, basic) {
     EXPECT_EQ(30, util::getSecondsFromHumanTime("30"));
     EXPECT_EQ(3600 + 24*60 + 30, util::getSecondsFromHumanTime("1:24:30"));
     EXPECT_EQ(210, util::getSecondsFromHumanTime("3:30"));
+}
+
+TEST_F(UtilTest, checksum) {
+    std::cout << "chksum of /tmp/Log.cpp : " << util::getFileChecksum("/tmp/Log.cpp");
 }
 
 int main(int argc, char** argv) {

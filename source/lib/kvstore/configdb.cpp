@@ -1885,7 +1885,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
         std::stringstream uuid;
         uuid << svc_uuid;
 
-        LOGDEBUG << "!ConfigDB getting service"
+        LOGDEBUG << "ConfigDB getting service"
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
@@ -1893,7 +1893,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
         /*
          * the reply.isValid() always == true, because its not NULL
          */
-        if ( reply.isOk() )
+        if ( !reply.isNil() )
         {
             std::string value = reply.getString();
             fpi::SvcInfo svcInfo;
@@ -1906,6 +1906,9 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
             } else {
                isPresent = false;
             }
+        } else {
+            LOGDEBUG << "Retrieved a nil value from configDB for uuid"
+                     << std::hex << svc_uuid << std::dec;
         }
     }
     catch( const RedisException& e )

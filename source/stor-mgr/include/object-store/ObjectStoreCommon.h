@@ -19,5 +19,8 @@ namespace fds {
 typedef std::function <void (fds_token_id smTokId,
                              diskio::DataTier tier,
                              const Error& error)> UpdateMediaTrackerFnObj;
+typedef std::function <void (const fds_token_id& smTokId,
+                             const diskio::DataTier& tier,
+                             diskio::TokenStat &tokenStats)> EvaluateObjSetFn;
 }
 #endif  // SOURCE_STOR_MGR_INCLUDE_OBJECT_STORE_OBJECTSTORECOMMON_H_

@@ -825,6 +825,15 @@ struct DmIoMigrationTxState : DmRequest {
 
 	fpi::CtrlNotifyTxStateMsgPtr txStateMsg;
 };
+
+struct DmFunctor : DmRequest {
+    DmFunctor(const fds_volid_t &volId, const std::function<void()>& f)
+    : DmRequest(volId, "", "", 0, FDS_DM_FUNCTOR),
+      func(f)
+    {}
+
+    std::function<void()>       func;
+};
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

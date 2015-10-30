@@ -685,4 +685,22 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
     }
     fds_assert(dbIt->status().ok());  // check for any errors during the scan
 }
+
+void DmPersistVolDB::getObjectIds(const uint32_t &maxObjs,
+                                  const Catalog::MemSnap &snap,
+                                  std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                                  std::list<ObjectID> &objects) {
+    objects.clear();
+
+    if (dbItr == nullptr) {
+        dbItr = catalog_->NewIterator(snap);
+        dbItr->SeekToFirst();
+    }
+
+    for (; dbItr->Valid() && objects.size() < maxObjs; dbItr->Next()) {
+        if (*reinterpret_cast<CatalogKeyType const*>(dbItr->key().data()) == CatalogKeyType::BLOB_OBJECTS) {
+            objects.push_back(ObjectID(dbItr->value().ToString()));
+        }
+    }
+}
 }  // namespace fds

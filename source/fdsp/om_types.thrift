@@ -2,9 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 namespace cpp FDS_ProtocolInterface
-namespace java com.formationds.protocol
 namespace java com.formationds.protocol.om.types
-namespace java com.formationds.protocol.pm.types
 
 include "common.thrift"
 include "pm_types.thrift"

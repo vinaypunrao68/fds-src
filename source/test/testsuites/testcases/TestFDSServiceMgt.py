@@ -875,40 +875,39 @@ class TestAWSDMAdd(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
 
-        om_node = fdscfg.rt_om_node
-        om_ip = om_node.nd_conf_dict['ip']
-        status = n.nd_populate_metadata(om_node=om_node)
-        if status !=0:
-            self.log.error("Getting meta-data for node %s returned status %d." %
-                    (n.nd_conf_dict['node-name'], status))
-            return False
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status !=0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                        (n.nd_conf_dict['node-name'], status))
+                return False
 
-        node_id = int(n.nd_uuid,16)
-        node_service = get_node_service(self, om_ip)
-        service = Service()
-        service.type = 'DM'
-        self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
-        add_service = node_service.add_service(node_id, service)
-        if (type(add_service).__name__ == 'FdsError'):
-            if self.expect_to_fail:
-                if isinstance(add_service, FdsError):
-                    self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+            node_id = int(n.nd_uuid,16)
+            node_service = get_node_service(self, om_ip)
+            service = Service()
+            service.type = 'DM'
+            self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
+            add_service = node_service.add_service(node_id, service)
+            if (type(add_service).__name__ == 'FdsError'):
+                if self.expect_to_fail:
+                    if isinstance(add_service, FdsError):
+                        self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+                            (service.type, n.nd_conf_dict['node-name'], add_service.message))
+                        return False
+
+                    elif re.search(self.expect_failed_msg, add_service.message):
+                        self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
+                        return True
+
+                else:
+                    self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
                         (service.type, n.nd_conf_dict['node-name'], add_service.message))
                     return False
 
-                elif re.search(self.expect_failed_msg, add_service.message):
-                    self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
-                    return True
-
-            else:
-                self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
-                    (service.type, n.nd_conf_dict['node-name'], add_service.message))
-                return False
-
-            
-        if self.passedNode is not None:
-            # We took care of the one node. Get out.
-            return True
+            if self.passedNode is not None:
+                # We took care of the one node. Get out.
+                return True
 
         return True
 
@@ -1501,41 +1500,40 @@ class TestAWSSMAdd(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
 
-        om_node = fdscfg.rt_om_node
-        om_ip = om_node.nd_conf_dict['ip']
-        status = n.nd_populate_metadata(om_node=om_node)
-        if status !=0:
-            self.log.error("Getting meta-data for node %s returned status %d." %
-                    (n.nd_conf_dict['node-name'], status))
-            return False
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status !=0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                        (n.nd_conf_dict['node-name'], status))
+                return False
 
-        node_id = int(n.nd_uuid,16)
-        node_service = get_node_service(self, om_ip)
-        service = Service()
-        service.type = 'SM'
-        self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
-        add_service = node_service.add_service(node_id, service)
+            node_id = int(n.nd_uuid,16)
+            node_service = get_node_service(self, om_ip)
+            service = Service()
+            service.type = 'SM'
+            self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
+            add_service = node_service.add_service(node_id, service)
 
-        if (type(add_service).__name__ == 'FdsError'):
-            if self.expect_to_fail:
-                if isinstance(add_service, FdsError):
-                    self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+            if (type(add_service).__name__ == 'FdsError'):
+                if self.expect_to_fail:
+                    if isinstance(add_service, FdsError):
+                        self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+                            (service.type, n.nd_conf_dict['node-name'], add_service.message))
+                        return False
+
+                    elif re.search(self.expect_failed_msg, add_service.message):
+                        self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
+                        return True
+
+                else:
+                    self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
                         (service.type, n.nd_conf_dict['node-name'], add_service.message))
                     return False
 
-                elif re.search(self.expect_failed_msg, add_service.message):
-                    self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
-                    return True
-
-            else:
-                self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
-                    (service.type, n.nd_conf_dict['node-name'], add_service.message))
-                return False
-
-            
-        if self.passedNode is not None:
-            # We took care of the one node. Get out.
-            return True
+            if self.passedNode is not None:
+                # We took care of the one node. Get out.
+                return True
 
         return True
 
@@ -3167,41 +3165,40 @@ class TestAWSAMAdd(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 n = findNodeFromInv(nodes, self.passedNode)
 
-        om_node = fdscfg.rt_om_node
-        om_ip = om_node.nd_conf_dict['ip']
-        status = n.nd_populate_metadata(om_node=om_node)
-        if status !=0:
-            self.log.error("Getting meta-data for node %s returned status %d." %
-                    (n.nd_conf_dict['node-name'], status))
-            return False
+            om_node = fdscfg.rt_om_node
+            om_ip = om_node.nd_conf_dict['ip']
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status !=0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                        (n.nd_conf_dict['node-name'], status))
+                return False
 
-        node_id = int(n.nd_uuid,16)
-        node_service = get_node_service(self, om_ip)
-        service = Service()
-        service.type = 'AM'
-        self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
-        add_service = node_service.add_service(node_id, service)
+            node_id = int(n.nd_uuid,16)
+            node_service = get_node_service(self, om_ip)
+            service = Service()
+            service.type = 'AM'
+            self.log.info("Adding %s on %s." %(service.type, n.nd_conf_dict['node-name']))
+            add_service = node_service.add_service(node_id, service)
 
-        if (type(add_service).__name__ == 'FdsError'):
-            if self.expect_to_fail:
-                if isinstance(add_service, FdsError):
-                    self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+            if (type(add_service).__name__ == 'FdsError'):
+                if self.expect_to_fail:
+                    if isinstance(add_service, FdsError):
+                        self.log.error("FAILED:  Adding %s service to node %s, returned status %s." %
+                            (service.type, n.nd_conf_dict['node-name'], add_service.message))
+                        return False
+
+                    elif re.search(self.expect_failed_msg, add_service.message):
+                        self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
+                        return True
+
+                else:
+                    self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
                         (service.type, n.nd_conf_dict['node-name'], add_service.message))
                     return False
 
-                elif re.search(self.expect_failed_msg, add_service.message):
-                    self.log.info("PASSED:  Attempting to add an existing %s service: expect failed message=%s, found=%s" %(service.type, self.expect_failed_msg, add_service.message))
-                    return True
-
-            else:
-                self.log.error("FAILED:  Adding an existing %s service to node %s failed, returned status %s." %
-                    (service.type, n.nd_conf_dict['node-name'], add_service.message))
-                return False
-
-            
-        if self.passedNode is not None:
-            # We took care of the one node. Get out.
-            return True
+            if self.passedNode is not None:
+                # We took care of the one node. Get out.
+                return True
 
         return True
 

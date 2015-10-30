@@ -76,6 +76,10 @@ class SmPersistStoreHandler {
      */
     virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
                                         fds_token_id smTokId) = 0;
+
+    virtual void evaluateSMTokenObjSets(const fds_token_id &smToken,
+                                        const diskio::DataTier &tier,
+                                        diskio::TokenStat &tokStats) = 0;
 };
 
 /**
@@ -110,10 +114,13 @@ class ObjectPersistData : public Module,
     // Scavenger (garbage collector)
     ScavControl::unique_ptr scavenger;
 
+    EvaluateObjSetFn evaluateObjSetFn;
+
   public:
     ObjectPersistData(const std::string &modName,
                       SmIoReqHandler *data_store,
-                      UpdateMediaTrackerFnObj fn=UpdateMediaTrackerFnObj());
+                      UpdateMediaTrackerFnObj fn=UpdateMediaTrackerFnObj(),
+                      EvaluateObjSetFn evalFn=EvaluateObjSetFn());
     ~ObjectPersistData();
 
     typedef std::unique_ptr<ObjectPersistData> unique_ptr;
@@ -189,6 +196,10 @@ class ObjectPersistData : public Module,
     void getSmTokenStats(fds_token_id smTokId,
                          diskio::DataTier tier,
                          diskio::TokenStat* retStat);
+
+    void evaluateSMTokenObjSets(const fds_token_id &smToken,
+                                const diskio::DataTier &tier,
+                                diskio::TokenStat &tokStats);
 
     // control commands
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

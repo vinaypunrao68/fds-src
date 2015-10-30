@@ -1917,8 +1917,6 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    fpi::SvcUuid svcuuid;
-
     if (configDB->getNodeServices(nodeUuid, services))
     {
         if ((services.sm.uuid_get_val() == 0) &&
