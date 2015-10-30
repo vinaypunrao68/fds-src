@@ -15,14 +15,6 @@ public abstract class NfsOptionBase<T>
         super();
     }
 
-    /*
-     * first needed requirements
-     *
-     * IP Address Filtering
-     * NFSv4 ACL ( boolean flag ) -- type:flags:principal:permissions
-     * ASYNC ( boolean flag )
-     */
-
     /**
      * @return Returns the value of this option
      */
