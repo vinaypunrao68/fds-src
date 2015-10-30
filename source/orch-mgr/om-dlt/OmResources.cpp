@@ -1241,6 +1241,16 @@ OM_NodeDomainMod::om_local_domain_down()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
+// om_master_domain
+// ------------------
+//
+fds_bool_t
+OM_NodeDomainMod::om_master_domain()
+{
+    // TODO(Greg): Need some switch to check whether we are master - perhaps "domainID == 1"?
+    return true;
+}
+
 // domain_event
 // ------------
 //
@@ -1993,10 +2003,10 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     /**
      * ignore any PMs that are running. They are expected.
      */
-    return ( ( amSvcs->size() > 0 ) ||  
-             ( smSvcs->size() > 0 ) || 
-             ( dmSvcs->size() > 0 ) ) 
-            ? true 
+    return ( ( amSvcs->size() > 0 ) ||
+             ( smSvcs->size() > 0 ) ||
+             ( dmSvcs->size() > 0 ) )
+            ? true
             : false;
 }
 
@@ -2661,13 +2671,26 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                                        fpi::FDSP_MgrIdType svcType)
+{
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE, true ); 
+    om_locDomain->om_bcast_svcmap();
+}
+
+void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType) {
-    if (svcType == fpi::FDSP_STOR_MGR) {
+                                  fpi::FDSP_MgrIdType svcType) 
+{
+    if (svcType == fpi::FDSP_STOR_MGR)
+    {
         // this is SM -- notify DLT state machine
         om_dlt_update_cluster();
-    } else if (svcType == fpi::FDSP_DATA_MGR) {
+    }
+    else if (svcType == fpi::FDSP_DATA_MGR)
+    {
         // this is DM -- notify DMT state machine
         om_dmt_update_cluster();
     }

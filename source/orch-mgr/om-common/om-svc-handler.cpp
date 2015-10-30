@@ -19,6 +19,7 @@
 #include "kvstore/configdb.h"
 #include <net/SvcMgr.h>
 #include <ctime>
+#include <omutils.h>
 
 namespace fds {
 
@@ -167,7 +168,7 @@ OmSvcHandler::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     /*
      * FS-1424 P. Tinius 03/24/2015
-     * Move this log message to after the filter out check, no need to spam
+     * Move this log message to after the filtering check, no need to spam
      * the log for filtered out events.
      */
     LOGDEBUG << " received " << msg->evt_code
@@ -330,7 +331,11 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     LOGNORMAL << "Received Health Report: "
               << msg->healthReport.serviceInfo.svc_id.svc_name
               << " state: " << msg->healthReport.serviceState
-              << " status: " << msg->healthReport.statusCode;
+              << " status: " << msg->healthReport.statusCode 
+              << " uuid: " 
+              << std::hex 
+              << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+              << std::dec;
 
     ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
     fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
@@ -351,10 +356,15 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
             healthReportError(service_type, msg);
             break;
         case fpi::HEALTH_STATE_UNREACHABLE:
-            LOGNORMAL << "Handling unreachable event for service " << msg->healthReport.serviceInfo.name
-                      << " in state " << msg->healthReport.serviceState;
+            LOGERROR << "Handling unreachable event for service " 
+                     << msg->healthReport.serviceInfo.name
+                     << " in state " 
+                     << msg->healthReport.serviceState;
+
+            healthReportUnreachable( service_type, msg );
+
             // Track this error event as a timeout. We're assuming a timeout is
-            // indistingusable from a service being unreachable.
+            // indistinguishable from a service being unreachable.
             event_tracker.feed_event(ERR_SVC_REQUEST_TIMEOUT, service_UUID);
             break;
         case fpi::HEALTH_STATE_UNEXPECTED_EXIT:
@@ -472,11 +482,50 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 	 }
 }
 
+void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                            boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
+{
+    // we only handle specific errors from SM and DM for now
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
+    {
+        /*
+         * if unreachable service has an incarnation number that is older then the existing
+         * service in the service map, then don't change the state.
+         */
+        if ( isNewerSvcInfoInstance( msg->healthReport.serviceInfo ) )
+        {
+            auto domain = OM_NodeDomainMod::om_local_domain();
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+            Error reportError(msg->healthReport.statusCode);
+
+            LOGERROR << "Will set service to failed state: "
+            << msg->healthReport.serviceInfo.name
+            << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+
+            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+            if (agent) {
+                /*
+                 *  required so that DMT/DLT will see it as a failed service
+                 */
+                agent->set_node_state( fpi::FDS_Node_Down );
+            }
+
+            /*
+             * change the state and update service map; then broadcast updated service map
+             */
+            domain->om_change_svc_state_and_bcast_svcmap(uuid, svc_type);
+            domain->om_service_down(reportError, uuid, svc_type);
+        }
+
+        return;
+    }
+}
+
 void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
                                      boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
     Error reportError(msg->healthReport.statusCode);
 
-    // we only handle specific erorrs from SM and DM for now
+    // we only handle specific errors from SM and DM for now
     if ((svc_type == fpi::FDSP_STOR_MGR) ||
         (svc_type == fpi::FDSP_DATA_MGR)) {
         if ((reportError == ERR_SERVICE_CAPACITY_FULL) ||

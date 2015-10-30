@@ -209,7 +209,7 @@ class NodePlugin( AbstractPlugin ):
             #end of for loop
         else:
             for node in d_nodes:
-                if node.id == args[AbstractPlugin.node_ids_str]:
+                if node.id in args[AbstractPlugin.node_ids_str]:
                     
                     #right now we need to make sure each type is added.
                     node.services['AM'] = [Service(name="AM", a_type="AM")]
@@ -227,6 +227,9 @@ class NodePlugin( AbstractPlugin ):
             
         if ( len( failures ) > 0 ):
             print("The following IDs were not added due to errors: {}\n".format( failures ))
+            
+        if ( len( n_list ) <= 0 ):
+            print( "Could not find any nodes eligible for addition.  Only nodes in a state of 'DISCOVERED' are allowed." )
             
         self.list_nodes(args)
         

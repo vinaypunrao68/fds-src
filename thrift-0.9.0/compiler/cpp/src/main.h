@@ -90,7 +90,7 @@ void clear_doctext();
 /**
  * Cleans up text commonly found in doxygen-like comments
  */
-char* clean_up_doctext(char* doctext);
+char* clean_up_doctext(char* doctext, long yylineno);
 
 /**
  * Flex utilities

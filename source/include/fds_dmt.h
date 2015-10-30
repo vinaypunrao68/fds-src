@@ -125,7 +125,8 @@ namespace fds {
         explicit DMTManager(fds_uint32_t history_dmts = 0);
         virtual ~DMTManager();
 
-        Error add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const& cb = nullptr);
+        Error add(DMT* dmt, DMTType dmt_type,
+                  FDS_Table::callback_type const& cb = nullptr);
         Error addSerializedDMT(std::string& data,
                                FDS_Table::callback_type const& cb,
                                DMTType dmt_type);
@@ -143,7 +144,7 @@ namespace fds {
          * If version is DMT_VER_INVALID, unsets commited DMT, and subsequent
          * calls to hasCommittedDMT() will return false.
          */
-        Error commitDMT(fds_uint64_t version);
+        Error commitDMT(fds_uint64_t version, fds_bool_t rmTarget = true);
         /**
          * Sets target DMT version as invalid
          * @return ERR_NOT_FOUND if target version does not exist

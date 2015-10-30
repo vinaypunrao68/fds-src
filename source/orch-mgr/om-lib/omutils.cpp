@@ -29,15 +29,48 @@ namespace fds
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
+    {
+        change_service_state( configDB, svc_uuid, svc_status, false );
+    }
+
+    void change_service_state( kvstore::ConfigDB* configDB,
+                               const fds_uint64_t svc_uuid, 
+                               const fpi::ServiceStatus svc_status,
+                               const bool updateSvcMap )
     {       
         /*
          * Update configDB with the new status for the given service on the given node
          */
         if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
         {
-            LOGDEBUG << "Successfully changed service ID ( " 
-                     << std::hex << svc_uuid << std::dec << " ) "
-                     << "state to ( " << svc_status << " )";
+            fpi::SvcUuid svcUuid;
+            svcUuid.svc_uuid = svc_uuid;
+            
+            LOGDEBUG << "Successfully updated configdbs service ID ( " 
+                     << std::hex << svc_uuid << std::dec 
+                     << " ) state to ( " << svc_status << " )";
+
+            if ( updateSvcMap )
+            {       
+                fpi::SvcInfo svc;
+
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
+                if ( ret )
+                {
+                    svc.incarnationNo = util::getTimeStampSeconds();
+                    svc.svc_status = svc_status;
+
+                    std::vector<fpi::SvcInfo> svcs;
+                    svcs.push_back( svc );
+
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+                    configDB->updateSvcMap( svc );
+
+                    LOGDEBUG << "Successfully updated svcmaps service ID ( " 
+                             << std::hex << svc_uuid << std::dec 
+                             << " ) state to ( " << svc_status << " )";     
+                }
+            }     
         }
         else
         {
@@ -157,11 +190,37 @@ namespace fds
 
 
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
-        if ((iter != svcInfos.end()) && amFlag)
+        if ( ( iter != svcInfos.end( ) ) && amFlag )
         {
             LOGDEBUG << "Erasing AM svcInfo from list";
             svcInfos.erase(iter);
         }
+    }
+
+    bool isNewerSvcInfoInstance( const fpi::SvcInfo svcInfo )
+    {
+        std::vector<fpi::SvcInfo> entries;
+        MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
+        if ( entries.size() > 0 )
+        {
+            for ( auto svc : entries )
+            {
+                if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
+                {
+                    LOGDEBUG << "Svc: " << svcInfo.incarnationNo
+                             << " Map: " << svc.incarnationNo;
+
+                    if ( svc.incarnationNo < svcInfo.incarnationNo )
+                    {
+                        LOGDEBUG << "Incarnation is newer than what is in service map, return true";
+                        return true;
+                    }
+                }
+            }
+        }
+
+        LOGDEBUG << "Incarnation is older than what is in service map, return false";
+        return false;
     }
 
     std::vector<fpi::SvcInfo>::iterator isServicePresent

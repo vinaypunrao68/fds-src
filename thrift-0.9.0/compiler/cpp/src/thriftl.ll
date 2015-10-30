@@ -361,7 +361,7 @@ literal_begin (['\"])
     clear_doctext();
     g_doctext = strdup(yytext + 3);
     g_doctext[strlen(g_doctext) - 2] = '\0';
-    g_doctext = clean_up_doctext(g_doctext);
+    g_doctext = clean_up_doctext(g_doctext, yylineno);
     g_doctext_lineno = yylineno;
   }
 }

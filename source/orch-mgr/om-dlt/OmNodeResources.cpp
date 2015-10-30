@@ -135,7 +135,7 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
          *
-         * LOGWARN << "response received for invalid volume . ignored.";
+         * LOGWARN << "response received for invalid volume. ignored.";
          */
 
         return;
@@ -157,7 +157,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     TRACEFUNC;
 
     if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send vol command to service we know is down"
+        LOGNORMAL << "Will not send vol command to service we know is down "
                   << get_node_name();
         return ERR_NOT_FOUND;
     }
