@@ -179,9 +179,9 @@ DataPlacement::beginRebalance() {
         return err;
     }
 
-    // at this point we have commited DLT
+    // at this point we have committed DLT
     // find all SMs that will either get a new responsibility for a DLT token
-    // or need resync because an SM became a primary
+    // or need re-sync because an SM became a primary
     NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
     NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
@@ -190,7 +190,7 @@ DataPlacement::beginRebalance() {
         DltTokenGroupPtr cmtCol = commitedDlt->getNodes(tokId);
         DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
-        // find all SMs in target column that need resync: either they
+        // find all SMs in target column that need re-sync: either they
         // got a new responsibility for a DLT token or became a primary
         NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
         if (destSms.size() == 0) continue;
@@ -209,11 +209,11 @@ DataPlacement::beginRebalance() {
             srcCandidates.erase(sm);
         }
 
-        // if all SMs need resync, this means that we moved a secondary to be
+        // if all SMs need re-sync, this means that we moved a secondary to be
         // a primary (both primaries failed)
         if (destSms.size() == tgtCol->getLength()) {
             // this should not happen if number of primary SMs == 0 (this config
-            // means original implementation where we do not resync when promoting secondaries)
+            // means original implementation where we do not re-sync when promoting secondaries)
             // If that happens, it means that DLT calculation algorithm managed to
             // place all new SMs into the same column -- will need to fix that!
             fds_verify(getNumOfPrimarySMs() > 0);
@@ -253,7 +253,8 @@ DataPlacement::beginRebalance() {
         // otherwise we need to revisit DLT computation algorithm
         LOGMIGRATE << "Found " << srcCandidates.size() << " candidates for a source "
                    << " for DLT token " << tokId;
-        fds_verify(srcCandidates.size() > 0);
+
+//        fds_verify(srcCandidates.size() > 0);
 
         for (auto smUuid: destSms) {
             // see if we already have a startMigration msg prepared for this source
@@ -274,23 +275,28 @@ DataPlacement::beginRebalance() {
                     break;
                 }
             }
-            fds_verify(sourceUuid.uuid_get_val() !=0);
-            LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
-                       << " Source " << sourceUuid.uuid_get_val() << std::dec
-                       << " token " << tokId;
 
-            // find if there is already a migration group created for this src SM
+//            fds_verify(sourceUuid.uuid_get_val() !=0);
             fds_bool_t found = false;
-            for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
-                if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
-                    found = true;
-                    (startMigrMsg->migrations)[index].tokens.push_back(tokId);
-                    LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
-                             << ", source: " << sourceUuid.uuid_get_val() << std::dec
-                             << ", adding token " << tokId;
-                    break;
+            if ( sourceUuid.uuid_get_val() > 0 ) {
+                LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
+                << " Source " << sourceUuid.uuid_get_val() << std::dec
+                << " token " << tokId;
+
+                // find if there is already a migration group created for this src SM
+
+                for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
+                    if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
+                        found = true;
+                        (startMigrMsg->migrations)[index].tokens.push_back(tokId);
+                        LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
+                        << ", source: " << sourceUuid.uuid_get_val() << std::dec
+                        << ", adding token " << tokId;
+                        break;
+                    }
                 }
             }
+
             if (!found) {
                 fpi::SMTokenMigrationGroup grp;
                 grp.source = sourceUuid.toSvcUuid();
@@ -550,7 +556,7 @@ DataPlacement::mod_init(SysParams const *const param) {
     LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
               << ", dlt depth " << curDltDepth
               << ", algorithm " << algo_type_str
-              <<", number of primary SMs" << numOfPrimarySMs;
+              << ", number of primary SMs " << numOfPrimarySMs;
 
     return 0;
 }

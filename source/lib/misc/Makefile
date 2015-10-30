@@ -26,7 +26,8 @@ user_cpp         :=      \
     S3Client.cpp         \
 	BitSet.cpp           \
 	disk_utils.cpp		 \
-	MigrationUtility.cpp
+	MigrationUtility.cpp \
+	fds_subscription.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

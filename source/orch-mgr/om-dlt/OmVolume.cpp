@@ -1678,7 +1678,7 @@ bool VolumeContainer::createSystemVolume(int32_t tenantId) {
         
         volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
         volume.createTime = util::getTimeStampMillis();
-        volume.replicaCnt = 4;
+        volume.redundancyCnt = 4;
         volume.maxObjSizeInBytes = 2 * MB;
         volume.contCommitlogRetention = 0;
         volume.tennantId = tenantId;

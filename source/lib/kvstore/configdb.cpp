@@ -267,7 +267,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.volType,
                               vol.capacity,
                               vol.maxQuota,
-                              vol.replicaCnt,
+                              vol.redundancyCnt,
                               vol.maxObjSizeInBytes,
                               vol.writeQuorum,
                               vol.readQuorum,
@@ -439,7 +439,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "type") { vol.volType = (fpi::FDSP_VolType)atoi(value.c_str()); }
             else if (key == "capacity") { vol.capacity = strtod (value.c_str(), NULL);}
             else if (key == "quota.max") { vol.maxQuota = strtod (value.c_str(), NULL);}
-            else if (key == "replica.count") {vol.replicaCnt = atoi(value.c_str());}
+            else if (key == "replica.count") {vol.redundancyCnt = atoi(value.c_str());}  // Persisted name is deprecated
+            else if (key == "redundancy.count") {vol.redundancyCnt = atoi(value.c_str());} // in favor of this one.
             else if (key == "objsize.max") {vol.maxObjSizeInBytes = atoi(value.c_str());}
             else if (key == "write.quorum") {vol.writeQuorum = atoi(value.c_str());}
             else if (key == "read.quorum") {vol.readQuorum = atoi(value.c_str());}
@@ -1876,6 +1877,48 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
     return retStatus;
 }
 
+bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
+{
+    bool isPresent = false;
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+
+        LOGDEBUG << "ConfigDB getting service"
+                 << " uuid: " << std::hex << svc_uuid << std::dec;
+
+        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+        if ( !reply.isNil() )
+        {
+            std::string value = reply.getString();
+            fpi::SvcInfo svcInfo;
+            fds::deserializeFdspMsg( value, svcInfo );
+
+            int64_t id = svcInfo.svc_id.svc_uuid.svc_uuid;
+
+            if ( id != 0 ) {
+                isPresent = true;
+            } else {
+               isPresent = false;
+            }
+        } else {
+            LOGDEBUG << "Retrieved a nil value from configDB for uuid"
+                     << std::hex << svc_uuid << std::dec;
+        }
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return isPresent;
+}
+
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
                        kvstore::NodeInfoType nodeInfo )
 {
@@ -1932,6 +1975,438 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
     }
     
     return true;
+}
+
+
+// Subscriptions
+// Note that subscriptions are global domain objects. While they might be created from any given
+// local domain or cached in any given local domain, they are definitively stored and maintained
+// in the context of the global domain and therefore, the master domain and master OM.
+//
+// TODO(Greg): These methods need to ensure that they are being executed within the context of the
+// master OM.
+fds_subid_t ConfigDB::getNewSubscriptionId() {
+    try {
+        fds_subid_t subId;
+        ReturnType ret;
+        for (;;) {
+            subId = fds_subid_t(static_cast<uint64_t>(kv_store.incr("subscriptions:nextid")));
+            if ((ret = subscriptionExists(subId)) == ReturnType::NOT_FOUND) {
+                // We haven't used this one yet.
+                return subId;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                // Some ConfigDB problem.
+                break;
+            }
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return invalid_sub_id;
+}
+
+/**
+ * If isNew is true, then we are being asked to add a new subscriptions.
+ *
+ * If isNew is false, then we are being asked to replace the details of an existing
+ * subscription.
+ */
+fds_subid_t ConfigDB::putSubscription(const Subscription &subscription, const bool isNew) {
+    TRACKMOD();
+    // Add the subscription to the subscription list for the global domain
+    try {
+        ReturnType ret;
+
+        // Check if the subscription already exists.
+        if ((ret = subscriptionExists(subscription.getName(), subscription.getTenantID())) == ReturnType::SUCCESS) {
+            if (isNew) {
+                LOGWARN << "Trying to add an existing subscription: Subscription [" << subscription.getName() <<
+                           "], Tenant [" << subscription.getTenantID() << "].";
+                NOMOD();
+                return invalid_sub_id;
+            }
+        } else if (ret == ReturnType::NOT_FOUND) {
+            if (!isNew) {
+                LOGWARN << "Trying to udpate a non-existing subscription: Subscription [" << subscription.getName() <<
+                        "], Tenant [" << subscription.getTenantID() << "].";
+                NOMOD();
+                return invalid_sub_id;
+            }
+        } else {
+            // We had some problem with ConfigDB.
+            return invalid_sub_id;
+        }
+
+        // Get new or existing ID
+        fds_subid_t subId{invalid_sub_id};
+        if (isNew) {
+            subId = getNewSubscriptionId();
+            LOGDEBUG << "Adding subscription [" << subscription.getName() << "] for tenant [" <<
+                            subscription.getTenantID() << "], ID [" << subId << "].";
+        } else {
+            subId = getSubscriptionId(subscription.getName(), subscription.getTenantID());
+            LOGDEBUG << "Updating subscription [" << subscription.getName() << "] for tenant [" <<
+                     subscription.getTenantID() << "], ID [" << subId << "].";
+        }
+
+        Reply reply = kv_store.sendCommand("sadd subscriptions %ld", subId);
+
+        if (reply.isOk()) {
+            // Add the subscription
+            reply = kv_store.sendCommand("hmset sub:%ld id %ld"
+                                                 " name %s"
+                                                 " tennantID %d"
+                                                 " primaryDomainID %d"
+                                                 " primaryVolumeID %d"
+                                                 " replicaDomainID %d"
+                                                 " createTime %ld"
+                                                 " state %d"
+                                                 " type %d"
+                                                 " scheduleType %d"
+                                                 " intervalSize %d",
+                                         subId, subId,
+                                         subscription.getName().c_str(),
+                                         subscription.getTenantID(),
+                                         subscription.getPrimaryDomainID(),
+                                         subscription.getPrimaryVolumeID(),
+                                         subscription.getReplicaDomainID(),
+                                         (isNew) ? util::getTimeStampMillis() : subscription.getCreateTime(),
+                                         (isNew) ? FDS_ProtocolInterface::ResourceState::Created : subscription.getState(),
+                                         subscription.getType(),
+                                         subscription.getScheduleType(),
+                                         subscription.getIntervalSize());
+
+            if (reply.isOk()) {
+                return subId;
+            }
+        }
+
+        if (!(reply.isOk())) {
+            LOGERROR << "Redis error: " << reply.getString();
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    return invalid_sub_id;
+}
+
+ConfigDB::ReturnType ConfigDB::setSubscriptionState(fds_subid_t subId, fpi::ResourceState state) {
+    if (!subscriptionExists(subId)) {
+        return ReturnType::NOT_FOUND;
+    }
+
+    TRACKMOD();
+
+    try {
+        LOGDEBUG << "Updating subscription id [" << subId << "] to state [" << state << "].";
+
+        Reply reply = kv_store.sendCommand("hset sub:%ld state %d", subId, static_cast<int>(state));
+
+        if (!(reply.isOk())) {
+            LOGERROR << "Redis error: " << reply.getString();
+            return ReturnType::NOT_UPDATED;
+        }
+
+        return ReturnType::SUCCESS;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+        NOMOD();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::updateSubscription(const Subscription& subscription) {
+    /**
+     * Subscription ID is required.
+     */
+    if (subscription.getID() == invalid_sub_id) {
+        LOGERROR << "Subscription ID must be supplied for an update of subscription [" << subscription.getName() <<
+                        "] and tenant [" << subscription.getTenantID() << "].";
+        return ReturnType::NOT_UPDATED;
+    } else {
+        /**
+         * The following are *not* modifiable: id, tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+         */
+        Subscription currentSub("dummy", invalid_sub_id);
+
+        ReturnType ret = getSubscription(subscription.getID(), currentSub);
+        if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+            LOGCRITICAL << "Unable to perform subscription update for subscription ID [" << subscription.getID() << "].";
+            return ret;
+        } else if (ret == ReturnType::NOT_FOUND) {
+            LOGERROR << "Subscription to update not found for subscription ID [" << subscription.getID() << "].";
+            return ret;
+        } else if ((currentSub.getTenantID() != subscription.getTenantID()) ||
+                   (currentSub.getPrimaryDomainID() != subscription.getPrimaryDomainID()) ||
+                   (currentSub.getPrimaryVolumeID() != subscription.getPrimaryVolumeID()) ||
+                   (currentSub.getReplicaDomainID() != subscription.getReplicaDomainID()) ||
+                   (currentSub.getCreateTime() != subscription.getCreateTime())) {
+            LOGERROR << "Subscription updates may not change ID, Tenant ID, Primary Domain ID, Primary Volume ID "
+                        "Replica Domain ID, or Create Time for subscription ID [" << subscription.getID() << "].";
+            return ReturnType::NOT_UPDATED;
+        }
+    }
+
+    return ((putSubscription(subscription, false /* Not a new subscription. */) == invalid_sub_id) ?
+             ReturnType::NOT_UPDATED : ReturnType::SUCCESS);
+}
+
+ConfigDB::ReturnType ConfigDB::deleteSubscription(fds_subid_t subId) {
+    if (!subscriptionExists(subId)) {
+        return ReturnType::NOT_FOUND;
+    }
+
+    TRACKMOD();
+
+    try {
+        Reply reply = kv_store.sendCommand("srem subscriptions %ld", subId);
+        if (!reply.wasModified()) {
+            LOGWARN << "Subscription [" << subId << "] not removed.";
+            NOMOD();
+            return ReturnType::NOT_UPDATED;
+        }
+
+        // Delete the subscription.
+        reply = kv_store.sendCommand("del sub:%ld", subId);
+
+        if (!reply.wasModified()) {
+            LOGWARN << "Subscription [" << subId << "] not removed.";
+            return ReturnType::NOT_UPDATED;
+        } else {
+            return ReturnType::SUCCESS;
+        }
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+        NOMOD();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Check by subscription ID.
+ConfigDB::ReturnType ConfigDB::subscriptionExists(fds_subid_t subId) {
+    try {
+        Reply reply = kv_store.sendCommand("exists sub:%ld", subId);
+        return (reply.getLong() == 1) ? ReturnType::SUCCESS : ReturnType::NOT_FOUND;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Check by subscription name which is unique per tenant.
+ConfigDB::ReturnType ConfigDB::subscriptionExists(const std::string& subName, std::int64_t tenantId)
+{
+    std::vector<Subscription> subscriptions;
+    ReturnType ret;
+
+    if ((ret = getSubscriptions(subscriptions)) == ReturnType::SUCCESS) {
+        for (const auto subscription : subscriptions) {
+            if ((subscription.getTenantID() == tenantId) &&
+                    (subscription.getName().compare(subName) == 0)) {
+                return ReturnType::SUCCESS;
+            }
+        }
+
+        // Didn't find it.
+        return ReturnType::NOT_FOUND;
+    }
+
+    // Either no subscriptions or a problem with ConfigDB access.
+    return ret;
+}
+
+ConfigDB::ReturnType ConfigDB::getSubscriptionIds(std::vector<fds_subid_t>& subIds) {
+    std::vector<fds_subid_t> _subIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers subscriptions");
+        reply.toVector(_subIds);
+
+        if (_subIds.empty()) {
+            LOGDEBUG << "No subscriptions found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        for (std::size_t i = 0; i < _subIds.size(); i++) {
+            subIds.push_back(fds_subid_t(_subIds[i]));
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Get subscription ID from its name.
+fds_subid_t ConfigDB::getSubscriptionId(const std::string& name, const std::int64_t tenantId)
+{
+    Subscription subscription(name, invalid_sub_id);
+
+    if (getSubscription(name, tenantId, subscription) == ReturnType::SUCCESS)
+    {
+        return subscription.getID();
+    }
+    else {
+        return invalid_sub_id;
+    }
+}
+
+ConfigDB::ReturnType ConfigDB::getSubscriptions(std::vector<Subscription>& subscriptions) {
+    std::vector<fds_subid_t> subIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers subscriptions");
+        reply.toVector(subIds);
+
+        if (subIds.empty()) {
+            LOGDEBUG << "No subscriptions found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        ReturnType ret;
+        for (std::size_t i = 0; i < subIds.size(); i++) {
+            Subscription subscription("dummy" , invalid_sub_id);
+            if ((ret = getSubscription(fds_subid_t(subIds[i]), subscription)) == ReturnType::NOT_FOUND) {
+                LOGCRITICAL << "ConfigDB inconsistency. Subscription detail missing for id [" << subIds[i] << "].";
+                return ReturnType::CONFIGDB_EXCEPTION;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                // Some ConfigDB error.
+                return ReturnType::CONFIGDB_EXCEPTION;
+            }
+
+            subscriptions.push_back(subscription);
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::getTenantSubscriptions(std::int64_t tenantId, std::vector<Subscription>& subscriptions) {
+    std::vector<fds_subid_t> subIds; //NOLINT
+
+    subscriptions.empty();
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers subscriptions");
+        reply.toVector(subIds);
+
+        if (subIds.empty()) {
+            LOGDEBUG << "No subscriptions found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        ReturnType ret;
+        for (std::size_t i = 0; i < subIds.size(); i++) {
+            Subscription subscription("dummy" , invalid_sub_id);
+
+            if ((ret = getSubscription(fds_subid_t(subIds[i]), subscription)) == ReturnType::SUCCESS) {
+                if (subscription.getTenantID() == tenantId) {
+                    subscriptions.push_back(subscription);
+                }
+            } else if (ret == ReturnType::NOT_FOUND) {
+                LOGCRITICAL << "ConfigDB inconsistency. Subscription detail missing for id [" << subIds[i] << "].";
+                return ReturnType::CONFIGDB_EXCEPTION;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                // Some ConfigDB error.
+                return ReturnType::CONFIGDB_EXCEPTION;
+            }
+        }
+
+        if (subscriptions.empty()) {
+            LOGDEBUG << "No subscriptions found for tenant " << tenantId << ".";
+            return ReturnType::NOT_FOUND;
+        }
+
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::getSubscription(fds_subid_t subId, Subscription& subscription) {
+    try {
+        Reply reply = kv_store.sendCommand("hgetall sub:%ld", subId);
+        StringList strings;
+        reply.toVector(strings);
+
+        if (strings.empty()) {
+            LOGDEBUG << "Unable to find subscription ID [" << subId << "].";
+            return ReturnType::NOT_FOUND;
+        }
+
+        // Since we expect complete key-value pairs, the size of strings should be even.
+        if ((strings.size() % 2) != 0) {
+            LOGCRITICAL << "ConfigDB corruption. Subscription ID [" << subId <<
+                            "] does not have a complete key-value pairing of attributes.";
+            return ReturnType::CONFIGDB_EXCEPTION;
+        }
+
+        for (std::size_t i = 0; i < strings.size(); i+= 2) {
+            std::string& key = strings[i];
+            std::string& value = strings[i+1];
+
+            if (key == "id") {subscription.setID(fds_subid_t(strtoull(value.c_str(), NULL, 10)));}
+            else if (key == "name") { subscription.setName(value); }
+            else if (key == "tennantId") { subscription.setTenantID(atoi(value.c_str())); }
+            else if (key == "primaryDomainID") { subscription.setPrimaryDomainID(atoi(value.c_str()));}
+            else if (key == "primaryVolumeID") { subscription.setPrimaryVolumeID(fds_volid_t(strtoull(value.c_str(), NULL, 10)));} //NOLINT
+            else if (key == "replicaDomainID") { subscription.setReplicaDomainID(atoi(value.c_str()));}
+            else if (key == "createTime") { subscription.setCreateTime(strtoull(value.c_str(), NULL, 10));} //NOLINT
+            else if (key == "state") { subscription.setState((fpi::ResourceState) atoi(value.c_str()));}
+            else if (key == "type") { subscription.setType((fds::apis::SubscriptionType)atoi(value.c_str())); }
+            else if (key == "scheduleType") { subscription.setScheduleType((fds::apis::SubscriptionScheduleType)atoi(value.c_str())); }
+            else if (key == "intervalSize") { subscription.setIntervalSize(strtoull(value.c_str(), NULL, 10));} //NOLINT
+            else { //NOLINT
+                LOGWARN << "ConfigDB::getSubscription unknown key for subscription [" << subId <<
+                                "] - key [" << key << "], value [" << value << "].";
+                fds_assert(!"ConfigDB::getSubscription unknown key");
+            }
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const std::int64_t tenantId, Subscription& subscription) {
+    try {
+        std::vector<Subscription> subscriptions;
+        std::vector<Subscription>::const_iterator subIterator;
+        ReturnType ret;
+
+        if ((ret = getSubscriptions(subscriptions)) == ReturnType::SUCCESS) {
+            for (subIterator = subscriptions.begin(); subIterator != subscriptions.end(); subIterator++) {
+                if ((subIterator->getName().compare(name) == 0) &&
+                        (subIterator->getTenantID() == tenantId)){
+                    break;
+                }
+            }
+        } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+            // We had some ConfigDB error.
+            return ReturnType::CONFIGDB_EXCEPTION;
+        }
+
+        if (subIterator == subscriptions.end()) {
+            LOGDEBUG << "Unable to find subscription [" << name << "]" <<
+                            " for tenant [" << tenantId << "].";
+            return ReturnType::NOT_FOUND;
+        }
+
+        subscription = *subIterator;
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
 }
 
 

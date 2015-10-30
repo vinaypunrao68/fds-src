@@ -36,9 +36,10 @@ public class DeferredIoOps implements IoOps {
                 TimeUnit.MINUTES);
     }
 
-    public void start() {
+    public IoOps start() {
         metadataCache.start();
         objectCache.start();
+        return this;
     }
 
     @Override
@@ -64,18 +65,12 @@ public class DeferredIoOps implements IoOps {
     public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata, boolean deferrable) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
         metadataCache.lock(key, c -> {
-            if (!c.containsKey(key)) {
-                // File creations have to be propagated to the catalog immediately, otherwise scan() will return wrong results
+            if (deferrable) {
+                c.put(key, new CacheEntry<>(metadata, true));
+                counters.increment(Counters.Key.deferredMetadataMutation);
+            } else {
                 io.writeMetadata(domain, volumeName, blobName, metadata, false);
                 c.put(key, new CacheEntry<>(metadata, false));
-            } else {
-                if (deferrable) {
-                    c.put(key, new CacheEntry<>(metadata, true));
-                    counters.increment(Counters.Key.deferredMetadataMutation);
-                } else {
-                    io.writeMetadata(domain, volumeName, blobName, metadata, false);
-                    c.put(key, new CacheEntry<>(metadata, false));
-                }
             }
             return null;
         });
@@ -133,25 +128,26 @@ public class DeferredIoOps implements IoOps {
         return results;
     }
 
+
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
-        MetaKey oldKey = new MetaKey(domain, volumeName, oldName);
-        metadataCache.lock(oldKey, mc -> {
-                    CacheEntry<Map<String, String>> mce = mc.get(oldKey);
-                    if (!(mce == null) && mce.isDirty) {
+        MetaKey oldMetaKey = new MetaKey(domain, volumeName, oldName);
+        metadataCache.lock(oldMetaKey, mc -> {
+                    CacheEntry<Map<String, String>> mce = mc.get(oldMetaKey);
+                    if (mce != null && mce.isDirty) {
                         io.writeMetadata(domain, volumeName, oldName, mce.value, false);
-                        mc.remove(oldKey);
                     }
+                    mc.remove(oldMetaKey);
                     objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
                         HashSet<ObjectKey> keys = new HashSet<>(c.keySet());
-                        for (ObjectKey key : keys) {
-                            if (key.domain.equals(domain) && key.volume.equals(volumeName) && key.blobName.equals(oldName)) {
-                                CacheEntry<ByteBuffer> oce = c.get(key);
-                                if (mce.isDirty) {
-                                    io.writeObject(domain, volumeName, oldName, new ObjectOffset(key.objectOffset),
+                        for (ObjectKey objectKey : keys) {
+                            if (objectKey.domain.equals(domain) && objectKey.volume.equals(volumeName) && objectKey.blobName.equals(oldName)) {
+                                CacheEntry<ByteBuffer> oce = c.get(objectKey);
+                                if (oce.isDirty) {
+                                    io.writeObject(domain, volumeName, oldName, new ObjectOffset(objectKey.objectOffset),
                                             oce.value, oce.value.remaining(), false);
                                 }
-                                c.remove(key);
+                                c.remove(objectKey);
                             }
                         }
                         return null;
@@ -180,5 +176,12 @@ public class DeferredIoOps implements IoOps {
                     return null;
                 }
         );
+    }
+
+
+    @Override
+    public void flush() throws IOException {
+        metadataCache.flush();
+        objectCache.flush();
     }
 }

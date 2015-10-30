@@ -1,0 +1,27 @@
+[perf2-cluster]
+perf2-node1.formationds.com fds_node=node01
+perf2-node2.formationds.com fds_node=node02
+perf2-node3.formationds.com fds_node=node03
+
+[perf2-cluster:vars]
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
+cluster_location=fre
+deploy_artifact=beta
+fds_deploy_local_deps=no
+fds_default_nic=p4p1
+fds_om_host=perf2-node1.formationds.com
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+fds_build=debug
+fds_log_severity=normal
+fds_sm_data_verify=false
+fds_sm_data_verify_background=false
+fds_ft_am_nbd_enabled=false
+fds_ft_am_scst_enabled=true
+fds_am_scst_auto_volumes=my_disk
+fds_am_cache_max_volume_data=2048
+fds_am_cache_max_metadata_entries=16384
+clean_fds=yes

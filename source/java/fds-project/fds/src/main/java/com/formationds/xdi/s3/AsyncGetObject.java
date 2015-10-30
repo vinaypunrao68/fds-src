@@ -42,7 +42,7 @@ public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationTok
                 S3MetadataUtility.extractUserMetadata(md).forEach((key, value) -> ctx.addResponseHeader(key, value));
 
                 List<MultipartUpload.PartInfo> partInfoList = MultipartUpload.getPartInfoList(blobInfo.getBlobDescriptor());
-                long length = partInfoList == null ? blobInfo.getBlobDescriptor().byteCount : MultipartUpload.PartInfo.computeLength(partInfoList);
+                long length = partInfoList == null ? blobInfo.getBlobDescriptor().getByteCount() : MultipartUpload.PartInfo.computeLength(partInfoList);
                 ctx.addResponseHeader("Content-Length", Long.toString(length));
 
                 OutputStream outputStream = ctx.getOutputStream();
@@ -51,7 +51,7 @@ public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationTok
                 if(partInfoList != null) {
                     return xdi.readMultipart(token, blobInfo, outputStream);
                 } else {
-                    return xdi.readToOutputStream(token, blobInfo, outputStream, 0, blobInfo.getBlobDescriptor().byteCount);
+                    return xdi.readToOutputStream(token, blobInfo, outputStream, 0, blobInfo.getBlobDescriptor().getByteCount());
                 }
             });
         } catch (Exception e) {

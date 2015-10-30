@@ -1,9 +1,7 @@
 topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
-user_cpp         :=      \
-    fdssocket.cpp      \
-    net_utils.cpp
+user_cpp         := $(wildcard *.cpp)
 
 user_cpp_flags   := -Wall -Werror -Wno-reorder
 user_incl_dir    := $(topdir)

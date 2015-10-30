@@ -18,7 +18,7 @@ class ServiceStatus(object):
     @state.setter
     def state(self, a_state):
         
-        if a_state not in ("RUNNING", "NOT_RUNNING", "DEGRADED", "LIMITED", "ERROR", "UNREACHABLE", "UNEXPECTED_EXIT", "INITIALIZING", "SHUTTING_DOWN", "STANDBY"):
+        if a_state not in ("RUNNING", "NOT_RUNNING", "DEGRADED", "LIMITED", "ERROR", "UNREACHABLE", "UNEXPECTED_EXIT", "INITIALIZING", "SHUTTING_DOWN", "STANDBY", "DISCOVERED"):
             raise TypeError()
         
         self.__state = a_state

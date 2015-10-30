@@ -1037,16 +1037,26 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     if (!bSuccess) {
         if (isPrimary) {
             failedPrimaries_.push_back(epReq);
-            GLOGWARN << fds::logString(*header) << " response from primary failed";
+            GLOGWARN << fds::logString(*header) << " response from primary failed - "
+                     << "[rcvd acks: " << (int)primaryAckdCnt_ << " of " << (int)primariesCnt_
+                     << " failed:" << failedPrimaries_.size() << "] - [total: "<< (int)totalAckdCnt_ << "]";
         } else {
             failedOptionals_.push_back(epReq);
-            GLOGWARN << fds::logString(*header) << " response from optional failed";
+            GLOGWARN << fds::logString(*header) << " response from optional failed : "  << failedOptionals_.size();
         }
     }
 
+    GLOGDEBUG   << "[acks= total:" << (int)totalAckdCnt_ << "/" << epReqs_.size()
+                << " primary:" << (int)primaryAckdCnt_ << "/" << (int)primariesCnt_
+                << " fail-primary:" << failedPrimaries_.size()
+                << " fail-optional:" << failedOptionals_.size()
+                << " reqid:" << static_cast<SvcRequestId>(header->msg_src_id)
+                << " cb:" << (respCb_!=NULL)
+                << "]";
+
     /* Invoke response cb once all primaries responded */
-    if (primaryAckdCnt_ == primariesCnt_ &&
-        respCb_) {
+    if (primaryAckdCnt_ == primariesCnt_ && respCb_) {
+        GLOGDEBUG << "primacks rcvd for reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
         // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
         // Shouldn't be using the last error we get...something else more intelligent?
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
@@ -1058,6 +1068,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
      * if required.
      */
     if (totalAckdCnt_ == epReqs_.size()) {
+        GLOGDEBUG << "allacks rcvd reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
         // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
         // Shouldn't be using the last error we get...something else more intelligent?
         auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;

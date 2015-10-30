@@ -1,0 +1,5 @@
+---
+-   name: start scst
+    service: name=scst state=started
+    tags:
+        - startup

@@ -103,7 +103,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
 
     retryTokenMigrationTask.reset(new FdsTimerFunctionTask(mTimer,
                                                            std::bind(
-                                                             &MigrationMgr::retryTokenMigrForFailedDltTokens,
+                                                             &MigrationMgr::checkAndRetryMigration,
                                                              this)));
     int retryTimePeriod = 2;
     mTimer.scheduleRepeated(retryTokenMigrationTask, std::chrono::seconds(retryTimePeriod));
@@ -250,9 +250,19 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
 }
 
 void
+MigrationMgr::checkAndRetryMigration() {
+    {
+        fds_mutex::scoped_lock l(migrSmTokenLock);
+        if (retryMigrSameSrcInProg) { return; }
+    }
+    retryTokenMigrForFailedDltTokens();
+}
+
+void
 MigrationMgr::retryTokenMigrForFailedDltTokens()
 {
     fds_mutex::scoped_lock l(migrSmTokenLock);
+
     if (!retryMigrSmTokenSet.empty()) {
         retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
         LOGNORMAL << "Starting migration retry for SM token " << retrySmTokenInProgress;
@@ -265,7 +275,11 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
             LOGERROR << "Failed to enqueue index db snapshot message ;" << err;
             // for now, we are failing the whole migration on any error
             abortMigrationForSMToken(retrySmTokenInProgress, err);
+            return;
         }
+        retryMigrSameSrcInProg = true;
+    } else {
+        retryMigrSameSrcInProg = false;
     }
 }
 

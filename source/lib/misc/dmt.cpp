@@ -268,7 +268,9 @@ DMTManager::DMTManager(fds_uint32_t history_dmts)
 DMTManager::~DMTManager() {
 }
 
-Error DMTManager::add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const& cb) {
+Error DMTManager::add(DMT* dmt,
+                      DMTType dmt_type,
+                      FDS_Table::callback_type const& cb) {
 
     Error err(ERR_OK);
 
@@ -347,13 +349,15 @@ Error DMTManager::commitDMT(fds_bool_t rmTarget) {
     return err;
 }
 
-Error DMTManager::commitDMT(fds_uint64_t version) {
+Error DMTManager::commitDMT(fds_uint64_t version, fds_bool_t rmTarget) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (version != DMT_VER_INVALID) {
         if (dmt_map.count(version) > 0) {
             committed_version = version;
-            target_version = DMT_VER_INVALID;
+            if (rmTarget) {
+                target_version = DMT_VER_INVALID;
+            }
         } else {
             fds_verify(dmt_map.size() == 0);
             committed_version = DMT_VER_INVALID;
@@ -372,6 +376,7 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (target_version != DMT_VER_INVALID) {
+        LOGDEBUG << "Unsetting target DMT version " << target_version << " remove? " << rmTarget;
         fds_verify(dmt_map.count(target_version) > 0);
         if (rmTarget) {
             // remove target DMT from the map 
@@ -379,6 +384,7 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
         }
         target_version = DMT_VER_INVALID;
     } else {
+        LOGDEBUG << "Unsetting target DMT version not found";
         err = ERR_NOT_FOUND;
     }
     dmt_lock.write_unlock();

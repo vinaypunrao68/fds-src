@@ -63,7 +63,6 @@ fdsrepopkgs=(
     fds-jdk-default
     fds-python-scp
     fds-python-paramiko
-    libcryptopp-dev
 )
 
 function getExternalPkgs() {

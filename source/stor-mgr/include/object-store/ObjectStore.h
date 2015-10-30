@@ -14,10 +14,12 @@
 #include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <object-store/LiveObjectsDB.h>
 #include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
 
@@ -50,6 +52,8 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    LiveObjectsDB::unique_ptr liveObjectsTable;
 
     enum ObjectStoreState {
         /**
@@ -191,9 +195,9 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
     boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
-                                                   const ObjectID &objId,
-                                                   ObjMetaData::const_ptr objMetaData,
-                                                   Error& err);
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -315,6 +319,21 @@ class ObjectStore : public Module, public boost::noncopyable {
     inline fds_bool_t isUnavailable() const {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
+
+    void evaluateObjectSets(const fds_token_id& smToken,
+                            const diskio::DataTier& tier,
+                            diskio::TokenStat &tokStats);
+
+    void addObjectSet(const fds_token_id &smToken,
+                      const fds_volid_t &volId,
+                      const fds_uint64_t &dmUUID,
+                      const util::TimeStamp &ts,
+                      const std::string &objectSetFilePath);
+
+    void removeObjectSet(const fds_token_id &smToken,
+                         const fds_volid_t &volId);
+
+    void dropLiveObjectDB();
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

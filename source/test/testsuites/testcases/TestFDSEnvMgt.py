@@ -359,6 +359,42 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
         return True
 
 
+# This class contains attributes and methods to test
+# AWS domain with given inventory file name tag.
+class TestFDSTeardownDomain(TestCase.FDSTestCase):
+    def __init__(self, parameters = None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_FDSTeardownCluster,
+                                             "TearDown AWS nodes ")
+
+    def test_FDSTeardownCluster(self):
+        """
+        Test Case:
+        Attempt to tear down FDS cluster.
+        """
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        inventory_file = self.parameters['inventory_file']
+        tear_down_script_dir = os.path.join(fdscfg.rt_env.env_fdsSrc, '../ansible/scripts/')
+        cur_dir = os.getcwd()
+        os.chdir(tear_down_script_dir)
+        cmd = './teardown_ec2_cluster.sh  %s ' %(inventory_file)
+        status = os.system(cmd)
+        os.chdir(cur_dir)
+        if status != 0:
+            self.log.error("FDS package installation on AWS nodes returned status %d." %
+                           (status))
+            return False
+
+        return True
+
+
 # This class contains attributes and methods to test clean shared memory.
 # A workaround that is presently required if you want to restart a domain
 # that was previously started.
@@ -501,22 +537,25 @@ class TestRestartRedisClean(TestCase.FDSTestCase):
             n = fdscfg.rt_om_node
 
         self.log.info("Restart Redis clean on %s." % n.nd_conf_dict['node-name'])
-
-        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
+        if fdscfg.rt_obj.cfg_remote_nodes is True:
+            cmd = '/fds/sbin/redis.sh '
+        else:
+            cmd = './redis.sh '
+        status = n.nd_agent.exec_wait(cmd+ "restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Restart Redis before clean on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("./redis.sh clean", fds_tools=True)
+        status = n.nd_agent.exec_wait(cmd+'clean', fds_tools=True)
         time.sleep(2)
 
         if status != 0:
             self.log.error("Clean Redis on %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
 
-        status = n.nd_agent.exec_wait("./redis.sh restart", fds_tools=True)
+        status = n.nd_agent.exec_wait(cmd+"restart", fds_tools=True)
         time.sleep(2)
 
         if status != 0:

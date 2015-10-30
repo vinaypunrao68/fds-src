@@ -39,7 +39,7 @@ public class HeadObject implements SyncRequestHandler {
         if(partInfoList != null)
             length = MultipartUpload.PartInfo.computeLength(partInfoList);
         else
-            length = stat.byteCount;
+            length = stat.getByteCount();
 
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));

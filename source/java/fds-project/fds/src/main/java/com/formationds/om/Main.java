@@ -20,7 +20,7 @@ import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;

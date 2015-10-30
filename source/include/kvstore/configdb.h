@@ -15,6 +15,7 @@
 #include <fds_dmt.h>
 #include <fdsp/config_types_types.h>
 #include <exception>
+#include <fds_subscription.h>
 namespace fds {
 struct node_data;
 
@@ -26,6 +27,14 @@ struct ConfigException : std::runtime_error {
 };
 
 struct ConfigDB : KVStore {
+
+    typedef enum {
+        CONFIGDB_EXCEPTION, // Exception reported by ConfigDB.
+        NOT_FOUND,          // Successful ConfigDB access, but nothing found matching inquiry.
+        NOT_UPDATED,        // Successful ConfigDB access, but requested updated could not be made.
+        SUCCESS             // Successful ConfigDB access and object(s) to be updated or queried found.
+    } ReturnType;
+
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
     virtual ~ConfigDB();
     fds_uint64_t getLastModTimeStamp();
@@ -95,6 +104,7 @@ struct ConfigDB : KVStore {
     bool updateSvcMap(const fpi::SvcInfo& svcinfo);
     bool changeStateSvcMap( const int64_t svc_uuid, 
                             const fpi::ServiceStatus svc_status );
+    bool isPresentInSvcMap(const int64_t svc_uuid);
     /**
      * If service not found in configDB, returns SVC_STATUS_INVALID
      */
@@ -147,6 +157,21 @@ struct ConfigDB : KVStore {
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId, fpi::ResourceState state); //NOLINT
    bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
+
+    // Subscriptions
+    fds_subid_t getNewSubscriptionId();
+    ReturnType setSubscriptionState(fds_subid_t id, fpi::ResourceState state);
+    fds_subid_t putSubscription(const Subscription &subscription, const bool isNew = true);
+    ReturnType updateSubscription(const Subscription& subscription);
+    ReturnType deleteSubscription(fds_subid_t id);
+    ReturnType subscriptionExists(fds_subid_t id);
+    ReturnType subscriptionExists(const std::string& name, const std::int64_t tenantId);
+    ReturnType getSubscriptionIds(std::vector<fds_subid_t>& ids);
+    fds_subid_t getSubscriptionId(const std::string& name, const std::int64_t tenantId);
+    ReturnType getSubscriptions(std::vector<Subscription>& subscriptions);
+    ReturnType getTenantSubscriptions(std::int64_t tenantId, std::vector<Subscription>& subscriptions);
+    ReturnType getSubscription(fds_subid_t id, Subscription& subscription);
+    ReturnType getSubscription(const std::string& name, const std::int64_t tenantId, Subscription& subscription);
 
   protected:
     void setModified();

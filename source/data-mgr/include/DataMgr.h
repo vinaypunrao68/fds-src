@@ -357,6 +357,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                                                                 parentDm->handlers.at(io->io_type),
                                                                 io));
                     break;
+                case FDS_DM_FUNCTOR:
+                    threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
+                    break;
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
                     assert(0);
@@ -470,6 +473,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void handleDMTClose(DmRequest *io);
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
+    void handleDmFunctor(DmRequest *io);
 
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

@@ -126,8 +126,8 @@ public class JScsiServer {
             am.start();
             ConfigurationService.Iface om = cf.remoteOmService(omAddr.getHost(), omAddr.getPort());
             for(VolumeDescriptor descriptor : om.listVolumes(ISCSI_DOMAIN)) {
-                if(descriptor.getPolicy().isSetBlockDeviceSizeInBytes() && descriptor.getPolicy().blockDeviceSizeInBytes > 0) {
-                    System.out.println("Found volume: " + descriptor.name);
+                if(descriptor.getPolicy().isSetBlockDeviceSizeInBytes() && descriptor.getPolicy().getBlockDeviceSizeInBytes() > 0) {
+                    System.out.println("Found volume: " + descriptor.getName());
                     targets.add(fdsTarget(am, descriptor));
                 }
             }
@@ -152,7 +152,7 @@ public class JScsiServer {
     }
 
     private static Target fdsTarget(AsyncAm am, VolumeDescriptor descriptor) {
-        return new Target(descriptor.name, descriptor.name, new FdsStorageModule(am, ISCSI_DOMAIN, descriptor));
+        return new Target(descriptor.getName(), descriptor.getName(), new FdsStorageModule(am, ISCSI_DOMAIN, descriptor));
     }
 
     private static Target memoryTarget(String name, int size) {

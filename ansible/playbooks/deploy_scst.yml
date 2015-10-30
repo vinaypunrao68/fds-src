@@ -1,0 +1,24 @@
+---
+
+-   name: Pre-Deploy - check sudo privileges
+    hosts: all
+    gather_facts: no
+    sudo: no
+    vars_files:
+        - ../vars_files/credentials/fds-deploy_rsa.yml
+    tags:
+        - check_sudo
+
+    tasks:
+    -   include: ../tasks/common/check_sudo.yml
+        when: ansible_sudo_pass is not defined
+
+-   name: Deploy SCST
+    hosts: all
+    gather_facts: yes
+    sudo: yes
+#    vars_files:
+#    -   ../vars_files/credentials/ssl_certs.yml
+
+    tasks:
+    -   include: ../tasks/deploy_scst/deploy_scst.yml

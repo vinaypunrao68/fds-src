@@ -161,7 +161,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
-        // Potential meta list corruption here... debug later :)
+        // Potential meta list corruption here... reopen FS-3355
         // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);

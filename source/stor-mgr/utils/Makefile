@@ -21,7 +21,8 @@ user_non_fds_libs := \
     leveldb \
     ssl \
     crypto \
-    leveldb
+    leveldb \
+    sqlite3
 
 user_bin_exe      := smchk
 smchk             := SMCheckDriver.cpp

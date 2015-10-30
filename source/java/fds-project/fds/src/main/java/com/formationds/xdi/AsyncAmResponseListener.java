@@ -1,9 +1,12 @@
 package com.formationds.xdi;
 
-import com.formationds.apis.*;
+import com.formationds.apis.AsyncXdiServiceResponse;
+import com.formationds.apis.RequestId;
+import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.VolumeStatus;
 import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.BlobDescriptor;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.VolumeAccessMode;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -14,7 +17,10 @@ import org.apache.thrift.TException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -32,7 +38,7 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
                         CompletableFuture cf = (CompletableFuture) notification.getValue();
                         if (!cf.isDone()) {
                             executor.execute(
-                                    () -> cf.completeExceptionally(new ApiException("Request timed out", ErrorCode.INTERNAL_SERVER_ERROR)));
+                                    () -> cf.completeExceptionally(new ApiException("Request timed out", ErrorCode.TIMEOUT)));
                         }
                     }
                 })

@@ -37,7 +37,8 @@ user_non_fds_libs := \
     ssl \
     crypto \
     tcmalloc \
-    leveldb
+    leveldb \
+    sqlite3
 
 stor_mgr_cpp      := stormgr_main.cpp
 user_cpp          :=                   \

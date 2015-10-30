@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v07.snapshot;
 
-import com.formationds.protocol.ResourceState;
+import com.formationds.protocol.svc.types.ResourceState;
 import com.formationds.commons.model.SnapshotPolicy;
 import com.formationds.commons.model.builder.SnapshotPolicyBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
