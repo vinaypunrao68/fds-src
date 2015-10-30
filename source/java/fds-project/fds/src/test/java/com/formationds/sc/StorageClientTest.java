@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+// this is a scratch pad set of tests
+// don't worry about deleting them if it comes to that
 public class StorageClientTest {
     static final int DEFAULT_OM_PORT = 7004;
     static final int DEFAULT_CS_PORT = 9090;
@@ -53,7 +55,7 @@ public class StorageClientTest {
         }
     }
 
-    @Test
+    //@Test
     public void basicTest() throws Exception {
         HostAndPort omAddress = HostAndPort.fromParts("127.0.0.1", DEFAULT_OM_PORT);
         HostAndPort recvAddress = HostAndPort.fromParts("127.0.0.1", recvPort);
