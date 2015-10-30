@@ -96,7 +96,7 @@ struct SvcVer {
  * TODO(Andrew): Should this just be a typedef?
  */
 struct FDS_ObjectIdType {
-  1: string  digest
+  1: binary  digest
 }
 
 enum FDSP_NodeState {
