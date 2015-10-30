@@ -53,7 +53,7 @@ public class AsyncAmTest extends BaseAmTest {
         assertEquals(1, list.size());
     }
 
-    //@Test
+    @Test
     public void testLookup() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
