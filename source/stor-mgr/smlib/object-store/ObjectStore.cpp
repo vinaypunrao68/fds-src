@@ -1588,6 +1588,23 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
 }
 
 /**
+ * Check if SM has object sets for all the volumes in the domain.
+ */
+bool
+ObjectStore::haveAllObjectSets() const {
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAllVols(volumes);
+    std::list<fds_volid_t> volList = volumeTbl->getVolList();
+
+    for (auto volId : volList) {
+        if (volumes.find(volId) == volumes.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Add a new object set(bloom filter) received from a DM
  * to the liveObjects Table
  */
@@ -1664,9 +1681,6 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
             bool shouldUpdateMeta = true;
             ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
 
-            std::vector<fds_volid_t> volAssocs;
-            objMeta->getAssociatedVolumes(volAssocs);
-
             /**
              * Check if the object got updated recently(via a PUT).
              * If so, then these object sets will have stale information
@@ -1675,21 +1689,6 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
              */
             if (objMeta->getTimeStamp() > ts) {
                 shouldUpdateMeta = false;
-            }
-
-            /**
-             * Check for the volumes to which this object is associated to.
-             * If the aggregated volume list from all the object sets of this
-             * SM token doesn't have all the volumes to which the object is
-             * associated to, then leave the object as it is because during
-             * this gc run we are missing information from some volumes who
-             * has interest in this object.
-             */
-            for (auto associatedVol : volAssocs) {
-                if (volumes.find(associatedVol) == volumes.end()) {
-                    shouldUpdateMeta = false;
-                    break;
-                }
             }
 
             /**

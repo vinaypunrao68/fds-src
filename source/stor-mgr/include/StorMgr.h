@@ -276,6 +276,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return volTbl;
      }
 
+     bool haveAllObjectSets() const;
+
      /**
       * A callback from stats collector to sample SM specific stats
       * @param timestamp is timestamp to path to every recordEvent()

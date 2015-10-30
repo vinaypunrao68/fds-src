@@ -9,6 +9,7 @@
 #include <fds_process.h>
 #include <util/Log.h>
 #include <fds_assert.h>
+#include <StorMgr.h>
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/Scavenger.h>
@@ -308,6 +309,13 @@ void ScavControl::startScavengeProcess()
     if (!_enabled) {
         LOGNOTIFY << "Cannot start Scavenger process because scavenger"
                   << " is disabled";
+        return;
+    }
+
+    if (!(dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->haveAllObjectSets()))
+    {
+        LOGNOTIFY << "Object sets not present for all the volumes."
+                  << "Cannot start scavenger";
         return;
     }
 
