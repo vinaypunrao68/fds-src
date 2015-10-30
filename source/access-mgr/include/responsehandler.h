@@ -11,7 +11,6 @@
 #include <fds_defines.h>
 #include <fds_error.h>
 #include <fds_typedefs.h>
-#include <fdsp/dm_types_types.h>
 #include <fdsp/xdi_types.h>
 #include <fdsp/common_types.h>
 #include <fdsp/config_types_types.h>
@@ -103,13 +102,14 @@ struct GetBucketCallback {
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
 
-    boost::shared_ptr<std::vector<fpi::BlobDescriptor>> vecBlobs;
+    boost::shared_ptr<std::vector<fds::BlobDescriptor>> vecBlobs;
     boost::shared_ptr<std::vector<std::string>> skippedPrefixes;
 };
 
 struct StatVolumeCallback {
     TYPE_SHAREDPTR(StatVolumeCallback);
-    fpi::VolumeStatus volStat;
+    size_t blob_count {0};
+    size_t current_usage_bytes {0};
 };
 
 struct SetVolumeMetadataCallback {};

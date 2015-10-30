@@ -16,7 +16,7 @@ namespace fds {
  * Describes a blob's key-value metadata pairs
  * The key and value types are both meant to be strings.
  */
-typedef std::unordered_map<std::string, std::string> BlobKeyValue;
+typedef std::map<std::string, std::string> BlobKeyValue;
 typedef BlobKeyValue::const_iterator const_kv_iterator;
 
 /**

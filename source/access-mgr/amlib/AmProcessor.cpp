@@ -600,7 +600,9 @@ void
 AmProcessor_impl::statVolumeCb(AmRequest *amReq, const Error &error) {
     StatVolumeCallback::ptr cb =
             SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
-    cb->volStat = static_cast<StatVolumeReq *>(amReq)->volumeStatus;
+    auto volReq = static_cast<StatVolumeReq *>(amReq);
+    cb->current_usage_bytes = volReq->size;
+    cb->blob_count = volReq->blob_count;
     respond_and_delete(amReq, error);
 }
 

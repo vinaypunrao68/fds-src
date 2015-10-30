@@ -457,8 +457,10 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
     auto volReq = static_cast<fds::StatVolumeReq*>(amReq);
     auto volMDMsg = deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
 
-    if (ERR_OK == error)
-        volReq->volumeStatus = volMDMsg->volumeStatus;
+    if (ERR_OK == error) {
+        volReq->size = volMDMsg->volumeStatus.size;
+        volReq->blob_count = volMDMsg->volumeStatus.blobCount;
+    }
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
@@ -1277,7 +1279,7 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
-              cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
+              cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>(); \
               cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
@@ -1320,8 +1322,14 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
                 response->blob_descr_list.size();
 
         auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
-        cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
-        cb->vecBlobs->swap(response->blob_descr_list);
+        cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>();
+        for (auto const& descriptor : response->blob_descr_list) {
+            cb->vecBlobs->emplace_back(descriptor.name,
+                                       0,
+                                       amReq->io_vol_id,
+                                       descriptor.byteCount,
+                                       descriptor.metadata);
+        }
         cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>();
         cb->skippedPrefixes->swap(response->skipped_prefixes);
     }
