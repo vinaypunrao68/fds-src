@@ -350,7 +350,13 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         case fpi::HEALTH_STATE_LIMITED:
         case fpi::HEALTH_STATE_SHUTTING_DOWN:
             LOGWARN << "Handling for service " << msg->healthReport.serviceInfo.name
-                    << " state: " << msg->healthReport.serviceState << " not implemented yet.";
+                    << " state: "
+                    << msg->healthReport.serviceState
+                    << " uuid: "
+                    << std::hex
+                    << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+                    << std::dec
+                    << " -- not implemented yet.";
             break;
         case fpi::HEALTH_STATE_ERROR:
             healthReportError(service_type, msg);
@@ -489,10 +495,9 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
     if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
     {
         /*
-         * if unreachable service has an incarnation number that is older then the existing
-         * service in the service map, then don't change the state.
+         * if unreachable service incarnation is the same as the service map, change the state to INVALID
          */
-        if ( isNewerSvcInfoInstance( msg->healthReport.serviceInfo ) )
+        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
             auto domain = OM_NodeDomainMod::om_local_domain();
             NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
@@ -513,8 +518,8 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             /*
              * change the state and update service map; then broadcast updated service map
              */
-            domain->om_change_svc_state_and_bcast_svcmap(uuid, svc_type);
-            domain->om_service_down(reportError, uuid, svc_type);
+            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
+            domain->om_service_down( reportError, uuid, svc_type );
         }
 
         return;

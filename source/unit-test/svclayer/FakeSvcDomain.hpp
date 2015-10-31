@@ -11,11 +11,14 @@
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
 #include <fdsp_utils.h>
+#include <net/filetransferservice.h>
 
 namespace fds {
 struct FakeSyncSvcDomain;
 struct FakeSvc;
 struct FakeSvcDomain;
+
+
 
 struct FakeSvcDomain {
     FakeSvcDomain(const std::string &configFile);
@@ -99,6 +102,7 @@ struct FakeSvc : SvcProcess {
     ~FakeSvc();
     virtual void registerSvcProcess() override;
     virtual int run() {return 0;}
+    SHPTR<net::FileTransferService> filetransfer;
 
  protected:
     FakeSvcDomain *domain_;
@@ -291,6 +295,9 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     config->set("fds.pm.platform_port", port);
     svcName_ = "pm";
 
+    GetLog()->setSeverityFilter(
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","DEBUG")));
+
     /* timer */
     timer_servicePtr_.reset(new FdsTimer());
 
@@ -307,7 +314,8 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     setupSvcMgr_(handler, processor);
-
+    filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(uuid),
+                                                                                getSvcMgr() ));
     /* Default implementation registers with OM.  Until registration complets
      * this will not return
      */

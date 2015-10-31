@@ -17,7 +17,8 @@ user_bin_exe      := \
     dm_sequence_ids \
     archive_gtest \
     ldb_differ_gtest \
-    dmchecker_gtest
+    dmchecker_gtest \
+    objectrefscanner_gtest
 
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
 dm_direct := dm_direct.cpp
@@ -27,5 +28,6 @@ dm_sequence_ids := dm_sequence_ids.cpp
 archive_gtest := ArchiveClient_gtest.cpp
 ldb_differ_gtest := LeveldbDiffer_gtest.cpp
 dmchecker_gtest := DmChecker_gtest.cpp 
+objectrefscanner_gtest := ObjectRefScanner_gtest.cpp
 
 include $(test_topdir)/Makefile.dm

@@ -269,6 +269,10 @@ void checksum_calc::get_checksum(std::string& result) {
     return;
 }
 
+checksum_calc::~checksum_calc() {
+
+}
+
 /*
  * output = MD5( input buffer )
  */

@@ -190,15 +190,16 @@ struct __attribute__((__packed__)) meta_obj_map_v0
 
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;        /* deletion time.         */
+    fds_uint64_t         obj_access_time;     /* last access time.      */
     fds_uint64_t         assoc_mod_time;      /* Modification time.         */
     fds_uint64_t         expire_time;         /* Object Expiration time */
 
     /* Object transition time to a archive tier */
-    fds_uint64_t         transition_time;
+    fds_uint8_t          delete_count;
     obj_phy_loc_t        loc_map[MAX_PHY_LOC_MAP];
 
     /* add padding to the data structure */
-    char                 meta_obj_padding[32];
+    char                 meta_obj_padding[31];
 };
 
 struct __attribute__((__packed__)) obj_assoc_entry_v0 {
