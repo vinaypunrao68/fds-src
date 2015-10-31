@@ -9,6 +9,10 @@ import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.iscsi.IncomingUser;
+import com.formationds.client.v08.model.iscsi.LUN;
+import com.formationds.client.v08.model.iscsi.OutgoingUser;
+import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.client.v08.model.nfs.ACL;
 import com.formationds.client.v08.model.nfs.Async;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
@@ -285,6 +289,33 @@ public class GSONTest {
         Assert.assertNotNull( j );
 
         VolumeSettings v2 = gson.fromJson( j, VolumeSettingsNfs.class );
+        Assert.assertNotNull( v2 );
+        Assert.assertEquals( v, v2 );
+    }
+
+    @Test
+    public void testVolumeSettingISCSI() {
+        final Target target = new Target.Builder( )
+                                        .withLun(
+                                            new LUN.Builder( ).withLun( "volume_1" )
+                                                              .withAccessType( LUN.AccessType.RW )
+                                                              .build() )
+                                        .withIncomingUser( new IncomingUser( "brian",
+                                                                             "secret" ) )
+                                        .withIncomingUser( new IncomingUser( "eric",
+                                                                             "disco" ) )
+                                        .withOutgoingUser( new OutgoingUser( "fds", "fds_secret" ) )
+                                        .build( );
+        target.setId( 1L );
+        target.setName( "Target #" + target.getId() );
+        VolumeSettings v =
+                new VolumeSettingsISCSI.Builder()
+                        .withTarget( target )
+                        .build( );
+        String j = gson.toJson( v );
+        Assert.assertNotNull( j );
+
+        VolumeSettings v2 = gson.fromJson( j, VolumeSettingsISCSI.class );
         Assert.assertNotNull( v2 );
         Assert.assertEquals( v, v2 );
     }
