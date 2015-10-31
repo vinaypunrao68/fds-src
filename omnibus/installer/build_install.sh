@@ -48,6 +48,11 @@ ARTIFACTORY_URL="http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/art
 # If these aren't defined - we assign default values
 DEPS="${DEPS:-fds-deps_2015.06.19-32_amd64.deb}"
 PLATFORM="${PLATFORM:-fds-platform-rel_2015.06.19-32_amd64.deb}"
+RABBITMQC="${RABBITMQC:-rabbitmq-c-0.7.1.deb}"
+SIMPLEAMQPCLIENT="${SIMPLEAMQPCLIENT:-simpleamqpclient-0.7.1.deb}"
+FDSSTATSCLIENT="${FDSSTATSCLIENT:-fds-stats-client-c-1.0.deb}"
+STATSSERVICE="${STATSSERVICE:-fds-stats-service-0.0.1-SNAPSHOT.deb}"
+STATSDEPS="${STATSDEPS:-fds-stats-deps_0.0.0+20150925040020-1_amd64.deb}"
 VERSION="$(cat ../../omnibus/VERSION)"
 BUILD_NUMBER="${BUILD_NUMBER:-~$(date +%s)}"
 INSTALLDIR="install_${VERSION}-${BUILD_NUMBER}"
@@ -64,12 +69,15 @@ mkdir -p "${INSTALLDIR}/source/test"
 mkdir -p "${INSTALLDIR}/ansible"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg"
 mkdir -p "${DLTMP}"
 
 # If download is true - we download the artifacts vs. relying on them being local
 if [ $download == "true" ] ; then
   # Download packages
-	for package in $DEPS $PLATFORM ; do
+	for package in $DEPS $PLATFORM $RABBITMQC $SIMPLEAMQPCLIENT $FDSSTATSCLIENT $STATSSERVICE $STATSDEPS; do
 		if [ ! -f ${DLTMP}/${package} ] ; then
 			echo "Downloading $package"
 			deps_status_code="$(curl -o ${DLTMP}/${package} ${ARTIFACTORY_URL}/${package})"
@@ -79,16 +87,24 @@ if [ $download == "true" ] ; then
 	done
   rsync -av ${DLTMP}/${PLATFORM} ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
   rsync -av ${DLTMP}/${DEPS} ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
+  rsync -av ${DLTMP}/${RABBITMQC} ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
+  rsync -av ${DLTMP}/${SIMPLEAMQPCLIENT} ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
+  rsync -av ${DLTMP}/${FDSSTATSCLIENT} ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
+  rsync -av ${DLTMP}/${STATSSERVICE} ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
+  rsync -av ${DLTMP}/${STATSDEPS} ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
 else
   echo "Syncing packages from local source"
   rsync -av ../../omnibus/omnibus-fds-platform/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
   rsync -av ../../omnibus/omnibus-fds-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
   rsync -av ../../omnibus/omnibus-fds-stats-service/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
   rsync -av ../../omnibus/omnibus-fds-stats-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
+  rsync -av ../../omnibus/omnibus-rabbitmq-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
+  rsync -av ../../omnibus/omnibus-simpleamqpclient/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
+  rsync -av ../../omnibus/omnibus-fds-stats-client-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
 fi
 
 # Make sure we have package files
-for fn in "platform" "deps" "stats-deps" "stats-service"; do
+for fn in "platform" "deps" "stats-deps" "stats-service" "stats-client-c"; do
   if test -n "$(find ${INSTALLDIR}/omnibus/omnibus-fds-${fn}/pkg/ -maxdepth 1 -name '*.deb' -print -quit)" ; then
 		echo "Package ${fn} found"
 	else
