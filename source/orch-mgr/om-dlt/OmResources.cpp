@@ -2664,10 +2664,11 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 
 void
 OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
-                                                        fpi::FDSP_MgrIdType svcType)
+                                                        fpi::FDSP_MgrIdType svcType,
+                                                        const fpi::ServiceStatus status )
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE, true ); 
+    change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
     om_locDomain->om_bcast_svcmap();
 }
 
