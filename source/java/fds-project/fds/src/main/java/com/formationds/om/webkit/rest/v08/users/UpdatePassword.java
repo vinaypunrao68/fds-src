@@ -71,10 +71,14 @@ public class UpdatePassword implements RequestHandler {
 
     public Resource execute( com.formationds.apis.User currentUser, User inputUser, String password ) throws TException {
         
-    	if (!currentUser.isIsFdsAdmin() && inputUser.getId() != currentUser.getId()) {
+    	if ( !currentUser.isIsFdsAdmin() && inputUser.getId() != currentUser.getId()) {
     		throw new ApiException( "Access denied.", ErrorCode.INTERNAL_SERVER_ERROR );
         }
 
+    	if ( inputUser.getName().equalsIgnoreCase( GetUser.STATS_USERNAME ) ){
+    		throw new ApiException( "Unable to access user for modification.", ErrorCode.INTERNAL_SERVER_ERROR );
+    	}
+    	
         String hashedPassword = new HashedPassword().hash(password);
 
         com.formationds.apis.User iUser = getConfigApi().getUser( inputUser.getId() );
