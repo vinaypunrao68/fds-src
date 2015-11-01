@@ -1,5 +1,10 @@
-#cd ../.. && make package fds-platform BUILD_TYPE=release
-#cd ../.. && make package fds-deps
+#!/bin/bash
+
+#This script is to setup the pre-requisites for creating an offline
+#deployment.  The only arg is which build type needs to be created.
+
+cd ../.. && make package fds-platform BUILD_TYPE=${1}
+cd ../.. && make package fds-deps
 
 # making directories that the build_install script will look for packages
 rm -rf ../omnibus-*
