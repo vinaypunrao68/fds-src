@@ -16,8 +16,8 @@
 #include <net/SvcMgr.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
-#include "AsyncResponseHandlers.h"
 
+#include "AmAsyncDataApi.h"
 #include "requests/requests.h"
 #include "requests/GetObjectReq.h"
 #include <net/MockSvcHandler.h>
@@ -1325,8 +1325,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>();
         for (auto const& descriptor : response->blob_descr_list) {
             cb->vecBlobs->emplace_back(descriptor.name,
-                                       0,
-                                       amReq->io_vol_id,
+                                       amReq->io_vol_id.get(),
                                        descriptor.byteCount,
                                        descriptor.metadata);
         }

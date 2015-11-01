@@ -6,7 +6,6 @@
 #include <vector>
 #include "AmAsyncResponseApi.h"
 #include "connector/xdi/AmAsyncXdi.h"
-#include <blob/BlobTypes.h>
 
 #include <arpa/inet.h>
 #include <thrift/concurrency/ThreadManager.h>

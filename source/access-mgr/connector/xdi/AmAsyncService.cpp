@@ -14,7 +14,6 @@
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/AmAsyncXdi.h"
-#include <responsehandler.h>
 
 namespace fds {
 

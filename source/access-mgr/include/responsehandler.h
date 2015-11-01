@@ -26,6 +26,7 @@ namespace fds {
  */
 enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
+struct BlobDescriptor;
 struct VolumeDesc;
 
 /**
