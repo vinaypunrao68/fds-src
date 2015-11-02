@@ -53,7 +53,7 @@ struct BloomFilterStore {
     /**
     * @brief Writes all the cached bloomfilters to filesystem
     */
-    void sync();
+    void sync(bool clearCache = false);
     
     /**
     * @brief clears out the index and removes all bloomfilters from the filesystem
@@ -180,7 +180,9 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     virtual void mod_startup();
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */
-    void scanOnce(ScanDoneCb cb);
+    void scanOnce();
+
+    void setScanDoneCb(const ScanDoneCb &cb);
 
     util::BloomFilterPtr getTokenBloomFilter(const fds_token_id &tokenId);
     std::string getTokenBloomfilterPath(const fds_token_id &tokenId);
@@ -216,14 +218,21 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     */
     void prescanInit();
 
+    State {
+        STOPPED,
+        INIT,
+        RUNNING
+    };
+
     DataMgr                                     *dataMgr;
     const DLT                                   *currentDlt;
+    std::atomic<State>                          state;
     std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
     /* Controls whether scanning based on timer is enabled or not.   NOTE it is still possible
      * to run the scanner manually
      */
-    bool                                        enabled;
+    bool                                        timeBasedEnabled;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;

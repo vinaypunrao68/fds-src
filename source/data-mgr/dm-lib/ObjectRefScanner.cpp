@@ -106,9 +106,12 @@ bool BloomFilterStore::exists(const std::string &key) const
     return index.find(key) != index.end();
 }
 
-void BloomFilterStore::sync() {
+void BloomFilterStore::sync(bool clearCache) {
    for (const auto &item : cache) {
         save(item.key, item.bloomfilter);
+   }
+   if (clearCache) {
+       cache.clear();
    }
 }
 
@@ -127,6 +130,7 @@ ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 : HasModuleProvider(moduleProvider),
   Module("RefcountScanner"),
   dataMgr(dm),
+  state(STOPPED),
   qosHelper(*dm),
   scanCntr(0),
   objectsScannedCntr(0)
@@ -135,22 +139,26 @@ ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 
 void ObjectRefMgr::mod_startup() {
     auto config = MODULEPROVIDER()->get_conf_helper();
-    enabled = config.get<bool>("objectrefscan.enabled", false);
+    timeBasedEnabled = config.get<bool>("objectrefscan.timebased", false);
     scanIntervalSec = std::chrono::seconds(config.get<int>("objectrefscan.interval",
                                                            172800 /* 2 days */));
     maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);
 
     /* Only if enabled is set we start timer based scanning */
-    if (enabled) {
+    if (timeBasedEnabled) {
         auto timer = MODULEPROVIDER()->getTimer();
         scanTask = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask(
-                *timer,
-                [this] () {
+            new FdsTimerFunctionTask(*timer,
+                                     [this] () {
+                bool wasStopped = state.compare_exchange_strong(STOPPED, INIT);
+                if (!wasStopped) {
+                    GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
+                    return;
+                }
                 /* Immediately post to threadpool so we don't hold up timer thread */
                 auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
                 qosHelper.addToQueue(req);
-                }));
+            }));
         timer->schedule(scanTask, scanIntervalSec);
     }
 }
@@ -158,12 +166,20 @@ void ObjectRefMgr::mod_startup() {
 void ObjectRefMgr::mod_shutdown() {
 }
 
-void ObjectRefMgr::scanOnce(ObjectRefMgr::ScanDoneCb cb) {
-    fds_verify(enabled == false);
+void ObjectRefMgr::scanOnce() {
+    bool wasStopped = state.compare_exchange_strong(STOPPED, INIT);
+    if (!wasStopped) {
+        GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
+        return;
+    }
 
-    scandoneCb = cb;
     auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
     qosHelper.addToQueue(req);
+}
+
+void ObjectRefMgr::setScanDoneCb(const ObjectRefMgr::ScanDoneCb &cb) {
+    fds_assert(!scandDoneCb);
+    scanDoneCb = cb;
 }
 
 void ObjectRefMgr::dumpStats() const {
@@ -175,7 +191,7 @@ void ObjectRefMgr::dumpStats() const {
 }
 
 void ObjectRefMgr::scanStep() {
-    if (scanList.size() == 0) {
+    if (state == INIT) {
         prescanInit();
     }
 
@@ -201,13 +217,14 @@ void ObjectRefMgr::scanStep() {
         qosHelper.addToQueue(req);
     } else {
         /* Scan finished */
-        bfStore->sync();
+        bfStore->sync(true /* clear cache */);
+        state = STOPPED;
         dumpStats();
         if (scandoneCb) {
             scandoneCb(this);
         }
         /* Schedule another scan cycle */
-        if (enabled) {
+        if (timeBasedEnabled) {
             auto timer = MODULEPROVIDER()->getTimer();
             timer->schedule(scanTask, scanIntervalSec);
         }
@@ -234,6 +251,10 @@ void ObjectRefMgr::prescanInit()
     /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 
+    /* Clear out datastructures from any previous run */
+    scanList.clear();
+    scanSuccessVols.clear();
+
     /* Build a list of volumes to scan */
     std::vector<fds_volid_t> vols;
     dataMgr->getActiveVolumes(vols);
@@ -249,6 +270,8 @@ void ObjectRefMgr::prescanInit()
     /* Scan cycle counters */
     scanCntr++;
     objectsScannedCntr = 0;
+
+    state = RUNNING;
 }
 
 VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)

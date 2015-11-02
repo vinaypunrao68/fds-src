@@ -92,9 +92,10 @@ TEST_F(DmUnitTest, ObjectRefMg) {
 
     ObjectRefMgr refMgr(dmTester, dataMgr);
     refMgr.mod_startup();
-    refMgr.scanOnce([&waiter](ObjectRefMgr *refMgr) {
+    refMgr.setScanDoneCb([&waiter](ObjectRefMgr *refMgr) {
         waiter.done();
     });
+    refMgr.scanOnce();
 
     ASSERT_TRUE(waiter.await(5000));
     refMgr.dumpStats();
