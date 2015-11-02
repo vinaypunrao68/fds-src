@@ -890,7 +890,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
         return false;
     }
     // otherwise the ack must be from AMs only
-    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
+//    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
 
     // for now assuming commit is always a success
     if (src.commit_acks_to_wait > 0) {
