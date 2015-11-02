@@ -1,16 +1,12 @@
 package com.formationds.nfs;
 
 import com.formationds.xdi.AsyncAm;
+import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 import org.dcache.acl.ACE;
-import org.dcache.acl.enums.AceFlags;
-import org.dcache.acl.enums.AceType;
-import org.dcache.acl.enums.Who;
 import org.dcache.auth.GidPrincipal;
-import org.dcache.auth.Subjects;
 import org.dcache.auth.UidPrincipal;
-import org.dcache.nfs.status.BadOwnerException;
 import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.status.NotDirException;
@@ -29,8 +25,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.dcache.nfs.v4.xdr.nfs4_prot.ACE4_INHERIT_ONLY_ACE;
-
 public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final String DOMAIN = "nfs";
     private static final Logger LOG = Logger.getLogger(BlockyVfs.class);
@@ -44,7 +38,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     private final Counters counters;
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = TimeoutHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
+        IoOps ops = RecoveryHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
@@ -358,13 +352,12 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             throw new NoEntException();
         }
 
-
-
         InodeMetadata updated = metadata.get().update(stat);
 
         parallel(() -> null,
                 () -> inodeMap.update(inode.exportIndex(), updated),
                 () -> inodeIndex.index(inode.exportIndex(), true, updated));
+        LOG.debug("SETATTR " + exportResolver.volumeName(inode.exportIndex()) + "." + Joiner.on(",").join(updated.getLinks().values()) + ", mode=" + Integer.toOctalString(updated.getMode()));
     }
 
     @Override

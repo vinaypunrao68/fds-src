@@ -167,6 +167,18 @@ void DataMgr::handleForwardComplete(DmRequest *io) {
     delete io;
 }
 
+void DataMgr::handleDmFunctor(DmRequest *io)
+{
+    {
+        dm::QueueHelper helper(*this, io);
+        helper.skipImplicitCb = true;
+
+        DmFunctor *request = static_cast<DmFunctor*>(io);
+        request->func();
+    }
+    delete io;
+}
+
 //
 // Called by stats collector to sample DM specific stats
 //

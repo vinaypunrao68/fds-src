@@ -333,4 +333,15 @@ std::string ObjectMetadataDb::getObjectMetaFilename(const std::string& diskPath,
     std::string filename = diskPath + "//SNodeObjIndex_" + std::to_string(smTokId);
     return filename;
 }
+
+std::vector<ObjectID> ObjectMetadataDb::getKeys(const fds_token_id &smToken) {
+    SCOPEDREAD(dbmapLock_);
+    TokenTblIter iter = tokenTbl.find(smToken);
+    if (iter != tokenTbl.end()) {
+        return iter->second->GetKeys();
+    } else {
+        return std::vector<ObjectID>();
+    }
+}
+
 }  // namespace fds

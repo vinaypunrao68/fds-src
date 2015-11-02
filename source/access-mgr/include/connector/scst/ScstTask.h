@@ -41,6 +41,7 @@ struct ScstTask : public BlockTask {
 
     /** SCSI Setters */
     inline void checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq);
+    inline void reservationConflict();
 
     inline void setResponseBuffer(uint8_t* buf, bool const cached_buffer);
     inline void setResponseLength(size_t const buf_len);
@@ -67,6 +68,13 @@ struct ScstTask : public BlockTask {
     // If the buffer is known to SCST
     bool buffer_in_sgv {false};
 };
+
+void
+ScstTask::reservationConflict()
+{
+    reply.exec_reply.status = SAM_STAT_RESERVATION_CONFLICT;
+    reply.exec_reply.sense_len = 0;
+}
 
 void
 ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq)

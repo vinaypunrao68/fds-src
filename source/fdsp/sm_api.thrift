@@ -10,6 +10,18 @@ include "svc_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm
 
+/*------------------------------------------------------------
+  Object Set Messages
+------------------------------------------------------------*/
+struct ActiveObjectsMsg {
+  1: string    filename;
+  2: string    checksum;
+  3: list<i64> volumeIds;
+  4: i32       token;
+}
+
+struct ActiveObjectsRespMsg {
+}
 /* ------------------------------------------------------------
    Operations on Objects
    ------------------------------------------------------------*/

@@ -736,6 +736,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
+        GLOGDEBUG << "No point in sending when service is down! ( "
+                  << svcInfo_.ip << ":" << svcInfo_.svc_port << " )";
         return false;
     }
     try {
@@ -746,8 +748,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
+            /**
+             * fault injection, if 'svc.fault.unreachable' is set the following lambda will execute
+             */
             fiu_do_on("svc.fault.unreachable",
                       LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
+
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
@@ -766,7 +772,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
+    if ( (svcInfo_.incarnationNo < newInfo.incarnationNo) ||
+         (svcInfo_.svc_status != newInfo.svc_status) ) {
         /* Update to new incaration information.  Invalidate the old rpc client */
         svcInfo_ = newInfo;
         svcClient_.reset();

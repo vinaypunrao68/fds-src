@@ -33,5 +33,9 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 typedef fds_uint16_t DiskId;
 typedef std::set<fds_uint16_t> DiskIdSet;
 const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
+
+// maximum delete count after which the object will be garbage collected.
+const fds_uint8_t OBJ_DELETE_COUNT_THRESHOLD = 5;
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_

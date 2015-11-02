@@ -91,12 +91,17 @@ namespace fds {
 
       void heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                           boost::shared_ptr<fpi::HeartbeatMessage>& msg);
+
+      void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                              boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
     private:
       void init_svc_event_handlers();
+      void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                    boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg );

@@ -42,6 +42,10 @@ exception ApiException {
     2: ErrorCode errorCode,
 }
 
+exception NotMasterDomain {
+    1: string message,
+}
+
 /* Can be consolidated when apis and fdsp merge or whatever */
 struct BlobDescriptor {
      1: required string name,

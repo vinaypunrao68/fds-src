@@ -220,6 +220,12 @@ enum  FDSPMsgTypeId {
   EmptyMsgTypeId                            = 11;
   StatStreamMsgTypeId                       = 12;
 
+  /** File Transfer **/
+  FileTransferMsgTypeId                     = 900;
+  FileTransferRespMsgTypeId;
+  FileTransferVerifyMsgTypeId;
+  FileTransferVerifyRespMsgTypeId;
+
   /** Node/service event messages. */
   NodeSvcInfoTypeId                         = 1000;
   UuidBindMsgTypeId                         = 1001;
@@ -310,7 +316,8 @@ enum  FDSPMsgTypeId {
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
   CtrlTokenMigrationAbortTypeId             = 9001;
-
+  SvcStateChangeRespTypeId                  = 9002;
+  
   /** SM Type Ids*/
   GetObjectMsgTypeId                        = 10000;
   GetObjectRespTypeId                       = 10001;
@@ -321,6 +328,8 @@ enum  FDSPMsgTypeId {
   AddObjectRefMsgTypeId                     = 10006;
   AddObjectRefRspMsgTypeId                  = 10007;
   PrepareForShutdownMsgTypeId               = 10008;
+  ActiveObjectsMsgTypeId;
+  ActiveObjectsRspMsgTypeId;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;

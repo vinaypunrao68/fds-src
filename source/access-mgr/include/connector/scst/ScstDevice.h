@@ -66,6 +66,9 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     template<typename T>
     using unique = std::unique_ptr<T>;
 
+    /// Constants
+    static constexpr uint64_t invalid_session_id {UINT64_MAX};
+
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
@@ -90,6 +93,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     scst_user_reply_cmd fast_reply {};
     uint32_t logical_block_size;
     uint32_t physical_block_size {0};
+    uint64_t reservation_session_id {invalid_session_id};
 
     boost::lockfree::queue<ScstTask*> readyResponses;
     std::unordered_map<uint32_t, unique<ScstTask>> repliedResponses;

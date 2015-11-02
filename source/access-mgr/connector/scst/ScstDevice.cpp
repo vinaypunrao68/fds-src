@@ -104,7 +104,7 @@ ScstDevice::ScstDevice(std::string const& vol_name,
                 0,                                          // partial transfer length
                 SCST_TST_0_SINGLE_TASK_SET,                 // task set sharing
                 0,                                          // task mgmt only (on fault)
-                SCST_QUEUE_ALG_0_RESTRICTED_REORDER,        // maintain consistency in reordering
+                SCST_QUEUE_ALG_1_UNRESTRICTED_REORDER,      // maintain consistency in reordering
                 SCST_QERR_0_ALL_RESUME,                     // fault does not abort all cmds
                 1, 0, 0, 0                                  // TAS/SWP/DSENSE/ORDER MGMT
         },
@@ -213,7 +213,13 @@ void ScstDevice::execParseCmd() {
 
 void ScstDevice::execTaskMgmtCmd() {
     LOGDEBUG << "Task Management request.";
-    // We do not support Aborts/Resets/etc. at this point, so do nothing.
+    auto& tmf_cmd = cmd.tm_cmd;
+
+    if (SCST_TARGET_RESET == tmf_cmd.fn) {
+        // Reset the reservation if we get a target reset
+        reservation_session_id = invalid_session_id;
+    }
+
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -261,6 +267,26 @@ void ScstDevice::execUserCmd() {
     do {
     if (0 == volume_size) {
         task->checkCondition(SCST_LOAD_SENSE(scst_sense_not_ready));
+        continue;
+    }
+
+    // These commands do not require a reservation if one exists
+    bool ignore_res = false;
+    switch (op_code) {
+    case INQUIRY:
+    case LOG_SENSE:
+    case RELEASE:
+    case TEST_UNIT_READY:
+      ignore_res = true;
+    default:
+      break;
+    }
+
+    // Check current reservation
+    if (!ignore_res &&
+        invalid_session_id != reservation_session_id &&
+        reservation_session_id != scsi_cmd.sess_h) {
+        task->reservationConflict();
         continue;
     }
 
@@ -336,27 +362,36 @@ void ScstDevice::execUserCmd() {
                     param_cursor += sizeof(serial_number) - 1;
                     break;
                 case 0x83: // Device ID
-                    /* |                                 PAGE                                  |*/
-                    /* |                                LENGTH                                 |*/
-                    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-                    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-                    static uint8_t const device_id_header [] = {
-                        0,
-                        12,
-                        0x02,       // ASCII
-                        0b00000001, // T10 Vendor ID
-                        0,
-                        8           // ID Length
-                    };
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
+                    {
+                        /* |                                 PAGE                                  |*/
+                        /* |                                LENGTH                                 |*/
+                        /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+                        /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+                        /* |                                 resv                                  |*/
+                        /* |                          DESIGNATOR LENGTH                            |*/
+                        uint8_t device_id_header [] = {
+                            0,
+                            0,
+                            0x52,       // iSCSI / ASCII
+                            0b10100001, // T10 Vendor ID
+                            0,
+                            0           // ID Length
+                        };
+                        auto const targetName = scst_target->targetName();
+                        if (param_cursor < buflen) {
+                            *reinterpret_cast<uint16_t*>(&device_id_header) = htobe16(targetName.size() + 5);
+                            device_id_header[5] = targetName.size() + 1;
+                            memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
+                        }
+                        param_cursor += sizeof(device_id_header);
+                        if (param_cursor < buflen) {
+                            memcpy(&buffer[param_cursor],
+                                   targetName.c_str(),
+                                   std::min(buflen - param_cursor - 1, targetName.size()));
+                        }
+                        param_cursor += targetName.size() + 1; // name is null terminated
                     }
-                    param_cursor += sizeof(device_id_header);
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor], vendor_name, std::min(buflen - param_cursor, sizeof(vendor_name)));
-                    }
-                    param_cursor += sizeof(vendor_name);
-                    break;
+                    break;;
                 default:
                     LOGERROR << "Request for unsupported page code.";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
@@ -583,7 +618,7 @@ void ScstDevice::execUserCmd() {
                         0x0A,
                         0x0A,
                         0b00000000,
-                        0b00001000,
+                        0b00011000,
                         0b00000000,
                         0b01000000,
                         0,
@@ -669,6 +704,18 @@ void ScstDevice::execUserCmd() {
             // Right now our API expects the data in a boost shared_ptr :(
             auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
             return scstOps->write(buffer, task);
+        }
+        break;
+    case RESERVE:
+        LOGIO << "Reserving device [" << volumeName << "]";
+        reservation_session_id = scsi_cmd.sess_h;
+        break;
+    case RELEASE:
+        if (reservation_session_id == scsi_cmd.sess_h) {
+            LOGIO << "Releasing device [" << volumeName << "]";
+            reservation_session_id = invalid_session_id;
+        } else {
+            LOGNOTIFY << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
         }
         break;
     default:
