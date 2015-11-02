@@ -53,7 +53,7 @@ class EnsureAdminUser {
                 .findFirst()
                 .isPresent();
         
-        if (!hasAdmin) {
+        if (!hasStats) {
             // TODO: default passwords are a security risk (even when "secure" passwords are used).
             // Installer should set or admin webapp should detect that this is a first time boot
             // and step the customer through first-time configuration steps, including defining a
