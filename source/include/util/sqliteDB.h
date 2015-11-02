@@ -14,8 +14,6 @@ namespace fds {
  * This class creates an instance of sqlite3 db and provides
  * a set of apis to execute queries and access data stored in
  * the tables.
- * TODO(Gurpreet): write some more data retrieval apis like
- *                 getIntValues, getTextValue etc.
  */
 class SqliteDB {
 
@@ -25,12 +23,14 @@ class SqliteDB {
     public:
         explicit SqliteDB(const std::string &dbFilePath);
         int execute(const std::string &query);
-        int getIntValue(const std::string &query,
+        bool getIntValue(const std::string &query,
                         fds_uint64_t &value);
         bool getIntValues(const std::string &query,
-                          std::set<fds_uint64_t> &value);
+                          std::set<fds_uint64_t> &valueSet);
+        bool getTextValue(const std::string &query,
+                          std::string &value);
         bool getTextValues(const std::string &query,
-                           std::set<std::string> &value);
+                           std::set<std::string> &valueSet);
         inline void logOnError(const int &errorCode,
                                const std::string &msg) {
             if (errorCode != SQLITE_OK) {

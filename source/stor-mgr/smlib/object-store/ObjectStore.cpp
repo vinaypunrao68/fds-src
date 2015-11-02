@@ -1589,6 +1589,7 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
 
 /**
  * Check if SM has object sets for all the volumes in the domain.
+ * (Including all system volumes).
  */
 bool
 ObjectStore::haveAllObjectSets() const {
