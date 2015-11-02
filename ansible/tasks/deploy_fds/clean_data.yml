@@ -11,7 +11,7 @@
         - /corefiles/*
         - /fds/var/core/*.core
         - /fds/dev/*
-        - /fds/sys-repo
+        - /fds/sys-repo/*
         - /fds/user-repo/*
         - /fds/var/redis/appendonly.aof
     tags:
