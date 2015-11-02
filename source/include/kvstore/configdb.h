@@ -16,6 +16,7 @@
 #include <fdsp/config_types_types.h>
 #include <exception>
 #include <fds_subscription.h>
+#include <fds_ldomain.h>
 namespace fds {
 struct node_data;
 
@@ -38,14 +39,37 @@ struct ConfigDB : KVStore {
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
     virtual ~ConfigDB();
     fds_uint64_t getLastModTimeStamp();
-    fds_uint64_t getConfigVersion();
 
-    // domains
+    // ConfigDB design version and upgrade management.
+    void setConfigVersion();
+    std::string getConfigVersion();
+    bool isLatestConfigDBVersion(std::string& version);
+    ReturnType upgradeConfigDBVersionLatest(std::string& currentVersion);
+
+    // Global Domains
     std::string getGlobalDomain();
     bool setGlobalDomain(ConstString globalDomain= "fds");
-    int64_t createLocalDomain (const std::string& identifier = "local", const std::string& site = "local");
-    bool listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains);
-    int64_t getIdOfLocalDomain(const std::string& identifier);
+
+    // Local Domains
+    fds_ldomid_t getNewLocalDomainId();
+    fds_ldomid_t putLocalDomain(const LocalDomain& localDomain, const bool isNew = true);
+    fds_ldomid_t addLocalDomain(const LocalDomain& localDomain);
+    ReturnType updateLocalDomain(const LocalDomain& localDomain);
+    ReturnType deleteLocalDomain(fds_ldomid_t id);
+    ReturnType localDomainExists(fds_ldomid_t id);
+    ReturnType localDomainExists(const std::string& name);
+    ReturnType getLocalDomainIds(std::vector<fds_ldomid_t>&ldomIds);
+    fds_ldomid_t getLocalDomainId(const std::string& name);
+    ReturnType listLocalDomains(std::vector<LocalDomain>& localDomains);
+    ReturnType getLocalDomains(std::vector<LocalDomain>& localDomains);
+    ReturnType getLocalDomain(fds_ldomid_t id, LocalDomain& localDomain);
+    ReturnType getLocalDomain(const std::string& name, LocalDomain& localDomain);
+
+
+    // ConfigDB management method for older versions of the ConfigDB.
+
+    // Talc
+    bool listLocalDomainsTalc(std::vector<fds::apis::LocalDomainDescriptorV07> &localDomains);
 
     // volumes
     fds_volid_t getNewVolumeId();
@@ -186,6 +210,9 @@ struct ConfigDB : KVStore {
     };
     
     void fromTo( fpi::SvcInfo svcInfo, kvstore::NodeInfoType nodeInfo );
+
+  private:
+    void setConfigVersion(const std::string& newVersion);
 };
 
 #define TRACKMOD(...) ModificationTracker modtracker(this)

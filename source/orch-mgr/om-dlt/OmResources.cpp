@@ -1241,14 +1241,16 @@ OM_NodeDomainMod::om_local_domain_down()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
-// om_master_domain
-// ------------------
-//
+/**
+ * Determines whether the current local domain is the master domain for the global domain
+ * in which it resides.
+ *
+ * @return fds_bool_t: 'true' if it is the master domain. 'false' if not.
+ */
 fds_bool_t
 OM_NodeDomainMod::om_master_domain()
 {
-    // TODO(Greg): Need some switch to check whether we are master - perhaps "domainID == 1"?
-    return true;
+    return om_local_domain()->om_locDomain->getLocalDomain()->isMaster();
 }
 
 // domain_event

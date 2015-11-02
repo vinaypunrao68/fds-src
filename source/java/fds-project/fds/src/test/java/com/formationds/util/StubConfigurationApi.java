@@ -28,8 +28,9 @@ public class StubConfigurationApi implements ConfigurationApi {
     // StreamingRegistrationMsg
     // SnapshotPolicy
     // Clones?
-    private List<LocalDomain> localDomains;
-    private AtomicLong localDomainId;
+    private List<LocalDomainDescriptor> localDomains;
+    private List<LocalDomainDescriptorV07> localDomainsV07;
+    private AtomicInteger localDomainId;
 
     private List<SnapshotPolicy> snapshotPolicies;
     private AtomicLong snapshotPolicyId;
@@ -54,7 +55,7 @@ public class StubConfigurationApi implements ConfigurationApi {
         configurationVersion = new AtomicLong(0);
 
         localDomains = new CopyOnWriteArrayList<>();
-        localDomainId = new AtomicLong(0);
+        localDomainId = new AtomicInteger(0);
         snapshotPolicies = new CopyOnWriteArrayList<>();
         snapshotPolicyId = new AtomicLong(0);
         qosPolicies = new CopyOnWriteArrayList<>();
@@ -71,16 +72,26 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public long createLocalDomain(String domainName, String domainSite) throws ApiException, TException {
         configurationVersion.incrementAndGet();
-        LocalDomain domain = new LocalDomain(localDomainId.incrementAndGet(), domainName, domainSite);
+        LocalDomainDescriptor domain = new LocalDomainDescriptor(localDomainId.incrementAndGet(),
+                                                                 domainName,
+                                                                 domainSite,
+                                                                 0,
+                                                                 false,
+                                                                 null);
         localDomains.add(domain);
         return domain.getId();
     }
 
     @Override
-    public List<LocalDomain> listLocalDomains(int ignore) throws TException {
+    public List<LocalDomainDescriptor> listLocalDomains(int ignore) throws TException {
         return localDomains;
     }
-    
+
+    @Override
+    public List<LocalDomainDescriptorV07> listLocalDomainsV07(int ignore) throws TException {
+        return localDomainsV07;
+    }
+
     @Override
     public void updateLocalDomainName(String oldDomainName, String newDomainName) throws TException {
         return;

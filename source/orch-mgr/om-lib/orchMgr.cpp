@@ -246,18 +246,51 @@ bool OrchMgr::loadFromConfigDB() {
     // get global domain info
     std::string globalDomain = getConfigDB()->getGlobalDomain();
     if (globalDomain.empty()) {
-        LOGWARN << "global.domain not configured.. setting a default [fds]";
+        /**
+         * We assume here that the ConfigDB is being newly constructed and so, set the version.
+         */
+        getConfigDB()->setConfigVersion();
+
+        std::string version = getConfigDB()->getConfigVersion();
+        if (version.empty()) {
+            LOGCRITICAL << "Unable to set the initial ConfigDB version. See log for details.";
+            return false;
+        } else {
+            LOGNOTIFY << "Initial creation of ConfigDB at version <" << version << ">.";
+        }
+
+        LOGNOTIFY << "Global domain not configured. Setting a default, [fds]";
         getConfigDB()->setGlobalDomain("fds");
+
+    } else {
+        /**
+         * Existing ConfigDB. We'll take the opportunity to upgrade it if necessary.
+         */
+        std::string version = getConfigDB()->getConfigVersion();
+        if (version.empty()) {
+            LOGCRITICAL << "Unable to obtain the ConfigDB version. See log for details.";
+            return false;
+        } else if (!getConfigDB()->isLatestConfigDBVersion(version)) {
+            /**
+             * Need to upgrade ConfigDB from current version to latest.
+             */
+            if (getConfigDB()->upgradeConfigDBVersionLatest(version) != kvstore::ConfigDB::ReturnType::SUCCESS) {
+                LOGCRITICAL << "Unable to upgrade the ConfigDB version. See log for details.";
+                return false;
+            }
+
+        }
     }
 
     // get local domains
-    std::vector<fds::apis::LocalDomain> localDomains;
+    std::vector<LocalDomain> localDomains;
     getConfigDB()->listLocalDomains(localDomains);
 
     if (localDomains.empty())  {
         LOGWARN << "No Local Domains stored in the system. "
                 << "Setting a default Local Domain.";
-        int64_t id = getConfigDB()->createLocalDomain();
+        LocalDomain localDomain;
+        auto id = getConfigDB()->putLocalDomain(localDomain);
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
             return false;
@@ -273,8 +306,27 @@ bool OrchMgr::loadFromConfigDB() {
         return false;
     }
 
-    // load/create system volumes
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    // Load current Local Domain.
+    for (auto localDomain : localDomains) {
+        if (localDomain.getCurrent()) {
+            local->setLocalDomain(localDomain);
+        }
+    }
+
+    if (local->getLocalDomain() == nullptr) {
+        LOGCRITICAL << "Unable to set current local domain.";
+        return false;
+    } else {
+        LOGNOTIFY << "Current Local Domain is <" << local->getLocalDomain()->getName()
+                  << ":" << local->getLocalDomain()->getID() << ">.";
+        if (local->getLocalDomain()->isMaster()) {
+            LOGNOTIFY << "Current Local Domain is the Master Local Domain for the Global Domain.";
+        }
+    }
+
+    // load/create system volumes
     VolumeContainer::pointer volContainer = local->om_vol_mgr();
     volContainer->createSystemVolume();
     volContainer->createSystemVolume(0);

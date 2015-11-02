@@ -417,11 +417,17 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<LocalDomain> listLocalDomains(int ignore)
+    public List<LocalDomainDescriptor> listLocalDomains(int ignore)
             throws ApiException, TException {
         return config.listLocalDomains(0);
     }
-    
+
+    @Override
+    public List<LocalDomainDescriptorV07> listLocalDomainsV07(int ignore)
+            throws ApiException, TException {
+        return config.listLocalDomainsV07(0);
+    }
+
     @Override
     public void updateLocalDomainName(String oldDomainName, String newDomainName)
         throws ApiException, TException {

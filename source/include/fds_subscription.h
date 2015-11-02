@@ -12,18 +12,16 @@
 
 #include <string>
 
-#include <fds_value_type.h>
 #include <fds_volume.h>
 #include <has_state.h>
 
-#include <serialize.h>
 #include <fdsp/config_types_types.h>
 
 namespace fds {
 
 using fds_subid_t = std::int64_t;
 
-static fds_subid_t const invalid_sub_id(0);
+static constexpr fds_subid_t invalid_sub_id{0};
 
 /**
  * The Subscription class captures the details for asynchronously replicating

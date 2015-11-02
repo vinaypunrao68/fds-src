@@ -94,8 +94,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @throws TException
      */
     @Override
-    public List<LocalDomain> listLocalDomains( int ignore ) throws TException {
+    public List<LocalDomainDescriptor> listLocalDomains( int ignore ) throws TException {
         return getConfig().listLocalDomains( ignore );
+    }
+
+    /**
+     * Interface version V07.
+     *
+     * List all currently defined Local Domains (within the context of the understood Global Domain).
+     *
+     * @return List<com.formationds.apis.LocalDomainV07>: A list of the currently defined Local Domains and associated information.
+     *
+     * @throws TException
+     */
+    @Override
+    public List<LocalDomainDescriptorV07> listLocalDomainsV07( int ignore ) throws TException {
+        return getConfig().listLocalDomainsV07( ignore );
     }
 
     /**

@@ -113,7 +113,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
-    void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
+    void listLocalDomains(std::vector<LocalDomainDescriptor> & _return, const int32_t ignore) {}
+    void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07> & _return, const int32_t ignore) {}
     void updateLocalDomainName(const std::string& oldDomainName, const std::string& newDomainName) {}
     void updateLocalDomainSite(const std::string& domainName, const std::string& newSiteName) {}
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
@@ -194,7 +195,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return int64_t - ID of the newly created Local Domain.
     */
     int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& domainSite) {
-        int64_t id = configDB->createLocalDomain(*domainName, *domainSite);
+        checkMasterDomain();
+
+        LocalDomain localDomain(*domainName, *domainSite);
+
+        auto id = configDB->putLocalDomain(localDomain);
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation: " << *domainName;
             apiException("Error creating Local Domain.");
@@ -212,10 +217,60 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
-        configDB->listLocalDomains(_return);
+    void listLocalDomains(std::vector<LocalDomainDescriptor>& _return, boost::shared_ptr<int32_t>& ignore) {
+        std::vector<LocalDomain> localDomains;
+
+        checkMasterDomain();
+
+        auto ret = om->getConfigDB()->getLocalDomains(localDomains);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all local domains for the global domain.";
+            apiException("Error retrieving all local domains for the global domain.");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < localDomains.size(); i++) {
+                apis::LocalDomainDescriptor localDomainDescriptor;
+                LocalDomain::makeLocalDomainDescriptor(localDomainDescriptor, localDomains[i]);
+                _return.push_back(localDomainDescriptor);
+            }
+        }
     }
 
+/**
+ * Interface version V07.
+ *
+ * List the currently defined Local Domains.
+ *
+ * @param _return - Output vecotor of current Local Domains.
+ *
+ * @return void.
+ */
+void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::shared_ptr<int32_t>& ignore) {
+    std::vector<LocalDomain> localDomains;
+
+    checkMasterDomain();
+
+    auto ret = om->getConfigDB()->getLocalDomains(localDomains);
+
+    if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+        LOGERROR << "Some issue with retrieving all local domains for the global domain.";
+        apiException("Error retrieving all local domains for the global domain.");
+    } else {
+        _return.clear();
+
+        for (std::size_t i = 0; i < localDomains.size(); i++) {
+            apis::LocalDomainDescriptorV07 localDomainDescriptorV07;
+
+            localDomainDescriptorV07.id = localDomains[i].getID();
+            localDomainDescriptorV07.name = localDomains[i].getName();
+            localDomainDescriptorV07.site = localDomains[i].getSite();
+
+            _return.push_back(localDomainDescriptorV07);
+        }
+    }
+}
     /**
     * Rename the given Local Domain.
     *
@@ -225,7 +280,26 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void updateLocalDomainName(boost::shared_ptr<std::string>& oldDomainName, boost::shared_ptr<std::string>& newDomainName) {
-        apiException("updateLocalDomainName not implemented.");
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*oldDomainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *oldDomainName;
+            apiException("Error retrieving Local Domain.");
+        }
+
+        localDomain.setName(*newDomainName);
+
+        ret = configDB->updateLocalDomain(localDomain);
+
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in Local Domain rename: " << *oldDomainName;
+            apiException("Error renaming Local Domain.");
+        } else {
+            LOGNOTIFY << "Local Domain <" << localDomain.getID() << "> renamed from <" << *oldDomainName <<
+                            "> to <" << *newDomainName << ">.";
+        }
     }
 
     /**
@@ -236,8 +310,28 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void updateLocalDomainSite(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& newSiteName) {
-        apiException("updateLocalDomainSite not implemented.");
+    void updateLocalDomainSite(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>&newSite) {
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *domainName;
+            apiException("Error retrieving Local Domain.");
+        }
+
+        auto oldSite = localDomain.getSite();
+        localDomain.setSite(*newSite);
+
+        ret = configDB->updateLocalDomain(localDomain);
+
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in Local Domain site update: " << *domainName;
+            apiException("Error updating Local Domain site.");
+        } else {
+            LOGNOTIFY << "Local Domain <" << localDomain.getID() << "> site changed from <" << oldSite <<
+                      "> to <" << *newSite << ">.";
+        }
     }
 
     /**
@@ -306,8 +400,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void startupLocalDomain(boost::shared_ptr<std::string>& domainName)
     {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
-        if ( domainID <= 0 )
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if ( ret != kvstore::ConfigDB::ReturnType::SUCCESS )
         {
             LOGERROR << "Local Domain not found: " << domainName;
 
@@ -343,13 +440,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        LocalDomain localDomain;
+        checkMasterDomain();
 
-        if (domainID <= 0) {
-            LOGERROR << "Local Domain not found: " << domainName;
-            apiException( "Error shutting down Local Domain " +
-                          *domainName +
-                          ". Local Domain not found.");
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *domainName;
+            apiException("Error retrieving Local Domain.");
         }
 
         /*
@@ -381,7 +478,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void deleteLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        apiException("deleteLocalDomain not implemented.");
+        checkMasterDomain();
+
+        auto domainID = configDB->getLocalDomainId(*domainName);
+
+        if (domainID <= 0) {
+            LOGERROR << "Local Domain not found: " << domainName;
+            apiException("Error deleting Local Domain " + *domainName + ". Local Domain not found.");
+        }
+
+        configDB->deleteLocalDomain(domainID);
     }
 
     /**
@@ -403,10 +509,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                      boost::shared_ptr<fds_bool_t>& sm,
                                      boost::shared_ptr<fds_bool_t>& dm,
                                      boost::shared_ptr<fds_bool_t>& am) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        auto domainID = configDB->getLocalDomainId(*domainName);
 
         if (domainID <= 0) {
-            LOGERROR << "Local Domain not found: " << domainName;
+            LOGERROR << "Local Domain not found: " << *domainName;
             apiException("Error activating Local Domain " + *domainName + " Services. Local Domain not found.");
         }
 
@@ -418,7 +524,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
 
         try {
-            LOGNORMAL << "Received activate services for Local Domain " << domainName;
+            LOGNORMAL << "Received activate services for Local Domain " << *domainName;
             LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
 
             localDomain->om_cond_bcast_start_services(*sm, *dm, *am);
@@ -660,7 +766,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                    boost::shared_ptr<fds_bool_t>& sm,
                                    boost::shared_ptr<fds_bool_t>& dm,
                                    boost::shared_ptr<fds_bool_t>& am) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        auto domainID = configDB->getLocalDomainId(*domainName);
 
         if (domainID <= 0) {
             LOGERROR << "Local Domain not found: " << domainName;
