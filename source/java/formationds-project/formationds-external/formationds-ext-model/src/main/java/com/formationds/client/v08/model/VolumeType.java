@@ -4,4 +4,4 @@
 
 package com.formationds.client.v08.model;
 
-public enum VolumeType { BLOCK, OBJECT, SYSTEM }
+public enum VolumeType { BLOCK, OBJECT, SYSTEM, ISCSI, NFS }

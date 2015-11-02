@@ -9,16 +9,19 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.*;
 
 public class EvictingCache<TKey, TValue> {
     private final Cache<TKey, CacheEntry<TValue>> cache;
     private Cache<TKey, Object> locks;
     private final Executor executor;
+    private Evictor<TKey, CacheEntry<TValue>> evictor;
     private String name;
     private final BlockingDeque<Exception> exceptions;
 
     public EvictingCache(Evictor<TKey, CacheEntry<TValue>> evictor, String name, int maxSize, int evictionInterval, TimeUnit evictionTimeUnit) {
+        this.evictor = evictor;
         this.name = name;
         executor = Executors.newCachedThreadPool();
         exceptions = new LinkedBlockingDeque<>();
@@ -89,6 +92,20 @@ public class EvictingCache<TKey, TValue> {
             } else {
                 throw new IOException(exception);
             }
+        }
+    }
+
+    public void flush() throws IOException {
+        Set<TKey> keys = cache.asMap().keySet();
+        for (TKey key : keys) {
+            lock(key, c -> {
+                CacheEntry<TValue> entry = c.get(key);
+                if (entry.isDirty) {
+                    evictor.flush(key, entry);
+                    entry.isDirty = false;
+                }
+                return null;
+            });
         }
     }
 }

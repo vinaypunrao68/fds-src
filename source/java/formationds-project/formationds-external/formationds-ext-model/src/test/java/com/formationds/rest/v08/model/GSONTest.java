@@ -9,6 +9,10 @@ import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.nfs.ACL;
+import com.formationds.client.v08.model.nfs.Async;
+import com.formationds.client.v08.model.nfs.NfsOptionBase;
+import com.formationds.client.v08.model.nfs.Squash;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import org.junit.Assert;
@@ -26,6 +30,55 @@ public class GSONTest {
 
     static Gson   gson;
     static Volume testVol1;
+
+    public static class NfsOptionAdapter
+            implements JsonSerializer<NfsOptionBase>, JsonDeserializer<NfsOptionBase>
+    {
+        private static final String CLASSNAME = "CLASSNAME";
+        private static final String INSTANCE  = "INSTANCE";
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public NfsOptionBase deserialize( JsonElement json,
+                                          Type typeOfT,
+                                          JsonDeserializationContext context )
+                throws JsonParseException
+        {
+            JsonObject jsonObject =  json.getAsJsonObject();
+            JsonPrimitive prim = ( JsonPrimitive ) jsonObject.get( CLASSNAME ) ;
+            String className = prim.getAsString();
+
+            Class<?> klass;
+            try
+            {
+                klass = Class.forName( className) ;
+            }
+            catch (ClassNotFoundException e)
+            {
+                throw new JsonParseException( e.getMessage() );
+            }
+
+            return context.deserialize( jsonObject.get( INSTANCE ), klass );
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public JsonElement serialize( NfsOptionBase src,
+                                      Type typeOfSrc,
+                                      JsonSerializationContext context )
+        {
+            JsonObject retValue = new JsonObject();
+            String className = src.getClass().getCanonicalName();
+            retValue.addProperty( CLASSNAME, className );
+            JsonElement elem = context.serialize( src );
+            retValue.add( INSTANCE, elem );
+            return retValue;
+        }
+    }
 
     public static class VolumeSettingsAdapter implements JsonSerializer<VolumeSettings>, JsonDeserializer<VolumeSettings> {
 
@@ -67,7 +120,10 @@ public class GSONTest {
                                                         .setPrettyPrinting()
                                                         .registerTypeAdapter( VolumeSettings.class,
                                                                               new VolumeSettingsAdapter() )
-                                                        .setLongSerializationPolicy( LongSerializationPolicy.STRING ).create(); }
+                                                        .registerTypeAdapter( NfsOptionBase.class,
+                                                                              new NfsOptionAdapter( ) )
+                                                        .setLongSerializationPolicy(
+                                                                LongSerializationPolicy.STRING ).create(); }
 
     @BeforeClass
     public static void setUpCLass() {
@@ -208,6 +264,27 @@ public class GSONTest {
         Assert.assertNotNull( j );
 
         v2 = gson.fromJson( j, VolumeSettingsObject.class );
+        Assert.assertNotNull( v2 );
+        Assert.assertEquals( v, v2 );
+    }
+
+    @Test
+    public void testVolumeSettingNfs() {
+        VolumeSettings v = new VolumeSettingsNfs.Builder()
+                                                .withOption( new ACL( ) )
+                                                .withOption( new Async( ) )
+                                                .withOption( new Squash( ) )
+                                                .withIpFilter( new IPFilter( "10.2.10.*",
+                                                                             IPFilter.IP_FILTER_MODE.ALLOW ) )
+                                                .withIpFilter( new IPFilter(
+                                                        "10.2.11.1", "10.2.11.128",
+                                                        IPFilter.IP_FILTER_MODE.DENY ) )
+                                                .build( );
+        String j = gson.toJson( v );
+        System.out.println( j );
+        Assert.assertNotNull( j );
+
+        VolumeSettings v2 = gson.fromJson( j, VolumeSettingsNfs.class );
         Assert.assertNotNull( v2 );
         Assert.assertEquals( v, v2 );
     }

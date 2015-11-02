@@ -100,6 +100,8 @@ namespace fds {
 
     private:
       void init_svc_event_handlers();
+      void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                    boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg );

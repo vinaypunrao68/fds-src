@@ -135,9 +135,11 @@
 
 -   name: install fds-stats deps
     apt: name=fds-stats-deps force=yes state=latest update_cache=yes
+    when: skip_stats is not defined
 
 -   name: install fds-stats-service deb
     apt: name=fds-stats-service force=yes state=latest update_cache=yes
+    when: skip_stats is not defined
 
 -   name: Install python-dev
     when: fds_only_install is defined and fds_only_install == "yes"

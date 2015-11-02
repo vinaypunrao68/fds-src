@@ -1,3 +1,4 @@
+Build/*
 **/am-urls.cpp
 *.DS_Store
 *.a

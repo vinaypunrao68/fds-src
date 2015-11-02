@@ -135,7 +135,7 @@ void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
          * Not sure if this is expected behavior? Once re-written we will
          * handle this correctly. But for now remove the logging noise
          *
-         * LOGWARN << "response received for invalid volume . ignored.";
+         * LOGWARN << "response received for invalid volume. ignored.";
          */
 
         return;
@@ -157,7 +157,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     TRACEFUNC;
 
     if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send vol command to service we know is down"
+        LOGNORMAL << "Will not send vol command to service we know is down "
                   << get_node_name();
         return ERR_NOT_FOUND;
     }
@@ -1917,8 +1917,6 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    fpi::SvcUuid svcuuid;
-
     if (configDB->getNodeServices(nodeUuid, services))
     {
         if ((services.sm.uuid_get_val() == 0) &&
@@ -2083,7 +2081,7 @@ OM_PmAgent::send_deactivate_services_resp(fds_bool_t deactivate_sm,
                                           EPSvcRequest* req,
                                           const Error& error,
                                           boost::shared_ptr<std::string> payload) {
-    LOGNORMAL << "ACK for deactivate services for node" << get_node_name()
+    LOGNORMAL << "ACK for deactivate services for node " << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
               << " deactivate am ? " << deactivate_am
               << " deactivate sm ? " << deactivate_sm

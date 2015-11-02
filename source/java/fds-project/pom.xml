@@ -33,8 +33,9 @@
     <reflections.version>0.9.10</reflections.version>
     <stax.api.version>1.0-2</stax.api.version>
     <grizzly.framework.version>2.3.21</grizzly.framework.version>
-    <lucene.core.version>5.2.1</lucene.core.version>
-    <lucene.analyzers.common.version>5.2.1</lucene.analyzers.common.version>
+    <lucene.core.version>5.3.1</lucene.core.version>
+    <lucene.analyzers.common.version>5.3.1</lucene.analyzers.common.version>
+    <lucene.queryparser.version>5.3.1</lucene.queryparser.version>
   </properties>
 
   <modules>
@@ -134,7 +135,13 @@
         <artifactId>lucene-analyzers-common</artifactId>
         <version>${lucene.analyzers.common.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.apache.lucene</groupId>
+        <artifactId>lucene-queryparser</artifactId>
+        <version>${lucene.queryparser.version}</version>
+      </dependency>
     </dependencies>
+
   </dependencyManagement>
 
 </project>
