@@ -7,6 +7,7 @@ package com.formationds.commons.model.helper;
 import com.formationds.client.v08.model.VolumeSettings;
 import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsObject;
+import com.formationds.client.v08.model.nfs.NfsOptionBase;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.*;
 
@@ -66,6 +67,50 @@ public class ObjectModelHelper {
             }
             
             return context.deserialize( jsonObject, klass );
+        }
+    }
+
+    // implement NfsOptions Adapter
+    public static class NfsOptionAdapter
+            implements JsonSerializer<NfsOptionBase >, JsonDeserializer<NfsOptionBase>
+    {
+        private static final String CLASSNAME = "CLASSNAME";
+        private static final String INSTANCE  = "INSTANCE";
+
+        @Override
+        public NfsOptionBase deserialize( JsonElement json,
+                                          Type typeOfT,
+                                          JsonDeserializationContext context )
+                throws JsonParseException
+        {
+            JsonObject jsonObject =  json.getAsJsonObject();
+            JsonPrimitive prim = ( JsonPrimitive ) jsonObject.get( CLASSNAME ) ;
+            String className = prim.getAsString();
+
+            Class<?> klass;
+            try
+            {
+                klass = Class.forName( className) ;
+            }
+            catch (ClassNotFoundException e)
+            {
+                throw new JsonParseException( e.getMessage() );
+            }
+
+            return context.deserialize( jsonObject.get( INSTANCE ), klass );
+        }
+
+        @Override
+        public JsonElement serialize( NfsOptionBase src,
+                                      Type typeOfSrc,
+                                      JsonSerializationContext context )
+        {
+            JsonObject retValue = new JsonObject();
+            String className = src.getClass().getCanonicalName();
+            retValue.addProperty( CLASSNAME, className );
+            JsonElement elem = context.serialize( src );
+            retValue.add( INSTANCE, elem );
+            return retValue;
         }
     }
 

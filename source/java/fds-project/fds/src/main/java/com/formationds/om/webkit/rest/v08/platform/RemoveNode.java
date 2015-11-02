@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v08.platform;
 
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;

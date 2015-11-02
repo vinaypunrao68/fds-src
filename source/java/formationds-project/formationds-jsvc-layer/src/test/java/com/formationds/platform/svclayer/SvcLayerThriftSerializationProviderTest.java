@@ -1,8 +1,8 @@
 package com.formationds.platform.svclayer;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.SvcID;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.pm.types.NodeInfo;
 import com.formationds.protocol.pm.types.pmServiceStateTypeId;
 import com.formationds.protocol.svc.types.ServiceStatus;

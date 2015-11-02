@@ -719,7 +719,17 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
          cit != diskToks.cend();
          ++cit) {
         diskio::TokenStat stat;
-        persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+
+        if (g_fdsprocess->get_fds_config()->\
+                get<bool>("fds.feature_toggle.common.periodic_expunge")){
+        /**
+         * Evaluate all bloom filters for this particular SM token.
+         * and calculate SM token threshold.
+         */
+            persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
+        } else {
+            persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+        }
         double tot_size = stat.tkn_tot_size;
         reclaim_percent = (stat.tkn_reclaim_size / tot_size) * 100;
         LOGDEBUG << "Disk " << disk_id << " token " << stat.tkn_id

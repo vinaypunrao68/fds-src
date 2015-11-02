@@ -3,7 +3,7 @@
  */
 package com.formationds.platform.svclayer;
 
-import FDS_ProtocolInterface.FDSP_ActivateNodeType;
+import com.formationds.protocol.svc.types.FDSP_ActivateNodeType;
 import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.types.AsyncHdr;
 import com.formationds.protocol.svc.types.DomainNodes;

@@ -8,7 +8,8 @@
 #include <vector>
 #include "fdsp/common_types.h"
 #include "fdsp/xdi_types.h"
-#include "fds_error.h"
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
@@ -29,7 +30,7 @@ class AmAsyncResponseApi {
     template <typename M> using sp = boost::shared_ptr<M>;
   
     typedef H handle_type;
-    typedef Error error_type;
+    typedef fpi::ErrorCode error_type;
     typedef int size_type;
     typedef sp<std::string> shared_buffer_type;
     typedef sp<std::vector<shared_buffer_type>> shared_buffer_array_type;

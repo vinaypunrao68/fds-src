@@ -248,6 +248,8 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
                              bool domainRestart, bool startNode);
+
+    void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
      * Send 'stop service' message to Platform
      */
@@ -257,6 +259,9 @@ class OM_PmAgent : public OM_NodeAgent
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
                                  fds_bool_t stop_am,
+                                 fpi::SvcUuid smSvcId,
+                                 fpi::SvcUuid dmSvcId,
+                                 fpi::SvcUuid amSvcId,
                                  fds_bool_t shutdownNode,
                                  EPSvcRequest* req,
                                  const Error& error,
@@ -970,7 +975,11 @@ class OM_NodeDomainMod : public Module
     */
     virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
 
-
+    virtual void
+    om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                          fpi::FDSP_MgrIdType svcType,
+                                          const fpi::ServiceStatus status );
+    
     /**
      * Notification that service is down to DLT and DMT state machines
      * @param error timeout error or other error returned by the service
@@ -1119,8 +1128,8 @@ class OM_NodeDomainMod : public Module
 
     // Vector to track registering services and
     // locks to protect accesses
-    fds_rwlock svcRegVecLock;
-    std::vector<SvcInfoPtr> registeringSvcs;
+    fds_rwlock svcRegMapLock;
+    std::map<int64_t, SvcInfoPtr> registeringSvcs;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

@@ -530,12 +530,20 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
 {
+    Error err(ERR_OK);
+    fds_volid_t volId(putObjMsg->volume_id);
+    ObjectID objId(putObjMsg->data_obj_id.digest);
+
     if ((objStorMgr->testUturnAll == true) ||
         (objStorMgr->testUturnPutObj == true)) {
         LOGDEBUG << "Uturn testing put object "
                  << fds::logString(*asyncHdr) << fds::logString(*putObjMsg);
         putObjectCb(asyncHdr, ERR_OK, NULL);
         return;
+    }
+
+    if (!(objStorMgr->getVol(volId))) {
+        putObjectCb(asyncHdr, ERR_VOL_NOT_FOUND, NULL);
     }
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
@@ -550,9 +558,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               return;);
 #endif
 
-    Error err(ERR_OK);
-    fds_volid_t volId(putObjMsg->volume_id);
-    ObjectID objId(putObjMsg->data_obj_id.digest);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(volId);

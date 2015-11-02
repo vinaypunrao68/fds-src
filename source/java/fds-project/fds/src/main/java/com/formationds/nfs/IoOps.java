@@ -23,4 +23,5 @@ public interface IoOps {
 
     public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException;
 
+    public void flush() throws IOException;
 }

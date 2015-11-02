@@ -570,8 +570,6 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     	LOGDEBUG << cit.uuid_get_val();
     }
 
-    fds_assert(evt.dmResync == (resync_nodes > 0));
-
     // this method computes new DMT and sets as target if
     // 1. newly computed DMT is different from the current commited DMT
     // or
@@ -600,7 +598,14 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                  << " FIX IT!";
     }
 
-    if (!bret && evt.dmResync) {
+    /**
+     * There is a possibility that a node was queued up during the previous
+     * run of the meta-state machine (MSM).
+     * As part of DST_Close, a timer task is started to retry the state maching from
+     * the top so that we can catch nodes that happened in this scenario.
+     * So we cannot depend on evt.dmResync as a guarantee for state.
+     */
+    if (!bret && resync_nodes) {
     	LOGDEBUG << "DMT did not change, but dmResync requested";
     	bret = true;
     }
@@ -766,12 +771,13 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // commit DMT
     vp->commitDMT();
 
-    // broadcast DMT to DMs first, once we receove acks, will bcast to AMs
+    // broadcast DMT to DMs first, once we receive acks, will broadcast
+    // to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
                                                        vp->getCommittedDMT());
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
-    fds_verify(dst.commit_acks_to_wait > 0);
+//    fds_verify(dst.commit_acks_to_wait > 0);
 
     LOGDEBUG << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
@@ -884,7 +890,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
         return false;
     }
     // otherwise the ack must be from AMs only
-    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
+//    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
 
     // for now assuming commit is always a success
     if (src.commit_acks_to_wait > 0) {

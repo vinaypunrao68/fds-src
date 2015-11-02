@@ -12,3 +12,9 @@ enum pmServiceStateTypeId
     SERVICE_NOT_RUNNING = 0x6001;
     SERVICE_RUNNING     = 0x6002;
 }
+
+enum ActionCode
+{
+    NO_ACTION = 0x0;
+    STARTED   = 0x1;
+}

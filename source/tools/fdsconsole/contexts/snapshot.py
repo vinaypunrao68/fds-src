@@ -1,5 +1,5 @@
 from svchelper import *
-from fdslib.pyfdsp.common.ttypes import ResourceState
+from fdslib.pyfdsp.svc_types.ttypes import ResourceState
 
 
 class SnapshotContext(Context):
