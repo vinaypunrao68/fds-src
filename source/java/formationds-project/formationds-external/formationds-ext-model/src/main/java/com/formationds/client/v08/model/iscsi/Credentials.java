@@ -2,12 +2,12 @@
  * Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
  */
 
-package com.formationds.client.v08.model;
+package com.formationds.client.v08.model.iscsi;
 
 /**
  * @author ptinius
  */
-public abstract class Credentials
+public class Credentials
 {
     private final String name;
     private final String passwd;
@@ -16,7 +16,7 @@ public abstract class Credentials
      * @param name the name of the user
      * @param passwd the password for {@code user}
      */
-    protected Credentials( final String name, final String passwd )
+    public Credentials( final String name, final String passwd )
     {
         this.name = name;
         this.passwd = passwd;

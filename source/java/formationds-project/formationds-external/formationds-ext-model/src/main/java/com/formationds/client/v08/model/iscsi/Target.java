@@ -19,8 +19,8 @@ public class Target
     {
         private Set<LUN> luns = new HashSet<>( );
         private Set<Initiator> initiators = new HashSet<>( );
-        private Set<IncomingUser> incomingUsers = new HashSet<>( );
-        private Set<OutgoingUser> outgoingUsers = new HashSet<>( );
+        private Set<Credentials> incomingUsers = new HashSet<>( );
+        private Set<Credentials> outgoingUsers = new HashSet<>( );
 
         protected Set<LUN> getLuns( )
         {
@@ -58,36 +58,36 @@ public class Target
             return this;
         }
 
-        protected Set<IncomingUser> getIncomingUsers( )
+        protected Set<Credentials> getIncomingUsers( )
         {
             return incomingUsers;
         }
 
-        public Builder withIncomingUser( final IncomingUser incomingUser )
+        public Builder withIncomingUser( final Credentials incomingUser )
         {
             this.incomingUsers.add( incomingUser );
             return this;
         }
 
-        public Builder withIncomingUsers( final Set<IncomingUser> incomingUsers )
+        public Builder withIncomingUsers( final Set<Credentials> incomingUsers )
         {
             this.incomingUsers.clear();
             this.incomingUsers = incomingUsers;
             return this;
         }
 
-        protected Set<OutgoingUser> getOutgoingUsers( )
+        protected Set<Credentials> getOutgoingUsers( )
         {
             return outgoingUsers;
         }
 
-        public Builder withOutgoingUser( final OutgoingUser outgoingUser )
+        public Builder withOutgoingUser( final Credentials outgoingUser )
         {
             this.outgoingUsers.add( outgoingUser );
             return this;
         }
 
-        public Builder withOutgoingUsers( final Set<OutgoingUser> outgoingUsers )
+        public Builder withOutgoingUsers( final Set<Credentials> outgoingUsers )
         {
             this.outgoingUsers.clear();
             this.outgoingUsers = outgoingUsers;
@@ -118,8 +118,8 @@ public class Target
 
     private Set<LUN> luns = new HashSet<>( );
     private Set<Initiator> initiators = new HashSet<>( );
-    private Set<IncomingUser> incomingUsers = new HashSet<>( );
-    private Set<OutgoingUser> outgoingUsers = new HashSet<>( );
+    private Set<Credentials> incomingUsers = new HashSet<>( );
+    private Set<Credentials> outgoingUsers = new HashSet<>( );
 
     /**
      * @param luns the set of logical unit number {@link LUN} for this target
@@ -162,33 +162,33 @@ public class Target
     }
 
     /**
-     * @return Returns the set of incoming users {@link IncomingUser} for this target
+     * @return Returns the set of incoming users {@link Credentials} for this target
      */
-    public Set<IncomingUser> getIncomingUsers( )
+    public Set<Credentials> getIncomingUsers( )
     {
         return incomingUsers;
     }
 
     /**
-     * @param incomingUsers the set of incoming users {@link IncomingUser} for this target
+     * @param incomingUsers the set of incoming users {@link Credentials} for this target
      */
-    public void setIncomingUsers( final Set<IncomingUser> incomingUsers )
+    public void setIncomingUsers( final Set<Credentials> incomingUsers )
     {
         this.incomingUsers = incomingUsers;
     }
 
     /**
-     * @return Returns the set of outgoing users {@link OutgoingUser} for this target
+     * @return Returns the set of outgoing users {@link Credentials} for this target
      */
-    public Set<OutgoingUser> getOutgoingUsers( )
+    public Set<Credentials> getOutgoingUsers( )
     {
         return outgoingUsers;
     }
 
     /**
-     * @param outgoingUsers the set of outgoing users {@link OutgoingUser} for this target
+     * @param outgoingUsers the set of outgoing users {@link Credentials} for this target
      */
-    public void setOutgoingUsers( final Set<OutgoingUser> outgoingUsers )
+    public void setOutgoingUsers( final Set<Credentials> outgoingUsers )
     {
         this.outgoingUsers = outgoingUsers;
     }

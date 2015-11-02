@@ -9,9 +9,8 @@ import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
-import com.formationds.client.v08.model.iscsi.IncomingUser;
+import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.LUN;
-import com.formationds.client.v08.model.iscsi.OutgoingUser;
 import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.client.v08.model.nfs.ACL;
 import com.formationds.client.v08.model.nfs.Async;
@@ -300,11 +299,11 @@ public class GSONTest {
                                             new LUN.Builder( ).withLun( "volume_1" )
                                                               .withAccessType( LUN.AccessType.RW )
                                                               .build() )
-                                        .withIncomingUser( new IncomingUser( "brian",
+                                        .withIncomingUser( new Credentials( "brian",
                                                                              "secret" ) )
-                                        .withIncomingUser( new IncomingUser( "eric",
+                                        .withIncomingUser( new Credentials( "eric",
                                                                              "disco" ) )
-                                        .withOutgoingUser( new OutgoingUser( "fds", "fds_secret" ) )
+                                        .withOutgoingUser( new Credentials( "fds", "fds_secret" ) )
                                         .build( );
         target.setId( 1L );
         target.setName( "Target #" + target.getId() );
