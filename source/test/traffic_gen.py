@@ -154,8 +154,6 @@ def do_put(conn, target_vol, target_file, fname):
     _key = Key(buck)
     _key.key = target_file
     ret = _key.set_contents_from_filename(fname)
-    if ret != 4096:
-        print(target_file)
 
     # Validate Upload
     _key.get_contents_to_filename(target_file)
@@ -407,16 +405,17 @@ def main(options, files):
 
     if options.get_reuse == True and options.req_type == "PUT":
         dump_uploaded(uploaded)
-    print ("Options:", options, "Stats:", stats)
-    for vol in range(options.num_volumes):
-        print (
-        "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
-        "elapsed time:", stats[vol]['elapsed_time'], \
-        "reqs/sec:", stats[vol]['reqs'] / stats[vol]['elapsed_time'], \
-        "avg_latency[ms]:", stats[vol]["tot_latency"] / stats[vol]["latency_cnt"] * 1e3, \
-        "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"])
-        print ("Latency histogram:", stats[vol]["lat_histo"].get())
-
+#    print ("Options:", options, "Stats:", stats)
+    print("IOPs: " + str(float(options.threads*options.n_reqs*options.num_volumes) / stats[0]['elapsed_time']))
+    print("latency [ms]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3)) 
+#    for vol in range(options.num_volumes):
+#        print (
+#        "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
+#        "elapsed time:", stats[vol]['elapsed_time'], \
+#        "reqs/sec:", stats[vol]['reqs'] / stats[vol]['elapsed_time'], \
+#        "avg_latency[ms]:", stats[vol]["tot_latency"] / stats[vol]["latency_cnt"] * 1e3, \
+#        "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"])
+#        print ("Latency histogram:", stats[vol]["lat_histo"].get())
 
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume

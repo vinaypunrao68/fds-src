@@ -64,7 +64,7 @@ hostname="perf2-node1"
 n_conns=100 
 n_jobs=4
 
-test_types="GET"
+test_types="PUT"
 object_sizes="4096 65536 262144 1048576"
 concurrencies="25 100"
 
@@ -81,18 +81,13 @@ s3_setup perf2-node1 $media_policy
 
 for t in $test_types ; do
     for o in $object_sizes ; do
-
-        echo "loading dataset"
-        cmd="cd /root/tools; ./trafficgen --n_reqs 20000 --n_files 1000 --outstanding_reqs 50 --test_type PUT --object_size $o --hostname perf2-node1 --n_conns 50"
-        ssh $client "$cmd"
-
         for c in $concurrencies ; do
             test_type=$t
             object_size=$o
             n_conns=$c
             outs=$c
 
-            cmd="cd /root/tools; ./trafficgen --n_reqs $n_reqs --n_files $n_files --outstanding_reqs $outs --test_type $test_type --object_size $object_size --hostname $hostname --n_conns $n_conns"
+            cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
@@ -111,7 +106,7 @@ for t in $test_types ; do
     done
 done
 
-test_types="PUT"
+test_types="GET"
 for t in $test_types ; do
     for o in $object_sizes ; do
         for c in $concurrencies ; do
@@ -120,7 +115,7 @@ for t in $test_types ; do
             n_conns=$c
             outs=$c
 
-            cmd="cd /root/tools; ./trafficgen --n_reqs $n_reqs --n_files $n_files --outstanding_reqs $outs --test_type $test_type --object_size $object_size --hostname $hostname --n_conns $n_conns"
+            cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
