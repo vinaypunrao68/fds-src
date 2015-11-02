@@ -23,6 +23,7 @@ SqliteDB::~SqliteDB() {
 }
 
 int SqliteDB::dropDB() {
+    fds_scoped_lock lock(mtx);
     int errorCode = 0;
     if (db) {
         errorCode = sqlite3_close(db);
@@ -38,6 +39,7 @@ int SqliteDB::dropDB() {
 }
 
 int SqliteDB::execute(const std::string &query) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int errorCode = sqlite3_exec(db, query.c_str(), nullptr, nullptr, nullptr);
@@ -46,6 +48,7 @@ int SqliteDB::execute(const std::string &query) {
 }
 
 bool SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -70,6 +73,7 @@ bool SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
 }
 
 bool SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &valueSet) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -94,6 +98,7 @@ bool SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &va
 }
 
 bool SqliteDB::getTextValue(const std::string &query, std::string &value) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;
@@ -118,6 +123,7 @@ bool SqliteDB::getTextValue(const std::string &query, std::string &value) {
 }
 
 bool SqliteDB::getTextValues(const std::string &query, std::set<std::string> &valueSet) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;

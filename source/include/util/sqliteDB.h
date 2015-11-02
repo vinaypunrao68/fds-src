@@ -8,6 +8,7 @@
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 /**
@@ -20,6 +21,7 @@ class SqliteDB {
     private:
         sqlite3 *db = nullptr;
         std::string dbFile;
+        fds_mutex mtx;
     public:
         explicit SqliteDB(const std::string &dbFilePath);
         int execute(const std::string &query);
