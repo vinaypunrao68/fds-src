@@ -772,7 +772,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
+    if ( (svcInfo_.incarnationNo < newInfo.incarnationNo) ||
+         (svcInfo_.svc_status != newInfo.svc_status) ) {
         /* Update to new incaration information.  Invalidate the old rpc client */
         svcInfo_ = newInfo;
         svcClient_.reset();

@@ -2084,10 +2084,12 @@ bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
 
 void OM_NodeDomainMod::addRegisteringSvc(SvcInfoPtr infoPtr)
 {
-    SCOPEDWRITE(svcRegVecLock);
-    registeringSvcs.push_back(infoPtr);
+    SCOPEDWRITE(svcRegMapLock);
+
+    int64_t uuid = infoPtr->svc_id.svc_uuid.svc_uuid;
+    registeringSvcs[uuid] = infoPtr;
     LOGDEBUG << "Added svc:" << std::hex << infoPtr->svc_id.svc_uuid.svc_uuid
-             << std::dec << " to tracking vector(size:"
+             << std::dec << " to tracking map(size:"
              << registeringSvcs.size() << ")";
 }
 
@@ -2096,37 +2098,27 @@ OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
 {
     Error err(ERR_OK);
 
-    SCOPEDREAD(svcRegVecLock);
+    SCOPEDREAD(svcRegMapLock);
 
-    std::vector<SvcInfoPtr>::iterator iter;
-    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
-                        [uuid](SvcInfoPtr info)->bool
-                        {
-                            return uuid == info->svc_id.svc_uuid.svc_uuid;
-                        });
-    if (iter == registeringSvcs.end()) {
-        return Error(ERR_NOT_FOUND);
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
+
+    iter = registeringSvcs.find(uuid);
+
+    if (iter != registeringSvcs.end()) {
+        infoPtr = iter->second;
+    } else {
+        err = ERR_NOT_FOUND;
     }
-
-    infoPtr = *iter;
 
     return err;
 }
 
 void OM_NodeDomainMod::removeRegisteredSvc(int64_t uuid)
 {
-    SCOPEDWRITE(svcRegVecLock);
+    SCOPEDWRITE(svcRegMapLock);
 
-    // Repeating the logic from above is safest, since we cannot
-    // guarantee the validity of an iterator from the above get
-    // function, if other threads came in and modified the vector
-    // before we have had a chance to enter the remove
-    std::vector<SvcInfoPtr>::iterator iter;
-    iter = std::find_if(registeringSvcs.begin(), registeringSvcs.end(),
-                        [uuid](SvcInfoPtr info)->bool
-                        {
-                            return uuid == info->svc_id.svc_uuid.svc_uuid;
-                        });
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
+    iter = registeringSvcs.find(uuid);
 
     if (iter != registeringSvcs.end()) {
         registeringSvcs.erase(iter);
@@ -2672,10 +2664,11 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 
 void
 OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
-                                                        fpi::FDSP_MgrIdType svcType)
+                                                        fpi::FDSP_MgrIdType svcType,
+                                                        const fpi::ServiceStatus status )
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    change_service_state( configDB, svcUuid.uuid_get_val(), fpi::SVC_STATUS_INACTIVE, true ); 
+    change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
     om_locDomain->om_bcast_svcmap();
 }
 

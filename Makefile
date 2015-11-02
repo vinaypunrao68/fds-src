@@ -1,8 +1,8 @@
 topdir         := .
 user_ext_build := true
+user_predep := use_thrift_from_artifactory
 
 user_build_dir := \
-    thrift-0.9.0  \
     jansson-2.5   \
     gmock-1.7.0   \
     cmdconsole    \
@@ -14,6 +14,11 @@ ifeq ($(MAKECMDGOALS),check-optimizations)
 endif
 
 include $(topdir)/Makefile.incl
+
+.PHONY: use_thrift_from_artifactory
+
+use_thrift_from_artifactory:
+	source/Build/mk-scripts/get-thrift.sh;
 
 .PHONY: coverage
 
