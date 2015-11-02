@@ -42,6 +42,15 @@ struct BloomFilterStore {
     util::BloomFilterPtr get(const std::string &key, bool create = true);
 
     /**
+    * @brief returns true if key exists
+    *
+    * @param key
+    *
+    * @return 
+    */
+    bool exists(const std::string &key) const;
+
+    /**
     * @brief Writes all the cached bloomfilters to filesystem
     */
     void sync();
@@ -52,6 +61,10 @@ struct BloomFilterStore {
     void purge();
 
     inline size_t getIndexSize() const { return index.size(); } 
+
+    inline std::string getFilePath(const std::string &key) {
+        return basePath + key;
+    }
 
  protected:
     util::BloomFilterPtr load(const std::string &key);
@@ -170,6 +183,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     void scanOnce(ScanDoneCb cb);
 
     util::BloomFilterPtr getTokenBloomFilter(const fds_token_id &tokenId);
+    std::string getTokenBloomfilterPath(const fds_token_id &tokenId);
 
     void dumpStats() const;
 

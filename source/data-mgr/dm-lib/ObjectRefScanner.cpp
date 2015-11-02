@@ -16,6 +16,9 @@ BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
   bloomfilterBits(1*MB),
   accessCnt(1)
 {
+    if (basePath[basePath.size()-1] != '/') {
+        basePath += "/";
+    }
     /* Remove any existing files from path...and recreate that directory */
     bfs::path p(basePath.c_str());
     bfs::remove_all(p);
@@ -28,14 +31,14 @@ BloomFilterStore::~BloomFilterStore() {
 }
 
 util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
-    auto deserializer = serialize::getFileDeserializer(basePath + key);
+    auto deserializer = serialize::getFileDeserializer(getFilePath(key));
     auto bloomfilter = util::BloomFilterPtr(new util::BloomFilter(bloomfilterBits));
     auto readSize = bloomfilter->read(deserializer);
     return bloomfilter;
 }
 
 void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfilter) {
-    auto serializer = serialize::getFileSerializer(basePath + key);
+    auto serializer = serialize::getFileSerializer(getFilePath(key));
     auto writeSize = bloomfilter->write(serializer);
 }
 
@@ -96,6 +99,11 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) 
         }
     }
     return bloomfilter;
+}
+
+bool BloomFilterStore::exists(const std::string &key) const 
+{
+    return index.find(key) != index.end();
 }
 
 void BloomFilterStore::sync() {
@@ -209,6 +217,16 @@ void ObjectRefMgr::scanStep() {
 util::BloomFilterPtr ObjectRefMgr::getTokenBloomFilter(const fds_token_id &tokenId)
 {
     return bfStore->get(tokenBloomFilterKey(tokenId), false);
+}
+
+std::string ObjectRefMgr::getTokenBloomfilterPath(const fds_token_id &tokenId)
+{
+    auto key = tokenBloomFilterKey(tokenId);
+    if (bfStore->exists(key)) {
+        return bfStore->getFilePath(key);
+    } else {
+        return "";
+    }
 }
 
 void ObjectRefMgr::prescanInit()
