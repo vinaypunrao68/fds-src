@@ -150,7 +150,8 @@ void ObjectRefMgr::mod_startup() {
         scanTask = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(*timer,
                                      [this] () {
-                bool wasStopped = state.compare_exchange_strong(STOPPED, INIT);
+                auto expectedState = STOPPED;
+                bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
                 if (!wasStopped) {
                     GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
                     return;
@@ -167,7 +168,8 @@ void ObjectRefMgr::mod_shutdown() {
 }
 
 void ObjectRefMgr::scanOnce() {
-    bool wasStopped = state.compare_exchange_strong(STOPPED, INIT);
+    auto expectedState = STOPPED;
+    bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
     if (!wasStopped) {
         GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
         return;
@@ -178,8 +180,8 @@ void ObjectRefMgr::scanOnce() {
 }
 
 void ObjectRefMgr::setScanDoneCb(const ObjectRefMgr::ScanDoneCb &cb) {
-    fds_assert(!scandDoneCb);
-    scanDoneCb = cb;
+    fds_assert(!scandoneCb);
+    scandoneCb = cb;
 }
 
 void ObjectRefMgr::dumpStats() const {

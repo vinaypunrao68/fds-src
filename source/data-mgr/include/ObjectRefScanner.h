@@ -218,7 +218,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     */
     void prescanInit();
 
-    State {
+    enum State {
         STOPPED,
         INIT,
         RUNNING
