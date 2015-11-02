@@ -57,7 +57,6 @@ namespace fds
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
                 if ( ret )
                 {
-                    svc.incarnationNo = util::getTimeStampSeconds();
                     svc.svc_status = svc_status;
 
                     std::vector<fpi::SvcInfo> svcs;
