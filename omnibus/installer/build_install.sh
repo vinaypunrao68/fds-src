@@ -49,11 +49,11 @@ ARTIFACTORY_URL="http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/art
 DEPS="${DEPS:-fds-deps_2015.06.19-32_amd64.deb}"
 PLATFORM="${PLATFORM:-fds-platform-rel_2015.06.19-32_amd64.deb}"
 VERSION="$(cat ../../omnibus/VERSION)"
-GIT_SHA="$(git rev-parse --short HEAD)"
-INSTALLDIR="install_${VERSION}-${GIT_SHA}"
+BUILD_NUMBER="${BUILD_NUMBER:-~$(date +%s)}"
+INSTALLDIR="install_${VERSION}-${BUILD_NUMBER}"
 DLTMP="dltmp"
 
-echo "Building installer for version ${VERSION}-${GIT_SHA}"
+echo "Building installer for version ${VERSION}-${BUILD_NUMBER}"
 
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg"
