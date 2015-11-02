@@ -5,22 +5,16 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import traceback
 import TestCase
-import pdb
 import re
-import time
 
 # Module-specific requirements
 import sys
 import os
 import random
-import time
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
-from TestFDSServiceMgt import TestAMBringUp
 from fdslib.TestUtils import get_node_service
 from fdscli.model.platform.service import Service
-from fdscli.model.platform.node import Node
 from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
@@ -48,7 +42,6 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
 
         om_node = fdscfg.rt_om_node
-        #TODO:POOJA once we re done with fs-3007 , fdscli can be used ot activate the domain, this is temp work around
         nodes = fdscfg.rt_obj.cfg_nodes
         om_ip = om_node.nd_conf_dict['ip']
         for n in nodes:
@@ -496,19 +489,21 @@ class TestDomainStartup(TestCase.FDSTestCase):
         om_node = fdscfg.rt_om_node
 
         self.log.info("Startup domain after shutdown.")
+        local_domain_service = get_localDomain_service(self,om_node.nd_conf_dict['ip'])
+        domains = local_domain_service.get_local_domains()
+        domain = domains[0]
 
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain startup local) \"',
-                                            fds_tools=True)
+        status = local_domain_service.start(domain)
 
-        if status != 0:
+        if isinstance(status, FdsError):
             self.log.error("Domain startup returned status %d." % (status))
             return False
-        else:
-            return True
 
+        # Delay for domain restart
+        time.sleep(3)
+        return True
 
-# This class contains the attributes and methods to test
-# domain create
+# Create domain isn't a thing that exists yet 10/30/15: Deprecated class for now
 class TestDomainCreate(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(self.__class__, self).__init__(parameters,

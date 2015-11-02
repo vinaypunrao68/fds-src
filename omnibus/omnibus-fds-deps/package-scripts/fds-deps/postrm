@@ -4,9 +4,6 @@
 # after package is uninstalled.
 #
 
-rm -f /etc/init/gmond.conf || echo "Couldn't remove /etc/init/gmond.conf - please remove manually"
-rm -f /etc/init/gmond-influxdb-bridge.conf || echo "Couldn't remove /etc/init/gmond-influxdb-bridge.conf - please remove manually"
-
 echo "fds-deps has been uninstalled!"
 
 exit 0

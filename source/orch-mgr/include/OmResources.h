@@ -969,7 +969,8 @@ class OM_NodeDomainMod : public Module
 
     virtual void
     om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
-                                          fpi::FDSP_MgrIdType svcType );
+                                          fpi::FDSP_MgrIdType svcType,
+                                          const fpi::ServiceStatus status );
     
     /**
      * Notification that service is down to DLT and DMT state machines
@@ -1119,8 +1120,8 @@ class OM_NodeDomainMod : public Module
 
     // Vector to track registering services and
     // locks to protect accesses
-    fds_rwlock svcRegVecLock;
-    std::vector<SvcInfoPtr> registeringSvcs;
+    fds_rwlock svcRegMapLock;
+    std::map<int64_t, SvcInfoPtr> registeringSvcs;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

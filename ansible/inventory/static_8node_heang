@@ -13,7 +13,7 @@
 localhost
 awo-bh-01 fds_deploy_local_deps=no fds_build=release
 
-[static_8node_ec2]
+[static_8node_heang]
 10.3.20.1
 10.3.20.2
 10.3.20.3
@@ -23,7 +23,7 @@ awo-bh-01 fds_deploy_local_deps=no fds_build=release
 10.3.20.7
 10.3.20.8
 
-[static_8node_ec2:vars]
+[static_8node_heang:vars]
 instance_count=8
 ansible_ssh_user=deploy
 cluster_location=awo
