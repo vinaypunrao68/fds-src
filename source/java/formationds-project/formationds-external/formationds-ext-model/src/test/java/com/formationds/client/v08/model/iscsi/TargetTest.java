@@ -18,11 +18,11 @@ public class TargetTest
     public void testTargetGroup() {
         final Target target =
             new Target.Builder()
-                      .withIncomingUser( new IncomingUser( "username",
+                      .withIncomingUser( new Credentials( "username",
                                                            "userpassword" ) )
-                      .withIncomingUser( new IncomingUser( "username1",
+                      .withIncomingUser( new Credentials( "username1",
                                                            "userpassword1" ) )
-                      .withOutgoingUser( new OutgoingUser( "ouser","opasswd" ) )
+                      .withOutgoingUser( new Credentials( "ouser","opasswd" ) )
                       .withLun( new LUN.Builder()
                                        .withLun( "volume_0" )
                                        .withAccessType( LUN.AccessType.RW )
@@ -39,14 +39,14 @@ public class TargetTest
         Assert.assertNotNull( target.getName( ) );
 
         Assert.assertTrue( target.getIncomingUsers().size() == 2 );
-        for( final IncomingUser user : target.getIncomingUsers() )
+        for( final Credentials user : target.getIncomingUsers() )
         {
             Assert.assertNotNull( user.getName() );
             Assert.assertNotNull( user.getPasswd( ) );
         }
 
         Assert.assertTrue( target.getOutgoingUsers().size() == 1 );
-        for( final OutgoingUser user : target.getOutgoingUsers( ) )
+        for( final Credentials user : target.getOutgoingUsers( ) )
         {
             Assert.assertNotNull( user.getName() );
             Assert.assertNotNull( user.getPasswd() );
