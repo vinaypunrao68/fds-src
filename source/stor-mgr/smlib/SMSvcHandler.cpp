@@ -16,6 +16,7 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <util/path.h>
 
 namespace fds {
 
@@ -1221,7 +1222,7 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     */
 
     // verify the file checksum
-    std::string filename = objStorMgr->fileTransfer->getFullPath(message->filename);
+    std::string filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
     if (!util::fileExists(filename)) {
         err = ERR_FILE_DOES_NOT_EXIST;
         LOGERROR << "active object file ["
@@ -1229,8 +1230,8 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                  << "] does not exist";
     } else {
         std::string chksum = util::getFileChecksum(filename);
-        if (chksum != message->checksum) {
-            LOGERROR << "file checksum mismatch [orig:" << message->checksum
+        if (chksum != msg->checksum) {
+            LOGERROR << "file checksum mismatch [orig:" << msg->checksum
                      << " new:" << chksum << "]"
                      << " file:" << filename;
             err = ERR_CHECKSUM_MISMATCH;
@@ -1240,7 +1241,7 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     if (!err.ok()) {
         fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
         hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRespMsg), *resp);
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
     } else {
         // handle the request appropriately
     }
