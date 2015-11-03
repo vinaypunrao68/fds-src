@@ -102,7 +102,11 @@ FileTransferHandle::ptr FileTransferService::get(fds_uint64_t hashCode) {
 }
 
 FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svcMgr_) : svcMgr(svcMgr_)  {
-    this->destDir = destDir + "/";
+    if (destDir.rfind('/') != destDir.length() - 1) {
+        this->destDir = destDir + "/";
+    } else {
+        this->destDir = destDir;
+    }
     FdsRootDir::fds_mkdir(destDir.c_str());
     GLOGNORMAL << "file transfer dest dir : " << destDir;
 
@@ -138,6 +142,10 @@ bool FileTransferService::send(const fpi::SvcUuid &svcId,
     sendVerifyRequest(handle);
     dump();
     return true;
+}
+
+std::string FileTransferService::getFullPath(const std::string& filename) {
+    return destDir + filename;
 }
 
 bool FileTransferService::sendNextChunk(FileTransferHandle::ptr handle) {

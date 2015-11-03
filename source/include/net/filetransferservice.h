@@ -61,6 +61,7 @@ struct FileTransferHandle {
 };
 
 struct FileTransferService : HasLogger {
+    TYPE_SHAREDPTR(FileTransferService);
     explicit FileTransferService(const std::string& destDir, SvcMgr* svcMgr = NULL);
     bool send(const fpi::SvcUuid &svcId,
               const std::string& srcFile,
@@ -68,6 +69,9 @@ struct FileTransferService : HasLogger {
               OnTransferCallback cb,
               bool fDeleteFileAfterTransfer = true
               );
+
+    /* get the full path of the file */
+    std::string getFullPath(const std::string& filename);
 
     /**
      * Sender Side handlers
