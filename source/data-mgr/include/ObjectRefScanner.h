@@ -174,6 +174,7 @@ struct SnapshotRefScanner : ObjectRefScannerIf {
 * appropriate bloom filter for the volume is update.
 */
 struct ObjectRefMgr : HasModuleProvider, Module {
+    TYPE_SHAREDPTR(ObjectRefMgr);
     using ScanDoneCb = std::function<void(ObjectRefMgr*)>;
     ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
     virtual ~ObjectRefMgr() = default;
