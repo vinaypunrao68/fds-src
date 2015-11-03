@@ -1654,9 +1654,6 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
         objectSets.push_back(bf);
     }
 
-    std::set<fds_volid_t> volumes;
-    liveObjectsTable->findAssociatedVols(smToken, volumes);
-
     TimeStamp ts;
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
@@ -1680,7 +1677,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
              */
             Error err(ERR_OK);
             bool shouldUpdateMeta = true;
-            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
+            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
 
             /**
              * Check if the object got updated recently(via a PUT).
@@ -1705,7 +1702,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 if (updatedMeta->incrementDeleteCount() >= getObjectDelCnt()) {
                     ++objsToDelete;
                 }
-                metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
+                metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
             }
         }
     }
