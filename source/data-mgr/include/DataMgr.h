@@ -35,6 +35,9 @@
 #include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
+
+#include <net/filetransferservice.h>
+
 #include <DmIoReq.h>
 #include <dmhandler.h>
 #include <CatalogSync.h>
@@ -54,7 +57,7 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
-
+#include <ObjectRefScanner.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -203,6 +206,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
+    ObjectRefMgr::ptr refCountMgr;
+    net::FileTransferService::ptr fileTransfer;
 
     struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;

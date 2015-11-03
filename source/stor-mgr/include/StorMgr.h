@@ -20,6 +20,7 @@
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
 #include "hash/md5.h"
+#include <net/filetransferservice.h>
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"
@@ -202,6 +203,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
   public:
     SmQosCtrl  *qosCtrl;
+    net::FileTransferService::ptr fileTransfer;
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()

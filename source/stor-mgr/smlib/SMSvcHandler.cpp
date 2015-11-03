@@ -77,6 +77,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+
+    /* Active Object Messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
 }
 
 int
@@ -1201,6 +1204,48 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
+
+void
+SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                            boost::shared_ptr<fpi::ActiveObjectsMsg>& msg)
+{
+    Error err(ERR_OK);
+
+    LOGDEBUG << hdr;
+
+    /**
+        msg->filename
+        msg->checksum
+        msg->volumeIds
+        msg->token
+    */
+
+    // verify the file checksum
+    std::string filename = objStorMgr->fileTransfer->getFullPath(message->filename);
+    if (!util::fileExists(filename)) {
+        err = ERR_FILE_DOES_NOT_EXIST;
+        LOGERROR << "active object file ["
+                 << filename
+                 << "] does not exist";
+    } else {
+        std::string chksum = util::getFileChecksum(filename);
+        if (chksum != message->checksum) {
+            LOGERROR << "file checksum mismatch [orig:" << message->checksum
+                     << " new:" << chksum << "]"
+                     << " file:" << filename;
+            err = ERR_CHECKSUM_MISMATCH;
+        }
+    }
+
+    if (!err.ok()) {
+        fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+        hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRespMsg), *resp);
+    } else {
+        // handle the request appropriately
+    }
+}
+
 
 
 }  // namespace fds

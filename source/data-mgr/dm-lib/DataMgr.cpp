@@ -999,6 +999,8 @@ int DataMgr::mod_init(SysParams const *const param)
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
 
+    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+
     return 0;
 }
 
