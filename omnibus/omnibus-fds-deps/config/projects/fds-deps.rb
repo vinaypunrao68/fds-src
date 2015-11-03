@@ -15,7 +15,6 @@ mydir = File.dirname(__FILE__)
 fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 
 build_number = ENV['BUILD_NUMBER']
-#git_sha = `git rev-parse --short HEAD`.chomp unless build_number
 timestamp = '~'+`date +%s`.chomp unless build_number
 
 if build_number.nil?
