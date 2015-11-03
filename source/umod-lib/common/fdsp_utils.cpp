@@ -70,19 +70,41 @@ void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
     header->msg_dst_uuid = temp;
 }
 
+std::ostream& operator<<(std::ostream& out, const fpi::AsyncHdr &header) {
+    out << "["
+        << " reqid:" << static_cast<SvcRequestId>(header.msg_src_id)
+        << " type:" << ((fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.find(header.msg_type_id) != 
+                         fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.end())?
+                        fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(header.msg_type_id):"-UNKNOWN-")
+        << std::hex
+        << " from:" << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
+        << " to:" << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
+        << std::dec
+        << " dltversion:" << header.dlt_version
+        << " error:" << static_cast<fds_errno_t>(header.msg_code)
+        << "]";
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const fpi::AsyncHdr* header) {
+    if (header) out << (*header);
+    else out << "[ aysnc header is NULL ]";
+    return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const SHPTR<fpi::AsyncHdr> &header) {
+    if (header.get()) out << (*header);
+    else out << "[ aysnc header is NULL ]";
+    return out;
+}
+
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
-    oss << " Req Id: " << static_cast<SvcRequestId>(header.msg_src_id)
-        << " Type: " << fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(header.msg_type_id)
-        << std::hex
-        << " From: " << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
-        << " To: " << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
-        << std::dec
-        << " DLT version: " << header.dlt_version
-        << " error: " << static_cast<fds_errno_t>(header.msg_code);
+    oss << header;
     return oss.str();
 }
+
 
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
 {
