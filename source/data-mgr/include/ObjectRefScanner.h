@@ -16,7 +16,7 @@
 
 namespace fds {
 /* Forward declarations */
-struct ObjectRefMgr;
+struct ObjectRefScanMgr;
 struct DataMgr;
 
 
@@ -95,7 +95,7 @@ struct BloomFilterStore {
 * @brief Object reference scanner interface
 */
 struct ObjectRefScannerIf {
-    explicit ObjectRefScannerIf(ObjectRefMgr* m)
+    explicit ObjectRefScannerIf(ObjectRefScanMgr* m)
     : objRefMgr(m),
       state(INIT),
       completionError(ERR_OK)
@@ -115,7 +115,7 @@ struct ObjectRefScannerIf {
     };
 
     /* Reference to parent manager */
-    ObjectRefMgr        *objRefMgr;
+    ObjectRefScanMgr        *objRefMgr;
     /* Current scanner state */
     State               state;
     /* Status that scanner completed with */
@@ -128,7 +128,7 @@ using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScannerIf>;
 * either a volume  or a snapshot
 */
 struct VolumeRefScannerContext : ObjectRefScannerIf {
-    VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId);
+    VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_t vId);
     Error scanStep();
     Error finishScan(const Error &e);
     bool isComplete() const;
@@ -144,7 +144,7 @@ struct VolumeRefScannerContext : ObjectRefScannerIf {
 * @brief Scans objects in a volume and updates bloomfilter
 */
 struct VolumeObjectRefScanner : ObjectRefScannerIf {
-    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
+    VolumeObjectRefScanner(ObjectRefScanMgr* m, fds_volid_t vId);
     Error init();
     virtual Error scanStep() override;
     virtual Error finishScan(const Error &e) override;
@@ -173,11 +173,11 @@ struct SnapshotRefScanner : ObjectRefScannerIf {
 * 4. During each scan step configured number of level db entries are scanned and 
 * appropriate bloom filter for the volume is update.
 */
-struct ObjectRefMgr : HasModuleProvider, Module {
-    TYPE_SHAREDPTR(ObjectRefMgr);
-    using ScanDoneCb = std::function<void(ObjectRefMgr*)>;
-    ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
-    virtual ~ObjectRefMgr() = default;
+struct ObjectRefScanMgr : HasModuleProvider, Module {
+    TYPE_SHAREDPTR(ObjectRefScanMgr);
+    using ScanDoneCb = std::function<void(ObjectRefScanMgr*)>;
+    ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
+    virtual ~ObjectRefScanMgr() = default;
     virtual void mod_startup();
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */

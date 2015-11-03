@@ -126,7 +126,7 @@ void BloomFilterStore::purge() {
     index.clear();
 }
 
-ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
+ObjectRefScanMgr::ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
         : HasModuleProvider(moduleProvider),
           Module("RefcountScanner"),
           dataMgr(dm),
@@ -137,7 +137,7 @@ ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
 {
 }
 
-void ObjectRefMgr::mod_startup() {
+void ObjectRefScanMgr::mod_startup() {
     auto config = MODULEPROVIDER()->get_conf_helper();
     timeBasedEnabled = config.get<bool>("objectrefscan.timebased", false);
     scanIntervalSec = std::chrono::seconds(config.get<int>("objectrefscan.interval",
@@ -157,17 +157,17 @@ void ObjectRefMgr::mod_startup() {
                                              return;
                                          }
                                          /* Immediately post to threadpool so we don't hold up timer thread */
-                                         auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+                                         auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefScanMgr::scanStep, this));
                                          qosHelper.addToQueue(req);
                                      }));
         timer->schedule(scanTask, scanIntervalSec);
     }
 }
 
-void ObjectRefMgr::mod_shutdown() {
+void ObjectRefScanMgr::mod_shutdown() {
 }
 
-void ObjectRefMgr::scanOnce() {
+void ObjectRefScanMgr::scanOnce() {
     auto expectedState = STOPPED;
     bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
     if (!wasStopped) {
@@ -175,16 +175,16 @@ void ObjectRefMgr::scanOnce() {
         return;
     }
 
-    auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+    auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefScanMgr::scanStep, this));
     qosHelper.addToQueue(req);
 }
 
-void ObjectRefMgr::setScanDoneCb(const ObjectRefMgr::ScanDoneCb &cb) {
+void ObjectRefScanMgr::setScanDoneCb(const ObjectRefScanMgr::ScanDoneCb &cb) {
     fds_assert(!scandoneCb);
     scandoneCb = cb;
 }
 
-void ObjectRefMgr::dumpStats() const {
+void ObjectRefScanMgr::dumpStats() const {
     GLOGNOTIFY << "Scan run#: " << scanCntr
                << " # of volumes: " << scanList.size()
                << " # of scanned volumes: " << scanSuccessVols.size()
@@ -192,7 +192,7 @@ void ObjectRefMgr::dumpStats() const {
                << " # of generated bloomfilters: " << bfStore->getIndexSize();
 }
 
-void ObjectRefMgr::scanStep() {
+void ObjectRefScanMgr::scanStep() {
     if (state == INIT) {
         prescanInit();
     }
@@ -215,7 +215,7 @@ void ObjectRefMgr::scanStep() {
 
     if (currentItr != scanList.end()) {
         /* Schedule next scan step */
-        auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+        auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefScanMgr::scanStep, this));
         qosHelper.addToQueue(req);
     } else {
         /* Scan finished */
@@ -233,12 +233,12 @@ void ObjectRefMgr::scanStep() {
     }
 }
 
-util::BloomFilterPtr ObjectRefMgr::getTokenBloomFilter(const fds_token_id &tokenId)
+util::BloomFilterPtr ObjectRefScanMgr::getTokenBloomFilter(const fds_token_id &tokenId)
 {
     return bfStore->get(tokenBloomFilterKey(tokenId), false);
 }
 
-std::string ObjectRefMgr::getTokenBloomfilterPath(const fds_token_id &tokenId)
+std::string ObjectRefScanMgr::getTokenBloomfilterPath(const fds_token_id &tokenId)
 {
     auto key = tokenBloomFilterKey(tokenId);
     if (bfStore->exists(key)) {
@@ -248,7 +248,7 @@ std::string ObjectRefMgr::getTokenBloomfilterPath(const fds_token_id &tokenId)
     }
 }
 
-void ObjectRefMgr::prescanInit()
+void ObjectRefScanMgr::prescanInit()
 {
     /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
@@ -276,7 +276,7 @@ void ObjectRefMgr::prescanInit()
     state = RUNNING;
 }
 
-VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
+VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_t vId)
         : ObjectRefScannerIf(m)
 {
     volId = vId;
@@ -326,9 +326,9 @@ Error VolumeRefScannerContext::finishScan(const Error &e) {
     auto bfStore = objRefMgr->getBloomFiltersStore();
     auto tokenCnt = objRefMgr->getCurrentDlt()->getNumTokens();
     for (uint32_t token = 0; token < tokenCnt; token++) {
-        auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, token), false);
+        auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(volId, token), false);
         if (!bloomfilter) continue;
-        auto tokenbloomfilter = bfStore->get(ObjectRefMgr::tokenBloomFilterKey(token));
+        auto tokenbloomfilter = bfStore->get(ObjectRefScanMgr::tokenBloomFilterKey(token));
         tokenbloomfilter->merge(*bloomfilter);
     }
     objRefMgr->getScanSuccessVols().push_back(volId);
@@ -343,7 +343,7 @@ std::string VolumeRefScannerContext::logString() const {
     return logStr;
 }
 
-VolumeObjectRefScanner::VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
+VolumeObjectRefScanner::VolumeObjectRefScanner(ObjectRefScanMgr* m, fds_volid_t vId)
         : ObjectRefScannerIf(m),
           volId(vId)
 {
@@ -391,7 +391,7 @@ Error VolumeObjectRefScanner::scanStep() {
      */
     auto bfStore = objRefMgr->getBloomFiltersStore();
     for (const auto &kv : tokenObjects) {
-        auto bloomfilter = bfStore->get(ObjectRefMgr::volTokBloomFilterKey(volId, kv.first));
+        auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(volId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
             GLOGDEBUG << "mytest calculated objid: " << oid << " token: " << kv.first;
