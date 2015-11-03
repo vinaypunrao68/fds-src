@@ -2676,7 +2676,7 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
-    if (om_local_domain_up)
+    if ( om_local_domain_up() )
     {
         if (svcType == fpi::FDSP_STOR_MGR)
         {
