@@ -180,9 +180,12 @@ def do_get(conn, target_vol, target_file):
 
 def do_delete(conn, target_vol, target_file):
     buck = conn.get_bucket(target_vol)
-    _key = Key(buck)
-    _key.key = target_file
-    _key.delete()
+    _key = buck.get_key(target_file)
+    if _key is None:
+        print("Doesn't exist")
+    else:
+        print("Key: " + _key.name)
+        #_key.delete()
 
 
 def task(task_id, n_reqs, req_type, vol, files,
@@ -251,11 +254,14 @@ def task(task_id, n_reqs, req_type, vol, files,
             do_get(conn, "volume%d" % vol, "file%d-%d" % (file_idx, task_id))
         elif req_type == "DELETE":
             if len(prev_uploaded[vol]) > 0:
-                file_idx = random.sample(prev_uploaded[vol], 1)[
-                    0]  # FIXME: this works only once, then uploaded should be cleared/updated
+                # FIXME: this works only once, then uploaded should be cleared/updated
+                file_idx = random.sample(prev_uploaded[vol], 1)[0]  
             else:
                 file_idx = random.randint(0, options.num_files - 1)
-            do_delete(conn, "volume%d" % (vol), "file%d-%d-%d" % (file_idx, task_id, n))
+            #try:
+            do_delete(conn, "volume%d" % (vol), "file%d-%d" % (file_idx, task_id))
+            #except:
+            #    print("Error on DELETE volume%d/file%d-%d" % (vol, file_idx, task_id))
         elif req_type == "7030":
             if random.randint(1, 100) < 70:
                 # Possibly read a file that been already uploaded

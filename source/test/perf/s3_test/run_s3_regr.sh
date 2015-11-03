@@ -65,8 +65,8 @@ n_conns=100
 n_jobs=4
 
 test_types="PUT"
-object_sizes="4096 65536 262144 1048576"
-concurrencies="25 100"
+object_sizes="4096 65536 1048576"
+concurrencies="100"
 
 s3_setup perf2-node1 $media_policy
 
@@ -131,3 +131,32 @@ for t in $test_types ; do
         done
     done
 done
+
+test_types="MULTIPART"
+#Set object size to larger amount for multipart uploads
+object_size=33554432
+for t in $test_types ; do
+    for o in $object_sizes ; do
+        for c in $concurrencies ; do
+            test_type=$t
+            object_size=$o
+            n_conns=$c
+            outs=$c
+
+            cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+
+            pids=""
+            outfiles=""
+            for j in `seq $n_jobs` ; do
+                f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
+                outfiles="$outfiles $f"
+                ssh $client "$cmd"  | tee $f &
+                pid="$pid $!"
+                pids="$pids $!"
+            done
+            wait $pids
+            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $media_policy
+        done
+    done
+done
+
