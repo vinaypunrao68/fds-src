@@ -11,10 +11,10 @@ namespace fds {
 namespace bfs = boost::filesystem;
 
 BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
-: basePath(path),
-  maxCacheSize(cacheSize),
-  bloomfilterBits(1*MB),
-  accessCnt(1)
+        : basePath(path),
+          maxCacheSize(cacheSize),
+          bloomfilterBits(1*MB),
+          accessCnt(1)
 {
     if (basePath[basePath.size()-1] != '/') {
         basePath += "/";
@@ -101,18 +101,18 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) 
     return bloomfilter;
 }
 
-bool BloomFilterStore::exists(const std::string &key) const 
+bool BloomFilterStore::exists(const std::string &key) const
 {
     return index.find(key) != index.end();
 }
 
 void BloomFilterStore::sync(bool clearCache) {
-   for (const auto &item : cache) {
+    for (const auto &item : cache) {
         save(item.key, item.bloomfilter);
-   }
-   if (clearCache) {
-       cache.clear();
-   }
+    }
+    if (clearCache) {
+        cache.clear();
+    }
 }
 
 void BloomFilterStore::purge() {
@@ -127,13 +127,13 @@ void BloomFilterStore::purge() {
 }
 
 ObjectRefMgr::ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm)
-: HasModuleProvider(moduleProvider),
-  Module("RefcountScanner"),
-  dataMgr(dm),
-  state(STOPPED),
-  qosHelper(*dm),
-  scanCntr(0),
-  objectsScannedCntr(0)
+        : HasModuleProvider(moduleProvider),
+          Module("RefcountScanner"),
+          dataMgr(dm),
+          state(STOPPED),
+          qosHelper(*dm),
+          scanCntr(0),
+          objectsScannedCntr(0)
 {
 }
 
@@ -150,16 +150,16 @@ void ObjectRefMgr::mod_startup() {
         scanTask = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(*timer,
                                      [this] () {
-                auto expectedState = STOPPED;
-                bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
-                if (!wasStopped) {
-                    GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
-                    return;
-                }
-                /* Immediately post to threadpool so we don't hold up timer thread */
-                auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
-                qosHelper.addToQueue(req);
-            }));
+                                         auto expectedState = STOPPED;
+                                         bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
+                                         if (!wasStopped) {
+                                             GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
+                                             return;
+                                         }
+                                         /* Immediately post to threadpool so we don't hold up timer thread */
+                                         auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefMgr::scanStep, this));
+                                         qosHelper.addToQueue(req);
+                                     }));
         timer->schedule(scanTask, scanIntervalSec);
     }
 }
@@ -186,10 +186,10 @@ void ObjectRefMgr::setScanDoneCb(const ObjectRefMgr::ScanDoneCb &cb) {
 
 void ObjectRefMgr::dumpStats() const {
     GLOGNOTIFY << "Scan run#: " << scanCntr
-            << " # of volumes: " << scanList.size()
-            << " # of scanned volumes: " << scanSuccessVols.size()
-            << " # of scanned objects: " << objectsScannedCntr
-            << " # of generated bloomfilters: " << bfStore->getIndexSize();
+               << " # of volumes: " << scanList.size()
+               << " # of scanned volumes: " << scanSuccessVols.size()
+               << " # of scanned objects: " << objectsScannedCntr
+               << " # of generated bloomfilters: " << bfStore->getIndexSize();
 }
 
 void ObjectRefMgr::scanStep() {
@@ -277,7 +277,7 @@ void ObjectRefMgr::prescanInit()
 }
 
 VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId)
-: ObjectRefScannerIf(m)
+        : ObjectRefScannerIf(m)
 {
     volId = vId;
     std::stringstream ss;
@@ -312,10 +312,10 @@ Error VolumeRefScannerContext::scanStep() {
 Error VolumeRefScannerContext::finishScan(const Error &e) {
     state = COMPLETE;
     completionError = e;
-    
+
     GLOGNOTIFY << "Finished scanning volume: " << volId
-        << " completion error: " << completionError
-        << " aggr objects scanned: " << objRefMgr->objectsScannedCntr;
+               << " completion error: " << completionError
+               << " aggr objects scanned: " << objRefMgr->objectsScannedCntr;
 
     if (e != ERR_OK) {
         /* Scan completed with an error.  Nothing more to do */
@@ -344,8 +344,8 @@ std::string VolumeRefScannerContext::logString() const {
 }
 
 VolumeObjectRefScanner::VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId)
-: ObjectRefScannerIf(m),
-    volId(vId)
+        : ObjectRefScannerIf(m),
+          volId(vId)
 {
     std::stringstream ss;
     ss << "VolumeObjectRefScanner:" << volId;
@@ -399,7 +399,7 @@ Error VolumeObjectRefScanner::scanStep() {
             objRefMgr->objectsScannedCntr++;
         }
     }
-    
+
     return ERR_OK;
 }
 
@@ -409,7 +409,7 @@ Error VolumeObjectRefScanner::finishScan(const Error &e) {
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
     auto err = volcatIf->freeVolumeSnapshot(volId, snap);
     if (err != ERR_OK) {
-       GLOGWARN << "Failed to release snapshot for volId: " << volId; 
+        GLOGWARN << "Failed to release snapshot for volId: " << volId;
     }
 
     return err;
