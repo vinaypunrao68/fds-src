@@ -19,8 +19,6 @@
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
 
-
-
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -485,9 +483,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
 }
 
 /**
- * Note that volId may not necessarily match volume id in ioReq
- * Example when it will not match: if we enqueue request for volumeA
- * to shadow queue, we will pass shadow queue's volId (queue id)
+* Note that volId may not necessarily match volume id in ioReq
+* Example when it will not match: if we enqueue request for volumeA
+* to shadow queue, we will pass shadow queue's volId (queue id)
  * but ioReq will contain actual volume id; so maybe we should change
  * this method to pass queue id as first param not volid
  */
@@ -534,8 +532,8 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
- * other DM first
- */
+* other DM first
+*/
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
@@ -829,7 +827,7 @@ void DataMgr::detachVolume(fds_volid_t vol_uuid) {
     }
     statStreamAggr_->detachVolume(vol_uuid);
     LOGNORMAL << "Detached vol meta for vol uuid "
-        << std::hex << vol_uuid << std::dec;
+              << std::hex << vol_uuid << std::dec;
 }
 
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
@@ -964,7 +962,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     // timeline feature toggle
     features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.enable_timeline", true));
+        "fds.dm.enable_timeline", true));
     if (features.isTimelineEnabled()) {
         timelineMgr.reset(new timeline::TimelineManager(this));
     }
@@ -973,16 +971,16 @@ int DataMgr::mod_init(SysParams const *const param)
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.common.volume_open_support", false));
+        "fds.feature_toggle.common.volume_open_support", false));
 
     features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.enable_expunge", true));
+        "fds.dm.enable_expunge", true));
 
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.req_serialization", true));
+        "fds.dm.req_serialization", true));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -990,7 +988,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Retrieves the number of primary DMs from the config file.
      */
     int primary_check = MODULEPROVIDER()->get_fds_config()->
-                                  get<int>("fds.dm.number_of_primary");
+            get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
@@ -1188,11 +1186,11 @@ void DataMgr::mod_shutdown()
 
     LOGNORMAL;
     if ( statStreamAggr_ ) {
-      statStreamAggr_->mod_shutdown();
+        statStreamAggr_->mod_shutdown();
     }
 
     if ( timeVolCat_ ) {
-      timeVolCat_->mod_shutdown();
+        timeVolCat_->mod_shutdown();
     }
 
     if (features.isCatSyncEnabled()) {
@@ -1274,23 +1272,23 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
-        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-                const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
-                fds_verify(nodes->getLength() > 0);
-                const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+        const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+        fds_verify(nodes->getLength() > 0);
+        const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
         if (topPrimary) {
-                // Only the 0th element is considered top Primary
-                return (myUuid == nodes->get(0).toSvcUuid());
+            // Only the 0th element is considered top Primary
+            return (myUuid == nodes->get(0).toSvcUuid());
         } else {
-                // Anything else within number_of_primary is within primary group
-                const int numberOfPrimaryDMs = getNumOfPrimary();
-                fds_verify(numberOfPrimaryDMs > 0);
-                for (int i = 0; i < numberOfPrimaryDMs; i++) {
-                        if (nodes->get(i).toSvcUuid() == myUuid) {
-                                return true;
-                        }
+            // Anything else within number_of_primary is within primary group
+            const int numberOfPrimaryDMs = getNumOfPrimary();
+            fds_verify(numberOfPrimaryDMs > 0);
+            for (int i = 0; i < numberOfPrimaryDMs; i++) {
+                if (nodes->get(i).toSvcUuid() == myUuid) {
+                    return true;
                 }
+            }
         }
     }
     return false;
@@ -1298,12 +1296,12 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-        return (_amIPrimaryImpl(volUuid, true));
+    return (_amIPrimaryImpl(volUuid, true));
 }
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
-        return (_amIPrimaryImpl(volUuid, false));
+    return (_amIPrimaryImpl(volUuid, false));
 }
 
 /**
@@ -1434,26 +1432,26 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
 Error
 DataMgr::getAllVolumeDescriptors()
 {
-	Error err(ERR_OK);
-	fpi::GetAllVolumeDescriptors list;
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
 
     if (!err.ok()) {
-    	return err;
+        return err;
     }
 
     for (auto const& volAdd : list.volumeList) {
-    	VolumeDesc desc(volAdd.vol_desc);
-    	fds_volid_t vol_uuid (desc.volUUID);
-    	GLOGNOTIFY << "Pulled create for vol "
-    			<< "[" << vol_uuid << ", "
-				<< desc.getName() << "]";
-    	err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
+        VolumeDesc desc(volAdd.vol_desc);
+        fds_volid_t vol_uuid (desc.volUUID);
+        GLOGNOTIFY << "Pulled create for vol "
+                   << "[" << vol_uuid << ", "
+                   << desc.getName() << "]";
+        err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
                         vol_uuid,
                         &desc);
     }
 
-	return err;
+    return err;
 }
 
 namespace dmutil {
@@ -1487,10 +1485,10 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                                 root->dir_user_repo_dm().c_str(), volId.get(), snapId);
+                               root->dir_user_repo_dm().c_str(), volId.get(), snapId);
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                                 root->dir_sys_repo_dm().c_str(), volId, volId);
+                               root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
 
