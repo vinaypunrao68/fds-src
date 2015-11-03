@@ -15,10 +15,11 @@ mydir = File.dirname(__FILE__)
 fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 
 build_number = ENV['BUILD_NUMBER']
-git_sha = `git rev-parse --short HEAD`.chomp unless build_number
+#git_sha = `git rev-parse --short HEAD`.chomp unless build_number
+timestamp = '~'+`date +%s`.chomp unless build_number
 
 if build_number.nil?
-  build_iteration git_sha
+  build_iteration timestamp
 else
   build_iteration build_number
 end
@@ -26,8 +27,8 @@ end
 if ENV['ENABLE_VERSION_INSTALL'] == 'true'
   build_version "1"
   build_iteration "1"
-  install_dir "/opt/fds/deps/#{fds_version}-#{git_sha}"
-  name "fds-deps-#{fds_version}-#{git_sha}"
+  install_dir "/opt/fds/deps/#{fds_version}-#{timestamp}"
+  name "fds-deps-#{fds_version}-#{timestamp}"
 else
   install_dir "#{default_root}/#{name}"
   build_version fds_version
