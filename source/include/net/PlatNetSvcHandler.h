@@ -58,6 +58,9 @@
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3);
 
+#define ASYNC_HANDLER_PARAMS(msgType) SHPTR<fpi::AsyncHdr>& hdr, SHPTR<fpi::msgType>& msg
+#define DECL_ASYNC_HANDLER(func, msgType) void func(ASYNC_HANDLER_PARAMS(msgType));
+
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
