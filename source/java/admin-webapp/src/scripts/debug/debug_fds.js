@@ -14,7 +14,8 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.isEnabled = true;
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
-    $scope.statChoices = [{name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
+    $scope.statChoices = [{name: 'None'},
+                          {name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
                           {name: 'AM GET Requests', value: 'AM_GET_OBJ_REQ'},
                           {name: 'DM Transaction Latency', value: 'DM_TX_OP'},
                           {name: 'Latency of PUT in SM', value: 'SM_PUT_IO'}];
@@ -28,7 +29,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.max = undefined;
     $scope.syncRange = false;
     
-    $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[1], $scope.statChoices[2], $scope.statChoices[3]];
+    $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0]];
     $scope.rangeMaximum = undefined;
     $scope.rangeMinimum = undefined;
     

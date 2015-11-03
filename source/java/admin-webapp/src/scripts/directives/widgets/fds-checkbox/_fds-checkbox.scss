@@ -20,8 +20,13 @@
         cursor: pointer;
         
         .fds-check-selected {
-            background-color: $fds_dark_green;
-            border: 1px solid $fds_dark_green !important;
+            background-color: $button_primary;
+            border: 1px solid $button_primary !important;
+        }
+        
+        .fds-check-selected:hover {
+            background-color: $button_primary_hover;
+            border: 1px solid $button_primary_hover !important;
         }
         
         .fds-check-container {

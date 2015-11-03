@@ -36,7 +36,7 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
                     data = JSON.parse( data );
                     
                     if ( data.metricName === $scope.stat ){
-                        console.log( 'Found one: ' + data.metricName + ': ' + parseInt(data.metricValue / 100000 ) );
+//                        console.log( 'Found one: ' + data.metricName + ': ' + parseInt(data.metricValue / 100000 ) );
                         timeSum += parseInt( data.metricValue / 100000 );
                         numStats++;
                     }
