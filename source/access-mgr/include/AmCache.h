@@ -5,6 +5,8 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 
 #include <string>
+
+#include "AmAsyncDataApi.h"
 #include <fds_volume.h>
 #include <blob/BlobTypes.h>
 #include <cache/VolumeSharedKvCache.h>

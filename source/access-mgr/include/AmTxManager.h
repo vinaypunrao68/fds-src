@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
+#include "AmAsyncDataApi.h"
 #include <fdsp/dm_types_types.h>
 #include "fds_volume.h"
 
