@@ -716,9 +716,10 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     // TODO(Neil) - hack rebalance to have a list of resync nodes
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
 
-    LOGDEBUG << "BEGIN REBALANCE::result code::" << err;
-    // TODO(xxx) need to handle this error
-    // fds_verify(err.ok());
+    if( err == ERR_DM_MIGRATION_ABORTED )
+    {
+        LOGERROR << "Begin Rebalance failed with ERR_DM_MIGRATION_ABORTED";
+    }
 
     // it's possible that we didn't need to send push meta msg,
     // eg. there are no volumes or we removed a node and no-one got promoted

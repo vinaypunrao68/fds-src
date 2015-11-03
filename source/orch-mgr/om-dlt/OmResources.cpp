@@ -2675,17 +2675,19 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType) 
-{
-    if (svcType == fpi::FDSP_STOR_MGR)
+                                  fpi::FDSP_MgrIdType svcType) {
+    if (om_local_domain_up)
     {
-        // this is SM -- notify DLT state machine
-        om_dlt_update_cluster();
-    }
-    else if (svcType == fpi::FDSP_DATA_MGR)
-    {
-        // this is DM -- notify DMT state machine
-        om_dmt_update_cluster();
+        if (svcType == fpi::FDSP_STOR_MGR)
+        {
+            // this is SM -- notify DLT state machine
+            om_dlt_update_cluster();
+        }
+        else if (svcType == fpi::FDSP_DATA_MGR)
+        {
+            // this is DM -- notify DMT state machine
+            om_dmt_update_cluster();
+        }
     }
 }
 
