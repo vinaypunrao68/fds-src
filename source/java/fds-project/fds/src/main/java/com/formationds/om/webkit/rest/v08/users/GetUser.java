@@ -23,6 +23,8 @@ public class GetUser implements RequestHandler{
 	private static final Logger logger = LoggerFactory.getLogger( GetUser.class );
 	private final static String USER_ARG = "user_id";
 	
+	public static final String STATS_USERNAME = "stats-service";
+	
     private ConfigurationApi configApi;
     
     public GetUser() {}
@@ -45,6 +47,11 @@ public class GetUser implements RequestHandler{
     	
     	com.formationds.apis.User internalUser = getConfigApi().getUser( userId );
     	
+    	if ( internalUser.getIdentifier().equalsIgnoreCase( STATS_USERNAME ) ){
+    		logger.debug( "Trying to find the stats user, returning nothing." );
+    		return null;
+    	}
+    	
     	User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
     	
     	return externalUser;
@@ -55,6 +62,11 @@ public class GetUser implements RequestHandler{
     	logger.debug( "Trying to find user: {}.", username );
     	
     	com.formationds.apis.User internalUser = getConfigApi().getUser( username );
+    	
+    	if ( internalUser.getIdentifier().equalsIgnoreCase( STATS_USERNAME ) ){
+    		logger.debug( "Trying to find the stats user, returning nothing." );
+    		return null;
+    	}
     	
     	User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
     	
