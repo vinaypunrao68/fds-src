@@ -217,6 +217,12 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
                                         fds_token_id smTokId) {
         return (loc->obj_file_id == shadowFileId);
     }
+
+    // dummy function
+    virtual void evaluateSMTokenObjSets(const fds_token_id &smToken,
+                                        const diskio::DataTier &tier,
+                                        diskio::TokenStat &tokStats) {
+    }
 };
 
 class SmTokenCompactorTest : public ::testing::Test {

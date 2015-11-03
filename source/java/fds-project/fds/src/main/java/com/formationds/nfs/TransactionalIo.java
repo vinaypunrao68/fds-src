@@ -111,6 +111,10 @@ public class TransactionalIo {
         return result;
     }
 
+    public void flush() throws IOException {
+        io.flush();
+    }
+
     private Object metaLock(MetaKey key) {
         try {
             return metaLocks.get(key, () -> new Object());

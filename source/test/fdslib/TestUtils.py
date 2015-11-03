@@ -82,7 +82,7 @@ def get_options(pyUnit):
                    "[-b <build_num>] \n[-l <log_dir>] [--level <log_level>] [-z |--inventory-file <inventory_file>]" + \
                    "[--stop-on-fail] [--run-as-root] \n" + \
                    "[--iterations <num_iterations>] [--store] \n" + \
-                   "[-v|--verbose] [-r|--dryrun]> [-i|--install]>"
+                   "[-v|--verbose] [-y|--reusecluster] [-r|--dryrun]> [-i|--install]>"
 
     # FDS: Changed to option i/ini_file from c/config to prevent clashing with PyUnit's c/catch option.
     parser.add_option("-q", "--qat-file", action="store", type="string",
@@ -124,6 +124,8 @@ def get_options(pyUnit):
     # FDS: Add a couple of FDS-specific options.
     parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
                       help = 'enable verbosity')
+    parser.add_option('-y', '--reusecluster', action = 'store_true', dest = 'reusecluster',
+                      help = 'Dont deploy or teardown domain, use existing nodes and then clean them instead of uninstalling')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
     parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
@@ -155,7 +157,7 @@ def validate_cli_options(parser, pyUnit):
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None):
+def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None, pyUnitReuseCluster = False):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -512,20 +514,17 @@ def getAuth(self, om_ip):
 
         continue
 
-def get_ips_from_inventory(inventory_file_name,rt_env):
-    filename = inventory_file_name
-    path = rt_env.env_fdsSrc + "test/testsuites/templates/ansible-inventory/"
-    with open(path+filename) as f:
-        ips_array = []
-        lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            if (line.startswith('[')):
-                continue
-            elif not line :
-                break
-            else:
-                ips_array.append(line.rstrip('\n'))
+def read_ips_from_tmp(inventory_file_name):
+    filepath = '/tmp/'+inventory_file_name+'_ips.txt'
+    f = open(filepath, "r")
+    contents = f.readlines()
+    f.close()
+    contents[0]=contents[0].replace('OM_HOST','')
+    ips_array = []
+
+    for i in contents:
+        ips_array.append(i.strip())
+
     return ips_array
 
 def node_is_up(self,om_ip,node_id):
@@ -536,3 +535,18 @@ def node_is_up(self,om_ip,node_id):
     else:
         return False
 
+def deploy_on_AWS(self, number_of_nodes, inventory_file):
+    deploy_script = 'deploy_fds_ec2.sh'
+    deb_location = 'nightly'
+    deploy_script_dir = os.path.join(self.rt_env.env_fdsSrc, '../ansible/scripts/')
+    cur_dir = os.getcwd()
+    os.chdir(deploy_script_dir)
+    cmd = './%s %s %s %s' %(deploy_script,inventory_file, number_of_nodes, deb_location)
+    status = os.system(cmd)
+    os.chdir(cur_dir)
+    if status != 0:
+        self.log.error("FDS package installation on AWS nodes returned status %d." %
+                           (status))
+        return False
+
+    return True

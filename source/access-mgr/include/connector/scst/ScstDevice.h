@@ -1,5 +1,20 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * scst/ScstDevice.h
+ *
+ * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2015, Formation Data Systems
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
@@ -13,10 +28,12 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lockfree/queue.hpp>
 
-#include "fds_types.h"
-#include "connector/scst/common.h"
+#include "connector/scst/ScstCommon.h"
 #include "connector/scst/scst_user.h"
+
+#undef COPY
 #include "connector/BlockOperations.h"
+
 
 struct scst_user_get_cmd;
 
@@ -50,6 +67,9 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     template<typename T>
     using unique = std::unique_ptr<T>;
 
+    /// Constants
+    static constexpr uint64_t invalid_session_id {UINT64_MAX};
+
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
@@ -61,6 +81,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     std::string const volumeName;
     int scstDev {-1};
     size_t volume_size {0};
+    char serial_number[17];
     size_t sessions {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
@@ -73,6 +94,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     scst_user_reply_cmd fast_reply {};
     uint32_t logical_block_size;
     uint32_t physical_block_size {0};
+    uint64_t reservation_session_id {invalid_session_id};
 
     boost::lockfree::queue<ScstTask*> readyResponses;
     std::unordered_map<uint32_t, unique<ScstTask>> repliedResponses;

@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v07.domain;
 
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;

@@ -9,6 +9,7 @@ import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.EndUserMessages;
 import com.formationds.om.helper.SingletonConfigAPI;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -109,7 +110,7 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         } catch (TException te ) {
 
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
 
         }
     }
@@ -179,7 +180,7 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         } catch (TException te ) {
 
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
 
         }
     }

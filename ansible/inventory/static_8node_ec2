@@ -40,3 +40,4 @@ fds_ft_common_enable_multi_om_support=false
 fds_om_host_count=3
 clean_fds=yes
 force=yes
+fds_only_install=yes

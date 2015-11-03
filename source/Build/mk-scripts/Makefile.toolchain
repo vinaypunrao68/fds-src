@@ -16,8 +16,9 @@ toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 
 # Thrift settings.
 #
+tool_thrift_version  := 0.9.0
 tool_thrift          := $(toolchain_bin)/thrift
-toolchain_thrf       := $(topdir)/../thrift-0.9.0
+toolchain_thrf       := $(topdir)/../Build/thrift-$(tool_thrift_version)
 toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
 toolchain_thrf_opts  := $(user_thrift_flag)
 

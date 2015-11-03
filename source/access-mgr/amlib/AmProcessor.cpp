@@ -261,7 +261,7 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
                                                  amReq->volume_name,
                                                  default_access_mode,
                                                  nullptr);
-            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            attachReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
             volTable->enqueueRequest(attachReq);
         }
         err = amDispatcher->attachVolume(amReq->volume_name);
@@ -401,7 +401,29 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     // been responded to, in that case drop on the floor.
     Error err = volTable->markIODone(amReq);
     if (err.ok() && amReq->cb) {
-        amReq->cb->call(error);
+        fpi::ErrorCode code {fpi::OK};
+        if (!error.ok()) {
+            switch (error.GetErrno()) {
+                case ERR_DUPLICATE:
+                case ERR_HASH_COLLISION:
+                case ERR_VOL_DUPLICATE:
+                    code = fpi::RESOURCE_ALREADY_EXISTS;
+                    break;;
+                case ERR_NOT_FOUND:
+                case ERR_BLOB_NOT_FOUND:
+                case ERR_CAT_ENTRY_NOT_FOUND:
+                case ERR_VOL_NOT_FOUND:
+                    code = fpi::MISSING_RESOURCE;
+                    break;;
+                case ERR_VOLUME_ACCESS_DENIED:
+                    code = fpi::SERVICE_NOT_READY;
+                    break;;
+                default:
+                    code = fpi::BAD_REQUEST;
+                    break;;
+            }
+        }
+        amReq->cb->call(code);
     }
 
     // If we're shutting down check if the
@@ -578,7 +600,9 @@ void
 AmProcessor_impl::statVolumeCb(AmRequest *amReq, const Error &error) {
     StatVolumeCallback::ptr cb =
             SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
-    cb->volStat = static_cast<StatVolumeReq *>(amReq)->volumeStatus;
+    auto volReq = static_cast<StatVolumeReq *>(amReq);
+    cb->current_usage_bytes = volReq->size;
+    cb->blob_count = volReq->blob_count;
     respond_and_delete(amReq, error);
 }
 

@@ -27,6 +27,7 @@
   tags: stat-badger
 
 - include: start_fds.yml
+  when: fds_only_install is not defined or (fds_only_install is defined and fds_only_install == "no")
 
 - include: ../nginx/nginx_ssl_proxy.yml
   when: ssl_enabled is defined

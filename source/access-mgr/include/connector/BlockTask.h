@@ -12,12 +12,12 @@
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
-
-#include "fds_error.h"
-#include "fds_assert.h"
+#include "fdsp/common_types.h"
 
 namespace fds
 {
+
+namespace fpi = FDS_ProtocolInterface;
 
 /**
  * A BlockTask represents a single READ/WRITE operation from a storage
@@ -64,11 +64,11 @@ struct BlockTask {
     uint64_t getHandle() const  { return handle; }
     uint64_t getOffset() const  { return offset; }
     uint32_t getLength() const  { return length; }
-    Error getError() const      { return opError; }
+    fpi::ErrorCode getError() const      { return opError; }
     uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
 
     /// Task setters
-    void setError(fds::Error const& error) { opError = error; }
+    void setError(fpi::ErrorCode const& error) { opError = error; }
     void setObjectCount(size_t const count) {
         objCount = count;
         bufVec.reserve(count);
@@ -91,7 +91,6 @@ struct BlockTask {
     void keepBufferForWrite(uint32_t const seqId,
                             uint64_t const objectOff,
                             buffer_ptr_type& buf) {
-        fds_assert(WRITE == operation);
         bufVec.emplace_back(buf);
         offVec.emplace_back(objectOff);
     }
@@ -104,9 +103,8 @@ struct BlockTask {
     /**
      * \return true if all responses were received
      */
-    fds_bool_t handleWriteResponse(const Error& err) {
-        fds_verify(operation == WRITE);
-        if (!err.ok()) {
+    bool handleWriteResponse(const fpi::ErrorCode& err) {
+        if (fpi::OK != err) {
             // Note, we're always setting the most recent
             // responses's error code.
             opError = err;
@@ -119,11 +117,11 @@ struct BlockTask {
      * Handle read response for read-modify-write
      * \return true if all responses were received or operation error
      */
-    std::pair<Error, buffer_ptr_type>
+    std::pair<fpi::ErrorCode, buffer_ptr_type>
         handleRMWResponse(buffer_ptr_type const& retBuf,
                           uint32_t len,
                           uint32_t seqId,
-                          const Error& err);
+                          const fpi::ErrorCode& err);
 
     int64_t handle;
 
@@ -137,7 +135,7 @@ struct BlockTask {
     uint32_t objCount {1};
 
     // error of the operation
-    Error opError {ERR_OK};
+    fpi::ErrorCode opError {fpi::OK};
 
     // to collect read responses or first and last buffer for write op
     std::vector<buffer_ptr_type> bufVec;

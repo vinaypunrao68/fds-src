@@ -10,28 +10,9 @@
 
 namespace fds {
 
-void Callback::operator()(FDSN_Status status) {
-    call(status);
-}
-
-void Callback::call(FDSN_Status status) {
-    this->status = status;
-    this->error  = status;
-    call();
-}
-
-void Callback::call(Error err) {
+void Callback::call(fpi::ErrorCode const err) {
     this->error = err;
-    this->status = err.GetErrno();
     call();
-}
-
-bool Callback::isStatusSet() {
-    return status != FDSN_StatusErrorUnknown;
-}
-
-bool Callback::isErrorSet() {
-    return error != ERR_MAX;
 }
 
 void ResponseHandler::call() {

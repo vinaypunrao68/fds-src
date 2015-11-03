@@ -1,16 +1,22 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <fds_defines.h>
 #include <fds_config.hpp>
 #include <util/stringutils.h>
+
 namespace fds {
 using libconfig::Setting;
 // helper funcs
 Setting& getHierarchialValue(const libconfig::Config& config, const std::string& key) {
-    if (!config.exists(key)) throw fds::Exception(key + " not found");
+    if (!config.exists(key)) {
+        LOGCONSOLE << "config key [" << key << "] not found" << std::endl;
+        throw fds::Exception(key + " not found");
+    }
     // TODO(prem) : fill in the function properly
     return config.lookup(key);
 }
@@ -82,7 +88,16 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
         			<< std::endl;
         exit(ERR_DISK_READ_FAILED);
     }
-    config_.readFile(config_file.c_str());
+
+    try {
+        config_.readFile(config_file.c_str());
+    } catch(const libconfig::ParseException& e) {
+        LOGCONSOLE << "error in config file [" << config_file << ":" << e.getLine() << " ] - " << e.getError() << std::endl;
+        throw e;
+    } catch (const libconfig::SettingException& e) {
+        LOGCONSOLE << "error in config file [" << config_file << "] : " << e.getPath() << " : " << e.what() << std::endl;
+        throw e;
+    }
 
     /* Override config read from with command line params */
     for (auto o : parsed.options) {

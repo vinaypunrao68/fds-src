@@ -59,6 +59,12 @@ public class ListUsersForTenant implements RequestHandler{
 		
 		internalUsers.stream().forEach( internalUser -> {
 			User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
+			
+			if ( externalUser.getName().equalsIgnoreCase( GetUser.STATS_USERNAME ) ){
+				logger.debug( "Removing stats user from the list." );
+				return;
+			}
+			
 			externalUsers.add( externalUser );
 		});
 		

@@ -12,11 +12,13 @@ namespace fds {
 
 ObjectDataStore::ObjectDataStore(const std::string &modName,
                                  SmIoReqHandler *data_store,
-                                 UpdateMediaTrackerFnObj fn)
+                                 UpdateMediaTrackerFnObj fn,
+                                 EvaluateObjSetFn evalFn)
         : Module(modName.c_str()),
           persistData(new ObjectPersistData("SM Obj Persist Data Store",
                                             data_store,
-                                            std::move(fn))),
+                                            std::move(fn),
+                                            std::move(evalFn))),
           currentState(DATA_STORE_INITING)
 {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));

@@ -59,6 +59,12 @@ public class ListUsers implements RequestHandler {
     	getConfigApi().allUsers( 0 ).stream().forEach( user -> {
     		
     		User externalUser = ExternalModelConverter.convertToExternalUser( user );
+    		
+    		if ( externalUser.getName().equalsIgnoreCase( GetUser.STATS_USERNAME ) ){
+    			logger.debug( "Removing stats user from the list." );
+    			return;
+    		}
+    		
     		externalUsers.add( externalUser );
     	});
     	

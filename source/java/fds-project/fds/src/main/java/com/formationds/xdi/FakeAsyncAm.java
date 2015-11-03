@@ -1,19 +1,19 @@
 package com.formationds.xdi;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
-import org.apache.thrift.TException;
-
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
+import org.apache.thrift.TException;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -30,7 +30,7 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() throws IOException {
 
     }
 

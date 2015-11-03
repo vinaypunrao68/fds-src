@@ -1241,6 +1241,16 @@ OM_NodeDomainMod::om_local_domain_down()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
+// om_master_domain
+// ------------------
+//
+fds_bool_t
+OM_NodeDomainMod::om_master_domain()
+{
+    // TODO(Greg): Need some switch to check whether we are master - perhaps "domainID == 1"?
+    return true;
+}
+
 // domain_event
 // ------------
 //
@@ -1539,7 +1549,7 @@ OM_NodeDomainMod::om_startup_domain()
         if ((cur != NULL) &&
             (om_locDomain->om_pm_nodes()->rs_get_resource(cur->get_uuid()))) {
             // above check is because apparently we can have NULL pointer in RsArray
-            om_activate_known_services(cur->get_uuid());
+            om_activate_known_services( true, cur->get_uuid());
         }
     }
 
@@ -1676,33 +1686,31 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
              */
             if ( isPlatformSvc( *svcInfo ) )
             {
-                if ( isKnownPM( *svcInfo ) )
+                if ( (isKnownPM( *svcInfo )) &&
+                     (configDB->getStateSvcMap(svcInfo->svc_id.svc_uuid.svc_uuid) != fpi::SVC_STATUS_DISCOVERED))
                 {
                     LOGDEBUG << "Found well known platform service UUID ( "
                              << std::hex 
                              << svcInfo->svc_id.svc_uuid.svc_uuid 
                              << std::dec
-                             << " ), telling the platformd which services to start";
+                             << " ), telling the platform which services to start";
 
-                     /*
-                      * delay the start of the scheduled thread.
-                      */
                     NodeUuid pmUuid;
-                    pmUuid.uuid_set_type( ( svcInfo->svc_id).svc_uuid.svc_uuid, 
+                    pmUuid.uuid_set_type( ( svcInfo->svc_id ).svc_uuid.svc_uuid, 
                                             fpi::FDSP_PLATFORM );
-                    auto timer = MODULEPROVIDER()->getTimer();
-                    auto task = boost::shared_ptr<FdsTimerTask>(
-                        new FdsTimerFunctionTask(
-                            *timer,
-                            [this, pmUuid] () {
-                            /* Immediately post to threadpool so we don't hold up timer thread */
-                            MODULEPROVIDER()->proc_thrpool()->schedule(
-                                &OM_NodeDomainMod::om_activate_known_services,
-                                this,
-                                pmUuid);
-                        }));
-                    /* schedule the task to be run on timer thread after 3 seconds */
-                    timer->schedule(task, std::chrono::seconds(3));
+   
+                    om_activate_known_services( false, pmUuid );
+                }
+                else if ((isKnownPM( *svcInfo)) &&
+                         (configDB->getStateSvcMap(svcInfo->svc_id.svc_uuid.svc_uuid) == fpi::SVC_STATUS_DISCOVERED))
+                {
+                    LOGDEBUG << "Known platform service UUID ( "
+                             << std::hex
+                             << svcInfo->svc_id.svc_uuid.svc_uuid
+                             << std::dec
+                             << " ), in discovered state. No associated services to start";
+
+                        svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
                 }
                 else
                 {
@@ -1758,12 +1766,23 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         }
 
         /*
-         * Update the service layer service map up front so that any subsequent 
+         * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
          */
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-        configDB->updateSvcMap(*svcInfo);
         om_locDomain->om_bcast_svcmap();
+
+        if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
+            configDB->updateSvcMap(*svcInfo);
+
+        } else {
+            // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
+            // This is so that any access of the service state will return ACTIVE only after
+            // the associated service agents, uuids have been set up, and not before.
+            // Once the scheduling delay is removed, it probably makes sense to allow
+            // updates to occur here as previously done
+            addRegisteringSvc(svcInfo);
+        }
     }
     catch(const Exception& e)
     {
@@ -1776,28 +1795,48 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     return err;
 }
 
-void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid)
+void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, const NodeUuid& node_uuid)
 {
-
     NodeServices services;
     if ( configDB->getNodeServices( node_uuid, services ) )
     {
+        LOGDEBUG << "Activating services on a well known PM UUID: "
+                 << std::hex << node_uuid << std::dec;
+
       fds_bool_t startAM = false;
       fds_bool_t startDM = false;
       fds_bool_t startSM = false;
 
+      fpi::SvcUuid svcuuid;
+      fpi::SvcUuid pmSvcUuid;
+      pmSvcUuid.svc_uuid = node_uuid.uuid_get_val();
+
+      /*
+       * if a PM registers, whe should always send a start for each service 
+       * within the configdb, no matter what the state is. Since we can't 
+       * guarantee that the persisted state is correct.
+       *
+       * error on the side of being safe, send starts.
+       */
+
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                   << " found Access Manager";
           startAM = true;
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                   << " found Data Manager";
           startDM = true;
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
+          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                   << " found Storage Manager";
           startSM = true;
       }
 
@@ -1817,12 +1856,11 @@ void OM_NodeDomainMod::om_activate_known_services( const NodeUuid& node_uuid)
                                   svcInfoList);
 
           if (svcInfoList.size() == 0) {
-              LOGWARN <<"No services found to start for node:"
-                         << std::hex << node_uuid << std::dec;
+              LOGWARN << "No services found to start for node:"
+                      << std::hex << node_uuid << std::dec;
           }
           else
           {
-              bool domainRestart = true;
               bool startNode     = true;
               local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
@@ -1965,10 +2003,10 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     /**
      * ignore any PMs that are running. They are expected.
      */
-    return ( ( amSvcs->size() > 0 ) ||  
-             ( smSvcs->size() > 0 ) || 
-             ( dmSvcs->size() > 0 ) ) 
-            ? true 
+    return ( ( amSvcs->size() > 0 ) ||
+             ( smSvcs->size() > 0 ) ||
+             ( dmSvcs->size() > 0 ) )
+            ? true
             : false;
 }
 
@@ -2042,6 +2080,57 @@ bool OM_NodeDomainMod::isKnownService(fpi::SvcInfo svcInfo)
     }
 
     return bRetCode;
+}
+
+void OM_NodeDomainMod::addRegisteringSvc(SvcInfoPtr infoPtr)
+{
+    SCOPEDWRITE(svcRegMapLock);
+
+    int64_t uuid = infoPtr->svc_id.svc_uuid.svc_uuid;
+    registeringSvcs[uuid] = infoPtr;
+    LOGDEBUG << "Added svc:" << std::hex << infoPtr->svc_id.svc_uuid.svc_uuid
+             << std::dec << " to tracking map(size:"
+             << registeringSvcs.size() << ")";
+}
+
+Error
+OM_NodeDomainMod::getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid)
+{
+    Error err(ERR_OK);
+
+    SCOPEDREAD(svcRegMapLock);
+
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
+
+    iter = registeringSvcs.find(uuid);
+
+    if (iter != registeringSvcs.end()) {
+        infoPtr = iter->second;
+    } else {
+        err = ERR_NOT_FOUND;
+    }
+
+    return err;
+}
+
+void OM_NodeDomainMod::removeRegisteredSvc(int64_t uuid)
+{
+    SCOPEDWRITE(svcRegMapLock);
+
+    std::map<int64_t, SvcInfoPtr>::iterator iter;
+    iter = registeringSvcs.find(uuid);
+
+    if (iter != registeringSvcs.end()) {
+        registeringSvcs.erase(iter);
+
+        LOGDEBUG <<"Erased registered svc:"
+                 << std::hex << uuid
+                 << std::dec << " from tracking vector(size:"
+                 << registeringSvcs.size() << ")";
+
+    } else {
+        LOGERROR << "Error in erasing registered svc from tracking vector";
+    }
 }
 
 void OM_NodeDomainMod::fromSvcInfoToFDSP_RegisterNodeTypePtr( 
@@ -2302,18 +2391,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     // tell parent PM Agent about its new service
     newNode->set_node_state(fpi::FDS_Node_Up);
-    // ANNA -- I don't want to mess with platform service state, so
-    // calling this method for SM and DM only. The register service method
-    // set correct discovered/active state for these services based on
-    // whether this is known service or restarting service. We are
-    // going to set node state based on service state in svc map
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
-        smAgent->set_state_from_svcmap();
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
-        dmAgent->set_state_from_svcmap();
-    }
 
     if ((msg->node_uuid).uuid != 0) {
         err = pmNodes->handle_register_service((msg->node_uuid).uuid,
@@ -2328,6 +2405,47 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             LOGWARN << "handler_register_service returned error: " << err
                 << " type:" << msg->node_type;
         }
+    }
+
+    /*
+     *  We have already performed svclayer map update and broadcast for all services.
+     *  For PM configDB updates are done along with svcLayer updates in om_register_svc
+     *  Update the configDB svcMap now for other services
+    */
+    if (msg->node_type != fpi::FDSP_PLATFORM) {
+
+        SvcInfoPtr infoPtr;
+        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
+
+        if (err == ERR_OK) {
+            LOGNOTIFY <<"Update configDB svcMap for svc:"
+                      << std::hex
+                      << infoPtr->svc_id.svc_uuid.svc_uuid
+                      << std::dec;
+
+            configDB->updateSvcMap(*infoPtr);
+
+            // Now erase the svc from the the local tracking vector
+            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
+
+        } else {
+            LOGERROR << "Could not update ConfigDB svcMap for service:"
+                     << std::hex << uuid.uuid_get_val()
+                     << std::dec << " , not found";
+        }
+    }
+
+    // ANNA -- I don't want to mess with platform service state, so
+    // calling this method for SM and DM only. The register service method
+    // set correct discovered/active state for these services based on
+    // whether this is known service or restarting service. We are
+    // going to set node state based on service state in svc map
+    if (msg->node_type == fpi::FDSP_STOR_MGR) {
+        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+        smAgent->set_state_from_svcmap();
+    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+        dmAgent->set_state_from_svcmap();
     }
 
 
@@ -2513,6 +2631,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     if (dmPrevRegistered) {
+    	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
     dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
@@ -2544,15 +2663,31 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+                                                        fpi::FDSP_MgrIdType svcType,
+                                                        const fpi::ServiceStatus status )
+{
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+    om_locDomain->om_bcast_svcmap();
+}
+
+void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
-    if (svcType == fpi::FDSP_STOR_MGR) {
-        // this is SM -- notify DLT state machine
-        om_dlt_update_cluster();
-    } else if (svcType == fpi::FDSP_DATA_MGR) {
-        // this is DM -- notify DMT state machine
-        om_dmt_update_cluster();
+    if ( om_local_domain_up() )
+    {
+        if (svcType == fpi::FDSP_STOR_MGR)
+        {
+            // this is SM -- notify DLT state machine
+            om_dlt_update_cluster();
+        }
+        else if (svcType == fpi::FDSP_DATA_MGR)
+        {
+            // this is DM -- notify DMT state machine
+            om_dmt_update_cluster();
+        }
     }
 }
 

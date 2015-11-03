@@ -4,6 +4,7 @@
  */
 
 include "common.thrift"
+include "svc_types.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -27,6 +28,8 @@ enum MediaPolicy {
 enum VolumeType {
   OBJECT = 0;
   BLOCK = 1;
+  ISCSI = 2;
+  NFS = 3;
 }
 
 /* ------------------------------------------------------------
@@ -46,7 +49,7 @@ struct SnapshotPolicy {
   /** the retention time in seconds */
   4: i64 retentionTimeSeconds;
   /** the snapshot state */
-  5: common.ResourceState state;
+  5: svc_types.ResourceState state;
   /** the timeline time in seconds */
   6: i64  timelineTime;
 }
@@ -54,7 +57,7 @@ struct SnapshotPolicy {
 struct FDSP_ModifyVolType {
   1: string 		 vol_name,  /* Name of the volume */
   2: i64		 vol_uuid,
-  3: common.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+  3: svc_types.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
 }
 
 /**
@@ -89,7 +92,7 @@ struct LocalDomain {
 
 struct FDSP_ActivateOneNodeType {
   1: i32        domain_id,
-  2: common.FDSP_Uuid  node_uuid,
+  2: svc_types.FDSP_Uuid  node_uuid,
   3: bool       activate_sm,
   4: bool       activate_dm,
   5: bool       activate_am
@@ -97,7 +100,7 @@ struct FDSP_ActivateOneNodeType {
 
 struct FDSP_RemoveServicesType {
   1: string node_name, // Name of the node that contains services
-  2: common.FDSP_Uuid node_uuid,  // used if node name is not provided
+  2: svc_types.FDSP_Uuid node_uuid,  // used if node name is not provided
   3: bool remove_sm,   // true if sm needs to be removed
   4: bool remove_dm,   // true to remove dm
   5: bool remove_am    // true to remove am
@@ -131,7 +134,7 @@ struct User {
 
 struct FDSP_CreateVolType {
   1: string                  vol_name,
-  2: common.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+  2: svc_types.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
 }
 
 struct FDSP_DeleteVolType {
@@ -182,7 +185,7 @@ struct VolumeDescriptor {
   /** the volume uuid */
   5: i64 volId;
   /** the ResourceState representing the current state of the volume */
-  6: common.ResourceState   state;
+  6: svc_types.ResourceState   state;
 }
 
 /**
@@ -224,11 +227,11 @@ enum SubscriptionScheduleType {
  * Subscription attributes and status
  */
 struct SubscriptionDescriptor {
-  /** A string representing the subscription name. MUST be unique within the global domain. */
-  1: required string name;
-
   /** ID of the subscription. MUST be unique within the global domain. */
-  2: required i64 id;
+  1: required i64 id;
+
+  /** A string representing the subscription name. MUST be unique within the global domain/tenant. */
+  2: required string name;
 
   /** The administrating tenant ID. */
   3: required i64 tenantID;
@@ -246,7 +249,7 @@ struct SubscriptionDescriptor {
   7: required i64 createTime;
 
   /** The current state of the subscription. */
-  8: required common.ResourceState state;
+  8: required svc_types.ResourceState state;
 
   /** The type of subscription, generally whether it is content based or transaction based. */
   9: required SubscriptionType type;
@@ -256,4 +259,12 @@ struct SubscriptionDescriptor {
 
   /** When scheduling, the "size" of the interval the expiration of which results in a primary snapshot pushed to the replica. Units according to scheduleType. */
   11: required i64 intervalSize;
+}
+
+exception SubscriptionNotFound {
+  1: string message;
+}
+
+exception SubscriptionNotModified {
+  1: string message;
 }
