@@ -179,6 +179,8 @@
         - pm
         - redis
         - influxdb
+        - rabbitmq
+        - stats-service
     tags:
         - post-install
         - init
