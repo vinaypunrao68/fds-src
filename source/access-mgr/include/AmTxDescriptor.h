@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "AmAsyncDataApi.h"
 #include "shared/fds_types.h"
 #include "blob/BlobTypes.h"
 

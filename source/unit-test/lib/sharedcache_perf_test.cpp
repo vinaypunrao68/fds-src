@@ -86,14 +86,6 @@ sp<fds::BlobOffsetPair> gen_nonrandom<fds::BlobOffsetPair>()
         new fds::BlobOffsetPair("FormationDS", static_cast<uint64_t>(0xCAFEBABEDEADBEEF)));
 }
 
-template<>
-sp<fds::BlobDescriptor> gen_random<fds::BlobDescriptor>()
-{ return sp<fds::BlobDescriptor>(new fds::BlobDescriptor()); }
-
-template<>
-sp<fds::BlobDescriptor> gen_nonrandom<fds::BlobDescriptor>()
-{ return sp<fds::BlobDescriptor>(new fds::BlobDescriptor()); }
-
 template<typename K, typename V, typename _Hash, typename StrongAssociation>
 struct CacheTest {
     typedef K key_type;

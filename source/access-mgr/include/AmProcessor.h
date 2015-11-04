@@ -8,7 +8,8 @@
 #include <memory>
 #include <string>
 
-#include <net/SvcMgr.h>
+#include "fds_module.h"
+#include "fds_module_provider.h"
 #include "fds_volume.h"
 
 namespace fds {

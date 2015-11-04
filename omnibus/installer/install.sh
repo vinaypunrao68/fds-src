@@ -39,9 +39,7 @@ function install_deps() {
   # Make sure we are in our install dir
   cd $MYDIR
   dpkg -i omnibus/omnibus-fds-deps/pkg/*.deb
-
 }
-
 
 function run_deploy() {
 
@@ -49,6 +47,7 @@ function run_deploy() {
   cd $MYDIR/ansible/scripts
   ./deploy_fds.sh $inventory local
 }
+
 check_vault_pass
 install_deps
 run_deploy

@@ -306,11 +306,6 @@ class DiskTest (unittest.TestCase):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         assert d.marker == disk_format.DISK_MARKER
 
-
-    def testDiskFormatOSDrive (self):
-        d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
-        self.assertFalse (d.format ())
-
     @mock.patch ('__builtin__.open', mock.mock_open (read_data="20480"), create=True)
     def testDiskVerifySystemDiskPartitionSizeGood (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
@@ -323,6 +318,26 @@ class DiskTest (unittest.TestCase):
             d.verifySystemDiskPartitionSize()
         self.assertEqual (cm.exception.code, 8)
 
+    @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
+    @mock.patch ('disk_format.Disk.call_subproc')
+    @mock.patch ('disk_format.subprocess.Popen')
+    def testDiskFormatOSDrive (self, mock_popen, mock_call_subproc):
+        process_mock = mock.Mock ()
+        attrs = {'returncode': 0}
+        process_mock.stdout.read.return_value = '33333'
+        process_mock.configure (**attrs)
+
+        mock_popen.return_value = process_mock
+        mock_call_subproc.return_value = process_mock
+
+        d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        d.format()
+
+        expected = []
+
+        assert mock_call_subproc.call_args_list == expected
+        assert 0 == mock_call_subproc.call_count
+        self.assertFalse (d.format ())
 
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.Disk.call_subproc')
