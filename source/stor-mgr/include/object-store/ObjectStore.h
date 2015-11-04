@@ -20,11 +20,13 @@
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
 #include <util/bloomfilter.h>
+#include <util/always_call.h>
 
 namespace fds {
 
 typedef std::function <void(fds_bool_t, fds_bool_t)> StartResyncFnObj;
 typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
+typedef std::function <nullary_always(ObjectID const&, bool)> TokenLockFn;
 
 typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
@@ -52,6 +54,8 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    TokenLockFn tokenLockFn = { TokenLockFn() };
 
     LiveObjectsDB::unique_ptr liveObjectsTable;
 
@@ -117,6 +121,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     // Track when the last capacity message was sent
     float_t lastCapacityMessageSentAt;
+
+    // Maximum delete count for an object after which it will be up for gc'ing.
+    fds_uint8_t objDelCountThresh { 3 };
 
   public:
     ObjectStore(const std::string &modName,
@@ -320,6 +327,8 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
+    bool haveAllObjectSets() const;
+
     void evaluateObjectSets(const fds_token_id& smToken,
                             const diskio::DataTier& tier,
                             diskio::TokenStat &tokStats);
@@ -334,6 +343,14 @@ class ObjectStore : public Module, public boost::noncopyable {
                          const fds_volid_t &volId);
 
     void dropLiveObjectDB();
+
+    inline fds_uint8_t getObjectDelCntThresh() const {
+        return objDelCountThresh;
+    }
+
+    inline void setObjectDelCnt(fds_uint8_t &newCount) {
+        objDelCountThresh = newCount;
+    }
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);

@@ -154,9 +154,10 @@ ObjectMetadataStore::getMetadataTier() const {
     return metaDb_->getMetaTierInfo();
 }
 
-std::vector<ObjectID>
-ObjectMetadataStore::getMetaDbKeys(const fds_token_id &smToken) {
-   return metaDb_->getKeys(smToken); 
+void
+ObjectMetadataStore::forEachObject(const fds_token_id& smToken,
+                                   std::function<void (const ObjectID&)> &func) {
+   metaDb_->forEachObject(smToken, func);
 }
 
 void

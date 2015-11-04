@@ -334,13 +334,12 @@ std::string ObjectMetadataDb::getObjectMetaFilename(const std::string& diskPath,
     return filename;
 }
 
-std::vector<ObjectID> ObjectMetadataDb::getKeys(const fds_token_id &smToken) {
+void ObjectMetadataDb::forEachObject(const fds_token_id& smToken,
+                                     std::function<void (const ObjectID&)> &func) {
     SCOPEDREAD(dbmapLock_);
     TokenTblIter iter = tokenTbl.find(smToken);
     if (iter != tokenTbl.end()) {
-        return iter->second->GetKeys();
-    } else {
-        return std::vector<ObjectID>();
+        iter->second->forEachObject(func);
     }
 }
 

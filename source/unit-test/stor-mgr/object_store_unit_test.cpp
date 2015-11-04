@@ -269,16 +269,21 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
 
     diskio::TokenStat tokStats;
     /**
-     * Simulating the situation where SM received OBJ_DELETE_COUNT_THRESHOLD bloom filters.
-     * Here each bloom filter basically has N/2 absent objects. And once the total delete
-     * count crosses the threshold, the token_reclaim_size takes note of that.
+     * Simulating the situation where SM received object delete count threshold number of
+     * bloom filters. Here each bloom filter basically has N/2 absent objects. And once the
+     * total delete count crosses the threshold, the token_reclaim_size takes note of that.
      */
-    for (fds_uint8_t incDelCount = 0; incDelCount < OBJ_DELETE_COUNT_THRESHOLD; ++incDelCount) {
+    fds_uint8_t deleteCntThreshold = objectStore->getObjectDelCntThresh();
+    for (fds_uint8_t incDelCount = 0; incDelCount < deleteCntThreshold; ++incDelCount) {
         objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID, 1,
                                   util::getTimeStampNanos(), bfFileName);
+        tokStats.tkn_id = 0;
+        tokStats.tkn_tot_size = 0;
+        tokStats.tkn_reclaim_size = 0;
         objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
 
-        if (incDelCount < (OBJ_DELETE_COUNT_THRESHOLD - 1)) {
+        // object will be ready to be claimed only when the delete count threshold is reached.
+        if (incDelCount < (deleteCntThreshold - 1)) {
             EXPECT_EQ(tokStats.tkn_reclaim_size, 0);
         } else {
             fds_uint64_t toDelete = tokStats.tkn_tot_size / 2;
@@ -296,66 +301,6 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
     }
     objectStore->dropLiveObjectDB();
 }
-
-/**
- * Expunge TC 2
- * This test case just tests the case where the total delete
- * count for any object is less than the threshold(OBJ_DELETE_COUNT_THRESHOLD).
- */
-/*TEST_F(SmObjectStoreTest, evaluate_object_sets_no_delete) {
-    Error err(ERR_OK);
-    fds_token_id smToken = 1; // test SM token
-    vlargeCapVolume.reset(new TestVolume(fds_volid_t(200), "ut_vol_vcapacity2",
-                                         20, 0,
-                                         TestVolume::STORE_OP_PUT,
-                                         400, 4096, smToken));
-    volTbl->registerVolume(vlargeCapVolume->voldesc_);
-
-
-    std::unique_ptr<util::BloomFilter> bf(new util::BloomFilter());
-
-    bool ignorePut = true;
-    for (fds_uint32_t i = 0; i < (vlargeCapVolume->testdata_).dataset_.size(); ++i) {
-        ObjectID oid = (vlargeCapVolume->testdata_).dataset_[i];
-        boost::shared_ptr<std::string> data =
-                (vlargeCapVolume->testdata_).dataset_map_[oid].getObjectData();
-        if ((SmDiskMap::smTokenId(oid, bitsPerDltToken) == smToken)) {
-            err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false);
-            if (ignorePut) {
-                bf->add(oid);
-                ignorePut = false;
-            } else {
-                ignorePut = true;
-            }
-            EXPECT_TRUE(err.ok());
-        }
-    }
-    std::string bfFileName("vlargeCapVolume.bf");
-    serialize::Serializer* s=serialize::getFileSerializer(bfFileName);
-    if (bf->write(s) <= 0) {
-        std::cout << "write failed" << std::endl;
-    }
-    delete s;
-
-    diskio::TokenStat tokStats;
-
-    for (fds_uint8_t incDelCount = 2; incDelCount < OBJ_DELETE_COUNT_THRESHOLD; ++incDelCount) {
-        objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID, 1,
-                                  util::getTimeStampNanos(), bfFileName);
-        objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
-        objectStore->removeObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID);
-    }
-    fds_uint64_t toDelete = tokStats.tkn_tot_size / 2;
-    EXPECT_EQ(tokStats.tkn_reclaim_size, toDelete);
-
-    float_t used_pct = objectStore->getUsedCapacityAsPct();
-    EXPECT_TRUE(used_pct > 0);
-
-    if (unlink(bfFileName.c_str()) < 0) {
-        GLOGERROR << "Can't unlink file : " << bfFileName;
-    }
-}
-*/
 
 TEST_F(SmObjectStoreTest, one_thread_puts) {
     Error err(ERR_OK);

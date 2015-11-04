@@ -93,7 +93,24 @@ Error LiveObjectsDB::findAssociatedVols(const fds_token_id &smToken,
         return ERR_INVALID;
     }
 
-    for (auto volId : volumeSet) {
+    for (const auto& volId : volumeSet) {
+        volumes.insert(fds_volid_t(volId));
+    }
+    return ERR_OK;
+}
+
+Error LiveObjectsDB::findAllVols(std::set<fds_volid_t> &volumes) {
+
+    if (!db) { return ERR_INVALID; }
+
+    std::set<fds_uint64_t> volumeSet;
+    std::string query = "select volid from liveObjTbl";
+    if (!(db->getIntValues(query.c_str(), volumeSet))) {
+        LOGERROR << "Failed getting all volume associations from live object table";
+        return ERR_INVALID;
+    }
+
+    for (const auto& volId : volumeSet) {
         volumes.insert(fds_volid_t(volId));
     }
     return ERR_OK;

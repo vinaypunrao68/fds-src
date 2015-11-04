@@ -1539,5 +1539,9 @@ ObjectStorMgr::getAllVolumeDescriptors()
 	return err;
 }
 
+bool
+ObjectStorMgr::haveAllObjectSets() const {
+    return objectStore->haveAllObjectSets();
+}
 
 }  // namespace fds
