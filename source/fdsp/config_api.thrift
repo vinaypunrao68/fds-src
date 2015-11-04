@@ -36,7 +36,15 @@ service ConfigurationService {
    *
    * @return Returns the list of Local Domain.
    */
-  list<config_types.LocalDomain> listLocalDomains(1:i32 ignore)
+  list<config_types.LocalDomainDescriptor> listLocalDomains(1:i32 ignore)
+      throws (1: common.ApiException e);
+
+  /**
+   * Lists currently defined Local Domains using the V07 interface.
+   *
+   * @return Returns the list of Local Domain.
+   */
+  list<config_types.LocalDomainDescriptorV07> listLocalDomainsV07(1:i32 ignore)
       throws (1: common.ApiException e);
 
   /**

@@ -4,6 +4,7 @@
  */
 
 include "common.thrift"
+include "FDSP.thrift"
 include "svc_types.thrift"
 
 namespace cpp fds.apis
@@ -81,12 +82,30 @@ struct StreamingRegistrationMsg {
 /**
  * Local Domain descriptor.
  */
-struct LocalDomain {
+struct LocalDomainDescriptor {
+  /** The Local Domain uuid */
+  1: required i32 id;
+  /** A string representing the name of the Local Domain, i.e. domain name */
+  2: required string name;
+  /** A string representing the location or usage of the Local Domain. */
+  3: required string site;
+  /** The date created, in epoch seconds. */
+  4: required i64 createTime;
+  /** 'true' if the associated LocalDomain instance represents the current domain. However, once this crosses a domain boundary it can't be trusted. */
+  5: required bool current;
+  /** When not the current local domain, this provides OM contact information for the referenced local domain. */
+  6: required list<FDSP.FDSP_RegisterNodeType> omNodes;
+}
+
+/**
+ * Local Domain descriptor for interface version V07.
+ */
+struct LocalDomainDescriptorV07 {
   /** The Local Domain uuid */
   1: required i64 id;
   /** A string representing the name of the Local Domain, i.e. domain name */
   2: required string name;
-  /** A string representing the location of the Local Domain. */
+  /** A string representing the location or usage of the Local Domain. */
   3: required string site;
 }
 
@@ -122,13 +141,13 @@ struct Tenant {
 struct User {
   /** the user uuid */
   1: i64 id;
-  /** a string reprenseting the user identifier of the user, i.e. user name */
+  /** a string representing the user identifier of the user, i.e. user name */
   2: string identifier;
   /** a string representing the users password hash */
   3: string passwordHash;
-  /** a string represetning the secret passphrase */
+  /** a string representing the secret passphrase */
   4: string secret;
-  /** a boolean flag indicating if the user has adminstration permissions */
+  /** a boolean flag indicating if the user has administration permissions */
   5: bool isFdsAdmin;
 }
 

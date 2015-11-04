@@ -1,7 +1,7 @@
 package com.formationds.client.v08.converters;
 
 import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.apis.LocalDomain;
+import com.formationds.apis.LocalDomainDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
@@ -49,10 +49,10 @@ public class ExternalModelConverter {
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
-    public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
+    public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
 
         String extName = internalDomain.getName();
-        Long extId = internalDomain.getId();
+        Integer extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
         Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
@@ -60,9 +60,9 @@ public class ExternalModelConverter {
         return externalDomain;
     }
 
-    public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
+    public static LocalDomainDescriptor convertToInternalDomain( Domain externalDomain ) {
 
-        LocalDomain internalDomain = new LocalDomain();
+        LocalDomainDescriptor internalDomain = new LocalDomainDescriptor();
 
         internalDomain.setId( externalDomain.getId() );
         internalDomain.setName( externalDomain.getName() );

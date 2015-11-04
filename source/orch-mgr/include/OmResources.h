@@ -724,6 +724,13 @@ class OM_NodeContainer : public DomainContainer
         return tmp;
     }
 
+    void setLocalDomain(const LocalDomain localDomain) {
+        om_local_domain = std::unique_ptr<LocalDomain>(new LocalDomain(localDomain));
+    }
+    LocalDomain* getLocalDomain() const {
+        return om_local_domain.get();
+    }
+
   private:
     friend class OM_NodeDomainMod;
 
@@ -732,6 +739,7 @@ class OM_NodeContainer : public DomainContainer
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
     float                     om_cur_throttle_level;
+    std::unique_ptr<LocalDomain> om_local_domain{nullptr};
 
     void om_init_domain();
 
