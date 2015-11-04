@@ -19,7 +19,8 @@ struct RefCountManager : Module {
     virtual ~RefCountManager() = default;
     virtual void mod_startup();
     virtual void mod_shutdown();
-    
+
+    void scanActiveObjects();
     void scanDoneCb(ObjectRefScanMgr*);
     void objectFileTransferredCb(fds::net::FileTransferService::Handle::ptr,
                                  const Error& err,

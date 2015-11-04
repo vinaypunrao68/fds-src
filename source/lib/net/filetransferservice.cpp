@@ -168,7 +168,7 @@ bool FileTransferService::sendNextChunk(FileTransferService::Handle::ptr handle)
     auto request =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
 
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferMsg), msg);
-    request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle, token));
+    request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle));
     request->invoke();
     GLOGDEBUG << "after send : " << handle;
     return true;

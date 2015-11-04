@@ -17,11 +17,16 @@ RefCountManager::RefCountManager(DataMgr* dm) : dm(dm), Module("RefCountManager"
 
 void RefCountManager::mod_startup() {
     scanner->mod_startup();
-    scanner->setScanDoneCb(std::bind(&RefCountManager::scanDoneCb, this, ARG1));
+    scanner->setScanDoneCb(std::bind(&RefCountManager::scanDoneCb, this, PH_ARG1));
 }
 
 void RefCountManager::mod_shutdown() {
     scanner->mod_shutdown();
+}
+
+void RefCountManager::scanActiveObjects() {
+    LOGDEBUG << "asking to scan active objects";
+    scanner->scanOnce();
 }
 
 void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
@@ -41,7 +46,7 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
                                        filename,
                                        tokenFileName, 
                                        std::bind(&RefCountManager::objectFileTransferredCb,this,
-                                                 ARG1, ARG2, token, volumeList),
+                                                 PH_ARG1, PH_ARG2, token, volumeList),
                                        false);
             }
         } else {

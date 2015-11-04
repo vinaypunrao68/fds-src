@@ -999,6 +999,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+    refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
 }
 
@@ -1065,7 +1066,7 @@ void DataMgr::mod_startup()
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     setup_metasync_service();
-    refCountMgr->mod_startup()
+    refCountMgr->mod_startup();
 
     LOGNORMAL;
 }

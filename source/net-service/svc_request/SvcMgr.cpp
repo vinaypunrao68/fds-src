@@ -228,7 +228,7 @@ fpi::SvcUuid SvcMgr::mapToSvcUuid(const NodeUuid &in,
                                   const fpi::FDSP_MgrIdType& svcType)
 {
     ResourceUUID resIn(in);
-    resIn.uuid_set_type(in.svc_uuid, svcType);
+    resIn.uuid_set_type(in.uuid_get_val(), svcType);
     return resIn.toSvcUuid();
 }
 

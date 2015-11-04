@@ -57,7 +57,7 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
-
+#include <refcount/refcountmanager.h>
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -66,7 +66,6 @@
 
 
 namespace fds {
-
 class DMSvcHandler;
 
 struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
@@ -205,7 +204,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     StatStreamAggregator::ptr statStreamAggr_;
 
     net::FileTransferService::ptr fileTransfer;
-
+    refcount::RefCountManager::ptr refCountMgr;
     struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
