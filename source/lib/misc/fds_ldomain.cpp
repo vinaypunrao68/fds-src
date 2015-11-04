@@ -14,20 +14,20 @@ LocalDomain::LocalDomain() {
     this->site = "local";
     this->createTime = util::getTimeStampMillis();
     this->current = false;
-    this->omNode = nullptr;
+    // No OM nodes even though we set current to 'false'.
 }
 
 // Used to capture local domain details from a source other than the ConfigDB, such as user input.
 LocalDomain::LocalDomain(const std::string& name,
                          const std::string& site,
-                         const std::shared_ptr<fpi::FDSP_RegisterNodeType> omNode) {
+                         const std::vector<fpi::FDSP_RegisterNodeType>& omNodes) {
     this->id = invalid_ldom_id;
 
     this->name = name;
     this->site = site;
     this->createTime = util::getTimeStampMillis();
     this->current = false;
-    this->omNode = omNode;
+    this->setOMNodes(omNodes);
 }
 
 LocalDomain::LocalDomain(const LocalDomain& localDomain) {
@@ -36,7 +36,7 @@ LocalDomain::LocalDomain(const LocalDomain& localDomain) {
     this->site = localDomain.site;
     this->createTime = localDomain.createTime;
     this->current = localDomain.current;
-    this->omNode = localDomain.omNode;
+    this->setOMNodes(localDomain.getOMNodes());
 }
 
 /*
@@ -48,7 +48,7 @@ LocalDomain::LocalDomain(const std::string& _name, fds_ldomid_t _id)
     this->site = "";
     this->createTime = 0;
     this->current = false;
-    this->omNode = nullptr;
+    // No OM nodes even though we set current to 'false'.
 }
 
 std::string LocalDomain::ToString() {
@@ -71,7 +71,8 @@ LocalDomain& LocalDomain::operator=(const LocalDomain& rhs) {
     this->site = rhs.site;
     this->createTime = rhs.createTime;
     this->current = rhs.current;
-    this->omNode = rhs.omNode;
+    this->setOMNodes(rhs.getOMNodes());
+
     return *this;
 }
 
@@ -82,7 +83,6 @@ std::ostream& operator<<(std::ostream& os, const LocalDomain& localDomain) {
               << " site:" << localDomain.site
               << " createTime:" << localDomain.createTime
               << " current:" << localDomain.current
-              //<< " OM node:" << (localDomain.omNode.get() == nullptr) ? "current" : localDomain.omNode->node_name
               << " ]";
 }
 
@@ -98,7 +98,9 @@ void LocalDomain::makeLocalDomainDescriptor(apis::LocalDomainDescriptor& localDo
     localDomainDesc.site = localDomain.getSite();
     localDomainDesc.createTime = static_cast<std::int64_t>(localDomain.getCreateTime());  // See FS-3365.
     localDomainDesc.current = localDomain.getCurrent();
-    FDS_ProtocolInterface::swap(localDomainDesc.omNode, *(localDomain.getOMNode()));
+
+    auto newOMNodes(localDomain.getOMNodes());
+    localDomainDesc.omNodes.swap(newOMNodes);
 }
 
 /**
@@ -113,6 +115,6 @@ void LocalDomain::makeLocalDomain(LocalDomain& localDomain, const apis::LocalDom
     localDomain.setSite(localDomainDesc.site);
     localDomain.setCreateTime(static_cast<std::uint64_t>(localDomainDesc.createTime));  // See FS-3365.
     localDomain.setCurrent(localDomainDesc.current);
-    localDomain.setOMNode(std::make_shared<fpi::FDSP_RegisterNodeType>(localDomainDesc.omNode));
+    localDomain.setOMNodes(localDomainDesc.omNodes);
 }
 }  // namespace fds

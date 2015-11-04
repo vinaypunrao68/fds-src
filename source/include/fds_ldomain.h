@@ -13,6 +13,7 @@
 
 #include <fdsp/config_types_types.h>
 #include <bits/shared_ptr.h>
+#include <bits/stl_vector.h>
 #include <shared/fds_types.h>   // For fds_uint64_t.
 #include <fdsp/FDSP_types.h>    // For FDSP_RegisterNodeType.
 
@@ -33,7 +34,7 @@ class LocalDomain final {
         // Used to capture LocalDomain details from a source other than the ConfigDB, such as user input.
         LocalDomain(const std::string& name,
                     const std::string& site,
-                    const std::shared_ptr<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNode = nullptr);
+                    const std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType>& omNodes = std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType>{});
 
         // Used to construct a LocalDomain instance when not all details are known.
         explicit LocalDomain(const std::string& name, fds_ldomid_t id = invalid_ldom_id);
@@ -85,11 +86,19 @@ class LocalDomain final {
             return this->current;
         }
 
-        void setOMNode(const std::shared_ptr<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNode) {
-            this->omNode = omNode;
+        void setOMNode(const FDS_ProtocolInterface::FDSP_RegisterNodeType& omNode) {
+            this->omNodes.emplace_back(omNode);
         }
-        std::shared_ptr<FDS_ProtocolInterface::FDSP_RegisterNodeType> getOMNode() const {
-            return this->omNode;
+        const FDS_ProtocolInterface::FDSP_RegisterNodeType& getOMNode(const std::size_t position ) const {
+            return this->omNodes.at(position);
+        }
+
+        void setOMNodes(const std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNodes) {
+            auto newOMNodes(omNodes);
+            this->omNodes.swap(newOMNodes);
+        }
+        const std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType>& getOMNodes() const {
+            return this->omNodes;
         }
 
         // Serialization.
@@ -114,8 +123,8 @@ class LocalDomain final {
         std::string             site;  // Description of local domain location or usage. That's the intention, anyway.
         fds_uint64_t            createTime;
         bool                    current;  // 'true' if this instance represents the current local domain.
-        std::shared_ptr<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNode;  // When "current" is 'false', this is the connectivity
-                                                                               // information for the OM node of this "remote" local domain.
+        std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNodes;  // When "current" is 'false', this is the connectivity
+                                                                            // information for the OM nodes of this "remote" local domain.
 
 };
 

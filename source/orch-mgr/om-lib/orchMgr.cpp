@@ -290,6 +290,11 @@ bool OrchMgr::loadFromConfigDB() {
         LOGWARN << "No Local Domains stored in the system. "
                 << "Setting a default Local Domain.";
         LocalDomain localDomain;
+
+        /**
+         * Set this one as the current local domain.
+         */
+        localDomain.setCurrent(true);
         auto id = getConfigDB()->putLocalDomain(localDomain);
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
@@ -297,6 +302,7 @@ bool OrchMgr::loadFromConfigDB() {
         } else {
             LOGNOTIFY << "Default Local Domain creation succeeded. ID: " << id;
         }
+
         getConfigDB()->listLocalDomains(localDomains);
     }
 

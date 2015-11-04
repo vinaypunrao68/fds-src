@@ -159,7 +159,6 @@ ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& current
              */
             kv_store.del("local.domain:list");
 
-            boost::shared_ptr<std::string> serialOMNode = boost::make_shared<std::string>(""); // No OM contact in the Talc version.
             for (const auto& oldLocalDomain : localDomains) {
                 kv_store.sadd("local.domain:list", oldLocalDomain.id);
 
@@ -167,15 +166,15 @@ ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& current
                                                   " name %s"
                                                   " site %s"
                                                   " createTime %ld"
-                                                  " current %d"
-                                                  " omNode %b",
+                                                  " current %d",
                                                   oldLocalDomain.id, oldLocalDomain.id,
                                                   oldLocalDomain.name.c_str(),
                                                   oldLocalDomain.site.c_str(),
                                                   util::getTimeStampMillis(),  // Maybe just set this to 0?
-                                                  (oldLocalDomain.id == master_ldom_id) ? true : false, // Just an assumption here.
-                                                  serialOMNode.get(), serialOMNode.get()->length());
+                                                  (oldLocalDomain.id == master_ldom_id) ? true : false); // With version Talc, only the master domain was ever the current domain.
                 reply.checkError();
+
+                // No OM contact information availble in Talc.
             }
 
             /**
@@ -338,28 +337,58 @@ fds_ldomid_t ConfigDB::putLocalDomain(const LocalDomain& localDomain, const bool
             LOGDEBUG << "Updating local domain [" << localDomain.getName() << "], ID [" << ldomId << "].";
         }
 
-        /**
-         * Prepare to store our OM contact for this Local Domain.
-         */
-        boost::shared_ptr<std::string> serialOMNode = boost::make_shared<std::string>("");
-        if (localDomain.getOMNode() != nullptr) {
-            fds::serializeFdspMsg(*(localDomain.getOMNode()), serialOMNode);
-        }
-
         // Insert the new local domain details.
-        auto reply = kv_store.sendCommand("hmset ldom:%d id %d"
+        auto reply = kv_store.sendCommand("hmset ldom:%d"
+                                          " id %d"
                                           " name %s"
                                           " site %s"
                                           " createTime %ld"
-                                          " current %d"
-                                          " omNode %b",
-                                          ldomId, ldomId,
+                                          " current %d",
+                                          ldomId,
+                                          ldomId,
                                           localDomain.getName().c_str(),
                                           localDomain.getSite().c_str(),
-                                          util::getTimeStampMillis(),
-                                          (ldomId == master_ldom_id) ? true : false,
-                                          serialOMNode.get(), serialOMNode.get()->length());
+                                          (localDomain.getCreateTime() == 0) ? util::getTimeStampMillis() :
+                                                                               localDomain.getCreateTime(),
+                                          localDomain.getCurrent());
         reply.checkError();
+
+        // Now put any OM Node contact information.
+        std::size_t i;
+        for (i = 0; i < localDomain.getOMNodes().size(); i++) {
+            reply = kv_store.sendCommand("hmset ldom:%d:om:%d"
+                                         " node_type %d"
+                                         " node_name %s"
+                                         " domain_id %d"
+                                         " ip_hi_addr %ld"
+                                         " ip_lo_addr %ld"
+                                         " control_port %d"
+                                         " data_port %d"
+                                         " migration_port %d"
+                                         " node_uuid %ld"
+                                         " service_uuid %ld"
+                                         " node_root %s"
+                                         " metasync_port %d",
+                                         ldomId, i,
+                                         localDomain.getOMNode(i).node_type,
+                                         localDomain.getOMNode(i).node_name.c_str(),
+                                         localDomain.getOMNode(i).domain_id,
+                                         localDomain.getOMNode(i).ip_hi_addr,
+                                         localDomain.getOMNode(i).ip_lo_addr,
+                                         localDomain.getOMNode(i).control_port,
+                                         localDomain.getOMNode(i).data_port,
+                                         localDomain.getOMNode(i).migration_port,
+                                         localDomain.getOMNode(i).node_uuid.uuid,
+                                         localDomain.getOMNode(i).service_uuid.uuid,
+                                         localDomain.getOMNode(i).node_root.c_str(),
+                                         localDomain.getOMNode(i).metasync_port);
+            reply.checkError();
+        }
+
+        // Finally, clear away any OM Node contact information left from a previous put.
+        for (; kv_store.exists(format("ldom:%d:om:%d", ldomId, i)) == true; i++) {
+            kv_store.del(format("ldom:%d:om:%d", ldomId, i));
+        }
 
         return ldomId;
 
@@ -380,7 +409,7 @@ fds_ldomid_t ConfigDB::putLocalDomain(const LocalDomain& localDomain, const bool
  * @return int64_t - ID generated for the new Local Domain.
  */
 fds_ldomid_t ConfigDB::addLocalDomain(const LocalDomain& localDomain) {
-    if (localDomain.getOMNode() == nullptr) {
+    if (localDomain.getOMNodes().size() == 0) {
         LOGWARN << "Trying to add an existing Local Domain to the current Global Domain "
                    "but no OM contact information is provided for the existing Local Domain: " << localDomain.getName();
         return invalid_ldom_id;
@@ -434,13 +463,18 @@ ConfigDB::ReturnType ConfigDB::deleteLocalDomain(fds_ldomid_t ldomId) {
             return ReturnType::NOT_UPDATED;
         }
 
-        // Delete the subscription.
+        // Delete the local domain.
         if (!(kv_store.del(format("ldom:%d", ldomId)))) {
             LOGWARN << "Local domain [" << ldomId << "] details not found, not removed.";
             // NOMOD(); Presumably, the ealier modification took place.
             return ReturnType::NOT_UPDATED;
         } else {
             return ReturnType::SUCCESS;
+        }
+
+        // Finally, clear away any OM Node contact information.
+        for (std::size_t i = 0; kv_store.exists(format("ldom:%d:om:%d", ldomId, i)) == true; i++) {
+            kv_store.del(format("ldom:%d:om:%d", ldomId, i));
         }
     } catch(RedisException& e) {
         LOGCRITICAL << "Exception with Redis: " << e.what();
@@ -561,50 +595,88 @@ ConfigDB::ReturnType ConfigDB::getLocalDomains(std::vector<LocalDomain>&localDom
 
 ConfigDB::ReturnType ConfigDB::getLocalDomain(fds_ldomid_t ldomId, LocalDomain& localDomain) {
     try {
-        Reply reply = kv_store.hgetall(format("ldom:%d", ldomId));
-        reply.checkError();
+        Reply reply1 = kv_store.hgetall(format("ldom:%d", ldomId));
+        reply1.checkError();
 
-        StringList strings;
-        reply.toVector(strings);
+        StringList strings1;
+        reply1.toVector(strings1);
 
-        if (strings.empty()) {
+        if (strings1.empty()) {
             LOGDEBUG << "Unable to find local domain ID [" << ldomId << "].";
             return ReturnType::NOT_FOUND;
         }
 
         // Since we expect complete key-value pairs, the size of strings should be even.
-        if ((strings.size() % 2) != 0) {
+        if ((strings1.size() % 2) != 0) {
             LOGCRITICAL << "ConfigDB corruption. Local domain ID [" << ldomId <<
                         "] does not have a complete key-value pairing of attributes.";
             return ReturnType::CONFIGDB_EXCEPTION;
         }
 
-        for (std::size_t i = 0; i < strings.size(); i+= 2) {
-            std::string& key = strings[i];
-            std::string& value = strings[i+1];
+        for (std::size_t i = 0; i < strings1.size(); i+= 2) {
+            std::string& key1 = strings1[i];
+            std::string& value1 = strings1[i+1];
 
-            if (key == "id") { localDomain.setID(fds_ldomid_t(std::stoi(value.c_str(), NULL, 10)));}
-            else if (key == "name") { localDomain.setName(value); }
-            else if (key == "site") { localDomain.setSite(value); }
-            else if (key == "createTime") { localDomain.setCreateTime(strtoull(value.c_str(), NULL, 10));} //NOLINT
-            else if (key == "current") { localDomain.setCurrent(static_cast<bool>(std::stoi(value.c_str(), NULL, 10)));}
-            else if (key == "omNode") {
-                /**
-                 * Restore our OM contact for this Local Domain.
-                 */
-                if (value.empty()) {
-                    localDomain.setOMNode(nullptr);
-                } else {
-                    fpi::FDSP_RegisterNodeType omNode;
-                    fds::deserializeFdspMsg(value, omNode);
-                    localDomain.setOMNode(std::make_shared<fpi::FDSP_RegisterNodeType>(omNode));
-                }
-            }
+            if (key1 == "id") { localDomain.setID(fds_ldomid_t(std::stoi(value1.c_str(), NULL, 10)));}
+            else if (key1 == "name") { localDomain.setName(value1); }
+            else if (key1 == "site") { localDomain.setSite(value1); }
+            else if (key1 == "createTime") { localDomain.setCreateTime(strtoull(value1.c_str(), NULL, 10));} //NOLINT
+            else if (key1 == "current") { localDomain.setCurrent(static_cast<bool>(std::stoi(value1.c_str(), NULL, 10)));}
             else { //NOLINT
                 LOGWARN << "Unknown key for local domain [" << ldomId <<
-                        "] - key [" << key << "], value [" << value << "].";
+                        "] - key [" << key1 << "], value [" << value1 << "].";
                 fds_assert(!"Unknown key");
             }
+
+            // See if we have any OM contact information for this local domain.
+            std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNodes;
+            for (std::size_t j = 0; kv_store.exists(format("ldom:%d:om:%d", ldomId, j)) == true; j++) {
+                Reply reply2 = kv_store.hgetall(format("ldom:%d:om:%d", ldomId, j));
+                reply2.checkError();
+
+                StringList strings2;
+                reply2.toVector(strings2);
+
+                if (strings2.empty()) {
+                    LOGDEBUG << "No OM contact information for local domain ID [" << ldomId << "].";
+                    // This should probably be an error - database inconsistency.
+                }
+
+                // Since we expect complete key-value pairs, the size of strings should be even.
+                if ((strings2.size() % 2) != 0) {
+                    LOGCRITICAL << "ConfigDB corruption. Local domain ID [" << ldomId <<
+                                "] OM contact information [" << j << "] does not have a complete key-value pairing of attributes.";
+                    return ReturnType::CONFIGDB_EXCEPTION;
+                }
+
+                FDS_ProtocolInterface::FDSP_RegisterNodeType omNode;
+                for (std::size_t k = 0; k < strings2.size(); k+= 2) {
+                    std::string& key2 = strings2[k];
+                    std::string& value2 = strings2[k+1];
+
+                    if (key2 == "node_type") { omNode.__set_node_type(static_cast<FDS_ProtocolInterface::FDSP_MgrIdType>(std::stoi(value2.c_str(), NULL, 10))); }
+                    else if (key2 == "node_name") { omNode.__set_node_name(value2); }
+                    else if (key2 == "domain_id") { omNode.domain_id = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "ip_hi_addr") { omNode.ip_hi_addr = std::stol(value2.c_str(), NULL, 10); }
+                    else if (key2 == "ip_lo_addr") { omNode.ip_lo_addr = std::stol(value2.c_str(), NULL, 10); }
+                    else if (key2 == "control_port") { omNode.control_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "data_port") { omNode.data_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "migration_port") { omNode.migration_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "node_uuid") { omNode.node_uuid.__set_uuid(std::stol(value2.c_str(), NULL, 10)); }
+                    else if (key2 == "service_uuid") { omNode.service_uuid.__set_uuid(std::stol(value2.c_str(), NULL, 10)); }
+                    else if (key2 == "node_root") { omNode.node_root = value2; }
+                    else if (key2 == "metasync_port") { omNode.migration_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else { //NOLINT
+                        LOGWARN << "Unknown key for local domain [" << ldomId << "] and OM contact information [" << k <<
+                                "] - key [" << key2 << "], value [" << value2 << "].";
+                        fds_assert(!"Unknown key");
+                    }
+
+                    omNodes.emplace_back(omNode);
+                }
+            }
+
+            localDomain.setOMNodes(omNodes);
         }
         return ReturnType::SUCCESS;
     } catch(RedisException& e) {

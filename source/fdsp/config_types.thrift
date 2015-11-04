@@ -94,7 +94,7 @@ struct LocalDomainDescriptor {
   /** 'true' if the associated LocalDomain instance represents the current domain. However, once this crosses a domain boundary it can't be trusted. */
   5: required bool current;
   /** When not the current local domain, this provides OM contact information for the referenced local domain. */
-  6: required FDSP.FDSP_RegisterNodeType omNode;
+  6: required list<FDSP.FDSP_RegisterNodeType> omNodes;
 }
 
 /**
