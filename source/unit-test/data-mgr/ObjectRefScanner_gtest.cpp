@@ -5,7 +5,7 @@
 #include "./dm_mocks.h"
 #include "./dm_gtest.h"
 #include "./dm_utils.h"
-#include <ObjectRefScanner.h>
+#include <refcount/objectrefscanner.h>
 
 #include <testlib/SvcMsgFactory.h>
 #include <vector>
@@ -90,9 +90,9 @@ TEST_F(DmUnitTest, ObjectRefMg) {
 
     concurrency::TaskStatus waiter;
 
-    ObjectRefMgr refMgr(dmTester, dataMgr);
+    refcount::ObjectRefScanMgr refMgr(dmTester, dataMgr);
     refMgr.mod_startup();
-    refMgr.setScanDoneCb([&waiter](ObjectRefMgr *refMgr) {
+    refMgr.setScanDoneCb([&waiter](refcount::ObjectRefScanMgr *refMgr) {
         waiter.done();
     });
     refMgr.scanOnce();

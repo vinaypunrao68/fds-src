@@ -5,7 +5,7 @@
 #include "./dm_mocks.h"
 #include "./dm_gtest.h"
 #include "./dm_utils.h"
-#include <ObjectRefScanner.h>
+#include <refcount/objectrefscanner.h>
 
 #include <testlib/SvcMsgFactory.h>
 #include <vector>
