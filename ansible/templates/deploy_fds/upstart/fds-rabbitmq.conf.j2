@@ -1,0 +1,30 @@
+{% extends 'fds_upstart_defaults.j2' %}
+{% block content %}
+# RabbitMQ upstart conf file
+#
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+
+description "RabbitMQ Service"
+
+start on started fds-om
+stop on stopped fds-om
+
+env fds_root={{ fds_root }}
+env ENABLED=false
+env HOME="/opt/fds-stats-deps/"
+
+respawn
+respawn limit 5 60
+
+script
+  echo '==========================================================' > ${fds_root}/bin/rabbitmq.out
+  echo 'UPTIME:\t'`date` >> ${fds_root}/bin/rabbitmq.out
+  echo 'Loading '${fds_root}/etc/formation_env >> ${fds_root}/bin/rabbitmq.out
+  [ -f ${fds_root}/etc/formation_env ] || exit 1
+  # Sourcing formation_env here
+  . ${fds_root}/etc/formation_env
+  echo 'Loaded '${fds_root}/etc/formation_env >> ${fds_root}/bin/rabbitmq.out
+  echo "\n ***** Starting RabbitMQ *****\n" >> ${fds_root}/bin/rabbitmq.out
+  exec /opt/fds-stats-deps/embedded/bin/./rabbitmq-server start >> ${fds_root}/bin/rabbitmq.out 2>&1
+end script
+{% endblock %}
