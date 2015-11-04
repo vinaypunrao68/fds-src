@@ -715,8 +715,11 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     dst.pull_meta_dms.clear();
     // TODO(Neil) - hack rebalance to have a list of resync nodes
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
-    // TODO(xxx) need to handle this error
-    fds_verify(err.ok());
+
+    if ( !err.ok() )
+    {
+        LOGERROR << "Begin Rebalance failed with " << err;
+    }
 
     // it's possible that we didn't need to send push meta msg,
     // eg. there are no volumes or we removed a node and no-one got promoted
@@ -890,7 +893,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
         return false;
     }
     // otherwise the ack must be from AMs only
-    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
+//    fds_verify(evt.svc_type == fpi::FDSP_ACCESS_MGR || evt.svc_type == fpi::FDSP_STOR_MGR);
 
     // for now assuming commit is always a success
     if (src.commit_acks_to_wait > 0) {

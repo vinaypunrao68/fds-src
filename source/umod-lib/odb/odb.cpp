@@ -316,6 +316,16 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     return err;
 }
 
+std::vector<ObjectID> ObjectDB::GetKeys() const {
+    fds::Error err(ERR_OK);
+    std::vector<ObjectID> allKeys;
+    leveldb::Iterator* it = db->NewIterator(read_options);
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        allKeys.push_back(ObjectID(it->key().ToString()));
+    }
+    return allKeys;
+}
+
 /** Takes a persistent snapshot of the leveldb in ObjectDB
  *
  * @param fileName (i) Directory where the snapshot of leveldb is stored.

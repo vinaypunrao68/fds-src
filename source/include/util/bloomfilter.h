@@ -25,6 +25,8 @@ struct BloomFilter {
     void add(const std::vector<uint32_t>& positions);
     bool lookup(const std::vector<uint32_t>& positions) const;
 
+    void merge(const BloomFilter& filter);
+
     std::vector<uint32_t> generatePositions(const void* data, uint32_t len) const;
 
     uint32_t write(serialize::Serializer*  s) const;
@@ -36,6 +38,8 @@ struct BloomFilter {
     uint32_t totalBits = 1024;
     SHPTR<boost::dynamic_bitset<> > bits;
 };
+
+using BloomFilterPtr = SHPTR<BloomFilter>;
 
 
 }  // namespace util

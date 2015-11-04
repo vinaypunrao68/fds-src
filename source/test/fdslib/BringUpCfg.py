@@ -550,7 +550,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -f hdd-* ssd-*')
+                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -rf hdd-* ssd-* disk-map')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:

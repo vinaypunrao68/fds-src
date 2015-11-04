@@ -3,7 +3,9 @@
  */
 
 #include <util/path.h>
+#include <hash/md5.h>
 
+#include <fstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -59,6 +61,22 @@ void getFiles(const std::string& dirname, std::vector<std::string>& vecDirs) {
         }
         (void) closedir (dp);
     }
+}
+
+std::string getFileChecksum(const std::string& filename) {
+    std::ifstream is (filename.c_str(), std::ifstream::binary);
+    size_t length = 1024*1024;
+    char * buffer = new char [length];
+    checksum_calc sum;
+    while(!is.eof() && is.good()) {
+        is.read (buffer,length);
+        sum.checksum_update((unsigned  char *)buffer, is.gcount());
+    }
+
+    is.close();
+    std::string strsum;
+    sum.get_checksum(strsum);
+    return strsum;
 }
 }  // namespace util
 }  // namespace fds

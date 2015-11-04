@@ -53,6 +53,10 @@ bool BloomFilter::lookup(const std::vector<uint32_t>& positions) const {
     return true;
 }
 
+void BloomFilter::merge(const BloomFilter& filter) {
+   *bits |= *(filter.bits); 
+}
+
 std::vector<uint32_t> BloomFilter::generatePositions(const void* data, uint32_t len) const {
     std::vector<uint32_t> positions;
     positions.reserve(bitsPerKey);

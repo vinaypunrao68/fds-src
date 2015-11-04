@@ -4,7 +4,9 @@ package com.formationds.om;
  */
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.security.HashedPassword;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -13,7 +15,6 @@ import java.util.UUID;
 class EnsureAdminUser {
     private final static Logger LOG = Logger.getLogger(EnsureAdminUser.class);
     public static final String ADMIN_USERNAME = "admin";
-    public static final String STATS_USERNAME = "stats-service";
     public static final String STATS_PASSWORD = "$t@t$";
 
     /**
@@ -48,16 +49,16 @@ class EnsureAdminUser {
         }
         
         boolean hasStats = config.allUsers(0).stream()
-                .filter(u -> STATS_USERNAME.equals(u.getIdentifier()))
+                .filter(u -> GetUser.STATS_USERNAME.equals(u.getIdentifier()))
                 .findFirst()
                 .isPresent();
         
-        if (!hasAdmin) {
+        if (!hasStats) {
             // TODO: default passwords are a security risk (even when "secure" passwords are used).
             // Installer should set or admin webapp should detect that this is a first time boot
             // and step the customer through first-time configuration steps, including defining a
             // secure password.
-            config.createUser(STATS_USERNAME, new HashedPassword().hash(STATS_PASSWORD), UUID.randomUUID().toString(), true);
+            config.createUser( GetUser.STATS_USERNAME, new HashedPassword().hash( STATS_PASSWORD ), UUID.randomUUID().toString(), true);
             LOG.info("First time boot, created stats user");
         }
     }

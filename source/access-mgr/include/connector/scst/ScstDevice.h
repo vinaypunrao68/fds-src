@@ -30,9 +30,10 @@
 
 #include "connector/scst/ScstCommon.h"
 #include "connector/scst/scst_user.h"
-#include "connector/BlockOperations.h"
 
 #undef COPY
+#include "connector/BlockOperations.h"
+
 
 struct scst_user_get_cmd;
 

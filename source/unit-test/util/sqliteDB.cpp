@@ -63,7 +63,7 @@ TEST_F(SqliteUnitTest, SqliteDB) {
     sqliteDB_ptr->getIntValue(query, value);
     EXPECT_EQ(4, value);
 
-    std::vector<std::string> filenames;
+    std::set<std::string> filenames;
     query = util::strformat("select filename from testTbl where id=%ld", 1);
     sqliteDB_ptr->getTextValues(query, filenames);
     EXPECT_THAT(filenames, ::testing::ElementsAre("file1", "file11"));
