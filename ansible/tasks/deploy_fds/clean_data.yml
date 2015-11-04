@@ -12,7 +12,7 @@
         - /fds/var/core/*.core
         - /fds/dev/hdd-*/*
         - /fds/dev/ssd-*/*
-        - /fds/sys-repo
+        - /fds/sys-repo/*
         - /fds/user-repo/*
         - /fds/var/redis/appendonly.aof
     tags:

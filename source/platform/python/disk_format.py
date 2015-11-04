@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+import sys
+
+sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")
+
 import shutil
 import time
 import distutils.util
@@ -8,7 +12,6 @@ import re
 
 import fstab        # Installed via pypi or omnibus
 
-import sys
 import os
 import optparse
 import subprocess
@@ -329,9 +332,6 @@ class Disk (Base):
             partitioning scheme, this is not possible.
             Also need to fix load_disk_header() '''
 
-        if self.os_disk:
-            return False
-
         self.dbg_print ("Formatting:  %s" % (self.path))
 
         # Write the FDS disk marker and Zero out the FDS superblock partition
@@ -348,6 +348,9 @@ class Disk (Base):
         file_handle.write (self.disk_marker_id)
         file_handle.write (zero_buffer)
         file_handle.close()
+
+        if self.os_disk:
+            return False
 
         # format the remaining partions
         if self.index_disk:
