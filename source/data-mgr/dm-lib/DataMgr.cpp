@@ -997,8 +997,8 @@ int DataMgr::mod_init(SysParams const *const param)
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
 
+    
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
-
     return 0;
 }
 
@@ -1065,6 +1065,7 @@ void DataMgr::mod_startup()
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     setup_metasync_service();
+    refCountMgr->mod_startup()
 
     LOGNORMAL;
 }
@@ -1185,6 +1186,10 @@ void DataMgr::mod_shutdown()
     }
 
     LOGNORMAL;
+    if (refCountMgr.get()) {
+        refCountMgr->mod_shutdown();
+    }
+
     if ( statStreamAggr_ ) {
         statStreamAggr_->mod_shutdown();
     }

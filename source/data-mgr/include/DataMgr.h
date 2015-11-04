@@ -57,7 +57,6 @@
 #include "util/ExecutionGate.h"
 #include <timeline/timelinemanager.h>
 #include <expungemanager.h>
-#include <ObjectRefScanner.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -119,7 +118,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
     void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
-
 
     ///
     /// Check if a given volume is active.
@@ -206,7 +204,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
-    ObjectRefMgr::ptr refCountMgr;
     net::FileTransferService::ptr fileTransfer;
 
     struct dmQosCtrl : FDS_QoSControl {
