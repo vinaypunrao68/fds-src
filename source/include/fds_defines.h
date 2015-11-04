@@ -35,4 +35,8 @@
 
 #define __CLASS_NAME__ fds::classNameFromPrettyFunc(__PRETTY_FUNCTION__)
 #define LOGCONSOLE std::cerr _ATLINE_
+#define ARG1 std::placeholders::_1
+#define ARG2 std::placeholders::_2
+#define ARG3 std::placeholders::_3
+
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_
