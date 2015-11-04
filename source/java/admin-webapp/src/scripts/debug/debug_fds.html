@@ -1,14 +1,48 @@
 <div ng-controller="debugController">
     <div class="header top-label">
-        <span class="sub-header" style="margin-bottom: 12px;">Debug</span>
+        <span class="sub-header" style="margin-bottom: 16px;">Debug</span>
     </div>
     
-    <button class="btn btn-primary skinny" ng-click="start()">Start Profiling</button>
-    <button class="btn btn-primary skinny" ng-click="stop()">Stop Profiling</button>
+    <button class="btn btn-primary skinny" ng-click="start()" ng-class="{ disabled : !isEnabled }">Start Profiling</button>
+    <button class="btn btn-primary skinny" ng-click="stop()" ng-class="{ disabled : isEnabled }">Stop Profiling</button>
 
-    <div style="width: 450px;height: 200px;margin-top: 24px;">
-        <stats-line-chart ng-model="amPutReqs" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="AM_PUT_OBJ_REQ" title="AM PUT Requests" duration="duration"></stats-line-chart>
+    <div style="margin: 12px;">
+        <button-bar ng-model="durationChoice" buttons="durations" label="name" disabled="!isEnabled"></button-bar>
     </div>
     
-    <div style="height: 100px;"></div>
+    <div style="margin: 12px;">
+        <fds-checkbox ng-model="syncRange" label="Synchronize chart ranges" style="color: black;"></fds-checkbox>
+    </div>
+    
+    <div>
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
+            <fui-dropdown selected="chartChoice[0]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[0]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[0].value" title="chartChoice[0].name" duration="duration" min="minMaxes[0].min" max="minMaxes[0].max"></stats-line-chart>
+            </div>
+        </div>
+
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
+            <fui-dropdown selected="chartChoice[1]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[1]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[1].value" title="chartChoice[1].name" duration="duration" min="minMaxes[1].min" max="minMaxes[1].max"></stats-line-chart>
+            </div>
+        </div>
+
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
+            <fui-dropdown selected="chartChoice[2]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[2]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[2].value" title="chartChoice[2].name" duration="duration" min="minMaxes[2].min" max="minMaxes[2].max"></stats-line-chart>
+            </div>
+        </div>
+
+        <div style="margin: 12px;min-width: 450px;display: inline-block;">
+            <fui-dropdown selected="chartChoice[3]" items="statChoices" class="skinny" style="padding-bottom: 12px" enabled="isEnabled"></fui-dropdown>
+            <div style="height: 250px;">
+                <stats-line-chart ng-model="chartData[3]" colors="colors" line-type="monotype" line-colors="lineColors" y-label-function="amPutLabel" domain-labels="timeLabels" stat="chartChoice[3].value" title="chartChoice[3].name" duration="duration" min="minMaxes[3].min" max="minMaxes[3].max"></stats-line-chart>
+            </div>
+        </div>
+    </div>
+
+    <div style="height: 24px;"></div>
 </div>
