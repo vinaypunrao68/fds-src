@@ -26,7 +26,7 @@ fds_uint64_t getHashCode(const fpi::SvcUuid &svcId, const std::string& srcFile) 
     return getStrHash(srcFile) + svcId.svc_uuid;
 }
 
-FileTransferHandle::FileTransferHandle(const std::string& srcFile,
+FileTransferService::Handle::Handle(const std::string& srcFile,
                                        const std::string& destFile,
                                        const fpi::SvcUuid& svcId,
                                        FileTransferService* ftService) : srcFile(srcFile),
@@ -46,27 +46,27 @@ FileTransferHandle::FileTransferHandle(const std::string& srcFile,
     GLOGDEBUG << "[file:" << srcFile << " sz: " << fileSize << " chksum:" << checkSum << "]";
 }
 
-const std::string& FileTransferHandle::getCheckSum() const {
+const std::string& FileTransferService::Handle::getCheckSum() const {
     return checkSum;
 }
 
-void FileTransferHandle::done(const Error& error) {
+void FileTransferService::Handle::done(const Error& error) {
     ftService->done(getHashCode(), error);
 }
 
-bool FileTransferHandle::hasMoreData() const {
+bool FileTransferService::Handle::hasMoreData() const {
     return totalDataRead < fileSize;
 }
 
-bool FileTransferHandle::hasStarted() const {
+bool FileTransferService::Handle::hasStarted() const {
     return (lastOffset >= 0);
 }
 
-bool FileTransferHandle::isComplete() const {
+bool FileTransferService::Handle::isComplete() const {
     return hasStarted() && (totalDataRead == fileSize);
 }
 
-bool FileTransferHandle::getNextChunk(std::string& data) {
+bool FileTransferService::Handle::getNextChunk(std::string& data) {
     GLOGDEBUG << "here : " << (*this);
     data.reserve(FT_CHUNKSIZE);
     data.clear();
@@ -84,11 +84,11 @@ bool FileTransferHandle::getNextChunk(std::string& data) {
     return fReturn;
 }
 
-fds_uint64_t FileTransferHandle::getHashCode() const {
+fds_uint64_t FileTransferService::Handle::getHashCode() const {
     return fds::net::getHashCode(svcId, srcFile);
 }
 
-FileTransferHandle::~FileTransferHandle(){
+FileTransferService::Handle::~Handle(){
     is.close();
 }
 
@@ -96,7 +96,7 @@ bool FileTransferService::exists(fds_uint64_t hashCode) {
     return transferMap.end() != transferMap.find(hashCode);
 }
 
-FileTransferHandle::ptr FileTransferService::get(fds_uint64_t hashCode) {
+FileTransferService::Handle::ptr FileTransferService::get(fds_uint64_t hashCode) {
     if (!exists(hashCode)) return NULL;
     return transferMap.at(hashCode);
 }
@@ -120,10 +120,10 @@ FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svc
  *  On the sending side..
  */
 bool FileTransferService::send(const fpi::SvcUuid &svcId,
-                          const std::string& srcFile,
-                          const std::string& destFile,
-                          OnTransferCallback cb,
-                          bool fDeleteFileAfterTransfer) {
+                               const std::string& srcFile,
+                               const std::string& destFile,
+                               OnTransferCallback cb,
+                               bool fDeleteFileAfterTransfer) {
     GLOGDEBUG << "here";
     // first check if the file is already there.
     fds_uint64_t hashCode = getHashCode(svcId, srcFile);
@@ -135,7 +135,7 @@ bool FileTransferService::send(const fpi::SvcUuid &svcId,
         return false;
     }
 
-    FileTransferHandle::ptr handle(new FileTransferHandle(srcFile, destFile, svcId, this));
+    Handle::ptr handle(new Handle(srcFile, destFile, svcId, this));
     handle->cb = cb;
     handle->fDeleteFileAfterTransfer = fDeleteFileAfterTransfer;
     transferMap[hashCode] = handle;
@@ -148,7 +148,7 @@ std::string FileTransferService::getFullPath(const std::string& filename) {
     return destDir + filename;
 }
 
-bool FileTransferService::sendNextChunk(FileTransferHandle::ptr handle) {
+bool FileTransferService::sendNextChunk(FileTransferService::Handle::ptr handle) {
     GLOGDEBUG << "before send : " << handle;
     dump();
     fpi::FileTransferMsgPtr msg(new fpi::FileTransferMsg());
@@ -168,13 +168,13 @@ bool FileTransferService::sendNextChunk(FileTransferHandle::ptr handle) {
     auto request =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
 
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferMsg), msg);
-    request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle));
+    request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle, token));
     request->invoke();
     GLOGDEBUG << "after send : " << handle;
     return true;
 }
 
-void FileTransferService::handleTransferResponse(FileTransferHandle::ptr handle,
+void FileTransferService::handleTransferResponse(FileTransferService::Handle::ptr handle,
                                                  EPSvcRequest* request,
                                                  const Error& error,
                                                  SHPTR<std::string> payload) {
@@ -194,7 +194,7 @@ void FileTransferService::handleTransferResponse(FileTransferHandle::ptr handle,
     }
 }
 
-void FileTransferService::sendVerifyRequest(FileTransferHandle::ptr handle) {
+void FileTransferService::sendVerifyRequest(FileTransferService::Handle::ptr handle) {
     GLOGDEBUG << handle;
     fpi::FileTransferVerifyMsgPtr msg(new fpi::FileTransferVerifyMsg());
 
@@ -211,7 +211,7 @@ void FileTransferService::sendVerifyRequest(FileTransferHandle::ptr handle) {
     request->invoke();
 }
 
-void FileTransferService::handleVerifyResponse(FileTransferHandle::ptr handle,
+void FileTransferService::handleVerifyResponse(FileTransferService::Handle::ptr handle,
                                                EPSvcRequest* request,
                                                const Error& error,
                                                SHPTR<std::string> payload) {
@@ -313,14 +313,14 @@ void FileTransferService::sendVerifyResponse(SHPTR<fpi::AsyncHdr>& asyncHdr,
 }
 
 void FileTransferService::done(fds_uint64_t hashCode, const Error& error) {
-    FileTransferHandle::ptr handle = get(hashCode);
+    FileTransferService::Handle::ptr handle = get(hashCode);
     if (!handle) {
         LOGERROR << "done received for handle that does not exist : [" <<  hashCode << "]";
         return;
     }
 
     if (handle->cb) {
-        handle->cb(handle->svcId, handle->srcFile, error);
+        handle->cb(handle, error);
     } else {
         LOGWARN << "no cb for : " << handle;
     }
@@ -337,7 +337,7 @@ void FileTransferService::dump() {
 }
 
 
-std::ostream& operator <<(std::ostream& os, const fds::net::FileTransferHandle& handle) {
+std::ostream& operator <<(std::ostream& os, const fds::net::FileTransferService::Handle& handle) {
     os << "["
        << "src:" << handle.srcFile << " "
        << "sz:" << handle.fileSize << " "
@@ -348,11 +348,11 @@ std::ostream& operator <<(std::ostream& os, const fds::net::FileTransferHandle& 
     return os;
 }
 
-std::ostream& operator <<(std::ostream& os, const fds::net::FileTransferHandle::ptr& handle) {
+std::ostream& operator <<(std::ostream& os, const fds::net::FileTransferService::Handle::ptr& handle) {
     if (handle != NULL) {
         os << (*handle);
     } else {
-        os << "[FileTransferHandle is NULL]";
+        os << "[Handle is NULL]";
     }
     return os;
 }
