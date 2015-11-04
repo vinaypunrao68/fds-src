@@ -1675,27 +1675,29 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
             }
         }
         if (iter == objectSets.end()) {
-            if (this->tokenLockFn) { this->tokenLockFn(oid, true); }
-            Error err(ERR_OK);
-            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
-            /**
-             * Check if the object got updated recently(via a PUT).
-             * If so, then these object sets will have stale information
-             * regarding the state of the object. Ignore processing this
-             * object and leave it's metadata as it is. Otherwise update
-             * metadata information.
-             */
-            if (objMeta->getTimeStamp() < ts) {
-                ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-                updatedMeta->updateTimestamp();
+            if (this->tokenLockFn) {
+                auto tokenLock = this->tokenLockFn(oid, true);
+                Error err(ERR_OK);
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
                 /**
-                 * If the delete count for this object has reached the threshold
-                 * then let the Scavenger know about it.
+                 * Check if the object got updated recently(via a PUT).
+                 * If so, then these object sets will have stale information
+                 * regarding the state of the object. Ignore processing this
+                 * object and leave it's metadata as it is. Otherwise update
+                 * metadata information.
                  */
-                if (updatedMeta->incrementDeleteCount() >= getObjectDelCntThresh()) {
-                    ++tokStats.tkn_reclaim_size;
+                if (objMeta->getTimeStamp() < ts) {
+                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                    updatedMeta->updateTimestamp();
+                    /**
+                     * If the delete count for this object has reached the threshold
+                     * then let the Scavenger know about it.
+                     */
+                    if (updatedMeta->incrementDeleteCount() >= getObjectDelCntThresh()) {
+                        ++tokStats.tkn_reclaim_size;
+                    }
+                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
                 }
-                metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
             }
         }
     };
