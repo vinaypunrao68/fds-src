@@ -11,6 +11,7 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <StorMgr.h>
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 #include <sys/statvfs.h>
@@ -76,7 +77,14 @@ ObjectStore::ObjectStore(const std::string &modName,
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
-   liveObjectsTable->createLiveObjectsTblAndIdx();
+    liveObjectsTable->createLiveObjectsTblAndIdx();
+    nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
+    if (data_store) {
+        tokenLockFn = std::bind(Lock,
+                                dynamic_cast<ObjectStorMgr*>(data_store),
+                                std::placeholders::_1,
+                                std::placeholders::_2);
+    }
 }
 
 ObjectStore::~ObjectStore() {
@@ -1657,63 +1665,43 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     TimeStamp ts;
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
-    std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
-    fds_uint64_t totalNumObjs = allKeys.size();
-    fds_uint64_t objsToDelete = 0;
-
-    for (auto oid : allKeys) {
+    std::function<void (const ObjectID&)> checkAndModifyMeta =
+            [this, &objectSets, &ts, &tokStats] (const ObjectID& oid) {
+        ++tokStats.tkn_tot_size;
         ObjSetIter iter = objectSets.begin();
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
                 break;
             }
         }
-
         if (iter == objectSets.end()) {
-            /**
-             * This means that object was not found in any of the object sets
-             * associated with this SM token. This means that object could have
-             * got deleted from the domain.
-             */
+            if (this->tokenLockFn) { this->tokenLockFn(oid, true); }
             Error err(ERR_OK);
-            bool shouldUpdateMeta = true;
             ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
-
             /**
              * Check if the object got updated recently(via a PUT).
              * If so, then these object sets will have stale information
              * regarding the state of the object. Ignore processing this
-             * object and leave it's metadata as it is.
+             * object and leave it's metadata as it is. Otherwise update
+             * metadata information.
              */
-            if (objMeta->getTimeStamp() > ts) {
-                shouldUpdateMeta = false;
-            }
-
-            /**
-             * Indeed update the timestamp and delete count for the object.
-             */
-            if (shouldUpdateMeta) {
+            if (objMeta->getTimeStamp() < ts) {
                 ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                 updatedMeta->updateTimestamp();
                 /**
                  * If the delete count for this object has reached the threshold
                  * then let the Scavenger know about it.
                  */
-                if (updatedMeta->incrementDeleteCount() >= getObjectDelCnt()) {
-                    ++objsToDelete;
+                if (updatedMeta->incrementDeleteCount() >= getObjectDelCntThresh()) {
+                    ++tokStats.tkn_reclaim_size;
                 }
                 metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
             }
         }
-    }
+    };
 
-    /**
-     * Update token stats so that Scavenger can take a
-     * decision to run Token Compactor on this SM token.
-     */
+    metaStore->forEachObject(smToken, checkAndModifyMeta);
     tokStats.tkn_id = smToken;
-    tokStats.tkn_tot_size = totalNumObjs;
-    tokStats.tkn_reclaim_size = objsToDelete;
 }
 
 void

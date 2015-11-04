@@ -273,10 +273,13 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
      * bloom filters. Here each bloom filter basically has N/2 absent objects. And once the
      * total delete count crosses the threshold, the token_reclaim_size takes note of that.
      */
-    fds_uint8_t deleteCntThreshold = objectStore->getObjectDelCnt();
+    fds_uint8_t deleteCntThreshold = objectStore->getObjectDelCntThresh();
     for (fds_uint8_t incDelCount = 0; incDelCount < deleteCntThreshold; ++incDelCount) {
         objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID, 1,
                                   util::getTimeStampNanos(), bfFileName);
+        tokStats.tkn_id = 0;
+        tokStats.tkn_tot_size = 0;
+        tokStats.tkn_reclaim_size = 0;
         objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
 
         // object will be ready to be claimed only when the delete count threshold is reached.

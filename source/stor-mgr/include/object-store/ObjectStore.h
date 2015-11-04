@@ -20,11 +20,13 @@
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
 #include <util/bloomfilter.h>
+#include <util/always_call.h>
 
 namespace fds {
 
 typedef std::function <void(fds_bool_t, fds_bool_t)> StartResyncFnObj;
 typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
+typedef std::function <nullary_always(ObjectID const&, bool)> TokenLockFn;
 
 typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
@@ -52,6 +54,8 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    TokenLockFn tokenLockFn = { TokenLockFn() };
 
     LiveObjectsDB::unique_ptr liveObjectsTable;
 
@@ -340,7 +344,7 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     void dropLiveObjectDB();
 
-    inline fds_uint8_t getObjectDelCnt() const {
+    inline fds_uint8_t getObjectDelCntThresh() const {
         return objDelCountThresh;
     }
 
