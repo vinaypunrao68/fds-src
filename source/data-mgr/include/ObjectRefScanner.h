@@ -42,9 +42,18 @@ struct BloomFilterStore {
     util::BloomFilterPtr get(const std::string &key, bool create = true);
 
     /**
+    * @brief returns true if key exists
+    *
+    * @param key
+    *
+    * @return 
+    */
+    bool exists(const std::string &key) const;
+
+    /**
     * @brief Writes all the cached bloomfilters to filesystem
     */
-    void sync();
+    void sync(bool clearCache = false);
     
     /**
     * @brief clears out the index and removes all bloomfilters from the filesystem
@@ -52,6 +61,10 @@ struct BloomFilterStore {
     void purge();
 
     inline size_t getIndexSize() const { return index.size(); } 
+
+    inline std::string getFilePath(const std::string &key) {
+        return basePath + key;
+    }
 
  protected:
     util::BloomFilterPtr load(const std::string &key);
@@ -167,7 +180,13 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     virtual void mod_startup();
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */
-    void scanOnce(ScanDoneCb cb);
+    void scanOnce();
+
+    void setScanDoneCb(const ScanDoneCb &cb);
+
+    util::BloomFilterPtr getTokenBloomFilter(const fds_token_id &tokenId);
+    std::string getTokenBloomfilterPath(const fds_token_id &tokenId);
+
     void dumpStats() const;
 
     inline DataMgr* getDataMgr() const { return dataMgr; }
@@ -181,7 +200,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
         return util::strformat("vol%ld_tok%d", volId, tokenId);
     }
 
-    inline static std::string aggrBloomFilterKey(const fds_token_id &tokenId) {
+    inline static std::string tokenBloomFilterKey(const fds_token_id &tokenId) {
         return util::strformat("aggr_tok%d", tokenId);
     }
     inline size_t getScanSuccessVolsCnt() const {return scanSuccessVols.size();}
@@ -199,14 +218,21 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     */
     void prescanInit();
 
+    enum State {
+        STOPPED,
+        INIT,
+        RUNNING
+    };
+
     DataMgr                                     *dataMgr;
     const DLT                                   *currentDlt;
+    std::atomic<State>                          state;
     std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
     /* Controls whether scanning based on timer is enabled or not.   NOTE it is still possible
      * to run the scanner manually
      */
-    bool                                        enabled;
+    bool                                        timeBasedEnabled;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;
