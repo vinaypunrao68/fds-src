@@ -2,8 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_
+#include "AmAsyncDataApi.h"
 
 #include <map>
 #include <string>
@@ -21,16 +20,12 @@
 
 namespace fds {
 
-extern boost::shared_ptr<fpi::BlobDescriptor>
-    transform_descriptor(boost::shared_ptr<BlobDescriptor> descriptor);
-
 template<typename T, typename C>
 CallbackPtr
 create_async_handler(C&& c)
 { return boost::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
-template<typename H>
-AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
+AmAsyncDataApi::AmAsyncDataApi(processor_type processor,
                                   response_ptr response_api)
 :   amProcessor(processor),
     responseApi(response_api)
@@ -42,14 +37,12 @@ AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
     }
 }
 
-template<typename H>
-AmAsyncDataApi<H>::AmAsyncDataApi(processor_type processor,
+AmAsyncDataApi::AmAsyncDataApi(processor_type processor,
                                   response_api_type* response_api)
 : AmAsyncDataApi(processor, response_ptr(response_api))
 { }
 
-template<typename H>
-void AmAsyncDataApi<H>::attachVolume(H& requestId,
+void AmAsyncDataApi::attachVolume(RequestHandle const& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName,
                                      shared_vol_mode_type& mode) {
@@ -67,8 +60,7 @@ void AmAsyncDataApi<H>::attachVolume(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::detachVolume(H& requestId,
+void AmAsyncDataApi::detachVolume(RequestHandle const& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
@@ -82,8 +74,7 @@ void AmAsyncDataApi<H>::detachVolume(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::volumeStatus(H& requestId,
+void AmAsyncDataApi::volumeStatus(RequestHandle const& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName) {
     // Closure for response call
@@ -91,8 +82,8 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
         typename response_api_type::shared_status_type volume_status;
         if (fpi::OK == e) {
             volume_status = boost::make_shared<apis::VolumeStatus>();
-            volume_status->blobCount = cb->volStat.blobCount;
-            volume_status->currentUsageInBytes = cb->volStat.size;
+            volume_status->blobCount = cb->blob_count;
+            volume_status->currentUsageInBytes = cb->current_usage_bytes;
         }
         p->volumeStatusResp(e, requestId, volume_status);
     };
@@ -105,8 +96,7 @@ void AmAsyncDataApi<H>::volumeStatus(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::volumeContents(H& requestId,
+void AmAsyncDataApi::volumeContents(RequestHandle const& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_int_type& count,
@@ -136,8 +126,7 @@ void AmAsyncDataApi<H>::volumeContents(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
+void AmAsyncDataApi::setVolumeMetadata(RequestHandle const& requestId,
                                           shared_string_type& domainName,
                                           shared_string_type& volumeName,
                                           shared_meta_type& metadata) {
@@ -155,8 +144,7 @@ void AmAsyncDataApi<H>::setVolumeMetadata(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
+void AmAsyncDataApi::getVolumeMetadata(RequestHandle const& requestId,
                                           shared_string_type& domainName,
                                           shared_string_type& volumeName) {
     // Closure for response call
@@ -172,19 +160,13 @@ void AmAsyncDataApi<H>::getVolumeMetadata(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::statBlob(H& requestId,
+void AmAsyncDataApi::statBlob(RequestHandle const& requestId,
                                  shared_string_type& domainName,
                                  shared_string_type& volumeName,
                                  shared_string_type& blobName) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](StatBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-        // TODO(bszmyd): Tue 16 Dec 2014 08:06:47 PM MST
-        // Unfortunately we have to transform meta-data received
-        // from the DataManager. We should fix that.
-        typename response_api_type::shared_descriptor_type retBlobDesc = (fpi::OK == e) ?
-            transform_descriptor(cb->blobDesc) : nullptr;
-        p->statBlobResp(e, requestId, retBlobDesc);
+        p->statBlobResp(e, requestId, cb->blobDesc);
     };
 
     auto callback = create_async_handler<StatBlobCallback>(std::move(closure));
@@ -196,8 +178,7 @@ void AmAsyncDataApi<H>::statBlob(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::startBlobTx(H& requestId,
+void AmAsyncDataApi::startBlobTx(RequestHandle const& requestId,
                                     shared_string_type& domainName,
                                     shared_string_type& volumeName,
                                     shared_string_type& blobName,
@@ -219,8 +200,7 @@ void AmAsyncDataApi<H>::startBlobTx(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
+void AmAsyncDataApi::commitBlobTx(RequestHandle const& requestId,
                                      shared_string_type& domainName,
                                      shared_string_type& volumeName,
                                      shared_string_type& blobName,
@@ -244,8 +224,7 @@ void AmAsyncDataApi<H>::commitBlobTx(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
+void AmAsyncDataApi::abortBlobTx(RequestHandle const& requestId,
                                     shared_string_type& domainName,
                                     shared_string_type& volumeName,
                                     shared_string_type& blobName,
@@ -269,8 +248,7 @@ void AmAsyncDataApi<H>::abortBlobTx(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::getBlob(H& requestId,
+void AmAsyncDataApi::getBlob(RequestHandle const& requestId,
                                 shared_string_type& domainName,
                                 shared_string_type& volumeName,
                                 shared_string_type& blobName,
@@ -295,8 +273,7 @@ void AmAsyncDataApi<H>::getBlob(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
+void AmAsyncDataApi::getBlobWithMeta(RequestHandle const& requestId,
                                         shared_string_type& domainName,
                                         shared_string_type& volumeName,
                                         shared_string_type& blobName,
@@ -307,9 +284,7 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetObjectWithMetadataCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-        typename response_api_type::shared_descriptor_type retBlobDesc = (fpi::OK == e) ?
-            transform_descriptor(cb->blobDesc) : nullptr;
-        p->getBlobWithMetaResp(e, requestId, cb->return_buffers, cb->return_size, retBlobDesc);
+        p->getBlobWithMetaResp(e, requestId, cb->return_buffers, cb->return_size, cb->blobDesc);
     };
 
     auto callback = create_async_handler<GetObjectWithMetadataCallback>(std::move(closure));
@@ -324,17 +299,14 @@ void AmAsyncDataApi<H>::getBlobWithMeta(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::renameBlob(H& requestId,
+void AmAsyncDataApi::renameBlob(RequestHandle const& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& sourceBlobName,
                                    shared_string_type& destinationBlobName) {
     // Closure for response call
     auto closure = [p = responseApi, requestId](RenameBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-        typename response_api_type::shared_descriptor_type retBlobDesc = (fpi::OK == e) ?
-            transform_descriptor(cb->blobDesc) : nullptr;
-        p->renameBlobResp(e, requestId, retBlobDesc);
+        p->renameBlobResp(e, requestId, cb->blobDesc);
     };
 
     auto callback = create_async_handler<RenameBlobCallback>(std::move(closure));
@@ -347,8 +319,7 @@ void AmAsyncDataApi<H>::renameBlob(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::updateMetadata(H& requestId,
+void AmAsyncDataApi::updateMetadata(RequestHandle const& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_string_type& blobName,
@@ -383,8 +354,7 @@ void AmAsyncDataApi<H>::updateMetadata(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
+void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
                                        shared_string_type& domainName,
                                        shared_string_type& volumeName,
                                        shared_string_type& blobName,
@@ -402,7 +372,7 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
     };
 
     // Quick check, if these don't match reject!
-    if (*length != bytes->size()) {
+    if ((size_t)*length != bytes->size()) {
         LOGWARN << "Rejecting updateBlobOnce,"
                 << " request specified length: " << *length
                 << " actual length of payload was: " << bytes->size();
@@ -423,8 +393,7 @@ void AmAsyncDataApi<H>::updateBlobOnce(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::updateBlob(H& requestId,
+void AmAsyncDataApi::updateBlob(RequestHandle const& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& blobName,
@@ -442,7 +411,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
     };
 
     // Quick check, if these don't match reject!
-    if (*length != bytes->size()) {
+    if ((size_t)*length != bytes->size()) {
         LOGWARN << "Rejecting updateBlob,"
                 << " request specified length: " << *length
                 << " actual length of payload was: " << bytes->size();
@@ -466,8 +435,7 @@ void AmAsyncDataApi<H>::updateBlob(H& requestId,
     amProcessor->enqueueRequest(blobReq);
 }
 
-template<typename H>
-void AmAsyncDataApi<H>::deleteBlob(H& requestId,
+void AmAsyncDataApi::deleteBlob(RequestHandle const& requestId,
                                    shared_string_type& domainName,
                                    shared_string_type& volumeName,
                                    shared_string_type& blobName,
@@ -490,4 +458,3 @@ void AmAsyncDataApi<H>::deleteBlob(H& requestId,
 }
 
 }  // namespace fds
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_AMASYNCDATAAPI_IMPL_H_

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "AmRequest.h"
+#include <fdsp/dm_types_types.h>
 
 namespace fds
 {
