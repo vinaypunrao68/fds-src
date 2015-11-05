@@ -92,21 +92,8 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
     header.msg_src_uuid = srcUuid;
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
+    header.dlt_version = dlt_version;
 
-    // FIXME(bszmyd): Thu 09 Jul 2015 03:38:23 PM MDT
-    // This ONLY gets used by the SM operations that AM sends, yet it's a
-    // generic field that has always been set, so I'll continue to do so here in
-    // case no one already passed a valid version in
-    if (DLT_VER_INVALID == dlt_version && dltMgr) {
-        const DLT* curDlt = dltMgr->getDLT();
-        if (curDlt) {
-            header.dlt_version = curDlt->getVersion();
-        }
-    } else {
-        // When it matters, this is how this actually is being set, see note
-        // above
-        header.dlt_version = dlt_version;
-    }
     return header;
 }
 

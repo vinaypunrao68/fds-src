@@ -157,9 +157,13 @@ ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& current
              * list from being a list of local domain names to a list of their IDs. So get rid of the
              * name list first.
              */
+            LOGNOTIFY << "Removing old <local.domain:list> key.";
             kv_store.del("local.domain:list");
 
             for (const auto& oldLocalDomain : localDomains) {
+                LOGNOTIFY << "Re-write local domain <" << oldLocalDomain.name << ">:<" << oldLocalDomain.id
+                          << "> into keys <local.domain:list> and <ldom:" <<  oldLocalDomain.id << ">.";
+
                 kv_store.sadd("local.domain:list", oldLocalDomain.id);
 
                 auto reply = kv_store.sendCommand("hmset ldom:%d id %d"
@@ -180,6 +184,7 @@ ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& current
             /**
              * Clean up old local domain key.
              */
+            LOGNOTIFY << "Removing old <local.domains> key.";
             kv_store.del("local.domains");
 
             /**
@@ -190,12 +195,15 @@ ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& current
              * We've already installed the new ConfigDB versioning keys (see ConfigDB::getConfigVersion()).
              * We just need to remove the old ConfigDB versioning key.
              */
+            LOGNOTIFY << "Removing old <config.version> key.";
             kv_store.del("config.version");
 
             /**
              * Finally, bump the ConfigDB version to latest.
              */
             setConfigVersion(CONFIGDB_VERSION_LATEST);
+
+            return ConfigDB::ReturnType::SUCCESS;
 
         } catch (const RedisException &e) {
             LOGERROR << e.what();
