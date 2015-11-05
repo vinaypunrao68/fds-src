@@ -246,8 +246,8 @@ struct AmDispatcher : HasModuleProvider
      */
     void dispatchVolumeContents(AmRequest *amReq);
 
-    bool  getNoNetwork() {
-           return noNetwork;
+    bool getNoNetwork() const {
+        return noNetwork;
     }
 
   private:
