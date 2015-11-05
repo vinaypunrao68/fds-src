@@ -87,7 +87,7 @@ for t in $test_types ; do
             n_conns=$c
             outs=$c
 
-            cmd=" ../../trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd root/tools; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
@@ -115,8 +115,7 @@ for t in $test_types ; do
             n_conns=$c
             outs=$c
 
-            #cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
-            cmd="cd ../../trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd root/tools; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
@@ -147,8 +146,7 @@ for t in $test_types ; do
             outs=$t
 
 
-            #cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
-            cmd="cd ../../trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd root/tools; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
