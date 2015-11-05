@@ -1,6 +1,7 @@
 package com.formationds.fdsdiff;
 
 import static com.formationds.commons.util.ExceptionHelper.tunnel;
+import static com.formationds.commons.util.ExceptionHelper.untunnel;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -138,14 +139,16 @@ public final class Main
             Gson gson = new Gson();
 
             // First try to deserialize any provided input files.
-            Optional<SystemContent> aContentWrapper =
-                    tunnel(IOException.class,
-                           inputAPath::map,
-                           (Path path) -> _getSystemContent(path, gson));
-            Optional<SystemContent> bContentWrapper =
-                    tunnel(IOException.class,
-                           inputBPath::map,
-                           (Path path) -> _getSystemContent(path, gson));
+            Optional<SystemContent> aContentWrapper = Optional.empty();
+            Optional<SystemContent> bContentWrapper = Optional.empty();
+            if (inputAPath.isPresent())
+            {
+                aContentWrapper = Optional.of(_getSystemContent(inputAPath.get(), gson));
+            }
+            if (inputBPath.isPresent())
+            {
+                bContentWrapper = Optional.of(_getSystemContent(inputBPath.get(), gson));
+            }
             
             // We can only use the default endpoint once.
             boolean defaultEndpointUsed = false;

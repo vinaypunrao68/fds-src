@@ -19,6 +19,7 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.iodriver.CommandLineConfigurationException;
 import com.formationds.iodriver.ConfigurationException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
@@ -101,18 +102,16 @@ public final class Config extends AbstractConfig
 	public Optional<FdsEndpoint> getEndpointA() throws ConfigurationException, ParseException
 	{
 	    return _endpointA == null
-	           ? (_endpointA = tunnel(ConfigurationException.class,
-	                                  getEndpointAHost()::map,
-	                                  (String h) -> getFdsEndpoint(h)))
+	           ? (_endpointA = getEndpointAHost().map(tunnel(Config::getFdsEndpoint,
+	                                                         ConfigurationException.class)))
 	           : _endpointA;
 	}
 	
 	public Optional<FdsEndpoint> getEndpointB() throws ConfigurationException, ParseException
 	{
 	    return _endpointB == null
-	           ? (_endpointB = tunnel(ConfigurationException.class,
-                                      getEndpointBHost()::map,
-                                      (String h) -> getFdsEndpoint(h)))
+	           ? (_endpointB = getEndpointBHost().map(tunnel(Config::getFdsEndpoint,
+	                                                         ConfigurationException.class)))
 	           : _endpointB;
 	}
 	
