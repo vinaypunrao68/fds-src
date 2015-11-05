@@ -127,7 +127,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
-            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $media_policy
+            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done
 done
@@ -155,7 +155,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
-            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $media_policy
+            process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done
 done
