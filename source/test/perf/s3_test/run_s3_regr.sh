@@ -127,6 +127,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
+            end_time=`date +%s`
             process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done
@@ -134,7 +135,7 @@ done
 
 test_types="MULTIPART"
 #Set object size to larger amount for multipart uploads
-object_size=33554432
+object_size="33554432"
 for t in $test_types ; do
     for o in $object_sizes ; do
         for c in $concurrencies ; do
@@ -155,6 +156,7 @@ for t in $test_types ; do
                 pids="$pids $!"
             done
             wait $pids
+            end_time=`date +%s`
             process_results "$outfiles" $n_reqs $n_files $outs $test_type $object_size $hostname $n_conns $n_jobs $start_time $end_time
         done
     done
