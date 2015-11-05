@@ -95,7 +95,7 @@ struct AmTxManager {
      * Notify that we have detached a volume, and remove any available
      * data structures.
      */
-    Error removeVolume(const VolumeDesc& volDesc);
+    Error removeVolume(const fds_volid_t volId);
 
     /**
      * Cache operations

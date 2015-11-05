@@ -35,7 +35,7 @@ class AmQoSCtrl : public FDS_QoSControl {
     Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);
     Error modifyVolumeQosParams(fds_volid_t vol_uuid, fds_uint64_t iops_min, fds_uint64_t iops_max, fds_uint32_t prio);
     Error   deregisterVolume(fds_volid_t vol_uuid);
-    Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+    Error enqueueIO(AmRequest *io);
 };
 
 }  // namespace fds
