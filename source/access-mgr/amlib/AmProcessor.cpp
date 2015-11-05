@@ -9,10 +9,11 @@
 #include <string>
 
 #include "fds_process.h"
+#include "fds_table.h"
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include "AmVolume.h"
-#include "AmVolumeTable.h"
+#include "AmQoSCtrl.h"
 
 #include "requests/requests.h"
 #include "AsyncResponseHandlers.h"
@@ -26,10 +27,12 @@ namespace fds {
 class AmProcessor_impl
 {
     using shutdown_cb_type = std::function<void(void)>;
+    CommonModuleProviderIf* provider;
 
   public:
     AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
-        : volTable(new AmVolumeTable(modProvider, GetLog())),
+        : provider(modProvider),
+          qos_ctrl(nullptr),
           parent_mod(parent),
           have_tables(std::make_pair(false, false)),
           prepareForShutdownCb(nullptr)
@@ -51,16 +54,16 @@ class AmProcessor_impl
     Error enqueueRequest(AmRequest* amReq);
 
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
-        { return volTable->modifyVolumePolicy(vol_uuid, vdesc); }
+        { return qos_ctrl->modifyVolumePolicy(vol_uuid, vdesc); }
 
     void registerVolume(const VolumeDesc& volDesc)
-        { volTable->registerVolume(volDesc); }
+        { qos_ctrl->registerVolume(volDesc); }
 
 
     Error removeVolume(const VolumeDesc& volDesc);
 
     Error updateQoS(long int const* rate, float const* throttle)
-        { return volTable->updateQoS(rate, throttle); }
+        { return qos_ctrl->updateQoS(rate, throttle); }
 
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
 
@@ -72,10 +75,10 @@ class AmProcessor_impl
     { SCOPEDREAD(shut_down_lock); return shut_down; }
 
   private:
-    /// Unique ptr to the volume table
-    std::unique_ptr<AmVolumeTable> volTable;
-
     Module* parent_mod {nullptr};
+
+    /// QoS Module
+    std::unique_ptr<AmQoSCtrl> qos_ctrl;
 
     std::pair<bool, bool> have_tables;
 
@@ -84,14 +87,7 @@ class AmProcessor_impl
 
     shutdown_cb_type prepareForShutdownCb;
 
-    void processBlobReq(AmRequest *amReq);
-
     inline bool haveCacheToken(std::shared_ptr<AmVolume> const& volume) const;
-
-    /**
-     * Attachment request, retrieve volume descriptor
-     */
-    void detachVolume(AmRequest *amReq);
 
     void respond(AmRequest *amReq, const Error& error);
 
@@ -105,108 +101,7 @@ AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
             respond(amReq, ERR_SHUTTING_DOWN);
             return ERR_SHUTTING_DOWN;
         }
-        return volTable->enqueueRequest(amReq);
-    }
-}
-
-void
-AmProcessor_impl::processBlobReq(AmRequest *amReq) {
-    fds_assert(amReq->io_module == FDS_IOType::ACCESS_MGR_IO);
-    fds_assert(amReq->isCompleted() == true);
-
-    switch (amReq->io_type) {
-        /* === Volume operations === */
-        case fds::FDS_ATTACH_VOL:
-            volTable->openVolume(amReq);
-            break;
-
-        case fds::FDS_DETACH_VOL:
-            detachVolume(amReq);
-            break;
-
-        case fds::FDS_GET_VOLUME_METADATA:
-            fiu_do_on("am.uturn.processor.getVolMetadata",
-                      respond(amReq, ERR_OK); \
-                      return;);
-
-            volTable->getVolumeMetadata(amReq);
-            break;
-
-        case fds::FDS_SET_VOLUME_METADATA:
-            fiu_do_on("am.uturn.processor.setVolMetadata",
-                      respond(amReq, ERR_OK); \
-                      return;);
-            volTable->setVolumeMetadata(amReq);
-            break;
-
-        case fds::FDS_STAT_VOLUME:
-            fiu_do_on("am.uturn.processor.statVol",
-                      respond(amReq, ERR_OK); \
-                      return;);
-            volTable->statVolume(amReq);
-            break;
-
-        case fds::FDS_VOLUME_CONTENTS:
-            volTable->volumeContents(amReq);
-            break;
-
-        /* == Tx based operations == */
-        case fds::FDS_ABORT_BLOB_TX:
-            volTable->abortBlobTx(amReq);
-            break;
-
-        case fds::FDS_COMMIT_BLOB_TX:
-            volTable->commitBlobTx(amReq);
-            break;
-
-        case fds::FDS_DELETE_BLOB:
-            volTable->deleteBlob(amReq);
-            break;
-
-        case fds::FDS_SET_BLOB_METADATA:
-            volTable->setBlobMetadata(amReq);
-            break;
-
-        case fds::FDS_START_BLOB_TX:
-            fiu_do_on("am.uturn.processor.startBlobTx",
-                      respond(amReq, ERR_OK); \
-                      return;);
-
-            volTable->startBlobTx(amReq);
-            break;
-
-
-        /* ==== Read operations ==== */
-        case fds::FDS_GET_BLOB:
-            fiu_do_on("am.uturn.processor.getBlob",
-                      respond(amReq, ERR_OK); \
-                      return;);
-
-            volTable->getBlob(amReq);
-            break;
-
-        case fds::FDS_STAT_BLOB:
-            volTable->statBlob(amReq);
-            break;
-
-        case fds::FDS_PUT_BLOB:
-        case fds::FDS_PUT_BLOB_ONCE:
-            // We piggy back this operation with some runtime conditions
-            fiu_do_on("am.uturn.processor.putBlob",
-                      respond(amReq, ERR_OK); \
-                      return;);
-
-            volTable->updateCatalog(amReq);
-            break;
-
-        case fds::FDS_RENAME_BLOB:
-            volTable->renameBlob(amReq);
-            break;
-
-        default :
-            LOGCRITICAL << "unimplemented request: " << amReq->io_type;
-            respond(amReq, ERR_NOT_IMPLEMENTED);
-            break;
+        return qos_ctrl->enqueueRequest(amReq);
     }
 }
 
@@ -217,11 +112,17 @@ AmProcessor_impl::start()
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+    auto qos_threads = conf.get<int>("qos_threads");
 
-    auto enqueue_cb = [this](AmRequest* amReq) mutable -> void { this->processBlobReq(amReq); };
-    auto complete_cb = [this](AmRequest* amReq, Error const& error) mutable -> void { this->respond(amReq, error); };
+    qos_ctrl.reset(new AmQoSCtrl(qos_threads,
+                                 fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET,
+                                 provider,
+                                 GetLog()));
 
-    volTable->init(enqueue_cb, complete_cb);
+    auto complete_cb = [this](AmRequest* amReq, Error const& error) mutable -> void {
+        this->respond(amReq, error);
+    };
+    qos_ctrl->init(complete_cb);
 }
 
 void
@@ -274,9 +175,9 @@ bool AmProcessor_impl::stop() {
         shut_down = true;
     }
 
-    if (volTable->drained()) {
+    if (qos_ctrl->drained()) {
         // Close all attached volumes before finishing shutdown
-        for (auto const& vol : volTable->getVolumes()) {
+        for (auto const& vol : qos_ctrl->getVolumes()) {
           removeVolume(*vol->voldesc);
         }
         parent_mod->mod_shutdown();
@@ -293,13 +194,13 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // Remove the volume from QoS/VolumeTable, this is
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
-    return volTable->removeVolume(volDesc);
+    return qos_ctrl->removeVolume(volDesc.name, volDesc.volUUID);
 }
 
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     // If we successfully update the dlt, have the parent do it's init check
-    auto e = volTable->updateDlt(dlt_type, dlt_data, cb);
+    auto e = qos_ctrl->updateDlt(dlt_type, dlt_data, cb);
     if (e.ok() && !have_tables.first) {
         have_tables.first = true;
         parent_mod->mod_enable_service();
@@ -310,7 +211,7 @@ AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::cal
 Error
 AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
     // If we successfully update the dmt, have the parent do it's init check
-    auto e = volTable->updateDmt(dmt_type, dmt_data, cb);
+    auto e = qos_ctrl->updateDmt(dmt_type, dmt_data, cb);
     if (e.ok() && !have_tables.second) {
         have_tables.second = true;
         parent_mod->mod_enable_service();
@@ -321,25 +222,12 @@ AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::cal
 bool
 AmProcessor_impl::haveTables() {
     if (!have_tables.first) {
-        have_tables.first = volTable->getDLT().ok();
+        have_tables.first = qos_ctrl->getDLT().ok();
     }
     if (!have_tables.second) {
-        have_tables.second = volTable->getDMT().ok();
+        have_tables.second = qos_ctrl->getDMT().ok();
     }
     return have_tables.first && have_tables.second;
-}
-
-void
-AmProcessor_impl::detachVolume(AmRequest *amReq) {
-    // This really can not fail, we have to be attached to be here
-    auto vol = volTable->getVolume(amReq->io_vol_id);
-    if (!vol) {
-        LOGCRITICAL << "unable to get volume info for vol: " << amReq->io_vol_id;
-        return respond(amReq, ERR_NOT_READY);
-    }
-
-    removeVolume(*vol->voldesc);
-    respond(amReq, ERR_OK);
 }
 
 /**
