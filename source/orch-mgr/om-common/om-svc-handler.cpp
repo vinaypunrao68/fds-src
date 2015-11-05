@@ -320,23 +320,31 @@ void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 
     NodeUuid node_uuid(msg->pmSvcUuid);
 
-    if (lastHeardStartResp.first == 0) {
+    int64_t uuid = msg->pmSvcUuid.svc_uuid;
+
+    if (lastHeardResp.first == 0) {
         // This is the very first start resp in OM's history
-        lastHeardStartResp = std::make_pair(node_uuid.uuid_get_val(), fds::util::getTimeStampSeconds());
-    } else if (lastHeardStartResp.first == msg->pmSvcUuid.svc_uuid) {
-        int32_t current = fds::util::getTimeStampSeconds();
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
+
+    } else if (lastHeardResp.first == uuid) {
+        int32_t current     = fds::util::getTimeStampSeconds();
+        int32_t elapsedSecs = current - lastHeardResp.second;
 
         // If we are receiving a resp from the same PM within a second, ignore the response.
-        if ((current - lastHeardStartResp.second) < 1) {
+        if (elapsedSecs <= 1) {
 
-            lastHeardStartResp.second = current;
+            LOGDEBUG << "Received response from the same PM less than a second ago, will ignore";
+            lastHeardResp.second = current;
             return;
         }
+        lastHeardResp.second = current;
+
+    } else {
+        // Update to hold the latest response received
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
     }
 
-
     auto item = std::make_pair(node_uuid.uuid_get_val(), 0);
-    LOGDEBUG <<"!Will remove from OM's sentQ";
     gl_orch_mgr->removeFromSentQ(item);
 
     OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
