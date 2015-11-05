@@ -134,15 +134,17 @@ for t in $test_types ; do
 done
 
 test_types="MULTIPART"
+echo $test_types
 #Set object size to larger amount for multipart uploads
-object_size="33554432"
+object_sizes="33554432"
 for t in $test_types ; do
     for o in $object_sizes ; do
         for c in $concurrencies ; do
             test_type=$t
             object_size=$o
             n_conns=$c
-            outs=$c
+            outs=$t
+
 
             cmd="cd $workspace/source/test; ./trafficgen --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
