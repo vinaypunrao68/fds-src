@@ -151,6 +151,14 @@ void Reply::toVector(std::vector<int64_t>& vec) { // NOLINT
     }
 }
 
+void Reply::toVector(std::vector<std::int32_t>& vec) { // NOLINT
+    checkValid();
+    for (size_t i = 0; i < r->elements; ++i) {
+        vec.push_back(std::stoi(std::string(r->element[i]->str,
+                                            r->element[i]->len), NULL, 10));
+    }
+}
+
 void Reply::dump() const {
     checkValid();
     LOGDEBUG << "redis reply ::: ";
@@ -415,9 +423,17 @@ Reply Redis::get(const std::string& key) {
     return Reply(redisCommand(cxn->ctx, "get %s", key.c_str()));
 }
 
+bool Redis::exists(const std::string& key) {
+    SCOPEDCXN();
+    Reply reply(redisCommand(cxn->ctx, "exists %s", key.c_str()));
+    reply.checkError();
+    return reply.getLong() == 1;
+}
+
 bool Redis::del(const std::string& key) {
     SCOPEDCXN();
     Reply reply(redisCommand(cxn->ctx, "del %s", key.c_str()));
+    reply.checkError();
     return reply.isOk();
 }
 
@@ -463,6 +479,7 @@ bool Redis::hset(const std::string& key, const std::string& field, const std::st
     SCOPEDCXN();
     Reply reply(redisCommand(
             cxn->ctx, "hset %s %s %b", key.c_str(), field.c_str(), value.data(), value.length()));
+    reply.checkError();
     return reply.getLong() == 1;
 }
 
@@ -470,6 +487,15 @@ bool Redis::hset(const std::string& key, int64_t field, const std::string& value
     SCOPEDCXN();
     Reply reply(redisCommand(
             cxn->ctx, "hset %s %ld %b", key.c_str(), field, value.data(), value.length()));
+    reply.checkError();
+    return reply.getLong() == 1;
+}
+
+bool Redis::hset(const std::string& key, const std::string& field, const std::int64_t value) {
+    SCOPEDCXN();
+    Reply reply(redisCommand(
+            cxn->ctx, "hset %s %s %ld", key.c_str(), field.c_str(), value));
+    reply.checkError();
     return reply.getLong() == 1;
 }
 
@@ -545,6 +571,14 @@ bool Redis::sadd(const std::string& key, const std::string& value) {
 bool Redis::sadd(const std::string& key, const int64_t value) {
     SCOPEDCXN();
     Reply reply(redisCommand(cxn->ctx, "sadd %s %ld", key.c_str(), value));
+    reply.checkError();
+    return reply.wasModified();
+}
+
+bool Redis::sadd(const std::string& key, const std::int32_t value) {
+    SCOPEDCXN();
+    Reply reply(redisCommand(cxn->ctx, "sadd %s %d", key.c_str(), value));
+    reply.checkError();
     return reply.wasModified();
 }
 

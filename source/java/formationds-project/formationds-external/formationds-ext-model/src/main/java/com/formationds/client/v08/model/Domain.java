@@ -7,7 +7,7 @@ package com.formationds.client.v08.model;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Domain extends AbstractResource<Long> {
+public class Domain extends AbstractResource<Integer> {
 
 	public enum DomainState { UP, DOWN, UNKNOWN };
 	
@@ -16,14 +16,14 @@ public class Domain extends AbstractResource<Long> {
     private DomainState state;
 
     private Domain() {
-        this( 0L, "fds", "local", DomainState.UNKNOWN );
+        this( 0, "fds", "local", DomainState.UNKNOWN );
     }
 
     public Domain( String key, String site ) {
         this( null, key, site, DomainState.UNKNOWN );
     }
 
-    public Domain( Long id, String key, String site, DomainState state ) {
+    public Domain( Integer id, String key, String site, DomainState state ) {
         super( id, key );
         this.site = site;
         this.state = state;

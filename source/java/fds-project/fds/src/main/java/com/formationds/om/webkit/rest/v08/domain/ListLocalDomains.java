@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v08.domain;
 
-import com.formationds.apis.LocalDomain;
+import com.formationds.apis.LocalDomainDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Domain;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -54,7 +54,7 @@ public class ListLocalDomains implements RequestHandler {
 	public List<Domain> listDomains() throws Exception{
 		
 		logger.debug("Listing local domains.");
-		List<LocalDomain> internalDomains = getConfigApi().listLocalDomains( 0 );
+		List<LocalDomainDescriptor> internalDomains = getConfigApi().listLocalDomains( 0 );
 
 		List<Domain> externalDomains = new ArrayList<Domain>();
 		

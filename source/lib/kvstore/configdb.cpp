@@ -22,6 +22,15 @@ auto format = fds::util::strformat;
 auto lower  = fds::util::strlower;
 
 namespace fds { namespace kvstore {
+
+// ConfigDB Versions. Codenamed after minerals: http://www.minerals.net
+namespace {
+    std::string CONFIGDB_VERSION_TALC{"00.00.00"};
+    std::string CONFIGDB_VERSION_GRAPHITE{"00.05.00"};
+
+    std::string CONFIGDB_VERSION_LATEST{CONFIGDB_VERSION_GRAPHITE};
+};
+
 using redis::Reply;
 using redis::RedisException;
 
@@ -49,26 +58,175 @@ fds_uint64_t ConfigDB::getLastModTimeStamp() {
     return 0;
 }
 
-fds_uint64_t ConfigDB::getConfigVersion() {
+// Used only internally with the ConfigDB object.
+void ConfigDB::setConfigVersion(const std::string& newVersion) {
+    TRACKMOD();
     try {
-        return kv_store.get("config.version").getLong();
+        auto reply  = kv_store.hget("configDB", "currentVersion");
+        reply.checkError();
+
+        auto oldVersion = reply.getString();
+        LOGNOTIFY << "Changing ConfigDB version <" << oldVersion << "> to version <" <<
+                  newVersion << ">.";
+
+        kv_store.hset("configDB", "oldVersion", oldVersion);
+
+        kv_store.hset("configDB", "currentVersion", newVersion);
+
+        kv_store.hset("configDB",
+                      "versionModTime",
+                      static_cast<std::int64_t>(fds::util::getTimeStampMillis()));
+
+    } catch(const RedisException& e) {
+        NOMOD();
+        LOGERROR << e.what();
+        RedisException re{"Unable to set new ConfigDB version."};
+        throw re;
+    };
+}
+
+// May be called upon the ConfigDB object by a client to set the
+// latest version. Presumably, this would only be done when the
+// ConfigDB is initially created.
+void ConfigDB::setConfigVersion() {
+    setConfigVersion(CONFIGDB_VERSION_LATEST);
+}
+
+std::string ConfigDB::getConfigVersion() {
+    try {
+        auto reply = kv_store.hget("configDB", "currentVersion");
+        reply.checkError();
+
+        std::string version = reply.getString();
+        if (version.empty()) {
+            /**
+             * We don't have a version set which indicates our version is pre-version controlled, or version Talc.
+             */
+            version = CONFIGDB_VERSION_TALC;
+            setConfigVersion(version);
+        }
+
+        LOGDEBUG << "Current ConfigDB version <" << version << ">.";
+
+        return version;
     } catch(const RedisException& e) {
         LOGERROR << e.what();
     }
 
-    return 0;
+    return "";
 }
+
+/**
+ * Compare the passed version to the current version.
+ *
+ * @param std::string version: Version string to compare to the latest string.
+ *
+ * @return bool: 'true' if passed version is equal to the latest version. 'false' otherwise.
+ */
+bool ConfigDB::isLatestConfigDBVersion(std::string& version) {
+    return (version == CONFIGDB_VERSION_LATEST);
+}
+
+/**
+ * Upgrade to the latest version of the configuration database.
+ */
+ConfigDB::ReturnType ConfigDB::upgradeConfigDBVersionLatest(std::string& currentVersion) {
+    LOGNOTIFY << "Upgrade from ConfigDB version <" << currentVersion << "> to version <" <<
+              CONFIGDB_VERSION_LATEST << ">.";
+
+    if (currentVersion == CONFIGDB_VERSION_TALC) {
+        TRACKMOD();
+        try {
+            /**
+             * Address Local Domain changes.
+             */
+
+            /**
+             * Capture the current local domain details.
+             */
+            std::vector<fds::apis::LocalDomainDescriptorV07> localDomains;
+
+            if (!listLocalDomainsTalc(localDomains)) {
+                NOMOD();
+                LOGCRITICAL << "Unable to get local domain list for ConfigDB upgrade.";
+                return ConfigDB::ReturnType::CONFIGDB_EXCEPTION;
+            }
+
+            /**
+             * Re-write local domain details in latest version format. We will switch the local domain
+             * list from being a list of local domain names to a list of their IDs. So get rid of the
+             * name list first.
+             */
+            LOGNOTIFY << "Removing old <local.domain:list> key.";
+            kv_store.del("local.domain:list");
+
+            for (const auto& oldLocalDomain : localDomains) {
+                LOGNOTIFY << "Re-write local domain <" << oldLocalDomain.name << ">:<" << oldLocalDomain.id
+                          << "> into keys <local.domain:list> and <ldom:" <<  oldLocalDomain.id << ">.";
+
+                kv_store.sadd("local.domain:list", oldLocalDomain.id);
+
+                auto reply = kv_store.sendCommand("hmset ldom:%d id %d"
+                                                  " name %s"
+                                                  " site %s"
+                                                  " createTime %ld"
+                                                  " current %d",
+                                                  oldLocalDomain.id, oldLocalDomain.id,
+                                                  oldLocalDomain.name.c_str(),
+                                                  oldLocalDomain.site.c_str(),
+                                                  util::getTimeStampMillis(),  // Maybe just set this to 0?
+                                                  (oldLocalDomain.id == master_ldom_id) ? true : false); // With version Talc, only the master domain was ever the current domain.
+                reply.checkError();
+
+                // No OM contact information availble in Talc.
+            }
+
+            /**
+             * Clean up old local domain key.
+             */
+            LOGNOTIFY << "Removing old <local.domains> key.";
+            kv_store.del("local.domains");
+
+            /**
+             * Address ConfigDB key changes.
+             */
+
+            /**
+             * We've already installed the new ConfigDB versioning keys (see ConfigDB::getConfigVersion()).
+             * We just need to remove the old ConfigDB versioning key.
+             */
+            LOGNOTIFY << "Removing old <config.version> key.";
+            kv_store.del("config.version");
+
+            /**
+             * Finally, bump the ConfigDB version to latest.
+             */
+            setConfigVersion(CONFIGDB_VERSION_LATEST);
+
+            return ConfigDB::ReturnType::SUCCESS;
+
+        } catch (const RedisException &e) {
+            LOGERROR << e.what();
+            NOMOD();
+        }
+    } else {
+        LOGWARN << "Nothing to upgrade.";
+        return ConfigDB::ReturnType::SUCCESS;
+    }
+
+    return ConfigDB::ReturnType::CONFIGDB_EXCEPTION;
+}
+
 
 void ConfigDB::setModified() {
     try {
         kv_store.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
-        kv_store.incr("config.version");
     } catch(const RedisException& e) {
         LOGERROR << e.what();
     }
 }
 
-// domains
+// Global Domain
 std::string ConfigDB::getGlobalDomain() {
     try {
         return kv_store.get("global.domain").getString();
@@ -89,63 +247,533 @@ bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
     return false;
 }
 
+
+// Local Domains
+// Note that local domains are global domain objects. While they might be cached in any given local domain,
+// they are definitively stored and maintained in the context of the global domain and therefore, the
+// master domain and master OM.
+//
+// TODO(Greg): These methods need to ensure that they are being executed within the context of the
+// master OM.
+fds_ldomid_t ConfigDB::getNewLocalDomainId() {
+    TRACKMOD();
+    try {
+        fds_ldomid_t ldomId;
+        ReturnType ret;
+        for (;;) {
+            ldomId = fds_ldomid_t(kv_store.incr("local.domain:nextid"));
+            if ((ret = localDomainExists(ldomId)) == ReturnType::NOT_FOUND) {
+                // We haven't used this one yet.
+                return ldomId;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                LOGCRITICAL << "ConfigDB exception getting a new local domain ID.";
+                break;
+            }
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    NOMOD();
+    return invalid_ldom_id;
+}
+
 /**
  * Create a new Local Domain provided it does not already exist. (Local Domain names
- * are treated as case-insenative.)
+ * are treated as case-insenative.) Or update an existing local domain.
  *
- * @param identifier: std::string - Name to use for the new Local Domain.
- * @param site: std::string - Name of the location of the new Local Domain.
+ * When OM is booted for the first time, it creates a Global Domain and a Local Domain within it, setting
+ * the Local Domain's ID to 1. This makes that Local Domain the only Local Domain within the Global Domain
+ * and it is the Master Domain for the Global Domain.
+ *
+ * To create multiple Local Domains within a single Global Domain, first create the Local Domains seperately.
+ * Then choose one of them to be the Master Domain for the Global Domain into which the others will be added.
+ *
+ * As other Local Domains are added to a Global Domain, their IDs will change (initially they are all 1 and as they
+ * are added they get set to something >1 that's unique within the Global Domain) and because of this, they will
+ * lose their "Master Domain" status. Therefore, it must be the case that no Local Domains are added to a different
+ * Global Domain if the Local Domain in question already has Tenants defined. For in that case, we have no mechanism
+ * to resolve clashes between the IDs of the Global Domain objects that may result. Those Global Domain objects
+ * include Tenants, Users, Applications, and Subscriptions for Aynschronous Replication. In addition, the Local Domain
+ * in question must be the only Local Domain within its current Global Domain. Otherwise we may run into clashes
+ * between Local Domain IDs (note that Local Domains are also Global Domain objects).
+ *
+ * In short, a Local Domain may only be added to an existing Global Domain if the Local Domain has been newly created
+ * and nothing more done to it besides adding Nodes and Services.
+ *
+ * @param localDomain: The details of the Local Domain to be created or updated.
+ * @param isNew: 'true' if we are being asked to create a new local domain. 'false' if we are being asked to update
+ *               an existing local domain.
+ *
+ * @return fds_ldomid_t - ID generated for the new Local Domain.
+ *
+ */
+fds_ldomid_t ConfigDB::putLocalDomain(const LocalDomain& localDomain, const bool isNew) {
+    TRACKMOD();
+
+    try {
+        ReturnType ret;
+
+        // Check if the local domain already exists.
+        if ((ret = localDomainExists(localDomain.getName())) == ReturnType::SUCCESS) {
+            if (isNew) {
+                LOGWARN << "Trying to add an existing local domain: LocalDomain [" << localDomain.getName() << "].";
+                NOMOD();
+                return invalid_ldom_id;
+            }
+        } else if (ret == ReturnType::NOT_FOUND) {
+            if (!isNew) {
+                LOGWARN << "Trying to udpate a non-existing local domain: LocalDOmain [" << localDomain.getName() << "].";
+                NOMOD();
+                return invalid_ldom_id;
+            }
+        } else {
+            // We had some problem with ConfigDB.
+            NOMOD();
+            return invalid_ldom_id;
+        }
+
+        // Get new or existing ID
+        fds_ldomid_t ldomId{invalid_ldom_id};
+        if (isNew) {
+            ldomId = getNewLocalDomainId();
+            LOGDEBUG << "Adding local domain [" << localDomain.getName() << "], ID [" << ldomId << "].";
+
+            // Add the local domain.
+            kv_store.sadd("local.domain:list", ldomId);
+        } else {
+            ldomId = getLocalDomainId(localDomain.getName());
+            LOGDEBUG << "Updating local domain [" << localDomain.getName() << "], ID [" << ldomId << "].";
+        }
+
+        // Insert the new local domain details.
+        auto reply = kv_store.sendCommand("hmset ldom:%d"
+                                          " id %d"
+                                          " name %s"
+                                          " site %s"
+                                          " createTime %ld"
+                                          " current %d",
+                                          ldomId,
+                                          ldomId,
+                                          localDomain.getName().c_str(),
+                                          localDomain.getSite().c_str(),
+                                          (localDomain.getCreateTime() == 0) ? util::getTimeStampMillis() :
+                                                                               localDomain.getCreateTime(),
+                                          localDomain.getCurrent());
+        reply.checkError();
+
+        // Now put any OM Node contact information.
+        std::size_t i;
+        for (i = 0; i < localDomain.getOMNodes().size(); i++) {
+            reply = kv_store.sendCommand("hmset ldom:%d:om:%d"
+                                         " node_type %d"
+                                         " node_name %s"
+                                         " domain_id %d"
+                                         " ip_hi_addr %ld"
+                                         " ip_lo_addr %ld"
+                                         " control_port %d"
+                                         " data_port %d"
+                                         " migration_port %d"
+                                         " node_uuid %ld"
+                                         " service_uuid %ld"
+                                         " node_root %s"
+                                         " metasync_port %d",
+                                         ldomId, i,
+                                         localDomain.getOMNode(i).node_type,
+                                         localDomain.getOMNode(i).node_name.c_str(),
+                                         localDomain.getOMNode(i).domain_id,
+                                         localDomain.getOMNode(i).ip_hi_addr,
+                                         localDomain.getOMNode(i).ip_lo_addr,
+                                         localDomain.getOMNode(i).control_port,
+                                         localDomain.getOMNode(i).data_port,
+                                         localDomain.getOMNode(i).migration_port,
+                                         localDomain.getOMNode(i).node_uuid.uuid,
+                                         localDomain.getOMNode(i).service_uuid.uuid,
+                                         localDomain.getOMNode(i).node_root.c_str(),
+                                         localDomain.getOMNode(i).metasync_port);
+            reply.checkError();
+        }
+
+        // Finally, clear away any OM Node contact information left from a previous put.
+        for (; kv_store.exists(format("ldom:%d:om:%d", ldomId, i)) == true; i++) {
+            kv_store.del(format("ldom:%d:om:%d", ldomId, i));
+        }
+
+        return ldomId;
+
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    NOMOD();
+    return invalid_ldom_id;
+}
+
+/**
+ * Add an existing Local Domain to the current Global Domain. See the header comments for createLocalDomain()
+ * for details.
+ *
+ * @param localDomain: The details of the Local Domain to be added.
  *
  * @return int64_t - ID generated for the new Local Domain.
  */
-int64_t ConfigDB::createLocalDomain(const std::string& identifier, const std::string& site) {
-    TRACKMOD();
-    try {
-        // Check if the Local Domain already exists.
-        std::string idLower = lower(identifier);
-
-        int64_t id = getIdOfLocalDomain(identifier);
-        if (id > 0) {
-            // The Local Domain already exists.
-            LOGWARN << "Trying to add an existing Local Domain : " << id << ": " << identifier;
-            NOMOD();
-            return id;
-        }
-
-        fds::apis::LocalDomain localDomain;
-
-        // Get new id
-        auto reply = kv_store.sendCommand("incr local.domain:nextid");
-
-        // Build Local Domain object to store.
-        localDomain.id = reply.getLong();
-        localDomain.name = identifier;
-        localDomain.site = site;
-
-        kv_store.sendCommand("sadd local.domain:list %b", idLower.data(), idLower.length());
-
-        // serialize
-        boost::shared_ptr<std::string> serialized;
-        fds::serializeFdspMsg(localDomain, serialized);
-
-        kv_store.sendCommand("hset local.domains %ld %b", localDomain.id, serialized->data(), serialized->length()); //NOLINT
-        return localDomain.id;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "Error with redis " << e.what();
+fds_ldomid_t ConfigDB::addLocalDomain(const LocalDomain& localDomain) {
+    if (localDomain.getOMNodes().size() == 0) {
+        LOGWARN << "Trying to add an existing Local Domain to the current Global Domain "
+                   "but no OM contact information is provided for the existing Local Domain: " << localDomain.getName();
+        return invalid_ldom_id;
     }
 
-    return 0;
+    return putLocalDomain(localDomain, false /* Not a new local domain. */);
+}
+
+ConfigDB::ReturnType ConfigDB::updateLocalDomain(const LocalDomain& localDomain) {
+    /**
+     * LocalDomain ID is required.
+     */
+    if (localDomain.getID() == invalid_ldom_id) {
+        LOGERROR << "LocalDomain ID must be supplied for an update of local domain [" << localDomain.getName() << "].";
+        return ReturnType::NOT_UPDATED;
+    } else {
+        /**
+         * The following are *not* modifiable: id, createTime, current
+         */
+        LocalDomain currentLocalDomain("dummy", invalid_ldom_id);
+
+        ReturnType ret = getLocalDomain(localDomain.getID(), currentLocalDomain);
+        if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+            LOGCRITICAL << "Unable to perform local domain update for local domain ID [" << localDomain.getID() << "].";
+            return ret;
+        } else if (ret == ReturnType::NOT_FOUND) {
+            LOGERROR << "Local domain to update not found for local domain ID [" << localDomain.getID() << "].";
+            return ret;
+        } else if ((currentLocalDomain.getCurrent() != localDomain.getCurrent()) ||
+                   (currentLocalDomain.getCreateTime() != localDomain.getCreateTime())) {
+            LOGERROR << "Local domain updates may not change ID, Current, or Create Time for local domain ID [" << localDomain.getID() << "].";
+            return ReturnType::NOT_UPDATED;
+        }
+    }
+
+    return ((putLocalDomain(localDomain, false /* Not a new local domain. */) == invalid_ldom_id) ?
+            ReturnType::NOT_UPDATED : ReturnType::SUCCESS);
+}
+
+ConfigDB::ReturnType ConfigDB::deleteLocalDomain(fds_ldomid_t ldomId) {
+    if (!localDomainExists(ldomId)) {
+        return ReturnType::NOT_FOUND;
+    }
+
+    TRACKMOD();
+
+    try {
+        if (!(kv_store.srem("local.domain:list", ldomId))) {
+            LOGWARN << "Local domain [" << ldomId << "] not found, not removed.";
+            NOMOD();
+            return ReturnType::NOT_UPDATED;
+        }
+
+        // Delete the local domain.
+        if (!(kv_store.del(format("ldom:%d", ldomId)))) {
+            LOGWARN << "Local domain [" << ldomId << "] details not found, not removed.";
+            // NOMOD(); Presumably, the ealier modification took place.
+            return ReturnType::NOT_UPDATED;
+        } else {
+            return ReturnType::SUCCESS;
+        }
+
+        // Finally, clear away any OM Node contact information.
+        for (std::size_t i = 0; kv_store.exists(format("ldom:%d:om:%d", ldomId, i)) == true; i++) {
+            kv_store.del(format("ldom:%d:om:%d", ldomId, i));
+        }
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+        NOMOD();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Check by local domain ID.
+ConfigDB::ReturnType ConfigDB::localDomainExists(fds_ldomid_t ldomId) {
+    try {
+        /**
+         * Should we check the local domain ID list or just look for the details
+         * directly? Either way, they should be consistent woth each other. We'll
+         * look for the details.
+         */
+        return (kv_store.exists(format("ldom:%d", ldomId))) ? ReturnType::SUCCESS : ReturnType::NOT_FOUND;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Check by local domain name which is unique per global domain.
+ConfigDB::ReturnType ConfigDB::localDomainExists(const std::string& ldomName)
+{
+    std::vector<LocalDomain> localDomains;
+    ReturnType ret;
+
+    if ((ret = getLocalDomains(localDomains)) == ReturnType::SUCCESS) {
+        for (const auto localDomain : localDomains) {
+            if ((localDomain.getName().compare(ldomName) == 0)) {
+                return ReturnType::SUCCESS;
+            }
+        }
+
+        // Didn't find it.
+        return ReturnType::NOT_FOUND;
+    }
+
+    // Either no local domains or a problem with ConfigDB access.
+    return ret;
+}
+
+ConfigDB::ReturnType ConfigDB::getLocalDomainIds(std::vector<fds_ldomid_t>&ldomIds) {
+    std::vector<fds_ldomid_t> _ldomIds; //NOLINT
+
+    try {
+        auto reply = kv_store.smembers("local.domain:list");
+        reply.checkError();
+
+        reply.toVector(_ldomIds);
+
+        if (_ldomIds.empty()) {
+            LOGDEBUG << "No local domains found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        for (std::size_t i = 0; i < _ldomIds.size(); i++) {
+            ldomIds.push_back(fds_ldomid_t(_ldomIds[i]));
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+// Get local domain ID from its name.
+fds_ldomid_t ConfigDB::getLocalDomainId(const std::string& name)
+{
+    LocalDomain localDomain(name, invalid_ldom_id);
+
+    if (getLocalDomain(name, localDomain) == ReturnType::SUCCESS)
+    {
+        return localDomain.getID();
+    }
+    else {
+        return invalid_ldom_id;
+    }
+}
+
+ConfigDB::ReturnType ConfigDB::getLocalDomains(std::vector<LocalDomain>&localDomains) {
+    std::vector<fds_ldomid_t> ldomIds; //NOLINT
+
+    try {
+        auto reply = kv_store.smembers("local.domain:list");
+        reply.checkError();
+
+        reply.toVector(ldomIds);
+
+        if (ldomIds.empty()) {
+            LOGDEBUG << "No local domains found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        ReturnType ret;
+        for (std::size_t i = 0; i < ldomIds.size(); i++) {
+            LocalDomain localDomain("dummy", invalid_sub_id);
+            if ((ret = getLocalDomain(fds_ldomid_t(ldomIds[i]), localDomain)) == ReturnType::NOT_FOUND) {
+                LOGCRITICAL << "ConfigDB inconsistency. Local domain detail missing for id [" << ldomIds[i] << "].";
+                return ReturnType::CONFIGDB_EXCEPTION;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                LOGCRITICAL << "ConfigDB exception reading details for local domain id [" << ldomIds[i] << "].";
+                return ReturnType::CONFIGDB_EXCEPTION;
+            }
+
+            localDomains.push_back(localDomain);
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::getLocalDomain(fds_ldomid_t ldomId, LocalDomain& localDomain) {
+    try {
+        Reply reply1 = kv_store.hgetall(format("ldom:%d", ldomId));
+        reply1.checkError();
+
+        StringList strings1;
+        reply1.toVector(strings1);
+
+        if (strings1.empty()) {
+            LOGDEBUG << "Unable to find local domain ID [" << ldomId << "].";
+            return ReturnType::NOT_FOUND;
+        }
+
+        // Since we expect complete key-value pairs, the size of strings should be even.
+        if ((strings1.size() % 2) != 0) {
+            LOGCRITICAL << "ConfigDB corruption. Local domain ID [" << ldomId <<
+                        "] does not have a complete key-value pairing of attributes.";
+            return ReturnType::CONFIGDB_EXCEPTION;
+        }
+
+        for (std::size_t i = 0; i < strings1.size(); i+= 2) {
+            std::string& key1 = strings1[i];
+            std::string& value1 = strings1[i+1];
+
+            if (key1 == "id") { localDomain.setID(fds_ldomid_t(std::stoi(value1.c_str(), NULL, 10)));}
+            else if (key1 == "name") { localDomain.setName(value1); }
+            else if (key1 == "site") { localDomain.setSite(value1); }
+            else if (key1 == "createTime") { localDomain.setCreateTime(strtoull(value1.c_str(), NULL, 10));} //NOLINT
+            else if (key1 == "current") { localDomain.setCurrent(static_cast<bool>(std::stoi(value1.c_str(), NULL, 10)));}
+            else { //NOLINT
+                LOGWARN << "Unknown key for local domain [" << ldomId <<
+                        "] - key [" << key1 << "], value [" << value1 << "].";
+                fds_assert(!"Unknown key");
+            }
+
+            // See if we have any OM contact information for this local domain.
+            std::vector<FDS_ProtocolInterface::FDSP_RegisterNodeType> omNodes;
+            for (std::size_t j = 0; kv_store.exists(format("ldom:%d:om:%d", ldomId, j)) == true; j++) {
+                Reply reply2 = kv_store.hgetall(format("ldom:%d:om:%d", ldomId, j));
+                reply2.checkError();
+
+                StringList strings2;
+                reply2.toVector(strings2);
+
+                if (strings2.empty()) {
+                    LOGDEBUG << "No OM contact information for local domain ID [" << ldomId << "].";
+                    // This should probably be an error - database inconsistency.
+                }
+
+                // Since we expect complete key-value pairs, the size of strings should be even.
+                if ((strings2.size() % 2) != 0) {
+                    LOGCRITICAL << "ConfigDB corruption. Local domain ID [" << ldomId <<
+                                "] OM contact information [" << j << "] does not have a complete key-value pairing of attributes.";
+                    return ReturnType::CONFIGDB_EXCEPTION;
+                }
+
+                FDS_ProtocolInterface::FDSP_RegisterNodeType omNode;
+                for (std::size_t k = 0; k < strings2.size(); k+= 2) {
+                    std::string& key2 = strings2[k];
+                    std::string& value2 = strings2[k+1];
+
+                    if (key2 == "node_type") { omNode.__set_node_type(static_cast<FDS_ProtocolInterface::FDSP_MgrIdType>(std::stoi(value2.c_str(), NULL, 10))); }
+                    else if (key2 == "node_name") { omNode.__set_node_name(value2); }
+                    else if (key2 == "domain_id") { omNode.domain_id = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "ip_hi_addr") { omNode.ip_hi_addr = std::stol(value2.c_str(), NULL, 10); }
+                    else if (key2 == "ip_lo_addr") { omNode.ip_lo_addr = std::stol(value2.c_str(), NULL, 10); }
+                    else if (key2 == "control_port") { omNode.control_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "data_port") { omNode.data_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "migration_port") { omNode.migration_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else if (key2 == "node_uuid") { omNode.node_uuid.__set_uuid(std::stol(value2.c_str(), NULL, 10)); }
+                    else if (key2 == "service_uuid") { omNode.service_uuid.__set_uuid(std::stol(value2.c_str(), NULL, 10)); }
+                    else if (key2 == "node_root") { omNode.node_root = value2; }
+                    else if (key2 == "metasync_port") { omNode.migration_port = std::stoi(value2.c_str(), NULL, 10); }
+                    else { //NOLINT
+                        LOGWARN << "Unknown key for local domain [" << ldomId << "] and OM contact information [" << k <<
+                                "] - key [" << key2 << "], value [" << value2 << "].";
+                        fds_assert(!"Unknown key");
+                    }
+
+                    omNodes.emplace_back(omNode);
+                }
+            }
+
+            localDomain.setOMNodes(omNodes);
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+ConfigDB::ReturnType ConfigDB::getLocalDomain(const std::string& name, LocalDomain& localDomain) {
+    try {
+        std::vector<LocalDomain> localDomains;
+        std::vector<LocalDomain>::const_iterator ldomIterator;
+        ReturnType ret;
+
+        if ((ret = getLocalDomains(localDomains)) == ReturnType::SUCCESS) {
+            for (ldomIterator = localDomains.begin(); ldomIterator != localDomains.end(); ldomIterator++) {
+                if (ldomIterator->getName().compare(name) == 0){
+                    break;
+                }
+            }
+        } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+            LOGCRITICAL << "ConfigDB exception retrieving local domain by name.";
+            return ReturnType::CONFIGDB_EXCEPTION;
+        }
+
+        if (ldomIterator == localDomains.end()) {
+            LOGDEBUG << "Unable to find local domain [" << name << "].";
+            return ReturnType::NOT_FOUND;
+        }
+
+        localDomain = *ldomIterator;
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
 }
 
 /**
  * Generate a vector of Local Domains currently defined.
  *
- * @param localDomains: std::vector<fds::apis::LocalDomain> - Vector of returned Local Domain names.
+ * @param localDomains: Vector of returned LocalDomain objects.
+ *
+ * @return ReturnType - SUCCESS if local domains found. NOT_FOUND if not local domains. CONFIGDB_EXCEPTION otherwise.
+ */
+ConfigDB::ReturnType ConfigDB::listLocalDomains(std::vector<LocalDomain>& localDomains) {
+    std::vector<fds_ldomid_t> ldomIds; //NOLINT
+
+    try {
+        auto reply = kv_store.smembers("local.domain:list");
+        reply.checkError();
+
+        reply.toVector(ldomIds);
+
+        if (ldomIds.empty()) {
+            LOGDEBUG << "No local domains found.";
+            return ReturnType::NOT_FOUND;
+        }
+
+        ReturnType ret;
+        for (std::size_t i = 0; i < ldomIds.size(); i++) {
+            LocalDomain localDomain("dummy" , invalid_ldom_id);
+            if ((ret = getLocalDomain(fds_ldomid_t(ldomIds[i]), localDomain)) == ReturnType::NOT_FOUND) {
+                LOGCRITICAL << "ConfigDB inconsistency. Local domain detail missing for id [" << ldomIds[i] << "].";
+                return ReturnType::CONFIGDB_EXCEPTION;
+            } else if (ret == ReturnType::CONFIGDB_EXCEPTION) {
+                // Some ConfigDB error.
+                return ReturnType::CONFIGDB_EXCEPTION;
+            }
+
+            localDomains.push_back(localDomain);
+        }
+        return ReturnType::SUCCESS;
+    } catch(RedisException& e) {
+        LOGCRITICAL << "Exception with Redis: " << e.what();
+    }
+    return ReturnType::CONFIGDB_EXCEPTION;
+}
+
+/**
+ * Generate a vector of Local Domains currently defined in the Talc version.
+ *
+ * @param localDomains: Vector of returned Local Domain names.
  *
  * @return bool - True if the vector is successfully produced. False otherwise.
  */
-bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomains) {
-    fds::apis::LocalDomain localDomain;
+bool ConfigDB::listLocalDomainsTalc(std::vector<fds::apis::LocalDomainDescriptorV07> &localDomains) {
+    fds::apis::LocalDomainDescriptorV07 localDomain;
 
     try {
         Reply reply = kv_store.sendCommand("hvals local.domains");
@@ -162,48 +790,6 @@ bool ConfigDB::listLocalDomains(std::vector<fds::apis::LocalDomain>& localDomain
         return false;
     }
     return true;
-}
-
-/**
- * Return the Domain ID for the named Local Domain.
- *
- * @param identifier: std::string - Name of the Local Domain whose ID is to be returned.
- *
- * @return int64_t - ID of the named Local Domain. 0 otherwise.
- */
-int64_t ConfigDB::getIdOfLocalDomain(const std::string& identifier) {
-    int64_t id = 0;
-
-    try {
-        // Check if the Local Domain exists.
-        std::string idLower = lower(identifier);
-
-        Reply reply = kv_store.sendCommand("sismember local.domain:list %b", idLower.data(), idLower.length());
-        if (reply.getLong() == 1) {
-            // The Local Domain exists.
-            std::vector<fds::apis::LocalDomain> localDomains;
-            if (listLocalDomains(localDomains)) {
-                for (const auto &localDomain : localDomains) {
-                    if (localDomain.name == identifier) {
-                        id = localDomain.id;
-                        break;
-                    }
-                }
-
-                if (id == 0) {
-                    LOGCRITICAL << "ConfigDB inconsistency. Local Domain info missing : " << identifier;
-                }
-            } else {
-                LOGCRITICAL << "Unable to obtain Local Domain list.";
-                return id;
-            }
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "Error with redis " << e.what();
-        throw e;
-    }
-
-    return id;
 }
 
 
@@ -2034,6 +2620,7 @@ fds_subid_t ConfigDB::putSubscription(const Subscription &subscription, const bo
             }
         } else {
             // We had some problem with ConfigDB.
+            NOMOD();
             return invalid_sub_id;
         }
 
@@ -2043,48 +2630,43 @@ fds_subid_t ConfigDB::putSubscription(const Subscription &subscription, const bo
             subId = getNewSubscriptionId();
             LOGDEBUG << "Adding subscription [" << subscription.getName() << "] for tenant [" <<
                             subscription.getTenantID() << "], ID [" << subId << "].";
+
+            auto reply = kv_store.sendCommand("sadd subscriptions %ld", subId);
+            reply.checkError();
         } else {
             subId = getSubscriptionId(subscription.getName(), subscription.getTenantID());
             LOGDEBUG << "Updating subscription [" << subscription.getName() << "] for tenant [" <<
                      subscription.getTenantID() << "], ID [" << subId << "].";
         }
 
-        Reply reply = kv_store.sendCommand("sadd subscriptions %ld", subId);
+        // Add the subscription
+        auto reply = kv_store.sendCommand("hmset sub:%ld id %ld"
+                                          " name %s"
+                                          " tennantID %d"
+                                          " primaryDomainID %d"
+                                          " primaryVolumeID %d"
+                                          " replicaDomainID %d"
+                                          " createTime %ld"
+                                          " state %d"
+                                          " type %d"
+                                          " scheduleType %d"
+                                          " intervalSize %d",
+                                          subId, subId,
+                                          subscription.getName().c_str(),
+                                          subscription.getTenantID(),
+                                          subscription.getPrimaryDomainID(),
+                                          subscription.getPrimaryVolumeID(),
+                                          subscription.getReplicaDomainID(),
+                                          (isNew) ? util::getTimeStampMillis() : subscription.getCreateTime(),
+                                          (isNew) ? FDS_ProtocolInterface::ResourceState::Created : subscription.getState(),
+                                          subscription.getType(),
+                                          subscription.getScheduleType(),
+                                          subscription.getIntervalSize());
+        reply.checkError();
 
-        if (reply.isOk()) {
-            // Add the subscription
-            reply = kv_store.sendCommand("hmset sub:%ld id %ld"
-                                                 " name %s"
-                                                 " tennantID %d"
-                                                 " primaryDomainID %d"
-                                                 " primaryVolumeID %d"
-                                                 " replicaDomainID %d"
-                                                 " createTime %ld"
-                                                 " state %d"
-                                                 " type %d"
-                                                 " scheduleType %d"
-                                                 " intervalSize %d",
-                                         subId, subId,
-                                         subscription.getName().c_str(),
-                                         subscription.getTenantID(),
-                                         subscription.getPrimaryDomainID(),
-                                         subscription.getPrimaryVolumeID(),
-                                         subscription.getReplicaDomainID(),
-                                         (isNew) ? util::getTimeStampMillis() : subscription.getCreateTime(),
-                                         (isNew) ? FDS_ProtocolInterface::ResourceState::Created : subscription.getState(),
-                                         subscription.getType(),
-                                         subscription.getScheduleType(),
-                                         subscription.getIntervalSize());
-
-            if (reply.isOk()) {
-                return subId;
-            }
-        }
-
-        if (!(reply.isOk())) {
-            LOGERROR << "Redis error: " << reply.getString();
-        }
+        return subId;
     } catch(const RedisException& e) {
+        NOMOD();
         LOGCRITICAL << "Exception with Redis: " << e.what();
     }
 

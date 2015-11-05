@@ -41,12 +41,12 @@ public class GetLocalDomains
   public Resource handle( Request request, Map<String, String> routeParameters )
       throws Exception {
 
-      List<com.formationds.apis.LocalDomain> localDomains;
+      List<com.formationds.apis.LocalDomainDescriptorV07> localDomains;
       
       logger.debug( "Listing local domains." );
 
       try {
-          localDomains = configApi.listLocalDomains(0);
+          localDomains = configApi.listLocalDomainsV07(0);
       } catch( Exception e ) {
           logger.error( "GET::FAILED::" + e.getMessage(), e );
 
@@ -56,7 +56,7 @@ public class GetLocalDomains
       
       JSONArray array = new JSONArray();
 
-      for (com.formationds.apis.LocalDomain localDomain : localDomains) {
+      for (com.formationds.apis.LocalDomainDescriptorV07 localDomain : localDomains) {
           array.put(new JSONObject()
                           .put("name", localDomain.getName())
                           .put("id", localDomain.getId())
