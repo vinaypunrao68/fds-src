@@ -561,7 +561,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
-
     LOGDEBUG << "vol:" << vol_name
              << " snap:" << vdesc->isSnapshot()
              << " state:" << vdesc->getState()
@@ -585,7 +584,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     // do this processing only in the case..
-    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
@@ -963,11 +962,9 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
-        "fds.dm.enable_timeline", true));
-    if (features.isTimelineEnabled()) {
-        timelineMgr.reset(new timeline::TimelineManager(this));
-    }
+    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
+    timelineMgr.reset(new timeline::TimelineManager(this));
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
