@@ -319,6 +319,26 @@ void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
              << " for start request";
 
     NodeUuid node_uuid(msg->pmSvcUuid);
+
+    if (lastHeardStartResp.first == 0) {
+        // This is the very first start resp in OM's history
+        lastHeardStartResp = std::make_pair(node_uuid.uuid_get_val(), fds::util::getTimeStampSeconds());
+    } else if (lastHeardStartResp.first == msg->pmSvcUuid.svc_uuid) {
+        int32_t current = fds::util::getTimeStampSeconds();
+
+        // If we are receiving a resp from the same PM within a second, ignore the response.
+        if ((current - lastHeardStartResp.second) < 1) {
+
+            lastHeardStartResp.second = current;
+            return;
+        }
+    }
+
+
+    auto item = std::make_pair(node_uuid.uuid_get_val(), 0);
+    LOGDEBUG <<"!Will remove from OM's sentQ";
+    gl_orch_mgr->removeFromSentQ(item);
+
     OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
             om_loc_domain_ctrl()->om_pm_agent(node_uuid);
 
@@ -491,39 +511,35 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
-    // we only handle specific errors from SM and DM for now
-    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
+    /*
+     * if unreachable service incarnation is the same as the service map, change the state to INVALID
+    */
+    if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
     {
-        /*
-         * if unreachable service incarnation is the same as the service map, change the state to INVALID
-         */
-        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
-        {
-            auto domain = OM_NodeDomainMod::om_local_domain();
-            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-            Error reportError(msg->healthReport.statusCode);
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+        Error reportError(msg->healthReport.statusCode);
 
-            LOGERROR << "Will set service to failed state: "
-            << msg->healthReport.serviceInfo.name
-            << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+        LOGERROR << "Will set service to failed state: "
+        << msg->healthReport.serviceInfo.name
+        << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
 
-            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
-            if (agent) {
-                /*
-                 *  required so that DMT/DLT will see it as a failed service
-                 */
-                agent->set_node_state( fpi::FDS_Node_Down );
-            }
-
+        OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+        if (agent) {
             /*
-             * change the state and update service map; then broadcast updated service map
+             *  required so that DMT/DLT will see it as a failed service
              */
-            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
-            domain->om_service_down( reportError, uuid, svc_type );
+            agent->set_node_state( fpi::FDS_Node_Down );
         }
 
-        return;
+        /*
+         * change the state and update service map; then broadcast updated service map
+         */
+        domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
+        domain->om_service_down( reportError, uuid, svc_type );
     }
+
+    return;
 }
 
 void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
