@@ -94,13 +94,13 @@ if [ $download == "true" ] ; then
   rsync -av ${DLTMP}/${STATSDEPS} ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
 else
   echo "Syncing packages from local source"
-  rsync -av ../../omnibus/omnibus-fds-platform/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
-  rsync -av ../../omnibus/omnibus-fds-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
-  rsync -av ../../omnibus/omnibus-fds-stats-service/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
-  rsync -av ../../omnibus/omnibus-fds-stats-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
-  rsync -av ../../omnibus/omnibus-rabbitmq-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
-  rsync -av ../../omnibus/omnibus-simpleamqpclient/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
-  rsync -av ../../omnibus/omnibus-fds-stats-client-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
+  rsync -av ../omnibus-fds-platform/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-platform/pkg/
+  rsync -av ../omnibus-fds-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-deps/pkg/
+  rsync -av ../omnibus-fds-stats-service/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
+  rsync -av ../omnibus-fds-stats-deps/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
+  rsync -av ../omnibus-rabbitmq-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
+  rsync -av ../omnibus-simpleamqpclient/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
+  rsync -av ../omnibus-fds-stats-client-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
 fi
 
 # Make sure we have package files

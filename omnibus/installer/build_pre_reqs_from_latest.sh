@@ -2,12 +2,10 @@
 
 #This script is to setup the pre-requisites for creating an offline
 #deployment.  The only arg is which build type needs to be created.
-
 cd ../.. && make package fds-platform BUILD_TYPE=${1}
 cd ../.. && make package fds-deps
 
 # making directories that the build_install script will look for packages
-rm -rf ../omnibus-*
 
 mkdir -p ../omnibus-fds-stats-service/pkg
 mkdir -p ../omnibus-fds-stats-deps/pkg
@@ -25,7 +23,7 @@ mv fds-stats-deps*.deb ../omnibus-fds-stats-deps/pkg
 
 apt-get download rabbitmq-c
 [[ $? -ne 0 ]] && echo 'Failure downloading the rabbitmq-c package from apt repo' && exit 99
-mv rabbitmq-c*.deb /omnibus-rabbitmq-c/pkg
+mv rabbitmq-c*.deb ../omnibus-rabbitmq-c/pkg
 
 apt-get download simpleamqpclient
 [[ $? -ne 0 ]] && echo 'Failure downloading the simpleamqpclient package from apt repo' && exit 99
