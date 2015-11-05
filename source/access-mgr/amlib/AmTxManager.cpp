@@ -200,8 +200,8 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
 }
 
 Error
-AmTxManager::removeVolume(const VolumeDesc& volDesc)
-{ return amCache->removeVolume(volDesc.volUUID); }
+AmTxManager::removeVolume(const fds_volid_t volId)
+{ return amCache->removeVolume(volId); }
 
 Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)

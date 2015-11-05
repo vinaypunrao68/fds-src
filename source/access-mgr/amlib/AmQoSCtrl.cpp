@@ -139,9 +139,10 @@ Error   AmQoSCtrl::deregisterVolume(fds_volid_t vol_uuid) {
 }
 
 
-Error AmQoSCtrl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
+Error AmQoSCtrl::enqueueIO(AmRequest *io) {
     Error err(ERR_OK);
-    htb_dispatcher->enqueueIO(volUUID.get(), io);
+    PerfTracer::tracePointBegin(io->qos_perf_ctx);
+    err = htb_dispatcher->enqueueIO(io->io_vol_id.get(), io);
     return err;
 }
 
