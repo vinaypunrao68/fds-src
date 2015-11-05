@@ -519,35 +519,38 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
-    /*
-     * if unreachable service incarnation is the same as the service map, change the state to INVALID
-    */
-    if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
-    {
-        auto domain = OM_NodeDomainMod::om_local_domain();
-        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-        Error reportError(msg->healthReport.statusCode);
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ||
+         ( svc_type == fpi::FDSP_ACCESS_MGR ) || ( svc_type == fpi::FDSP_PLATFORM ) ) {
+        /*
+         * if unreachable service incarnation is the same as the service map, change the state to INVALID
+        */
+        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
+        {
+            auto domain = OM_NodeDomainMod::om_local_domain();
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+            Error reportError(msg->healthReport.statusCode);
 
-        LOGERROR << "Will set service to failed state: "
-        << msg->healthReport.serviceInfo.name
-        << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+            LOGERROR << "Will set service to failed state: "
+            << msg->healthReport.serviceInfo.name
+            << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
 
-        OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
-        if (agent) {
+            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
+            if (agent) {
+                /*
+                 *  required so that DMT/DLT will see it as a failed service
+                 */
+                agent->set_node_state( fpi::FDS_Node_Down );
+            }
+
             /*
-             *  required so that DMT/DLT will see it as a failed service
+             * change the state and update service map; then broadcast updated service map
              */
-            agent->set_node_state( fpi::FDS_Node_Down );
+            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
+            domain->om_service_down( reportError, uuid, svc_type );
         }
 
-        /*
-         * change the state and update service map; then broadcast updated service map
-         */
-        domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
-        domain->om_service_down( reportError, uuid, svc_type );
+        return;
     }
-
-    return;
 }
 
 void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
