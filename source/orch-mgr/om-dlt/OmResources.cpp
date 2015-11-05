@@ -1556,7 +1556,9 @@ OM_NodeDomainMod::om_startup_domain()
             uuid |= DOMAINRESTART_MASK;
             PmMsg msg = std::make_pair(uuid,timestamp);
             
-            LOGDEBUG <<"!Will add to OM sendQ";
+            LOGDEBUG <<"Will add start services msg for PM:"
+                     << std::hex << cur->get_uuid().uuid_get_val() << std::dec
+                     << " to OM's queue";
             gl_orch_mgr->addToSendQ(msg, false);
         }
     }
@@ -1723,7 +1725,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     int64_t uuid      = svcInfo->svc_id.svc_uuid.svc_uuid;
                     int32_t timestamp = 0; // this will get set in the svcStartMonitor
                     PmMsg msg         = std::make_pair(uuid,timestamp);
-                    LOGDEBUG <<"!!Will add to OM sendQ";
+
+                    LOGDEBUG <<"Will add start services msg for PM:"
+                             << std::hex << uuid << std::dec
+                             << " to OM's queue";
+
                     gl_orch_mgr->addToSendQ(msg, false);
                 }
                 else if ((isKnownPM( *svcInfo)) &&
@@ -1790,6 +1796,14 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         }
 
+        if (svcInfo->svc_type != fpi::FDSP_PLATFORM) {
+            // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
+            // This is so that any access of the service state will return ACTIVE only after
+            // the associated service agents, uuids have been set up, and not before.
+            // Once the scheduling delay is removed, it probably makes sense to allow
+            // updates to occur here as previously done
+            addRegisteringSvc(svcInfo);
+        }
         /*
          * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
@@ -1800,13 +1814,6 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
             configDB->updateSvcMap(*svcInfo);
 
-        } else {
-            // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
-            // This is so that any access of the service state will return ACTIVE only after
-            // the associated service agents, uuids have been set up, and not before.
-            // Once the scheduling delay is removed, it probably makes sense to allow
-            // updates to occur here as previously done
-            addRegisteringSvc(svcInfo);
         }
     }
     catch(const Exception& e)

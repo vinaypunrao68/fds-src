@@ -201,7 +201,7 @@ void OrchMgr::svcStartMonitor()
         std::unique_lock<std::mutex> toSendQLock(toSendQMutex);
         toSendQCondition.wait(toSendQLock, [this] { return !toSendMsgQueue.empty(); });
 
-        LOGDEBUG << "!Svc start monitor is running ...";
+        LOGDEBUG << "Services start monitor is running...";
 
         NodeUuid node_uuid;
         bool domainRestart       = false;
@@ -212,7 +212,6 @@ void OrchMgr::svcStartMonitor()
 
         constructMsgParams(uuid, node_uuid, domainRestart);
 
-        LOGDEBUG <<"!Send activate_known_services message";
         domain->om_activate_known_services(domainRestart, node_uuid );
 
         // Remove from the toSend queue
@@ -238,7 +237,7 @@ void OrchMgr::svcStartRetryMonitor()
         std::unique_lock<std::mutex> sentQLock(sentQMutex);
         sentQCondition.wait(sentQLock, [this] { return !sentMsgQueue.empty(); });
 
-        LOGDEBUG << "!Retry monitor is running...";
+        LOGDEBUG << "Services start retry monitor is running...";
         int32_t current = util::getTimeStampSeconds();
         bool foundRetry = false;
         PmMsg retryMsg;
@@ -249,7 +248,7 @@ void OrchMgr::svcStartRetryMonitor()
 
             timeElapsed = current - item.second;
 
-            LOGDEBUG << "!Service start msg sent to PM uuid:"
+            LOGDEBUG << "Service start msg sent to PM uuid:"
                      << std::hex << item.first << std::dec
                      << "  " << timeElapsed << "seconds ago";
 
@@ -277,7 +276,7 @@ void OrchMgr::svcStartRetryMonitor()
             if (MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
                 if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
 
-                    LOGNORMAL <<"!PM:" << std::hex << svcUuid.svc_uuid << std::dec
+                    LOGWARN <<"PM:" << std::hex << svcUuid.svc_uuid << std::dec
                              << " appears to be unreachable, will not retry services"
                              << " start request";
                     removeFromSentQ(retryMsg);
@@ -286,7 +285,7 @@ void OrchMgr::svcStartRetryMonitor()
                     // Go ahead and retry the message
                     if (retryMsg.first != 0) {
 
-                        LOGNORMAL << "!Message to PM:"
+                        LOGNORMAL << "Message to PM:"
                                  << std::hex << svcUuid.svc_uuid << std::dec
                                  << " has not received response for "
                                  << timeElapsed << "seconds. Will re-send";
@@ -297,8 +296,7 @@ void OrchMgr::svcStartRetryMonitor()
                         // Add message to the toSendQueue
                         addToSendQ(retryMsg, true);
                     } else {
-
-                        LOGDEBUG <<"Evaluated retry msg has bad PM UUID!";
+                        LOGERROR <<"Evaluated retry msg has bad PM UUID!";
                     }
                 }
             } else {
@@ -316,10 +314,8 @@ void OrchMgr::svcStartRetryMonitor()
 void OrchMgr::constructMsgParams(int64_t uuid, NodeUuid& node_uuid, bool& flag) {
 
     if ( (uuid & DOMAINRESTART_MASK) == DOMAINRESTART_MASK ) {
-        LOGDEBUG << "!Domain restart is true";
         flag = true;
     } else {
-        LOGDEBUG << "!Domain restart is false";
         flag = false;
     }
 
@@ -328,7 +324,7 @@ void OrchMgr::constructMsgParams(int64_t uuid, NodeUuid& node_uuid, bool& flag) 
 
     node_uuid.uuid_set_val(uuid);
 
-    LOGDEBUG <<"!Constructed msgParams, uuid:" << std::hex << uuid << std::dec
+    LOGDEBUG <<"Constructed msgParams, uuid:" << std::hex << uuid << std::dec
              << " , domainRestart:" << flag;
 }
 
@@ -352,7 +348,7 @@ void OrchMgr::addToSendQ(PmMsg msg, bool retry)
             }
         }
 
-        LOGDEBUG << "!Adding message for PM:"
+        LOGDEBUG << "Adding message for PM:"
                     << std::hex << uuid << std::dec
                     << " to the toSendQ";
 
@@ -367,7 +363,7 @@ void OrchMgr::addToSentQ(PmMsg msg) {
         std::lock_guard<std::mutex> sentQLock(sentQMutex);
 
         int64_t uuid = msg.first & ~DOMAINRESTART_MASK;
-        LOGDEBUG << "!Adding msg for PM:"
+        LOGDEBUG << "Adding msg for PM:"
                  << std::hex << uuid << std::dec
                  << " to the sentQ";
 
@@ -401,9 +397,9 @@ void OrchMgr::removeFromSentQ(PmMsg sentMsg)
     std::lock_guard<std::mutex> sentQLock(sentQMutex);
 
     int64_t uuid = sentMsg.first & ~DOMAINRESTART_MASK;
-    LOGDEBUG << "!Removing message to PM:"
+    LOGDEBUG << "Removing message to PM:"
              << std::hex << uuid << std::dec
-             << " from sent Q";
+             << " from the sentQ";
 
     std::vector<PmMsg>::iterator iter;
     iter = std::find_if (sentMsgQueue.begin(), sentMsgQueue.end(),
@@ -416,11 +412,11 @@ void OrchMgr::removeFromSentQ(PmMsg sentMsg)
     if (iter != sentMsgQueue.end()) {
         sentMsgQueue.erase(iter);
     } else {
-        LOGWARN << "!Failed to remove msg to PM:"
+        LOGWARN << "Failed to remove msg to PM:"
                 << std::hex << sentMsg.first << std::dec
-                << " from sentQueue (ignore if this is not well-known PM)!";
+                << " from sentQ, either msg has already been removed"
+                << " or this PM is not well-known";
     }
-    //sentQLock.unlock();
 }
 void OrchMgr::start_cfgpath_server()
 {
