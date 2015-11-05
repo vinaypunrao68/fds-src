@@ -135,6 +135,7 @@ ObjectRefScanMgr::ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataM
           scanCntr(0),
           objectsScannedCntr(0)
 {
+    LOGNORMAL << "instantiating";
 }
 
 void ObjectRefScanMgr::mod_startup() {
@@ -161,6 +162,8 @@ void ObjectRefScanMgr::mod_startup() {
                                          qosHelper.addToQueue(req);
                                      }));
         timer->schedule(scanTask, scanIntervalSec);
+    } else {
+        LOGNORMAL << "auto refscan not enabled : [objectrefscan.timebased]";
     }
 }
 
