@@ -39,9 +39,9 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
     VolumeList volumeList (new std::list<fds_volid_t>(scanner->getScanSuccessVols()));
     for (fds_token_id token = 0; token < 256 ; token++) {
         filename = scanner->getTokenBloomfilterPath(token);
+        auto tokenGroup = dlt->getNodes(token);
         if (filename.length() > 0) {
-            LOGNORMAL << "will process active object file for token : " << token;
-            auto tokenGroup = dlt->getNodes(token);
+            LOGNORMAL << "will process active object file for token : " << token;            
             tokenFileName = util::strformat("token_%d.bf", token);
             for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
                 dm->fileTransfer->send(svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR ),
@@ -53,6 +53,15 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
             }
         } else {
             LOGDEBUG << "no active object file for token : " << token;
+            fpi::ActiveObjectsMsgPtr msg(new fpi::ActiveObjectsMsg());
+            msg->token    = token;
+            for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
+                    auto svcId = svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR);
+                    auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(svcId);
+                    request->setPayload(FDSP_MSG_TYPEID(fpi::ActiveObjectsMsg), msg);
+                    request->onResponseCb(RESPONSE_MSG_HANDLER(RefCountManager::handleActiveObjectsResponse, token));
+                    request->invoke();
+            }
         }
     }
 }
@@ -63,7 +72,9 @@ void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Han
                                               VolumeList volumeList) {
 
     LOGDEBUG << "object file [" << handle->destFile
-             << "] for token [" << token << "] has been transferred";
+             << "] for token [" << token << "] "
+             << " for [" << volumeList->size()
+             << "] volumes has been transferred";
     // send the message
     fpi::ActiveObjectsMsgPtr msg(new fpi::ActiveObjectsMsg());
     auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
@@ -74,20 +85,21 @@ void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Han
     }
     msg->token    = token;
     request->setPayload(FDSP_MSG_TYPEID(fpi::ActiveObjectsMsg), msg);
-    request->onResponseCb(RESPONSE_MSG_HANDLER(RefCountManager::handleActiveObjectsResponse, handle, token));
+    request->onResponseCb(RESPONSE_MSG_HANDLER(RefCountManager::handleActiveObjectsResponse, token));
     request->invoke();
 }
 
-void RefCountManager::handleActiveObjectsResponse(fds::net::FileTransferService::Handle::ptr handle,
-                                                  fds_token_id token,
+void RefCountManager::handleActiveObjectsResponse(fds_token_id token,
                                                   EPSvcRequest* request,
                                                   const Error& error,
                                                   SHPTR<std::string> payload) {
     if (error.ok()) {
-        LOGDEBUG << "object file for token:" << token << " has been accepted by " << SvcMgr::mapToSvcUuidAndName(handle->svcId);
+        LOGDEBUG << "object file for token:" << token
+                 << " has been accepted by " << request->responseHeader();
     } else {
-        LOGERROR << "SM returned error : " << error
-                 << " on " << handle;
+        LOGERROR << "SM returned error: " << error
+                 << " for token:" << token
+                 << " from:" << request->responseHeader();
     }
 }
 
