@@ -205,6 +205,8 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void getProperties(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
     virtual void getProperties(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
+    virtual void getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
+    virtual void getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
     virtual bool setFault(const std::string& command) override;
     virtual bool setFault(boost::shared_ptr<std::string>& command) override;  // NOLINT

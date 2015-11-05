@@ -320,6 +320,17 @@ void PlatNetSvcHandler::getProperties(std::map<std::string, std::string> & _retu
     _return = MODULEPROVIDER()->getProperties()->getAllProperties();
 }
 
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg) {
+    if (!MODULEPROVIDER()) return;
+    MODULEPROVIDER()->get_fds_config()->getConfigMap(_return);
+}
+
+
 /**
  * Return list of domain nodes in the node inventory.
  */
