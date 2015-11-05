@@ -4,7 +4,6 @@
 
 #include "AmQoSCtrl.h"
 #include "lib/StatsCollector.h"
-#include "AmRequest.h"
 #include "AmVolumeTable.h"
 #include "AmVolume.h"
 #include "requests/AttachVolumeReq.h"
@@ -90,10 +89,6 @@ AmQoSCtrl::~AmQoSCtrl() {
     if (dispatcherThread) {
         dispatcherThread->join();
     }
-}
-
-FDS_VolumeQueue* AmQoSCtrl::getQueue(fds_volid_t queueId) {
-    return htb_dispatcher->getQueue(queueId.get());
 }
 
 Error
@@ -461,8 +456,16 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
 }
 
 bool
-AmQoSCtrl::drained() {
-    return (htb_dispatcher->num_outstanding_ios == 0) && wait_queue->empty();
+AmQoSCtrl::stop() {
+    if (htb_dispatcher->num_outstanding_ios == 0 && wait_queue->empty()) {
+        // Close all attached volumes before finishing shutdown
+        for (auto const& vol : volTable->getVolumes()) {
+          removeVolume(vol->voldesc->name, vol->voldesc->volUUID);
+        }
+        return true;
+    }
+    volTable->stop();
+    return false;
 }
 
 Error
@@ -483,11 +486,6 @@ AmQoSCtrl::getDMT() {
 Error
 AmQoSCtrl::getDLT() {
     return volTable->getDLT();
-}
-
-std::vector<std::shared_ptr<AmVolume>>
-AmQoSCtrl::getVolumes() const {
-    return volTable->getVolumes();
 }
 
 }  // namespace fds

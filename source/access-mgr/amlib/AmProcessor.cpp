@@ -87,10 +87,7 @@ class AmProcessor_impl
 
     shutdown_cb_type prepareForShutdownCb;
 
-    inline bool haveCacheToken(std::shared_ptr<AmVolume> const& volume) const;
-
     void respond(AmRequest *amReq, const Error& error);
-
 };
 
 Error
@@ -175,11 +172,7 @@ bool AmProcessor_impl::stop() {
         shut_down = true;
     }
 
-    if (qos_ctrl->drained()) {
-        // Close all attached volumes before finishing shutdown
-        for (auto const& vol : qos_ctrl->getVolumes()) {
-          removeVolume(*vol->voldesc);
-        }
+    if (qos_ctrl->stop()) {
         parent_mod->mod_shutdown();
         return true;
     }
@@ -189,7 +182,6 @@ bool AmProcessor_impl::stop() {
 Error
 AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     LOGNORMAL << "Removing volume: " << volDesc.name;
-    Error err{ERR_OK};
 
     // Remove the volume from QoS/VolumeTable, this is
     // called to clear any waiting requests with an error and

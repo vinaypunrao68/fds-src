@@ -1,17 +1,15 @@
 /*
  * Copyright 2013-2014 Formation Data Systems, Inc.
  */
-#include <atomic>
+#include "AmVolumeTable.h"
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
-#include "AmVolumeTable.h"
 #include "AmVolume.h"
 #include "AmVolumeAccessToken.h"
 
 #include "AmTxManager.h"
-#include "AmRequest.h"
 #include "requests/AttachVolumeReq.h"
 #include "PerfTrace.h"
 
@@ -324,7 +322,7 @@ AmVolumeTable::attachVolumeCb(AmRequest *amReq, const Error& error) {
                   << ") write(" << volReq->mode.can_write
                   << ") error(" << error << ")";
         // Flush the volume's wait queue and return errors for pending requests
-        removeVolume(vol_desc);
+        removeVolume(vol_desc.volUUID);
     }
     processor_cb(amReq, error);
 }
