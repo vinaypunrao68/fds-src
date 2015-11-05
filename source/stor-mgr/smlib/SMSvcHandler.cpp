@@ -1243,10 +1243,12 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         }
     }
 
-    TimeStamp ts = util::getTimeStampNanos();
-    for (auto volId : msg->volumeIds) {
-        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
-                                              ts, filename);
+    if (err.ok()) {
+        TimeStamp ts = util::getTimeStampNanos();
+        for (auto volId : msg->volumeIds) {
+            objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
+                                                  ts, filename);
+        }
     }
 
     fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
