@@ -45,8 +45,6 @@ struct AmVolumeTable : public HasLogger {
 
     Error registerVolume(VolumeDesc const& volDesc, FDS_VolumeQueue *volq);
     Error removeVolume(fds_volid_t const volId);
-    Error removeVolume(const VolumeDesc& volDesc)
-        { return removeVolume(volDesc.volUUID); }
 
     /**
      * Returns NULL is volume does not exist

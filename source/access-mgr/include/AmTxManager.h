@@ -21,8 +21,6 @@ struct AmCache;
 struct AmDispatcher;
 struct AmRequest;
 struct AmTxDescriptor;
-struct AmVolume;
-struct AmVolumeAccessToken;
 struct GetBlobReq;
 struct GetObjectReq;
 class CommonModuleProviderIf;
@@ -79,13 +77,6 @@ struct AmTxManager {
 
 
     /**
-     * Removes an existing transaction from the manager, destroying
-     * any staged object updates. An error is returned if the transaction
-     * ID does not already exist.
-     */
-    Error abortTx(const BlobTxId &txId);
-
-    /**
      * Notify that there is a newly attached volume, and build any
      * necessary data structures.
      */
@@ -96,26 +87,6 @@ struct AmTxManager {
      * data structures.
      */
     Error removeVolume(const fds_volid_t volId);
-
-    /**
-     * Cache operations
-     * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
-     * These are kinda ugly. When we do real transactions we should clean
-     * this up.
-     */
-    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId,
-                                          std::string const& blobName,
-                                          Error &error);
-    Error getBlobOffsetObjects(fds_volid_t volId,
-                               std::string const& blobName,
-                               fds_uint64_t const obj_offset,
-                               fds_uint64_t const obj_offset_end,
-                               size_t const obj_size,
-                               std::vector<ObjectID::ptr>& obj_ids);
-
-    void getObjects(GetBlobReq* blobReq);
-
-    Error removeBlob(fds_volid_t volId, const std::string &blobName);
 
     /** These are here as a pass-thru to dispatcher until we have stackable
      * interfaces */
@@ -164,6 +135,13 @@ struct AmTxManager {
                 const std::string &name);
 
     /**
+     * Removes an existing transaction from the manager, destroying
+     * any staged object updates. An error is returned if the transaction
+     * ID does not already exist.
+     */
+    Error abortTx(const BlobTxId &txId);
+
+    /**
      * Updates an existing transaction with a new operation
      */
     Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
@@ -207,6 +185,7 @@ struct AmTxManager {
     /**
      * Internal get object request handler
      */
+    void getObjects(GetBlobReq* blobReq);
     void getObject(GetBlobReq* blobReq,
                    ObjectID::ptr const& obj_id,
                    boost::shared_ptr<std::string>& buf);

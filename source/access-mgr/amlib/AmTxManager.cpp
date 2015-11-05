@@ -212,14 +212,6 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     return ERR_NOT_FOUND;
 }
 
-BlobDescriptor::ptr
-AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
-{ return amCache->getBlobDescriptor(volId, blobName, error); }
-
-Error
-AmTxManager::getBlobOffsetObjects(fds_volid_t volId, const std::string &blobName, fds_uint64_t const obj_offset, fds_uint64_t const obj_offset_end, size_t const obj_size, std::vector<ObjectID::ptr>& obj_ids)
-{ return amCache->getBlobOffsetObjects(volId, blobName, obj_offset, obj_offset_end, obj_size, obj_ids); }
-
 void
 AmTxManager::getObjects(GetBlobReq* blobReq) {
     LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
@@ -443,9 +435,9 @@ AmTxManager::statBlob(AmRequest *amReq) {
     if (!amReq->forced_unit_access) {
         // Check cache for blob descriptor
         Error err(ERR_OK);
-        BlobDescriptor::ptr cachedBlobDesc = getBlobDescriptor(amReq->io_vol_id,
-                                                               amReq->getBlobName(),
-                                                               err);
+        BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(amReq->io_vol_id,
+                                                                        amReq->getBlobName(),
+                                                                        err);
         if (ERR_OK == err) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                 << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
@@ -574,9 +566,9 @@ AmTxManager::getBlob(AmRequest *amReq) {
         Error error {ERR_OK};
         // If we need to return metadata, check the cache
         if (blobReq->get_metadata) {
-            auto cachedBlobDesc = getBlobDescriptor(amReq->io_vol_id,
-                                                    amReq->getBlobName(),
-                                                    error);
+            auto cachedBlobDesc = amCache->getBlobDescriptor(amReq->io_vol_id,
+                                                             amReq->getBlobName(),
+                                                             error);
             if (error.ok()) {
                 LOGTRACE << "Found cached blob descriptor for " << std::hex
                          << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
@@ -589,12 +581,12 @@ AmTxManager::getBlob(AmRequest *amReq) {
 
         // Check cache for object IDs
         if (error.ok()) {
-            error = getBlobOffsetObjects(amReq->io_vol_id,
-                                         amReq->getBlobName(),
-                                         amReq->blob_offset,
-                                         amReq->blob_offset_end,
-                                         amReq->object_size,
-                                         blobReq->object_ids);
+            error = amCache->getBlobOffsetObjects(amReq->io_vol_id,
+                                                  amReq->getBlobName(),
+                                                  amReq->blob_offset,
+                                                  amReq->blob_offset_end,
+                                                  amReq->object_size,
+                                                  blobReq->object_ids);
         }
 
         // ObjectIDs were found in the cache
@@ -816,9 +808,5 @@ Error
 AmTxManager::getDLT() {
     return amDispatcher->getDLT();
 }
-
-Error
-AmTxManager::removeBlob(fds_volid_t volId, const std::string &blobName)
-{ return amCache->removeBlob(volId, blobName); }
 
 }  // namespace fds
