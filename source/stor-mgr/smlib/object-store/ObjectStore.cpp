@@ -1601,16 +1601,18 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
  */
 bool
 ObjectStore::haveAllObjectSets() const {
+    bool have = true;
     std::set<fds_volid_t> volumes;
     liveObjectsTable->findAllVols(volumes);
     std::list<fds_volid_t> volList = volumeTbl->getVolList();
 
     for (auto volId : volList) {
         if (volumes.find(volId) == volumes.end()) {
-            return false;
+            LOGWARN << "Object set not found for volume: " << volId;
+            have = false;
         }
     }
-    return true;
+    return have;
 }
 
 /**

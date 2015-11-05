@@ -312,7 +312,10 @@ void ScavControl::startScavengeProcess()
         return;
     }
 
-    if (!(dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->haveAllObjectSets()))
+    bool periodic_expunge = g_fdsprocess->get_fds_config()->\
+                                get<bool>("fds.feature_toggle.common.periodic_expunge");
+    if (periodic_expunge &&
+        !(dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->haveAllObjectSets()))
     {
         LOGNOTIFY << "Object sets not present for all the volumes."
                   << "Cannot start scavenger";
