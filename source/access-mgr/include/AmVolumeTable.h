@@ -24,11 +24,9 @@ namespace fds {
 
 /* Forward declarations */
 struct AmTxManager;
-struct AmQoSCtrl;
 struct AmRequest;
 struct AmVolume;
 struct AmVolumeAccessToken;
-struct WaitQueue;
 class CommonModuleProviderIf;
 
 struct AmVolumeTable : public HasLogger {
@@ -41,15 +39,14 @@ struct AmVolumeTable : public HasLogger {
     ~AmVolumeTable();
     
     /// Registers the callback we make to the transaction layer
-    using processor_en_type = std::function<void(AmRequest*)>;
     using processor_cb_type = std::function<void(AmRequest*, Error const&)>;
-    void init(processor_en_type enqueue_cb, processor_cb_type complete_cb);
+    void init(processor_cb_type const& complete_cb);
     void stop();
 
-    Error registerVolume(const VolumeDesc& volDesc);
-    Error removeVolume(std::string const& volName, fds_volid_t const volId);
+    Error registerVolume(VolumeDesc const& volDesc, FDS_VolumeQueue *volq);
+    Error removeVolume(fds_volid_t const volId);
     Error removeVolume(const VolumeDesc& volDesc)
-        { return removeVolume(volDesc.name, volDesc.volUUID); }
+        { return removeVolume(volDesc.volUUID); }
 
     /**
      * Returns NULL is volume does not exist
@@ -57,24 +54,17 @@ struct AmVolumeTable : public HasLogger {
     volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+
+    /**
      * Return volumes that we are currently attached to
      */
     std::vector<volume_ptr_type> getVolumes() const;
 
-    /**
-     * Returns volume uuid if found in volume map.
-     * if volume does not exist, returns 'invalid_vol_id'
-     */
-    fds_volid_t getVolumeUUID(const std::string& vol_name) const;
-
-    Error modifyVolumePolicy(fds_volid_t vol_uuid,
-                             const VolumeDesc& vdesc);
-
-    Error enqueueRequest(AmRequest* amReq);
-    bool drained();
-
-    Error updateQoS(long int const* rate,
-                    float const* throttle);
+    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
 
     /** These are here as a pass-thru to tx manager until we have stackable
      * interfaces */
@@ -101,11 +91,6 @@ struct AmVolumeTable : public HasLogger {
   private:
     /// volume uuid -> AmVolume map
     std::unordered_map<fds_volid_t, volume_ptr_type> volume_map;
-
-    std::unique_ptr<WaitQueue> wait_queue;
-
-    /// QoS Module
-    std::unique_ptr<AmQoSCtrl> qos_ctrl;
 
     /// Unique ptr to the transaction manager
     std::unique_ptr<AmTxManager> txMgr;
