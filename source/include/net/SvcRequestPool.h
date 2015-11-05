@@ -35,6 +35,16 @@ class SvcRequestPool : HasModuleProvider {
                    PlatNetSvcHandlerPtr handler);
     ~SvcRequestPool();
 
+    template<typename RequestT, typename ...Params>
+    SHPTR<RequestT> newSvcRequest(Params&&... params) {
+        auto reqId = getNextAsyncReqId_();
+        auto req = SHPTR<RequestT>(new RequestT(MODULEPROVIDER(), reqId, selfUuid_,
+                                                std::forward<Params>(params)...));
+        req->setRequestId(reqId);
+        asyncSvcRequestInitCommon_(req);
+        return req;
+    }
+
     EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version);
     inline EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId) {
         return newEPSvcRequest(peerEpId, 0);

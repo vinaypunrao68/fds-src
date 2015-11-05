@@ -241,8 +241,8 @@ struct SvcRequestIf : HasModuleProvider {
 
     virtual void invoke();
 
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload);
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) = 0;
 
     virtual void complete(const Error& error);
     virtual void complete(const Error& error,
@@ -322,11 +322,6 @@ struct SvcRequestIf : HasModuleProvider {
     bool fireAndForget_;
     /* Minor version */
     int minor_version;
-
- private:
-    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) = 0;
-
 };
 
 /**
@@ -343,6 +338,8 @@ struct EPSvcRequest : SvcRequestIf {
     ~EPSvcRequest();
 
     virtual void invoke() override;
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
 
     virtual std::string logString() override;
 
@@ -361,11 +358,6 @@ struct EPSvcRequest : SvcRequestIf {
     friend class FailoverSvcRequest;
     friend class QuorumSvcRequest;
     friend class MultiPrimarySvcRequest;
-
- private:
-    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
 };
 
 /**
@@ -419,6 +411,9 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     virtual void invoke() override;
 
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+
     virtual std::string logString() override;
 
     void onResponseCb(FailoverSvcRequestRespCb cb);
@@ -433,10 +428,6 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     /* Response callback */
     FailoverSvcRequestRespCb respCb_;
-
- private:
-    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
 };
 typedef boost::shared_ptr<FailoverSvcRequest> FailoverSvcRequestPtr;
 
@@ -466,6 +457,9 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 
     virtual void invoke() override;
 
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+
     virtual std::string logString() override;
 
     void setQuorumCnt(const uint32_t cnt);
@@ -479,11 +473,6 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
     uint32_t errorAckd_;
     uint32_t quorumCnt_;
     QuorumSvcRequestRespCb respCb_;
-
- private:
-    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
 };
 typedef boost::shared_ptr<QuorumSvcRequest> QuorumSvcRequestPtr;
 
@@ -504,6 +493,18 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
                            const std::vector<fpi::SvcUuid>& primarySvcs,
                            const std::vector<fpi::SvcUuid>& optionalSvcs);
     void invoke() override;
+    /**
+     * @brief Handling response.  This call is expected to be called in a synchnorized manner.
+     * In response handling, once responses from all primaries have been received then respCb_
+     * is invoked.
+     * Once responses from all endpoints including optionals have been receieved then
+     * allRespondedCb_ is invoked.
+     *
+     * @param header
+     * @param payload
+     */
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
     std::string logString() override;
     void onPrimariesRespondedCb(MultiPrimarySvcRequestRespCb cb) {
         respCb_ = cb;
@@ -557,20 +558,6 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
     MultiPrimarySvcRequestRespCb    respCb_; 
     /* Invoked once response from all endpoints is received */
     MultiPrimarySvcRequestRespCb    allRespondedCb_;
-
- private:
-    /**
-     * @brief Handling response.  This call is expected to be called in a synchnorized manner.
-     * In response handling, once responses from all primaries have been received then respCb_
-     * is invoked.
-     * Once responses from all endpoints including optionals have been receieved then
-     * allRespondedCb_ is invoked.
-     *
-     * @param header
-     * @param payload
-     */
-    virtual void handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
 };
 using MultiPrimarySvcRequestPtr = boost::shared_ptr<MultiPrimarySvcRequest>;
 

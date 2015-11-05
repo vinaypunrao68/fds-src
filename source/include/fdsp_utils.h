@@ -104,6 +104,14 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
     *payloadBuf = buffer->getBufferAsString();
 }
 
+template<class PayloadT>
+bo::shared_ptr<std::string> serializeFdspMsg(const PayloadT &payload)
+{
+    bo::shared_ptr<std::string> payloadBuf;
+    serializeFdspMsg<PayloadT>(payload, payloadBuf);
+    return payloadBuf;
+}
+
 /**
 * @brief For deserializing FDSP messages
 *
