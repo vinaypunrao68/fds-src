@@ -1551,7 +1551,13 @@ OM_NodeDomainMod::om_startup_domain()
         if ((cur != NULL) &&
             (om_locDomain->om_pm_nodes()->rs_get_resource(cur->get_uuid()))) {
             // above check is because apparently we can have NULL pointer in RsArray
-            om_activate_known_services( true, cur->get_uuid());
+            int64_t uuid      = cur->get_uuid().uuid_get_val();     
+            int32_t timestamp = 0; // this will get set in the svcStartMonitor
+            uuid |= DOMAINRESTART_MASK;
+            PmMsg msg = std::make_pair(uuid,timestamp);
+            
+            LOGDEBUG <<"!Will add to OM sendQ";
+            gl_orch_mgr->addToSendQ(msg, false);
         }
     }
 
@@ -1671,6 +1677,19 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         LOGNOTIFY << "Registering service: " 
                   << fds::logDetailedString( *svcInfo );
 
+        /* First check if it is present in OM's sent messages queue */
+        if ( !isPlatformSvc( *svcInfo ) ) {
+            int64_t uuid = svcInfo->svc_id.svc_uuid.svc_uuid;
+            bool isPresent = gl_orch_mgr->isInSentQ(uuid);
+
+            if ( isPresent ) {
+                LOGDEBUG << "Received registration for svc:"
+                         << std::hex << uuid << std::dec
+                         << " , ahead of PM response.Remove from OM's sentMsgQueue";
+                auto item = std::make_pair(uuid, 0);
+                gl_orch_mgr->removeFromSentQ(item);
+            }
+        }
         /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
@@ -1701,7 +1720,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     pmUuid.uuid_set_type( ( svcInfo->svc_id ).svc_uuid.svc_uuid, 
                                             fpi::FDSP_PLATFORM );
    
-                    om_activate_known_services( false, pmUuid );
+                    int64_t uuid      = svcInfo->svc_id.svc_uuid.svc_uuid;
+                    int32_t timestamp = 0; // this will get set in the svcStartMonitor
+                    PmMsg msg         = std::make_pair(uuid,timestamp);
+                    LOGDEBUG <<"!!Will add to OM sendQ";
+                    gl_orch_mgr->addToSendQ(msg, false);
                 }
                 else if ((isKnownPM( *svcInfo)) &&
                          (configDB->getStateSvcMap(svcInfo->svc_id.svc_uuid.svc_uuid) == fpi::SVC_STATUS_DISCOVERED))
