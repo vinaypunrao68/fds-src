@@ -198,7 +198,7 @@ void FileTransferService::sendVerifyRequest(FileTransferService::Handle::ptr han
     GLOGDEBUG << handle;
     fpi::FileTransferVerifyMsgPtr msg(new fpi::FileTransferVerifyMsg());
 
-    if (handle->hasMoreData()) {
+    if (handle->hasStarted() && !handle->isComplete()) {
         GLOGWARN << "sending verify before all data transferred : " << handle;
     }
     msg->filename = handle->destFile;

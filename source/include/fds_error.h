@@ -85,6 +85,7 @@ namespace fds {
     ADD(ERR_SERVICE_CAPACITY_DANGEROUS,= 65,"Service is at dangerous used disk capacity level"), \
     ADD(ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS,= 66,"Pattern semantics not recognized"), \
     ADD(ERR_TIMER_TASK_NOT_SCHEDULED,= 67,"Timer task was not scheduled"), \
+    ADD(ERR_FEATURE_DISABLED,= 68,"Feature disabled"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

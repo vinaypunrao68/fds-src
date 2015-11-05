@@ -12,6 +12,7 @@
 namespace fds { namespace refcount {
 
 RefCountManager::RefCountManager(DataMgr* dm) : dm(dm), Module("RefCountManager") {
+    LOGNORMAL << "instantiating";
     scanner.reset(new ObjectRefScanMgr(MODULEPROVIDER(), dm));
 }
 
@@ -39,6 +40,7 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
     for (fds_token_id token = 0; token < 256 ; token++) {
         filename = scanner->getTokenBloomfilterPath(token);
         if (filename.length() > 0) {
+            LOGNORMAL << "will process active object file for token : " << token;
             auto tokenGroup = dlt->getNodes(token);
             tokenFileName = util::strformat("token_%d.bf", token);
             for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
@@ -50,7 +52,7 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
                                        false);
             }
         } else {
-            LOGWARN << "no active object file for token : " << token;
+            LOGDEBUG << "no active object file for token : " << token;
         }
     }
 }

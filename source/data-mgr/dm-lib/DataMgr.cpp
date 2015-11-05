@@ -9,6 +9,8 @@
 #include <fds_timestamp.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
+#include <DmMigrationMgr.h>
+#include <dmhandler.h>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
 #include <util/stringutils.h>
@@ -559,7 +561,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
-
     LOGDEBUG << "vol:" << vol_name
              << " snap:" << vdesc->isSnapshot()
              << " state:" << vdesc->getState()
@@ -583,7 +584,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     // do this processing only in the case..
-    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
@@ -961,11 +962,9 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
-        "fds.dm.enable_timeline", true));
-    if (features.isTimelineEnabled()) {
-        timelineMgr.reset(new timeline::TimelineManager(this));
-    }
+    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
+    timelineMgr.reset(new timeline::TimelineManager(this));
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
@@ -1030,6 +1029,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
     handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
+    new dm::SimpleHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1458,6 +1458,166 @@ DataMgr::getAllVolumeDescriptors()
     }
 
     return err;
+}
+
+Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
+    Error err(ERR_OK);
+
+    DmRequest *io = static_cast<DmRequest*>(_io);
+
+    // Stop the queue latency timer.
+    PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+
+    // Get the key and vol type to use during serialization
+    // TODO(Andrew): Adding the sender's SvcUuid to the key
+    // would allow additional concurrency. Since we already
+    // don't ensure ordering with multiple senders we don't
+    // need to make them serialize.
+    SerialKey key(io->volId, io->blob_name);
+    fpi::FDSP_VolType volType(fpi::FDSP_VOL_S3_TYPE);
+    {
+        fds_mutex::scoped_lock l(*(parentDm->vol_map_mtx));
+        auto mapEntry = parentDm->vol_meta_map.find(io->volId);
+        if (mapEntry != parentDm->vol_meta_map.end()) {
+            volType = mapEntry->second->vol_desc->volType;
+        }
+    }
+    GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
+              << " key: " << key.first << ":" << key.second;
+    switch (io->io_type){
+        /* TODO(Rao): Add the new refactored DM messages types here */
+        case FDS_DM_SNAP_VOLCAT:
+        case FDS_DM_SNAPDELTA_VOLCAT:
+            threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
+            break;
+        case FDS_DM_PUSH_META_DONE:
+            threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
+            break;
+        case FDS_DM_PURGE_COMMIT_LOG:
+            threadPool->schedule(io->proc, io);
+            break;
+        case FDS_DM_META_RECVD:
+            threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
+            break;
+
+            /* End of new refactored DM message types */
+            // catalog read handlers
+        case FDS_LIST_BLOB:
+        case FDS_GET_BLOB_METADATA:
+        case FDS_CAT_QRY:
+        case FDS_STAT_VOLUME:
+        case FDS_GET_VOLUME_METADATA:
+        case FDS_DM_LIST_BLOBS_BY_PATTERN:
+        case FDS_DM_MIGRATION:
+        case FDS_DM_MIG_TX_STATE:
+            // Other (stats, etc...) handlers
+        case FDS_DM_SYS_STATS:
+        case FDS_DM_STAT_STREAM:
+            threadPool->schedule(&dm::Handler::handleQueueItem,
+                                 parentDm->handlers.at(io->io_type),
+                                 io);
+            break;
+        case FDS_RENAME_BLOB:
+            // If serialization is enabled, serialize on both keys,
+            // otherwise just schedule directly.
+            if ((parentDm->features.isSerializeReqsEnabled())) {
+                auto renameReq = static_cast<DmIoRenameBlob*>(io);
+                SerialKey key2(io->volId, renameReq->message->destination_blob);
+                serialExecutor->scheduleOnHashKeys(keyHash(key),
+                                                   keyHash(key2),
+                                                   std::bind(&dm::Handler::handleQueueItem,
+                                                             parentDm->handlers.at(io->io_type),
+                                                             io));
+            } else {
+                threadPool->schedule(&dm::Handler::handleQueueItem,
+                                     parentDm->handlers.at(io->io_type),
+                                     io);
+            }
+
+            break;
+            // catalog write handlers
+        case FDS_DELETE_BLOB:
+        case FDS_CAT_UPD:
+        case FDS_START_BLOB_TX:
+        case FDS_COMMIT_BLOB_TX:
+        case FDS_CAT_UPD_ONCE:
+        case FDS_SET_BLOB_METADATA:
+        case FDS_ABORT_BLOB_TX:
+        case FDS_SET_VOLUME_METADATA:
+        case FDS_OPEN_VOLUME:
+        case FDS_CLOSE_VOLUME:
+        case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_RESYNC_INIT_BLOB:
+        case FDS_DM_MIG_DELTA_BLOB:
+        case FDS_DM_MIG_DELTA_BLOBDESC:
+        case FDS_DM_MIG_FINISH_VOL_RESYNC:
+            // If serialization in enabled, serialize on the key
+            // otherwise just schedule directly.
+            // Note: We avoid this serialization in the block connector
+            // case since the connector is ensuring we won't have overlapping
+            // concurrent requests.
+            // TODO(Andrew): Remove this block connector special casing. Either
+            // AM should enforce the policy for all connectors or we always leave
+            // it up to the connector.
+            if ((parentDm->features.isSerializeReqsEnabled()) &&
+                (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
+                LOGDEBUG << io->log_string()
+                         << " synchronize on hashkey: " << key.first << ":" << key.second;
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&dm::Handler::handleQueueItem,
+                                                            parentDm->handlers.at(io->io_type),
+                                                            io));
+            } else {
+                LOGDEBUG << io->log_string() << " not synchronized"; 
+                threadPool->schedule(&dm::Handler::handleQueueItem,
+                                     parentDm->handlers.at(io->io_type),
+                                     io);
+            }
+            break;
+        case FDS_DM_FWD_CAT_UPD:
+            /* Forwarded IO during migration needs to synchronized on blob id */
+            serialExecutor->scheduleOnHashKey(keyHash(key),
+                                              std::bind(&dm::Handler::handleQueueItem,
+                                                        parentDm->handlers.at(io->io_type),
+                                                        io));
+            break;
+        case FDS_DM_FUNCTOR:
+            threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
+            break;
+        default:
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+            assert(0);
+            break;
+    }
+
+    return err;
+}
+
+DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
+                              uint32_t _max_thrds,
+                              dispatchAlgoType algo,
+                              fds_log *log) :
+        FDS_QoSControl(_max_thrds, algo, log, "DM") {
+    parentDm = _parent;
+    dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
+                                      parentDm->qosOutstandingTasks, log);
+
+    serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
+        new SynchronizedTaskExecutor<size_t>(*threadPool));
+}
+
+
+Error DataMgr::dmQosCtrl::markIODone(const FDS_IOType& _io) {
+    Error err(ERR_OK);
+    dispatcher->markIODone(const_cast<FDS_IOType *>(&_io));
+    return err;
+}
+
+DataMgr::dmQosCtrl::~dmQosCtrl() {
+    delete dispatcher;
+    if (dispatcherThread) {
+        dispatcherThread->join();
+    }
 }
 
 namespace dmutil {

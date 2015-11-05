@@ -394,6 +394,7 @@ enum  FDSPMsgTypeId {
   RenameBlobRespMsgTypeId;
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
+  StartRefScanMsgTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

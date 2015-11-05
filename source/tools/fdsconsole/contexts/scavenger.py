@@ -1,5 +1,6 @@
 from  svchelper import *
 from svc_api.ttypes import *
+from svc_types.ttypes import FDSPMsgTypeId
 import platformservice
 from platformservice import *
 import FdspUtils
@@ -48,6 +49,18 @@ class ScavengerContext(Context):
         except Exception, e:
             log.exception(e)
             return 'start failed'
+
+    #--------------------------------------------------------------------------------------
+    @cliadmincmd
+    @arg('dm', help= "-Uuid of the DM to send the command to", type=long)
+    def startrefscan(self, dm):
+        try:
+            msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+            cb = WaitedCallback()
+            self.smClient().sendAsyncSvcReq(dm, msg, cb)
+        except Exception, e:
+            log.exception(e)
+            return 'start refscan failed'
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
