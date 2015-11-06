@@ -14,29 +14,49 @@
 #include <boost/algorithm/string/replace.hpp>
 
 using boost::replace_all;
+/**
+ * NOTE : use this declaration in your cpp along with includes outside fds namsepace
+ * like DECL_EXTERN_OUTPUT_FUNCS(ActiveObjectsMsg);
+ */
+
+#define DEFINE_OUTPUT_FUNCS(MSGTYPE)                                    \
+    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg); \
+    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE* msg) { \
+        if (msg) out << (*msg);                                         \
+        else out << "[ " #MSGTYPE " msg is NULL ]";                     \
+        return out;                                                     \
+    }                                                                   \
+    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const SHPTR<fpi::MSGTYPE> &msg) { \
+        if (msg.get()) out << (*msg);                                   \
+        else out << "[ " #MSGTYPE " msg is NULL ]";                     \
+        return out;                                                     \
+    }                                                                   \
+    std::string logString(const fpi::MSGTYPE &msg) {                    \
+        boost::log::formatting_ostream oss;                             \
+        oss << msg;                                                     \
+        return oss.str();                                               \
+    }                                                                   \
+    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg)
+
 
 namespace fds {
 
-FDS_ProtocolInterface::FDS_ObjectIdType&
-assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const ObjectID& rhs)
-{
+fpi::FDS_ObjectIdType& assign(fpi::FDS_ObjectIdType& lhs, const ObjectID& rhs) {
     lhs.digest.assign(reinterpret_cast<const char*>(rhs.GetId()), rhs.GetLen());
     return lhs;
 }
 
-FDS_ProtocolInterface::FDS_ObjectIdType&
-assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs)
-{
+fpi::FDS_ObjectIdType& assign(fpi::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs) {
     lhs.digest.assign(reinterpret_cast<const char*>(rhs.metaDigest),
             sizeof(rhs.metaDigest));
     return lhs;
 }
 
-FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rhs) {
+fpi::FDS_ObjectIdType strToObjectIdType(const std::string & rhs) {
     fds_verify(rhs.compare(0, 2, "0x") == 0);  // Require 0x prefix
     fds_verify(rhs.size() == (40 + 2));  // Account for 0x
 
-    FDS_ProtocolInterface::FDS_ObjectIdType objId;
+    fpi::FDS_ObjectIdType objId;
     char a, b;
     uint j = 0;
     // Start the offset at 2 to account of 0x
@@ -49,78 +69,53 @@ FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rh
     return objId;
 }
 
-FDS_ProtocolInterface::SvcUuid&
-assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
-{
+fpi::SvcUuid& assign(fpi::SvcUuid& lhs, const ResourceUUID& rhs) {
     lhs.svc_uuid = rhs.uuid_get_val();
     return lhs;
 }
 
-FDS_ProtocolInterface::FDSP_Uuid&
-assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs)
-{
+fpi::FDSP_Uuid& assign(fpi::FDSP_Uuid& lhs, const fpi::SvcID& rhs) {
     lhs.uuid = rhs.svc_uuid.svc_uuid;
     return lhs;
 }
 
-void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header)
-{
+void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header) {
     auto temp = header->msg_src_uuid;
     header->msg_src_uuid = header->msg_dst_uuid;
     header->msg_dst_uuid = temp;
 }
 
-std::ostream& operator<<(std::ostream& out, const fpi::AsyncHdr &header) {
+DEFINE_OUTPUT_FUNCS(AsyncHdr) {
     out << "["
-        << " reqid:" << static_cast<SvcRequestId>(header.msg_src_id)
-        << " type:" << ((fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.find(header.msg_type_id) != 
+        << " reqid:" << static_cast<SvcRequestId>(msg.msg_src_id)
+        << " type:" << ((fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.find(msg.msg_type_id) != 
                          fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.end())?
-                        fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(header.msg_type_id):"-UNKNOWN-")
+                        fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(msg.msg_type_id):"-UNKNOWN-")
         << std::hex
-        << " from:" << SvcMgr::mapToSvcUuidAndName(header.msg_src_uuid)
-        << " to:" << SvcMgr::mapToSvcUuidAndName(header.msg_dst_uuid)
+        << " from:" << SvcMgr::mapToSvcUuidAndName(msg.msg_src_uuid)
+        << " to:" << SvcMgr::mapToSvcUuidAndName(msg.msg_dst_uuid)
         << std::dec
-        << " dltversion:" << header.dlt_version
-        << " error:" << static_cast<fds_errno_t>(header.msg_code)
+        << " dltversion:" << msg.dlt_version
+        << " error:" << static_cast<fds_errno_t>(msg.msg_code)
         << "]";
     return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const fpi::AsyncHdr* header) {
-    if (header) out << (*header);
-    else out << "[ aysnc header is NULL ]";
-    return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const SHPTR<fpi::AsyncHdr> &header) {
-    if (header.get()) out << (*header);
-    else out << "[ aysnc header is NULL ]";
-    return out;
-}
-
-std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
-{
-    std::ostringstream oss;
-    oss << header;
-    return oss.str();
-}
-
-
-std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
+std::string logString(const fpi::GetObjectMsg &getObj)
 {
     std::ostringstream oss;
     oss << " GetObjectMsg Obj Id: " << ObjectID(getObj.data_obj_id.digest);
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj)
+std::string logString(const fpi::GetObjectResp &getObj)
 {
     std::ostringstream oss;
     oss << " GetObjectResp ";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
+std::string logString(const fpi::QueryCatalogMsg& qryCat)
 {
     std::ostringstream oss;
     oss << " QueryCatalogMsg volId: " << qryCat.volume_id
@@ -128,7 +123,7 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
+std::string logString(const fpi::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
     oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest)
@@ -137,33 +132,33 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::OpenVolumeMsg &openVol)
+std::string logString(const fpi::OpenVolumeMsg &openVol)
 {
     std::ostringstream oss;
     oss << " OpenVolumeMsg Vol Id: " << openVol.volume_id;
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CloseVolumeMsg &closeVol)
+std::string logString(const fpi::CloseVolumeMsg &closeVol)
 {
     std::ostringstream oss;
     oss << " CloseVolumeMsg Vol Id: " << closeVol.volume_id;
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg & vol) {
+std::string logString(const fpi::ReloadVolumeMsg & vol) {
     std::ostringstream oss;
     oss << " ReloadVolumeMsg Vol Id: " << vol.volume_id;
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg & vol) {
+std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg & vol) {
     std::ostringstream oss;
     oss << " CtrlNotifyDMStartMigrationMsg Vol Id: ";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg &msg)
+std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
 	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
@@ -190,7 +185,7 @@ std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg)
 	return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& msg)
+std::string logString(const fpi::CtrlObjectMetaDataPropagate& msg)
 {
     std::ostringstream oss;
     oss << " CtrlObjectMetaDataPropagate for object " << ObjectID(msg.objectID.digest)
@@ -210,7 +205,7 @@ std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataPropagate& 
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg)
+std::string logString(const fpi::CtrlObjectMetaDataSync& msg)
 {
     std::ostringstream oss;
     oss << " CtrlObjectMetaDataSync for object " << ObjectID(msg.objectID.digest)
@@ -224,14 +219,14 @@ std::string logString(const FDS_ProtocolInterface::CtrlObjectMetaDataSync& msg)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj)
+std::string logString(const fpi::PutObjectRspMsg& putObj)
 {
     std::ostringstream oss;
     oss << " PutObjectRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
+std::string logString(const fpi::UpdateCatalogMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogMsg TxId:" <<  updCat.txId
@@ -239,14 +234,14 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
+std::string logString(const fpi::UpdateCatalogRspMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat)
+std::string logString(const fpi::UpdateCatalogOnceMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogOnceMsg TxId:" << updCat.txId
@@ -254,14 +249,14 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat)
+std::string logString(const fpi::UpdateCatalogOnceRspMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogOnceRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
+std::string logString(const fpi::StartBlobTxMsg& stBlobTx)
 {
     std::ostringstream oss;
     oss << " StartBlobTxMs TxId:" << stBlobTx.txId
@@ -269,7 +264,7 @@ std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
+std::string logString(const fpi::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
     oss << " CommitBlobTxMs TxId:" << commitBlbTx.txId
@@ -277,7 +272,7 @@ std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
+std::string logString(const fpi::SetBlobMetaDataMsg& setMDMsg)
 {
     std::ostringstream oss;
     oss << " SetBlobMetaDataMsg TxId:" << setMDMsg.txId
@@ -285,14 +280,14 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDRspMsg)
+std::string logString(const fpi::SetBlobMetaDataRspMsg& setMDRspMsg)
 {
     std::ostringstream oss;
     oss << " SetBlobMetaDataRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
+std::string logString(const fpi::DeleteObjectMsg& delMsg)
 {
     std::ostringstream oss;
     oss << " DeleteObjectMsg " << ObjectID(delMsg.objId.digest)
@@ -300,28 +295,28 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& delRspMsg)
+std::string logString(const fpi::DeleteObjectRspMsg& delRspMsg)
 {
     std::ostringstream oss;
     oss << " DeleteObjectRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& copyMsg)
+std::string logString(const fpi::AddObjectRefMsg& copyMsg)
 {
     std::ostringstream oss;
     oss << " AddObjectRefMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& copyRspMsg)
+std::string logString(const fpi::AddObjectRefRspMsg& copyRspMsg)
 {
     std::ostringstream oss;
     oss << " AddObjectRefRspMsg";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
+std::string logString(const fpi::AbortBlobTxMsg& abortBlbTx)
 {
     std::ostringstream oss;
     // FIXME(DAC): This does nothing.
@@ -331,34 +326,34 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
+std::string logString(const fpi::GetBlobMetaDataMsg& message)
 {
     return "GetBlobMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::RenameBlobMsg& message)
+std::string logString(const fpi::RenameBlobMsg& message)
 {
     return "RenameBlobMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::RenameBlobRespMsg& message)
+std::string logString(const fpi::RenameBlobRespMsg& message)
 {
     return "RenameBlobRespMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::SetVolumeMetadataMsg& msg) {
+std::string logString(const fpi::SetVolumeMetadataMsg& msg) {
     return "SetVolumeMetadataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::GetVolumeMetadataMsgRsp& msg) {
+std::string logString(const fpi::GetVolumeMetadataMsgRsp& msg) {
     return "GetVolumeMetadataMsgRsp";
 }
 
-std::string logString(const FDS_ProtocolInterface::StatVolumeMsg& msg) {
+std::string logString(const fpi::StatVolumeMsg& msg) {
     return "StatVolumeMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
+std::string logString(const fpi::GetBucketMsg& msg) {
     std::ostringstream oss;
     oss << " GetBucketMsg(volume_id: " << msg.volume_id
             << ", count: " << msg.count
@@ -367,13 +362,13 @@ std::string logString(const FDS_ProtocolInterface::GetBucketMsg& msg) {
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::GetBucketRspMsg& msg) {
+std::string logString(const fpi::GetBucketRspMsg& msg) {
     std::ostringstream oss;
     oss << " GetBucketRspMsg(count: " << msg.blob_descr_list.size() << ")";
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::DeleteBlobMsg& msg) {
+std::string logString(const fpi::DeleteBlobMsg& msg) {
     std::ostringstream oss;
     oss << " DeleteBlobMsg ";
     oss << " DeleteBlobMsg TxId:" << msg.txId
@@ -390,4 +385,17 @@ std::string quoteString(std::string const& text,
     return delimiter + retval + delimiter;
 }
 
+DEFINE_OUTPUT_FUNCS(ActiveObjectsMsg) {
+    out << "["
+        << " token:" << msg.token
+        << " file:" << msg.filename        
+        << " checksum:" << msg.checksum
+        << " volumes:" << msg.volumeIds.size() <<":";
+    
+    for (const auto& volId : msg.volumeIds) {
+        out << volId << ",";
+    }
+    out << "]";
+    return out;
+}
 }  // namespace fds
