@@ -499,6 +499,28 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 
     SCOPEDREAD(migrClientLock);
 
+    /**
+     * Populate the # of clients first, so we don't run the risk of
+     * the first client finishing and calling cleanup to remove the io request
+     * before the second client.
+     */
+    if (!isMigrationAborted()) {
+        {
+            std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+            for (auto client : clientMap) {
+                auto pair = client.first;
+                if (pair.second == volId) {
+                    auto destUuid = pair.first;
+                    auto dmClient = client.second;
+                    if (dmClient) {
+                        commitBlobReq->migrClientCnt++;
+                    }
+                }
+            }
+        }
+    }
+    LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
+
     for (auto client : clientMap) {
     	auto pair = client.first;
     	if (pair.second == volId) {
@@ -523,11 +545,6 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
     		}
     	}
     }
-
-    // The commitBlobReq is forwarded multiple times, but the localCb must be called only once.
-    fds_assert(commitBlobReq->usedForMigration);
-    commitBlobReq->localCb(err);
-    // commitReq must not be accessed from this point.
 
 	return err;
 }

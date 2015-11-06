@@ -169,51 +169,37 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
                                          Error const& e, DmRequest* dmRequest) {
     LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = e.GetErrno();
-    auto dmIoReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
-    // Sends reply to AM
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId, dmIoReq->rspMsg);
+    if (dmRequest) {
+        // Sends reply to AM
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                static_cast<DmIoCommitBlobTx*>(dmRequest)->rspMsg);
 
-    /**
-     * We shouldn't be leaking dmRequest anywhere. It's either in this method here
-     * or in handleResponseCleanUp
-     */
-    fds_verify(dmRequest);
-
-    if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
-        delete dmRequest;
-    } else {
-        /**
-         * Used for migration. If migrMgr has finished forwarding, and already called
-         * handleResponseCleanUp (localCb), then it should be waiting for this to be done
-         * prior to deleting the dmRequest
-         */
-        LOGMIGRATE << "DmIoReq " << dmIoReq << "fowarded and ready for cleanup";
-        {
-            std::lock_guard<std::mutex> lk(dmIoReq->migrCbMtx);
-            dmIoReq->amAcked = true;
+        if (!static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+            delete dmRequest;
         }
-        dmIoReq->migrCv.notify_one();
+    } else {
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CommitBlobTxRspMsgTypeId,
+                           fpi::CommitBlobTxRspMsg());
     }
 }
 
 void CommitBlobTxHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          	 	boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
 												Error const& e, DmRequest* dmRequest) {
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
 
-    auto dmIoReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
-
-    /**
-     * Once DmMigrationMgr has finished its client's forwarding, we need to wait until AM
-     * has been ack'ed (handleResponse) is done prior to deleting the IoReq.
-     */
     {
-        std::unique_lock<std::mutex> lk(dmIoReq->migrCbMtx);
-        dmIoReq->migrCv.wait(lk, [&dmIoReq]{return dmIoReq->amAcked;});
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq ? false : true; // delete if commitBlobReq == 0
     }
-    LOGMIGRATE << "DmIoReq " << dmIoReq << "cleaning up";
 
-    delete dmRequest;
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 }  // namespace dm
 }  // namespace fds
