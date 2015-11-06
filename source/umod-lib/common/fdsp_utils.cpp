@@ -33,11 +33,11 @@ using boost::replace_all;
     }                                                                   \
     std::string logString(const fpi::MSGTYPE &msg) {                    \
         boost::log::formatting_ostream oss;                             \
+        std::string s; oss.attach(s);                                   \
         oss << msg;                                                     \
         return oss.str();                                               \
     }                                                                   \
     boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg)
-
 
 namespace fds {
 
