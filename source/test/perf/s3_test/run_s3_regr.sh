@@ -53,7 +53,7 @@ workspace=$2
 media_policy=$3
 
 client=perf2-node4
-njobs=4
+njobs=1
 
 n_reqs=100000 
 n_files=1000 
