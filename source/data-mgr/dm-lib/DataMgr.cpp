@@ -13,6 +13,7 @@
 #include <dmhandler.h>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
+#include <counters.h>
 #include <util/stringutils.h>
 #include <util/path.h>
 #include <util/disk_utils.h>
@@ -934,7 +935,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     lastCapacityMessageSentAt = 0;
     sampleCounter = 0;
-
+    counters = new fds::dm::Counters("dmcounters", MODULEPROVIDER()->get_cntrs_mgr().get());
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,

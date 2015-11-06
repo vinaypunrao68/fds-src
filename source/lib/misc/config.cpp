@@ -58,6 +58,7 @@ void remove(libconfig::Config& config, const std::string& key) {
 }
 
 void fillMap(const libconfig::Setting& setting, std::map<std::string,std::string>& configMap) {
+    LOGCONSOLE << setting.getPath() << ":" << setting.getType() << std::endl;
     switch (setting.getType()) {
         case libconfig::Setting::TypeString:
             configMap[setting.getPath()] = (const char*)(setting); 
@@ -69,6 +70,8 @@ void fillMap(const libconfig::Setting& setting, std::map<std::string,std::string
             configMap[setting.getPath()] = std::to_string((float)setting);
             break;
         case libconfig::Setting::TypeInt:
+            configMap[setting.getPath()] = std::to_string((int)setting);
+            break;
         case libconfig::Setting::TypeInt64:
             configMap[setting.getPath()] = std::to_string((long long)setting);
             break;
