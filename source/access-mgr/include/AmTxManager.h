@@ -18,11 +18,9 @@
 namespace fds {
 
 struct AmCache;
-struct AmDispatcher;
 struct AmRequest;
 struct AmTxDescriptor;
 struct GetBlobReq;
-struct GetObjectReq;
 class CommonModuleProviderIf;
 class RandNumGenerator;
 
@@ -52,9 +50,6 @@ struct AmTxManager {
 
     // Unique ptr to the data object cache
     std::unique_ptr<AmCache> amCache;
-
-    // Unique ptr to the dispatcher
-    std::unique_ptr<AmDispatcher> amDispatcher;
 
     /**
      * FEATURE TOGGLE: Safe UpdateBlobOnce
@@ -105,7 +100,7 @@ struct AmTxManager {
     void deleteBlob(AmRequest *amReq);
     void renameBlob(AmRequest *amReq);
     void getBlob(AmRequest *amReq);
-    void updateCatalog(AmRequest *amReq);
+    void putBlob(AmRequest *amReq);
     bool getNoNetwork() const;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
     Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
@@ -115,10 +110,6 @@ struct AmTxManager {
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
     processor_cb_type processor_cb;
-
-    typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
-    std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
-    std::mutex obj_get_lock;
 
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
@@ -158,15 +149,6 @@ struct AmTxManager {
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
 
     /**
-     * Internal cache accessors
-     */
-    Error putOffsets(fds_volid_t const vol_id,
-                     std::string const& blob_name,
-                     fds_uint64_t const blob_offset,
-                     fds_uint32_t const object_size,
-                     std::vector<boost::shared_ptr<ObjectID>> const& object_ids);
-
-    /**
      * Updates an existing transactions staged blob objects.
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
@@ -185,18 +167,8 @@ struct AmTxManager {
     /**
      * Internal get object request handler
      */
-    void getObjects(GetBlobReq* blobReq);
-    void getObject(GetBlobReq* blobReq,
-                   ObjectID::ptr const& obj_id,
-                   boost::shared_ptr<std::string>& buf);
-    void getBlobCb(AmRequest *amReq, Error const& error);
-    void getObjectCb(ObjectID const obj_id, Error const& error);
-    void putObject(AmRequest *amReq);
-    void queryCatalog(AmRequest *amReq);
-    void queryCatalogCb(AmRequest *amReq, Error const& error);
-    void updateCatalogCb(AmRequest *amReq, Error const& error);
-    void updateCatalogOnceCb(AmRequest *amReq, Error const& error);
-    void renameBlobCb(AmRequest *amReq, Error const& error);
+    void putBlobCb(AmRequest *amReq, Error const& error);
+    void putBlobOnceCb(AmRequest *amReq, Error const& error);
 };
 
 }  // namespace fds

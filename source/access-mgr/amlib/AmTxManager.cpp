@@ -6,13 +6,11 @@
 #include <map>
 #include <string>
 #include <fds_process.h>
-#include "AmDispatcher.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
 #include "FdsRandom.h"
 #include <ObjectId.h>
 #include "requests/requests.h"
-#include "requests/GetObjectReq.h"
 
 namespace fds {
 
@@ -20,8 +18,7 @@ static constexpr fds_uint32_t Ki { 1024 };
 static constexpr fds_uint32_t Mi { 1024 * Ki };
 
 AmTxManager::AmTxManager(CommonModuleProviderIf *modProvider)
-    : amCache(nullptr),
-      amDispatcher(new AmDispatcher(modProvider))
+    : amCache(new AmCache(modProvider))
 {
 }
 
@@ -31,7 +28,8 @@ void AmTxManager::init(bool const safe_atomic, processor_cb_type cb) {
     // This determines if we can or cannot dispatch updatecatlog and putobject
     // concurrently.
     safe_atomic_write = safe_atomic;
-    // This funtion is used to enqueue requests to AmProcessor
+
+    // This funtion is used to respond to requests
     processor_cb = cb;
 
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
@@ -42,8 +40,7 @@ void AmTxManager::init(bool const safe_atomic, processor_cb_type cb) {
     randNumGen = RandNumGenerator::unique_ptr(
         new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
-    amDispatcher->start();
-    amCache.reset(new AmCache());
+    amCache->init(processor_cb);
 }
 
 Error
@@ -212,117 +209,19 @@ AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
     return ERR_NOT_FOUND;
 }
 
-void
-AmTxManager::getObjects(GetBlobReq* blobReq) {
-    LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
-    cb->return_buffers->assign(blobReq->object_ids.size(), nullptr);
-    cb->return_buffers->shrink_to_fit();
-
-    size_t hit_cnt, miss_cnt;
-    std::tie(hit_cnt, miss_cnt) = amCache->getObjects(blobReq->io_vol_id,
-                                                      blobReq->object_ids,
-                                                      *cb->return_buffers);
-    if (0 == miss_cnt) {
-        // Data was found in cache, done
-        LOGTRACE << "Data found in cache!";
-        blobReq->proc_cb(ERR_OK);
-        return;
-    }
-
-    // We did not find all the data, so create some GetObjectReqs and defer to
-    // SM for the rest by iterating and checking if the buffer is valid, if
-    // not use the object to create a new GetObjectReq
-    LOGDEBUG << "Found: " << hit_cnt << "/" << (hit_cnt + miss_cnt) << " objects";
-    blobReq->setResponseCount(miss_cnt);
-    auto obj_it = blobReq->object_ids.cbegin();
-    auto buf_it = cb->return_buffers->begin();
-    for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
-        if (!*buf_it) {
-            LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
-            getObject(blobReq, *obj_it, *buf_it);
-        }
-    }
-}
-
-void
-AmTxManager::getObject(GetBlobReq* blobReq,
-                       ObjectID::ptr const& obj_id,
-                       boost::shared_ptr<std::string>& buf) {
-    auto objReq = new GetObjectReq(blobReq, buf, obj_id);
-    objReq->proc_cb = [this, objId = *obj_id] (Error const& error) {
-                        this->getObjectCb(objId, error);
-                      };
-
-    std::lock_guard<std::mutex> g(obj_get_lock);
-    auto q = obj_get_queue.find(*obj_id);
-    if (obj_get_queue.end() == q) {
-
-        amDispatcher->dispatchGetObject(objReq);
-        auto new_queue = new std::deque<GetObjectReq*>();
-        obj_get_queue[*obj_id].reset(new_queue);
-        new_queue->push_back(objReq);
-    } else {
-        q->second->push_back(objReq);
-    }
-}
-
-void
-AmTxManager::getObjectCb(ObjectID const obj_id, Error const& error) {
-    std::unique_ptr<std::deque<GetObjectReq*>> queue;
-    {
-        // Find the waiting get requeust queue
-        std::lock_guard<std::mutex> g(obj_get_lock);
-        auto q = obj_get_queue.find(obj_id);
-        fds_assert(obj_get_queue.end() != q);
-        queue.swap(q->second);
-        obj_get_queue.erase(q);
-    }
-
-    // For each request waiting on this object, respond to it and set the buffer
-    // data member from the first request (the one that was actually dispatched)
-    // and populate the volume's cache
-    auto buf = queue->front()->obj_data;
-    for (auto& objReq : *queue) {
-        if (error.ok()) {
-            objReq->obj_data = buf;
-            amCache->putObject(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
-        }
-        objReq->blobReq->notifyResponse(error);
-        delete objReq;
-    }
-}
-
-Error
-AmTxManager::putOffsets(fds_volid_t const vol_id,
-                        std::string const& blob_name,
-                        fds_uint64_t const blob_offset,
-                        fds_uint32_t const object_size,
-                        std::vector<boost::shared_ptr<ObjectID>> const& object_ids) {
-    auto iOff = blob_offset;
-    for (auto const& obj_id : object_ids) {
-        auto blob_pair = BlobOffsetPair(blob_name, iOff);
-        auto err = amCache->putOffset(vol_id, blob_pair, obj_id);
-        if (!err.ok())
-            { return err; }
-        iOff += object_size;
-    }
-    return ERR_OK;
-}
-
 Error
 AmTxManager::attachVolume(std::string const& volume_name) {
-    return amDispatcher->attachVolume(volume_name);
+    return amCache->attachVolume(volume_name);
 }
 
 void
 AmTxManager::openVolume(AmRequest *amReq) {
-    return amDispatcher->dispatchOpenVolume(amReq);
+    return amCache->openVolume(amReq);
 }
 
 Error
 AmTxManager::closeVolume(fds_volid_t vol_id, fds_int64_t token) {
-    return amDispatcher->dispatchCloseVolume(vol_id, token);
+    return amCache->closeVolume(vol_id, token);
 }
 
 void
@@ -337,7 +236,7 @@ AmTxManager::statVolume(AmRequest *amReq) {
         }
         processor_cb(amReq, error);
     };
-    return amDispatcher->dispatchStatVolume(amReq);
+    return amCache->statVolume(amReq);
 }
 
 void
@@ -345,7 +244,7 @@ AmTxManager::setVolumeMetadata(AmRequest *amReq) {
     amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
         processor_cb(amReq, error);
     };
-    return amDispatcher->dispatchSetVolumeMetadata(amReq);
+    return amCache->setVolumeMetadata(amReq);
 }
 
 void
@@ -353,7 +252,7 @@ AmTxManager::getVolumeMetadata(AmRequest *amReq) {
     amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
         processor_cb(amReq, error);
     };
-    return amDispatcher->dispatchGetVolumeMetadata(amReq);
+    return amCache->getVolumeMetadata(amReq);
 }
 
 void
@@ -361,7 +260,7 @@ AmTxManager::volumeContents(AmRequest *amReq) {
     amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
         processor_cb(amReq, error);
     };
-    return amDispatcher->dispatchVolumeContents(amReq);
+    return amCache->volumeContents(amReq);
 }
 
 void
@@ -387,7 +286,7 @@ AmTxManager::startBlobTx(AmRequest *amReq) {
     // Generate a random transaction ID to use
     blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
 
-    return amDispatcher->dispatchStartBlobTx(amReq);
+    return amCache->startBlobTx(amReq);
 }
 
 void
@@ -409,7 +308,7 @@ AmTxManager::commitBlobTx(AmRequest *amReq) {
         }
         processor_cb(blobReq, error);
     };
-    return amDispatcher->dispatchCommitBlobTx(amReq);
+    return amCache->commitBlobTx(amReq);
 }
 
 void
@@ -426,41 +325,12 @@ AmTxManager::abortBlobTx(AmRequest *amReq) {
         processor_cb(blobReq, error);
     };
 
-    return amDispatcher->dispatchAbortBlobTx(amReq);
+    return amCache->abortBlobTx(amReq);
 }
 
 void
 AmTxManager::statBlob(AmRequest *amReq) {
-    // Can we read from the cache
-    if (!amReq->forced_unit_access) {
-        // Check cache for blob descriptor
-        Error err(ERR_OK);
-        BlobDescriptor::ptr cachedBlobDesc = amCache->getBlobDescriptor(amReq->io_vol_id,
-                                                                        amReq->getBlobName(),
-                                                                        err);
-        if (ERR_OK == err) {
-            LOGTRACE << "Found cached blob descriptor for " << std::hex
-                << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
-
-            StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
-            // Fill in the data here
-            cb->blobDesc = cachedBlobDesc;
-            return processor_cb(amReq, ERR_OK);
-        }
-        LOGTRACE << "Did not find cached blob descriptor for " << std::hex
-            << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
-    }
-
-    amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
-        // Insert metadata into cache.
-        if (ERR_OK == error && amReq->page_out_cache) {
-            amCache->putBlobDescriptor(amReq->io_vol_id,
-                                       amReq->getBlobName(),
-                                       SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
-        }
-        processor_cb(amReq, error);
-    };
-    return amDispatcher->dispatchStatBlob(amReq);
+    return amCache->statBlob(amReq);
 }
 
 void
@@ -476,7 +346,7 @@ AmTxManager::setBlobMetadata(AmRequest *amReq) {
         processor_cb(amReq, error);
     };
 
-    return amDispatcher->dispatchSetBlobMetadata(amReq);
+    return amCache->setBlobMetadata(amReq);
 }
 
 void
@@ -496,7 +366,7 @@ AmTxManager::deleteBlob(AmRequest *amReq) {
     amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
         processor_cb(amReq, error);
     };
-    return amDispatcher->dispatchDeleteBlob(amReq);
+    return amCache->deleteBlob(amReq);
 }
 
 void
@@ -508,29 +378,7 @@ AmTxManager::renameBlob(AmRequest *amReq) {
     blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
     blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
 
-    blobReq->proc_cb = [this, blobReq] (Error const& error) mutable -> void {
-        renameBlobCb(blobReq, error);
-    };
-    return amDispatcher->dispatchRenameBlob(amReq);
-}
-
-void
-AmTxManager::renameBlobCb(AmRequest *amReq, Error const& error) {
-    if (error.ok()) {
-        auto blobReq = static_cast<RenameBlobReq*>(amReq);
-        // TODO(bszmyd): Sun 02 Aug 2015 07:04:36 PM MDT
-        // This is a gross nuke of the metadata since we don't remove the offset
-        // caches for a blob. change this when we have a better interface to
-        // the cache
-        // Invalidate the old descriptors
-        amCache->invalidateMetaCache(amReq->io_vol_id);
-
-        // Place the new blob's descriptor in the cache
-        amCache->putBlobDescriptor(blobReq->io_vol_id,
-                                   blobReq->new_blob_name,
-                                   SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
-    }
-    processor_cb(amReq, error);
+    return amCache->renameBlob(amReq);
 }
 
 void
@@ -561,119 +409,11 @@ AmTxManager::getBlob(AmRequest *amReq) {
         return processor_cb(amReq, ERR_INVALID);
     }
 
-    // Can we read from cache
-    if (!amReq->forced_unit_access) {
-        Error error {ERR_OK};
-        // If we need to return metadata, check the cache
-        if (blobReq->get_metadata) {
-            auto cachedBlobDesc = amCache->getBlobDescriptor(amReq->io_vol_id,
-                                                             amReq->getBlobName(),
-                                                             error);
-            if (error.ok()) {
-                LOGTRACE << "Found cached blob descriptor for " << std::hex
-                         << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
-                blobReq->metadata_cached = true;
-                auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-                // Fill in the data here
-                cb->blobDesc = cachedBlobDesc;
-            }
-        }
-
-        // Check cache for object IDs
-        if (error.ok()) {
-            error = amCache->getBlobOffsetObjects(amReq->io_vol_id,
-                                                  amReq->getBlobName(),
-                                                  amReq->blob_offset,
-                                                  amReq->blob_offset_end,
-                                                  amReq->object_size,
-                                                  blobReq->object_ids);
-        }
-
-        // ObjectIDs were found in the cache
-        if (error.ok() && (blobReq->metadata_cached == blobReq->get_metadata)) {
-            // Found all metadata, just need object data
-            blobReq->metadata_cached = true;
-            return queryCatalogCb(blobReq, ERR_OK);
-        }
-    } else {
-        LOGDEBUG << "Can't read from cache, dispatching to DM.";
-    }
-    queryCatalog(blobReq);
+    return amCache->getBlob(amReq);
 }
 
 void
-AmTxManager::getBlobCb(AmRequest *amReq, const Error& error) {
-    auto blobReq = static_cast<GetBlobReq *>(amReq);
-    if (error == ERR_NOT_FOUND && !blobReq->retry) {
-        // TODO(bszmyd): Mon 23 Mar 2015 02:40:25 AM PDT
-        // This is somewhat of a trick since we don't really support
-        // transactions. If we can't find the object, do an index lookup
-        // again. If we get back the same ObjectID, then fine...try SM again,
-        // but that's the end of it.
-        blobReq->metadata_cached = false;
-        blobReq->retry = true;
-        GLOGDEBUG << "Dispatching retry on [ " << blobReq->volume_name
-                  << ", " << blobReq->getBlobName()
-                  << ", 0x" << std::hex << blobReq->blob_offset << std::dec
-                  << "B ]";
-        return queryCatalog(amReq);
-    } else if (ERR_OK == error) {
-        // We still return all of the object even if less was requested, adjust
-        // the return length, not the buffer.
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
-
-        // Calculate the sum size of our buffers
-        size_t vector_size = std::accumulate(cb->return_buffers->cbegin(),
-                                             cb->return_buffers->cend(),
-                                             0,
-                                             [] (size_t const& total_size, boost::shared_ptr<std::string> const& buf)
-                                             { return total_size + buf->size(); });
-
-        cb->return_size = std::min(amReq->data_len, vector_size);
-
-        // If we have a cache token, we can stash this metadata
-        if (!blobReq->metadata_cached && blobReq->page_out_cache) {
-            putOffsets(amReq->io_vol_id,
-                       amReq->getBlobName(),
-                       amReq->blob_offset,
-                       amReq->object_size,
-                       blobReq->object_ids);
-            if (blobReq->get_metadata) {
-                auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-                if (cbm->blobDesc)
-                    amCache->putBlobDescriptor(amReq->io_vol_id,
-                                               amReq->getBlobName(),
-                                               cbm->blobDesc);
-            }
-        }
-    }
-
-    processor_cb(amReq, error);
-}
-
-void
-AmTxManager::queryCatalog(AmRequest *amReq) {
-    amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
-        queryCatalogCb(amReq, error);
-    };
-
-    return amDispatcher->dispatchQueryCatalog(amReq);
-}
-
-void
-AmTxManager::queryCatalogCb(AmRequest *amReq, const Error& error) {
-    if (error == ERR_OK) {
-        // We got the metadata, now get the objects
-        amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
-            getBlobCb(amReq, error);
-        };
-        return getObjects(static_cast<GetBlobReq *>(amReq));
-    }
-    processor_cb(amReq, error);
-}
-
-void
-AmTxManager::updateCatalog(AmRequest *amReq) {
+AmTxManager::putBlob(AmRequest *amReq) {
 
     // Use a stock object ID if the length is 0.
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
@@ -686,7 +426,7 @@ AmTxManager::updateCatalog(AmRequest *amReq) {
     }
 
     amReq->proc_cb = [this, blobReq] (Error const& error) mutable -> void {
-        updateCatalogCb(blobReq, error);
+        putBlobCb(blobReq, error);
     };
 
     if (amReq->io_type == FDS_PUT_BLOB_ONCE) {
@@ -701,12 +441,12 @@ AmTxManager::updateCatalog(AmRequest *amReq) {
             // Make data stable on object store prior to updating the catalog, this
             // means sending them in series rather than in parallel.
             amReq->proc_cb = [this, blobReq] (Error const& error) mutable -> void {
-                updateCatalogOnceCb(blobReq, error);
+                putBlobOnceCb(blobReq, error);
             };
 
             blobReq->setResponseCount(1);
         } else {
-            amDispatcher->dispatchUpdateCatalogOnce(amReq);
+            amCache->putBlobOnce(amReq);
         }
     } else {
         // Verify we have a dmt version (and transaction) for this update
@@ -714,17 +454,17 @@ AmTxManager::updateCatalog(AmRequest *amReq) {
         if (!err.ok()) {
             return processor_cb(amReq, err);
         }
-        amDispatcher->dispatchUpdateCatalog(amReq);
+        amCache->putBlob(amReq);
     }
 
     // Either dispatch the put blob request or, if there's no data, just call
     // our callback handler now (NO-OP).
-    return amReq->data_len > 0 ? putObject(amReq) :
+    return amReq->data_len > 0 ? amCache->putObject(amReq) :
                                  blobReq->notifyResponse(ERR_OK);
 }
 
 void
-AmTxManager::updateCatalogCb(AmRequest *amReq, Error const& error) {
+AmTxManager::putBlobCb(AmRequest *amReq, Error const& error) {
     auto blobReq = static_cast<PutBlobReq *>(amReq);
 
     if (error.ok()) {
@@ -764,48 +504,43 @@ AmTxManager::updateCatalogCb(AmRequest *amReq, Error const& error) {
 }
 
 void
-AmTxManager::updateCatalogOnceCb(AmRequest *amReq, Error const& error) {
+AmTxManager::putBlobOnceCb(AmRequest *amReq, Error const& error) {
     if (!error.ok()) {
         // Skip the volume update, we couldn't even store the data
-        return updateCatalogCb(amReq, error);
+        return putBlobCb(amReq, error);
     }
     auto blobReq = static_cast<PutBlobReq *>(amReq);
     // Sending the update in a single request. Create transaction ID to
     // use for the single request
     amReq->proc_cb = [this, blobReq] (Error const& error) mutable -> void {
-        updateCatalogCb(blobReq, error);
+        putBlobCb(blobReq, error);
     };
     blobReq->setResponseCount(1);
-    amDispatcher->dispatchUpdateCatalogOnce(amReq);
-}
-
-void
-AmTxManager::putObject(AmRequest *amReq) {
-    return amDispatcher->dispatchPutObject(amReq);
+    amCache->putBlobOnce(amReq);
 }
 
 bool
 AmTxManager::getNoNetwork() const
-{ return amDispatcher->getNoNetwork(); }
+{ return amCache->getNoNetwork(); }
 
 Error
 AmTxManager::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
-    return amDispatcher->updateDlt(dlt_type, dlt_data, cb);
+    return amCache->updateDlt(dlt_type, dlt_data, cb);
 }
 
 Error
 AmTxManager::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
-    return amDispatcher->updateDmt(dmt_type, dmt_data, cb);
+    return amCache->updateDmt(dmt_type, dmt_data, cb);
 }
 
 Error
 AmTxManager::getDMT() {
-    return amDispatcher->getDMT();
+    return amCache->getDMT();
 }
 
 Error
 AmTxManager::getDLT() {
-    return amDispatcher->getDLT();
+    return amCache->getDLT();
 }
 
 }  // namespace fds

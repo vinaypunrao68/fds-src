@@ -202,6 +202,31 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
      /**
+      * Removes a key and value from the cache when predicate == TRUE Thread safe.
+      *
+      * @param[in] pred   Unary predicate to test each element against.
+      *
+      * @return none
+      */
+     template<typename UnaryPredicate>
+     void remove_if(UnaryPredicate pred) {
+         SCOPEDWRITE(cache_lock);
+         // Remove all elements who match the predicate
+         for (auto cur = cache_map.begin(); cache_map.end() != cur; ) {
+             if (pred(cur->first)) {
+                 auto cacheEntry = cur->second;
+                 // Remove from the cache_map
+                 cur = cache_map.erase(cur);
+                 // Remove from the eviction_list
+                 eviction_list.erase(cacheEntry);
+                 --current_size;
+             } else {
+                 ++cur;
+             }
+         }
+     }
+
+     /**
       * Checks if a key exists in the cache
       * 
       * @param[in]  key  Key to use for indexing

@@ -2723,6 +2723,25 @@ OM_NodeDomainMod::om_service_down(const Error& error,
     }
 }
 
+void
+OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
+                                fpi::FDSP_MgrIdType svcType)
+{
+    if ( om_local_domain_up() )
+    {
+        if (svcType == fpi::FDSP_STOR_MGR)
+        {
+            // this is SM -- notify DLT state machine
+            om_dlt_update_cluster();
+        }
+        else if (svcType == fpi::FDSP_DATA_MGR)
+        {
+            // this is DM -- notify DMT state machine
+            om_dmt_update_cluster();
+        }
+    }
+}
+
 // Called when OM receives notification that the re-balance is
 // done on node with uuid 'uuid'.
 Error
