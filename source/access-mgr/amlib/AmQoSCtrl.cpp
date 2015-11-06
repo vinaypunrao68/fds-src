@@ -80,6 +80,7 @@ AmQoSCtrl::AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, CommonModuleProv
     total_rate = 200000;
     if (FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET == dispatchAlgo) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
+        dispatcher = htb_dispatcher;
     }
 }
 
@@ -204,6 +205,9 @@ AmQoSCtrl::execRequest(FDS_IOType* io) {
 
 Error AmQoSCtrl::processIO(FDS_IOType *io) {
     fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
+    auto amReq = static_cast<AmRequest*>(io);
+    PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+    LOGDEBUG << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void { execRequest(io); }, io);
     return ERR_OK;
 }
@@ -216,21 +220,26 @@ void startSHDispatcher(AmQoSCtrl *qosctl) {
 }
 
 void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const& error) {
-    if (FDS_ATTACH_VOL == amReq->io_type && error.ok()) {
+    if (0 != amReq->enqueue_ts) {
+        markIODone(amReq);
+    }
+
+    if (FDS_ATTACH_VOL == amReq->io_type) {
         auto volReq = static_cast<AttachVolumeReq*>(amReq);
-        auto& vol_desc = *volReq->volDesc;
         /** Drain wait queue into QoS */
-        wait_queue->remove_if(vol_desc.name,
-                              [this, vol_uuid = vol_desc.GetID()] (AmRequest* amReq) {
-                                  amReq->setVolId(vol_uuid);
-                                  GLOGTRACE << "Resuming request: 0x" << std::hex << amReq->io_req_id;
-                                  htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
-                                  return true;
-                              });
+        if (error.ok()) {
+            wait_queue->remove_if(amReq->volume_name,
+                                  [this, volReq] (AmRequest* amReq) {
+                                      amReq->setVolId(volReq->volDesc->GetID());
+                                      GLOGTRACE << "Resuming request: 0x" << std::hex << amReq->io_req_id;
+                                      htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+                                      return true;
+                                  });
+        } else {
+            removeVolume(amReq->volume_name, amReq->io_vol_id);
+        }
     }
-    if ((0 != amReq->enqueue_ts && markIODone(amReq)) || amReq->cb) {
-        processor_cb(amReq, error);
-    }
+    processor_cb(amReq, error);
 }
 
 
@@ -296,20 +305,11 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
     return err;
 }
 
-void   AmQoSCtrl::setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher) {
-    dispatchAlgo = algo_type;
-    if (qosDispatcher) {
-        dispatcher = qosDispatcher;
-    }
-}
-
 Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     Error err(ERR_OK);
-    auto vol = volTable->getVolume(volDesc.volUUID);
     // If we don't already have this volume, let's register it
-    if (!vol) {
-        /** Create queue and register with QoS */
-        FDS_VolumeQueue* queue {nullptr};
+    FDS_VolumeQueue* queue = getQueue(volDesc.volUUID);
+    if (!queue) {
         if (volDesc.isSnapshot()) {
             GLOGDEBUG << "Volume is a snapshot : [0x" << std::hex << volDesc.volUUID << "]";
             queue = getQueue(volDesc.qosQueueId);
@@ -320,14 +320,17 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
                                         volDesc.iops_assured,
                                         volDesc.relativePrio);
             err = htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
-            if (ERR_OK != err) {
+            if (ERR_OK != err && ERR_DUPLICATE != err) {
                 LOGERROR << "Volume failed to register : [0x"
                     << std::hex << volDesc.volUUID << "]"
                     << " because: " << err;
-            } else {
-                volTable->registerVolume(volDesc, queue);
+                delete queue;
             }
         }
+    }
+
+    if (queue) {
+        err = volTable->registerVolume(volDesc, queue);
     }
 
     // Search the queue for the first attach we find.
@@ -336,13 +339,17 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // we find we process it (to cause volumeOpen to start), and remove
     // it from the queue...but only the first.
     wait_queue->remove_if(volDesc.name,
-                          [this, &vol_desc = volDesc, found = false]
+                          [this, err, &vol_desc = volDesc, found = false]
                           (AmRequest* amReq) mutable -> bool {
                               if (!found && FDS_ATTACH_VOL == amReq->io_type) {
                                   auto volReq = static_cast<AttachVolumeReq*>(amReq);
-                                  volReq->setVolId(vol_desc.volUUID);
-                                  volTable->openVolume(amReq);
-                                  found = true;
+                                  if (err.ok()) {
+                                      volReq->setVolId(vol_desc.volUUID);
+                                      volTable->openVolume(amReq);
+                                      found = true;
+                                  } else {
+                                      completeRequest(amReq, err);
+                                  }
                                   return true;
                               }
                               return false;
@@ -448,7 +455,13 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
             }
         }
     } else {
+        GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
         err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+        if (ERR_OK != err) {
+            GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
+                      << " error: " << err;
+            completeRequest(amReq, err);
+        }
     }
     return err;
 }

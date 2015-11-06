@@ -37,7 +37,6 @@ class AmQoSCtrl : public FDS_QoSControl {
     Error processIO(FDS_IOType *io) override;
     void init(processor_cb_type const& cb);
     fds_uint32_t waitForWorkers();
-    void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
     Error registerVolume(VolumeDesc const& volDesc);
     Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
     Error removeVolume(std::string const& name, fds_volid_t const vol_uuid);

@@ -173,6 +173,7 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) const {
             }
         }
     }
+    processor_cb(amReq, ERR_VOLUME_ACCESS_DENIED);
     return false;
 }
 
@@ -238,7 +239,11 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
     // Check if we already are attached so we can have a current token
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     auto vol = getVolume(amReq->io_vol_id);
-    if (vol && vol->access_token)
+    if (!vol) {
+        return processor_cb(amReq, ERR_VOL_NOT_FOUND);
+    }
+
+    if (vol->access_token)
     {
         token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token));
         volReq->token = vol->getToken();
@@ -268,7 +273,6 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
     auto amReq = new AttachVolumeReq(vol_id, "", vol->access_token->getMode(), nullptr);
-    amReq->token = vol->getToken();
     openVolume(amReq);
 }
 
@@ -277,6 +281,10 @@ AmVolumeTable::attachVolumeCb(AmRequest *amReq, const Error& error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
 
     auto vol = getVolume(amReq->io_vol_id);
+    if (!vol) {
+        GLOGDEBUG << "Volume has been removed, dropping lease to: " << amReq->volume_name;
+        return processor_cb(amReq, ERR_VOL_NOT_FOUND);
+    }
 
     auto& vol_desc = *vol->voldesc;
     if (error.ok()) {
@@ -329,9 +337,7 @@ AmVolumeTable::attachVolumeCb(AmRequest *amReq, const Error& error) {
 
 void
 AmVolumeTable::statVolume(AmRequest *amReq) {
-    if (ensureReadable(amReq)) {
-        return txMgr->statVolume(amReq);
-    }
+    return txMgr->statVolume(amReq);
 }
 
 void
@@ -343,9 +349,7 @@ AmVolumeTable::setVolumeMetadata(AmRequest *amReq) {
 
 void
 AmVolumeTable::getVolumeMetadata(AmRequest *amReq) {
-    if (ensureReadable(amReq)) {
-        return txMgr->getVolumeMetadata(amReq);
-    }
+    return txMgr->getVolumeMetadata(amReq);
 }
 
 void
