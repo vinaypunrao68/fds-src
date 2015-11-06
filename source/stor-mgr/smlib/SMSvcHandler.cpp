@@ -1220,21 +1220,26 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         msg->volumeIds
         msg->token
     */
-
+    std::string filename;
     // verify the file checksum
-    std::string filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
-    if (!util::fileExists(filename)) {
-        err = ERR_FILE_DOES_NOT_EXIST;
-        LOGERROR << "active object file ["
-                 << filename
-                 << "] does not exist";
+    if (msg->filename.empty() && msg->checksum.empty()) {
+        LOGWARN << "no active objects for token:" << msg->token
+                << " for [" << msg->volumeIds.size() <<"]";
     } else {
-        std::string chksum = util::getFileChecksum(filename);
-        if (chksum != msg->checksum) {
-            LOGERROR << "file checksum mismatch [orig:" << msg->checksum
-                     << " new:" << chksum << "]"
-                     << " file:" << filename;
-            err = ERR_CHECKSUM_MISMATCH;
+        filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
+        if (!util::fileExists(filename)) {
+            err = ERR_FILE_DOES_NOT_EXIST;
+            LOGERROR << "active object file ["
+                     << filename
+                     << "] does not exist";
+        } else {
+            std::string chksum = util::getFileChecksum(filename);
+            if (chksum != msg->checksum) {
+                LOGERROR << "file checksum mismatch [orig:" << msg->checksum
+                         << " new:" << chksum << "]"
+                         << " file:" << filename;
+                err = ERR_CHECKSUM_MISMATCH;
+            }
         }
     }
 

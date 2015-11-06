@@ -3,7 +3,7 @@ from svc_api.ttypes import *
 from platformservice import *
 import FdspUtils
 import restendpoint
-
+import re
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
@@ -73,10 +73,12 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd
     @arg('svcid', help= "Service Uuid",  type=long)
-    def listcounter(self, svcid):
+    @arg('-m', '--match', help= "regex pattern",  type=str)
+    def listcounter(self, svcid, match=None):
         try:
+            p=re.compile(match, re.IGNORECASE) if match else None
             cntrs = ServiceMap.client(svcid).getCounters('*')
-            data = [(v,k) for k,v in cntrs.iteritems()]
+            data = [(v,k.lower()) for k,v in cntrs.iteritems() if not p or p.match(k)]
             data.sort(key=itemgetter(1))
             return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
             

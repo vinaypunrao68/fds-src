@@ -27,8 +27,7 @@ struct RefCountManager : Module {
                                  fds_token_id token,
                                  VolumeList volumeList);
 
-    void handleActiveObjectsResponse(fds::net::FileTransferService::Handle::ptr handle,
-                                     fds_token_id token,
+    void handleActiveObjectsResponse(fds_token_id token,
                                      EPSvcRequest* request,
                                      const Error& error,
                                      SHPTR<std::string> payload);
