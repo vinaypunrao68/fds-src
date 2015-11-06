@@ -301,9 +301,9 @@ DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
 					<< " during migration abort";
     	} else {
 			LOGERROR << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
+
+            // this likely means DM died during migration and has come back with the client still forwarding
+            // returning an error code will abort the client side migration
     	}
     	return ERR_NOT_FOUND;
     }
