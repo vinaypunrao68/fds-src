@@ -6,7 +6,7 @@
 #include <map>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/TokenCompactor.h>
-
+#include <StorMgr.h>
 namespace fds {
 
 // TODO(Sean):
@@ -64,6 +64,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     LOGNORMAL << "Start Compaction of token " << tok_id
               << " disk_id " << disk_id << " tier " << tier
               << " verify data?" << verify;
+    dynamic_cast<ObjectStorMgr*>(data_store)->counters->compactorRunning.incr();
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects

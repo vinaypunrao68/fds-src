@@ -45,7 +45,7 @@
 #include <MigrationMgr.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <fdsp/event_types_types.h>
-
+#include "counters.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -204,6 +204,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
   public:
     SmQosCtrl  *qosCtrl;
     net::FileTransferService::ptr fileTransfer;
+    SHPTR<sm::Counters> counters;
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()

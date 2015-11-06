@@ -390,7 +390,7 @@ SimpleNumericCounter::SimpleNumericCounter(const std::string &id, FdsCounters *e
 
 SimpleNumericCounter::SimpleNumericCounter(const std::string &id, fds_volid_t volid,
                                            FdsCounters *export_parent) :
-        FdsBaseCounter(id, export_parent), val_(0) {
+        FdsBaseCounter(id, volid, export_parent), val_(0) {
 }
 
 SimpleNumericCounter::SimpleNumericCounter(const SimpleNumericCounter& c) {

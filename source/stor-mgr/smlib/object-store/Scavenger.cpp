@@ -331,6 +331,8 @@ void ScavControl::startScavengeProcess()
         return;
     }
 
+    dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->scavengerStartedAt.set(util::getTimeStampSeconds());
+
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
@@ -568,6 +570,7 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
           persistStoreGcHandler(persist_store),
           done_evt_handler(nullptr),
           tier(_tier),
+          dataStoreReqHandler(data_store),     
           noPersistScavStats(noPersistStateScavStats),
           scav_policy()  // default policy
 {
@@ -744,6 +747,10 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
         }
         double tot_size = stat.tkn_tot_size;
         reclaim_percent = (stat.tkn_reclaim_size / tot_size) * 100;
+        dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->setScavengeInfo(stat.tkn_id,
+                                                                                     stat.tkn_tot_size,
+                                                                                     stat.tkn_reclaim_size
+                                                                                     );
         LOGDEBUG << "Disk " << disk_id << " token " << stat.tkn_id
                  << " total bytes " << stat.tkn_tot_size
                  << ", deleted bytes " << stat.tkn_reclaim_size
@@ -772,14 +779,16 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
     // type of work we are going to do
     verifyData = verify;
     done_evt_handler = done_hdlr;
-
+    dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->scavengerRunning.incr();
     // get list of tokens for this tier/disk from persistent layer
     findTokensToCompact(token_reclaim_threshold);
     if (tokenDb.size() == 0) {
         LOGNORMAL << "No tokens to compact on disk " << disk_id << " tier " << tier;
         std::atomic_exchange(&state, SCAV_STATE_IDLE);
+        dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->scavengerRunning.decr();
         return ERR_NOT_FOUND;
      }
+    dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->scavengerRunning.decr();
 
     LOGNORMAL << "Scavenger process started for disk_id " << disk_id << " tier "
               << tier << " number of tokens " << tokenDb.size()
@@ -853,12 +862,13 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     fds_token_id tok_id;
     fds_bool_t finished = false;
     ScavState curState = std::atomic_load(&state);
-
+    
     LOGNORMAL << "Compaction done notif for token " << token_id
               << " disk_id " << disk_id << " verify data?" << verifyData
               << " result " << error;
-
+    
     fds_verify(curState != SCAV_STATE_IDLE);
+    dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->counters->compactorRunning.decr();
     if (curState == SCAV_STATE_STOPPING) {
         // Scavenger was asked to stop, so not compacting any more tokens
         std::atomic_store(&state, SCAV_STATE_IDLE);
