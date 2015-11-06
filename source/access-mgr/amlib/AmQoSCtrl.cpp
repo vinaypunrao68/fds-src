@@ -228,7 +228,7 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const& error) {
                                   return true;
                               });
     }
-    if (0 != amReq->enqueue_ts && markIODone(amReq)) {
+    if ((0 != amReq->enqueue_ts && markIODone(amReq)) || amReq->cb) {
         processor_cb(amReq, error);
     }
 }
@@ -392,10 +392,8 @@ AmQoSCtrl::removeVolume(std::string const& volName, fds_volid_t const volId) {
 
     /** Drain any wait queue into as any Error */
     wait_queue->remove_if(volName,
-                          [] (AmRequest* amReq) {
-                              if (amReq->cb)
-                                  amReq->cb->call(fpi::MISSING_RESOURCE);
-                              delete amReq;
+                          [this] (AmRequest* amReq) {
+                              completeRequest(amReq, ERR_VOL_NOT_FOUND);
                               return true;
                           });
 

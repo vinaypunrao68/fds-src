@@ -149,6 +149,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
         }
         amReq->cb->call(code);
     }
+    delete amReq;
 
     // If we're shutting down check if the
     // queue is empty and make the callback
