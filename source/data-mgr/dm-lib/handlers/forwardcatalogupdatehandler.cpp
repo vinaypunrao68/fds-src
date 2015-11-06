@@ -40,11 +40,8 @@ void ForwardCatalogUpdateHandler::handleRequest(
     asyncHdr->msg_code = error.GetErrno();
     LOGDEBUG << "Sending " << *reinterpret_cast<DmIoFwdCat*>(dmReq) << " response with " << error;
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
-
-    delete dmReq;
 }
 
-// XXX: this is never called
 void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoFwdCat* typedRequest = static_cast<DmIoFwdCat*>(dmRequest);
     QueueHelper helper(dataManager, typedRequest);
