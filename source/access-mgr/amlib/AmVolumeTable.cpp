@@ -412,11 +412,7 @@ AmVolumeTable::getBlob(AmRequest *amReq) {
 void
 AmVolumeTable::updateCatalog(AmRequest *amReq) {
     if (ensureWritable(amReq)) {
-        try {
         return txMgr->updateCatalog(amReq);
-        } catch (std::exception& e) {
-            fds_panic("Here");
-        }
     }
 }
 

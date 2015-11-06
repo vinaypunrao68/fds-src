@@ -746,9 +746,8 @@ AmTxManager::updateCatalogCb(AmRequest *amReq, Error const& error) {
                                                     blobReq->obj_id)) {
             // An abort or commit already caused the tx
             // to be cleaned up. Short-circuit
-            LOGNOTIFY << "Response no longer has active transaction: " << tx_desc->getValue();
-            delete amReq;
-            return;
+            GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc->getValue();
+            return processor_cb(amReq, ERR_NOT_FOUND);
         }
 
         // Update the transaction manager with the staged object data

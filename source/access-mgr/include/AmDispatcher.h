@@ -4,8 +4,10 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 
+#include <deque>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
@@ -13,7 +15,8 @@
 
 namespace fds {
 
-/* Forward declaarations */
+/* Forward declarations */
+struct StartBlobTxReq;
 class MockSvcHandler;
 struct DLT;
 
@@ -266,6 +269,13 @@ struct AmDispatcher : HasModuleProvider
 
     mutable VolumeDispatchTable dispatchTable;
 
+    using dmt_ver_count_type = std::tuple<fds_uint64_t, size_t, std::deque<StartBlobTxReq*>>;
+    using blob_id_type = std::pair<fds_volid_t, std::string>;
+    using tx_map_barrier_type = std::map<blob_id_type, dmt_ver_count_type>;
+
+    std::mutex tx_map_lock;
+    tx_map_barrier_type tx_map_barrier;
+
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
                                                         fds_uint64_t const dmt_ver,
@@ -290,6 +300,9 @@ struct AmDispatcher : HasModuleProvider
                                                 boost::shared_ptr<Msg> const& payload,
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;
+
+    void _dispatchStartBlobTx(AmRequest *amReq);
+
     /**
      * Callback for delete blob responses.
      */
@@ -386,6 +399,12 @@ struct AmDispatcher : HasModuleProvider
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
+
+    /**
+     * Drains any pending start tx requests into the svc layer with updated
+     * dmt version
+     */
+    void releaseTx(blob_id_type const& blob_id);
 
     /**
      * Sets the configured request serialization.
