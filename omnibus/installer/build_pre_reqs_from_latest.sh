@@ -6,12 +6,36 @@ then
     exit 1;
 fi
 
+#first make it so the path we're in is fds-src/omnibus/installer
+
+location="${PWD##*/}"
+fdssrc="fds-src"
+omni="omnibus/installer"
+
+if [[ ${location} == ${fdssrc} ]]
+then
+    echo "Switching to the omnibus installer directory"
+    cd omnibus/installer
+fi
+
+if [[ ! -e "build_install.sh" ]]
+then
+    echo "Please run this script from fds-src or ${omni}"
+    exit 1
+fi
+
 #This script is to setup the pre-requisites for creating an offline
 #deployment.  The only arg is which build type needs to be created.
 cd ../.. 
 make package fds-platform BUILD_TYPE=${1}
 make package fds-deps
 cd omnibus/installer
+
+if [[ ${#JENKINS_URL} -gt 0 ]]
+then
+    jenkins_scripts/deploy_artifacts.sh
+fi
+
 
 # making directories that the build_install script will look for packages
 
@@ -40,3 +64,15 @@ mv simpleamqpclient*.deb ../omnibus-simpleamqpclient/pkg
 apt-get download fds-stats-client-c
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-client-c package from apt repo' && exit 99
 mv fds-stats-client-c*.deb ../omnibus-fds-stats-client-c/pkg
+
+#upload to artifactory is this is running in jenkins
+if [[ ${#JENKINS_URL} -gt 0 ]]
+then
+    cd ../../jenkins_scripts
+    echo "Uploading artifacts to artifactory"
+    deploy_artifacts.sh
+    cd ../../../omnibus/installer
+fi
+
+echo "Building the offline installer."
+./build_install.sh
