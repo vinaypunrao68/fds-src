@@ -62,7 +62,7 @@ test_type="GET"
 object_size=4096 
 hostname="perf2-node1" 
 n_conns=100 
-n_jobs=4
+n_jobs=1
 
 test_types="PUT"
 object_sizes="4096 65536 1048576"
