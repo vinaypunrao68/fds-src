@@ -487,8 +487,8 @@ TEST_F(SmUnitTest, prepare_for_shutdown) {
 int
 main(int argc, char** argv) {
     int ret = 0;
-    sm = new fds::ObjectStorMgr(g_fdsprocess);
-    objStorMgr  = sm;
+    storMgr = new fds::ObjectStorMgr(g_fdsprocess);
+    objStorMgr  = storMgr;
     fds::SmUnitTestProc p(argc, argv, NULL);
     ::testing::InitGoogleMock(&argc, argv);
 
@@ -516,8 +516,8 @@ main(int argc, char** argv) {
     ret = RUN_ALL_TESTS();
 
     // cleanup
-    delete sm;
-    sm = NULL;
+    delete storMgr;
+    storMgr = NULL;
     SmUtUtils::cleanAllInDir(g_fdsprocess->proc_fdsroot()->dir_dev());
 
     return ret;
