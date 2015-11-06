@@ -36,9 +36,9 @@ class LiveObjectsDB {
         Error createLiveObjectsTblAndIdx();
         Error addObjectSet(const fds_token_id &smToken,
                            const fds_volid_t &volId,
-                           const fds_uint64_t &dmUUID,
                            const TimeStamp &timeStamp,
-                           const std::string &objectSetFilePath);
+                           const std::string &objectSetFilePath,
+                           const fds_uint64_t &dmUUID);
         Error removeObjectSet(const fds_token_id &smToken,
                               const fds_volid_t &volId);
         Error findObjectSetsPerToken(const fds_token_id &smToken,

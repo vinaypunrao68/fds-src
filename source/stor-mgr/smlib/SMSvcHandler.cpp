@@ -1238,15 +1238,15 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         }
     }
 
-    if (!err.ok()) {
-        fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
-        hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
-    } else {
-        // handle the request appropriately
+    TimeStamp ts = util::getTimeStampNanos();
+    for (auto volId : msg->volumeIds) {
+        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
+                                              ts, filename);
     }
+
+    fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
 }
-
-
 
 }  // namespace fds

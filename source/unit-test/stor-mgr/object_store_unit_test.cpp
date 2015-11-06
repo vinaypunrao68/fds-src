@@ -275,8 +275,8 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
      */
     fds_uint8_t deleteCntThreshold = objectStore->getObjectDelCntThresh();
     for (fds_uint8_t incDelCount = 0; incDelCount < deleteCntThreshold; ++incDelCount) {
-        objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID, 1,
-                                  util::getTimeStampNanos(), bfFileName);
+        objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID,
+                                  util::getTimeStampNanos(), bfFileName, 1);
         tokStats.tkn_id = 0;
         tokStats.tkn_tot_size = 0;
         tokStats.tkn_reclaim_size = 0;

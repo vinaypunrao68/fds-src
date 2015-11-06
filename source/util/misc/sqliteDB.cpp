@@ -137,7 +137,7 @@ bool SqliteDB::getTextValues(const std::string &query, std::set<std::string> &va
         switch (errorCode) {
             case SQLITE_ROW:
                 data.assign(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
-                valueSet.insert(data);
+                if (!data.empty()) { valueSet.insert(data); }
                 break;
             case SQLITE_DONE:
                 break;

@@ -1622,12 +1622,11 @@ ObjectStore::haveAllObjectSets() const {
 void
 ObjectStore::addObjectSet(const fds_token_id &smToken,
                           const fds_volid_t &volId,
-                          const fds_uint64_t &dmUUID,
                           const util::TimeStamp &timeStamp,
-                          const std::string &objectSetFilePath) {
-    liveObjectsTable->addObjectSet(smToken, volId,
-                                   dmUUID, timeStamp,
-                                   objectSetFilePath);
+                          const std::string &objectSetFilePath,
+                          const fds_uint64_t &dmUUID) {
+    liveObjectsTable->addObjectSet(smToken, volId, timeStamp,
+                                   objectSetFilePath, dmUUID);
 }
 
 /**

@@ -36,9 +36,9 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
 
 Error LiveObjectsDB::addObjectSet(const fds_token_id &smToken,
                                   const fds_volid_t &volId,
-                                  const fds_uint64_t &dmUUID,
                                   const util::TimeStamp &timeStamp,
-                                  const std::string &objectSetFilePath) {
+                                  const std::string &objectSetFilePath,
+                                  const fds_uint64_t &dmUUID) {
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("insert into liveObjTbl "

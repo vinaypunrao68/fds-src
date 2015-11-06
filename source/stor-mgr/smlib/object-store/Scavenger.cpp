@@ -330,6 +330,7 @@ void ScavControl::startScavengeProcess()
         LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
         return;
     }
+
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
