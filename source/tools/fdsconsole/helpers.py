@@ -24,7 +24,7 @@ def get_simple_re(pattern, flags=re.IGNORECASE):
     pattern=pattern.replace('.','\.')
     pattern=pattern.replace('*','.*')
     if '*' not in pattern and '?' not in pattern:
-        pattern = '.*' + pattern + '.*'
+        pattern = '.*(' + pattern + ').*'
     pattern= '^' + pattern + '$'
     return re.compile(pattern, flags)
 

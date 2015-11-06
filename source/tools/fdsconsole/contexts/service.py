@@ -117,21 +117,26 @@ class ServiceContext(Context):
     @clicmd
     @arg('svcid', help= "service uuid", type=str)
     @arg('match', help= "regex pattern", type=str, default=None, nargs='?')
-    def listcounter(self, svcid, match):
+    @arg('-z','--zero', help= "show zeros", action='store_true', default=False)
+    def listcounter(self, svcid, match, zero=False):
         try:
             svcid=self.getServiceId(svcid)
             p=helpers.get_simple_re(match)
             cntrs = ServiceMap.client(svcid).getCounters('*')
             addeditems={}
             for key in cntrs:
+                if not zero and cntrs[key] == 0:
+                    continue
                 if key.endswith('.timestamp'):
-                    addeditems[key + ".human"] = '{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))
+                    value='{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key]))) if cntrs[key] > 0 else 'not yet'
+                    addeditems[key + ".human"] = value
                 elif key.endswith('.totaltime'):
-                    addeditems[key + ".human"] = '{}'.format(humanize.naturaldelta(cntrs[key]))
+                    value = '{}'.format(humanize.naturaldelta(cntrs[key]))
+                    addeditems[key + ".human"] = value
 
             cntrs.update(addeditems)
 
-            data = [(v,k) for k,v in cntrs.iteritems() if not p or p.match(k)]
+            data = [(v,k) for k,v in cntrs.iteritems() if (not p or p.match(k)) and (zero or v != 0)]
             data.sort(key=itemgetter(1))
             return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
             
