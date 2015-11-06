@@ -66,7 +66,7 @@ n_jobs=1
 
 test_types="PUT"
 object_sizes="4096 65536 1048576"
-concurrencies="100"
+concurrencies="25"
 
 s3_setup perf2-node1 $media_policy
 
