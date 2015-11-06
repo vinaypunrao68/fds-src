@@ -245,11 +245,20 @@ class DmIoCommitBlobTx : public DmRequest {
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
-    bool usedForMigration;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
     /* is this the original request */
     bool orig_request {true};
+
+    /**
+     * Because DM migration first ACKs back to the AM then do the forwarding,
+     * there is a potential race condition between handleResponseCleanup
+     * and handleResponse. These are used for that purposes.
+     */
+    bool usedForMigration;
+    bool amAcked;
+    std::mutex migrCbMtx;
+    std::condition_variable migrCv;
 };
 
 template <typename T>
