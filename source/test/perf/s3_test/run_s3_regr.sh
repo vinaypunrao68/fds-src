@@ -76,8 +76,8 @@ s3_setup perf2-node1 $media_policy
 #popd
 #scp $workspace/source/Build/linux-x86_64.release/java_tools.tgz $client:/root/java_tools.tgz
 #ssh $client 'tar xzvf java_tools.tgz'
-
-
+name=`whoami`
+echo whoami
 
 for t in $test_types ; do
     for o in $object_sizes ; do
@@ -87,7 +87,7 @@ for t in $test_types ; do
             n_conns=$c
             outs=$c
 
-            cmd="cd $workspace/source/test; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd /root/tools; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
@@ -115,7 +115,7 @@ for t in $test_types ; do
             n_conns=$c
             outs=$c
 
-            cmd="cd $workspace/source/test; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd /root/tools; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
@@ -146,7 +146,7 @@ for t in $test_types ; do
             outs=$t
 
 
-            cmd="cd $workspace/source/test; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
+            cmd="cd /root/tools; ./trafficgen.py --num-requests $n_reqs --num-files $n_files --threads $outs --type $test_type --file-size $object_size --target-node $hostname"
 
             pids=""
             outfiles=""
