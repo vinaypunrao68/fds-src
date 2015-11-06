@@ -539,7 +539,8 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
     asyncCatUpdReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
-    asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp));
+    asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
+                                                      commitBlobReq));
     /**
      * There are 2 guarantees:
      * 1. AM will guarantee that the outstanding blob tx's are finished before a new one
@@ -553,15 +554,23 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     return err;
 }
 
-void DmMigrationClient::fwdCatalogUpdateMsgResp(EPSvcRequest* req,
+void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                                EPSvcRequest* req,
 												const Error& error,
 												boost::shared_ptr<std::string> payload) {
+
+    LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
+                   << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
     	LOGERROR << "Forwarding failed. Aborting DM Migration.";
     	abortMigration();
     }
+
+    fds_assert(commitReq->usedForMigration);
+    commitReq->localCb(error);
 
     return;
 }

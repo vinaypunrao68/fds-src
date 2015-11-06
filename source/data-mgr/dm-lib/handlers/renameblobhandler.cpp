@@ -288,7 +288,19 @@ void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 }
 
 void RenameBlobHandler::handleResponseCleanUp(Error const& e, DmRequest* dmRequest) {
-    delete dmRequest;
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 
 }  // namespace dm
