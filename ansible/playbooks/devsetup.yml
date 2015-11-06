@@ -229,6 +229,7 @@
         - "urllib3==1.10.1"
         - python-iptables
         - retry
+        - humanize
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
