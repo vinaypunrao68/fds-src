@@ -519,8 +519,8 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
-    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ||
-         ( svc_type == fpi::FDSP_ACCESS_MGR ) || ( svc_type == fpi::FDSP_PLATFORM ) ) {
+    // we only handle specific errors from SM and DM for now
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) {
         /*
          * if unreachable service incarnation is the same as the service map, change the state to INVALID
         */
