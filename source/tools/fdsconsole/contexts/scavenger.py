@@ -15,12 +15,14 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def enable(self, sm):
         try:
-            getScavMsg = FdspUtils.newEnableScavengerMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            for uuid in self.config.getServiceId(sm, False):
+                print 'enabling scavenger on sm:{}'.format(uuid)
+                getScavMsg = FdspUtils.newEnableScavengerMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
 
         except Exception, e:
             log.exception(e)
@@ -28,48 +30,56 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def disable(self, sm):
         try:
-            getScavMsg = FdspUtils.newDisableScavengerMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            for uuid in self.config.getServiceId(sm, False):
+                print 'disabling scavenger on sm:{}'.format(uuid)
+                getScavMsg = FdspUtils.newDisableScavengerMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'disable failed'
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def start(self, sm):
         try:
-            getScavMsg = FdspUtils.newStartScavengerMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            for uuid in self.config.getServiceId(sm, False):
+                print 'starting scavenger on sm:{}'.format(uuid)
+                getScavMsg = FdspUtils.newStartScavengerMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'start failed'
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('dm', help= "-Uuid of the DM to send the command to", type=long)
+    @arg('dm', help= "-Uuid of the DM to send the command to", type=str, default='dm', nargs='?')
     def startrefscan(self, dm):
         try:
-            msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
-            cb = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(dm, msg, cb)
+            for uuid in self.config.getServiceId(dm, False):
+                print 'starting refscan on dm:{}'.format(uuid)
+                msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+                cb = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
         except Exception, e:
             log.exception(e)
             return 'start refscan failed'
     
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def stop(self, sm):
         try:
-            getScavMsg = FdspUtils.newStopScavengerMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getScavMsg, scavCB)
+            for uuid in self.config.getServiceId(sm, False):
+                print 'stopping scavenger on sm:{}'.format(uuid)
+                getScavMsg = FdspUtils.newStopScavengerMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
         except Exception, e:
             log.exception(e)
             return 'stop failed'
@@ -78,24 +88,25 @@ class ScavengerContext(Context):
     #--------------------------------------------------------------------------------------
 
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def status(self, sm):
         try:
-            getStatusMsg = FdspUtils.newScavengerStatusMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
-            scavCB.wait()
-            resp = scavCB.payload.status
-            print "Scavenger status: ",
-            if resp == 1:
-                print "ACTIVE"
-            elif resp == 2:
-                print "INACTIVE"
-            elif resp == 3:
-                print "DISABLED"
-            elif resp == 4:
-                print "FINISHING"
-
+            for uuid in self.config.getServiceId(sm, False):
+                print 'status of scavenger on sm:{}'.format(uuid)
+                getStatusMsg = FdspUtils.newScavengerStatusMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getStatusMsg, scavCB)
+                scavCB.wait()
+                resp = scavCB.payload.status
+                print "Scavenger status: ",
+                if resp == 1:
+                    print "ACTIVE"
+                elif resp == 2:
+                    print "INACTIVE"
+                elif resp == 3:
+                    print "DISABLED"
+                elif resp == 4:
+                    print "FINISHING"
         except Exception, e:
             log.exception(e)
             return 'get status failed'
@@ -103,15 +114,17 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
     @cliadmincmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def progress(self, sm):
         try:
-            getStatusMsg = FdspUtils.newScavengerProgressMsg()
-            scavCB = WaitedCallback()
-            self.smClient().sendAsyncSvcReq(sm, getStatusMsg, scavCB)
-            scavCB.wait()
-            resp = scavCB.payload.progress_pct
-            print "Scavenger progress: {}%".format(resp)
+            for uuid in self.config.getServiceId(sm, False):
+                print 'progress of scavenger on sm:{}'.format(uuid)
+                getStatusMsg = FdspUtils.newScavengerProgressMsg()
+                scavCB = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, getStatusMsg, scavCB)
+                scavCB.wait()
+                resp = scavCB.payload.progress_pct
+                print "Scavenger progress: {}%".format(resp)
         except Exception, e:
             log.exception(e)
             return 'get progress failed'

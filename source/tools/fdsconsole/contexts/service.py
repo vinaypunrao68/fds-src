@@ -4,10 +4,15 @@ from platformservice import *
 import FdspUtils
 import restendpoint
 import re
+import types
+import humanize
+import time
+
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
         self.__restApi = None
+        self.config.setServiceApi(self)
 
     def restApi(self):
         if self.__restApi == None:
@@ -61,36 +66,102 @@ class ServiceContext(Context):
             services = ServiceMap.list()
             return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],
             """
-            services = self.restApi().listServices()
-
+            services = self.restApi().listServices()            
             return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], services),
-                            headers=['Node UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
+                            headers=['UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get service list'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
-    @arg('svcid', help= "Service Uuid",  type=long)
-    @arg('-m', '--match', help= "regex pattern",  type=str)
-    def listcounter(self, svcid, match=None):
+    # will get service id for sm,am on a single node cluster by name
+    # or sm:ip
+    def getServiceId(self, pattern, onlyone=True):
+        if type(pattern) == types.IntType:
+            return pattern
+        if pattern.isdigit():
+            return int(pattern)
+
         try:
-            p=re.compile(match, re.IGNORECASE) if match else None
+            name=None
+            ip=None
+            if ':' in pattern:
+                name,ip = pattern.split(':')
+            else:
+                name=pattern.lower()
+                
+            if name not in ['om','am','pm','sm','dm']:
+                print 'unknown service : {}'.format(name)
+                return None
+            services = self.restApi().listServices()            
+            finallist = [s for s in services if (name == s['service'].lower()) and (ip == None or s['ip'] == ip)]
+            if onlyone:
+                if len(finallist) == 1:
+                    return int(finallist[0]['uuid'])
+                else:
+                    print 'More than 1 matching services for pattern : {}'.format(pattern)
+                    print tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], finallist),
+                                   headers=['UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
+                                   tablefmt=self.config.getTableFormat())
+            else:
+                if len(finallist) >= 1:
+                    return [int(s['uuid']) for s in finallist]
+            print 'No matching services for pattern : {}'.format(pattern)
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get service list'
+        return None
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('svcid', help= "service uuid", type=str)
+    @arg('match', help= "regex pattern", type=str, default=None, nargs='?')
+    def listcounter(self, svcid, match):
+        try:
+            svcid=self.getServiceId(svcid)
+            p=helpers.get_simple_re(match)
             cntrs = ServiceMap.client(svcid).getCounters('*')
-            data = [(v,k.lower()) for k,v in cntrs.iteritems() if not p or p.match(k)]
+            addeditems={}
+            for key in cntrs:
+                if key.endswith('.timestamp'):
+                    addeditems[key + ".human"] = '{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))
+                elif key.endswith('.totaltime'):
+                    addeditems[key + ".human"] = '{}'.format(humanize.naturaldelta(cntrs[key]))
+
+            cntrs.update(addeditems)
+
+            data = [(v,k) for k,v in cntrs.iteritems() if not p or p.match(k)]
             data.sort(key=itemgetter(1))
             return tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
             
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume list'
+            return 'unable to get counter'
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('svcid', help= "service Uuid",  type=long)
+    @arg('match', help= "regex pattern",  type=str, default=None, nargs='?')
+    def listconfig(self, svcid, match):
+        try:
+            svcid=self.getServiceId(svcid)
+            p=helpers.get_simple_re(match)
+            cntrs = ServiceMap.client(svcid).getConfig(0)
+            data = [(k.lower(),v) for k,v in cntrs.iteritems() if not p or p.match(k)]
+            data.sort(key=itemgetter(0))
+            return tabulate(data,headers=['config', 'value'], tablefmt=self.config.getTableFormat())
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get config list'
+
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('svcid', help= "Service Uuid",  type=long)
+    @arg('svcid', help= "Service Uuid",  type=str)
     def showsvcmap(self, svcid):
         try:
+            svcid=self.getServiceId(svcid)
             svcMap = ServiceMap.client(svcid).getSvcMap(None)
             data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
             data.sort(key=itemgetter(0))
@@ -102,9 +173,10 @@ class ServiceContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('svcid', help= "Service Uuid",  type=long)
+    @arg('svcid', help= "Service Uuid",  type=str)
     def listflag(self, svcid, name=None):
         try:
+            svcid=self.getServiceId(svcid)
             if name is None:
                 flags = ServiceMap.client(svcid).getFlags(None)
                 data = [(v,k) for k,v in flags.iteritems()]
@@ -118,10 +190,11 @@ class ServiceContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('svcid', type=long)
+    @arg('svcid', type=str)
     @arg('flag', type=str)
     @arg('value', type=long)
     def setflag(self, svcid, flag, value):
+        svcid=self.getServiceId(svcid)
         try:
             ServiceMap.client(svcid).setFlag(flag, value)
             return 'Ok'
@@ -130,9 +203,10 @@ class ServiceContext(Context):
             return 'Unable to set flag: {}'.format(flag)
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('svcid', type=long)
+    @arg('svcid', type=str)
     @arg('cmd', type=str)
     def setfault(self, svcid, cmd):
+        svcid=self.getServiceId(svcid)
         try:
             success = ServiceMap.client(svcid).setFault(cmd)
             if success:
