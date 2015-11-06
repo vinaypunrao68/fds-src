@@ -29,7 +29,7 @@ using ::testing::Return;
 
 namespace fds {
 
-static ObjectStorMgr* sm;
+static ObjectStorMgr* storMgr;
 
 static fds_uint32_t hddCount = 0;
 static fds_uint32_t ssdCount = 10;
@@ -45,7 +45,7 @@ class SmUnitTestProc : public SvcProcess {
                        "fds.sm.",
                        "sm-unit-test.log",
                        mod_vec) {
-        sm->setModProvider(this);
+        storMgr->setModProvider(this);
     }
     ~SmUnitTestProc() {
     }
@@ -124,10 +124,10 @@ void SmUnitTest::setupTests(fds_uint32_t concurrency,
     // create our own disk map
     SmUtUtils::setupDiskMap(dir, hddCount, ssdCount);
 
-    sm->standaloneTestDlt = NULL;
-    sm->mod_init(NULL);
-    sm->mod_startup();
-    sm->mod_enable_service();
+    storMgr->standaloneTestDlt = NULL;
+    storMgr->mod_init(NULL);
+    storMgr->mod_startup();
+    storMgr->mod_enable_service();
 
     // volume for single-volume test
     // we will ignore optype so just set put
@@ -168,7 +168,7 @@ SmUnitTest::putSm(fds_volid_t volId,
         &SmUnitTest::putSmCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = sm->enqueueMsg(putReq->getVolId(), putReq);
+    err = storMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                  << err;
@@ -205,7 +205,7 @@ SmUnitTest::getSm(fds_volid_t volId,
         &SmUnitTest::getSmCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = sm->enqueueMsg(getReq->getVolId(), getReq);
+    err = storMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                  << err;
@@ -380,8 +380,8 @@ SmUnitTest::shutdownAndWaitIoComplete(TestVolume::ptr volume) {
     Error err(ERR_OK);
 
     LOGNOTIFY << "Calling prepare for shutdown";
-    sm->mod_disable_service();
-    sm->mod_shutdown();
+    storMgr->mod_disable_service();
+    storMgr->mod_shutdown();
     LOGNOTIFY << "SM finished handling prepare for shutdown";
 
     // even though threads may have finished sending IO,
@@ -404,15 +404,15 @@ void SmUnitTest::handleDlt() {
 
     DLT* dlt = new DLT(16, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
-    err = sm->objectStore->handleNewDlt(dlt);
+    err = storMgr->objectStore->handleNewDlt(dlt);
     EXPECT_TRUE(err.ok());
     LOGTRACE << "SM now has a new DLT";
 
-    if (sm->standaloneTestDlt) {
-        delete sm->standaloneTestDlt;
-        sm->standaloneTestDlt = NULL;
+    if (storMgr->standaloneTestDlt) {
+        delete storMgr->standaloneTestDlt;
+        storMgr->standaloneTestDlt = NULL;
     }
-    sm->setTestDlt(dlt);
+    storMgr->setTestDlt(dlt);
 }
 
 void SmUnitTest::addVolume(TestVolume::ptr volume)
@@ -421,7 +421,7 @@ void SmUnitTest::addVolume(TestVolume::ptr volume)
     fds_volid_t volumeId(98);
     FDSP_NotifyVolFlag vol_flag = FDSP_NOTIFY_VOL_NO_FLAG;
     FDSP_ResultType result = FDSP_ERR_OK;
-    err = sm->registerVolume(volumeId, &volume1->voldesc_, vol_flag, result);
+    err = storMgr->registerVolume(volumeId, &volume1->voldesc_, vol_flag, result);
     EXPECT_TRUE(err.ok());
 }
 
@@ -478,8 +478,8 @@ TEST_F(SmUnitTest, prepare_for_shutdown) {
 
     // try to shutdown again, nothing should happen
     LOGNOTIFY << "Will do second prepare for shutdown msg";
-    sm->mod_disable_service();
-    sm->mod_shutdown();
+    storMgr->mod_disable_service();
+    storMgr->mod_shutdown();
 }
 
 }  // namespace fds
