@@ -95,7 +95,7 @@ for t in $test_types ; do
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
-                ssh $client "$cmd"  | tee $f &
+                ssh $client "$cmd"  | tee $f
                 pid="$pid $!"
                 pids="$pids $!"
             done
@@ -122,7 +122,7 @@ for t in $test_types ; do
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
-                ssh $client "$cmd"  | tee $f &
+                ssh $client "$cmd"  | tee $f
                 pid="$pid $!"
                 pids="$pids $!"
             done
@@ -153,7 +153,7 @@ for t in $test_types ; do
             for j in `seq $n_jobs` ; do
                 f=$outdir/out.n_reqs=$n_reqs.n_files=$n_files.outstanding_reqs=$outs.test_type=$test_type.object_size=$object_size.hostname=$hostname.n_conns=$n_conns.job=$j
                 outfiles="$outfiles $f"
-                ssh $client "$cmd"  | tee $f &
+                ssh $client "$cmd"  | tee $f
                 pid="$pid $!"
                 pids="$pids $!"
             done
