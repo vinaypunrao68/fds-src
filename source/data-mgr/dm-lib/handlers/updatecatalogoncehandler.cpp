@@ -188,7 +188,7 @@ void UpdateCatalogOnceHandler::handleResponseCleanUp(boost::shared_ptr<fpi::Asyn
         std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
         fds_assert(commitBlobReq->migrClientCnt);
         commitBlobReq->migrClientCnt--;
-        delete_req = commitBlobReq ? false : true; // delete if commitBlobReq == 0
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
     }
 
     if (delete_req) {
