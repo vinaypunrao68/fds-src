@@ -518,32 +518,33 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                 }
             }
         }
-    }
-    LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
 
-    for (auto client : clientMap) {
-    	auto pair = client.first;
-    	if (pair.second == volId) {
-    		auto destUuid = pair.first;
-    		auto dmClient = client.second;
-    		if (dmClient == nullptr) {
-				if (isMigrationAborted()) {
-					LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
-				} else {
-					LOGERROR << "Unable to find client for volume " << volId;
-					// this is an race cond error that needs to be fixed in dev env.
-					// Only panic in debug build.
-					fds_assert(0);
-				}
-    		} else {
-    			LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
-    			err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
-    			if (!err.ok()) {
-    				LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
-    				break;
-    			}
-    		}
-    	}
+        LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
+
+        for (auto client : clientMap) {
+            auto pair = client.first;
+            if (pair.second == volId) {
+                auto destUuid = pair.first;
+                auto dmClient = client.second;
+                if (dmClient == nullptr) {
+                    if (isMigrationAborted()) {
+                        LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
+                    } else {
+                        LOGERROR << "Unable to find client for volume " << volId;
+                        // this is an race cond error that needs to be fixed in dev env.
+                        // Only panic in debug build.
+                        fds_assert(0);
+                    }
+                } else {
+                    LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
+                    err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+                    if (!err.ok()) {
+                        LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
 	return err;
