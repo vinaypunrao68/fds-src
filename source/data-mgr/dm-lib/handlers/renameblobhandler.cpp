@@ -26,18 +26,12 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     LOGDEBUG << logString(*asyncHdr) << logString(*message);
 
     HANDLE_INVALID_TX_ID_VAL(message->source_tx_id);
+    HANDLE_INVALID_TX_ID_VAL(message->destination_tx_id);
 
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(volId)) {
-    	err = ERR_DM_NOT_PRIMARY;
-    }
-    if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(volId);
-    }
-
+    auto err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
