@@ -555,11 +555,13 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 }
 
 void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
-												EPSvcRequest* req,
+                                                EPSvcRequest* req,
 												const Error& error,
 												boost::shared_ptr<std::string> payload) {
+
     LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
-               << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+                   << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
@@ -569,7 +571,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 
     fds_assert(commitReq->usedForMigration);
     commitReq->localCb(error);
-    // commitReq must not be accessed from this point.
+
     return;
 }
 
