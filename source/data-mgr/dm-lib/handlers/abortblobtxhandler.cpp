@@ -40,6 +40,8 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     // Allocate a new Blob transaction class and queue to per volume queue.
     auto dmReq = new DmIoAbortBlobTx(volId,
                                      message->blob_name,
