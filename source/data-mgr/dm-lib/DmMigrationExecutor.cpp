@@ -30,7 +30,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  seqTimer(new FdsTimer),
       msgHandler(_dataMgr),
       migrationProgress(INIT),
-      txStateIsMigrated(false)
+      txStateIsMigrated(true)
 {
     volumeUuid = volDesc.volUUID;
 
