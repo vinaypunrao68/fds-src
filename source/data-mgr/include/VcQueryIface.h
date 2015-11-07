@@ -118,7 +118,8 @@ class VolumeCatalogQueryIface {
     virtual Error listBlobsWithPrefix (fds_volid_t volume_id,
                                        std::string const& prefix,
                                        std::string const& delimiter,
-                                       fpi::BlobDescriptorListType& results) = 0;
+                                       fpi::BlobDescriptorListType& results,
+                                       std::vector<std::string>& skippedPrefixes) = 0;
 
     /**
      * Returns blob (descriptor + offset to object_id mappings) for a blob_id
@@ -137,6 +138,11 @@ class VolumeCatalogQueryIface {
                                              fpi::FDSP_BlobObjectList& obj_list,
 
                                              Catalog::MemSnap snap) = 0;
+    virtual Error getObjectIds(fds_volid_t volId,
+                               const uint32_t &maxObjs,
+                               const Catalog::MemSnap &snap,
+                               std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                               std::list<ObjectID> &objects) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */

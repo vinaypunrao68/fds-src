@@ -21,14 +21,17 @@ public final class Subject<T> implements Observable<T>
     {
         if (observer == null) throw new NullArgumentException("observer");
 
-        byte[] key = new byte[4];
-        for (;;)
+        synchronized(_observers)
         {
-            Fds.Random.nextBytes(key);
-            if (!_observers.containsKey(key))
+            byte[] key = new byte[4];
+            for (;;)
             {
-                _observers.put(key, observer);
-                return new RegistrationToken(key, this);
+                Fds.Random.nextBytes(key);
+                if (!_observers.containsKey(key))
+                {
+                    _observers.put(key, observer);
+                    return new RegistrationToken(key, this);
+                }
             }
         }
     }
@@ -37,9 +40,12 @@ public final class Subject<T> implements Observable<T>
     {
         if (message == null) throw new NullArgumentException("message");
 
-        for (Observer<? super T> observer : _observers.values())
+        synchronized(_observers)
         {
-            observer.observe(message);
+            for (Observer<? super T> observer : _observers.values())
+            {
+                observer.observe(message);
+            }
         }
     }
 
@@ -48,7 +54,11 @@ public final class Subject<T> implements Observable<T>
     {
         if (registrationKey == null) throw new NullArgumentException("registrationKey");
 
-        Observer<? super T> removed = _observers.remove(registrationKey);
+        Observer<? super T> removed;
+        synchronized(_observers)
+        {
+            removed = _observers.remove(registrationKey);
+        }
         return removed != null;
     }
 

@@ -1,0 +1,9 @@
+<div class="flex fds-checkbox">
+    <input ng-model="selectedValue" type="checkbox" ng-disabled="!enabled">
+    <div class="selector" ng-click="buttonClicked()" ng-style="{ opacity: (enabled === true )? 1.0 : 0.4 }">
+        <div class="fds-check-container" ng-class="{ 'fds-check-selected' : selectedValue === true }"></div>
+        <div class="fui-check" ng-show="selectedValue === true"></div>
+    </div>
+    <span class="{{ iconClass }} checkbox-icon"></span>
+    <label for="{{value}}">{{label}}</label>
+</div>

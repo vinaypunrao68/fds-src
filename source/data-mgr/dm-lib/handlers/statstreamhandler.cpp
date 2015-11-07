@@ -41,7 +41,12 @@ void StatStreamHandler::handleQueueItem(DmRequest* dmRequest) {
 void StatStreamHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::StatStreamMsg>& message,
                                        Error const& e, DmRequest* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << *static_cast<DmIoStatStream*>(dmRequest));
+    DmIoStatStream *req = static_cast<DmIoStatStream*>(dmRequest);
+    if (req) {
+        DBG(GLOGDEBUG << logString(*asyncHdr) << *static_cast<DmIoStatStream*>(dmRequest));
+    } else {
+        DBG(GLOGDEBUG << logString(*asyncHdr));
+    }
 
     asyncHdr->msg_code = e.GetErrno();
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::StatStreamMsgTypeId, *message);

@@ -2,6 +2,9 @@ package com.formationds.iodriver.workloads;
 
 import static com.formationds.commons.util.ExceptionHelper.getTunneledIfTunneled;
 
+import java.io.Closeable;
+import java.io.PrintStream;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -19,11 +22,12 @@ import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.commons.util.NullableMutableReference;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
+import com.formationds.commons.util.logging.Logger;
+import com.formationds.iodriver.ExecutionException;
+import com.formationds.iodriver.WorkloadContext;
 import com.formationds.iodriver.endpoints.Endpoint;
-import com.formationds.iodriver.logging.Logger;
-import com.formationds.iodriver.operations.ExecutionException;
+import com.formationds.iodriver.events.OperationExecuted;
 import com.formationds.iodriver.operations.Operation;
-import com.formationds.iodriver.reporters.AbstractWorkflowEventListener;
 import com.formationds.iodriver.validators.Validator;
 
 /**
@@ -32,33 +36,12 @@ import com.formationds.iodriver.validators.Validator;
  * The most important method to override is {@link #createOperations()}. {@link #createSetup()} and
  * {@link #createTeardown()} will also likely be overridden in most implementations.
  * 
- * @param <EndpointT> The type of endpoint the workload will be run on.
- * @param <OperationT> The base type of operations in this workload.
  */
-// @eclipseFormat:off
-public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>,
-                               OperationT extends Operation<OperationT, EndpointT>>
-// @eclipseFormat:on
+public abstract class Workload
 {
-    /**
-     * Get the type of endpoint this workload can use.
-     * 
-     * @return The current property value.
-     */
-    public final Class<EndpointT> getEndpointType()
-    {
-        return _endpointType;
-    }
-
-    /**
-     * Get the type of operation this workload can execute.
-     * 
-     * @return The current property value.
-     */
-    public final Class<OperationT> getOperationType()
-    {
-        return _operationType;
-    }
+    public abstract boolean doDryRun();
+    
+    public abstract Class<?> getEndpointType();
     
     /**
      * Get a validator that will interpret this workload well.
@@ -71,42 +54,17 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
         return Optional.empty();
     }
     
-    /**
-     * Constructor.
-     * 
-     * @param endpointType The type of endpoint this workload can use.
-     * @param operationType The type of operation this workload can run.
-     * @param logOperations Log operations executed by this workload.
-     */
-    protected Workload(Class<EndpointT> endpointType,
-                       Class<OperationT> operationType,
-                       boolean logOperations)
+    public Optional<Closeable> getSuggestedReporter(PrintStream output,
+                                                    WorkloadContext context)
     {
-        if (endpointType == null) throw new NullArgumentException("endpointType");
-        if (operationType == null) throw new NullArgumentException("operationType");
-        
-        _endpointType = endpointType;
-        _operationType = operationType;
-        _logOperations = logOperations;
+        return Optional.empty();
     }
-    
-    private ExceptionThrowingConsumer<OperationT, ExecutionException> debugWrap(
-            ExceptionThrowingConsumer<OperationT, ExecutionException> exec, Logger logger)
+
+    public WorkloadContext newContext(Logger logger)
     {
-        if (exec == null) throw new NullArgumentException("exec");
+        if (logger == null) throw new NullArgumentException("logger");
         
-        if (logger == null)
-        {
-            return exec;
-        }
-        else
-        {
-            return op -> 
-                   {
-                       logger.logDebug("Executing: " + op);
-                       exec.accept(op);
-                   };
-        }
+        return new WorkloadContext(logger);
     }
     
     /**
@@ -118,29 +76,30 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @throws ExecutionException when an error occurs during execution of the workload.
      */
     // @eclipseFormat:off
-    public final void runOn(EndpointT endpoint, AbstractWorkflowEventListener listener)
+    public final void runOn(Endpoint endpoint, WorkloadContext context)
             throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
-        ensureInitialized();
+        ensureOperationsInitialized();
 
         Map<Thread, NullableMutableReference<Throwable>> workerThreads =
                 new HashMap<>(_operations.size());
         CyclicBarrier startingGate = new CyclicBarrier(_operations.size());
-        for (Stream<OperationT> work : _operations)
+        for (Stream<Operation> work : _operations)
         {
             Thread workerThread =
                     new Thread(() ->
                     {
-                        ExceptionThrowingConsumer<OperationT, ExecutionException> exec =
-                                op -> endpoint.doVisit(op, listener);
-
-                        // Log operations if requested.
-                        ExceptionThrowingConsumer<OperationT, ExecutionException> loggingExec =
-                                debugWrap(exec, getLogOperations() ? listener.getLogger() : null); 
+                        ExceptionThrowingConsumer<Operation, ExecutionException> exec =
+                                op ->
+                                {
+                                    endpoint.visit(op, context);
+                                    context.sendIfRegistered(new OperationExecuted(Instant.now(),
+                                                                                   op));
+                                };
 
                         // The type arguments can be inferred, so the call is just "tunnel(...)",
                         // but hits this compiler bug:
@@ -154,9 +113,9 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                         //
                         // When this bug is fixed (check 8u40 and >= 8u45), reduce to just
                         // tunnel(...) with a static import.
-                        Consumer<OperationT> tunneledExec =
-                                ExceptionHelper.<OperationT, ExecutionException>
-                                               tunnel(loggingExec, ExecutionException.class);
+                        Consumer<Operation> tunneledExec =
+                                ExceptionHelper.<Operation, ExecutionException>tunnel(
+                                        exec, ExecutionException.class);
                         
                         // Synchronize all worker threads. This only ensures that they start work
                         // at the same time--if you need to synchronize at different points, use
@@ -213,6 +172,10 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
                 workerExceptions.addSuppressed(error);
             }
         }
+        if (workerExceptions != null)
+        {
+        	throw workerExceptions;
+        }
     }
 
     /**
@@ -225,21 +188,24 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @throws ExecutionException when there is an error running the setup commands.
      */
     // @eclipseFormat:off
-    public final void setUp(EndpointT endpoint,
-                            AbstractWorkflowEventListener listener) throws ExecutionException
+    public void setUp(Endpoint endpoint,
+                      WorkloadContext context) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
-        ensureInitialized();
+        ensureSetupInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<OperationT, ExecutionException>
-                       tunnel(ExecutionException.class,
-                              from -> _setup.forEach(from),
-                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
-                                        getLogOperations() ? listener.getLogger() : null));
+        ExceptionHelper.<Operation, ExecutionException>tunnel(
+                ExecutionException.class,
+                from -> _setup.forEach(from),
+                op ->
+                {
+                    endpoint.visit(op, context);
+                    context.sendIfRegistered(new OperationExecuted(Instant.now(), op));
+                });
     }
 
     /**
@@ -252,21 +218,24 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * @throws ExecutionException when there is an error running the teardown commands.
      */
     // @eclipseFormat:off
-    public final void tearDown(EndpointT endpoint,
-                               AbstractWorkflowEventListener listener) throws ExecutionException
+    public final void tearDown(Endpoint endpoint,
+                               WorkloadContext context) throws ExecutionException
     // @eclipseFormat:on
     {
         if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (listener == null) throw new NullArgumentException("listener");
+        if (context == null) throw new NullArgumentException("context");
 
-        ensureInitialized();
+        ensureTeardownInitialized();
 
         // See comment in runOn().
-        ExceptionHelper.<OperationT, ExecutionException>
-                       tunnel(ExecutionException.class,
-                              from -> _teardown.forEach(from),
-                              debugWrap((OperationT op) -> endpoint.doVisit(op, listener),
-                                        getLogOperations() ? listener.getLogger() : null));
+        ExceptionHelper.<Operation, ExecutionException>tunnel(
+                ExecutionException.class,
+                from -> _teardown.forEach(from),
+                op ->
+                {
+                    endpoint.visit(op, context);
+                    context.sendIfRegistered(new OperationExecuted(Instant.now(), op));
+                });
     }
 
     /**
@@ -276,7 +245,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * 
      * @return A list of streams of operations, with the list of streams run in parallel.
      */
-    protected List<Stream<OperationT>> createOperations()
+    protected List<Stream<Operation>> createOperations()
     {
         return Collections.emptyList();
     }
@@ -286,7 +255,7 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * 
      * @return A stream of operations.
      */
-    protected Stream<OperationT> createSetup()
+    protected Stream<Operation> createSetup()
     {
         return Stream.empty();
     }
@@ -296,45 +265,35 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
      * 
      * @return A stream of operations.
      */
-    protected Stream<OperationT> createTeardown()
+    protected Stream<Operation> createTeardown()
     {
         return Stream.empty();
     }
 
-    /**
-     * Ensure the workload is ready to run.
-     */
-    protected final void ensureInitialized()
+    protected final void ensureOperationsInitialized()
     {
         if (_operations == null)
         {
-            try
-            {
-                _operations = createOperations();
-                _setup = createSetup();
-                _teardown = createTeardown();
-            }
-            catch (Throwable t)
-            {
-                _operations = null;
-                _setup = null;
-                _teardown = null;
-
-                throw t;
-            }
+            _operations = createOperations();
+        }
+    }
+    
+    protected final void ensureSetupInitialized()
+    {
+        if (_setup == null)
+        {
+            _setup = createSetup();
+        }
+    }
+    
+    protected final void ensureTeardownInitialized()
+    {
+        if (_teardown == null)
+        {
+            _teardown = createTeardown();
         }
     }
 
-    /**
-     * Return whether to log operations executed by this workload.
-     * 
-     * @return The current property value.
-     */
-    protected final boolean getLogOperations()
-    {
-        return _logOperations;
-    }
-    
     /**
      * Wait to a gate to be released.
      * 
@@ -357,32 +316,17 @@ public abstract class Workload<EndpointT extends Endpoint<EndpointT, OperationT>
     }
 
     /**
-     * The type of endpoint this workload can use.
-     */
-    private final Class<EndpointT> _endpointType;
-    
-    /**
-     * Log operations executed by this workload.
-     */
-    private boolean _logOperations;
-    
-    /**
-     * The type of operation this workload can run.
-     */
-    private final Class<OperationT> _operationType;
-
-    /**
      * Workload body. Streams are run in parallel with each other.
      */
-    private List<Stream<OperationT>> _operations;
+    private List<Stream<Operation>> _operations;
 
     /**
      * Setup instructions.
      */
-    private Stream<OperationT> _setup;
+    private Stream<Operation> _setup;
 
     /**
      * Cleanup instructions.
      */
-    private Stream<OperationT> _teardown;
+    private Stream<Operation> _teardown;
 }

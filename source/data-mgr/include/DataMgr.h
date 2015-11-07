@@ -140,6 +140,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         return ERR_OK;
     }
 
+    /**
+     * Pull the volume descriptors from OM using service layer implementation.
+     * Then populate the volumes into DM.
+     */
+    Error getAllVolumeDescriptors();
+
     Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**
@@ -234,7 +240,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
             Error err(ERR_OK);
 
             DmRequest *io = static_cast<DmRequest*>(_io);
-            GLOGDEBUG << "processing : " << io->io_type;
 
             // Stop the queue latency timer.
             PerfTracer::tracePointEnd(io->opQoSWaitCtx);
@@ -253,6 +258,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                     volType = mapEntry->second->vol_desc->volType;
                 }
             }
+            GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
+		<< " key: " << key.first << ":" << key.second;
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_DM_SNAP_VOLCAT:
@@ -330,11 +337,14 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                     // it up to the connector.
                     if ((parentDm->features.isSerializeReqsEnabled()) &&
                         (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
+			LOGDEBUG << io->log_string()
+				<< " synchronize on hashkey: " << key.first << ":" << key.second;
                         serialExecutor->scheduleOnHashKey(keyHash(key),
                                                           std::bind(&dm::Handler::handleQueueItem,
                                                                     parentDm->handlers.at(io->io_type),
                                                                     io));
                     } else {
+			LOGDEBUG << io->log_string() << " not synchronized"; 
                         threadPool->schedule(&dm::Handler::handleQueueItem,
                                          parentDm->handlers.at(io->io_type),
                                          io);
@@ -346,6 +356,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                                                       std::bind(&dm::Handler::handleQueueItem,
                                                                 parentDm->handlers.at(io->io_type),
                                                                 io));
+                    break;
+                case FDS_DM_FUNCTOR:
+                    threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
                     break;
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -364,6 +377,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
         virtual ~dmQosCtrl() {
              delete dispatcher;
+             if (dispatcherThread) {
+                 dispatcherThread->join();
+             }
         }
     };
 
@@ -387,12 +403,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
 
-    Error _add_if_no_vol(const std::string& vol_name,
-                         fds_volid_t vol_uuid, VolumeDesc* desc);
-    Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid, VolumeDesc* desc);
-    Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid, VolumeDesc* desc);
+    Error addVolume(const std::string& vol_name, fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
@@ -462,6 +473,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void handleDMTClose(DmRequest *io);
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
+    void handleDmFunctor(DmRequest *io);
 
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

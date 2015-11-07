@@ -16,6 +16,7 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.ui.RectangleInsets;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -64,15 +65,50 @@ public class DebugWebapp {
                 public void render(OutputStream outputStream) throws IOException {
                     StringBuilder sb = new StringBuilder();
                     sb.append("<html><head><title>NFS statistics</title></head><body>");
-                    for (Counters.Key key : Counters.Key.values()) {
-                        sb.append("<img src=\"/stats/" + key.name() + "\" /><br /><br />\n");
-                    }
+
+                    sb.append("<h1>Incoming NFS requests</h1>");
+                    sb.append(makeImgLink(Counters.Key.inodeCreate));
+                    sb.append(makeImgLink(Counters.Key.inodeAccess));
+                    sb.append(makeImgLink(Counters.Key.lookupFile));
+                    sb.append(makeImgLink(Counters.Key.link));
+                    sb.append(makeImgLink(Counters.Key.listDirectory));
+                    sb.append(makeImgLink(Counters.Key.mkdir));
+                    sb.append(makeImgLink(Counters.Key.move));
+                    sb.append(makeImgLink(Counters.Key.read));
+                    sb.append(makeImgLink(Counters.Key.bytesRead));
+                    sb.append(makeImgLink(Counters.Key.readLink));
+                    sb.append(makeImgLink(Counters.Key.remove));
+                    sb.append(makeImgLink(Counters.Key.symlink));
+                    sb.append(makeImgLink(Counters.Key.write));
+                    sb.append(makeImgLink(Counters.Key.bytesWritten));
+                    sb.append(makeImgLink(Counters.Key.getAttr));
+                    sb.append(makeImgLink(Counters.Key.setAttr));
+
+                    sb.append("<h1>Cache activity</h1>");
+                    sb.append(makeImgLink(Counters.Key.metadataCacheMiss));
+                    sb.append(makeImgLink(Counters.Key.metadataCacheHit));
+                    sb.append(makeImgLink(Counters.Key.objectCacheMiss));
+                    sb.append(makeImgLink(Counters.Key.objectCacheHit));
+                    sb.append(makeImgLink(Counters.Key.deferredMetadataMutation));
+                    sb.append(makeImgLink(Counters.Key.deferredObjectMutation));
+
+                    sb.append("<h1>AM activity</h1>");
+                    sb.append(makeImgLink(Counters.Key.AM_statBlob));
+                    sb.append(makeImgLink(Counters.Key.AM_updateMetadataTx));
+                    sb.append(makeImgLink(Counters.Key.AM_getBlob));
+                    sb.append(makeImgLink(Counters.Key.AM_updateBlobTx));
+                    sb.append(makeImgLink(Counters.Key.AM_volumeContents));
+
                     sb.append("</body></html>");
                     OutputStreamWriter osw = new OutputStreamWriter(outputStream);
                     osw.write(sb.toString());
                     osw.flush();
                 }
             };
+        }
+
+        private String makeImgLink(Counters.Key key) {
+            return "<img src=\"/stats/" + key.name() + "\" /><br /><br />\n";
         }
     }
 
@@ -100,10 +136,19 @@ public class DebugWebapp {
             JFreeChart chart = ChartFactory.createXYLineChart(key.name() + "#/second",
                     "Elapsed time (seconds)", key.name() + "#/second", dataset, PlotOrientation.VERTICAL, true, false, false);
 
+            chart.getLegend().setVisible(false);
+            chart.setBorderVisible(false);
+            
             XYPlot plot = (XYPlot) chart.getPlot();
+            plot.setOutlinePaint(Color.white);
+            plot.getRangeAxis().setAxisLineVisible(false);
+            plot.getRangeAxis().setLabelPaint(Color.white);
+            plot.getDomainAxis().setAxisLineVisible(false);
+            plot.setInsets(new RectangleInsets(0, 0, 0, 0));
             plot.setBackgroundPaint(Color.white);
-            plot.setRangeGridlinePaint(Color.lightGray);
-            plot.setDomainGridlinePaint(Color.lightGray);
+            plot.setRangeGridlinePaint(Color.gray);
+            plot.setDomainGridlinePaint(Color.gray);
+            plot.setBackgroundPaint(Color.lightGray);
             plot.getRenderer().setSeriesStroke(0, new BasicStroke(2));
             return new Resource() {
                 @Override
@@ -113,7 +158,7 @@ public class DebugWebapp {
 
                 @Override
                 public void render(OutputStream outputStream) throws IOException {
-                    ChartUtilities.writeChartAsPNG(outputStream, chart, 800, 300);
+                    ChartUtilities.writeChartAsPNG(outputStream, chart, 600, 200);
                 }
             };
         }
@@ -129,7 +174,15 @@ public class DebugWebapp {
         @Override
         public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
             String volumeName = routeParameters.get("volume");
-            List<BlobDescriptor> bds = asyncAm.volumeContents("", volumeName, 100, 0, "", PatternSemantics.PCRE, BlobListOrder.UNSPECIFIED, false).get();
+            List<BlobDescriptor> bds = asyncAm.volumeContents("",
+                                                              volumeName,
+                                                              100,
+                                                              0,
+                                                              "",
+                                                              PatternSemantics.PCRE,
+                                                              "",
+                                                              BlobListOrder.UNSPECIFIED,
+                                                              false).get().getBlobs();
             JSONArray array = new JSONArray();
             for (BlobDescriptor bd : bds) {
                 JSONObject o = new JSONObject();

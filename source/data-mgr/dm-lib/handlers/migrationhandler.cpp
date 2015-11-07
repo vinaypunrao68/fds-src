@@ -72,14 +72,18 @@ void DmMigrationHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& as
                                             uint64_t dmtVersion,
                                             const Error& e)
 {
-    LOGMIGRATE << logString(*asyncHdr);
+
+    asyncHdr->msg_code = e.GetErrno();
+    LOGMIGRATE << logString(*asyncHdr) << " sending async resp with err: " << e;
 
     fpi::CtrlNotifyDMStartMigrationRspMsgPtr msg(new fpi::CtrlNotifyDMStartMigrationRspMsg());
-    msg->DMT_version = dmtVersion;
-    asyncHdr->msg_code = e.GetErrno();
-    DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *msg);
-
-
+    if (msg) {
+        msg->DMT_version = dmtVersion;
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId, *msg);
+    } else {
+        DM_SEND_ASYNC_RESP(*asyncHdr, fpi::CtrlNotifyDMStartMigrationRspMsgTypeId,
+                           fpi::CtrlNotifyDMStartMigrationRspMsg());
+    }
 }
 
 /**
@@ -123,8 +127,7 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 			boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
 			Error const& e, DmRequest* dmRequest) {
 	asyncHdr->msg_code = e.GetErrno();
-
-    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+    LOGMIGRATE << logString(*asyncHdr) << logString(*message) << " sending async resp with err: " << e;
 
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetRspMsg),
                        fpi::CtrlNotifyInitialBlobFilterSetRspMsg());
@@ -142,7 +145,9 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    auto dmReq = new DmIoMigrationDeltaBlobDesc(message);
+    NodeUuid srcUuid;
+    srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
@@ -174,6 +179,7 @@ void DmMigrationDeltaBlobDescHandler::handleResponseReal(boost::shared_ptr<fpi::
                         Error const& e)
 {
 	asyncHdr->msg_code = e.GetErrno();
+	LOGMIGRATE << logString(*asyncHdr) << " sending async resp with error " << e;
 
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescRspMsg),
                        fpi::CtrlNotifyDeltaBlobDescRspMsg());
@@ -191,7 +197,10 @@ DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)
 void DmMigrationDeltaBlobHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
-    auto dmReq = new DmIoMigrationDeltaBlobs(message);
+
+    NodeUuid srcUuid;
+    srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
+    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message);
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
@@ -216,6 +225,7 @@ void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
                         Error const& e, DmRequest* dmRequest) {
 	asyncHdr->msg_code = e.GetErrno();
 
+	LOGMIGRATE << logString(*asyncHdr) << " sending async resp";
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
                        fpi::CtrlNotifyDeltaBlobsRspMsg());
 
@@ -233,7 +243,10 @@ DmMigrationTxStateHandler::DmMigrationTxStateHandler(DataMgr& dataManager)
 
 void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                         fpi::CtrlNotifyTxStateMsgPtr& message) {
-    auto dmReq = new DmIoMigrationTxState(message);
+
+    NodeUuid destUuid;
+    destUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
+    auto dmReq = new DmIoMigrationTxState(destUuid, message);
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
@@ -257,6 +270,7 @@ void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>&
                         Error const& e, DmRequest* dmRequest) {
     asyncHdr->msg_code = e.GetErrno();
 
+	LOGMIGRATE << logString(*asyncHdr) << " sending async resp with err: " << e;
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateRspMsg),
                        fpi::CtrlNotifyTxStateRspMsg());
 

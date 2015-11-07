@@ -8,10 +8,10 @@ import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
 import org.apache.thrift.TException;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -30,7 +30,7 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() throws IOException {
 
     }
 
@@ -40,8 +40,17 @@ public class FakeAsyncAm implements AsyncAm {
     }
 
     @Override
-    public CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, BlobListOrder order, boolean descending) {
-        return CompletableFuture.completedFuture(new ArrayList<BlobDescriptor>());
+    public CompletableFuture<VolumeContents> volumeContents(String domainName,
+                                                                  String volumeName,
+                                                                  int count,
+                                                                  long offset,
+                                                                  String pattern,
+                                                                  PatternSemantics patternSemantics,
+                                                                  String delimiter,
+                                                                  BlobListOrder order,
+                                                                  boolean descending)
+    {
+        return CompletableFuture.completedFuture(new VolumeContents(new ArrayList<>(), new ArrayList<>()));
     }
 
     @Override

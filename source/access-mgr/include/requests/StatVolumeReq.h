@@ -19,8 +19,8 @@ struct StatVolumeReq : AmRequest {
         fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
     }
 
-    /// Status info to be returned
-    fpi::VolumeStatus volumeStatus;
+    size_t blob_count {0};
+    size_t size {0};
 };
 
 }  // namespace fds

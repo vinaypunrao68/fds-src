@@ -61,10 +61,13 @@ public class Configuration {
     public static final String FDS_XDI_NFS_THREAD_POOL_SIZE                 = "fds.xdi.nfs_thread_pool_size";
     public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE           = "fds.xdi.nfs_thread_pool_queue_size";
     public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
-    public static final String FDS_XDI_NFS_STATS                            = "fds.xdi.nfs_stats";
-    public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES           = "fds.xdi.nfs_defer_metatada_updates";
+    public static final String FDS_XDI_NFS_STATS = "fds.xdi.nfs_stats";
+    public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES = "fds.xdi.nfs_defer_metatada_updates";
+    public static final String FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES = "fds.xdi.nfs_max_live_nfs_cookies";
 
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
+    public static final String FDS_OM_UUID = "fds.common.om_uuid";
+    public static final String FDS_OM_NODE_UUID = "fds.pm.platform.uuid";
 
     private final String commandName;
     private final File   fdsRoot;
@@ -603,10 +606,24 @@ public class Configuration {
 
         if ( hosts.length > 1 ) {
             throw new IllegalStateException( "Unsupported OM IP List (" + FDS_OM_IP_LIST + ") " +
-                                             "configuration.  Multi-OM not currently supported" );
+                                             "configuration. Multi-OM not currently supported" );
         }
 
         return hosts[0];
+    }
+
+    public long getOMUuid() {
+        ParsedConfig platformConfig = getPlatformConfig();
+        final int omUuid = platformConfig.defaultInt( FDS_OM_UUID, 1028 );
+
+        return ( long ) omUuid;
+    }
+
+    public long getOMNodeUuid() {
+        ParsedConfig platformConfig = getPlatformConfig();
+        final int omNodeUuid = platformConfig.defaultInt( FDS_OM_NODE_UUID, 1024 );
+
+        return ( long ) omNodeUuid;
     }
 
     public NfsConfiguration getNfsConfig() {
@@ -616,6 +633,7 @@ public class Configuration {
                 platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE).intValue(),
                 platformConfig.lookup(FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS).longValue(),
                 platformConfig.lookup(FDS_XDI_NFS_STATS).booleanValue(),
-                platformConfig.lookup(FDS_XDI_NFS_DEFER_METADATA_UPDATES).booleanValue());
+                platformConfig.lookup(FDS_XDI_NFS_DEFER_METADATA_UPDATES).booleanValue(),
+                platformConfig.lookup(FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES).intValue());
     }
 }

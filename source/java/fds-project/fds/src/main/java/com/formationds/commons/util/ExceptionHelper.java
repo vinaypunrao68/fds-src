@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.TunneledException;
 import com.formationds.commons.util.functional.ExceptionThrowingConsumer;
+import com.formationds.commons.util.functional.ExceptionThrowingFunction;
 import com.formationds.commons.util.functional.ExceptionThrowingRunnable;
 
 // @eclipseFormat:off
@@ -133,6 +136,16 @@ public final class ExceptionHelper {
     {
         untunnel(() -> to.accept(tunnel(from, tunnelType)), tunnelType);
     }
+    
+    public static <InT, BetweenT, OutT, InE extends Exception, OutE extends Exception> OutT tunnel(
+            Class<InE> inTunnelType,
+            ExceptionThrowingFunction<Function<? super InT, ? extends BetweenT>, ? extends OutT, OutE> to,
+            ExceptionThrowingFunction<? super InT, ? extends BetweenT, InE> from) throws InE, OutE
+    {
+        Function<InT, BetweenT> inner = tunnel(from, inTunnelType);
+        
+        return untunnel(to, inner, inTunnelType);
+    }
 
     /**
      * Tunnel an exception if it occurs.
@@ -153,6 +166,13 @@ public final class ExceptionHelper {
         return arg -> tunnelNow(() -> consumer.accept(arg), tunnelType);
     }
 
+    public static <InT, BetweenT, OutT, E extends Exception> Function<InT, BetweenT> tunnel(
+            ExceptionThrowingFunction<? super InT, ? extends BetweenT, ? extends E> func,
+            Class<E> tunnelType)
+    {
+        return arg -> tunnelNow(inArg -> func.apply(inArg), arg, tunnelType);
+    }
+    
     /**
      * Immediately execute code and tunnel an exception.
      * 
@@ -187,6 +207,32 @@ public final class ExceptionHelper {
         }
     }
 
+    public static <InT, BetweenT, OutT, E extends Exception> BetweenT tunnelNow(
+            ExceptionThrowingFunction<? super InT, ? extends BetweenT, ? extends E> inner,
+            InT argument,
+            Class<E> tunnelType)
+    {
+        try
+        {
+            return inner.apply(argument);
+        }
+        catch (RuntimeException re)
+        {
+            throw re;
+        }
+        catch (Throwable t)
+        {
+            if (tunnelType.isAssignableFrom(t.getClass()))
+            {
+                throw new TunneledException(t);
+            }
+            else
+            {
+                throw new RuntimeException("Unexpected exception.", t);
+            }
+        }
+    }
+    
     /**
      * Throw the original exception after executing tunneled code.
      * 
@@ -235,6 +281,41 @@ public final class ExceptionHelper {
         {
             rethrowTunneled(e, tunnelType);
         }
+    }
+    
+    public static <OutT, E extends Exception> OutT untunnel(
+            Supplier<? extends OutT> outer,
+            Class<E> tunnelType) throws E
+    {
+        try
+        {
+            return outer.get();
+        }
+        catch (TunneledException e)
+        {
+            rethrowTunneled(e, tunnelType);
+        }
+        // FIXME: Shouldn't be necessary.
+        return null;
+    }
+    
+    public static <InT, BetweenT, OutT, InE extends Exception, OutE extends Exception> OutT untunnel(
+            ExceptionThrowingFunction<Function<? super InT, ? extends BetweenT>,
+                                      ? extends OutT,
+                                      ? extends OutE> outer,
+            Function<? super InT, ? extends BetweenT> inner,
+            Class<InE> tunnelType) throws InE, OutE
+    {
+        try
+        {
+            return outer.apply(inner);
+        }
+        catch (TunneledException e)
+        {
+            rethrowTunneled(e, tunnelType);
+        }
+        // FIXME: Shouldn't be necessary.
+        return null;
     }
 
     /**

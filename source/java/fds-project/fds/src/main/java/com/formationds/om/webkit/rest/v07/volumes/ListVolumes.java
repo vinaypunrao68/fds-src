@@ -24,7 +24,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;

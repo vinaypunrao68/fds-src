@@ -13,6 +13,7 @@ sys.path.append(os.path.join(os.getcwd(), 'fdslib'))
 sys.path.append(os.path.join(os.getcwd(), 'fdslib/pyfdsp'))
 
 
+from svc_types.ttypes import *
 from common.ttypes import *
 from FDS_ProtocolInterface.ttypes import *
 from svc_api.ttypes import *

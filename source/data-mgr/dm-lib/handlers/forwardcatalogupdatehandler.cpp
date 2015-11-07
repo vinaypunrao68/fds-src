@@ -26,7 +26,9 @@ ForwardCatalogUpdateHandler::ForwardCatalogUpdateHandler(DataMgr& dataManager)
 void ForwardCatalogUpdateHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::ForwardCatalogMsg>& message) {
-    auto dmReq = new DmIoFwdCat(message);
+	NodeUuid srcUuid;
+	srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
+    auto dmReq = new DmIoFwdCat(srcUuid, message);
     DBG(LOGMIGRATE << "Enqueued new forward request " << logString(*asyncHdr)
         << " " << *reinterpret_cast<DmIoFwdCat*>(dmReq));
     /* Route the message to right executor.  If static migration is in progress
@@ -35,8 +37,8 @@ void ForwardCatalogUpdateHandler::handleRequest(
      */
     auto error = dataManager.dmMigrationMgr->handleForwardedCommits(dmReq);
 
-    /* Ack back immediately */
     asyncHdr->msg_code = error.GetErrno();
+    LOGDEBUG << "Sending " << *reinterpret_cast<DmIoFwdCat*>(dmReq) << " response with " << error;
     DM_SEND_ASYNC_RESP(*asyncHdr, fpi::ForwardCatalogRspMsgTypeId, fpi::ForwardCatalogRspMsg());
 }
 
@@ -52,8 +54,14 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     	 * Need to signal to the migration manager that active Forwards is complete and
     	 * there will not be anymore forwards.
     	 */
+    	NodeUuid srcUuid(typedRequest->srcUuid);
     	dataManager.dmMigrationMgr->
-			finishActiveMigration(fds_volid_t(typedRequest->fwdCatMsg->volume_id));
+			finishActiveMigration(srcUuid, fds_volid_t(typedRequest->fwdCatMsg->volume_id));
+
+    	// finishActiveMigration would potentially remove the executor so the cb
+    	// set above in handleRequest would no longer be valid.
+    	helper.skipImplicitCb = true;
+    	delete dmRequest;
     	return;
     }
 

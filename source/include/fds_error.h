@@ -84,6 +84,8 @@ namespace fds {
     ADD(ERR_SERVICE_CAPACITY_FULL,= 64,"Service ran out of disk capacity"), \
     ADD(ERR_SERVICE_CAPACITY_DANGEROUS,= 65,"Service is at dangerous used disk capacity level"), \
     ADD(ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS,= 66,"Pattern semantics not recognized"), \
+    ADD(ERR_TIMER_TASK_NOT_SCHEDULED,= 67,"Timer task was not scheduled"), \
+    ADD(ERR_FEATURE_DISABLED,= 68,"Feature disabled"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
@@ -151,7 +153,11 @@ namespace fds {
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \
     /* Endpoint doesn't exist */    \
-    ADD(ERR_EP_NON_EXISTANT, ,"  "), \
+    ADD(ERR_EP_NON_EXISTANT, ,"  "),        \
+    \
+    /* File Errors */ \
+    ADD(ERR_FILE_DOES_NOT_EXIST,= 3100 ,"  "),      \
+    ADD(ERR_CHECKSUM_MISMATCH, ,"  "),      \
     \
     /* SVC Request realted */   \
     ADD(ERR_SVC_REQUEST_FAILED,= 4000," "), \

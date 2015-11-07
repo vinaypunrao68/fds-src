@@ -17,7 +17,7 @@ import com.formationds.commons.model.Node;
 import com.formationds.commons.model.Service;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.protocol.FDSP_Uuid;
+import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -46,7 +46,7 @@ public class RemoveService implements RequestHandler {
 		//TODO:  This is silly.  First of all I shouldn't need the node ID if I have the service ID.
 		//  Secondly, I shouldn't need the node name if I have the ID!  Now I need to loop through 
 		// nodes to find a name I shouldn't need.
-        List<com.formationds.protocol.FDSP_Node_Info_Type> list =
+        List<com.formationds.protocol.svc.types.FDSP_Node_Info_Type> list =
                 client.ListServices( 0 );
         
         Map<String, Node> nodeMap = (new ListNodes(client)).computeNodeMap(list);

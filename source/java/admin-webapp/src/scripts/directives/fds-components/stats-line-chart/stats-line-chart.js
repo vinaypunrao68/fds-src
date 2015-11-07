@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/stats-line-chart/stats-line-chart.html',
         // duration is in hours, interval is in seconds
-        scope: { data: '=ngModel', colors: '=?', lineColors: '=?', yLabelFunction: '=?', domainLabels: '=?', stat: '@', lineType: '@', duration: '=?', title:"@" },
+        scope: { data: '=ngModel', colors: '=?', lineColors: '=?', yLabelFunction: '=?', domainLabels: '=?', stat: '=', lineType: '@', duration: '=?', title:"=?", min: "=?", max: "=?" },
         controller: function( $scope, $element ){
             
             if ( !angular.isDefined( $scope.duration ) ){
@@ -15,6 +15,10 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
             
             if ( !angular.isDefined( $scope.interval ) ){
                 $scope.interval = 3;
+            }
+            
+            if ( !angular.isDefined( $scope.title ) ){
+                title = $scope.stat;
             }
             
             // new stats are reported through an event so you can have 1 master poller.
@@ -30,9 +34,10 @@ angular.module( 'charts' ).directive( 'statsLineChart', function(){
                     
                     var data = newStats[i].payload;
                     data = JSON.parse( data );
-
+                    
                     if ( data.metricName === $scope.stat ){
-                        timeSum += data.metricValue;
+//                        console.log( 'Found one: ' + data.metricName + ': ' + parseInt(data.metricValue / 100000 ) );
+                        timeSum += parseInt( data.metricValue / 100000 );
                         numStats++;
                     }
                 }

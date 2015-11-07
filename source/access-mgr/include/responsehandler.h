@@ -11,8 +11,8 @@
 #include <fds_defines.h>
 #include <fds_error.h>
 #include <fds_typedefs.h>
-#include <fdsp/dm_types_types.h>
 #include <fdsp/xdi_types.h>
+#include <fdsp/common_types.h>
 #include <fdsp/config_types_types.h>
 #include <blob/BlobTypes.h>
 
@@ -26,6 +26,7 @@ namespace fds {
  */
 enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
+struct BlobDescriptor;
 struct VolumeDesc;
 
 /**
@@ -35,14 +36,9 @@ struct VolumeDesc;
  */
 
 struct Callback {
-    FDSN_Status status = FDSN_StatusErrorUnknown;
-    Error error = ERR_MAX;
+    fpi::ErrorCode error = fpi::OK;
 
-    void operator()(FDSN_Status status = FDSN_StatusErrorUnknown);
-    void call(FDSN_Status status);
-    void call(Error err);
-    bool isStatusSet();
-    bool isErrorSet();
+    void call(fpi::ErrorCode err);
 
     virtual void call() = 0;
     virtual ~Callback() = default;
@@ -107,12 +103,14 @@ struct GetBucketCallback {
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
 
-    boost::shared_ptr<std::vector<fpi::BlobDescriptor>> vecBlobs;
+    boost::shared_ptr<std::vector<fds::BlobDescriptor>> vecBlobs;
+    boost::shared_ptr<std::vector<std::string>> skippedPrefixes;
 };
 
 struct StatVolumeCallback {
     TYPE_SHAREDPTR(StatVolumeCallback);
-    fpi::VolumeStatus volStat;
+    size_t blob_count {0};
+    size_t current_usage_bytes {0};
 };
 
 struct SetVolumeMetadataCallback {};

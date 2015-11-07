@@ -41,7 +41,7 @@ public class FdsStorageModule implements IStorageModule {
 
     @Override
     public long getSizeInBlocks() {
-        return descriptor.getPolicy().blockDeviceSizeInBytes / VIRTUAL_BLOCK_SIZE;
+        return descriptor.getPolicy().getBlockDeviceSizeInBytes() / VIRTUAL_BLOCK_SIZE;
     }
 
     @Override
@@ -97,7 +97,7 @@ public class FdsStorageModule implements IStorageModule {
 
     private CompletableFuture<Void> readFrame(FdsObjectFrame frame, byte[] bytes, int arrayOffset) {
         CompletableFuture<Void> result = new CompletableFuture<>();
-        am.getBlob(fdsDomain, descriptor.name, ISCSI_BLOB_NAME, frame.internalLength + frame.internalOffset, new ObjectOffset(frame.objectOffset))
+        am.getBlob(fdsDomain, descriptor.getName(), ISCSI_BLOB_NAME, frame.internalLength + frame.internalOffset, new ObjectOffset(frame.objectOffset))
                 .whenComplete((buf, ex) -> {
                     FdsObjectFrame fr = frame;
                     byte[] b = bytes;

@@ -13,10 +13,12 @@ namespace fds {
 
 ObjectPersistData::ObjectPersistData(const std::string &modName,
                                      SmIoReqHandler *data_store,
-                                     UpdateMediaTrackerFnObj fn)
+                                     UpdateMediaTrackerFnObj fn,
+                                     EvaluateObjSetFn evalFn)
         : Module(modName.c_str()),
           shuttingDown(false),
           mediaTrackerFn(fn),
+          evaluateObjSetFn(evalFn),
           scavenger(new ScavControl("SM Disk Scavenger", data_store, this)) {
 }
 
@@ -95,7 +97,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                 // also open old file if compaction is in progress
                 if (diskMap->superblock->compactionInProgress(*cit, tier)) {
                     fds_uint16_t oldFileId = getShadowFileId(fileId);
-                    err = openTokenFile(diskio::diskTier, *cit, oldFileId);
+                    err = openTokenFile(tier, *cit, oldFileId);
                     fds_verify(err.ok());
                 }
             } else {
@@ -551,6 +553,13 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
     (*retStat).tkn_id = smTokId;
     (*retStat).tkn_tot_size = fdesc->get_total_bytes();
     (*retStat).tkn_reclaim_size = fdesc->get_deleted_bytes();
+}
+
+void
+ObjectPersistData::evaluateSMTokenObjSets(const fds_token_id& smToken,
+                                          const diskio::DataTier& tier,
+                                          diskio::TokenStat &tokStats) {
+    evaluateObjSetFn(smToken, tier, tokStats);
 }
 
 Error

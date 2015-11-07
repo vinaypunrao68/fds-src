@@ -60,6 +60,16 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     	// Nothing
     }
 
+    void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg) {
+    	// Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+
+    void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) {
+    	// Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override
     {

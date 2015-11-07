@@ -56,6 +56,16 @@ void UpdateCatalogOnceHandler::handleRequest(
     dmUpdCatReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleResponse, asyncHdr, message);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
+    dmCommitBlobOnceReq->ioBlobTxDesc = dmUpdCatReq->ioBlobTxDesc;
+
+    (static_cast<DmIoCommitBlobTx*>(dmCommitBlobOnceReq))->localCb =
+								std::bind(&UpdateCatalogOnceHandler::handleResponseCleanUp,
+								this,
+								asyncHdr,
+								message,
+								std::placeholders::_1,
+								dmCommitBlobOnceReq);
+
 
     addToQueue(dmUpdCatReq);
 }
@@ -151,6 +161,8 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
     if (dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
+        // Potential meta list corruption here... reopen FS-3355
+        // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
     }
@@ -160,6 +172,26 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
     if (dataManager.testUturnAll || dataManager.testUturnUpdateCat) {
         fds_verify(dmRequest == nullptr);
     } else {
+         if (dmRequest && !static_cast<DmIoCommitBlobTx*>(dmRequest)->usedForMigration) {
+             delete dmRequest;
+         }
+    }
+}
+
+void UpdateCatalogOnceHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                                     boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
+                                                     Error const& e, DmRequest* dmRequest) {
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
         delete dmRequest;
     }
 }

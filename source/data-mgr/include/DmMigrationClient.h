@@ -19,6 +19,8 @@ class DataMgr;
 typedef std::function<void (fds_volid_t clientId,
                             const Error& error)> DmMigrationClientDoneHandler;
 
+using incrementCountFunc = std::function<void()>;
+
 class DmMigrationClient : public DmMigrationBase {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
@@ -36,7 +38,9 @@ class DmMigrationClient : public DmMigrationBase {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error processBlobFilterSet();
+    Error processBlobFilterSet(incrementCountFunc inTracker);
+
+    Error processBlobFilterSet2();
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
@@ -60,6 +64,8 @@ class DmMigrationClient : public DmMigrationBase {
 
     /**
      * Forward the committed blob to the destination side.
+     * Note: Because DmMigrationMgr can't check forward I/O at this point,
+     * this method will only forward if the internal atomic var says it's ok.
      */
     Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     						   blob_version_t blob_version,
@@ -187,6 +193,11 @@ class DmMigrationClient : public DmMigrationBase {
     void resetSeqNumBlobs();
 
     /**
+     * Used between processBlobFilterSet part 1 and 2
+     */
+    DmCommitLog::ptr commitLog;
+
+    /**
      * sequence number apis for blobs.
      * When getSeqNumBlobDesc() is called, it will automatically increment.
      */
@@ -201,6 +212,9 @@ class DmMigrationClient : public DmMigrationBase {
     // Used for abort cleanup
     fds_mutex  ssTakenScopeLock;
     fds_bool_t snapshotTaken;
+
+    // Function pointer for incrementing count per message sent
+    incrementCountFunc trackerFunc;
 
 };  // DmMigrationClient
 

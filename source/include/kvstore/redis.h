@@ -57,6 +57,7 @@ namespace redis {
         void toVector(std::vector<uint>& vec); // NOLINT
         void toVector(std::vector<uint64_t>& vec); //NOLINT
         void toVector(std::vector<int64_t>& vec); //NOLINT
+        void toVector(std::vector<int32_t>& vec); //NOLINT
 
         void dump() const;
 
@@ -136,6 +137,7 @@ namespace redis {
         // strings
         bool set(const std::string& key, const std::string& value);
         Reply get(const std::string& key);
+        bool exists(const std::string& key);
         bool del(const std::string& key);
         Reply append(const std::string& key, const std::string& value);
         int64_t incr(const std::string& key, int64_t increment = 1);
@@ -148,6 +150,7 @@ namespace redis {
 
         // hashes
         bool hset(const std::string& key, const std::string& field, const std::string& value); //NOLINT
+        bool hset(const std::string& key, const std::string& field, const std::int64_t value); //NOLINT
         bool hset(const std::string& key, int64_t field, const std::string& value); //NOLINT
         bool hexists(const std::string& key, int64_t field);
         bool hexists(const std::string& key, const std::string field);
@@ -165,6 +168,7 @@ namespace redis {
 
         bool sadd(const std::string& key, const std::string& value);
         bool sadd(const std::string& key, const int64_t value);
+        bool sadd(const std::string& key, const std::int32_t value);
 
         bool srem(const std::string& key, const std::string& value);
         bool srem(const std::string& key, const int64_t value);

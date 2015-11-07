@@ -53,21 +53,53 @@ public final class Fds
              */
             public static URI getBase()
             {
-                final String scheme = "https";
                 final String host = getFdsHost();
-                final int omPort = getOmPort();
-                final String path = "/fds/config/v08/";
 
+                return getBase(host);
+            }
+            
+            public static URI getBase(String host)
+            {
+                if (host == null) throw new NullArgumentException("host");
+                
+                final int port = getOmPort();
+                
+                return getBase(host, port);
+            }
+            
+            public static URI getBase(String host, int port)
+            {
+                if (host == null) throw new NullArgumentException("host");
+                
+                final String scheme = "https";
+                final String path = "/fds/config/v08/";
+                
                 try
                 {
-                    return new URI(scheme, null, host, omPort, path, null, null);
+                    return new URI(scheme, null, host, port, path, null, null);
                 }
                 catch (URISyntaxException e)
                 {
-                    throw newUriConstructionException(scheme, null, host, omPort, path);
+                    throw newUriConstructionException(scheme, null, host, port, path);
                 }
             }
 
+            public static URI getTenants()
+            {
+            	final URI apiBase = V08.getBase();
+            	final URI tenantsPath = Uris.tryGetRelativeUri("tenants/");
+            	
+            	return Uris.resolve(apiBase, tenantsPath);
+            }
+
+            public static URI getUsers()
+            {
+                final URI apiBase = V08.getBase();
+                final URI usersPath = Uris.tryGetRelativeUri("users/");
+                
+                return Uris.resolve(apiBase, usersPath);
+            }
+            
             /**
              * URL to get system volumes.
              *
@@ -104,21 +136,37 @@ public final class Fds
         @Replacement("API_BASE")
         public static URI getBase()
         {
-            final String scheme = "https";
             final String host = getFdsHost();
-            final int omPort = getOmPort();
-            final String path = "/api/";
+            
+            return getBase(host);
+        }
 
+        public static URI getBase(String host)
+        {
+            if (host == null) throw new NullArgumentException("host");
+            
+            final int port = getOmPort();
+            
+            return getBase(host, port);
+        }
+        
+        public static URI getBase(String host, int port)
+        {
+            if (host == null) throw new NullArgumentException("host");
+            
+            final String scheme = "https";
+            final String path = "/api/";
+            
             try
             {
-                return new URI(scheme, null, host, omPort, path, null, null);
+                return new URI(scheme, null, host, port, path, null, null);
             }
             catch (URISyntaxException e)
             {
-                throw newUriConstructionException(scheme, null, host, omPort, path);
+                throw newUriConstructionException(scheme, null, host, port, path);
             }
         }
-
+        
         /**
          * OM volume list URI.
          * 
@@ -353,8 +401,9 @@ public final class Fds
             }
             if (maxExclusive <= minInclusive)
             {
-                throw new IllegalArgumentException("Arguments must be minInclusive < maxExclusive. Received "
-                                                   + minInclusive + ", " + maxExclusive + ".");
+                throw new IllegalArgumentException(
+                        "Arguments must be minInclusive < maxExclusive. Received "
+                        + minInclusive + ", " + maxExclusive + ".");
             }
 
             return minInclusive + nextInt(maxExclusive - minInclusive);
@@ -489,20 +538,28 @@ public final class Fds
     @Replacement("S3_ENDPOINT")
     public static URI getS3Endpoint()
     {
-        final String scheme = "https";
         final String host = getFdsHost();
-        final int s3Port = getS3Port();
 
+        return getS3Endpoint(host);
+    }
+
+    public static URI getS3Endpoint(String host)
+    {
+        if (host == null) throw new NullArgumentException("host");
+
+        final String scheme = "https";
+        final int port = getS3Port();
+        
         try
         {
-            return new URI(scheme, null, host, s3Port, null, null, null);
+            return new URI(scheme, null, host, port, null, null, null);
         }
         catch (URISyntaxException e)
         {
-            throw newUriConstructionException(scheme, null, host, s3Port, null);
+            throw newUriConstructionException(scheme, null, host, port, null);
         }
     }
-
+    
     /**
      * Get the port the S3 service is running on.
      * 

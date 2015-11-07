@@ -74,27 +74,24 @@ class FdsNodeConfig(FdsConfig):
                     log.error("Need to provide inventory file name to run tests against deployed nodes")
                     sys.exit(1)
 
-                ips_array = TestUtils.get_ips_from_inventory(cmd_line_options['inventory_file'],rt_env)
+                ips_array = TestUtils.read_ips_from_tmp(cmd_line_options['inventory_file'])
                 if (ips_array.__len__() < (nodeId+1)):
-                    #TODO POOJA: for now just give warning to user, instead of raising exception
+                    # In this IPs count mismatch, we ignore extra IPs in cfg file
                     log.warning ("Number of ips give in inventory are less than nodes in cfg file")
 
-                if 'om' in self.nd_conf_dict:
-                    #TODO Pooja: do more correctly, currently assuming that first ip in list is OM IP
-                    self.nd_conf_dict['ip'] = ips_array[nodeId]
                 else:
                     self.nd_conf_dict['ip'] = ips_array[nodeId]
 
-                # In this case, the deployment scripts always sets "/fds" as fds_root
-                # regardless of test configuration.
-                self.nd_conf_dict['fds_root'] = '/fds'
+                    # In this case, the deployment scripts always sets "/fds" as fds_root
+                    # regardless of test configuration.
+                    self.nd_conf_dict['fds_root'] = '/fds'
 
-                # Additionally, the deployment scripts always sets the node's base port as 7000
-                # regardless of test configuration.
-                self.nd_conf_dict['fds_port'] = '7000'
+                    # Additionally, the deployment scripts always sets the node's base port as 7000
+                    # regardless of test configuration.
+                    self.nd_conf_dict['fds_port'] = '7000'
 
-                # Additionally, we currently always need to boot Redis for a non-local node.
-                self.nd_conf_dict['redis'] = 'true'
+                    # Additionally, we currently always need to boot Redis for a non-local node.
+                    self.nd_conf_dict['redis'] = 'true'
 
     ###
     # Establish ssh connection with the remote node.  After this call, the obj
@@ -420,6 +417,8 @@ class FdsNodeConfig(FdsConfig):
         else:
             log_dir = _log_dir
 
+        if self.nd_cmd_line_options['install'] is True:
+            self.nd_agent.ssh_exec_fds("mkdir -p /fds/var/logs/")
         print "Start platform daemon on %s in %s" % (self.nd_host_name(),fds_dir)
 
         # When running from the test harness, we want to wait for results
@@ -461,9 +460,10 @@ class FdsNodeConfig(FdsConfig):
                     break
             else:
                 #For AWS cluster each node port is same but ip addr is diff, so use ipaddress
-                if self.nd_conf_dict['ip'] == node.address.ipv4address:
+                if self.nd_conf_dict['ip'].strip() == node.address.ipv4address.strip():
                     self.nd_assigned_name = 'pm'
                     self.nd_uuid = hex(int(node.id))
+                    break
 
         if (self.nd_uuid is None):
             log.error("Could not get meta-data for node %s." % self.nd_conf_dict["node-name"])
@@ -550,7 +550,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -f hdd-* ssd-*')
+                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -rf hdd-* ssd-* disk-map')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
@@ -873,7 +873,7 @@ class FdsPkgInstallConfig(FdsConfig):
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, rt_env=None):
+    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, reusecluster = False, rt_env=None):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
@@ -891,15 +891,17 @@ class FdsConfigFile(object):
         self.cfg_parser    = None
         self.cfg_localHost = None
         self.inventory = inventory_file
-        self.cfg_is_fds_installed = install
+        self.cfg_remote_nodes = install
         self.rt_env = rt_env
+        self.cfg_reusecluster = reusecluster
 
     def config_parse(self):
         cmd_line_options = {
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun,
-            'install': self.cfg_is_fds_installed,
-            'inventory_file' : self.inventory
+            'install': self.cfg_remote_nodes,
+            'inventory_file' : self.inventory,
+            'reusecluster' : self.cfg_reusecluster
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
@@ -908,6 +910,16 @@ class FdsConfigFile(object):
             sys.exit (1)
 
         nodeID = 0
+        number_of_nodes = 0
+        for section in self.cfg_parser.sections():
+            if re.match('node', section):
+                number_of_nodes += 1
+
+        if cmd_line_options['install'] is True and cmd_line_options['reusecluster'] is not True:
+            inventory_file = cmd_line_options['inventory_file']
+            install_result = TestUtils.deploy_on_AWS(self,number_of_nodes,inventory_file)
+            assert(install_result,True)
+
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
             if re.match('user', section) != None:
@@ -935,7 +947,11 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    self.cfg_nodes.append(n)
+                    if self.cfg_remote_nodes is True and n.nd_conf_dict['ip'] == 'localhost':
+                        # It's an extra IP in cfg and ignore it while running against AWS
+                        print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
+                    else:
+                        self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
 
             elif (re.match('sh', section) != None) or (re.match('am', section) != None):
@@ -998,7 +1014,7 @@ class FdsConfigRun(object):
             self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
-        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file, self.rt_env )
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file,opt.reusecluster, self.rt_env )
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.
@@ -1033,6 +1049,10 @@ class FdsConfigRun(object):
             quiet_ssh = True
 
         nodes = self.rt_obj.cfg_nodes
+        if opt.install is True:
+            # Extra Ips in cfg file are removed from list who's address was not over written
+            del_list = [ind for ind, node in enumerate(nodes) if node.nd_conf_dict["ip"]=='localhost']
+            nodes = [node for ind, node in enumerate(nodes) if ind not in del_list]
 
         for n in nodes:
             n.nd_connect_agent(self.rt_env, quiet_ssh)

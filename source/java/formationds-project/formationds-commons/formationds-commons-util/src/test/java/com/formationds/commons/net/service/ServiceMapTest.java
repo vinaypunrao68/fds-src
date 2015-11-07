@@ -8,7 +8,7 @@ package com.formationds.commons.net.service;
 import com.formationds.commons.TestBase;
 import com.formationds.commons.util.NodeUtils;
 import com.formationds.commons.util.net.service.ServiceMap;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 import org.junit.Assert;
 import org.junit.Before;

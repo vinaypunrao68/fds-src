@@ -26,4 +26,13 @@
 
 #define TYPE_SHAREDPTR(T) typedef boost::shared_ptr<T> ptr
 #define SHPTR boost::shared_ptr
+
+#ifndef DONTLOGLINE
+#define _ATLINE_ << "[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
+#else
+#define _ATLINE_
+#endif
+
+#define __CLASS_NAME__ fds::classNameFromPrettyFunc(__PRETTY_FUNCTION__)
+#define LOGCONSOLE std::cerr _ATLINE_
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_

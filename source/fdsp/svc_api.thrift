@@ -5,7 +5,6 @@
 
 include "svc_types.thrift"
 
-include "FDSP.thrift"
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
@@ -37,9 +36,9 @@ struct CtrlNotifyDMTUpdate {
  */
 struct CtrlNotifyVolAdd {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
   /**  */
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -47,8 +46,8 @@ struct CtrlNotifyVolAdd {
  */
 struct CtrlNotifyVolRemove {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -56,8 +55,8 @@ struct CtrlNotifyVolRemove {
  */
 struct CtrlNotifyVolMod {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -65,8 +64,18 @@ struct CtrlNotifyVolMod {
  */
 struct CtrlNotifySnapVol {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag  vol_flag;
+}
+
+/**
+ * A pull model similar to getDLT/getDMT that asks OM to send a list
+ * of all the volume descriptors. This msg is simply an "ask"
+ * and the response will contain the list of volumes.
+ * Note: Similar to above, right now these are all NotifyVolAdd
+ */
+struct GetAllVolumeDescriptors {
+    1: list<CtrlNotifyVolAdd> volumeList;
 }
 
 /**
@@ -139,7 +148,7 @@ service PlatNetSvc {
      * @return
      */
     list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
-    oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
+    oneway void notifyNodeActive(1: svc_types.FDSP_ActivateNodeType info);
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);
     svc_types.DomainNodes getDomainNodes(1: svc_types.DomainNodes dom);

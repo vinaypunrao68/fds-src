@@ -18,7 +18,8 @@ class DataMgr;
 /**
  * 	Simple callback to ensure that firing off the migration msg was ok
  */
-typedef std::function<void (fds_volid_t volumeId,
+typedef std::function<void (NodeUuid srcNodeUuid,
+							fds_volid_t volumeId,
                             const Error& error)> DmMigrationExecutorDoneCb;
 
 class DmMigrationExecutor : public DmMigrationBase {
@@ -87,10 +88,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      */
     Error applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg);
 
-    inline fds_bool_t shouldAutoExecuteNext()
-    {
-    	return autoIncrement;
-    }
+    fds_bool_t shouldAutoExecuteNext();
 
     /**
      * Destination DM:
@@ -108,6 +106,10 @@ class DmMigrationExecutor : public DmMigrationBase {
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
     void abortMigration();
+
+    inline bool isMigrationComplete() {
+    	return (migrationProgress == MIGRATION_COMPLETE);
+    }
 
   private:
     /** Reference to the DataManager
@@ -177,7 +179,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     /**
      * Mutex for blob offset list and blob descriptor list coordination
      */
-    std::mutex blobDescListMutex;
+    fds_mutex blobDescListMutex;
 
     /**
      * List of blob descriptors that have been queued waiting for

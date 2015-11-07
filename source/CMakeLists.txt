@@ -3,160 +3,223 @@ project(source)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+set(INCLUDE_DIRECTORIES
+    .
+
+    ./include
+    ./include/access-mgr
+    ./include/apis
+    ./include/blob
+    ./include/cache
+    ./include/concurrency
+    ./include/fdsp
+    ./include/hash
+    ./include/json
+    ./include/kvstore
+    ./include/leveldb
+    ./include/native
+    ./include/net
+    ./include/nginx-driver
+    ./include/orch-mgr
+    ./include/persistent-layer
+    ./include/platform
+    ./include/shared
+    ./include/util
+    ./include
+    ./lib
+    ./lib/misc
+    ./platform/include
+
+    ./access-mgr/include
+    ./access-mgr/stor-hvisor
+
+    ./data-mgr/include
+    ./data-mgr/include/dm-tvc
+    ./data-mgr/include/dm-vol-cat
+
+    ./stor-mgr/include
+
+    ./orch-mgr/include
+
+    ./testlib
+
+    ./unit-test/include
+    ./unit-test/svclayer
+
+    ../gmock-1.7.0/gtest/include
+    ../gmock-1.7.0/include
+)
+include_directories(${INCLUDE_DIRECTORIES})
+
 set(SOURCE_FILES
-./access-mgr/AmBindings.cpp
-./access-mgr/am-main.cpp
-./access-mgr/amlib/AccessMgr.cpp
-./access-mgr/amlib/AmAsyncDataApi.cpp
-./access-mgr/amlib/AmAsyncResponseApi.cpp
-./access-mgr/amlib/AmAsyncService.cpp
-./access-mgr/amlib/AmCache.cpp
-./access-mgr/amlib/AmDataApi.cpp
-./access-mgr/amlib/AmDispatcher.cpp
-./access-mgr/amlib/AmProcessor.cpp
-./access-mgr/amlib/AsyncResponseHandlers.cpp
-./access-mgr/amlib/NbdConnector.cpp
-./access-mgr/amlib/NbdOperations.cpp
-./access-mgr/amlib/OmConfigService.cpp
-./access-mgr/amlib/am-tx-mgr.cpp
-./access-mgr/amlib/fdsn-server.cpp
-./access-mgr/amlib/handlers/responsehandler.cpp
-./access-mgr/amlib/requests.cpp
-./access-mgr/block/am-nbd.cpp
-./access-mgr/block/nbd-test-mod.cpp
-./access-mgr/block/nbd-test-mod.h
-./access-mgr/com_formationds_am_NativeAm.h
-./access-mgr/include/AMSvcHandler.h
-./access-mgr/include/AccessMgr.h
-./access-mgr/include/AmAsyncDataApi.h
-./access-mgr/include/AmAsyncResponseApi.h
-./access-mgr/include/AmAsyncService.h
-./access-mgr/include/AmCache.h
-./access-mgr/include/AmCounters.h
-./access-mgr/include/AmDataApi.h
-./access-mgr/include/AmDispatcher.h
-./access-mgr/include/AmProcessor.h
-./access-mgr/include/AmReqHandlers.h
-./access-mgr/include/AmRequest.h
-./access-mgr/include/AsyncResponseHandlers.h
-./access-mgr/include/NbdConnector.h
-./access-mgr/include/NbdOperations.h
-./access-mgr/include/OmConfigService.h
-./access-mgr/include/StorHvVolumes.h
-./access-mgr/include/am-nbd.h
-./access-mgr/include/am-node-workflow.h
-./access-mgr/include/am-platform.h
-./access-mgr/include/am-tx-mgr.h
-./access-mgr/include/fdsn-server.h
-./access-mgr/include/requests/AbortBlobTxReq.h
-./access-mgr/include/requests/AttachVolumeReq.h
-./access-mgr/include/requests/CommitBlobTxReq.h
-./access-mgr/include/requests/DeleteBlobReq.h
-./access-mgr/include/requests/GetBlobReq.h
-./access-mgr/include/requests/GetVolumeMetaDataReq.h
-./access-mgr/include/requests/PutBlobReq.h
-./access-mgr/include/requests/SetBlobMetaDataReq.h
-./access-mgr/include/requests/StartBlobTxReq.h
-./access-mgr/include/requests/StatBlobReq.h
-./access-mgr/include/requests/VolumeContentsReq.h
-./access-mgr/include/requests/requests.h
-./access-mgr/include/responsehandler.h
-./access-mgr/platform/AMSvcHandler.cpp
-./access-mgr/platform/am-node-workflow.cpp
-./access-mgr/platform/am-platform.cpp
-./access-mgr/stor-hvisor/StorHvCtrl.h
-./access-mgr/stor-hvisor/StorHvDataPlace.h
-./access-mgr/stor-hvisor/StorHvQosCtrl.h
-./access-mgr/stor-hvisor/hvcore/StorHvCtrl.cpp
-./access-mgr/stor-hvisor/hvcore/StorHvQosCtrl.cpp
-./access-mgr/stor-hvisor/hvcore/StorHvVolumes.cpp
-./access-mgr/test/AmFunctionalTest.cpp
-./access-mgr/test/NbdFunctionalTest.cpp
-./checker/checker.cpp
-./checker/checker.h
-./checker/dm_checker.cpp
-./checker/dm_checker.h
-./checker/smchk.cpp
-./checker/smchk.h
-./checker/smchk_driver.cpp
-./checker/smchk_driver.h
-./data-mgr/dm-lib/CatalogSync.cpp
-./data-mgr/dm-lib/CatalogSyncRecv.cpp
-./data-mgr/dm-lib/DMSvcHandler.cpp
-./data-mgr/dm-lib/DataMgr.cpp
-./data-mgr/dm-lib/DmBlobTypes.cpp
-./data-mgr/dm-lib/StatStreamAggregator.cpp
-./data-mgr/dm-lib/VolumeMeta.cpp
-./data-mgr/dm-lib/dm-tvc/CommitLog.cpp
-./data-mgr/dm-lib/dm-tvc/TimeVolumeCatalog.cpp
-./data-mgr/dm-lib/dm-tvc/TimelineDB.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmExtentTypes.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmOIDArrayMmap.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmPersistVc.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmPersistVolDB.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmPersistVolDir.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmPersistVolFile.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmVcCache.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmVolumeCatalog.cpp
-./data-mgr/dm-lib/dm-vol-cat/DmVolumeDirectory.cpp
-./data-mgr/dm-lib/handlers/abortblobtxhandler.cpp
-./data-mgr/dm-lib/handlers/commitblobtxhandler.cpp
-./data-mgr/dm-lib/handlers/deleteblobhandler.cpp
-./data-mgr/dm-lib/handlers/dmhandler.cpp
-./data-mgr/dm-lib/handlers/forwardcatalogupdatehandler.cpp
-./data-mgr/dm-lib/handlers/getblobmetadatahandler.cpp
-./data-mgr/dm-lib/handlers/getbuckethandler.cpp
-./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
-./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
-./data-mgr/dm-lib/handlers/querycataloghandler.cpp
-./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
-./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
-./data-mgr/dm-lib/handlers/statstreamhandler.cpp
-./data-mgr/dm-lib/handlers/updatecataloghandler.cpp
-./data-mgr/dm-lib/handlers/updatecatalogoncehandler.cpp
-./data-mgr/dm-main.cpp
-./data-mgr/include/CatalogSync.h
-./data-mgr/include/CatalogSyncRecv.h
-./data-mgr/include/DMSvcHandler.h
-./data-mgr/include/DataMgr.h
-./data-mgr/include/DmBlobTypes.h
-./data-mgr/include/DmIoReq.h
-./data-mgr/include/StatStreamAggregator.h
-./data-mgr/include/VcQueryIface.h
-./data-mgr/include/VolumeMeta.h
-./data-mgr/include/dm-node-workflow.h
-./data-mgr/include/dm-platform.h
-./data-mgr/include/dm-tvc/CommitLog.h
-./data-mgr/include/dm-tvc/TimeVolumeCatalog.h
-./data-mgr/include/dm-tvc/TimelineDB.h
-./data-mgr/include/dm-vol-cat/DmExtentTypes.h
-./data-mgr/include/dm-vol-cat/DmOIDArrayMmap.h
-./data-mgr/include/dm-vol-cat/DmPersistVc.h
-./data-mgr/include/dm-vol-cat/DmPersistVolDB.h
-./data-mgr/include/dm-vol-cat/DmPersistVolDir.h
-./data-mgr/include/dm-vol-cat/DmPersistVolFile.h
-./data-mgr/include/dm-vol-cat/DmVcCache.h
-./data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
-./data-mgr/include/dm-vol-cat/DmVolumeDirectory.h
-./data-mgr/include/dmhandler.h
-./data-mgr/platform/dm-node-workflow.cpp
-./data-mgr/platform/dm-platform.cpp
-./include/ClusterCommMgr.h
-./include/FdsCrypto.h
-./include/FdsRandom.h
-./include/Histogram.h
-./include/LocalClusterMap.h
-./include/NetSessRespClient.h
-./include/NetSessRespSvr.h
-./include/NetSession.h
-./include/ObjectId.h
-./include/ObjectLogger.h
-./include/PerfHistory.h
-./include/PerfTrace.h
-./include/PerfTypes.h
-./include/StatTypes.h
-./include/Tracebuffer.h
-./include/access-mgr/am-block.h
+    ./access-mgr/amlib/AccessMgr.cpp
+    ./access-mgr/amlib/AmCache.cpp
+    ./access-mgr/amlib/AmDispatcher.cpp
+    ./access-mgr/amlib/AmDispatcherMocks.hpp
+    ./access-mgr/amlib/AmProcessor.cpp
+    ./access-mgr/amlib/AmQoSCtrl.cpp
+    ./access-mgr/amlib/AMSvcHandler.cpp
+    ./access-mgr/amlib/AmTxDescriptor.cpp
+    ./access-mgr/amlib/AmTxManager.cpp
+    ./access-mgr/amlib/AmVolume.cpp
+    ./access-mgr/amlib/AmVolumeAccessToken.cpp
+    ./access-mgr/amlib/AmVolumeTable.cpp
+    ./access-mgr/amlib/handlers/responsehandler.cpp
+    ./access-mgr/connector/nbd/NbdConnection.cpp
+    ./access-mgr/connector/nbd/NbdConnector.cpp
+    ./access-mgr/connector/scst/ScstConnector.cpp
+    ./access-mgr/connector/scst/ScstDevice.cpp
+    ./access-mgr/connector/scst/ScstTarget.cpp
+    ./access-mgr/connector/scst/ScstTask.cpp
+    ./access-mgr/connector/xdi/AmAsyncService.cpp
+    ./access-mgr/connector/xdi/AmAsyncXdiResponse.cpp
+    ./access-mgr/include/connector/nbd/common.h
+    ./access-mgr/include/connector/nbd/NbdConnection.h
+    ./access-mgr/include/connector/nbd/NbdConnector.h
+    ./access-mgr/include/connector/scst/scst_const.h
+    ./access-mgr/include/connector/scst/scst_user.h
+    ./access-mgr/include/connector/scst/ScstConnector.h
+    ./access-mgr/include/connector/scst/ScstDevice.h
+    ./access-mgr/include/connector/scst/ScstTarget.h
+    ./access-mgr/include/connector/scst/ScstTask.h
+    ./access-mgr/include/connector/xdi/AmAsyncService.h
+    ./access-mgr/include/connector/xdi/AmAsyncXdi.h
+    ./access-mgr/include/requests/AbortBlobTxReq.h
+    ./access-mgr/include/requests/AttachVolumeReq.h
+    ./access-mgr/include/requests/CommitBlobTxReq.h
+    ./access-mgr/include/requests/DeleteBlobReq.h
+    ./access-mgr/include/requests/DetachVolumeReq.h
+    ./access-mgr/include/requests/GetBlobReq.h
+    ./access-mgr/include/requests/GetObjectReq.h
+    ./access-mgr/include/requests/GetVolumeMetadataReq.h
+    ./access-mgr/include/requests/PutBlobReq.h
+    ./access-mgr/include/requests/requests.h
+    ./access-mgr/include/requests/SetBlobMetaDataReq.h
+    ./access-mgr/include/requests/SetVolumeMetadataReq.h
+    ./access-mgr/include/requests/StartBlobTxReq.h
+    ./access-mgr/include/requests/StatBlobReq.h
+    ./access-mgr/include/requests/StatVolumeReq.h
+    ./access-mgr/include/requests/VolumeContentsReq.h
+    ./access-mgr/include/AccessMgr.h
+    ./access-mgr/include/AmAsyncDataApi.h
+    ./access-mgr/include/AmAsyncDataApi_impl.h
+    ./access-mgr/include/AmAsyncResponseApi.h
+    ./access-mgr/include/AmCache.h
+    ./access-mgr/include/AmDispatcher.h
+    ./access-mgr/include/AmProcessor.h
+    ./access-mgr/include/AmQoSCtrl.h
+    ./access-mgr/include/AmRequest.h
+    ./access-mgr/include/AMSvcHandler.h
+    ./access-mgr/include/AmTxDescriptor.h
+    ./access-mgr/include/AmTxManager.h
+    ./access-mgr/include/AmVolume.h
+    ./access-mgr/include/AmVolumeAccessToken.h
+    ./access-mgr/include/AmVolumeTable.h
+    ./access-mgr/include/AsyncResponseHandlers.h
+    ./access-mgr/include/responsehandler.h
+    ./access-mgr/test/AmFunctionalTest.cpp
+./access-mgr/test/BlockFunctionalTest.cpp
+    ./access-mgr/am-main.cpp
+
+    ./data-mgr/dm-lib/checker/DmChecker.cpp
+    ./data-mgr/dm-lib/checker/LeveldbDiffer.cpp
+    ./data-mgr/dm-lib/archive/ArchiveClient.cpp
+    ./data-mgr/dm-lib/dm-tvc/CommitLog.cpp
+    ./data-mgr/dm-lib/dm-tvc/TimeVolumeCatalog.cpp
+    ./data-mgr/dm-lib/dm-tvc/VolumeAccessTable.cpp
+    ./data-mgr/dm-lib/dm-vol-cat/DmOIDArrayMmap.cpp
+    ./data-mgr/dm-lib/dm-vol-cat/DmPersistVolCat.cpp
+    ./data-mgr/dm-lib/dm-vol-cat/DmPersistVolDB.cpp
+    ./data-mgr/dm-lib/dm-vol-cat/DmPersistVolFile.cpp
+    ./data-mgr/dm-lib/dm-vol-cat/DmVolumeCatalog.cpp
+    ./data-mgr/dm-lib/handlers/abortblobtxhandler.cpp
+    ./data-mgr/dm-lib/handlers/commitblobtxhandler.cpp
+    ./data-mgr/dm-lib/handlers/deleteblobhandler.cpp
+    ./data-mgr/dm-lib/handlers/dmhandler.cpp
+    ./data-mgr/dm-lib/handlers/forwardcatalogupdatehandler.cpp
+    ./data-mgr/dm-lib/handlers/getblobmetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/getbuckethandler.cpp
+    ./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
+    ./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/migrationhandler.cpp
+    ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
+    ./data-mgr/dm-lib/handlers/reloadvolumehandler.cpp
+    ./data-mgr/dm-lib/handlers/renameblobhandler.cpp
+    ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/setvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
+    ./data-mgr/dm-lib/handlers/statstreamhandler.cpp
+    ./data-mgr/dm-lib/handlers/statvolumehandler.cpp
+    ./data-mgr/dm-lib/handlers/updatecataloghandler.cpp
+    ./data-mgr/dm-lib/handlers/updatecatalogoncehandler.cpp
+    ./data-mgr/dm-lib/handlers/volumeclosehandler.cpp
+    ./data-mgr/dm-lib/handlers/volumeopenhandler.cpp
+    ./data-mgr/dm-lib/timeline/journalmanager.cpp
+    ./data-mgr/dm-lib/timeline/timelinedb.cpp
+    ./data-mgr/dm-lib/timeline/timelinemanager.cpp
+    ./data-mgr/dm-lib/CatalogSync.cpp
+    ./data-mgr/dm-lib/CatalogSyncRecv.cpp
+    ./data-mgr/dm-lib/DataMgr.cpp
+    ./data-mgr/dm-lib/DmBlobTypes.cpp
+    ./data-mgr/dm-lib/DmMigrationBase.cpp
+    ./data-mgr/dm-lib/DmMigrationClient.cpp
+    ./data-mgr/dm-lib/DmMigrationExecutor.cpp
+    ./data-mgr/dm-lib/DmMigrationMgr.cpp
+    ./data-mgr/dm-lib/DMSvcHandler.cpp
+    ./data-mgr/dm-lib/expungemanager.cpp
+    ./data-mgr/dm-lib/StatStreamAggregator.cpp
+    ./data-mgr/dm-lib/VolumeMeta.cpp
+    ./data-mgr/include/archive/ArchiveClient.h
+    ./data-mgr/include/checker/DmChecker.h
+    ./data-mgr/include/checker/LeveldbDiffer.h
+    ./data-mgr/include/dm-tvc/CommitLog.h
+    ./data-mgr/include/dm-tvc/TimeVolumeCatalog.h
+    ./data-mgr/include/dm-tvc/VolumeAccessTable.h
+    ./data-mgr/include/dm-vol-cat/DmOIDArrayMmap.h
+    ./data-mgr/include/dm-vol-cat/DmPersistVolCat.h
+    ./data-mgr/include/dm-vol-cat/DmPersistVolDB.h
+    ./data-mgr/include/dm-vol-cat/DmPersistVolFile.h
+    ./data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
+    ./data-mgr/include/timeline/journalmanager.h
+    ./data-mgr/include/timeline/timelinedb.h
+    ./data-mgr/include/timeline/timelinemanager.h
+    ./data-mgr/include/CatalogSync.h
+    ./data-mgr/include/CatalogSyncRecv.h
+    ./data-mgr/include/DataMgr.h
+    ./data-mgr/include/DataMgrIf.h
+    ./data-mgr/include/DmBlobTypes.h
+    ./data-mgr/include/dmhandler.h
+    ./data-mgr/include/DmIoReq.h
+    ./data-mgr/include/DmMigrationBase.h
+    ./data-mgr/include/DmMigrationClient.h
+    ./data-mgr/include/DmMigrationExecutor.h
+    ./data-mgr/include/DmMigrationMgr.h
+    ./data-mgr/include/DMSvcHandler.h
+    ./data-mgr/include/expungemanager.h
+    ./data-mgr/include/StatStreamAggregator.h
+    ./data-mgr/include/VcQueryIface.h
+    ./data-mgr/include/VolumeMeta.h
+    ./data-mgr/utils/dmexplorer.cpp
+    ./data-mgr/utils/dmexplorer.h
+    ./data-mgr/utils/dmexplorer_driver.cpp
+    ./data-mgr/dm-main.cpp
+    ./data-mgr/DmCheckerMain.cpp
+
+    ./include/BitSet.h
+    ./include/EclipseWorkarounds.h
+    ./include/FdsCrypto.h
+    ./include/FdsRandom.h
+    ./include/HashedArray.hpp
+    ./include/Histogram.h
+    ./include/MigrationUtility.h
+    ./include/ObjectId.h
+    ./include/ObjectLogger.h
+    ./include/PerfHistory.h
+    ./include/PerfTrace.h
+    ./include/PerfTypes.h
+    ./include/S3Client.h
+    ./include/StatTypes.h
+    ./include/Tracebuffer.h
 ./include/apis/AmService.cpp
 ./include/apis/AmService.h
 ./include/apis/AmService_server.skeleton.cpp
@@ -202,95 +265,52 @@ set(SOURCE_FILES
 ./include/concurrency/eventtracker.h
 ./include/concurrency/fds_actor.h
 ./include/concurrency/fds_actor_request.h
-./include/concurrency/spinlock.h
 ./include/concurrency/taskstatus.h
-./include/cpplist.h
-./include/data_mgr.h
-./include/debughelpers.h
-./include/dlt.h
-./include/fds-aio.h
-./include/fds-fsm.h
-./include/fds-shmobj.h
-./include/fds_assert.h
-./include/fds_commons_rm.h
-./include/fds_counters.h
-./include/fds_defines.h
-./include/fds_dmt.h
-./include/fds_error.h
-./include/fds_globals.h
-./include/fds_module.h
-./include/fds_module_provider.h
-./include/fds_obj_cache.h
-./include/fds_placement_table.h
-./include/fds_process.h
-./include/fds_ptr.h
-./include/fds_python_bind.h
-./include/fds_qos.h
-./include/fds_request.h
-./include/fds_resource.h
-./include/fds_timer.h
-./include/fds_timestamp.h
-./include/fds_typedefs.h
-./include/fds_types.h
-./include/fds_uuid.h
-./include/fds_volume.h
+    ./include/cpplist.h
+    ./include/data_mgr.h
+    ./include/debughelpers.h
+    ./include/dlt.h
+    ./include/dynamic_machine_arch.h
+    ./include/dynamic_vers.h
+    ./include/fds-aio.h
+    ./include/fds-fsm.h
+    ./include/fds-shmobj.h
+    ./include/fds_assert.h
+    ./include/fds_config.hpp
+    ./include/fds_counters.h
+    ./include/fds_defines.h
+    ./include/fds_dmt.h
+    ./include/fds_error.h
+    ./include/fds_globals.h
+    ./include/fds_ldomain.h
+    ./include/fds_module.h
+    ./include/fds_module_provider.h
+    ./include/fds_obj_cache.h
+    ./include/fds_placement_table.h
+    ./include/fds_process.h
+    ./include/fds_ptr.h
+    ./include/fds_python_bind.h
+    ./include/fds_qos.h
+    ./include/fds_request.h
+    ./include/fds_resource.h
+    ./include/fds_subscription.h
+    ./include/fds_table.h
+    ./include/fds_timer.h
+    ./include/fds_timestamp.h
+    ./include/fds_typedefs.h
+    ./include/fds_types.h
+    ./include/fds_uuid.h
+    ./include/fds_value_type.h
+    ./include/fds_volume.h
 ./include/fdsp/AMSvc.cpp
 ./include/fdsp/AMSvc.h
 ./include/fdsp/AMSvc_server.skeleton.cpp
-./include/fdsp/BaseAsyncSvc.cpp
-./include/fdsp/BaseAsyncSvc.h
-./include/fdsp/BaseAsyncSvc_server.skeleton.cpp
 ./include/fdsp/DMSvc.cpp
 ./include/fdsp/DMSvc.h
 ./include/fdsp/DMSvc_server.skeleton.cpp
-./include/fdsp/FDSP_ConfigPathReq.cpp
-./include/fdsp/FDSP_ConfigPathReq.h
-./include/fdsp/FDSP_ConfigPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_ConfigPathResp.cpp
-./include/fdsp/FDSP_ConfigPathResp.h
-./include/fdsp/FDSP_ConfigPathResp_server.skeleton.cpp
-./include/fdsp/FDSP_ControlPathReq.cpp
-./include/fdsp/FDSP_ControlPathReq.h
-./include/fdsp/FDSP_ControlPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_ControlPathResp.cpp
-./include/fdsp/FDSP_ControlPathResp.h
-./include/fdsp/FDSP_ControlPathResp_server.skeleton.cpp
-./include/fdsp/FDSP_DataPathReq.cpp
-./include/fdsp/FDSP_DataPathReq.h
-./include/fdsp/FDSP_DataPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_DataPathResp.cpp
-./include/fdsp/FDSP_DataPathResp.h
-./include/fdsp/FDSP_DataPathResp_server.skeleton.cpp
-./include/fdsp/FDSP_MetaDataPathReq.cpp
-./include/fdsp/FDSP_MetaDataPathReq.h
-./include/fdsp/FDSP_MetaDataPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_MetaDataPathResp.cpp
-./include/fdsp/FDSP_MetaDataPathResp.h
-./include/fdsp/FDSP_MetaDataPathResp_server.skeleton.cpp
-./include/fdsp/FDSP_MetaSyncReq.cpp
-./include/fdsp/FDSP_MetaSyncReq.h
-./include/fdsp/FDSP_MetaSyncReq_server.skeleton.cpp
-./include/fdsp/FDSP_MetaSyncResp.cpp
-./include/fdsp/FDSP_MetaSyncResp.h
-./include/fdsp/FDSP_MetaSyncResp_server.skeleton.cpp
-./include/fdsp/FDSP_MigrationPathReq.cpp
-./include/fdsp/FDSP_MigrationPathReq.h
-./include/fdsp/FDSP_MigrationPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_MigrationPathResp.cpp
-./include/fdsp/FDSP_MigrationPathResp.h
-./include/fdsp/FDSP_MigrationPathResp_server.skeleton.cpp
-./include/fdsp/FDSP_OMControlPathReq.cpp
-./include/fdsp/FDSP_OMControlPathReq.h
-./include/fdsp/FDSP_OMControlPathReq_server.skeleton.cpp
-./include/fdsp/FDSP_OMControlPathResp.cpp
-./include/fdsp/FDSP_OMControlPathResp.h
-./include/fdsp/FDSP_OMControlPathResp_server.skeleton.cpp
 ./include/fdsp/FDSP_Service.cpp
 ./include/fdsp/FDSP_Service.h
 ./include/fdsp/FDSP_Service_server.skeleton.cpp
-./include/fdsp/FDSP_SessionReq.cpp
-./include/fdsp/FDSP_SessionReq.h
-./include/fdsp/FDSP_SessionReq_server.skeleton.cpp
 ./include/fdsp/FDSP_constants.cpp
 ./include/fdsp/FDSP_constants.h
 ./include/fdsp/FDSP_types.cpp
@@ -317,24 +337,13 @@ set(SOURCE_FILES
 ./include/fdsp/common_constants.h
 ./include/fdsp/common_types.cpp
 ./include/fdsp/common_types.h
-./include/fdsp/fds_service_constants.cpp
-./include/fdsp/fds_service_constants.h
-./include/fdsp/fds_service_types.cpp
-./include/fdsp/fds_service_types.h
 ./include/fdsp/fds_stream_constants.cpp
 ./include/fdsp/fds_stream_constants.h
 ./include/fdsp/fds_stream_types.cpp
 ./include/fdsp/fds_stream_types.h
-./include/fdsp/snapshot_constants.cpp
-./include/fdsp/snapshot_constants.h
-./include/fdsp/snapshot_types.cpp
-./include/fdsp/snapshot_types.h
-./include/fdsp/testsvc_constants.cpp
-./include/fdsp/testsvc_constants.h
-./include/fdsp/testsvc_types.cpp
-./include/fdsp/testsvc_types.h
-./include/fdsp_utils.h
-./include/graphite_client.h
+    ./include/fdsp_utils.h
+    ./include/graphite_client.h
+    ./include/has_state.h
 ./include/hash/Bitvec.h
 ./include/hash/Hashes.h
 ./include/hash/MurmurHash1.h
@@ -359,19 +368,14 @@ set(SOURCE_FILES
 ./include/kvstore/tokenstatedb.h
 ./include/leveldb/cat_journal.h
 ./include/leveldb/copy_env.h
-./include/native/types.h
-./include/native_api.h
-./include/net/BaseAsyncSvcHandler.h
 ./include/net/MockSvcHandler.h
 ./include/net/PlatNetSvcHandler.h
-./include/net/RpcFunc.h
 ./include/net/SvcRequest.h
 ./include/net/SvcRequestPool.h
 ./include/net/SvcRequestTracker.h
 ./include/net/fdssocket.h
 ./include/net/net-service.h
 ./include/net/net_utils.h
-./include/net-proxies/vol_policy.h
 ./include/odb.h
 ./include/orch-mgr/om-service.h
 ./include/persistent-layer/dm_io.h
@@ -448,50 +452,34 @@ set(SOURCE_FILES
 ./include/platform/typedefs.h
 ./include/qos_ctrl.h
 ./include/serialize.h
+    ./include/state_machine.hpp
 ./include/shared/bitutil.h
 ./include/shared/dlist.h
 ./include/shared/fds-constants.h
 ./include/shared/fds_types.h
-./include/util/Log.h
-./include/util/TraceBuffer.h
-./include/util/color.h
-./include/util/counter.h
-./include/util/fds_stat.h
-./include/util/fiu_util.h
-./include/util/hash-util.h
-./include/util/math-util.h
-./include/util/stats.h
-./include/util/stringutils.h
-./include/util/timeutils.h
-./include/util/type.h
-./java/admin-webapp/node_modules/bower/node_modules/bower-registry-client/node_modules/request/node_modules/node-uuid/benchmark/benchmark-native.c
-./java/admin-webapp/node_modules/bower/node_modules/insight/node_modules/configstore/node_modules/uuid/benchmark/benchmark-native.c
-./java/admin-webapp/node_modules/bower/node_modules/request/node_modules/node-uuid/benchmark/benchmark-native.c
-./java/admin-webapp/node_modules/bower/node_modules/update-notifier/node_modules/configstore/node_modules/uuid/benchmark/benchmark-native.c
-./java/admin-webapp/node_modules/karma/node_modules/socket.io/node_modules/socket.io-client/node_modules/ws/node_modules/nan/nan.h
-./java/admin-webapp/node_modules/mongodb/node_modules/bson/ext/bson.h
-./java/admin-webapp/node_modules/mongodb/node_modules/bson/node_modules/nan/nan.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/base64.c
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/base64.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/kerberos.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/kerberos_context.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/kerberosgss.c
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/kerberosgss.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/base64.c
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/base64.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/kerberos.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/kerberos_sspi.c
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/kerberos_sspi.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/worker.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/wrappers/security_buffer.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/wrappers/security_buffer_descriptor.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/wrappers/security_context.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/win32/wrappers/security_credentials.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/lib/worker.h
-./java/admin-webapp/node_modules/mongodb/node_modules/kerberos/node_modules/nan/nan.h
-./java/admin-webapp/node_modules/protractor/node_modules/request/node_modules/node-uuid/benchmark/benchmark-native.c
+    ./include/util/always_call.h
+    ./include/util/bloomfilter.h
+    ./include/util/color.h
+    ./include/util/counter.h
+    ./include/util/disk_utils.h
+    ./include/util/enum_util.h
+    ./include/util/EventTracker.h
+    ./include/util/ExecutionGate.h
+    ./include/util/fds_stat.h
+    ./include/util/fiu_util.h
+    ./include/util/hash-util.h
+    ./include/util/Log.h
+    ./include/util/math-util.h
+    ./include/util/path.h
+    ./include/util/process.h
+    ./include/util/properties.h
+    ./include/util/stats.h
+    ./include/util/stringutils.h
+    ./include/util/timeutils.h
+    ./include/util/TraceBuffer.h
+    ./include/util/type.h
+
 ./lib/Catalog.h
-./lib/OMgrClient.h
 ./lib/QoSWFQDispatcher.h
 ./lib/StatsCollector.h
 ./lib/VolumeCatalog.h
@@ -509,33 +497,38 @@ set(SOURCE_FILES
 ./lib/leveldb/cat_journal.cpp
 ./lib/leveldb/copy_env.cpp
 ./lib/lru_policy_mgr.h
-./lib/misc/Catalog.cpp
-./lib/misc/ClusterCommMgr.cpp
-./lib/misc/FdsRandom.cpp
-./lib/misc/Histogram.cpp
-./lib/misc/LocalClusterMap.cpp
-./lib/misc/NetSession.cpp
-./lib/misc/OMgrClient.cpp
-./lib/misc/ObjectLogger.cpp
-./lib/misc/PerfHistory.cpp
-./lib/misc/QoSWFQDispatcher.cpp
-./lib/misc/StatsCollector.cpp
-./lib/misc/VolumeCatalog.cpp
-./lib/misc/dlt.cpp
-./lib/misc/dmt.cpp
-./lib/misc/fds_counters.cpp
-./lib/misc/fds_error.cpp
-./lib/misc/fds_obj_cache.cpp
-./lib/misc/fds_timer.cpp
-./lib/misc/fds_types.cpp
-./lib/misc/fds_volume.cpp
-./lib/misc/graphite_client.cpp
-./lib/misc/jsoncpp.cpp
-./lib/misc/qos_htb.cpp
-./lib/misc/qos_min_prio.cpp
-./lib/misc/serialize.cpp
+
+    ./lib/misc/BitSet.cpp
+    ./lib/misc/Catalog.cpp
+    ./lib/misc/config.cpp
+    ./lib/misc/disk_utils.cpp
+    ./lib/misc/dlt.cpp
+    ./lib/misc/dmt.cpp
+    ./lib/misc/fds_counters.cpp
+    ./lib/misc/fds_error.cpp
+    ./lib/misc/fds_ldomain.cpp
+    ./lib/misc/fds_obj_cache.cpp
+    ./lib/misc/fds_subscription.cpp
+    ./lib/misc/fds_timer.cpp
+    ./lib/misc/fds_types.cpp
+    ./lib/misc/fds_volume.cpp
+    ./lib/misc/FdsRandom.cpp
+    ./lib/misc/graphite_client.cpp
+    ./lib/misc/Histogram.cpp
+    ./lib/misc/jsoncpp.cpp
+    ./lib/misc/MigrationUtility.cpp
+    ./lib/misc/ObjectLogger.cpp
+    ./lib/misc/PerfHistory.cpp
+    ./lib/misc/qos_htb.cpp
+    ./lib/misc/qos_min_prio.cpp
+    ./lib/misc/QoSWFQDispatcher.cpp
+    ./lib/misc/S3Client.cpp
+    ./lib/misc/serialize.cpp
+    ./lib/misc/StatsCollector.cpp
+    ./lib/misc/VolumeCatalog.cpp
+
 ./lib/msgqueue.h
-./lib/native/types.cpp
+
 ./lib/net/fdssocket.cpp
 ./lib/net/net_utils.cpp
 ./lib/qos/qos_ctrl.cpp
@@ -543,87 +536,81 @@ set(SOURCE_FILES
 ./lib/qos_min_prio.h
 ./lib/qos_tokbucket.h
 ./lib/simple_object_allocator.h
-./net-service/endpoint/endpoint.cpp
-./net-service/endpoint/ep-attr.cpp
-./net-service/endpoint/ep-map.cpp
-./net-service/endpoint/net-plat-shared.cpp
-./net-service/endpoint/net-service.cpp
-./net-service/include/ep-map.h
-./net-service/svc_request/SvcRequest.cpp
-./net-service/svc_request/SvcRequestPool.cpp
-./net-service/svc_request/SvcRequestTracker.cpp
-./orch-mgr/OmBindings.cpp
-./orch-mgr/com_formationds_om_NativeOm.h
-./orch-mgr/configservice/configservice.cpp
-./orch-mgr/configservice/convert.cpp
-./orch-mgr/include/OmAdminCtrl.h
-./orch-mgr/include/OmClusterMap.h
-./orch-mgr/include/OmConstants.h
-./orch-mgr/include/OmDataPlacement.h
-./orch-mgr/include/OmDeploy.h
-./orch-mgr/include/OmDmtDeploy.h
-./orch-mgr/include/OmResources.h
-./orch-mgr/include/OmTier.h
-./orch-mgr/include/OmVolume.h
-./orch-mgr/include/OmVolumePlacement.h
-./orch-mgr/include/convert.h
-./orch-mgr/include/deletescheduler.h
-./orch-mgr/include/om-discovery.h
-./orch-mgr/include/om-domain.h
-./orch-mgr/include/om-node-workflow.h
-./orch-mgr/include/om-platform.h
-./orch-mgr/include/om-svc-handler.h
-./orch-mgr/include/omutils.h
-./orch-mgr/include/orchMgr.h
-./orch-mgr/include/snapshot/deletedispatcher.h
-./orch-mgr/include/snapshot/deletescheduler.h
-./orch-mgr/include/snapshot/deleteschedulertask.h
-./orch-mgr/include/snapshot/manager.h
-./orch-mgr/include/snapshot/policydispatcher.h
-./orch-mgr/include/snapshot/scheduler.h
-./orch-mgr/include/snapshot/schedulertask.h
-./orch-mgr/include/snapshot/svchandler.h
-./orch-mgr/om-common/om-service.cpp
-./orch-mgr/om-discovery/om-discovery.cpp
-./orch-mgr/om-discovery/om-vol-discovery.cpp
-./orch-mgr/om-dlt/OmClusMap.cpp
-./orch-mgr/om-dlt/OmDataPlacement.cpp
-./orch-mgr/om-dlt/OmDeploy.cpp
-./orch-mgr/om-dlt/OmDmtDeploy.cpp
-./orch-mgr/om-dlt/OmNodeResources.cpp
-./orch-mgr/om-dlt/OmPlacementAlgorithms.cpp
-./orch-mgr/om-dlt/OmResources.cpp
-./orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
-./orch-mgr/om-dlt/OmVolume.cpp
-./orch-mgr/om-dlt/OmVolumePlacement.cpp
-./orch-mgr/om-dlt/deletescheduler.cpp
-./orch-mgr/om-domain/domain.cpp
-./orch-mgr/om-lib/OmAdminCtrl.cpp
-./orch-mgr/om-lib/OmLocDomain.cpp
-./orch-mgr/om-lib/OmReqHandler.cpp
-./orch-mgr/om-lib/OmRespHandler.cpp
-./orch-mgr/om-lib/OmTier.cpp
-./orch-mgr/om-lib/OmVolPolicy.cpp
-./orch-mgr/om-lib/omutils.cpp
-./orch-mgr/om-lib/orchMgr.cpp
-./orch-mgr/orch-cli/cli-policy.cpp
-./orch-mgr/orch-cli/cli-policy.h
-./orch-mgr/orch-cli/fdsCli.h
-./orch-mgr/orch-cli/fdscli.cpp
-./orch-mgr/orch-mgr-main.cpp
-./orch-mgr/platform/om-node-workflow.cpp
-./orch-mgr/platform/om-platform.cpp
-./orch-mgr/platform/om-svc-handler.cpp
-./orch-mgr/snapshot/deletedispatcher.cpp
-./orch-mgr/snapshot/deletescheduler.cpp
-./orch-mgr/snapshot/deleteschedulertask.cpp
-./orch-mgr/snapshot/manager.cpp
-./orch-mgr/snapshot/policydispatcher.cpp
-./orch-mgr/snapshot/scheduler.cpp
-./orch-mgr/snapshot/schedulertask.cpp
-./orch-mgr/snapshot/svchandler.cpp
+
+    ./net-service/endpoint/endpoint.cpp
+    ./net-service/endpoint/ep-attr.cpp
+    ./net-service/endpoint/ep-map.cpp
+    ./net-service/endpoint/net-plat-shared.cpp
+    ./net-service/endpoint/net-service.cpp
+    ./net-service/include/ep-map.h
+    ./net-service/svc_request/SvcMgr.cpp
+    ./net-service/svc_request/SvcPlatNetHandler.cpp
+    ./net-service/svc_request/SvcProcess.cpp
+    ./net-service/svc_request/SvcRequest.cpp
+    ./net-service/svc_request/SvcRequestPool.cpp
+    ./net-service/svc_request/SvcRequestTracker.cpp
+    ./net-service/svc_request/SvcServer.cpp
+
+    ./orch-mgr/configservice/configservice.cpp
+    ./orch-mgr/configservice/convert.cpp
+    ./orch-mgr/include/snapshot/deletedispatcher.h
+    ./orch-mgr/include/snapshot/deletescheduler.h
+    ./orch-mgr/include/snapshot/deleteschedulertask.h
+    ./orch-mgr/include/snapshot/manager.h
+    ./orch-mgr/include/snapshot/policydispatcher.h
+    ./orch-mgr/include/snapshot/scheduler.h
+    ./orch-mgr/include/snapshot/schedulertask.h
+    ./orch-mgr/include/snapshot/svchandler.h
+    ./orch-mgr/include/convert.h
+    ./orch-mgr/include/deletescheduler.h
+    ./orch-mgr/include/om-discovery.h
+    ./orch-mgr/include/om-node-workflow.h
+    ./orch-mgr/include/om-platform.h
+    ./orch-mgr/include/om-svc-handler.h
+    ./orch-mgr/include/OmAdminCtrl.h
+    ./orch-mgr/include/OmClusterMap.h
+    ./orch-mgr/include/OmConstants.h
+    ./orch-mgr/include/OmDataPlacement.h
+    ./orch-mgr/include/OmDeploy.h
+    ./orch-mgr/include/OmDmtDeploy.h
+    ./orch-mgr/include/OmResources.h
+    ./orch-mgr/include/omutils.h
+    ./orch-mgr/include/OmVolPolicy.hpp
+    ./orch-mgr/include/OmVolume.h
+    ./orch-mgr/include/OmVolumePlacement.h
+    ./orch-mgr/include/orchMgr.h
+    ./orch-mgr/om-common/om-service.cpp
+    ./orch-mgr/om-common/om-svc-handler.cpp
+    ./orch-mgr/om-dlt/deletescheduler.cpp
+    ./orch-mgr/om-dlt/OmClusMap.cpp
+    ./orch-mgr/om-dlt/OmDataPlacement.cpp
+    ./orch-mgr/om-dlt/OmDeploy.cpp
+    ./orch-mgr/om-dlt/OmDmtDeploy.cpp
+    ./orch-mgr/om-dlt/OmNodeResources.cpp
+    ./orch-mgr/om-dlt/OmPlacementAlgorithms.cpp
+    ./orch-mgr/om-dlt/OmResources.cpp
+    ./orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
+    ./orch-mgr/om-dlt/OmVolume.cpp
+    ./orch-mgr/om-dlt/OmVolumePlacement.cpp
+    ./orch-mgr/om-lib/OmAdminCtrl.cpp
+    ./orch-mgr/om-lib/omutils.cpp
+    ./orch-mgr/om-lib/OmVolPolicy.cpp
+    ./orch-mgr/om-lib/orchMgr.cpp
+    ./orch-mgr/snapshot/deletedispatcher.cpp
+    ./orch-mgr/snapshot/deletescheduler.cpp
+    ./orch-mgr/snapshot/deleteschedulertask.cpp
+    ./orch-mgr/snapshot/manager.cpp
+    ./orch-mgr/snapshot/policydispatcher.cpp
+    ./orch-mgr/snapshot/scheduler.cpp
+    ./orch-mgr/snapshot/schedulertask.cpp
+    ./orch-mgr/snapshot/svchandler.cpp
+    ./orch-mgr/com_formationds_om_NativeOm.h
+    ./orch-mgr/OmBindings.cpp
+    ./orch-mgr/orch-mgr-main.cpp
+
 ./osdep/umod-linux/fds-shmem.cpp
-./osdep/umod-linux/fds_osdep.c
+osdep/umod-linux/fds_osdep.cpp
+
 ./persistent-layer/io-lib/dm_index.cpp
 ./persistent-layer/io-lib/dm_io_lib.cpp
 ./persistent-layer/io-lib/dm_read.cpp
@@ -631,207 +618,205 @@ set(SOURCE_FILES
 ./persistent-layer/io-lib/pdata_request.cpp
 ./persistent-layer/io-lib/tokFileMgr.cpp
 ./persistent-layer/mgnt-lib/dm_service.cpp
-./platform/include/disk_capacity.h
-./platform/include/disk_common.h
-./platform/include/disk_constants.h
-./platform/include/disk_inventory.h
-./platform/include/disk_label.h
-./platform/include/disk_label_mgr.h
-./platform/include/disk_label_op.h
-./platform/include/disk_obj_iter.h
-./platform/include/disk_object.h
-./platform/include/disk_op.h
-./platform/include/disk_part_mgr.h
-./platform/include/disk_partition.h
-./platform/include/disk_plat_module.h
-./platform/include/disk_print_iter.h
-./platform/include/fds_magic.h
-./platform/include/file_disk_inventory.h
-./platform/include/file_disk_obj.h
-./platform/include/node_info_iter.h
-./platform/include/node_platform.h
-./platform/include/node_platform_process.h
-./platform/include/node_shm_rw_ctrl.h
-./platform/include/node_svc_iter.h
-./platform/include/node_update_iter.h
-./platform/include/plat_agent.h
-./platform/include/plat_agent_container.h
-./platform/include/plat_agent_plugin.h
-./platform/include/plat_uuid_bind.h
-./platform/include/plat_uuid_bind_update.h
-./platform/include/plat_work_flow.h
-./platform/include/plat_work_item.h
-./platform/include/platform_disk_obj.h
-./platform/include/platform_ep_handler.h
-./platform/include/platform_net_svc.h
-./platform/include/platform_plugin.h
-./platform/include/pm_disk_inventory.h
-./platform/include/process.h
-./platform/include/state_switch.h
-./platform/platform-main.cpp
-./platform/source/BaseAsyncSvcHandler.cpp
-./platform/source/agent_container.cpp
-./platform/source/am_agent.cpp
-./platform/source/am_svc_ep.cpp
-./platform/source/disk_capacity.cpp
-./platform/source/disk_common.cpp
-./platform/source/disk_inventory.cpp
-./platform/source/disk_label.cpp
-./platform/source/disk_label_mgr.cpp
-./platform/source/disk_label_op.cpp
-./platform/source/disk_obj_iter.cpp
-./platform/source/disk_object.cpp
-./platform/source/disk_op.cpp
-./platform/source/disk_part_mgr.cpp
-./platform/source/disk_partition.cpp
-./platform/source/disk_plat_module.cpp
-./platform/source/dm_agent.cpp
-./platform/source/dm_svc_ep.cpp
-./platform/source/domain_cluster_map.cpp
-./platform/source/domain_container.cpp
-./platform/source/domain_resources.cpp
-./platform/source/ep_platformd_mod.cpp
-./platform/source/fds_flags.cpp
-./platform/source/file_disk_inventory.cpp
-./platform/source/file_disk_obj.cpp
-./platform/source/net_service.cpp
-./platform/source/node_agent.cpp
-./platform/source/node_agent_evt.cpp
-./platform/source/node_deploy.cpp
-./platform/source/node_down.cpp
-./platform/source/node_functional.cpp
-./platform/source/node_integrate.cpp
-./platform/source/node_inv_shmem.cpp
-./platform/source/node_inventory.cpp
-./platform/source/node_platform.cpp
-./platform/source/node_platform_proc.cpp
-./platform/source/node_qualify.cpp
-./platform/source/node_rollback.cpp
-./platform/source/node_services.cpp
-./platform/source/node_shm_rw_ctrl.cpp
-./platform/source/node_started.cpp
-./platform/source/node_upgrade.cpp
-./platform/source/node_work_flow.cpp
-./platform/source/node_work_item.cpp
-./platform/source/om_agent.cpp
-./platform/source/om_node_agent_evt.cpp
-./platform/source/om_svc_ep.cpp
-./platform/source/plat_agent.cpp
-./platform/source/plat_agent_plugin.cpp
-./platform/source/plat_net_svc_handler.cpp
-./platform/source/plat_uuid_bind.cpp
-./platform/source/plat_work_flow.cpp
-./platform/source/plat_work_item.cpp
-./platform/source/platform-rpc.cpp
-./platform/source/platform.cpp
-./platform/source/platform_ep_handler.cpp
-./platform/source/platform_net_svc.cpp
-./platform/source/platform_process.cpp
-./platform/source/platformd_plugin.cpp
-./platform/source/pm_agent.cpp
-./platform/source/pm_disk_inventory.cpp
-./platform/source/pm_disk_obj.cpp
-./platform/source/pm_svc_ep.cpp
-./platform/source/process.cpp
-./platform/source/sm_agent.cpp
-./platform/source/sm_svc_ep.cpp
-./stor-mgr/include/MockSMCallbacks.h
-./stor-mgr/include/ObjMeta.h
-./stor-mgr/include/ObjRank.h
-./stor-mgr/include/ObjStats.h
-./stor-mgr/include/SMSvcHandler.h
-./stor-mgr/include/SmCtrl.h
-./stor-mgr/include/SmDiskTypes.h
-./stor-mgr/include/SmIo.h
-./stor-mgr/include/SmObjDb.h
-./stor-mgr/include/SmTypes.h
-./stor-mgr/include/StorMgr.h
-./stor-mgr/include/StorMgrVolumes.h
-./stor-mgr/include/TierEngine.h
-./stor-mgr/include/TierMigration.h
-./stor-mgr/include/TierPutAlgorithms.h
-./stor-mgr/include/TokenMigrationMgr.h
-./stor-mgr/include/data_obj.h
-./stor-mgr/include/object-store/ObjectDataCache.h
-./stor-mgr/include/object-store/ObjectDataStore.h
-./stor-mgr/include/object-store/ObjectMetaCache.h
-./stor-mgr/include/object-store/ObjectMetaDb.h
-./stor-mgr/include/object-store/ObjectMetadataStore.h
-./stor-mgr/include/object-store/ObjectPersistData.h
-./stor-mgr/include/object-store/ObjectStore.h
-./stor-mgr/include/object-store/RandomRankPolicy.h
-./stor-mgr/include/object-store/RankEngine.h
-./stor-mgr/include/object-store/Scavenger.h
-./stor-mgr/include/object-store/SmDiskMap.h
-./stor-mgr/include/object-store/SmSuperblock.h
-./stor-mgr/include/object-store/SmTokenPlacement.h
-./stor-mgr/include/object-store/SmTokenState.h
-./stor-mgr/include/object-store/TieringConfig.h
-./stor-mgr/include/object-store/TokenCompactor.h
-./stor-mgr/include/policy_rpc.h
-./stor-mgr/include/policy_tier.h
-./stor-mgr/include/sm-node-workflow.h
-./stor-mgr/include/sm-platform.h
-./stor-mgr/include/stor_mgr.h
-./stor-mgr/migrations/TokenPullReceiver.cpp
-./stor-mgr/migrations/TokenPullReceiver.h
-./stor-mgr/migrations/TokenPullSender.cpp
-./stor-mgr/migrations/TokenPullSender.h
-./stor-mgr/migrations/TokenReceiver.cpp
-./stor-mgr/migrations/TokenReceiver.h
-./stor-mgr/migrations/TokenSender.cpp
-./stor-mgr/migrations/TokenSender.h
-./stor-mgr/migrations/TokenSyncBaseEvents.h
-./stor-mgr/migrations/TokenSyncReceiver.cpp
-./stor-mgr/migrations/TokenSyncReceiver.h
-./stor-mgr/migrations/TokenSyncSender.cpp
-./stor-mgr/migrations/TokenSyncSender.h
-./stor-mgr/migrations/fds_base_migrators.h
-./stor-mgr/migrations/fds_migration.cpp
-./stor-mgr/migrations/fds_migration.h
-./stor-mgr/platform/sm-node-workflow.cpp
-./stor-mgr/platform/sm-platform.cpp
-./stor-mgr/policy/policy_rpc.cpp
-./stor-mgr/policy/policy_tier.cpp
-./stor-mgr/protos/counting_bloom_filter/RandomHashGenerator.cpp
-./stor-mgr/smlib/MockSMCallbacks.cpp
-./stor-mgr/smlib/ObjMeta.cpp
-./stor-mgr/smlib/ObjRank.cpp
-./stor-mgr/smlib/ObjStats.cpp
-./stor-mgr/smlib/SMSvcHandler.cpp
-./stor-mgr/smlib/SmIo.cpp
-./stor-mgr/smlib/SmObjDb.cpp
-./stor-mgr/smlib/StorMgr.cpp
-./stor-mgr/smlib/StorMgrVolumes.cpp
-./stor-mgr/smlib/TierEngine.cpp
-./stor-mgr/smlib/TierMigration.cpp
-./stor-mgr/smlib/TierPutAlgorithms.cpp
-./stor-mgr/smlib/TokenMigrationMgr.cpp
-./stor-mgr/smlib/object-store/ObjectDataCache.cpp
-./stor-mgr/smlib/object-store/ObjectDataStore.cpp
-./stor-mgr/smlib/object-store/ObjectMetaCache.cpp
-./stor-mgr/smlib/object-store/ObjectMetaDb.cpp
-./stor-mgr/smlib/object-store/ObjectMetadataStore.cpp
-./stor-mgr/smlib/object-store/ObjectPersistData.cpp
-./stor-mgr/smlib/object-store/ObjectStore.cpp
-./stor-mgr/smlib/object-store/RandomRankPolicy.cpp
-./stor-mgr/smlib/object-store/Scavenger.cpp
-./stor-mgr/smlib/object-store/SmDiskMap.cpp
-./stor-mgr/smlib/object-store/SmSuperblock.cpp
-./stor-mgr/smlib/object-store/SmTokenPlacement.cpp
-./stor-mgr/smlib/object-store/SmTokenState.cpp
-./stor-mgr/smlib/object-store/TokenCompactor.cpp
-./stor-mgr/stormgr_main.cpp
-./testlib/Datasets.h
-./testlib/Deployer.cpp
-./testlib/Deployer.h
-./testlib/SvcMsgFactory.cpp
-./testlib/SvcMsgFactory.h
-./testlib/TestFixtures.cpp
-./testlib/TestFixtures.h
-./testlib/TestUtils.cpp
-./testlib/TestUtils.h
-./testlib/test-plat-proc.cpp
+
+    ./platform/include/disk_common.h
+    ./platform/include/disk_constants.h
+    ./platform/include/disk_inventory.h
+    ./platform/include/disk_label.h
+    ./platform/include/disk_label_mgr.h
+    ./platform/include/disk_label_op.h
+    ./platform/include/disk_obj_iter.h
+    ./platform/include/disk_object.h
+    ./platform/include/disk_op.h
+    ./platform/include/disk_part_mgr.h
+    ./platform/include/disk_partition.h
+    ./platform/include/disk_plat_module.h
+    ./platform/include/disk_print_iter.h
+    ./platform/include/fds_magic.h
+    ./platform/include/file_disk_inventory.h
+    ./platform/include/file_disk_obj.h
+    ./platform/include/node_info_iter.h
+    ./platform/include/node_platform.h
+    ./platform/include/node_shm_rw_ctrl.h
+    ./platform/include/node_svc_iter.h
+    ./platform/include/node_update_iter.h
+    ./platform/include/plat_agent.h
+    ./platform/include/plat_agent_container.h
+    ./platform/include/plat_agent_plugin.h
+    ./platform/include/plat_uuid_bind.h
+    ./platform/include/plat_uuid_bind_update.h
+    ./platform/include/plat_work_flow.h
+    ./platform/include/plat_work_item.h
+    ./platform/include/platform_disk_obj.h
+    ./platform/include/platform_ep_handler.h
+    ./platform/include/platform_net_svc.h
+    ./platform/include/platform_plugin.h
+    ./platform/include/pm_disk_inventory.h
+    ./platform/include/state_switch.h
+
+    ./platform/source/agent_container.cpp
+    ./platform/source/am_agent.cpp
+    ./platform/source/am_svc_ep.cpp
+    ./platform/source/disk_capabilities.cpp
+    ./platform/source/disk_capability.cpp
+    ./platform/source/disk_capability_op.cpp
+    ./platform/source/disk_common.cpp
+    ./platform/source/disk_inventory.cpp
+    ./platform/source/disk_label.cpp
+    ./platform/source/disk_label_mgr.cpp
+    ./platform/source/disk_label_op.cpp
+    ./platform/source/disk_obj_iter.cpp
+    ./platform/source/disk_object.cpp
+    ./platform/source/disk_op.cpp
+    ./platform/source/disk_part_mgr.cpp
+    ./platform/source/disk_partition.cpp
+    ./platform/source/disk_plat_module.cpp
+    ./platform/source/dm_agent.cpp
+    ./platform/source/dm_svc_ep.cpp
+    ./platform/source/domain_cluster_map.cpp
+    ./platform/source/domain_container.cpp
+    ./platform/source/domain_resources.cpp
+    ./platform/source/ep_platformd_mod.cpp
+    ./platform/source/fds_flags.cpp
+    ./platform/source/file_disk_inventory.cpp
+    ./platform/source/file_disk_obj.cpp
+    ./platform/source/file_system_table.cpp
+    ./platform/source/net_service.cpp
+    ./platform/source/node_agent.cpp
+    ./platform/source/node_agent_evt.cpp
+    ./platform/source/node_deploy.cpp
+    ./platform/source/node_down.cpp
+    ./platform/source/node_functional.cpp
+    ./platform/source/node_integrate.cpp
+    ./platform/source/node_inv_shmem.cpp
+    ./platform/source/node_inventory.cpp
+    ./platform/source/node_platform.cpp
+    ./platform/source/node_qualify.cpp
+    ./platform/source/node_rollback.cpp
+    ./platform/source/node_services.cpp
+    ./platform/source/node_shm_rw_ctrl.cpp
+    ./platform/source/node_started.cpp
+    ./platform/source/node_upgrade.cpp
+    ./platform/source/node_work_flow.cpp
+    ./platform/source/node_work_item.cpp
+    ./platform/source/om_agent.cpp
+    ./platform/source/om_node_agent_evt.cpp
+    ./platform/source/om_svc_ep.cpp
+    ./platform/source/plat_agent.cpp
+    ./platform/source/plat_agent_plugin.cpp
+    ./platform/source/plat_uuid_bind.cpp
+    ./platform/source/plat_work_flow.cpp
+    ./platform/source/plat_work_item.cpp
+    ./platform/source/platform-rpc.cpp
+    ./platform/source/platform.cpp
+    ./platform/source/platform_ep_handler.cpp
+    ./platform/source/platform_manager.cpp
+    ./platform/source/platform_net_svc.cpp
+    ./platform/source/platform_process.cpp
+    ./platform/source/platformd_plugin.cpp
+    ./platform/source/pm_agent.cpp
+    ./platform/source/pm_disk_inventory.cpp
+    ./platform/source/pm_disk_obj.cpp
+    ./platform/source/pm_svc_ep.cpp
+    ./platform/source/process.cpp
+    ./platform/source/sm_agent.cpp
+    ./platform/source/sm_svc_ep.cpp
+    ./platform/source/svc_handler.cpp
+    ./platform/source/valgrind.cpp
+
+    ./platform/platform-main.cpp
+
+    ./stor-mgr/include/object-store/ObjectDataCache.h
+    ./stor-mgr/include/object-store/ObjectDataStore.h
+    ./stor-mgr/include/object-store/ObjectMetaCache.h
+    ./stor-mgr/include/object-store/ObjectMetadataStore.h
+    ./stor-mgr/include/object-store/ObjectMetaDb.h
+    ./stor-mgr/include/object-store/ObjectPersistData.h
+    ./stor-mgr/include/object-store/ObjectStore.h
+    ./stor-mgr/include/object-store/RandomRankPolicy.h
+    ./stor-mgr/include/object-store/RankEngine.h
+    ./stor-mgr/include/object-store/Scavenger.h
+    ./stor-mgr/include/object-store/SmDiskMap.h
+    ./stor-mgr/include/object-store/SmSuperblock.h
+    ./stor-mgr/include/object-store/SmTokenPlacement.h
+    ./stor-mgr/include/object-store/SmTokenState.h
+    ./stor-mgr/include/object-store/TieringConfig.h
+    ./stor-mgr/include/object-store/TokenCompactor.h
+    ./stor-mgr/include/data_obj.h
+    ./stor-mgr/include/HybridTierCtrlr.h
+    ./stor-mgr/include/MigrationClient.h
+    ./stor-mgr/include/MigrationExecutor.h
+    ./stor-mgr/include/MigrationMgr.h
+    ./stor-mgr/include/MigrationTools.h
+    ./stor-mgr/include/MockSMCallbacks.h
+    ./stor-mgr/include/ObjMeta.h
+    ./stor-mgr/include/ObjRank.h
+    ./stor-mgr/include/ObjStats.h
+    ./stor-mgr/include/SMCheck.h
+    ./stor-mgr/include/SMCheckCtrl.h
+    ./stor-mgr/include/SmCtrl.h
+    ./stor-mgr/include/SmDiskTypes.h
+    ./stor-mgr/include/SmIo.h
+    ./stor-mgr/include/SmObjDb.h
+    ./stor-mgr/include/SMSvcHandler.h
+    ./stor-mgr/include/SmTypes.h
+    ./stor-mgr/include/stor_mgr.h
+    ./stor-mgr/include/StorMgr.h
+    ./stor-mgr/include/StorMgrVolumes.h
+    ./stor-mgr/include/TierEngine.h
+    ./stor-mgr/include/TierMigration.h
+    ./stor-mgr/include/TierPutAlgorithms.h
+    ./stor-mgr/protos/counting_bloom_filter/CountingBloomFilter.hpp
+    ./stor-mgr/protos/counting_bloom_filter/RandomHashGenerator.cpp
+    ./stor-mgr/smlib/object-store/ObjectDataCache.cpp
+    ./stor-mgr/smlib/object-store/ObjectDataStore.cpp
+    ./stor-mgr/smlib/object-store/ObjectMetaCache.cpp
+    ./stor-mgr/smlib/object-store/ObjectMetadataStore.cpp
+    ./stor-mgr/smlib/object-store/ObjectMetaDb.cpp
+    ./stor-mgr/smlib/object-store/ObjectPersistData.cpp
+    ./stor-mgr/smlib/object-store/ObjectStore.cpp
+    ./stor-mgr/smlib/object-store/RandomRankPolicy.cpp
+    ./stor-mgr/smlib/object-store/Scavenger.cpp
+    ./stor-mgr/smlib/object-store/SmDiskMap.cpp
+    ./stor-mgr/smlib/object-store/SmSuperblock.cpp
+    ./stor-mgr/smlib/object-store/SmTokenPlacement.cpp
+    ./stor-mgr/smlib/object-store/SmTokenState.cpp
+    ./stor-mgr/smlib/object-store/TokenCompactor.cpp
+    ./stor-mgr/smlib/HybridTierCtrlr.cpp
+    ./stor-mgr/smlib/MigrationClient.cpp
+    ./stor-mgr/smlib/MigrationExecutor.cpp
+    ./stor-mgr/smlib/MigrationMgr.cpp
+    ./stor-mgr/smlib/MigrationTools.cpp
+    ./stor-mgr/smlib/MockSMCallbacks.cpp
+    ./stor-mgr/smlib/ObjMeta.cpp
+    ./stor-mgr/smlib/ObjRank.cpp
+    ./stor-mgr/smlib/ObjStats.cpp
+    ./stor-mgr/smlib/SmIo.cpp
+    ./stor-mgr/smlib/SmObjDb.cpp
+    ./stor-mgr/smlib/SMSvcHandler.cpp
+    ./stor-mgr/smlib/SMCheck.cpp
+    ./stor-mgr/smlib/SMCheckCtrl.cpp
+    ./stor-mgr/smlib/StorMgr.cpp
+    ./stor-mgr/smlib/StorMgrVolumes.cpp
+    ./stor-mgr/smlib/TierEngine.cpp
+    ./stor-mgr/smlib/TierMigration.cpp
+    ./stor-mgr/smlib/TierPutAlgorithms.cpp
+    ./stor-mgr/utils/SMCheckDriver.cpp
+    ./stor-mgr/utils/SMCheckDriver.h
+    ./stor-mgr/stormgr_main.cpp
+
+    ./testlib/DataGen.hpp
+    ./testlib/Datasets.h
+    ./testlib/Deployer.cpp
+    ./testlib/Deployer.h
+    ./testlib/SvcMsgFactory.cpp
+    ./testlib/SvcMsgFactory.h
+    ./testlib/test-plat-proc.cpp
+    ./testlib/TestFixtures.cpp
+    ./testlib/TestFixtures.h
+    ./testlib/TestUtils.cpp
+    ./testlib/TestUtils.h
+
 ./tools/configdb/configdbtool.cpp
 ./tools/configdb/configdbtool.h
 ./tools/journal_dump.cpp
@@ -875,24 +860,29 @@ set(SOURCE_FILES
 ./tools/pharos/libposix-aio-0.8.1/src/syscall_x86_64.h
 ./tools/shm_dump.cpp
 ./tools/shm_dump.h
-./umod-lib/common/PerfTrace.cpp
-./umod-lib/common/Tracebuffer.cpp
-./umod-lib/common/fds-aio.cpp
-./umod-lib/common/fds-fsm.cpp
-./umod-lib/common/fds-shmobj.cpp
-./umod-lib/common/fds_module.cpp
-./umod-lib/common/fds_process.cpp
-./umod-lib/common/fds_python_bind.cpp
-./umod-lib/common/fds_request.cpp
-./umod-lib/common/fds_resource.cpp
-./umod-lib/common/fds_stat.cpp
-./umod-lib/common/fdsp_utils.cpp
-./umod-lib/concurrency/Mutex.cpp
-./umod-lib/concurrency/Synchronization.cpp
-./umod-lib/concurrency/ThreadPool.cpp
-./umod-lib/concurrency/fds_actor.cpp
-./umod-lib/concurrency/fds_actor_request.cpp
-./umod-lib/odb/odb.cpp
+
+    ./umod-lib/common/buildstr.cpp
+    ./umod-lib/common/fds-aio.cpp
+    ./umod-lib/common/fds-fsm.cpp
+    ./umod-lib/common/fds-shmobj.cpp
+    ./umod-lib/common/fds_module.cpp
+    ./umod-lib/common/fds_process.cpp
+    ./umod-lib/common/fds_python_bind.cpp
+    ./umod-lib/common/fds_request.cpp
+    ./umod-lib/common/fds_resource.cpp
+    ./umod-lib/common/fds_stat.cpp
+    ./umod-lib/common/fdsp_utils.cpp
+    ./umod-lib/common/PerfTrace.cpp
+    ./umod-lib/common/Tracebuffer.cpp
+
+    ./umod-lib/concurrency/Mutex.cpp
+    ./umod-lib/concurrency/Synchronization.cpp
+    ./umod-lib/concurrency/ThreadPool.cpp
+    ./umod-lib/concurrency/fds_actor.cpp
+    ./umod-lib/concurrency/fds_actor_request.cpp
+
+    ./umod-lib/odb/odb.cpp
+
 ./unit-test/data-mgr/dm_direct.cpp
 ./unit-test/data-mgr/dm_gtest.h
 ./unit-test/data-mgr/dm_mocks.h
@@ -902,7 +892,9 @@ set(SOURCE_FILES
 ./unit-test/data-mgr/svc-test/dm_mod_gtest.h
 ./unit-test/data-mgr/svc-test/sldmperf_gtest.cpp
 ./unit-test/data-mgr/timelinedb.cpp
+
 ./unit-test/examples/goog-pprof.cpp
+
 ./unit-test/lib/HashedLocks_ut.cpp
 ./unit-test/lib/SynchronizedTaskExecutor_ut.cpp
 ./unit-test/lib/Tracebuffer_ut.cpp
@@ -922,12 +914,16 @@ set(SOURCE_FILES
 ./unit-test/lib/sharedcache_gtest.cpp
 ./unit-test/lib/sharedcache_perf_test.cpp
 ./unit-test/lib/sharedcache_unit_test.cpp
+
 ./unit-test/migrations/ObjectStoreMock.h
 ./unit-test/migrations/SyncLog_ut.cpp
 ./unit-test/migrations/migration_ut.cpp
+
 ./unit-test/orch-mgr/place_tbl_unit_test.cpp
+
 ./unit-test/persistent-layer/dm_io_test.cpp
 ./unit-test/persistent-layer/dm_service_test.cpp
+
 ./unit-test/stor-mgr/metastore_unit_test.cpp
 ./unit-test/stor-mgr/object_persist_data_gtest.cpp
 ./unit-test/stor-mgr/object_store_load_test.cpp
@@ -938,7 +934,6 @@ set(SOURCE_FILES
 ./unit-test/stor-mgr/sm_superblock_gtest.cpp
 ./unit-test/stor-mgr/sm_tier_migration_gtest.cpp
 ./unit-test/stor-mgr/sm_token_compactor_gtest.cpp
-./unit-test/stor-mgr/sm_token_migration_gtest.cpp
 ./unit-test/stor-mgr/sm_token_place_gtest.cpp
 ./unit-test/stor-mgr/sm_token_state_gtest.cpp
 ./unit-test/stor-mgr/sm_ut_utils.h
@@ -950,58 +945,68 @@ set(SOURCE_FILES
 ./unit-test/stor-mgr/svc-test/smperf_dmsm_gtest.cpp
 ./unit-test/stor-mgr/svc-test/smperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
-./unit-test/svc-layer/Threadpool.h
-./unit-test/svc-layer/Threadpool2.h
-./unit-test/svc-layer/serializer_gtest.cpp
-./unit-test/svc-layer/th_am.cpp
-./unit-test/svc-layer/th_am_server.cpp
-./unit-test/svc-layer/th_bare.cpp
-./unit-test/svc-layer/th_dm.cpp
-./unit-test/svc-layer/th_sm.cpp
-./unit-test/svc-layer/threadpool_test.cpp
+
+    ./unit-test/svclayer/FakeSvcDomain.hpp
+    ./unit-test/svclayer/OMSvcProcess.cpp
+    ./unit-test/svclayer/OMSvcProcess.h
+    ./unit-test/svclayer/SvcMapChecker.cpp
+    ./unit-test/svclayer/SvcMgr_gtest.cpp
+    ./unit-test/svclayer/SvcMgrModuleProvider.hpp
+    ./unit-test/svclayer/SvcRequestMgr_gtest.cpp
+    ./unit-test/svclayer/SvcServer_gtest.cpp
+    ./unit-test/svclayer/TestSvcProcess.cpp
+
 ./unit-test/umod-lib/ThreadPoolTest.cpp
 ./unit-test/umod-lib/conc_unit_test.cpp
 ./unit-test/umod-lib/fds_actor_ut.cpp
 ./unit-test/umod-lib/python_bind_ut.cpp
+
 ./unit-test/util/fds_panic_test.cpp
 ./unit-test/util/log_unit_test.cpp
-./util/hash/AvalancheTest.cpp
-./util/hash/AvalancheTest.h
-./util/hash/Bitslice.cpp
-./util/hash/Bitvec.cpp
-./util/hash/City.cpp
-./util/hash/City.h
-./util/hash/CityTest.cpp
-./util/hash/DifferentialTest.cpp
-./util/hash/DifferentialTest.h
-./util/hash/Hashes.cpp
-./util/hash/KeysetTest.cpp
-./util/hash/KeysetTest.h
-./util/hash/MurmurHash1.cpp
-./util/hash/MurmurHash2.cpp
-./util/hash/MurmurHash3.cpp
-./util/hash/PMurHash.c
-./util/hash/Platform.cpp
-./util/hash/Random.cpp
-./util/hash/SpeedTest.cpp
-./util/hash/Spooky.cpp
-./util/hash/SpookyTest.cpp
-./util/hash/Stats.cpp
-./util/hash/Stats.h
-./util/hash/SuperFastHash.cpp
-./util/hash/Types.cpp
-./util/hash/base64.cpp
-./util/hash/crc.cpp
-./util/hash/lookup3.cpp
-./util/hash/md5.cpp
-./util/hash/pstdint.h
-./util/hash/sha1.cpp
-./util/misc/Log.cpp
-./util/misc/color.cpp
-./util/misc/math-util.cpp
-./util/misc/stats.cpp
-./util/misc/stringutils.cpp
-./util/misc/timeutils.cpp
-./util/misc/type.cpp)
+
+    ./util/hash/AvalancheTest.cpp
+    ./util/hash/AvalancheTest.h
+    ./util/hash/Bitslice.cpp
+    ./util/hash/Bitvec.cpp
+    ./util/hash/City.cpp
+    ./util/hash/City.h
+    ./util/hash/CityTest.cpp
+    ./util/hash/DifferentialTest.cpp
+    ./util/hash/DifferentialTest.h
+    ./util/hash/Hashes.cpp
+    ./util/hash/KeysetTest.cpp
+    ./util/hash/KeysetTest.h
+    ./util/hash/MurmurHash1.cpp
+    ./util/hash/MurmurHash2.cpp
+    ./util/hash/MurmurHash3.cpp
+    ./util/hash/PMurHash.c
+    ./util/hash/Platform.cpp
+    ./util/hash/Random.cpp
+    ./util/hash/SpeedTest.cpp
+    ./util/hash/Spooky.cpp
+    ./util/hash/SpookyTest.cpp
+    ./util/hash/Stats.cpp
+    ./util/hash/Stats.h
+    ./util/hash/SuperFastHash.cpp
+    ./util/hash/Types.cpp
+    ./util/hash/base64.cpp
+    ./util/hash/crc.cpp
+    ./util/hash/lookup3.cpp
+    ./util/hash/md5.cpp
+    ./util/hash/pstdint.h
+    ./util/hash/sha1.cpp
+
+    ./util/misc/bloomfilter.cpp
+    ./util/misc/color.cpp
+    ./util/misc/Log.cpp
+    ./util/misc/math-util.cpp
+    ./util/misc/path.cpp
+    ./util/misc/process.cpp
+    ./util/misc/properties.cpp
+    ./util/misc/stats.cpp
+    ./util/misc/stringutils.cpp
+    ./util/misc/timeutils.cpp
+    ./util/misc/type.cpp
+)
 
 add_executable(source ${SOURCE_FILES})

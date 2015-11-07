@@ -1,7 +1,7 @@
 package com.formationds.client.v08.converters;
 
 import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.apis.LocalDomain;
+import com.formationds.apis.LocalDomainDescriptor;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
@@ -21,10 +21,10 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.protocol.FDSP_MediaPolicy;
-import com.formationds.protocol.FDSP_VolType;
-import com.formationds.protocol.FDSP_VolumeDescType;
-import com.formationds.protocol.ResourceState;
+import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
+import com.formationds.protocol.svc.types.FDSP_VolType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -49,10 +49,10 @@ public class ExternalModelConverter {
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
-    public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
+    public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
 
         String extName = internalDomain.getName();
-        Long extId = internalDomain.getId();
+        Integer extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
         Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
@@ -60,9 +60,9 @@ public class ExternalModelConverter {
         return externalDomain;
     }
 
-    public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
+    public static LocalDomainDescriptor convertToInternalDomain( Domain externalDomain ) {
 
-        LocalDomain internalDomain = new LocalDomain();
+        LocalDomainDescriptor internalDomain = new LocalDomainDescriptor();
 
         internalDomain.setId( externalDomain.getId() );
         internalDomain.setName( externalDomain.getName() );
@@ -79,7 +79,7 @@ public class ExternalModelConverter {
         
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
-        if ( internalUser.isFdsAdmin ) {
+        if ( internalUser.isIsFdsAdmin() ) {
             roleId = 0L;
         }
 
@@ -314,9 +314,9 @@ public class ExternalModelConverter {
     //			return externalSnapshot;
     //		}
 
-    public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ) {
+    public static com.formationds.protocol.svc.types.Snapshot convertToInternalSnapshot( Snapshot snapshot ) {
 
-        com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
+        com.formationds.protocol.svc.types.Snapshot internalSnapshot = new com.formationds.protocol.svc.types.Snapshot();
 
         internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
         internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
@@ -327,7 +327,7 @@ public class ExternalModelConverter {
         return internalSnapshot;
     }
 
-    public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ) {
+    public static Snapshot convertToExternalSnapshot( com.formationds.protocol.svc.types.Snapshot protoSnapshot ) {
 
         long creation = protoSnapshot.getCreationTimestamp();
         long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
@@ -506,7 +506,7 @@ public class ExternalModelConverter {
 
         DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume );
 
-        Instant extCreation = Instant.ofEpochMilli( internalVolume.dateCreated );
+        Instant extCreation = Instant.ofEpochMilli( internalVolume.getDateCreated() );
 
         return new Volume( volumeId,
                            extName,

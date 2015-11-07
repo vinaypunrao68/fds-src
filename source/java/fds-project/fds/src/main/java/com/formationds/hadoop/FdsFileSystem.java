@@ -287,7 +287,15 @@ public class FdsFileSystem extends FileSystem {
         }
 
         try {
-            return asyncAm.volumeContents(DOMAIN, getVolume(), Integer.MAX_VALUE, 0, filter, PatternSemantics.PCRE, BlobListOrder.LEXICOGRAPHIC, descending).get();
+            return asyncAm.volumeContents(DOMAIN,
+                                          getVolume(),
+                                          Integer.MAX_VALUE,
+                                          0,
+                                          filter,
+                                          PatternSemantics.PCRE,
+                                          "",
+                                          BlobListOrder.LEXICOGRAPHIC,
+                                          descending).get().getBlobs();
         } catch (Exception e) {
             throw new IOException(e);
         }
@@ -392,14 +400,14 @@ public class FdsFileSystem extends FileSystem {
     }
 
     private boolean isDirectory(BlobDescriptor bd) {
-        return bd.metadata.containsKey(DIRECTORY_SPECIFIER_KEY);
+        return bd.getMetadata().containsKey(DIRECTORY_SPECIFIER_KEY);
     }
 
     private long getMtime(BlobDescriptor bd) {
-        if (!bd.metadata.containsKey(LAST_MODIFIED_KEY)) {
+        if (!bd.getMetadata().containsKey(LAST_MODIFIED_KEY)) {
             return Calendar.getInstance().getTimeInMillis();
         } else {
-            String data = bd.metadata.get(LAST_MODIFIED_KEY);
+            String data = bd.getMetadata().get(LAST_MODIFIED_KEY);
             return Long.parseLong(data);
         }
     }

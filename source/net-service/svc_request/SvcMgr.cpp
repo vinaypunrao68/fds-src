@@ -296,7 +296,7 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
              */
             auto svcHandle = boost::make_shared<SvcHandle>(MODULEPROVIDER(), e);
             svcHandleMap_.emplace(std::make_pair(e.svc_id.svc_uuid, svcHandle));
-            GLOGDEBUG << "svcmap updaete.  svcuuid: "
+            GLOGDEBUG << "svcmap update.  svcuuid: "
                 << mapToSvcUuidAndName(e.svc_id.svc_uuid)
                 << " is new.  Incarnation: " << e.incarnationNo;
         } else {
@@ -559,6 +559,29 @@ Error SvcMgr::getDMT(int maxAttempts) {
 	return err;
 }
 
+Error SvcMgr::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int maxAttempts) {
+	Error err(ERR_NOT_FOUND);
+	int triedCnt = 0;
+	while (maxAttempts > triedCnt++) {
+		try {
+			getAllVolumeDescriptorsData(list);
+			if (list.volumeList.size() > 0) {
+				err = ERR_OK;
+			} else {
+				// Could potentially not be an error, but we should have gotten SYSTEM_VOLUME
+				// at least... so return ERR_NOT_FOUND
+			}
+			break;
+		} catch (Exception &e) {
+			LOGWARN << "Failed to get volume descriptor: " << e.what() << ". Attempt# " << triedCnt;
+		} catch (...) {
+			LOGWARN << "Failed to get volume descriptor. Attempt# " << triedCnt;
+		}
+	}
+
+	return err;
+}
+
 const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
@@ -615,6 +638,15 @@ void SvcMgr::getDLTData(::FDS_ProtocolInterface::CtrlNotifyDLTUpdate &fdsp_dlt)
 	fds_verify(omSvcRpc);
 
 	omSvcRpc->getDLT(fdsp_dlt, nullarg);
+}
+
+void SvcMgr::getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list)
+{
+	int nullarg = 0;
+	fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
+	fds_verify(omSvcRpc);
+
+	omSvcRpc->getAllVolumeDescriptors(list, nullarg);
 }
 
 void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)
@@ -704,6 +736,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
+        GLOGDEBUG << "No point in sending when service is down! ( "
+                  << svcInfo_.ip << ":" << svcInfo_.svc_port << " )";
         return false;
     }
     try {
@@ -714,8 +748,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
+            /**
+             * fault injection, if 'svc.fault.unreachable' is set the following lambda will execute
+             */
             fiu_do_on("svc.fault.unreachable",
                       LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
+
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
@@ -734,7 +772,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
+    if ( svcInfo_.incarnationNo < newInfo.incarnationNo ) {
         /* Update to new incaration information.  Invalidate the old rpc client */
         svcInfo_ = newInfo;
         svcClient_.reset();
@@ -747,6 +785,13 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
         svcClient_.reset();
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: set current incarnation as down.  After update" << logString();
+    } else if ( (svcInfo_.incarnationNo == newInfo.incarnationNo) &&
+                (svcInfo_.svc_status != newInfo.svc_status) ) {
+        svcInfo_ = newInfo;
+        svcClient_.reset();
+        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
+            << " Operation: update to current incarnation. After update " << logString();
+
     } else {
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: not applied.  After update" << logString();

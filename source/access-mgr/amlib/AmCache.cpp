@@ -14,7 +14,7 @@ AmCache::AmCache()
     : max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    max_metadata_entries = conf.get<fds_uint32_t>("cache.max_metadata_entries");
+    max_metadata_entries = std::min((uint64_t)LLONG_MAX, (uint64_t)conf.get<int64_t>("cache.max_metadata_entries"));
 }
 
 AmCache::~AmCache() = default;
@@ -201,7 +201,7 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
         cacheDesc->setBlobSize(blobSize);
 
         // Insert descriptor into the cache
-        putBlobDescriptor(cacheDesc->getVolId(), cacheDesc->getBlobName(), cacheDesc);
+        putBlobDescriptor(fds_volid_t(cacheDesc->getVolId()), cacheDesc->getBlobName(), cacheDesc);
 
         // Add blob objects from tx to object cache
         for (const auto &object : txDesc->stagedBlobObjects) {

@@ -101,6 +101,15 @@
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
 
+    - name: install latest fds-stats-deps package
+      apt: name=fds-stats-deps force=yes state=latest update_cache=yes cache_valid_time=600
+   
+    - name: install latest fds-stats-service package
+      apt: name=fds-stats-service force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest java package
+      apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
+
 #    - name: install versioned os packages
 #      apt: name={{ item.key }} version={{ item.value.version }} force=yes state=present update_cache=yes cache_valid_time=600
 #      with_dict:
@@ -165,7 +174,6 @@
         - libgoogle-perftools-dev
         - libconfig++-dev
         - libcurl4-openssl-dev
-        - oracle-java8-installer
         - npm
         - nodejs-legacy
         - ruby1.9.1-full
@@ -177,7 +185,6 @@
         - python-argh
         - python-boto
         - python-thrift
-        - libcryptopp-dev
         - libncurses5-dev
         - lintian
         - libhiredis0.10
@@ -217,6 +224,7 @@
         - docker-py
         - psutil
         - fstab
+        - pyudev
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables

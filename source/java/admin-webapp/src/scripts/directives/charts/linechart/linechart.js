@@ -6,7 +6,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
         transclude: false,
         templateUrl: 'scripts/directives/charts/linechart/linechart.html',
         scope: { data: '=', colors: '=?', opacities: '=?', drawPoints: '@', yAxisLabelFunction: '=?', axisColor: '@', 
-            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@', lineType: '@', minimumValue: '=?', maximumValue: '=?' },
+            tooltip: '=?', lineColors: '=?', lineStipples: '=?', backgroundColor: '@', domainLabels: '=?', limit: '=?', limitColor: '@', lineType: '@', minimumValue: '=?', maximumValue: '=?', rangeMaximum: '=?' },
         controller: function( $scope, $element, $resize_service ){
             
             $scope.hoverEvent = false;
@@ -92,7 +92,7 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 
                 // this is commented out because when we think about the limit while determining the max
                 // we easily end up with a chart that looks completely empty when y values are low.
-                // For now I'd rather see an expansive chart than an empty on with a limit line but
+                // For now I'd rather see an expansive chart than an empty one with a limit line but
                 // that may not be how it shakes out - so I didn't want to re-think this if it
                 // needs to be added back
 //                if ( angular.isDefined( $scope.limit ) ){
@@ -107,15 +107,22 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
             // calculate off of real data.  Depends on max calculation
             var buildScales = function(){
                
-                
-                buildMax();
+                // use a setting
+                if ( angular.isDefined( $scope.rangeMaximum ) && angular.isNumber( $scope.rangeMaximum ) ){
+                    $max = $scope.rangeMaximum;
+                }
+                // dynamically build it
+                else {
+                    buildMax();
+                }
                 
                 $xMax = 1;
                 
                 if ( angular.isDefined( $scope.maximumValue ) ){
                     $xMax = $scope.maximumValue;
                 }
-                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        $scope.data.series[0].datapoints.length > 0 ){
                     var lastXPos = $scope.data.series[0].datapoints.length - 1;
                     $xMax = $scope.data.series[0].datapoints[lastXPos].x;
                 }
@@ -125,7 +132,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 if ( angular.isDefined( $scope.minimumValue ) ){
                     $xMin = $scope.minimumValue;
                 }
-                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                else if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                        angular.isDefined( $scope.data.series[0].datapoints[0] ) ){
                     $xMin = $scope.data.series[0].datapoints[0].x;
                 }
                 
@@ -265,7 +273,8 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                         
                         var val = 0;
                     
-                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) ){
+                        if ( angular.isDefined( $scope.data.series[0] ) && angular.isDefined( $scope.data.series[0].datapoints ) &&
+                           $scope.data.series[0].datapoints.length > 0 ){
                             var pos = $scope.data.series[0].datapoints.length-1;
                             val = $xScale( $scope.data.series[0].datapoints[pos].x );
                         }

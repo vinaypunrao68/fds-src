@@ -10,10 +10,10 @@ import java.util.Optional;
 import java.util.Set;
 
 public class SimpleInodeIndex implements InodeIndex {
-    private Io io;
+    private TransactionalIo io;
     private ExportResolver exportResolver;
 
-    public SimpleInodeIndex(Io io, ExportResolver exportResolver) {
+    public SimpleInodeIndex(TransactionalIo io, ExportResolver exportResolver) {
         this.io = io;
         this.exportResolver = exportResolver;
     }
@@ -38,17 +38,16 @@ public class SimpleInodeIndex implements InodeIndex {
     }
 
     @Override
-    public void index(long exportId, InodeMetadata... entries) throws IOException {
-        for (InodeMetadata entry : entries) {
-            String volumeName = exportResolver.volumeName((int) exportId);
-            Map<Long, String> links = entry.getLinks();
-            for (long parentId : links.keySet()) {
-                String blobName = blobName(parentId, links.get(parentId));
-                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, metadata -> {
-                    metadata.clear();
-                    metadata.putAll(entry.asMap());
-                });
-            }
+    public void index(long exportId, boolean deferrable, InodeMetadata entry) throws IOException {
+        String volumeName = exportResolver.volumeName((int) exportId);
+        Map<Long, String> links = entry.getLinks();
+        for (long parentId : links.keySet()) {
+            String blobName = blobName(parentId, links.get(parentId));
+            io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, deferrable, metadata -> {
+                metadata.clear();
+                metadata.putAll(entry.asMap());
+                return null;
+            });
         }
     }
 

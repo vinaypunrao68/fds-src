@@ -39,6 +39,19 @@ fds_uint64_t getClockTicks();
 TimeStamp getNanosFromTicks(fds_uint64_t ticks);
 
 /**
+ * Return seconds from human readable time
+ * input string as: case-insensitive 
+ * "12345",""12345s", "12345sec" = 12345
+ * "1h", "1 hour" = 3600
+ * "60m", "60mins" = 3600
+ * "2d", "2 days" = 2*86400
+ * "1w", "1 week" = 7 * 86400
+ *  MM:SS = MM*60 + SS
+ *  HH:MM:SS = HH*3600 + MM*60 + SS
+ */
+TimeStamp getSecondsFromHumanTime(const std::string& strTime);
+
+/**
  * To track time interval once
  */
 struct StopWatch {

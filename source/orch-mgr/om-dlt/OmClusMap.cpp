@@ -128,6 +128,7 @@ ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
         case fpi::FDSP_DATA_MGR:
             addedDMs.clear();
             removedDMs.clear();
+            resyncDMs.clear();
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
@@ -137,8 +138,8 @@ ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
 Error
 ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
                       const NodeList &addNodes,
-                      const NodeList &rmNodes) {
-    TRACEFUNC;
+                      const NodeList &rmNodes,
+					  const NodeList &dmResyncNodes) {
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;
@@ -187,9 +188,33 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             addedDMs.insert(uuid);
         }
     }
+
+	for (NodeList::const_iterator it = dmResyncNodes.cbegin();
+		 it != dmResyncNodes.cend();
+		 it++) {
+		uuid = (*it)->get_uuid();
+		if (svc_type == fpi::FDSP_STOR_MGR) {
+			// Invalid use case
+			fds_assert(0);
+		} else {
+			curDmMap[uuid] = (*it);
+			resyncDMs.insert(uuid);
+		}
+	}
+
     // Increase the version following the update
     version++;
+
     return err;
+}
+
+Error
+ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
+                      const NodeList &addNodes,
+                      const NodeList &rmNodes) {
+    TRACEFUNC;
+    NodeList dummy;
+    return (updateMap(svc_type, addNodes, rmNodes, dummy));
 }
 
 //
@@ -303,6 +328,12 @@ ClusterMap::getRemovedServices(fpi::FDSP_MgrIdType svc_type) const {
     return std::unordered_set<NodeUuid, UuidHash>();
 }
 
+std::unordered_set<NodeUuid, UuidHash>
+ClusterMap::getDmResyncServices() const {
+    TRACEFUNC;
+    return resyncDMs;
+}
+
 NodeUuidSet
 ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
     NodeUuidSet retSet;
@@ -399,4 +430,24 @@ ClusterMap::getServiceUuids(fpi::FDSP_MgrIdType svc_type) const {
     return retSet;
 }
 
+fds_bool_t
+ClusterMap::serviceAddExists(fpi::FDSP_MgrIdType svc_type, const NodeUuid& svc_uuid)
+{
+	switch (svc_type) {
+		case (fpi::FDSP_STOR_MGR):
+			if (addedSMs.count(svc_uuid) > 0) {
+				return true;
+			}
+			break;
+		case (fpi::FDSP_DATA_MGR):
+			if (addedDMs.count(svc_uuid) > 0) {
+				return true;
+			}
+			break;
+        default:
+        	// Clustermap only cares about DM or SM
+        	break;
+	}
+	return false;
+}
 }  // namespace fds

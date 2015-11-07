@@ -164,6 +164,24 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds);
 
     /**
+    * @brief Returns object ids in snap(if null then active volume) starting from dbItr upto
+    * maxObjs count of objects.
+    *
+    * @param volId
+    * @param maxObjs
+    * @param snap
+    * @param dbItr
+    * @param objects
+    *
+    * @return 
+    */
+    Error getObjectIds(fds_volid_t volId,
+                       const uint32_t &maxObjs,
+                       const Catalog::MemSnap &snap,
+                       std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                       std::list<ObjectID> &objects) override;
+
+    /**
      * Retrieves blob meta for the given blobName and volume 'volId'
      * @param[in] volId volume identifier
      * @param[in] blobName name of the blob
@@ -223,7 +241,9 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error listBlobsWithPrefix (fds_volid_t volId,
                                std::string const& prefix,
                                std::string const& delimiter,
-                               fpi::BlobDescriptorListType& results) override;
+                               fpi::BlobDescriptorListType& results,
+                               std::vector<std::string>& skippedPrefixes) override;
+
 
     /**
      * Updates committed blob in the Volume Catalog.

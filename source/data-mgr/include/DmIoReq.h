@@ -217,29 +217,39 @@ class DmIoCommitBlobTx : public DmRequest {
         opReqFailedPerfEventType = PerfEventType::DM_TX_COMMIT_REQ_ERR;
         opReqLatencyCtx.type = PerfEventType::DM_TX_COMMIT_REQ;
     }
-    virtual ~DmIoCommitBlobTx() {
-    }
+    virtual ~DmIoCommitBlobTx() {}
 
-    virtual std::string log_string() const override {
-        std::stringstream ret;
-        ret << "DmIoCommitBlobTx vol "
-            << std::hex << volId << std::dec;
-        return ret.str();
-    }
+    std::function<void(const Error &e)> localCb;
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
-                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+                   << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc);
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+	ret << *this;
+        return ret.str();
+    }
+
+    std::string dump_meta() const {
+    	std::stringstream ret;
+    	ret << "Meta list byte-count = " << rspMsg.byteCount;
+    	for (auto cit : rspMsg.meta_list) {
+    		ret << "Meta list key: " << cit.key << " value: " << cit.value;
+    	}
+    	return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
-    /* response callback */
-    CbType dmio_commit_blob_tx_resp_cb;
-    /* is this the original request */
-    bool orig_request {true};
+    bool usedForMigration; // is this used for migration? If so, keep count.
+    std::mutex migrClientCntMtx; // Used to ensure atomicity for dealing with counts
+    fds_uint64_t migrClientCnt; // Keep track of the outstanding clients still forwarding
+    CbType dmio_commit_blob_tx_resp_cb; // response callback
+    bool orig_request {true}; // is this the original request?
 };
 
 template <typename T>
@@ -298,17 +308,16 @@ class DmIoStartBlobTx : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_START_REQ;
     }
 
-    virtual std::string log_string() const override {
-        std::stringstream ret;
-        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::dec
-            << ", dmt_version " << dmt_version << " TX " << *ioBlobTxDesc;
-        return ret.str();
-    }
-
     friend std::ostream& operator<<(std::ostream& out, const DmIoStartBlobTx& io) {
         return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name << " blob mode " << io.blob_mode
-                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+                   << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc);
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+	ret << *this;
+        return ret.str();
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
@@ -356,9 +365,12 @@ class DmIoQueryCat : public DmRequest {
  */
 class DmIoFwdCat : public DmRequest {
   public:
-    explicit DmIoFwdCat(boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
+	NodeUuid srcUuid;
+
+    explicit DmIoFwdCat(NodeUuid _src, boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
         : DmRequest(FdsDmSysTaskId, "", "",
                     0, FDS_DM_FWD_CAT_UPD),
+		  srcUuid(_src),
         fwdCatMsg(fwdMsg) {}
 
     virtual std::string log_string() const override {
@@ -394,10 +406,13 @@ class DmIoUpdateCat : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_UPDATE_REQ;
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCat& io) {
+        return out << "DmIoUpdateCat vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoUpdateCat vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
 
@@ -430,10 +445,13 @@ class DmIoUpdateCatOnce : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_UPDATE_ONCE_REQ;
     }
 
-    std::string log_string() const override {
+    friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCatOnce& io) {
+        return out << "DmIoUpdateCatOnce vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
+    virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoUpdateCat vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
 
@@ -463,10 +481,13 @@ class DmIoSetBlobMetaData : public DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_TX_SET_BLOB_META_REQ;
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoSetBlobMetaData& io) {
+        return out << "DmIoSetBlobMetaData vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc);
+    }
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoSetBlobMetaData vol "
-            << std::hex << volId << std::dec;
+        ret << *this;
         return ret.str();
     }
     BlobTxId::const_ptr ioBlobTxDesc;
@@ -749,8 +770,10 @@ struct DmIoResyncInitialBlob : DmRequest {
 struct DmIoMigrationDeltaBlobs : public DmRequest {
   public:
     typedef std::function<void (const Error &e, DmIoMigrationDeltaBlobs *req)> CbType;
-    explicit DmIoMigrationDeltaBlobs(boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg)
+    NodeUuid srcUuid;
+    explicit DmIoMigrationDeltaBlobs(NodeUuid _src, boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOB),
+			  srcUuid(_src),
               deltaBlobsMsg(msg) {}
 
     virtual std::string log_string() const override {
@@ -770,9 +793,11 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {
     std::function<void(const Error& e)> localCb = NULL;
-    explicit DmIoMigrationDeltaBlobDesc(const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
+    NodeUuid srcUuid;
+    explicit DmIoMigrationDeltaBlobDesc(NodeUuid _src, const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
-             deltaBlobDescMsg(msg)
+			  srcUuid(_src),
+              deltaBlobDescMsg(msg)
     {
     }
 
@@ -785,9 +810,11 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
 };
 
 struct DmIoMigrationTxState : DmRequest {
-    explicit DmIoMigrationTxState(const fpi::CtrlNotifyTxStateMsgPtr &msg)
+	NodeUuid destUuid;
+    explicit DmIoMigrationTxState(NodeUuid _dest, const fpi::CtrlNotifyTxStateMsgPtr &msg)
             : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_TX_STATE),
-             txStateMsg(msg)
+			  destUuid(_dest),
+              txStateMsg(msg)
     {
     }
 
@@ -797,6 +824,15 @@ struct DmIoMigrationTxState : DmRequest {
     }
 
 	fpi::CtrlNotifyTxStateMsgPtr txStateMsg;
+};
+
+struct DmFunctor : DmRequest {
+    DmFunctor(const fds_volid_t &volId, const std::function<void()>& f)
+    : DmRequest(volId, "", "", 0, FDS_DM_FUNCTOR),
+      func(f)
+    {}
+
+    std::function<void()>       func;
 };
 }  // namespace fds
 

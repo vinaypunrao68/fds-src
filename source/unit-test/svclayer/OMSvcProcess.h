@@ -34,6 +34,7 @@ struct OMSvcProcess : SvcProcess {
     void getSvcMap(std::vector<fpi::SvcInfo> & svcMap);
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg);
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg);
+    void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg);
 
  protected:
     /**

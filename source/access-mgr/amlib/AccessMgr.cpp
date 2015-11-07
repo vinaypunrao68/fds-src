@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <thread>
 
 #include "fds_process.h"
 
@@ -34,6 +35,7 @@ AccessMgr::mod_init(SysParams const *const param) {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     standalone_mode = conf.get<bool>("testing.standalone");
     FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    nbd_enabled = features.get<bool>("am.nbd_connector", nbd_enabled);
     scst_enabled = features.get<bool>("am.scst_connector", scst_enabled);
     return Module::mod_init(param);
 }
@@ -84,7 +86,9 @@ void AccessMgr::initilizeConnectors() {
     /**
      * Initialize the Nbd block connector
      */
-    NbdConnector::start(weakProcessor);
+    if (nbd_enabled) {
+        NbdConnector::start(weakProcessor);
+    }
 
     /**
      * FEATURE TOGGLE: Scst Connector
@@ -94,7 +98,8 @@ void AccessMgr::initilizeConnectors() {
         /**
          * Initialize the Scst connector
          */
-        ScstConnector::start(weakProcessor);
+        auto t = std::thread(&ScstConnector::start, weakProcessor);
+        t.detach();
     }
 }
 
@@ -111,7 +116,9 @@ AccessMgr::run() {
 
     LOGDEBUG << "Processing layer has shutdown, stop external services.";
     asyncServer->stop();
-    NbdConnector::stop();
+    if (nbd_enabled) {
+        NbdConnector::stop();
+    }
     /**
      * FEATURE TOGGLE: Scst Connector
      * Fri 11 Sep 2015 09:31:21 AM MDT

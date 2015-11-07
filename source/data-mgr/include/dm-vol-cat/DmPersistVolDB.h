@@ -28,6 +28,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     static const std::string CATALOG_WRITE_BUFFER_SIZE_STR;
     static const std::string CATALOG_CACHE_SIZE_STR;
     static const std::string CATALOG_MAX_LOG_FILES_STR;
+    static const std::string ENABLE_TIMELINE_STR;
 
     // ctor & dtor
     DmPersistVolDB(fds_volid_t volId,
@@ -66,7 +67,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getBlobMetaDescForPrefix (std::string const& prefix,
                                             std::string const& delimiter,
-                                            std::vector<BlobMetaDesc>& blobMetaList) override;
+                                            std::vector<BlobMetaDesc>& blobMetaList,
+                                            std::vector<std::string>& skippedPrefixes) override;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) override;
@@ -85,6 +87,11 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 														Catalog::MemSnap snap) override;
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
+
+    virtual void getObjectIds(const uint32_t &maxObjs,
+                              const Catalog::MemSnap &snap,
+                              std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                              std::list<ObjectID> &objects) override;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;

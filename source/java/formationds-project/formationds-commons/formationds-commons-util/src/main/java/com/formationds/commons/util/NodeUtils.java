@@ -4,9 +4,9 @@
 
 package com.formationds.commons.util;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -45,11 +45,11 @@ public class NodeUtils
     public static String mapToSvcUuidAndName( final SvcUuid uuid )
     {
         return String.format( "%x:%s",
-                              uuid.svc_uuid,
+                              uuid.getSvc_uuid( ),
                               mapToSvcName(
                                   new ResourceUUID(
                                       BigInteger.valueOf(
-                                          uuid.svc_uuid ) ).type( ) ) );
+                                          uuid.getSvc_uuid( ) ) ).type( ) ) );
     }
 
     /**
@@ -88,7 +88,7 @@ public class NodeUtils
                            " incarnation: %d" +
                            " status: %s( %d )",
                            NodeUtils.mapToSvcUuidAndName( svc.getSvc_id( )
-                                                            .svc_uuid ),
+                                                            .getSvc_uuid( ) ),
                            svc.getIp( ),
                            svc.getSvc_port( ),
                            svc.getIncarnationNo( ),
@@ -117,8 +117,10 @@ public class NodeUtils
      * @return Returns {@link Map} grouped by unique {@link FDSP_Node_Info_Type} field
      */
     public static Map<Long,List<FDSP_Node_Info_Type>> groupNodes(
-        final List<FDSP_Node_Info_Type> nodeInfos )
+        final List<FDSP_Node_Info_Type> nodeInfos,
+        final long omNodeUuid )
     {
+        logger.debug( "OM NODE UUID::{}", omNodeUuid );
         final ConcurrentMap<Long,List<FDSP_Node_Info_Type>> grouped =
             new ConcurrentHashMap<>( );
 
@@ -131,6 +133,8 @@ public class NodeUtils
                              Collectors.groupingBy(
                                  FDSP_Node_Info_Type::getIp_lo_addr,
                                  Collectors.toList( ) ) ) );
+
+            logger.debug( "Found multi-node configuration" );
         }
         else if( NodeUtils.isVirtualNode( nodeInfos ) ||
                  NodeUtils.isSingleNode( nodeInfos ) )
@@ -141,6 +145,8 @@ public class NodeUtils
                              Collectors.groupingBy(
                                  FDSP_Node_Info_Type::getNode_uuid,
                                  Collectors.toList( ) ) ) );
+
+            logger.debug( "Found virtualized-node configuration" );
         }
 
         /*
@@ -159,54 +165,54 @@ public class NodeUtils
          *
          * The OM should not have a special uuid ( node or service ). It
          * should use the node uuid of its residing node.
-         *
-         * FIXME: hard coding the OM uuid
-         * We need to remove the hard coding of the OM uuid. But we cannot
-         * until the platform.conf "parsing" is available outside of the
-         * fds jar. Otherwise, we end up with a circular dependency.
-         *
-         * formationds-common-util -> fds -> formationds-common-util
          */
-        final Long omUuid = 1024L;
         final List<FDSP_Node_Info_Type> omNodeList =
-            grouped.get( omUuid );
+            grouped.get( omNodeUuid );
 
-        if( ( omNodeList == null ) ||
-            ( omNodeList.isEmpty( ) || ( omNodeList.size( ) > 1 ) ) )
+        //noinspection StatementWithEmptyBody
+        if( omNodeList != null && !omNodeList.isEmpty( ) )
         {
-            logger.warn( "More then one OM, only expected one. " +
-                         "Leave OMs as separate nodes" );
-        }
-        else
-        {
-            final FDSP_Node_Info_Type om = omNodeList.get( 0 );
-
-            for( final List<FDSP_Node_Info_Type> services : grouped.values() )
+            // leave everything as it is
+            if( omNodeList.size( ) > 1 )
             {
-                Long nodeUUID = null;
-                final List<FDSP_Node_Info_Type> _omNode = new ArrayList<>( );
+                // Multi-OM will cause this to fail.
+                logger.warn( "More then one OM, only expected one, " +
+                             "leaving unmodified. OM Node UUID not set to default?" );
+            }
+            else
+            {
+                final FDSP_Node_Info_Type om = omNodeList.get( 0 );
 
-                for( final FDSP_Node_Info_Type service : services )
+                for( final List<FDSP_Node_Info_Type> services : grouped.values( ) )
                 {
-                    if( service.getNode_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) )
-                    {
-                        if( service.getNode_root( )
-                                   .equalsIgnoreCase(
-                                       om.getNode_root( ) ) )
-                        {
-                            nodeUUID = service.getNode_uuid();
-                            _omNode.add( om );
-                            _omNode.addAll( grouped.get( nodeUUID ) );
+                    Long nodeUUID = null;
+                    final List<FDSP_Node_Info_Type> _omNode
+                        = new ArrayList<>( );
 
-                            break;
+                    for( final FDSP_Node_Info_Type service : services )
+                    {
+                        if( service.getNode_type( )
+                                   .equals( FDSP_MgrIdType.FDSP_PLATFORM ) )
+                        {
+                            if( service.getNode_root( )
+                                       .equalsIgnoreCase(
+                                           om.getNode_root( ) ) )
+                            {
+                                nodeUUID = service.getNode_uuid( );
+                                _omNode.add( om );
+                                _omNode.addAll( grouped.get( nodeUUID ) );
+
+                                break;
+                            }
                         }
                     }
-                }
 
-                if( nodeUUID != null )
-                {
-                    grouped.replace( nodeUUID, _omNode );
-                    grouped.remove( om.getNode_uuid() );
+                    if( nodeUUID != null )
+                    {
+                        grouped.replace( nodeUUID, _omNode );
+                        grouped.remove( om.getNode_uuid( ) );
+                        break;
+                    }
                 }
             }
         }

@@ -29,18 +29,18 @@ public class Counters {
         bytesWritten,
         getAttr,
         setAttr,
+
         metadataCacheMiss,
         metadataCacheHit,
         objectCacheMiss,
         objectCacheHit,
-        AM_statBlob,
         deferredMetadataMutation,
+        deferredObjectMutation,
+
+        AM_statBlob,
         AM_updateMetadataTx,
-        AM_metadata_flush,
-        AM_updateBlobOnce_metadataOnly,
-        AM_getBlobWithMeta,
-        AM_updateBlobOnce_objectAndMetadata,
-        AM_updateBlob;
+        AM_getBlob,
+        AM_updateBlobTx, AM_volumeContents;
     }
 
     public long reset(Key key) {

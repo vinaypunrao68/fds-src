@@ -1,0 +1,17 @@
+localhost
+
+awo-bh-01 fds_build=debug
+
+[tinius_ec2:vars]
+clean_fds=no
+ansible_ssh_user=deploy
+cluster_location=awo
+fds_build=debug
+fds_default_nic=eth0
+fds_om_host="{{ groups[group_names[0]][0] }}"
+fds_metrics_enabled=false
+fds_metricsdb_ip=192.168.2.1
+fds_ssh_user=root
+fds_ssh_password=passwd
+fds_ft_common_enable_multi_om_support=false
+fds_om_host_count=1

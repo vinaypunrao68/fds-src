@@ -16,8 +16,8 @@
 #include <net/SvcMgr.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
-#include "AsyncResponseHandlers.h"
 
+#include "AmAsyncDataApi.h"
 #include "requests/requests.h"
 #include "requests/GetObjectReq.h"
 #include <net/MockSvcHandler.h>
@@ -77,7 +77,9 @@ AmDispatcher::start() {
     } else {
         // Set a custom time for the io messages to dm and sm
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
-        LOGNOTIFY << "AM IO timeout set to: " << message_timeout_io  << " ms";
+        message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
+        LOGNOTIFY << "AM Thrift timeout: " << message_timeout_default << " ms"
+                  << " IO timeout: " << message_timeout_io  << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {
@@ -238,7 +240,7 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
-    multiReq->setTimeoutMs(timeout);
+    multiReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     multiReq->setPayload(message_type_id(*payload), payload);
     return multiReq;
 }
@@ -273,7 +275,7 @@ AmDispatcher::createMultiPrimaryRequest(ObjectID const& objId,
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
-    multiReq->setTimeoutMs(timeout);
+    multiReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     multiReq->setPayload(message_type_id(*payload), payload);
     return multiReq;
 }
@@ -296,7 +298,7 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
     failoverReq->onResponseCb(cb);
-    failoverReq->setTimeoutMs(timeout);
+    failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
     return failoverReq;
 }
@@ -320,7 +322,7 @@ AmDispatcher::createFailoverRequest(ObjectID const& objId,
     auto primary = boost::make_shared<DltObjectIdEpProvider>(primary_nodes);
     auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dlt_version);
     failoverReq->onResponseCb(cb);
-    failoverReq->setTimeoutMs(timeout);
+    failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
     return failoverReq;
 }
@@ -455,8 +457,10 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
     auto volReq = static_cast<fds::StatVolumeReq*>(amReq);
     auto volMDMsg = deserializeFdspMsg<fpi::StatVolumeMsg>(const_cast<Error&>(error), payload);
 
-    if (ERR_OK == error)
-        volReq->volumeStatus = volMDMsg->volumeStatus;
+    if (ERR_OK == error) {
+        volReq->size = volMDMsg->volumeStatus.size;
+        volReq->blob_count = volMDMsg->volumeStatus.blobCount;
+    }
     // Notify upper layers that the request is done.
     amReq->proc_cb(error);
 }
@@ -1275,7 +1279,8 @@ AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
-              cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>(); \
+              cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>(); \
+              cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>(); \
               amReq->proc_cb(ERR_OK); \
               return;);
 
@@ -1317,8 +1322,15 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
                 response->blob_descr_list.size();
 
         auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
-        cb->vecBlobs = boost::make_shared<std::vector<fpi::BlobDescriptor>>();
-        cb->vecBlobs->swap(response->blob_descr_list);
+        cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>();
+        for (auto const& descriptor : response->blob_descr_list) {
+            cb->vecBlobs->emplace_back(descriptor.name,
+                                       amReq->io_vol_id.get(),
+                                       descriptor.byteCount,
+                                       descriptor.metadata);
+        }
+        cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>();
+        cb->skippedPrefixes->swap(response->skipped_prefixes);
     }
     amReq->proc_cb(error);
 }

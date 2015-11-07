@@ -122,7 +122,8 @@ class DmPersistVolCat {
 
     virtual Error getBlobMetaDescForPrefix(std::string const& prefix,
                                            std::string const& delimiter,
-                                           std::vector<BlobMetaDesc>& blobMetaList) = 0;
+                                           std::vector<BlobMetaDesc>& blobMetaList,
+                                           std::vector<std::string>& skippedPrefixes) = 0;
 
     virtual Error getObject(const std::string & blobName, fds_uint64_t offset,
             ObjectID & obj) = 0;
@@ -142,6 +143,12 @@ class DmPersistVolCat {
                                             const Catalog::MemSnap snap) = 0;
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
+
+    virtual void getObjectIds(const uint32_t &maxObjs,
+                              const Catalog::MemSnap &snap,
+                              std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                              std::list<ObjectID> &objects) = 0;
+
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) = 0;

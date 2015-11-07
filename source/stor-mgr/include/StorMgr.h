@@ -146,6 +146,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              }
          virtual ~SmQosCtrl() {
              delete dispatcher;
+             if (dispatcherThread) {
+                 dispatcherThread->join();
+             }
          }
 
          Error processIO(FDS_IOType* _io);
@@ -316,6 +319,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      /* Made virtual for google mock */
      TVIRTUAL const DLT* getDLT();
+
+     Error getAllVolumeDescriptors();
 
      const std::string getStorPrefix() {
          return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");

@@ -72,7 +72,7 @@ public class FdsAuthenticator implements Authenticator {
         String newSecret = UUID.randomUUID().toString();
         try {
 
-            cache.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
+            cache.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isIsFdsAdmin());
 
         } catch (TException e) {
 

@@ -22,10 +22,10 @@ mydir = File.dirname(__FILE__)
 fds_version = File.readlines("#{mydir}/../../../VERSION").first.chomp
 
 build_number = ENV['BUILD_NUMBER']
-git_sha = `git rev-parse --short HEAD`.chomp unless build_number
+timestamp = '~'+`date +%s`.chomp unless build_number
 
 if build_number.nil?
-  build_iteration git_sha
+  build_iteration timestamp
 else
   build_iteration build_number
 end
@@ -33,8 +33,8 @@ end
 if ENV['ENABLE_VERSION_INSTALL'] == 'true'
   build_version "1"
   build_iteration "1"
-  install_dir "/opt/fds/#{fds_version}-#{git_sha}"
-  name "fds-platform-#{build_type}-#{fds_version}-#{git_sha}"
+  install_dir "/opt/fds/#{fds_version}-#{timestamp}"
+  name "fds-platform-#{build_type}-#{fds_version}-#{timestamp}"
   # We override the build_iteration in this case
 else
   # Continue to use legacy configuration

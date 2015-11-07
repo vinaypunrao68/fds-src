@@ -8,11 +8,11 @@
         - /fds/var/db
         - /fds/var/logs
         - /fds/var/stats
-        - /corefiles/*.core
+        - /corefiles/*
         - /fds/var/core/*.core
         - /fds/dev/hdd-*/*
         - /fds/dev/ssd-*/*
-        - /fds/sys-repo
+        - /fds/sys-repo/*
         - /fds/user-repo/*
         - /fds/var/redis/appendonly.aof
     tags:

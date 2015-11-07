@@ -149,6 +149,16 @@ ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
     return err;
 }
 
+diskio::DataTier
+ObjectMetadataStore::getMetadataTier() const {
+    return metaDb_->getMetaTierInfo();
+}
+
+std::vector<ObjectID>
+ObjectMetadataStore::getMetaDbKeys(const fds_token_id &smToken) {
+   return metaDb_->getKeys(smToken); 
+}
+
 void
 ObjectMetadataStore::snapshot(fds_token_id smTokId,
                               SmIoSnapshotObjectDB::CbType notifFn,

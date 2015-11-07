@@ -4,6 +4,7 @@ import com.formationds.apis.ObjectOffset;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.Random;
 import java.util.UUID;
 
@@ -15,7 +16,8 @@ public class ChunkerTest {
     public static final String DOMAIN = "domain";
     public static final String VOLUME = "volume";
     private Chunker chunker;
-    private MemoryIo io;
+    private TransactionalIo transactions;
+    private MemoryIoOps io;
 
     @Test
     public void testReadWrite() throws Exception {
@@ -30,8 +32,9 @@ public class ChunkerTest {
         byte[] bytes = randomBytes(length);
         String arbitraryValue = UUID.randomUUID().toString();
         String blobName = "blobName";
+        io.writeMetadata(DOMAIN, VOLUME, blobName, new HashMap<>(), false);
         chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
-        io.mapObjectAndMetadata(DOMAIN, VOLUME, blobName, OBJECT_SIZE, new ObjectOffset(0), (oov) -> {
+        transactions.mapObjectAndMetadata(DOMAIN, VOLUME, blobName, OBJECT_SIZE, new ObjectOffset(0), (oov) -> {
             assertTrue(oov.isPresent());
             assertEquals(arbitraryValue, oov.get().getMetadata().get("key"));
             return null;
@@ -53,7 +56,8 @@ public class ChunkerTest {
 
     @Before
     public void setUp() throws Exception {
-        io = new MemoryIo();
-        chunker = new Chunker(io);
+        io = new MemoryIoOps();
+        transactions = new TransactionalIo(io);
+        chunker = new Chunker(transactions);
     }
 }

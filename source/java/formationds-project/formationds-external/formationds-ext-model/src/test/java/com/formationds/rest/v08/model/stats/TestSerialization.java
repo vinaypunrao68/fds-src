@@ -5,11 +5,11 @@ import java.util.Calendar;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.formationds.client.v08.model.TimeUnit;
 import com.formationds.client.v08.model.stats.ContextDef;
 import com.formationds.client.v08.model.stats.ContextType;
 import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.client.v08.model.stats.StatTypes;
-import com.formationds.client.v08.model.stats.StatDataPoint.TIME_UNITS;
 
 public class TestSerialization {
 
@@ -18,7 +18,7 @@ public class TestSerialization {
 		
 		StatDataPoint datapoint = new StatDataPoint();
 		datapoint.setCollectionPeriod( 10L );
-		datapoint.setCollectionTimeUnit( TIME_UNITS.HOURS );
+		datapoint.setCollectionTimeUnit( TimeUnit.HOURS );
 		datapoint.setContextType( ContextType.VOLUME );
 		datapoint.setContextId( 12345L );
 		datapoint.setNumberOfSamples( 6 );
@@ -31,9 +31,9 @@ public class TestSerialization {
 		String json = datapoint.toJson();
 		System.out.println( json );
 		
-		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\"," + 
-				"\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[],\"contextType\":"+ 
-				"\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"
+		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\",\"aggregationType\":\"SUM\","
+				+ "\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[],\"contextType\":" 
+				+ "\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"
 				+ "\"reportTime\":" + datapoint.getReportTime() +"}" ) );
 		
 		datapoint.getRelatedContexts().add( new ContextDef( ContextType.NODE, 34243L ) );
@@ -41,7 +41,7 @@ public class TestSerialization {
 		json = datapoint.toJson();
 		System.out.println( json );
 		
-		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\","
+		Assert.assertTrue( json.equals( "{\"minimumValue\":12.7,\"collectionTimeUnit\":\"HOURS\",\"aggregationType\":\"SUM\","
 				+ "\"metricName\":\"PUTS\",\"collectionPeriod\":10,\"relatedContexts\":[{\"contextType\":\"NODE\",\"contextId\":34243}],"
 				+ "\"contextType\":"
 				+ "\"VOLUME\",\"metricValue\":76,\"contextId\":12345,\"numberOfSamples\":6,\"maximumValue\":100,"

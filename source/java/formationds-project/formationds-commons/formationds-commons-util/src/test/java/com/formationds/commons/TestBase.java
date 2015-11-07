@@ -4,11 +4,11 @@
 
 package com.formationds.commons;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_NodeState;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcID;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.ServiceStatus;
 import com.formationds.protocol.svc.types.SvcInfo;
 
@@ -158,7 +158,7 @@ public abstract class TestBase
     }
 
     private FDSP_Node_Info_Type other( final FDSP_Node_Info_Type pm,
-                                              final FDSP_MgrIdType type )
+                                       final FDSP_MgrIdType type )
     {
         final FDSP_Node_Info_Type other = pm.deepCopy();
 
@@ -232,7 +232,7 @@ public abstract class TestBase
                                      0,
                                      base_uuid * 3,
                                      base_uuid * 3,
-                                     "/fds/node3",
+                                     "/fds",
                                      0 );
 
         final FDSP_Node_Info_Type pm4 =
@@ -269,7 +269,7 @@ public abstract class TestBase
                               other( pm4, FDSP_MgrIdType.FDSP_STOR_MGR ) );
     }
 
-    protected List<FDSP_Node_Info_Type> nodeVitualized( )
+    protected List<FDSP_Node_Info_Type> nodeVirtualized( )
     {
         final FDSP_Node_Info_Type pm1 =
             new FDSP_Node_Info_Type( 1,

@@ -6,12 +6,15 @@ package com.formationds.commons.util;
 
 import com.formationds.commons.TestBase;
 import com.formationds.commons.util.net.service.ServiceMap;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcUuid;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.math.BigInteger;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author ptinius
@@ -119,7 +122,7 @@ public class NodeUtilsTest
     {
         Assert.assertFalse( NodeUtils.isSingleNode( nodes( ) ) );
         Assert.assertTrue( NodeUtils.isSingleNode( nodeSingle( ) ) );
-        Assert.assertFalse( NodeUtils.isSingleNode( nodeVitualized( ) ) );
+        Assert.assertFalse( NodeUtils.isSingleNode( nodeVirtualized( ) ) );
     }
 
     @Test
@@ -127,7 +130,7 @@ public class NodeUtilsTest
     {
         Assert.assertTrue( NodeUtils.isMultiNode( nodes( ) ) );
         Assert.assertFalse( NodeUtils.isMultiNode( nodeSingle( ) ) );
-        Assert.assertTrue( NodeUtils.isMultiNode( nodeVitualized( ) ) );
+        Assert.assertTrue( NodeUtils.isMultiNode( nodeVirtualized( ) ) );
     }
 
     @Test
@@ -135,26 +138,39 @@ public class NodeUtilsTest
     {
         Assert.assertFalse( NodeUtils.isVirtualNode( nodes( ) ) );
         Assert.assertTrue( NodeUtils.isVirtualNode( nodeSingle( ) ) );
-        Assert.assertTrue( NodeUtils.isVirtualNode( nodeVitualized( ) ) );
+        Assert.assertTrue( NodeUtils.isVirtualNode( nodeVirtualized( ) ) );
     }
 
     @Test
     public void testGroupNodes_Multi_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodes( ) )
+        Assert.assertTrue( NodeUtils.groupNodes( nodes( ), 1024 )
                                     .size( ) == 4 );
     }
 
     @Test
     public void testGroupNodes_Single_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodeSingle() ).size() == 1 );
+        Assert.assertTrue( NodeUtils.groupNodes( nodeSingle(), 1024 ).size() == 1 );
     }
 
     @Test
     public void testGroupNodes_Virtualized_Node( ) throws Exception
     {
-        Assert.assertTrue( NodeUtils.groupNodes( nodeVitualized( ) ).size() == 4 );
+        Assert.assertTrue( NodeUtils.groupNodes( nodeVirtualized( ), 1024 ).size() == 4 );
     }
 
+    @Test
+    public void testFS2717()
+    {
+        final Map<Long,List<FDSP_Node_Info_Type>> svcs = NodeUtils.groupNodes( nodeVirtualized( ), 1024 );
+        for( final Long key : svcs.keySet( ) )
+        {
+            System.out.println( "Node " + key );
+            for( final FDSP_Node_Info_Type svc : svcs.get( key ) )
+            {
+                System.out.println( "\t" + svc );
+            }
+        }
+    }
 }

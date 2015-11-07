@@ -24,7 +24,7 @@ public class Volume extends AbstractResource<Long> {
 
         private final String         volumeName;
         private Tenant               tenant;
-        private Optional<Long> id = Optional.empty();
+        private Optional<Long>       id = Optional.empty();
         private String               application;
         private VolumeSettings       settings;
         private MediaPolicy          mediaPolicy;
@@ -41,9 +41,9 @@ public class Volume extends AbstractResource<Long> {
          *
          * @param from the existing volume
          */
-        public Builder( Volume from, String name ) {
-
-            volumeName = name;
+        public Builder(Volume from, String name) {
+            this(name);
+            // FIXME: status?
             tenant = from.getTenant();
             application = from.getApplication();
             settings = from.getSettings().newSettingsFrom();
@@ -59,8 +59,8 @@ public class Volume extends AbstractResource<Long> {
         }
 
         public Builder( Tenant tenant, String volumeName ) {
+            this(volumeName);
             this.tenant = tenant;
-            this.volumeName = volumeName;
         }
 
         public Builder id(Number id) { this.id = (id != null ? Optional.of( id.longValue() ) : Optional.empty()); return this; }
@@ -83,16 +83,13 @@ public class Volume extends AbstractResource<Long> {
             return this;
         }
 
-        public Builder settings( VolumeSettings settings ) {
-            this.settings = settings;
-            return this;
-        }
         public Builder creationTime(Instant t) { this.creationTime = Optional.of( t ); return this; }
         public Builder tenant(Tenant t) { this.tenant = t; return this; }
         public Builder addTag(String k, String v) { this.tags.put(k, v); return this; }
         public Builder addTags(Map<String,String> tags) { this.tags.putAll(tags); return this; }
         public Builder application(String app) { this.application = app; return this; }
         public Builder status(VolumeStatus status) { this.status = status; return this; }
+        public Builder settings(VolumeSettings value) { settings = value; return this; }
         public Builder mediaPolicy(MediaPolicy m) { this.mediaPolicy = m; return this; }
         public Builder accessPolicy(VolumeAccessPolicy ap) { this.accessPolicy = ap; return this; }
         public Builder qosPolicy(QosPolicy qp) { this.qosPolicy = qp; return this; }

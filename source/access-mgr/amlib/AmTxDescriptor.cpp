@@ -16,7 +16,7 @@ AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
           blobName(name),
           opType(FDS_PUT_BLOB),
           stagedBlobDesc(new BlobDescriptor()) {
-    stagedBlobDesc->setVolId(volId);
+    stagedBlobDesc->setVolId(volId.get());
     stagedBlobDesc->setBlobName(blobName);
     stagedBlobDesc->setBlobSize(0);
     // TODO(Andrew): We're leaving the blob version unset

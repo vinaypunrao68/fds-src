@@ -9,9 +9,8 @@
 namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
-    : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(NULL),
-    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID),
-    migrState(MIGR_IDLE)
+    : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(nullptr),
+    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                       get<int>("fds.dm.migration.migration_max_concurrency"));
@@ -56,18 +55,19 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
      * Make sure that this isn't an ongoing operation.
      * Otherwise, OM bug?
      */
-    auto search = executorMap.find(fds_volid_t(vol.volUUID));
+    auto uniqueId = std::make_pair(srcDmUuid, fds_volid_t(vol.volUUID));
+    auto search = executorMap.find(uniqueId);
     if (search != executorMap.end()) {
-        LOGMIGRATE << "Migration for volume " << vol.vol_name << " is a duplicated request.";
+        LOGMIGRATE << "Migration for node " << srcDmUuid << " volume " << vol.vol_name << " is a duplicated request.";
         err = ERR_DUPLICATE;
     } else {
         /**
          * Create a new instance of migration Executor
          */
-        LOGMIGRATE << "Creating migration instance for volume id=: " << vol.volUUID
+        LOGMIGRATE << "Creating migration instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
             << " name=" << vol.vol_name;
 
-        executorMap.emplace(fds_volid_t(vol.volUUID),
+        executorMap.emplace(uniqueId,
                             DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
                                                                                     srcDmUuid,
                                                                                     vol,
@@ -75,15 +75,15 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
                                                                                     std::bind(&DmMigrationMgr::migrationExecutorDoneCb,
                                                                                               this,
                                                                                               std::placeholders::_1,
-                                                                                              std::placeholders::_2),
+                                                                                              std::placeholders::_2,
+																							  std::placeholders::_3),
                                                                                     deltaBlobTimeout)));
     }
     return err;
 }
 
-
 DmMigrationExecutor::shared_ptr
-DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
+DmMigrationMgr::getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
     SCOPEDREAD(migrExecutorLock);
     auto search = executorMap.find(uniqueId);
@@ -95,9 +95,8 @@ DmMigrationMgr::getMigrationExecutor(fds_volid_t uniqueId)
 }
 
 DmMigrationClient::shared_ptr
-DmMigrationMgr::getMigrationClient(fds_volid_t uniqueId)
+DmMigrationMgr::getMigrationClient(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
-   SCOPEDREAD(migrExecutorLock);
    auto search = clientMap.find(uniqueId);
    if (search == clientMap.end()) {
        return nullptr;
@@ -135,15 +134,12 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         sleep(delayStart);
     }
 
-    /**
-     * Make sure we're in a state able to dispatch migration.
-     */
-    err = activateStateMachine(MIGR_EXECUTOR);
-
     // Test error return code
     fiu_do_on("abort.dm.migration",\
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
+
+    waitForAbortToFinish();
 
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
@@ -202,7 +198,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
      * We need to revisit this and work with the maxConcurrency concept to start x concurrent
      * threads.
      */
-    SCOPEDWRITE(migrExecutorLock);
+    SCOPEDREAD(migrExecutorLock);
     mit = executorMap.begin();
     while (loopFireNext && (mit != executorMap.end())) {
         loopFireNext = !(mit->second->shouldAutoExecuteNext());
@@ -212,7 +208,6 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
              * Abort everything
              */
             err = ERR_DM_MIGRATION_ABORTED;
-            abortMigration();
             break;
         } else if (loopFireNext) {
             mit++;
@@ -224,17 +219,20 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 Error
 DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(deltaBlobDescMsg->volume_id));
+    fds_volid_t volId(deltaBlobDescMsg->volume_id);
+    NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
+    auto uniqueId = std::make_pair(srcUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     Error err(ERR_OK);
     migrationCb descCb = deltaBlobDescReq->localCb;
 
     if (executor == nullptr) {
     	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id
+			LOGMIGRATE << "Unable to find executor for volume " << volId
 					<< " during migration abort";
     	} else {
-			LOGERROR << "Unable to find executor for volume " << deltaBlobDescMsg->volume_id;
+			LOGERROR << "Unable to find executor for volume " << volId;
 			// this is an race cond error that needs to be fixed in dev env.
 			// Only panic in debug build.
 			fds_assert(0);
@@ -261,14 +259,17 @@ Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(deltaBlobsMsg->volume_id));
+    fds_volid_t volId(deltaBlobsMsg->volume_id);
+    NodeUuid srcUuid(deltaBlobReq->srcUuid);
+    auto uniqueId = std::make_pair(srcUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     if (executor == nullptr) {
     	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << deltaBlobsMsg->volume_id
+			LOGMIGRATE << "Unable to find executor for volume " << volId
 					<< " during migration abort";
     	} else {
-			LOGERROR << "Unable to find executor for volume " << deltaBlobsMsg->volume_id;
+			LOGERROR << "Unable to find executor for volume " << volId;
 			// this is an race cond error that needs to be fixed in dev env.
 			// Only panic in debug build.
 			fds_assert(0);
@@ -289,17 +290,24 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
 Error
 DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
     auto fwdCatMsg = fwdCatReq->fwdCatMsg;
-    DmMigrationExecutor::shared_ptr executor =
-    		getMigrationExecutor(fds_volid_t(fwdCatMsg->volume_id));
+    fds_volid_t volId(fwdCatMsg->volume_id);
+    NodeUuid srcUuid(fwdCatReq->srcUuid.uuid_get_val());
+    auto uniqueId = std::make_pair(srcUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     if (executor == nullptr) {
-    	LOGERROR << "Unable to find executor for volume " << fwdCatMsg->volume_id;
-        // this is an race cond error that needs to be fixed in dev env.
-        // Only panic in debug build.
-    	fds_panic("Unhandled case");
+    	if (isMigrationAborted()) {
+			LOGMIGRATE << "Unable to find executor for volume " << volId
+					<< " during migration abort";
+    	} else {
+			LOGERROR << "Unable to find executor for volume " << volId;
+
+            // this likely means DM died during migration and has come back with the client still forwarding
+            // returning an error code will abort the client side migration
+    	}
     	return ERR_NOT_FOUND;
     }
-    executor->processForwardedCommits(fwdCatReq);
-    return ERR_OK;
+    return (executor->processForwardedCommits(fwdCatReq));
 }
 
 void
@@ -324,14 +332,11 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
+    waitForAbortToFinish();
+
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
-
-    /**
-     * Make sure we're in a state able to dispatch migration.
-     */
-    err = activateStateMachine(MIGR_CLIENT);
 
     if (err != ERR_OK) {
     	abortMigration();
@@ -341,7 +346,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
 
     if (err != ERR_OK) {
-    	abortMigration();
+    	fds_assert(isMigrationAborted());
         return err;
     }
 
@@ -359,80 +364,68 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
      * Otherwise, DM bug
      */
     auto fds_volid = fds_volid_t(filterSet->volumeId);
-    auto search = clientMap.find(fds_volid);
+    auto search = clientMap.find(std::make_pair(destDmUuid, fds_volid));
     DmMigrationClient::shared_ptr client = nullptr;
     if (search != clientMap.end()) {
-        LOGMIGRATE << "Client received request for volume " << filterSet->volumeId
-            << " but it already exists";
+        LOGMIGRATE << "Client received request for destination node: " << destDmUuid
+        		<< " volume " << filterSet->volumeId << " but it already exists";
         err = ERR_DUPLICATE;
+        abortMigration();
     } else {
         /**
          * Create a new instance of client and start it.
          */
-        migrClientLock.write_lock();
-        LOGMIGRATE << "Creating migration client for volume ID# " << fds_volid;
-        clientMap.emplace(fds_volid,
-                          (client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
-                                                                                        mySvcUuid, destDmUuid, filterSet,
-                                                                                        std::bind(&DmMigrationMgr::migrationClientDoneCb,
-                                                                                                  this, std::placeholders::_1,
-                                                                                                  std::placeholders::_2),
-                                                                                        maxNumBlobs,
-                                                                                        maxNumBlobDesc))));
-        migrClientLock.write_unlock();
+    	auto uniqueId = std::make_pair(destDmUuid, fds_volid);
+        {
+        	SCOPEDWRITE(migrClientLock);
+        	LOGMIGRATE << "Creating migration client for node: " << destDmUuid << " volume ID# " << fds_volid;
+			clientMap.emplace(uniqueId,
+							  (client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
+																							mySvcUuid, destDmUuid, filterSet,
+																							std::bind(&DmMigrationMgr::migrationClientDoneCb,
+																									  this, std::placeholders::_1,
+																									  std::placeholders::_2),
+																							maxNumBlobs,
+																							maxNumBlobDesc))));
+        }
+        {
+        	SCOPEDREAD(migrClientLock);
+        	client = getMigrationClient(uniqueId);
+        	fds_assert(client != nullptr);
 
-        err = client->processBlobFilterSet();
-        if (ERR_OK != err) {
-            LOGERROR << "Processing filter set failed.";
-            err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+        	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
+			err = client->processBlobFilterSet(trackerBind);
+			if (ERR_OK != err) {
+				abortMigration();
+				LOGERROR << "Processing filter set failed.";
+				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+				return err;
+			}
+
+			err = client->processBlobFilterSet2();
+			if (ERR_OK != err) {
+				// This one doesn't have an async callback to decrement so we fail it manually
+				abortMigration();
+				LOGERROR << "Processing blob diff failed";
+				// Shared the same error code, so look for above's msg
+				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
+				return err;
+			}
         }
     }
 
-    return err;
-}
-
-Error
-DmMigrationMgr::activateStateMachine(DmMigrationMgr::MigrationRole role)
-{
-    Error err(ERR_OK);
-
-    MigrationState expectedState(MIGR_IDLE);
-    myRole = role;
-
-    if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_IN_PROGRESS)) {
-    	if (expectedState == MIGR_IN_PROGRESS) {
-    		// This is fine
-    		return err;
-    	}
-        // If not ABORTED state, then something wrong with OM FSM sending this migration msg
-        fds_verify(isMigrationAborted());
-        if (isMigrationAborted()) {
-            /**
-             * If migration is in aborted state, don't do anything. Let the cleanup occur.
-             * Once the cleanup is done, the state should go back to MIGR_IDLE.
-             * In the meantime, do not serve anymore migrations.
-             */
-            LOGMIGRATE << "DM MigrationMgr cannot receive new requests as it is "
-                << "currently in an error state and being cleaned up.";
-            err = ERR_NOT_READY;
-        }
-    } else {
-        /**
-         * Migration should be idle
-         */
-        fds_verify(ongoingMigrationCnt() == 0);
-    }
     return err;
 }
 
 void
-DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
+DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, const Error &result)
 {
     MigrationState expectedState(MIGR_IN_PROGRESS);
     /**
      * Make sure we can find it
      */
-    DmMigrationExecMap::iterator mapIter = executorMap.find(volId);
+    auto key = std::make_pair(srcNode,volId);
+    DmMigrationExecMap::iterator mapIter = executorMap.find(key);
     fds_verify(mapIter != executorMap.end());
 
     LOGMIGRATE << "Migration Executor complete for volume="
@@ -440,7 +433,6 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
         << " with error=" << result;
 
     if (!result.OK()) {
-        fds_verify(isMigrationInProgress() || isMigrationAborted());
         LOGERROR << "Volume=" << volId << " failed migration with error: " << result;
         abortMigration();
     } else {
@@ -461,22 +453,28 @@ DmMigrationMgr::migrationExecutorDoneCb(fds_volid_t volId, const Error &result)
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    // SCOPEDWRITE(migrClientThrMapLock);
-    SCOPEDWRITE(migrClientLock);
-    LOGMIGRATE << "Client done with volume " << uniqueId;
-    clientMap.erase(fds_volid_t(uniqueId));
+    SCOPEDREAD(migrClientLock);
+    if (!result.OK()) {
+        LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
+        abortMigration();
+    } else {
+    	LOGMIGRATE << "Client done with volume " << uniqueId;
+    }
 }
 
 fds_bool_t
 DmMigrationMgr::shouldForwardIO(fds_volid_t volId, fds_uint64_t dmtVersion)
 {
-    auto dmClient = getMigrationClient(volId);
-    if (dmClient == nullptr) {
-        // Not in the status of migration
-        return false;
+    SCOPEDREAD(migrClientLock);
+    // If at least one client says "forward", then return true.
+    for (auto cit : clientMap) {
+    	auto key = cit.first;
+    	auto dmClient = cit.second;
+    	if ((key.second == volId) && (dmClient->shouldForwardIO(dmtVersion))) {
+    		return true;
+    	}
     }
-
-    return (dmClient->shouldForwardIO(dmtVersion));
+    return (false);
 }
 
 void
@@ -484,28 +482,10 @@ DmMigrationMgr::stopAllClientForwarding()
 {
 	DmMigrationClientMap::iterator mapIter (clientMap.begin());
 	for (; mapIter != clientMap.end(); mapIter++) {
-		LOGMIGRATE << "Turning off forwarding for vol:" << mapIter->first;
+		LOGMIGRATE << "Turning off forwarding for node" << mapIter->first.first
+				<< " vol: " << mapIter->first.second;
 		mapIter->second->turnOffForwarding();
 	}
-}
-
-Error
-DmMigrationMgr::sendFinishFwdMsg(fds_volid_t volId)
-{
-	auto dmClient = getMigrationClient(volId);
-    if (dmClient == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find client for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
-
-	return (dmClient->sendFinishFwdMsg());
 }
 
 Error
@@ -516,29 +496,141 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                                     const MetaDataList::const_ptr& meta_list)
 {
 	Error err(ERR_NOT_FOUND);
-	auto dmClient = getMigrationClient(volId);
-    if (dmClient == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find client for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
 
-	err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+    SCOPEDREAD(migrClientLock);
+
+    /**
+     * Populate the # of clients first, so we don't run the risk of
+     * the first client finishing and calling cleanup to remove the io request
+     * before the second client.
+     */
+    if (!isMigrationAborted()) {
+        {
+            std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+            for (auto client : clientMap) {
+                auto pair = client.first;
+                if (pair.second == volId) {
+                    auto destUuid = pair.first;
+                    auto dmClient = client.second;
+                    if (dmClient) {
+                        commitBlobReq->migrClientCnt++;
+                    }
+                }
+            }
+        }
+    }
+    LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
+
+    for (auto client : clientMap) {
+    	auto pair = client.first;
+    	if (pair.second == volId) {
+    		auto destUuid = pair.first;
+    		auto dmClient = client.second;
+    		if (dmClient == nullptr) {
+				if (isMigrationAborted()) {
+					LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
+				} else {
+					LOGERROR << "Unable to find client for volume " << volId;
+					// this is an race cond error that needs to be fixed in dev env.
+					// Only panic in debug build.
+					fds_assert(0);
+				}
+    		} else {
+    			LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
+    			err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+    			if (!err.ok()) {
+    				LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
+    				break;
+    			}
+    		}
+    	}
+    }
 
 	return err;
 }
 
 Error
-DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
+DmMigrationMgr::finishActiveMigration(MigrationRole role)
 {
-	auto dmExecutor = getMigrationExecutor(volId);
-    if (dmExecutor == nullptr) {
+	Error err(ERR_OK);
+	MigrationState expectedState(MIGR_IN_PROGRESS);
+	if (role == MIGR_CLIENT) {
+		{
+			SCOPEDWRITE(migrClientLock);
+			LOGMIGRATE << "Waiting for all outstanding client async messages to be finished";
+			trackIOReqs.waitForTrackIOReqs();
+			/*
+			 * DMT Close is a broadcasted event. There's no need to handle each node separately.
+			 * Just nuke all the clientMap because DMT Close can only happen once all the executors
+			 * have Cb'ed to the OM.
+			 */
+			clientMap.clear();
+			LOGMIGRATE << "Migration clients cleared and state reset";
+		}
+	} else if (role == MIGR_EXECUTOR) {
+		{
+			SCOPEDWRITE(migrExecutorLock);
+			LOGMIGRATE << "Waiting for all outstanding executor async messages to be finished";
+			trackIOReqs.waitForTrackIOReqs();
+			LOGMIGRATE << "Migration executors state reset";
+			/**
+			 * The key point is that the executor's finishActiveMigration() resumes I/O.
+			 * This gets called once every node's executor's all done.
+			 */
+			executorMap.clear();
+		}
+	}
+	return err;
+}
+
+Error
+DmMigrationMgr::finishActiveMigration(NodeUuid destUuid, fds_volid_t volId)
+{
+	Error err(ERR_OK);
+	{
+		SCOPEDREAD(migrExecutorLock);
+		auto uniqueId = std::make_pair(destUuid, volId);
+		DmMigrationExecutor::shared_ptr dmExecutor = getMigrationExecutor(uniqueId);
+		if (dmExecutor == nullptr) {
+			if (isMigrationAborted()) {
+				LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
+			} else {
+				LOGERROR << "Unable to find executor for volume " << volId;
+				// this is an race cond error that needs to be fixed in dev env.
+				// Only panic in debug build.
+				fds_assert(0);
+			}
+			return ERR_NOT_FOUND;
+		}
+
+		err = dmExecutor->finishActiveMigration();
+
+		// Check to see if all migration executors are finished
+		bool allExecutorsDone(true);
+		for (auto it = executorMap.begin(); it != executorMap.end(); ++it) {
+			if (!it->second->isMigrationComplete()) {
+				allExecutorsDone = false;
+				break;
+			}
+		}
+		if (allExecutorsDone) {
+			LOGMIGRATE << "All migration executors have finished. Starting cleanup thread...";
+			std::thread t1([&] {this->finishActiveMigration(MIGR_EXECUTOR);});
+			t1.detach();
+		}
+	}
+	return (err);
+}
+
+// process the TxState request
+Error
+DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
+    fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
+    fds_volid_t volId(txStateMsg->volume_id);
+    auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+    if (executor == nullptr) {
     	if (isMigrationAborted()) {
 			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
     	} else {
@@ -550,61 +642,96 @@ DmMigrationMgr::finishActiveMigration(fds_volid_t volId)
         return ERR_NOT_FOUND;
     }
 
-	return (dmExecutor->finishActiveMigration());
-}
+    Error err(ERR_OK);
+    err = executor->processTxState(txStateMsg);
 
-// process the TxState request
-Error
-DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
-    fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
-    DmMigrationExecutor::shared_ptr executor =
-        getMigrationExecutor(fds_volid_t(txStateMsg->volume_id));
-    if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << txStateMsg->volume_id << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find executor for volume " << txStateMsg->volume_id;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
+    if (!err.ok()) {
+    	abortMigration();
     }
 
-    return (executor->processTxState(txStateMsg));
+    return (err);
 }
 
 void
-DmMigrationMgr::abortMigration() {
-
-	MigrationState expectedState(MIGR_IN_PROGRESS);
-	if (!std::atomic_compare_exchange_strong(&migrState, &expectedState, MIGR_ABORTED)) {
+DmMigrationMgr::abortMigration()
+{
+	bool notYetAborted = false;
+	if (!std::atomic_compare_exchange_strong(&migrationAborted, &notYetAborted, true)) {
 		// If not the first client or first executor, don't worry about the rest.
 		return;
 	}
 
+	// Need to release a thread while this original one exits the read lock
+	std::thread t1(&DmMigrationMgr::abortMigrationReal, this);
+	t1.detach();
+
+}
+
+void
+DmMigrationMgr::abortMigrationReal()
+{
 	LOGERROR << "DM Migration aborting Migration with DMT version = " << DMT_version;
 
-	DmMigrationClientMap::const_iterator citer (clientMap.begin());
-	DmMigrationExecMap::const_iterator eiter (executorMap.begin());
-	while (citer != clientMap.end()) {
-		citer->second->abortMigration();
-		++citer;
+	{
+		SCOPEDWRITE(migrExecutorLock);
+		{
+			SCOPEDWRITE(migrClientLock);
+			LOGDEBUG << "Waiting for all I/O to complete";
+			trackIOReqs.waitForTrackIOReqs();
+			DmMigrationClientMap::const_iterator citer (clientMap.begin());
+			DmMigrationExecMap::const_iterator eiter (executorMap.begin());
+			while (citer != clientMap.end()) {
+				citer->second->abortMigration();
+				++citer;
+			}
+			while (eiter != executorMap.end()) {
+				eiter->second->abortMigration();
+				++eiter;
+			}
+			clientMap.clear();
+			executorMap.clear();
+		}
 	}
-	while (eiter != executorMap.end()) {
-		eiter->second->abortMigration();
-		++eiter;
-	}
-	clientMap.clear();
-	executorMap.clear();
 
-    fds_assert(myRole != MIGR_UNKNOWN);
-    if ((myRole == MIGR_EXECUTOR) && OmStartMigrCb) {
+    if (OmStartMigrCb) {
     	LOGDEBUG << "Sending migration abort to OM";
     	OmStartMigrCb(ERR_DM_MIGRATION_ABORTED);
     }
 
-    std::atomic_store(&migrState, MIGR_IDLE);
+    /*
+     * At this time, we're done cleaning up migration abort so in case
+     * another migration was initiated from the OM and are waiting,
+     * we need to wake them up now.
+     */
+    {
+    	std::lock_guard<std::mutex> lk(migrationAbortMutex);
+    	fds_verify(migrationAborted && !migrationAbortFinished);
+    	migrationAbortFinished = true;
+    }
+    migrationAbortCV.notify_one();
+
+}
+
+void
+DmMigrationMgr::asyncMsgPassed()
+{
+	trackIOReqs.finishTrackIOReqs();
+	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+}
+
+void
+DmMigrationMgr::asyncMsgFailed()
+{
+	trackIOReqs.finishTrackIOReqs();
+	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+	abortMigration();
+}
+
+void
+DmMigrationMgr::asyncMsgIssued()
+{
+	trackIOReqs.startTrackIOReqs();
+	LOGDEBUG << "trackIO count++ is now: " << trackIOReqs.debugCount();
 }
 
 void
@@ -653,5 +780,22 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
+}
+
+void
+DmMigrationMgr::waitForAbortToFinish()
+{
+	LOGMIGRATE << "Waiting for previous migration abort to finish";
+	std::unique_lock<std::mutex> lk(migrationAbortMutex);
+	migrationAbortCV.wait(lk,
+			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
+					(!std::atomic_load(&migrationAborted)));});
+	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
+		// reset state
+		std::atomic_store(&migrationAborted, false);
+		migrationAbortFinished = false;
+	}
+	lk.unlock();
+	LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }
 }  // namespace fds

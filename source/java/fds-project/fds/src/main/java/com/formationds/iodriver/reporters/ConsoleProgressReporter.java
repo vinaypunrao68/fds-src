@@ -1,44 +1,46 @@
 package com.formationds.iodriver.reporters;
 
+import static com.formationds.commons.util.Strings.javaString;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.time.Instant;
-import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.NullArgumentException;
-import com.formationds.commons.patterns.Observable;
-import com.formationds.iodriver.model.VolumeQosSettings;
+import com.formationds.iodriver.WorkloadContext;
+import com.formationds.iodriver.events.Event;
+import com.formationds.iodriver.events.OperationExecuted;
+import com.formationds.iodriver.events.VolumeAdded;
+import com.formationds.iodriver.events.VolumeModified;
+import com.formationds.iodriver.operations.Operation;
 
 /**
  * Reports workload progress on the system console.
  */
-public final class ConsoleProgressReporter implements Closeable
+public class ConsoleProgressReporter implements Closeable
 {
     /**
      * Constructor.
      * 
      * @param output Stream to output to, usually {@code System.out}.
-     * @param started An event source for workload start.
-     * @param stopped An event source for workload stop.
-     * @param volumeAdded An event source for volume adds.
      */
     public ConsoleProgressReporter(PrintStream output,
-                                   Observable<Entry<String, Instant>> started,
-                                   Observable<Entry<String, Instant>> stopped,
-                                   Observable<Entry<String, VolumeQosSettings>> volumeAdded)
+                                   WorkloadContext context)
     {
         if (output == null) throw new NullArgumentException("output");
-        if (started == null) throw new NullArgumentException("started");
-        if (stopped == null) throw new NullArgumentException("stopped");
-        if (volumeAdded == null) throw new NullArgumentException("volumeAdded");
+        if (context == null) throw new NullArgumentException("context");
 
         _closed = new AtomicBoolean(false);
         _output = output;
-        _started = started.register(this::onStarted);
-        _stopped = stopped.register(this::onStopped);
-        _volumeAdded = volumeAdded.register(this::onVolumeAdded);
+        _operationExecutedToken = context.subscribeIfProvided(OperationExecuted.class,
+                                                             this::onOperationExecuted);
+        _volumeAddedToken = context.subscribeIfProvided(VolumeAdded.class,
+                                                       this::onVolumeAdded);
+        _volumeModifiedToken = context.subscribeIfProvided(VolumeModified.class,
+                                                          this::onVolumeModified);
     }
 
     @Override
@@ -46,72 +48,58 @@ public final class ConsoleProgressReporter implements Closeable
     {
         if (_closed.compareAndSet(false, true))
         {
-            _started.close();
-            _stopped.close();
-            _volumeAdded.close();
-
-            _closed.set(true);
+            if (_operationExecutedToken.isPresent()) { _operationExecutedToken.get().close(); }
+            if (_volumeAddedToken.isPresent()) { _volumeAddedToken.get().close(); }
+            if (_volumeModifiedToken.isPresent()) { _volumeModifiedToken.get().close(); }
         }
     }
 
-    /**
-     * Handle started event.
-     * 
-     * @param volume The volume name and time of start.
-     */
-    private void onStarted(Entry<String, Instant> volume)
+    protected void onOperationExecuted(Event<Operation> event)
     {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        _output.println("Volume " + volume.getKey() + " started: " + volume.getValue());
+        if (event == null) throw new NullArgumentException("operationExecuted");
+        
+        _output.println("[" + event.getTimestamp() + "] Executing: " + event.getData());
     }
-
-    /**
-     * Handle stopped event.
-     * 
-     * @param volume The volume name and time of stop.
-     */
-    private void onStopped(Entry<String, Instant> volume)
+    
+    protected void onVolumeAdded(Event<Volume> event)
     {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        _output.println("Volume " + volume.getKey() + " stopped: " + volume.getValue());
+        if (event == null) throw new NullArgumentException("event");
+        
+        Volume volume = event.getData();
+        
+        _output.println(
+                "Adding volume ID " + volume.getId() + " " + javaString(volume.getName()));
     }
-
-    /**
-     * Handle volume added event.
-     * 
-     * @param volume The volume name and QoS settings.
-     */
-    private void onVolumeAdded(Entry<String, VolumeQosSettings> volume)
+    
+    protected void onVolumeModified(Event<BeforeAfter<Volume>> event)
     {
-        if (volume == null) throw new NullArgumentException("volume");
-
-        _output.println("Volume: " + volume.getKey() + " added: " + volume.getValue());
+        if (event == null) throw new NullArgumentException("event");
+        
+        BeforeAfter<Volume> volume = event.getData();
+        Volume before = volume.getBefore();
+        Volume after = volume.getAfter();
+        
+        _output.println(
+                "Modifying volume ID " + before.getId() + " " + javaString(before.getName())
+                + " -> " + after.getId() + " " + javaString(after.getName()));
     }
-
+    
     /**
      * Whether this object has been closed.
      */
     private final AtomicBoolean _closed;
 
     /**
+     * Operation executed event token.
+     */
+    private final Optional<Closeable> _operationExecutedToken;
+    
+    /**
      * Output.
      */
     private final PrintStream _output;
-
-    /**
-     * Started event token.
-     */
-    private final Closeable _started;
-
-    /**
-     * Stopped event token.
-     */
-    private final Closeable _stopped;
-
-    /**
-     * Volume added event token.
-     */
-    private final Closeable _volumeAdded;
+    
+    private final Optional<Closeable> _volumeAddedToken;
+    
+    private final Optional<Closeable> _volumeModifiedToken;
 }

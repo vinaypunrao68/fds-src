@@ -16,7 +16,7 @@ namespace fds
 
         pid_t fds_spawn_service(const std::string& prog, const std::string& fds_root, const std::vector<std::string>& args, bool daemonize);
 
-        pid_t fds_spawn_service(const char *prog, const char *fds_root, const char **extra_args, int daemonize);
+        pid_t fds_spawn_service(const char *prog, const char *fds_root, const int argc, const char **extra_args, int daemonize);
     }  // namespace pm
 }  // namespace fds
 

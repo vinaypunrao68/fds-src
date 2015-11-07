@@ -8,17 +8,25 @@ import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
 import org.apache.thrift.TException;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public interface AsyncAm {
-    void start() throws Exception;
+    void start() throws IOException;
 
     CompletableFuture<Void> attachVolume(String domainName, String volumeName) throws TException;
 
-    CompletableFuture<List<BlobDescriptor>> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, BlobListOrder order, boolean descending);
+    CompletableFuture<VolumeContents> volumeContents(String domainName,
+                                                     String volumeName,
+                                                     int count,
+                                                     long offset,
+                                                     String pattern,
+                                                     PatternSemantics patternSemantics,
+                                                     String delimiter,
+                                                     BlobListOrder order,
+                                                     boolean descending);
 
     CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName);
 

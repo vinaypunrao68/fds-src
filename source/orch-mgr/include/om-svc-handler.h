@@ -44,6 +44,11 @@ namespace fds {
         return;
       }
 
+      virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg) override {
+    	  // Don't do anything here. This stub is just to keep cpp compiler happy
+    	  return;
+      }
+
       void getSvcInfo(fpi::SvcInfo &_return,
                       const  fpi::SvcUuid& svcUuid) override {
           // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -55,6 +60,7 @@ namespace fds {
       virtual void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo) override;
       virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
+      virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getSvcInfo(fpi::SvcInfo & _return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 
@@ -85,12 +91,19 @@ namespace fds {
 
       void heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                           boost::shared_ptr<fpi::HeartbeatMessage>& msg);
+
+      void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                              boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
+      std::pair<int64_t, int32_t> lastHeardResp;
+
     private:
       void init_svc_event_handlers();
+      void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                    boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg );

@@ -14,7 +14,7 @@
 
 #include "fds_types.h"
 #include "connector/nbd/common.h"
-#include "connector/nbd/NbdOperations.h"
+#include "connector/BlockOperations.h"
 
 namespace fds
 {
@@ -51,7 +51,7 @@ struct message {
     data_type data;
 };
 
-struct NbdConnection : public NbdOperationsResponseIface {
+struct NbdConnection : public BlockOperations::ResponseIFace {
     NbdConnection(NbdConnector* server,
                   std::shared_ptr<ev::dynamic_loop> loop,
                   int clientsd,
@@ -62,9 +62,9 @@ struct NbdConnection : public NbdOperationsResponseIface {
     NbdConnection operator=(NbdConnection const&& rhs) = delete;
     ~NbdConnection();
 
-    // implementation of NbdOperationsResponseIface
-    void readWriteResp(NbdResponseVector* response) override;
-    void attachResp(Error const& error, boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    // implementation of BlockOperations::ResponseIFace
+    void respondTask(BlockTask* response) override;
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
   private:
@@ -86,7 +86,7 @@ struct NbdConnection : public NbdOperationsResponseIface {
 
     std::shared_ptr<AmProcessor> amProcessor;
     NbdConnector* nbd_server;
-    NbdOperations::shared_ptr nbdOps;
+    BlockOperations::shared_ptr nbdOps;
 
     size_t resp_needed;
 
@@ -98,8 +98,8 @@ struct NbdConnection : public NbdOperationsResponseIface {
     size_t total_blocks;
     ssize_t write_offset;
 
-    boost::lockfree::queue<NbdResponseVector*> readyResponses;
-    std::unique_ptr<NbdResponseVector> current_response;
+    boost::lockfree::queue<BlockTask*> readyResponses;
+    std::unique_ptr<BlockTask> current_response;
 
     std::unique_ptr<ev::io> ioWatcher;
     std::unique_ptr<ev::async> asyncWatcher;

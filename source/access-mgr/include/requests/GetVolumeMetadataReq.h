@@ -6,7 +6,6 @@
 
 #include <string>
 
-#include "fdsp/FDSP_types.h"
 #include "AmRequest.h"
 
 namespace fds
