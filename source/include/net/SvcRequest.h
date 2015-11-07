@@ -230,7 +230,7 @@ struct SvcRequestIf : HasModuleProvider {
         setPayloadBuf(msgTypeId, buf);
     }
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
-                       boost::shared_ptr<std::string> &buf);
+                       const boost::shared_ptr<std::string> &buf);
 
     template<class PayloadT>
     boost::shared_ptr<PayloadT> getRequestPayload(const fpi::FDSPMsgTypeId &msgTypeId) {
