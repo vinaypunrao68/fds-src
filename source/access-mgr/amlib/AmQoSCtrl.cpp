@@ -325,11 +325,13 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
                     << std::hex << volDesc.volUUID << "]"
                     << " because: " << err;
                 delete queue;
+            } else {
+                err = ERR_OK;
             }
         }
     }
 
-    if (queue) {
+    if (queue && ERR_OK == err) {
         err = volTable->registerVolume(volDesc, queue);
     }
 
@@ -348,7 +350,7 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
                                       volTable->openVolume(amReq);
                                       found = true;
                                   } else {
-                                      completeRequest(amReq, err);
+                                      processor_cb(amReq, err);
                                   }
                                   return true;
                               }
@@ -400,7 +402,7 @@ AmQoSCtrl::removeVolume(std::string const& volName, fds_volid_t const volId) {
     /** Drain any wait queue into as any Error */
     wait_queue->remove_if(volName,
                           [this] (AmRequest* amReq) {
-                              completeRequest(amReq, ERR_VOL_NOT_FOUND);
+                              processor_cb(amReq, ERR_VOL_NOT_FOUND);
                               return true;
                           });
 
@@ -430,7 +432,8 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
          * TODO(bszmyd):
          * Time these out if we don't get the attach
          */
-        GLOGTRACE << "Delaying request: 0x" << std::hex << amReq->io_req_id << std::dec;
+        GLOGTRACE << "Delaying request: 0x" << std::hex << amReq->io_req_id << std::dec
+                  << " as volume: " << amReq->volume_name << " is not yet attached.";
         err = wait_queue->delay(amReq);
 
         // TODO(bszmyd): Wed 27 May 2015 09:01:43 PM MDT
@@ -440,6 +443,7 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
         // will cause the attach to use the default mode.
         if (ERR_VOL_NOT_FOUND == err) {
             if (FDS_ATTACH_VOL != amReq->io_type) {
+                GLOGTRACE << "Implicitly attaching: " << amReq->volume_name;
                 // We've delayed the real request, replace it with an attach
                 amReq = new AttachVolumeReq(invalid_vol_id,
                                             amReq->volume_name,
