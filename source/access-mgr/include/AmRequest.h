@@ -40,7 +40,7 @@ class AmRequest : public FDS_IOType {
     std::string    volume_name;
 
     bool           forced_unit_access {false};
-    bool           page_out_cache {false};
+    bool           page_out_cache {true};
 
     // Flag to indicate when a request has been responded to
     std::atomic<bool> completed;
