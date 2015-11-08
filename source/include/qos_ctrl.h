@@ -62,6 +62,7 @@ class FDS_QoSControl {
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine
    virtual Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
+   virtual Error markIODone(FDS_IOType* io);
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    virtual Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);

@@ -395,6 +395,17 @@ enum  FDSPMsgTypeId {
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
 
+  /* VolumeGroup messages */
+  VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
+  AddToVolumeGroupCtrlMsgTypeId;
+  AddToVolumeGroupRespCtrlMsgTypeId;
+  VolumeStateUpdateInfoCtrlMsgTypeId;
+  GetVolumeStateCtrlMsgTypeId;
+  CreateVolumeMsgTypeId;
+  StartTxMsgTypeId;
+  UpdateTxMsgTypeId;
+  CommitTxMsgTypeId;
+
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;

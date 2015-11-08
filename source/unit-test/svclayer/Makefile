@@ -26,7 +26,7 @@ user_cpp          := \
     SvcRequestMgr_gtest.cpp \
     SvcServer_gtest.cpp \
     SvcMgr_gtest.cpp \
-    SvcMapChecker.cpp
+    SvcMapChecker.cpp \
 
 user_no_style     :=
 
@@ -36,7 +36,7 @@ user_bin_exe      := \
 	svcrequestmgr_gtest \
 	svcserver_gtest \
 	svcmgr_gtest \
-	svcmapchecker
+	svcmapchecker \
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp

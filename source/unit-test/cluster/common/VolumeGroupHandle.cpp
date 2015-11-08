@@ -1,11 +1,10 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <net/Replica.h>
+#include "VolumeGroupHandle.h"
 #include <net/SvcRequestPool.h>
 
 namespace fds {
-
-std::ostream& operator << (std::ostream &out, const fpi::ReplicaIoHdr &h)
+std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
     out << " version: " << h.version
         << " groupId: " << h.groupId 
@@ -15,7 +14,7 @@ std::ostream& operator << (std::ostream &out, const fpi::ReplicaIoHdr &h)
     return out;
 }
 
-std::ostream& operator << (std::ostream &out, const ReplicaHandle &h)
+std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
 {
     out << " svcUuid: " << h.svcUuid.svc_uuid
         << " state: " << h.state
@@ -24,14 +23,26 @@ std::ostream& operator << (std::ostream &out, const ReplicaHandle &h)
         << " appliedCommit: " << h.appliedCommitId;
     return out;
 }
-std::string ReplicaGroupRequest::logString()
+
+VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
+                                         const SvcRequestId &id,
+                                         const fpi::SvcUuid &myEpId,
+                                         VolumeGroupHandle *groupHandle)
+: SvcRequestIf(provider, id, myEpId),
+    groupHandle_(groupHandle),
+    nAcked_(0),
+    nSuccessAcked_(0)
+{
+}
+
+std::string VolumeGroupRequest::logString()
 {
     std::stringstream ss;
-    ss << replicaHdr_;
+    ss << volumeIoHdr_;
     return ss.str();
 }
 
-void ReplicaGroupBroadcastRequest::invoke()
+void VolumeGroupBroadcastRequest::invoke()
 {
     state_ = SvcRequestState::INVOCATION_PROGRESS;
     for (const auto &handle : groupHandle_->functionalReplicas_) {
@@ -41,33 +52,33 @@ void ReplicaGroupBroadcastRequest::invoke()
     }
 }
 
-void ReplicaGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
+void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                                   SHPTR<std::string>& payload)
 {
     DBG(GLOGDEBUG << fds::logString(*header));
-    auto replicaStatePair = getReplicaRequestStatePair_(header->msg_src_uuid);
+    auto volumeStatePair = getVolumeRequestStatePair_(header->msg_src_uuid);
     if (isComplete()) {
         /* Drop completed requests */
         GLOGWARN << logString() << " Already completed";
         return;
-    } else if (!replicaStatePair) {
+    } else if (!volumeStatePair) {
         /* Drop responses from uknown endpoint src ids */
         GLOGWARN << fds::logString(*header) << " Unknown EpId";
         return;
-    } else if (replicaStatePair->second == SvcRequestState::SVC_REQUEST_COMPLETE) {
+    } else if (volumeStatePair->second == SvcRequestState::SVC_REQUEST_COMPLETE) {
         GLOGWARN << fds::logString(*header) << " Already completed";
         return;
     }
-    replicaStatePair->second = SvcRequestState::SVC_REQUEST_COMPLETE;
+    volumeStatePair->second = SvcRequestState::SVC_REQUEST_COMPLETE;
 
     Error outStatus = ERR_OK;
-    groupHandle_->handleReplicaResponse(replicaHdr_, header->msg_code, outStatus);
+    groupHandle_->handleVolumeResponse(volumeIoHdr_, header->msg_code, outStatus);
     if (outStatus == ERR_OK) {
         ++nSuccessAcked_;
         responseCb_(ERR_OK, payload); 
         responseCb_ = 0;
     } else {
-        GLOGWARN << "Replica response: " << fds::logString(*header)
+        GLOGWARN << "Volume response: " << fds::logString(*header)
             << " outstatus: " << outStatus;
     }
     ++nAcked_;
@@ -84,8 +95,8 @@ void ReplicaGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     }
 }
 
-ReplicaGroupBroadcastRequest::ReplicaRequestStatePair* 
-ReplicaGroupBroadcastRequest::getReplicaRequestStatePair_(const fpi::SvcUuid &svcUuid)
+VolumeGroupBroadcastRequest::VolumeRequestStatePair* 
+VolumeGroupBroadcastRequest::getVolumeRequestStatePair_(const fpi::SvcUuid &svcUuid)
 {
     for (auto &s : reqStates_) {
         if (s.first == svcUuid) {
@@ -95,31 +106,31 @@ ReplicaGroupBroadcastRequest::getReplicaRequestStatePair_(const fpi::SvcUuid &sv
     return nullptr;
 }
 
-ReplicaGroupHandle::ReplicaGroupHandle(CommonModuleProviderIf* provider)
+VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider)
 : HasModuleProvider(provider)
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
 }
 
-void ReplicaGroupHandle::handleReplicaResponse(const fpi::ReplicaIoHdr &hdr,
+void VolumeGroupHandle::handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
                                                const Error &inStatus,
                                                Error &outStatus)
 {
     outStatus = inStatus;
 
-    auto replicaHandle = getReplicaHandle_(hdr);
-    fds_verify(replicaHandle->appliedOpId+1 == hdr.opId);
-    fds_verify(replicaHandle->appliedCommitId+1 == hdr.commitId);
-    if (replicaHandle->isFunctional()) {
+    auto volumeHandle = getVolumeReplicaHandle_(hdr);
+    fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
+    fds_verify(volumeHandle->appliedCommitId+1 == hdr.commitId);
+    if (volumeHandle->isFunctional()) {
         if (inStatus == ERR_OK) {
-            replicaHandle->appliedOpId = hdr.opId;
-            replicaHandle->appliedCommitId = hdr.commitId;
+            volumeHandle->appliedOpId = hdr.opId;
+            volumeHandle->appliedCommitId = hdr.commitId;
         } else {
-            replicaHandle->state = fpi::ReplicaState::REPLICA_DOWN;
-            replicaHandle->lastError = inStatus;
-            // GLOGWARN << hdr << " Replica marked down: " << *replicaHandle;
-            GLOGWARN << " Replica marked down: " << *replicaHandle;
+            volumeHandle->state = fpi::VolumeState::VOLUME_DOWN;
+            volumeHandle->lastError = inStatus;
+            // GLOGWARN << hdr << " Volume marked down: " << *volumeHandle;
+            GLOGWARN << " Replica marked down: " << *volumeHandle;
             // TODO(Rao): Change group state
             // changeGroupState();
         }
@@ -131,7 +142,7 @@ void ReplicaGroupHandle::handleReplicaResponse(const fpi::ReplicaIoHdr &hdr,
     }
 }
 
-ReplicaHandle* ReplicaGroupHandle::getReplicaHandle_(const fpi::ReplicaIoHdr &hdr)
+VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::VolumeIoHdr &hdr)
 {
     for (auto &h : functionalReplicas_) {
         if (h.svcUuid == hdr.svcUuid) {
@@ -145,13 +156,14 @@ ReplicaHandle* ReplicaGroupHandle::getReplicaHandle_(const fpi::ReplicaIoHdr &hd
     }
     return nullptr;
 }
-void ReplicaGroupHandle::sendReplicaBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
+void VolumeGroupHandle::sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
                                                       const StringPtr &payload,
-                                                      const ReplicaResponseCb &cb)
+                                                      const VolumeResponseCb &cb)
 {
-    auto req = requestMgr_->newSvcRequest<ReplicaGroupBroadcastRequest>(this);
+    auto req = requestMgr_->newSvcRequest<VolumeGroupBroadcastRequest>(this);
     req->setPayloadBuf(msgTypeId, payload);
     req->responseCb_ = cb;
+    req->setTaskExecutorId(groupId_);
     req->invoke();
 }
 }  // namespace fds

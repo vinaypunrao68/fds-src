@@ -57,15 +57,15 @@ class ServiceContext(Context):
     def list(self):
         'show the list of services in the system'
         try:
-            """
             services = ServiceMap.list()
-            return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],
+            return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],tablefmt=self.config.getTableFormat())
             """
             services = self.restApi().listServices()
 
             return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], services),
                             headers=['Node UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
                             tablefmt=self.config.getTableFormat())
+            """
         except Exception, e:
             log.exception(e)
             return 'unable to get service list'

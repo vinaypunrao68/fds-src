@@ -107,4 +107,8 @@ Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
     return err;
 }
 
+Error FDS_QoSControl::markIODone(FDS_IOType* io) {
+    return dispatcher->markIODone(io);
+}
+
 }  // namespace fds

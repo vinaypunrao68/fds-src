@@ -103,7 +103,8 @@ void OMSvcProcess::init(int argc, char *argv[])
 void OMSvcProcess::registerSvcProcess()
 {
     LOGNOTIFY;
-    /* For now nothing to do */
+    /* Add self to svcmap */
+    svcMgr_->updateSvcMap({svcInfo_});
 }
 
 void OMSvcProcess::setupConfigDb_()
