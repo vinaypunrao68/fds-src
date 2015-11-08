@@ -1,7 +1,7 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#include "dm.h"
+#include "Dm.h"
 #include "lib/QoSWFQDispatcher.h"
 
 namespace fds {
@@ -9,18 +9,17 @@ namespace fds {
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
 #define FdsDmSysTaskPrio    5
 
-#define REGISTER_VOLUMEMSG_HANDLER(ReqMsgT, RespMsgT, cbfunc)  \
-    asyncReqHandlers_[FDSP_MSG_TYPEID(ReqMsgT)] = \
+#define REGISTER_VOLUMEMSG_HANDLER(QosVolumeIoT, cbfunc)  \
+    asyncReqHandlers_[QosVolumeIoT::reqMsgTypeId] = \
     [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& asyncHdr, \
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
-        DBG(fiu_do_on("svc.dropincoming."#ReqMsgT, return;)); \
-        boost::shared_ptr<ReqMsgT> payload; \
+        boost::shared_ptr<QosVolumeIoT::ReqMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
         auto &volumeIoHdr = getVolumeIoHdrRef(*payload) \
-        auto qosMsg = new QosVolumeIo<ReqMsgT, RespMsgT>(volumeIoHdr.groupId, \
-                                                         FDSP_MSG_TYPEID(ReqMsgT), \
-                                                         payload, cbfunc); \
+        auto qosMsg = new QosVolumeIoT(volumeIoHdr.groupId, \
+                                        payload, \
+                                        cbfunc); \
         auto enqRet = dm->qosCtrl->enqueMsg(volumeIoHdr.groupId, qosMsg); \
         if (enqRet != ERR_OK) { \
             GLOGWARN << "Failed to enqueue " << *qosMsg; \
@@ -29,19 +28,23 @@ namespace fds {
     }
 
 
-template <class ReqMsgT, class RespMsgT>
-std::ostream& operator<<(std::ostream &out, const QosVolumeIo<ReqMsgT, RespMsgT>& io) {
-    out << " msgType: " << io.msgType
+#if 0
+template <class QosVolumeIoT>
+std::ostream& operator<<(std::ostream &out, const QosVolumeIoT& io) {
+    out << " msgType: " << static_cast<int>(QosVolumeIoT::reqMsgTypeId)
         << " volumeid: " << io.io_vol_id;
         // TODO: Print message
+    return out;
 }
+#endif
 
 DmHandler::DmHandler(DmProcess* dmProc)
     : PlatNetSvcHandler(dmProc),
     dm(dmProc)
 {
+    // REGISTER_VOLUMEMSG_HANDLER();
     // REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
-    REGISTER_QOS_HANDLER(fpi::StartTxMsg, &dm::handleStartTxMsg);
+    // REGISTER_QOS_HANDLER(fpi::StartTxMsg, &dm::handleStartTxMsg);
 }
 
 dmQosCtrl::dmQosCtrl(DmProcess *parent,
@@ -92,14 +95,14 @@ Error DmProcess::processIO(FDS_IOType* io) {
     Error err(ERR_OK);
     fds_verify(io->io_type == FDS_DM_VOLUME_IO);
 
-    auto volIo = static_cast<QosVolumeIo<void, void>*>(io);
+    auto volIo = static_cast<SvcMsgIo*>(io);
     switch (volIo->msgType){
-        case fpi::StartTxMsg:
+        case FDSP_MSG_TYPEID(fpi::StartTxMsg):
             runSynchronizedVolumeIoHandler(&Volume::handleStartTx,
                                            static_cast<StartTxIo*>(volIo));
             break;
-        case fpi::UpdateTxMsg:
-        case fpi::CommitTxMsg:
+        case FDSP_MSG_TYPEID(fpi::UpdateTxMsg):
+        case FDSP_MSG_TYPEID(fpi::CommitTxMsg):
         default:
             fds_verify("Unknown message");
             break;

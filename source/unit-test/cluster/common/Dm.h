@@ -9,29 +9,11 @@
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
+#include "Volume.h"
 
 namespace fds {
-namespace dm {
-struct DmProcess;
 
-struct DmHandler: PlatNetSvcHandler {
-    explicit DmHandler(DmProcess* dmProc);
-    template <class ReqT, class RespT>
-    void responseCb(fpi::AsyncHdrPtr& asyncHdr,
-                    const fpi::FDSPMsgTypeId &respMsgType,
-                    const Error &err,
-                    QosVolumeIo<ReqT, RespT> *io) {
-        asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-        if (err == ERR_OK) {
-            sendAsyncResp(*asyncHdr, respMsgType, *(io->respMsg));
-        } else {
-            GLOWARN << "Returning error response: " << err
-            " header: " << fds::logString(*asyncHdr);
-            sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-        }
-    }
-    DmProcess*      dm;
-};
+struct DmProcess;
 
 struct dmQosCtrl : FDS_QoSControl {
     dmQosCtrl(DmProcess *parent,
@@ -61,11 +43,12 @@ struct DmProcess : SvcProcess {
         fds_verify(itr != volumeTbl.end());
         // TODO(Rao): Handle volume not found
         auto volume = itr->second;
-        qostCtrl->threadPool->scheduleWithAffinity(
+        qosCtrl->threadPool->scheduleWithAffinity(
             volId.get(),
             [f, volume, io]() {
                 // TODO(Rao): handle volume state check
-                f(volume.get(), io);
+                auto thisVol = volume.get();
+                (thisVol->*f)(io);
             });
     }
 
@@ -75,7 +58,49 @@ struct DmProcess : SvcProcess {
     std::unordered_map<fds_volid_t, VolumePtr>  volumeTbl;
 };
 
-}  // namespace dm 
+struct DmHandler: PlatNetSvcHandler {
+    explicit DmHandler(DmProcess* dmProc);
+
+    template <class QosVolumeIoT>
+    void registerHandler() {
+        asyncReqHandlers_[QosVolumeIoT::reqMsgTypeId] =
+            [this] (SHPTR<fpi::AsyncHdr>& asyncHdr,
+                    SHPTR<std::string>& payloadBuf)
+            {
+                SHPTR<typename QosVolumeIoT::ReqMsgT> payload;
+                fds::deserializeFdspMsg(payloadBuf, payload);
+                auto &volumeIoHdr = getVolumeIoHdrRef(*payload);
+                auto cbfunc = std::bind(&DmHandler::responseCb<QosVolumeIoT>,
+                                        this,
+                                        asyncHdr,
+                                        std::placeholders::_1);
+                auto qosMsg = new QosVolumeIoT(volumeIoHdr.groupId,
+                                               payload,
+                                               cbfunc);
+                auto enqRet = dm->qosCtrl->enqueueIO(volumeIoHdr.groupId, qosMsg);
+                if (enqRet != ERR_OK) {
+                    GLOGWARN << "Failed to enqueue " << *qosMsg;
+                    delete qosMsg;
+                }
+            };
+    }
+
+    template <class QosVolumeIoT>
+    void responseCb(fpi::AsyncHdrPtr& asyncHdr,
+                    QosVolumeIoT *io) {
+        asyncHdr->msg_code = static_cast<int32_t>(io->respStatus);
+        if (io->respStatus == ERR_OK) {
+            sendAsyncResp(*asyncHdr, QosVolumeIoT::respMsgTypeId, *(io->respMsg));
+        } else {
+            GLOGWARN << "Returning error response: " << io->respStatus
+                << " header: " << fds::logString(*asyncHdr);
+            sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+    }
+    DmProcess*      dm;
+};
+
+
 }  // namespace fds
 
 #endif

@@ -8,21 +8,43 @@
 #include <fdsp/svc_api_types.h>
 #include <fdsp/volumegroup_types.h>
 #include <lib/Catalog.h>
+#include <fdsp_utils.h>
 #include "volumegroup_extensions.h"
 
 namespace fds {
 
-template <class ReqMsgT=void, class RespMsgT=void>
-struct QosVolumeIo : public FDS_IOType {
-    using CbType = std::function<void (QosVolumeIo<ReqMsgT, RespMsgT>*)>;
+#define DECLARE_QOSVOLUMEIO(ReqT, RespT) \
+    QosVolumeIo<ReqT, FDSP_MSG_TYPEID(ReqT), RespT, FDSP_MSG_TYPEID(RespT)>
+
+struct SvcMsgIo : public FDS_IOType {
+    SvcMsgIo(const fpi::FDSPMsgTypeId &msgType)
+    {
+        this->msgType = msgType;
+    }
+    virtual ~SvcMsgIo() {}
+ 
+    fpi::FDSPMsgTypeId      msgType;
+};
+
+template <class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
+struct QosVolumeIo : public SvcMsgIo {
+    using ReqMsgT = ReqT;
+    using RespMsgT = RespT;
+    const fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
+    const fpi::FDSPMsgTypeId respMsgTypeId = RespTypeId;
+
+    using CbType = std::function<void (QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>*)>;
+
     QosVolumeIo(fds_volid_t volId,
-                const fpi::FDSPMsgTypeId &msgType,
                 const SHPTR<ReqMsgT> &reqMsg,
                 const CbType &cb)
+    : SvcMsgIo(msgType)
     {
         this->ioType = FDS_DM_VOLUME_IO;
         this->io_vol_id = volId;
-        this->msgType = msgType;
         this->reqMsg = reqMsg;
         this->respStatus = ERR_OK;
         this->cb = cb;
@@ -31,18 +53,17 @@ struct QosVolumeIo : public FDS_IOType {
     {
     }
     fds_volid_t getVolumeId() {
-        return getVolumeIoHdrRef(*reqMsg).groupId;
+        const auto &hdr = getVolumeIoHdrRef(*reqMsg);
+        return fds_volid_t(static_cast<uint64_t>(hdr.groupId));
     }
-    fpi::FDSPMsgTypeId      msgType;
     SHPTR<ReqMsgT>          reqMsg;
     Error                   respStatus;
     SHPTR<RespMsgT>         respMsg;
     CbType                  cb;
 };
-
-using StartTxIo         = QosVolumeIo<fpi::StartTxMsg, fpi::EmptyMsg>;
-using UpdateTxIo        = QosVolumeIo<fpi::UpdateTxMsg, fpi::EmptyMsg>;
-using CommitTxIo        = QosVolumeIo<fpi::CommitTxMsg, fpi::EmptyMsg>;
+using StartTxIo         = DECLARE_QOSVOLUMEIO(fpi::StartTxMsg, fpi::EmptyMsg);
+using UpdateTxIo        = DECLARE_QOSVOLUMEIO(fpi::UpdateTxMsg, fpi::EmptyMsg);
+using CommitTxIo        = DECLARE_QOSVOLUMEIO(fpi::CommitTxMsg, fpi::EmptyMsg);
 
 template <class T>
 struct ScopedVolumeIo {
@@ -137,6 +158,7 @@ struct Volume : HasModuleProvider {
     std::unique_ptr<Catalog>    catalog_;
     TxTbl                       txTable_;
 };
+using VolumePtr = SHPTR<Volume>;
 }  // namespace fds
 
 #endif
