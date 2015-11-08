@@ -153,7 +153,7 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     } else {
         GLOGDEBUG << "AmVolumeTable::getVolume - Volume "
             << std::hex << vol_uuid << std::dec
-            << " does not exist";
+            << " is not attached";
     }
     return ret_vol;
 }
