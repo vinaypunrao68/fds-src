@@ -27,7 +27,8 @@ user_cpp         :=      \
 	BitSet.cpp           \
 	disk_utils.cpp		 \
 	MigrationUtility.cpp \
-	fds_subscription.cpp
+	fds_subscription.cpp \
+	fds_ldomain.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \

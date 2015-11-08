@@ -2,8 +2,8 @@
 
 . jenkins_scripts/jenkins_system_test.lib
 
-# For check-in's, disable some tests
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="StaticMigration BuildSmokeTest_onpr QosTest DmMigrationFailover"
+# For long system test, do not disable any tests 
+DISABLED_SYSTEM_TEST_SCENARIO_LIST=""
 
 if [[ "${1}" == "smoke_test_only" ]]
 then

@@ -301,9 +301,9 @@ DmMigrationMgr::handleForwardedCommits(DmIoFwdCat* fwdCatReq) {
 					<< " during migration abort";
     	} else {
 			LOGERROR << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			fds_assert(0);
+
+            // this likely means DM died during migration and has come back with the client still forwarding
+            // returning an error code will abort the client side migration
     	}
     	return ERR_NOT_FOUND;
     }
@@ -499,29 +499,52 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
 
     SCOPEDREAD(migrClientLock);
 
-    for (auto client : clientMap) {
-    	auto pair = client.first;
-    	if (pair.second == volId) {
-    		auto destUuid = pair.first;
-    		auto dmClient = client.second;
-    		if (dmClient == nullptr) {
-				if (isMigrationAborted()) {
-					LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
-				} else {
-					LOGERROR << "Unable to find client for volume " << volId;
-					// this is an race cond error that needs to be fixed in dev env.
-					// Only panic in debug build.
-					fds_assert(0);
-				}
-    		} else {
-    			LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
-    			err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
-    			if (!err.ok()) {
-    				LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
-    				break;
-    			}
-    		}
-    	}
+    /**
+     * Populate the # of clients first, so we don't run the risk of
+     * the first client finishing and calling cleanup to remove the io request
+     * before the second client.
+     */
+    if (!isMigrationAborted()) {
+        {
+            std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+            for (auto client : clientMap) {
+                auto pair = client.first;
+                if (pair.second == volId) {
+                    auto destUuid = pair.first;
+                    auto dmClient = client.second;
+                    if (dmClient) {
+                        commitBlobReq->migrClientCnt++;
+                    }
+                }
+            }
+        }
+
+        LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
+
+        for (auto client : clientMap) {
+            auto pair = client.first;
+            if (pair.second == volId) {
+                auto destUuid = pair.first;
+                auto dmClient = client.second;
+                if (dmClient == nullptr) {
+                    if (isMigrationAborted()) {
+                        LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
+                    } else {
+                        LOGERROR << "Unable to find client for volume " << volId;
+                        // this is an race cond error that needs to be fixed in dev env.
+                        // Only panic in debug build.
+                        fds_assert(0);
+                    }
+                } else {
+                    LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
+                    err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+                    if (!err.ok()) {
+                        LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
 	return err;

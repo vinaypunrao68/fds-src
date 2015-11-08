@@ -76,7 +76,6 @@ set(SOURCE_FILES
     ./access-mgr/include/connector/nbd/common.h
     ./access-mgr/include/connector/nbd/NbdConnection.h
     ./access-mgr/include/connector/nbd/NbdConnector.h
-    ./access-mgr/include/connector/scst/common.h
     ./access-mgr/include/connector/scst/scst_const.h
     ./access-mgr/include/connector/scst/scst_user.h
     ./access-mgr/include/connector/scst/ScstConnector.h
@@ -283,6 +282,7 @@ set(SOURCE_FILES
     ./include/fds_dmt.h
     ./include/fds_error.h
     ./include/fds_globals.h
+    ./include/fds_ldomain.h
     ./include/fds_module.h
     ./include/fds_module_provider.h
     ./include/fds_obj_cache.h
@@ -506,6 +506,7 @@ set(SOURCE_FILES
     ./lib/misc/dmt.cpp
     ./lib/misc/fds_counters.cpp
     ./lib/misc/fds_error.cpp
+    ./lib/misc/fds_ldomain.cpp
     ./lib/misc/fds_obj_cache.cpp
     ./lib/misc/fds_subscription.cpp
     ./lib/misc/fds_timer.cpp

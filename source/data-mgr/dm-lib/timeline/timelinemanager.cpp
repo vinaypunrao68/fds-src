@@ -8,8 +8,12 @@
 #include <unistd.h> // for unlink
 
 namespace fds { namespace timeline {
-
+#define TIMELINE_FEATURE_CHECK(...) if (!dm->features.isTimelineEnabled()) { return ERR_FEATURE_DISABLED ;}
 TimelineManager::TimelineManager(fds::DataMgr* dm): dm(dm) {
+    if (!dm->features.isTimelineEnabled()) {
+        LOGWARN << "timeline feature is disabled";
+        return;
+    }
     timelineDB.reset(new TimelineDB());
     Error err = timelineDB->open();
     if (!err.ok()) {
@@ -23,6 +27,7 @@ boost::shared_ptr<TimelineDB> TimelineManager::getDB() {
 }
 
 Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    TIMELINE_FEATURE_CHECK();
     Error err = loadSnapshot(volId, snapshotId);
 
     //get the list of snapIds
@@ -61,6 +66,7 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
 }
 
 Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
+    TIMELINE_FEATURE_CHECK();
     // get the list of snapshots.
     std::string snapDir;
     std::vector<std::string> vecDirs;
@@ -129,11 +135,13 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
 }
 
 Error TimelineManager::unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid){
+    TIMELINE_FEATURE_CHECK();
     Error err;
     return err;
 }
 
 Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
+    TIMELINE_FEATURE_CHECK();
     util::TimeStamp createTime = util::getTimeStampMicros();
     Error err = dm->timeVolCat_->copyVolume(*vdesc);
     if (err.ok()) {
@@ -157,6 +165,7 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
 }
 
 Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    TIMELINE_FEATURE_CHECK();
     LOGDEBUG << "will mark objects in vol:" << volId << " snap:" << snapshotId;
     if (blooms.find(volId) == blooms.end()) {
         blooms[volId].find(snapshotId);
@@ -205,6 +214,7 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
 }
 
 Error TimelineManager::createClone(VolumeDesc *vdesc) {
+    TIMELINE_FEATURE_CHECK();
     Error err;
 
     VolumeMeta * volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);

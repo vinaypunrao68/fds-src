@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v08.domain;
 
-import com.formationds.apis.LocalDomain;
+import com.formationds.apis.LocalDomainDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Domain;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -41,7 +41,7 @@ implements RequestHandler {
 	public Resource handle( Request request, Map<String, String> routeParameters )
 			throws Exception {
 
-		long domainId = requiredLong( routeParameters, DOMAIN_ARG );
+		int domainId = requiredInt( routeParameters, DOMAIN_ARG );
 		
 		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
 		Domain domain = ObjectModelHelper.toObject( reader, Domain.class );
@@ -67,9 +67,9 @@ implements RequestHandler {
 	
 	public Domain getDomain( long domainId ) throws ApiException, TException{
 		
-		List<LocalDomain> localDomains = getConfigApi().listLocalDomains( 0 );
+		List<LocalDomainDescriptor> localDomains = getConfigApi().listLocalDomains( 0 );
 		
-		for ( LocalDomain localDomain : localDomains ){
+		for ( LocalDomainDescriptor localDomain : localDomains ){
 			
 			if ( localDomain.getId() == domainId ){
 				
