@@ -39,7 +39,7 @@ class AmRequest : public FDS_IOType {
     fds_uint64_t   blob_offset_end;
     std::string    volume_name;
 
-    bool           forced_unit_access {true};
+    bool           forced_unit_access {false};
     bool           page_out_cache {false};
 
     // Flag to indicate when a request has been responded to
