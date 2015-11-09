@@ -55,7 +55,7 @@ struct VolumeSharedCacheManager
      *
      * @return Err if the volume already has an associated cache.
      */
-    Error addVolume(fds_volid_t volId, typename cache_type::size_type maxEntries) {
+    Error addVolume(fds_volid_t const volId, typename cache_type::size_type maxEntries) {
         static std::string const cacheModName("Cache module for ");
 
         SCOPEDWRITE(cacheMapRwlock);
@@ -76,7 +76,7 @@ struct VolumeSharedCacheManager
      *
      * @return Err if the volume has no associated cache
      */
-    Error removeVolume(fds_volid_t volId) {
+    Error removeVolume(fds_volid_t const volId) {
         SCOPEDWRITE(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
         if (mapIt == vol_cache_map.end()) {
@@ -94,7 +94,7 @@ struct VolumeSharedCacheManager
     /**
      * Adds a key-value pair to a volume's cache.
      */
-    std::pair<bool, value_type> add(fds_volid_t volId, const key_type &key, const value_type value) {
+    std::pair<bool, value_type> add(fds_volid_t const volId, const key_type &key, const value_type value) {
         static const std::pair<bool, value_type> nil {false, nullptr};
 
         SCOPEDREAD(cacheMapRwlock);
@@ -108,7 +108,7 @@ struct VolumeSharedCacheManager
         return std::make_pair(true, mapIt->second->add(key, value));
     }
 
-    Error clear(fds_volid_t volId) {
+    Error clear(fds_volid_t const volId) {
         SCOPEDREAD(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
         if (mapIt == vol_cache_map.end()) {
@@ -120,7 +120,7 @@ struct VolumeSharedCacheManager
         return ERR_OK;
     }
 
-    Error get(fds_volid_t volId, const key_type &key, value_type& valueOut) {
+    Error get(fds_volid_t const volId, const key_type &key, value_type& valueOut) {
         SCOPEDREAD(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
         if (mapIt == vol_cache_map.end()) {
@@ -131,7 +131,7 @@ struct VolumeSharedCacheManager
         return mapIt->second->get(key, valueOut);
     }
 
-    Error remove(fds_volid_t volId, const key_type &key) {
+    Error remove(fds_volid_t const volId, const key_type &key) {
         SCOPEDREAD(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
         if (mapIt == vol_cache_map.end()) {
@@ -142,6 +142,19 @@ struct VolumeSharedCacheManager
         mapIt->second->remove(key);
         return ERR_OK;
     }
+
+    template<typename UnaryPredicate>
+    Error remove_if(fds_volid_t const volId, UnaryPredicate pred) {
+        auto mapIt = vol_cache_map.find(volId);
+        if (mapIt == vol_cache_map.end()) {
+            return ERR_NOT_FOUND;
+        }
+
+        // Remove from the cache structure
+        mapIt->second->remove_if(pred);
+        return ERR_OK;
+    }
+
 };
 
 }  // namespace fds

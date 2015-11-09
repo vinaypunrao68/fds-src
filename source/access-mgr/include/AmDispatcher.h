@@ -105,12 +105,12 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches a test volume request to OM.
      */
     Error attachVolume(std::string const& volume_name);
-    void dispatchAttachVolume(AmRequest *amReq);
+    void attachVolume(AmRequest *amReq);
 
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(AmRequest *amReq);
+    void openVolume(AmRequest *amReq);
     void openVolumeCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
@@ -119,12 +119,12 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an open volume request to DM.
      */
-    Error dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
+    Error closeVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.
      */
-    void dispatchStatVolume(AmRequest *amReq);
+    void statVolume(AmRequest *amReq);
 
     /**
      * Callback for stat volume responses.
@@ -137,7 +137,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a set volume metadata request.
      */
-    void dispatchSetVolumeMetadata(AmRequest *amReq);
+    void setVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for set volume metadata responses.
@@ -150,7 +150,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a get volume metadata request.
      */
-    void dispatchGetVolumeMetadata(AmRequest *amReq);
+    void getVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for get volume metadata responses.
@@ -163,12 +163,12 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Aborts a blob transaction request.
      */
-    void dispatchAbortBlobTx(AmRequest *amReq);
+    void abortBlobTx(AmRequest *amReq);
 
     /**
      * Dipatches a start blob transaction request.
      */
-    void dispatchStartBlobTx(AmRequest *amReq);
+    void startBlobTx(AmRequest *amReq);
 
     /**
      * Callback for start blob transaction responses.
@@ -181,7 +181,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a commit blob transaction request.
      */
-    void dispatchCommitBlobTx(AmRequest *amReq);
+    void commitBlobTx(AmRequest *amReq);
 
     /**
      * Callback for commit blob transaction responses.
@@ -194,42 +194,42 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an update catalog request.
      */
-    void dispatchUpdateCatalog(AmRequest *amReq);
+    void putBlob(AmRequest *amReq);
 
     /**
      * Dispatches an update catalog once request.
      */
-    void dispatchUpdateCatalogOnce(AmRequest *amReq);
+    void putBlobOnce(AmRequest *amReq);
 
     /**
      * Dipatches a put object request.
      */
-    void dispatchPutObject(AmRequest *amReq);
+    void putObject(AmRequest *amReq);
 
     /**
      * Dipatches a get object request.
      */
-    void dispatchGetObject(AmRequest *amReq);
+    void getObject(AmRequest *amReq);
 
     /**
      * Dispatches a delete blob transaction request.
      */
-    void dispatchDeleteBlob(AmRequest *amReq);
+    void deleteBlob(AmRequest *amReq);
 
     /**
      * Dipatches a query catalog request.
      */
-    void dispatchQueryCatalog(AmRequest *amReq);
+    void getBlob(AmRequest *amReq);
 
     /**
      * Dispatches a stat blob transaction request.
      */
-    void dispatchStatBlob(AmRequest *amReq);
+    void statBlob(AmRequest *amReq);
 
     /**
      * Dispatches a rename blob request.
      */
-    void dispatchRenameBlob(AmRequest *amReq);
+    void renameBlob(AmRequest *amReq);
 
     /**
      * Dispatches a rename blob request.
@@ -242,12 +242,12 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a set metadata on blob transaction request.
      */
-    void dispatchSetBlobMetadata(AmRequest *amReq);
+    void setBlobMetadata(AmRequest *amReq);
 
     /**
      * Dispatches a volume contents (list bucket) transaction request.
      */
-    void dispatchVolumeContents(AmRequest *amReq);
+    void volumeContents(AmRequest *amReq);
 
     bool getNoNetwork() const {
         return noNetwork;
@@ -301,7 +301,7 @@ struct AmDispatcher : HasModuleProvider
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;
 
-    void _dispatchStartBlobTx(AmRequest *amReq);
+    void _startBlobTx(AmRequest *amReq);
 
     /**
      * Callback for delete blob responses.
