@@ -11,6 +11,7 @@
 #include <util/timeutils.h>
 #include <util/stringutils.h>
 #include <fds_error.h>
+#include <concurrency/RwLock.h>
 
 namespace fds {
 
@@ -29,6 +30,7 @@ using util::TimeStamp;
 class LiveObjectsDB {
     private:
         std::unique_ptr<SqliteDB> db = nullptr;
+        fds_rwlock lock;
 
     public:
         typedef std::unique_ptr<LiveObjectsDB> unique_ptr;
@@ -39,8 +41,15 @@ class LiveObjectsDB {
                            const TimeStamp &timeStamp,
                            const std::string &objectSetFilePath,
                            const fds_uint64_t &dmUUID);
+        Error cleansertObjectSet(const fds_token_id &smToken,
+                                 const fds_volid_t &volId,
+                                 const TimeStamp &timeStamp,
+                                 const std::string &objectSetFilePath,
+                                 const fds_uint64_t &dmUUID);
         Error removeObjectSet(const fds_token_id &smToken,
                               const fds_volid_t &volId);
+        Error removeObjectSet(const fds_token_id &smToken,
+                              const fds_uint64_t &dmUUID);
         Error findObjectSetsPerToken(const fds_token_id &smToken,
                                      std::set<std::string> &objSetFilenames);
         Error findAssociatedVols(const fds_token_id &smToken,

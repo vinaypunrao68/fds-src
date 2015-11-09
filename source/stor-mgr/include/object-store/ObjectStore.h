@@ -339,8 +339,17 @@ class ObjectStore : public Module, public boost::noncopyable {
                       const std::string &objectSetFilePath,
                       const fds_uint64_t &dmUUID = 0);
 
+    void cleansertObjectSet(const fds_token_id &smToken,
+                            const fds_volid_t &volId,
+                            const util::TimeStamp &ts,
+                            const std::string &objectSetFilePath,
+                            const fds_uint64_t &dmUUID = 0);
+
     void removeObjectSet(const fds_token_id &smToken,
                          const fds_volid_t &volId);
+
+    void removeObjectSet(const fds_token_id &smToken,
+                         const fds_uint64_t &dmUUID);
 
     void dropLiveObjectDB();
 

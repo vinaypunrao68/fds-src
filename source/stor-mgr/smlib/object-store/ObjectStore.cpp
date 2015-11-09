@@ -1630,12 +1630,35 @@ ObjectStore::addObjectSet(const fds_token_id &smToken,
 }
 
 /**
+ * Clean existing entries based on smtoken and dm src uuid
+ * and insert new entries to the liveObjects Table
+ */
+void
+ObjectStore::cleansertObjectSet(const fds_token_id &smToken,
+                                const fds_volid_t &volId,
+                                const util::TimeStamp &timeStamp,
+                                const std::string &objectSetFilePath,
+                                const fds_uint64_t &dmUUID) {
+    liveObjectsTable->cleansertObjectSet(smToken, volId, timeStamp,
+                                         objectSetFilePath, dmUUID);
+}
+
+/**
  * Remove an existing object set from live object table
  */
 void
 ObjectStore::removeObjectSet(const fds_token_id &smToken,
                              const fds_volid_t &volId) {
     liveObjectsTable->removeObjectSet(smToken, volId);
+}
+
+/**
+ * Remove an existing object set from live object table
+ */
+void
+ObjectStore::removeObjectSet(const fds_token_id &smToken,
+                             const fds_uint64_t &dmUUID) {
+    liveObjectsTable->removeObjectSet(smToken, dmUUID);
 }
 
 /**
@@ -1667,16 +1690,18 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
     std::function<void (const ObjectID&)> checkAndModifyMeta =
-            [this, &objectSets, &ts, &tokStats] (const ObjectID& oid) {
+            [this, &objectSets, &ts, &tokStats, &smToken] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
         ObjSetIter iter = objectSets.begin();
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " found in object set(s) ";
                 break;
             }
         }
         if (iter == objectSets.end()) {
             if (this->tokenLockFn) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " not found in object set(s) ";
                 auto tokenLock = this->tokenLockFn(oid, true);
                 Error err(ERR_OK);
                 ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
@@ -1690,6 +1715,9 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 if (objMeta->getTimeStamp() < ts) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                     updatedMeta->updateTimestamp();
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << updatedMeta->getTimeStamp()
+                             << " current delCount " << updatedMeta->getDeleteCount();
                     /**
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
