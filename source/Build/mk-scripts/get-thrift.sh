@@ -7,17 +7,18 @@
 artifactoryPullUser="builder"
 artifactoryPullPassword="h7qgA3fYr0P3"
 
-thrift_version="0.9.0"
+thrift_version="0.9.3"
 thrift_fds_versioned="fds-thrift-${thrift_version}"
 thrift_tar_gz="${thrift_fds_versioned}.tar.gz"
 
-thrift_debug_lib_dir="Build/linux-x86_64.debug/lib"
-thrift_release_lib_dir="Build/linux-x86_64.release/lib"
-thrift_include_dir="Build/thrift-${thrift_version}/lib/cpp/src"
+thrift_debug_dir="Build/linux-x86_64.debug/${thrift_fds_versioned}"
+thrift_release_dir="Build/linux-x86_64.release/${thrift_fds_versioned}"
+thrift_debug_lib_dir="${thrift_debug_dir}/lib"
+thrift_release_lib_dir="${thrift_release_dir}/lib"
+thrift_include_dir="${thrift_debug_dir}/include"
 
-thrift_debug_bin_dir="Build/linux-x86_64.debug/bin"
-thrift_release_bin_dir="Build/linux-x86_64.release/bin"
-
+thrift_debug_bin_dir="${thrift_debug_dir}/bin"
+thrift_release_bin_dir="${thrift_release_dir}/bin"
 
 make_directories_if_needed()
 {

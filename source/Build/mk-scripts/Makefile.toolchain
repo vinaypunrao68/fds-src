@@ -16,10 +16,14 @@ toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 
 # Thrift settings.
 #
-tool_thrift_version  := 0.9.0
-tool_thrift          := $(toolchain_bin)/thrift
-toolchain_thrf       := $(topdir)/../Build/thrift-$(tool_thrift_version)
-toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
+tool_thrift_version  := 0.9.3
+# DO NOT MERGE TO MASTER
+#toolchain_thrf       := $(topdir)/../Build/thrift-$(tool_thrift_version)
+#tool_thrift          := $(toolchain_bin)/thrift
+toolchain_thrf       := $(topdir)/../../opensource/thrift-$(tool_thrift_version)/dist/fds-thrift-${tool_thrift_version}
+tool_thrift          := $(toolchain_thrf)/bin/thrift
+toolchain_thrf_incl  := -I$(toolchain_thrf)/include
+toolchain_thrf_lib   := -L${toolchain_thrf}/lib
 toolchain_thrf_opts  := $(user_thrift_flag)
 
 ifdef user_thrift_loc
@@ -92,6 +96,7 @@ toolchain_cpp_flags  := $(toolchain_incl_flags) $(coverage_cpp_flags)
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
+toolchain_ld_flags   += $(toolchain_thrf_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
 toolchain_ld_flags   += $(toolchain_gmock_lib)
 toolchain_ld_flags   += $(coverage_ld_flags)
