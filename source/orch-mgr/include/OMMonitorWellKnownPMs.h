@@ -30,7 +30,8 @@ namespace fds
             virtual ~OMMonitorWellKnownPMs();
 
             PmMap getKnownPMsMap();
-            void  updateKnownPMsMap(fpi::SvcUuid uuid, double timestamp);
+            bool  isWellKnown(fpi::SvcUuid uuid);
+            void  updateKnownPMsMap(fpi::SvcUuid uuid, double timestamp, bool updateSvcState);
 
         protected:
             bool fShutdown;
@@ -46,10 +47,10 @@ namespace fds
             void  shutdown();
             Error getLastHeardTime(fpi::SvcUuid uuid, double& timestamp);
             Error removeFromPMsMap(PmMap::iterator iter);
-            void  cleanUpOldState(fpi::SvcUuid uuid);
+            void  cleanUpOldState(fpi::SvcUuid uuid, bool updateSvcState);
             void  handleRetryOnInactive(fpi::SvcUuid uuid);
-            void  handleStaleEntry(fpi::SvcInfo svc);
-            Error handleActiveEntry(fpi::SvcUuid svcUuid, fpi::SvcInfo svcInfo, SvcMgr* mgr);
+            void  handleStaleEntry(fpi::SvcUuid uuid);
+            Error handleActiveEntry(fpi::SvcUuid svcUuid);
     };
 } // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMMONITORWELLKNOWNPMS_H_

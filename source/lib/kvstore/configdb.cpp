@@ -2441,7 +2441,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if ( reply.isValid() && !reply.isNil())
+        if ( reply.isValid() )
         {
             std::string value = reply.getString();
             fpi::SvcInfo svcInfo;

@@ -307,7 +307,11 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     double current      = std::chrono::duration<double,std::ratio<60>>
                                        (timeSinceEpoch).count();
 
-    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
+    bool updSvcState = false;
+    if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+        updSvcState = true;
+    }
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 
 void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
