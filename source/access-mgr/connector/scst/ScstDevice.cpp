@@ -240,8 +240,8 @@ ScstDevice::execSessionCmd() {
         // Attach the volume to AM if we haven't already
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
         return scstOps->init(volName, amProcessor, task); // Defer
-    } else {
-        if (0 > sessions && 0 == --sessions) {
+    } else if (!attaching) {
+        if (0 < sessions && 0 == --sessions) {
             scstOps->detachVolume();
         }
     }

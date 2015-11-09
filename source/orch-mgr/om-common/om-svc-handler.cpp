@@ -318,6 +318,34 @@ void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
              << " for start request";
 
     NodeUuid node_uuid(msg->pmSvcUuid);
+
+    int64_t uuid = msg->pmSvcUuid.svc_uuid;
+
+    if (lastHeardResp.first == 0) {
+        // This is the very first start resp in OM's history
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
+
+    } else if (lastHeardResp.first == uuid) {
+        int32_t current     = fds::util::getTimeStampSeconds();
+        int32_t elapsedSecs = current - lastHeardResp.second;
+
+        // If we are receiving a resp from the same PM within a second, ignore the response.
+        if (elapsedSecs <= 1) {
+
+            LOGDEBUG << "Received response from the same PM less than a second ago, will ignore";
+            lastHeardResp.second = current;
+            return;
+        }
+        lastHeardResp.second = current;
+
+    } else {
+        // Update to hold the latest response received
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
+    }
+
+    auto item = std::make_pair(node_uuid.uuid_get_val(), 0);
+    gl_orch_mgr->removeFromSentQ(item);
+
     OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
             om_loc_domain_ctrl()->om_pm_agent(node_uuid);
 
@@ -491,11 +519,10 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
     // we only handle specific errors from SM and DM for now
-    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
-    {
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) {
         /*
          * if unreachable service incarnation is the same as the service map, change the state to INVALID
-         */
+        */
         if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
             auto domain = OM_NodeDomainMod::om_local_domain();

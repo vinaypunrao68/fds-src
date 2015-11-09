@@ -98,6 +98,8 @@ namespace fds {
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
+      std::pair<int64_t, int32_t> lastHeardResp;
+
     private:
       void init_svc_event_handlers();
       void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
