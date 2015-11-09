@@ -6,6 +6,7 @@
 #include <refcount/objectrefscanner.h>
 #include <refcount/refcountmanager.h>
 #include <DataMgr.h>
+#include <counters.h>
 #include <fdsp/sm_api_types.h>
 #include <util/stringutils.h>
 
@@ -37,11 +38,12 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
     auto dlt = svcMgr->getCurrentDLT();
     VolumeList volumeList (new std::list<fds_volid_t>(scanner->getScanSuccessVols()));
-    for (fds_token_id token = 0; token < 256 ; token++) {
+    for (fds_token_id token = 0; token < dlt->getNumTokens() ; token++) {
         filename = scanner->getTokenBloomfilterPath(token);
         auto tokenGroup = dlt->getNodes(token);
         if (filename.length() > 0) {
-            LOGNORMAL << "will process active object file for token : " << token;            
+            LOGNORMAL << "will process active object file for token : " << token;
+            dm->counters->refscanNumTokenFiles.incr(1);
             tokenFileName = util::strformat("token_%d.bf", token);
             for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
                 dm->fileTransfer->send(svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR ),

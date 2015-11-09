@@ -5,6 +5,7 @@
 #include <lib/Catalog.h>
 #include <refcount/objectrefscanner.h>
 #include <DataMgr.h>
+#include <counters.h>
 #include <boost/filesystem.hpp>
 
 namespace fds { namespace refcount {
@@ -224,6 +225,7 @@ void ObjectRefScanMgr::scanStep() {
         /* Scan finished */
         bfStore->sync(true /* clear cache */);
         state = STOPPED;
+        dataMgr->counters->refscanRunning.set(0);
         dumpStats();
         if (scandoneCb) {
             scandoneCb(this);
@@ -253,6 +255,10 @@ std::string ObjectRefScanMgr::getTokenBloomfilterPath(const fds_token_id &tokenI
 
 void ObjectRefScanMgr::prescanInit()
 {
+    dataMgr->counters->refscanLastRun.set(util::getTimeStampSeconds());
+    dataMgr->counters->refscanRunning.set(1);
+    dataMgr->counters->refscanNumVolumes.set(0);
+    dataMgr->counters->refscanNumTokenFiles.set(0);
     /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 
@@ -335,6 +341,7 @@ Error VolumeRefScannerContext::finishScan(const Error &e) {
         tokenbloomfilter->merge(*bloomfilter);
     }
     objRefMgr->getScanSuccessVols().push_back(volId);
+    objRefMgr->dataMgr->counters->refscanNumVolumes.incr(1);
     return ERR_OK;
 }
 

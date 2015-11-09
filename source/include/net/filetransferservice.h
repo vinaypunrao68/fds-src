@@ -14,6 +14,7 @@
 namespace fds { 
 class EPSvcRequest;
 class SvcMgr;
+class SimpleNumericCounter;
 namespace net {
 
 struct FileTransferService : HasLogger {
@@ -104,7 +105,10 @@ struct FileTransferService : HasLogger {
     Handle::ptr get(fds_uint64_t hashCode);
     SvcMgr* svcMgr;
     std::map<fds_uint64_t, SHPTR<Handle> > transferMap;
-
+    SimpleNumericCounter *successSent;
+    SimpleNumericCounter *failSent;
+    SimpleNumericCounter *inProgressSent;
+    SimpleNumericCounter *avoidedTransfers;
 };
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle& handle);
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle::ptr& handle);

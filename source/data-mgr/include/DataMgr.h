@@ -66,6 +66,7 @@
 namespace fds {
 namespace dm {
 struct Handler;
+struct Counters;
 }
 class DMSvcHandler;
 class DmMigrationMgr;
@@ -182,6 +183,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
     } features;
+
+    dm::Counters* counters;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
     boost::shared_ptr<timeline::TimelineManager> timelineMgr;

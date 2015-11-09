@@ -37,6 +37,9 @@
         owner=root
         group=root
 
+-   name: set local for error messages
+    command: update-locale LC_MESSAGES=POSIX
+
 # OLD SUPER BLOCK LOCATION
 -   name: run fdsinstall step 3 - setup storage
     environment:

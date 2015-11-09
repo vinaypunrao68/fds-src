@@ -289,3 +289,5 @@
         apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
         register: install
 
+    -   name: set local for error messages
+        command: update-locale LC_MESSAGES=POSIX

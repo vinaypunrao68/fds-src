@@ -112,6 +112,11 @@ FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svc
 
     // register handlers
     if (svcMgr == NULL) svcMgr = MODULEPROVIDER()->getSvcMgr();
+    successSent = new SimpleNumericCounter("filetransfer.success", svcMgr->getSvcRequestCntrs());
+    failSent = new SimpleNumericCounter("filetransfer.failed", svcMgr->getSvcRequestCntrs());
+    inProgressSent = new SimpleNumericCounter("filetransfer.inprogress", svcMgr->getSvcRequestCntrs());
+    avoidedTransfers = new SimpleNumericCounter("filetransfer.avoided", svcMgr->getSvcRequestCntrs());
+
     REGISTER_FDSP_MSG_HANDLER_GENERIC(svcMgr->getSvcRequestHandler(), fpi::FileTransferMsg ,handleTransferRequest);
     REGISTER_FDSP_MSG_HANDLER_GENERIC(svcMgr->getSvcRequestHandler(), fpi::FileTransferVerifyMsg ,handleVerifyRequest);
 }
@@ -182,6 +187,9 @@ void FileTransferService::handleTransferResponse(FileTransferService::Handle::pt
 
     if (!error.ok()) {
         GLOGERROR << "error on transfer : " << error << ":" << handle;
+        failSent->incr();
+        inProgressSent->decr();
+
         // TODO(prem): what to do here ??
         handle->done(error);
         return;
@@ -221,7 +229,9 @@ void FileTransferService::handleVerifyResponse(FileTransferService::Handle::ptr 
         if (error.ok()) {
             // check sum matched so no need to transfer the file.
             LOGDEBUG << "dest has same file - no need to transfer : " << handle;
+            avoidedTransfers->incr();
         } else if (error == ERR_CHECKSUM_MISMATCH || error == ERR_FILE_DOES_NOT_EXIST) {
+            inProgressSent->incr();
             sendNextChunk(handle);
             return;
         }
@@ -229,11 +239,14 @@ void FileTransferService::handleVerifyResponse(FileTransferService::Handle::ptr 
         // this is the last verify
         if (error.ok()) {
             LOGDEBUG << "file transfer successful : " << handle;
+            successSent->incr();
             // successful transfer
         } else if (error == ERR_CHECKSUM_MISMATCH) {
             // some problem in transfer
             LOGERROR << error << " : " << handle;
+            failSent->incr();
         }
+        inProgressSent->decr();
     }
 
     handle->done(error);
