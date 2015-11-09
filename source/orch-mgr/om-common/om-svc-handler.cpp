@@ -460,6 +460,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
                      << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
 
            domain->om_change_svc_state_and_bcast_svcmap( uuid, service_type, msg->healthReport.serviceInfo.svc_status );
+           domain->om_service_up( uuid, service_type );
        }
        break;
      default:
