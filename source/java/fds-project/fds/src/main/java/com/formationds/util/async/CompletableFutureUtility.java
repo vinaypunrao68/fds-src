@@ -6,6 +6,7 @@ package com.formationds.util.async;
 import com.formationds.commons.util.SupplierWithExceptions;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 public class CompletableFutureUtility {
     public static <T> CompletableFuture<T> exceptionFuture(Throwable ex) {
@@ -21,5 +22,6 @@ public class CompletableFutureUtility {
             return exceptionFuture(e);
         }
     }
+
 
 }

@@ -5,19 +5,16 @@ import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.nfs.*;
 import com.formationds.protocol.*;
+import com.formationds.sc.SvcState;
+import com.formationds.sc.api.AmServiceApi;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
+import com.formationds.xdi.*;
 import com.google.common.collect.Maps;
+import com.google.common.net.HostAndPort;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 
 import javax.security.auth.Subject;
 import java.io.OutputStream;
@@ -30,10 +27,11 @@ import java.util.stream.IntStream;
 import static org.junit.Assert.*;
 
 
-@Ignore
+//@Ignore
 public class AsyncAmTest extends BaseAmTest {
-
+    private static final boolean USE_SVC_IMPL = true;
     public static final int NFS_EXPORT_ID = 42;
+    private static SvcState svc;
     private Counters counters;
 
     @Test
@@ -362,7 +360,7 @@ public class AsyncAmTest extends BaseAmTest {
 
         // The old one should be gone
         try {
-            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            BlobDescriptor descriptor = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
             fail("Should have gotten an ExecutionException");
         } catch (ExecutionException e) {
             ApiException apiException = (ApiException) e.getCause();
@@ -507,7 +505,7 @@ public class AsyncAmTest extends BaseAmTest {
     private static final int OBJECT_SIZE = 1024 * 1024 * 2;
     private static final int MY_AM_RESPONSE_PORT = 9881;
     private static XdiClientFactory xdiCf;
-    private static RealAsyncAm asyncAm;
+    private static AsyncAm asyncAm;
 
     private String domainName;
     private String blobName;
@@ -521,6 +519,23 @@ public class AsyncAmTest extends BaseAmTest {
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
         asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
         asyncAm.start();
+
+        if(USE_SVC_IMPL) {
+            HostAndPort self = HostAndPort.fromParts(Fds.getFdsHost(), 10293);
+            HostAndPort om = HostAndPort.fromParts(Fds.getFdsHost(), 7004);
+            svc = new SvcState(self, om, 18923L);
+            svc.openAndRegister();
+
+            asyncAm = new AmServiceApi(asyncAm, svc);
+        }
+
+    }
+
+    @AfterClass
+    public static void tearDownOnce() throws Exception {
+        if(svc != null) {
+            svc.close();
+        }
     }
 
     @Before

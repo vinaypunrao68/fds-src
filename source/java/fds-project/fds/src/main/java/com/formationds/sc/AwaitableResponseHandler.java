@@ -3,6 +3,7 @@ package com.formationds.sc;
 import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.UpdateSvcMapMsg;
 import com.formationds.protocol.svc.types.*;
+import com.formationds.util.thrift.svc.SvcLayerException;
 import com.formationds.util.time.Clock;
 import com.formationds.util.time.SystemClock;
 import org.apache.thrift.TException;
@@ -24,7 +25,7 @@ public class AwaitableResponseHandler {
 
     public AwaitableResponseHandler() {
         status = ServiceStatus.SVC_STATUS_ACTIVE;
-        clock = new SystemClock();
+        clock = SystemClock.current();
         responseHandles = new HashMap<>();
     }
 
@@ -87,7 +88,11 @@ public class AwaitableResponseHandler {
     public void recieveResponse(AsyncHdr asyncHdr, ByteBuffer payload) {
         synchronized (responseHandles) {
             ResponseHandle responseHandle = responseHandles.get(asyncHdr.msg_src_id);
-            responseHandle.completionHandle.complete(new AsyncSvcResponse(asyncHdr, payload));
+            if(asyncHdr.getMsg_code() == 0)
+                responseHandle.completionHandle.complete(new AsyncSvcResponse(asyncHdr, payload));
+            else
+                responseHandle.completionHandle.completeExceptionally(new SvcException(asyncHdr.getMsg_code()));
+
         }
     }
 

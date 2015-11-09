@@ -1,7 +1,23 @@
 package com.formationds.util.time;
 
+import com.formationds.util.executor.ProcessExecutorSource;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
 public class UnitTestClock implements Clock {
-    long epochMs;
+    private long epochMs;
+    private Set<DelayListEntry> delayList;
+
+    public UnitTestClock(long initialMillis) {
+        epochMs = initialMillis;
+        delayList = new HashSet<>();
+
+    }
 
     @Override
     public long currentTimeMillis() {
@@ -14,6 +30,40 @@ public class UnitTestClock implements Clock {
     }
 
     public void setMillis(long millis) {
-        epochMs = millis;
+        synchronized (delayList) {
+            epochMs = millis;
+            HashSet<DelayListEntry> removeSet = new HashSet<>();
+            for(DelayListEntry entry : delayList) {
+                if(entry.time < epochMs) {
+                    ProcessExecutorSource.getInstance().execute(() -> entry.handle.complete(null));
+                    removeSet.add(entry);
+                }
+            }
+            delayList.removeAll(removeSet);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> delay(long time, TimeUnit timeUnits) {
+        if(time == 0)
+            return CompletableFuture.completedFuture(null);
+
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        synchronized (delayList) {
+            long endTime = epochMs + TimeUnit.MILLISECONDS.convert(time, timeUnits);
+            delayList.add(new DelayListEntry(endTime, result));
+        }
+
+        return result;
+    }
+
+    private class DelayListEntry {
+        public long time;
+        public CompletableFuture<Void> handle;
+
+        public DelayListEntry(long time, CompletableFuture<Void> handle) {
+            this.time = time;
+            this.handle = handle;
+        }
     }
 }
