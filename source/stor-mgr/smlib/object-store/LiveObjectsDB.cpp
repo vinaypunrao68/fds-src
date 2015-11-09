@@ -66,11 +66,12 @@ Error LiveObjectsDB::cleansertObjectSet(const fds_token_id &smToken,
     if (!db) { return ERR_INVALID; }
 
     std::string query = util::strformat("delete from liveObjTbl "
-                                        "where smtoken=%ld and dmuuid=%ld",
-                                        smToken, dmUUID);
+                                        "where smtoken=%ld and dmuuid=%ld and volid=%ld",
+                                        smToken, dmUUID, volId.get());
     if (db->execute(query.c_str())) {
         LOGERROR << "Failed deleting object set from live object table"
-                 << " of smtoken = " << smToken << " and dmuuid = " << dmUUID;;
+                 << " of smtoken = " << smToken << " and dmuuid = " << dmUUID
+                 << " and volid = " << volId.get();
         return ERR_INVALID;
     }
 
