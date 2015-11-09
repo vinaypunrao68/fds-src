@@ -209,9 +209,9 @@ class DmMigrationMgr : public DmMigrationBase {
     /**
      * DMT watermark is used to reject operations to a resyncing DM
      * until the DMT version is updated, which indicates the end of
-     * forwarding of commits from another DM. this is to prevent
+     * forwarding of commits from another DM. This is to prevent
      * overwriting forwarded commits with commits directy from AM that
-     * logically preceeded the forwarded writes
+     * logically preceeded the forwarded writes.
      */
 
     // shouldFilterDmt() checks the wartermark and should be used by all writepath operations except forwarding
@@ -219,8 +219,8 @@ class DmMigrationMgr : public DmMigrationBase {
 
     /**
      * setDmtWatermark() is called by the executor before unblocking
-     * the QoS queue. the watermark outlives the eexecutor which must
-     * be destructed soon after
+     * the QoS queue. The watermark outlives the executor which may be
+     * freed soon after.
      */
     void setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version);
 
