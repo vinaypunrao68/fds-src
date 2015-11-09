@@ -236,7 +236,7 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
         secondaries.push_back(uuid);
     }
 
-    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries);
+    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dmt_ver);
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
@@ -296,7 +296,7 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
         dmPrimariesForVol->set(i, dm_group->get(i));
     }
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
+    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dmt_ver);
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
