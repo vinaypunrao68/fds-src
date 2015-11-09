@@ -448,6 +448,19 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
        // no break
      case fpi::FDSP_STOR_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+
+       if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
+       {
+           NodeUuid uuid( msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid );
+           auto domain = OM_NodeDomainMod::om_local_domain();
+
+           LOGNORMAL << "Will set service to state ( "
+                     << msg->healthReport.serviceInfo.svc_status
+                     << " ) : " << msg->healthReport.serviceInfo.name
+                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+
+           domain->om_change_svc_state_and_bcast_svcmap( uuid, service_type, msg->healthReport.serviceInfo.svc_status );
+       }
        break;
      default:
        LOGDEBUG << "unimplemented health report running service: "
