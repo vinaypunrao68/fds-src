@@ -1712,7 +1712,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * object and leave it's metadata as it is. Otherwise update
                  * metadata information.
                  */
-                if (objMeta->getTimeStamp() < ts) {
+                if (!ts || (objMeta->getTimeStamp() < ts)) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                     updatedMeta->updateTimestamp();
                     LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
