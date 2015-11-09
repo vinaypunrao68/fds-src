@@ -9,7 +9,8 @@
 #include <string>
 #include <utility>
 
-#include "AmAsyncDataApi_impl.h"
+#include "fds_volume.h"
+#include "util/Log.h"
 
 namespace fds {
 
@@ -41,7 +42,7 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
                     BlockTask* resp)
 {
     if (!amAsyncDataApi) {
-        amAsyncDataApi.reset(new AmAsyncDataApi<handle_type>(processor, shared_from_this()));
+        amAsyncDataApi.reset(new AmAsyncDataApi(processor, shared_from_this()));
     }
     volumeName = vol_name;
 
@@ -63,7 +64,7 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
 
 void
 BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
-                                handle_type& requestId,
+                                handle_type const& requestId,
                                 boost::shared_ptr<VolumeDesc>& volDesc,
                                 boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
     LOGDEBUG << "Reponse for attach: [" << error << "]";
@@ -97,6 +98,8 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
             ++assoc_map[volDesc->name];
             descriptor = volDesc;
         }
+    } else {
+        resp->setError(error);
     }
     blockResp->attachResp(descriptor);
     finishResponse(resp);
@@ -119,7 +122,7 @@ BlockOperations::detachVolume() {
 
 void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
-                                handle_type& requestId) {
+                                handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "Volume detach response: " << error;
     amAsyncDataApi.reset();
@@ -240,7 +243,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
 
 void
 BlockOperations::getBlobResp(const fpi::ErrorCode &error,
-                           handle_type& requestId,
+                           handle_type const& requestId,
                            const boost::shared_ptr<std::vector<boost::shared_ptr<std::string>>>& bufs,
                            int& length) {
     BlockTask* resp = nullptr;
@@ -283,12 +286,14 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
         // Adjust the buffers in our vector so they align and are of the
         // correct length according to the original request
         resp->handleReadResponse(*bufs, length);
+    } else {
+        resp->setError(error);
     }
     finishResponse(resp);
 }
 
 void
-BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type& requestId) {
+BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& requestId) {
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
     auto seqId = requestId.seq;
@@ -334,7 +339,7 @@ BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type& reques
 void
 BlockOperations::drainUpdateChain(uint64_t const offset,
                                 BlockTask::buffer_ptr_type buf,
-                                handle_type* queued_handle_ptr,
+                                handle_type const* queued_handle_ptr,
                                 fpi::ErrorCode const error) {
     // The first call to handleRMWResponse will create a null buffer if this is
     // an error, afterwards fpi::OK for everyone.

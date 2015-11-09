@@ -12,7 +12,4 @@ function error_exit
   exit 1
 }
 
-service gmond stop || echo "Couldn't stop service gmond"
-service gmond-influxdb-bridge stop || echo "Couldn't stop service gmond-influxdb-bridge"
-
 exit 0

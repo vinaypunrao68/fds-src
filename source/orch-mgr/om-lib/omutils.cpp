@@ -57,7 +57,6 @@ namespace fds
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
                 if ( ret )
                 {
-                    svc.incarnationNo = util::getTimeStampSeconds();
                     svc.svc_status = svc_status;
 
                     std::vector<fpi::SvcInfo> svcs;
@@ -197,7 +196,7 @@ namespace fds
         }
     }
 
-    bool isNewerSvcInfoInstance( const fpi::SvcInfo svcInfo )
+    bool isSameSvcInfoInstance( const fpi::SvcInfo svcInfo )
     {
         std::vector<fpi::SvcInfo> entries;
         MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
@@ -207,19 +206,50 @@ namespace fds
             {
                 if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
                 {
-                    LOGDEBUG << "Svc: " << svcInfo.incarnationNo
-                             << " Map: " << svc.incarnationNo;
+                    LOGDEBUG << "service: " << svcInfo.name
+                             << " SvcInfo: " << svcInfo.incarnationNo
+                             << "  SvcMap: " << svc.incarnationNo
+                             << " status: " << svcInfo.svc_status;
 
-                    if ( svc.incarnationNo < svcInfo.incarnationNo )
+                    if ( svcInfo.incarnationNo < svc.incarnationNo )
                     {
-                        LOGDEBUG << "Incarnation is newer than what is in service map, return true";
+                        LOGDEBUG << "unreachable service "
+                                 << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is older then service map, not safe to change the status!";
+
+                        return false;
+                    }
+                    else if ( svcInfo.incarnationNo > svc.incarnationNo )
+                    {
+                        LOGDEBUG << "unreachable service "
+                                 << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is newer then service map, not safe to change the status!";
+
+                        return false;
+                    }
+                    /*
+                     * entries are the same, unreachable service and service map are the same
+                     */
+                    else if ( svc.incarnationNo == svcInfo.incarnationNo )
+                    {
+                        LOGDEBUG << "unreachable service "
+                                 << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is the same as service map, safe to change its status!";
+
                         return true;
                     }
                 }
             }
         }
 
-        LOGDEBUG << "Incarnation is older than what is in service map, return false";
+        LOGDEBUG << " No Matching Service Map enteries found for unreachable service "
+                 << svcInfo.name << ":" << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec;
         return false;
     }
 

@@ -245,11 +245,11 @@ class DmIoCommitBlobTx : public DmRequest {
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
-    bool usedForMigration;
-    /* response callback */
-    CbType dmio_commit_blob_tx_resp_cb;
-    /* is this the original request */
-    bool orig_request {true};
+    bool usedForMigration; // is this used for migration? If so, keep count.
+    std::mutex migrClientCntMtx; // Used to ensure atomicity for dealing with counts
+    fds_uint64_t migrClientCnt; // Keep track of the outstanding clients still forwarding
+    CbType dmio_commit_blob_tx_resp_cb; // response callback
+    bool orig_request {true}; // is this the original request?
 };
 
 template <typename T>

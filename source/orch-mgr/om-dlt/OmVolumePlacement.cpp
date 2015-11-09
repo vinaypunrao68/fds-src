@@ -268,11 +268,11 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
         // Now put nodes that need to undergo resync as part of the "new" Dms
         for (const auto cit : resyncNodes) {
-        	new_dms.insert(cit);
+            new_dms.insert(cit);
         }
         LOGDEBUG << "Found " << new_dms.size() << " DMs " << " (" << resyncNodes.size()
-        		<< " resyncing DM's) that need to get"
-                 << " meta for vol " << volid;
+        << " resyncing DM's) that need to get"
+        << " meta for vol " << volid;
 
         // get list of candidates to resync from
         // if number of primary DMs == 0, means can resync from anyone
@@ -302,7 +302,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             NodeUuid nosyncDm;
             for (auto dm: intersectDMs) {
                 int index = target_col->find(dm);
-                if ((index >= 0) && (index < (int)getNumOfPrimaryDMs())) {
+                if ((index >= 0) && (index < (int) getNumOfPrimaryDMs())) {
                     if (nosyncDm.uuid_get_val() == 0) {
                         nosyncDm = dm;
                     } else {
@@ -331,7 +331,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 srcCandidates.insert(nosyncDm);
             } else {
                 LOGWARN << "Looks like the whole column for volume "
-                        << volid << " failed; no DM to sync from";
+                << volid << " failed; no DM to sync from";
                 continue;
             }
         }
@@ -343,8 +343,15 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // there must be at least one DM candidate to be a source
         // otherwise we need to revisit DMT calculation algorithm
         LOGDEBUG << "Found " << srcCandidates.size() << " candidates for a source "
-                 << " for volume " << volid;
-        fds_verify(srcCandidates.size() > 0);
+        << " for volume " << volid;
+
+        if (srcCandidates.size() == 0)
+        {
+            LOGERROR << "MUST BE AT LEAST ONE DM CANDIDATE TO A SOURCE."
+                     << " OTHERWISE, DMT CALCULATION ALGORITHM NEEDS CHECKING!";
+            continue;
+            // fds_verify(srcCandidates.size() > 0);
+        }
 
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
              cit != new_dms.cend();
