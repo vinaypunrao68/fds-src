@@ -1,13 +1,13 @@
 #!/usr/bin/python3
+
 import os, sys, re
 import time
 import threading
 from multiprocessing import Process, Queue, JoinableQueue, Barrier, Array
 from optparse import OptionParser
 import tempfile
-# from Queue import *
-import http.client
-# import requests
+import urllib.request as request
+import json
 import random
 import pickle
 # For multipart uploads
@@ -113,8 +113,17 @@ def create_file_queue(n, size):
 
 def validate_files(file1, file2):
     diff_code = os.system("diff " + file1 + " " + file2)
-    #print("%s || %s --> %d" % (file1, file2, diff_code))
+    # print("%s || %s --> %d" % (file1, file2, diff_code))
     return diff_code
+
+
+# Returns an authentication token for an s3 connection. Points towards OM, port 7777
+def authenticate(username, password, host):
+    url = "http://%s:7777/api/auth/token?login=%s&password=%s" % (host, username, password)
+    response = request.urlopen(url)
+    j = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
+    return j['token']
+
 
 def do_multipart(conn, target_volume, target_file, fname, fsize):
     # setup for s3 connection sample from fds-s3-compliance.py
@@ -163,6 +172,7 @@ def do_put(conn, target_vol, target_file, fname):
 
     os.system("rm " + target_file)
 
+
 def do_get(conn, target_vol, target_file):
     buck = conn.get_bucket(target_vol)
     nonexistant = conn.lookup(target_vol)
@@ -185,11 +195,11 @@ def do_delete(conn, target_vol, target_file):
         print("Doesn't exist")
     else:
         print("Key: " + _key.name)
-        #_key.delete()
+        _key.delete()
 
 
 def task(task_id, n_reqs, req_type, vol, files,
-         queue, prev_uploaded, barrier, counters, time_start_volume):
+         queue, prev_uploaded, barrier, counters, time_start_volume, options):
     used_files = set()
     stats = dict(init_stats())
     n = barrier.wait()
@@ -199,11 +209,12 @@ def task(task_id, n_reqs, req_type, vol, files,
         time_start_volume[vol] = time.time()
         print ("starting timer -  thread:", task_id, "volume", vol, "time:", time_start_volume[vol])
     uploaded = set()
+    token = authenticate('admin', 'admin', options.target_node)
     conn = boto.connect_s3(
         aws_access_key_id='admin',
-        aws_secret_access_key='admin',
-        host='localhost',
-        port=8000,
+        aws_secret_access_key=token,
+        host=options.target_node,
+        port=options.target_port,
         is_secure=False,
         calling_format=boto.s3.connection.OrdinaryCallingFormat())
     # print("TaskID:", task_id, " || Volume:", vol)
@@ -370,7 +381,7 @@ def main(options, files):
             # make sure each task has a unique thread id
             task_args = (i*options.threads+v, reqs_per_thread[i], options.req_type, v, files,
                          queue, part_prev_uploaded[i], barrier, counters,
-                         time_start_volume)
+                         time_start_volume, options)
             t = Process(target=task, args=task_args)
             t.start()
             tids.append(t)
@@ -413,7 +424,9 @@ def main(options, files):
         dump_uploaded(uploaded)
 #    print ("Options:", options, "Stats:", stats)
     print("IOPs: " + str(float(options.threads*options.n_reqs*options.num_volumes) / stats[0]['elapsed_time']))
-    print("latency [ms]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3)) 
+    print("latency [ms]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3))
+    print("Successes: " + str(stats[vol]['reqs']))
+    print("Failures:" + str(stats[vol]['fails']))
 #    for vol in range(options.num_volumes):
 #        print (
 #        "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
