@@ -36,14 +36,19 @@ namespace fds
             bool fShutdown;
             std::thread* runner;
             PmMap wellKnownPMsMap;
+            PmMap removedPMsMap;
+            std::map<int64_t, int32_t> retryMap;
             fds_rwlock pmMapLock;
             fds_mutex dbLock;
+            fds_mutex genMapLock;
 
             void run();
             void  shutdown();
             Error getLastHeardTime(fpi::SvcUuid uuid, double& timestamp);
             Error removeFromPMsMap(PmMap::iterator iter);
-            void  handleStaleEntry(fpi::SvcInfo svc, SvcMgr* mgr);
+            void  cleanUpOldState(fpi::SvcUuid uuid);
+            void  handleRetryOnInactive(fpi::SvcUuid uuid);
+            void  handleStaleEntry(fpi::SvcInfo svc);
             Error handleActiveEntry(fpi::SvcUuid svcUuid, fpi::SvcInfo svcInfo, SvcMgr* mgr);
     };
 } // namespace fds
