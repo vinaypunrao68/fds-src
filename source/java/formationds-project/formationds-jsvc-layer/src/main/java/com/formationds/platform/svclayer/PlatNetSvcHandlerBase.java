@@ -214,6 +214,24 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
     }
 
     @Override
+    public Map<String,String> getConfig(int nullarg) throws TException {
+        logger.trace( "getConfig" );
+        return omNativePlatformClientFactory.getClient().getConfig( nullarg );
+    }
+
+    @Override
+    public Map<String,String> getProperties(int nullarg) throws TException {
+        logger.trace( "getProperties" );
+        return omNativePlatformClientFactory.getClient().getProperties( nullarg );
+    }
+
+    @Override
+    public String getProperty(String name) throws TException {
+        logger.trace( "getProperty" );
+        return omNativePlatformClientFactory.getClient().getProperty( name );
+    }
+
+    @Override
     public boolean setFault( String cmdline ) throws TException {
         logger.trace( "setFault: {}", cmdline );
         return omNativePlatformClientFactory.getClient().setFault( cmdline );

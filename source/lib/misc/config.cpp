@@ -57,6 +57,30 @@ void remove(libconfig::Config& config, const std::string& key) {
     s->remove(keyname);
 }
 
+void fillMap(const libconfig::Setting& setting, std::map<std::string,std::string>& configMap) {
+    switch (setting.getType()) {
+        case libconfig::Setting::TypeString:
+            configMap[setting.getPath()] = (const char*)(setting); 
+            break;
+        case libconfig::Setting::TypeBoolean:
+            configMap[setting.getPath()] = (bool)(setting)? "true" : "false";
+                break;
+        case libconfig::Setting::TypeFloat:
+            configMap[setting.getPath()] = std::to_string((float)setting);
+            break;
+        case libconfig::Setting::TypeInt:
+        case libconfig::Setting::TypeInt64:
+            configMap[setting.getPath()] = std::to_string((long long)setting);
+            break;
+        case libconfig::Setting::TypeGroup:
+            for (auto i = 0; i < setting.getLength(); ++i) {
+            fillMap(setting[i], configMap);
+        }
+        default:
+            break;
+    }
+}
+
 
 FdsConfig::FdsConfig() {
 }
@@ -119,6 +143,10 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
 bool FdsConfig::exists(const std::string &key) {
     fds_mutex::scoped_lock l(lock_);
     return config_.exists(key);
+}
+
+void FdsConfig::getConfigMap(std::map<std::string,std::string>& configMap) {
+    fillMap(config_.getRoot(), configMap);
 }
 
 template<> 
@@ -263,7 +291,7 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
 }
 
 #define SETDATA(OP,TYPE)                                 \
-    fds_mutex::scoped_lock l(lock_);                  \
+    fds_mutex::scoped_lock l(lock_);                     \
     if (config_.exists(key)) {                           \
         Setting& s = config_.lookup(key);                \
         s = (OP) value;                                  \
