@@ -414,15 +414,13 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     Error err(ERR_OK);
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
-    if (invalid_vol_id == amReq->io_vol_id) {
-        auto vol = volTable->getVolume(amReq->volume_name);
-        if (vol) {
-            amReq->setVolId(vol->voldesc->volUUID);
-        }
+    auto vol = volTable->getVolume(amReq->volume_name);
+    if (vol) {
+        amReq->setVolId(vol->voldesc->volUUID);
     }
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
 
-    if (invalid_vol_id == amReq->io_vol_id) {
+    if (invalid_vol_id == amReq->io_vol_id || (vol && !vol->access_token)) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.
