@@ -459,6 +459,7 @@ fds: {
              max_disks_compact = {{ sm_scavenger_max_disks_compact }}
              /* Time interval where GC periodically checks whether to GC or not */
              interval_seconds = {{ sm_scavenger_interval_seconds }}
+             delete_count_thresh = {{ sm_scavenger_delete_count_thresh }}
         }
 
         /* Graphite is enabled or not */

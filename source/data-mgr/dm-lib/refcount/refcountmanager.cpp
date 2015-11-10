@@ -57,6 +57,9 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
             LOGDEBUG << "no active object file for token : " << token;
             fpi::ActiveObjectsMsgPtr msg(new fpi::ActiveObjectsMsg());
             msg->token    = token;
+            for (const auto& volId : *volumeList) {
+               msg->volumeIds.push_back(volId.get());
+            }
             for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
                     auto svcId = svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR);
                     auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(svcId);

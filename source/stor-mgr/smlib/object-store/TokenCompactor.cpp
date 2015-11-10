@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <map>
+#include <object-store/ObjectStore.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/TokenCompactor.h>
 #include <StorMgr.h>
@@ -390,10 +391,8 @@ fds_bool_t TokenCompactor::isIdle() const
 //
 fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
 {
-    // TODO(anna or Vinay) add other policies for checking GC
-    // The first version of this method just decides based on
-    // refcount -- if < 1 then garbage collect
-    if (md.getRefCnt() < 1L) {
+    auto deleteThresh = fds::objDelCountThresh;
+    if (md.getDeleteCount() >= deleteThresh) {
         return true;
     }
 

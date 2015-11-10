@@ -34,5 +34,7 @@ typedef fds_uint16_t DiskId;
 typedef std::set<fds_uint16_t> DiskIdSet;
 const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
 
+extern fds_uint32_t objDelCountThresh;
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_

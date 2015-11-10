@@ -50,6 +50,7 @@ class LiveObjectsDB {
                               const fds_volid_t &volId);
         Error removeObjectSet(const fds_token_id &smToken,
                               const fds_uint64_t &dmUUID);
+        Error removeObjectSet(const fds_volid_t &volId);
         Error findObjectSetsPerToken(const fds_token_id &smToken,
                                      std::set<std::string> &objSetFilenames);
         Error findAssociatedVols(const fds_token_id &smToken,

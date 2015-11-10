@@ -22,6 +22,7 @@
 
 namespace fds {
 using util::BloomFilter;
+fds_uint32_t objDelCountThresh = 3;
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<fds_uint16_t>>
@@ -73,7 +74,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db")),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
@@ -1645,6 +1646,7 @@ ObjectStore::cleansertObjectSet(const fds_token_id &smToken,
 
 /**
  * Remove an existing object set from live object table
+ * based on sm token and volume id.
  */
 void
 ObjectStore::removeObjectSet(const fds_token_id &smToken,
@@ -1654,11 +1656,21 @@ ObjectStore::removeObjectSet(const fds_token_id &smToken,
 
 /**
  * Remove an existing object set from live object table
+ * based on sm token and dm svc uuid.
  */
 void
 ObjectStore::removeObjectSet(const fds_token_id &smToken,
                              const fds_uint64_t &dmUUID) {
     liveObjectsTable->removeObjectSet(smToken, dmUUID);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on volume id.
+ */
+void
+ObjectStore::removeObjectSet(const fds_volid_t &volId) {
+    liveObjectsTable->removeObjectSet(volId);
 }
 
 /**
@@ -1717,12 +1729,12 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                     updatedMeta->updateTimestamp();
                     LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                              << " current timestamp " << updatedMeta->getTimeStamp()
-                             << " current delCount " << updatedMeta->getDeleteCount();
+                             << " current delCount " << std::dec << updatedMeta->getDeleteCount();
                     /**
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
                      */
-                    if (updatedMeta->incrementDeleteCount() >= getObjectDelCntThresh()) {
+                    if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
                         ++tokStats.tkn_reclaim_size;
                     }
                     metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
@@ -1756,6 +1768,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
 
     initObjectStoreMediaErrorHandlers();
+    setObjectDelCnt(g_fdsprocess->get_fds_config()->get<fds_uint32_t>("fds.sm.scavenger.delete_count_thresh",3));
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {

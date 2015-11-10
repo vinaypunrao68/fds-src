@@ -119,6 +119,20 @@ Error LiveObjectsDB::removeObjectSet(const fds_token_id &smToken,
     return ERR_OK;
 }
 
+Error LiveObjectsDB::removeObjectSet(const fds_volid_t &volId) {
+    SCOPEDWRITE(lock);
+    if (!db) { return ERR_INVALID; }
+
+    std::string query = util::strformat("delete from liveObjTbl "
+                                        "where volid=%ld", volId.get());
+    if (db->execute(query.c_str())) {
+        LOGERROR << "Failed deleting object set(s) from live object table"
+                 << " for volid = " << volId.get();
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
 Error LiveObjectsDB::findObjectSetsPerToken(const fds_token_id &smToken,
                                             std::set<std::string> &objSetFilenames) {
     SCOPEDREAD(lock);
