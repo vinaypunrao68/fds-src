@@ -75,4 +75,9 @@ then
 fi
 
 echo "Building the offline installer."
-./build_install.sh
+if [[ ${#JENKINS_URL} -gt 0 ]]
+then
+    ./build_install.sh -u
+else
+    ./build_install.sh
+fi
