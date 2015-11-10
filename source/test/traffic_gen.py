@@ -424,7 +424,7 @@ def main(options, files):
         dump_uploaded(uploaded)
 #    print ("Options:", options, "Stats:", stats)
     print("IOPs: " + str(float(options.threads*options.n_reqs*options.num_volumes) / stats[0]['elapsed_time']))
-    print("latency [ms]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3))
+    print("Average latency [ns]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3))
     print("Successes: " + str(stats[vol]['reqs']))
     print("Failures:" + str(stats[vol]['fails']))
 #    for vol in range(options.num_volumes):
