@@ -414,9 +414,9 @@ AmVolumeTable::getBlob(AmRequest *amReq) {
 }
 
 void
-AmVolumeTable::updateCatalog(AmRequest *amReq) {
+AmVolumeTable::putBlob(AmRequest *amReq) {
     if (ensureWritable(amReq)) {
-        return txMgr->updateCatalog(amReq);
+        return txMgr->putBlob(amReq);
     }
 }
 
