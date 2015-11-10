@@ -9,13 +9,10 @@ namespace fds
 {
 
 AmVolume::AmVolume(VolumeDesc const& vol_desc,
-                   FDS_VolumeQueue* queue,
                    boost::shared_ptr<AmVolumeAccessToken> _access_token)
     :  FDS_Volume(vol_desc),
-       volQueue(queue),
        access_token(_access_token)
 {
-    volQueue->activate();
 }
 
 AmVolume::~AmVolume() = default;

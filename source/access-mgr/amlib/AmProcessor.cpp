@@ -139,6 +139,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                 case ERR_VOL_NOT_FOUND:
                     code = fpi::MISSING_RESOURCE;
                     break;;
+                case ERR_NOT_READY:
                 case ERR_VOLUME_ACCESS_DENIED:
                     code = fpi::SERVICE_NOT_READY;
                     break;;

@@ -50,7 +50,7 @@ class AmCache {
      * Creates cache structures for the volume described
      * in the volume descriptor.
      */
-    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs, bool const can_cache_meta);
+    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs);
 
     /**
      * Removes volume cache for the volume.

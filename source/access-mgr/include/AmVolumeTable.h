@@ -43,7 +43,7 @@ struct AmVolumeTable : public HasLogger {
     void init(processor_cb_type const& complete_cb);
     void stop();
 
-    Error registerVolume(VolumeDesc const& volDesc, FDS_VolumeQueue *volq);
+    Error registerVolume(VolumeDesc const& volDesc);
     Error removeVolume(fds_volid_t const volId);
 
     /**
@@ -104,19 +104,14 @@ struct AmVolumeTable : public HasLogger {
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
-    /**
-     * FEATURE TOGGLE: Single AM Enforcement
-     * Wed 01 Apr 2015 01:52:55 PM PDT
-     */
-    bool volume_open_support { true };
-
     Error markIODone(AmRequest* amReq);
 
     bool ensureReadable(AmRequest *amReq) const;
     bool ensureWritable(AmRequest *amReq) const;
 
     void renewToken(const fds_volid_t vol_id);
-    void attachVolumeCb(AmRequest *amReq, const Error& error);
+    void renewTokenCb(AmRequest *amReq, const Error& error);
+    void openVolumeCb(AmRequest *amReq, const Error& error);
 };
 
 }  // namespace fds

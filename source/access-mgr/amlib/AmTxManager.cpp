@@ -172,7 +172,7 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta)
+AmTxManager::registerVolume(const VolumeDesc& volDesc)
 {
     // The cache size is controlled in terms of MiB, but the LRU
     // knows only terms in # of elements. Do this conversion.
@@ -180,7 +180,7 @@ AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta
         (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
 
     // A duplicate is ok, renewal's of a token cause this
-    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
+    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs);
     switch (err.GetErrno()) {
         case ERR_OK:
             LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
