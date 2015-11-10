@@ -30,7 +30,9 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  seqTimer(new FdsTimer),
       msgHandler(_dataMgr),
       migrationProgress(INIT),
-      txStateIsMigrated(true)
+      txStateIsMigrated(true),
+      deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
+      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
     volumeUuid = volDesc.volUUID;
 
@@ -402,7 +404,7 @@ void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
 	LOGMIGRATE << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
-	abortMigration();
+    dataMgr.dmMigrationMgr->abortMigration();
 }
 
 void
