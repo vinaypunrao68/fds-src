@@ -119,7 +119,7 @@ def validate_files(file1, file2):
 
 # Returns an authentication token for an s3 connection. Points towards OM, port 7777
 def authenticate(username, password, host):
-    url = "http://%s:7777/api/auth/token?login=%s&password=%s" % (host, username, password)
+    url = "http://{}:7777/api/auth/token?login={}&password={}".format(host, username, password)
     response = request.urlopen(url)
     j = json.loads(response.read().decode(response.info().get_param('charset') or 'utf-8'))
     return j['token']
@@ -427,6 +427,7 @@ def main(options, files):
     print("Average latency [ns]: " + str(stats[0]['tot_latency'] / stats[vol]['latency_cnt'] * 1e3))
     print("Successes: " + str(stats[vol]['reqs']))
     print("Failures:" + str(stats[vol]['fails']))
+    os.system("rm /tmp/fdstrgen*")
 #    for vol in range(options.num_volumes):
 #        print (
 #        "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
