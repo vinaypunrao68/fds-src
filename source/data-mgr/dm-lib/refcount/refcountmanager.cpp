@@ -9,6 +9,7 @@
 #include <counters.h>
 #include <fdsp/sm_api_types.h>
 #include <util/stringutils.h>
+DECL_EXTERN_OUTPUT_FUNCS(ActiveObjectsMsg);
 
 namespace fds { namespace refcount {
 
@@ -60,6 +61,7 @@ void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
             for (const auto& volId : *volumeList) {
                msg->volumeIds.push_back(volId.get());
             }
+            LOGDEBUG << "msg=" << *msg;
             for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
                     auto svcId = svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR);
                     auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(svcId);
@@ -89,6 +91,7 @@ void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Han
         msg->volumeIds.push_back(volId.get());
     }
     msg->token    = token;
+    LOGDEBUG << "msg=" << msg;
     request->setPayload(FDSP_MSG_TYPEID(fpi::ActiveObjectsMsg), msg);
     request->onResponseCb(RESPONSE_MSG_HANDLER(RefCountManager::handleActiveObjectsResponse, token));
     request->invoke();

@@ -189,7 +189,7 @@ AmQoSCtrl::execRequest(FDS_IOType* io) {
                       completeRequest(amReq, ERR_OK); \
                       return;);
 
-            volTable->updateCatalog(amReq);
+            volTable->putBlob(amReq);
             break;
 
         case fds::FDS_RENAME_BLOB:
