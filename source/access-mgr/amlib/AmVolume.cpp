@@ -26,8 +26,10 @@ AmVolume::getToken() const {
 
 std::pair<bool, bool>
 AmVolume::getMode() const {
-    return std::make_pair(access_token->writeAllowed(),
-                          access_token->cacheAllowed());
+    if (access_token)
+        return std::make_pair(access_token->writeAllowed(),
+                              access_token->cacheAllowed());
+    return std::make_pair(false, false);
 }
 
 }  // namespace fds
