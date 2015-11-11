@@ -55,7 +55,6 @@ public class VolumeTest {
                                          null );
 
         String jsonString = ObjectModelHelper.toJSON( basicVolume );
-
         Volume readVolume = ObjectModelHelper.toObject( jsonString, Volume.class );
 
         assert readVolume.getId().equals( basicVolume.getId() );

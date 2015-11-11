@@ -7,6 +7,7 @@ package com.formationds.client.v08.model;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -67,18 +68,21 @@ public class VolumeSettingsNfs
 
     public VolumeSettingsNfs( )
     {
-        super( VolumeType.NFS );
+        super( );
+        this.type = VolumeType.NFS;
     }
+
     public VolumeSettingsNfs( final Set< NfsOptionBase > options )
     {
-        super( VolumeType.NFS );
+        super( );
 
         this.options = options;
+        this.type = VolumeType.NFS;
     }
 
     public VolumeSettingsNfs( final Set< NfsOptionBase > options, final Set< IPFilter > ipFilters )
     {
-        super( VolumeType.NFS );
+        super( );
 
         setOptions( options );
         setFilters( ipFilters );
@@ -103,7 +107,7 @@ public class VolumeSettingsNfs
     /**
      * @return Returns set of IP addresses to be filtered
      */
-    public Set< IPFilter > getFilters( )
+    public Set<IPFilter> getFilters( )
     {
         return filters;
     }
@@ -111,7 +115,7 @@ public class VolumeSettingsNfs
     /**
      * @param filters set of IP addresses to be filtered
      */
-    public void setFilters( Set< IPFilter > filters )
+    public void setFilters( Set<IPFilter> filters )
     {
         this.filters = filters;
     }
@@ -125,5 +129,21 @@ public class VolumeSettingsNfs
     public VolumeSettings newSettingsFrom( )
     {
         return new VolumeSettingsNfs( getOptions(), getFilters() );
+    }
+
+    @Override
+    public boolean equals( final Object o )
+    {
+        if ( this == o ) return true;
+        if ( !( o instanceof VolumeSettingsNfs ) ) return false;
+        final VolumeSettingsNfs that = ( VolumeSettingsNfs ) o;
+        return Objects.equals( getOptions( ), that.getOptions( ) ) &&
+            Objects.equals( getFilters( ), that.getFilters( ) );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( super.hashCode( ), getOptions( ), getFilters( ) );
     }
 }

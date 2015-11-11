@@ -187,6 +187,10 @@ struct VolumeSettings {
   5: MediaPolicy mediaPolicy;
   /** the default access mode */
   6: optional common.VolumeAccessMode default_mode;
+  /** the iscsi target */
+  7: optional common.IScsiTarget iscsiTarget;
+  /** nfs options */
+  8: optional common.NfsOption options;
 }
 
 /**
@@ -195,7 +199,7 @@ struct VolumeSettings {
 struct VolumeDescriptor {
   /** the string representing the volume name, MUST be unique */
   1: required string name;
-  /** the date created, in epoach seconds */
+  /** the date created, in epoch seconds */
   2: required i64 dateCreated;
   /** the VolumeSettings representing the configuration parameters */
   3: required VolumeSettings policy;
