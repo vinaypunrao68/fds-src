@@ -37,6 +37,8 @@ void SetVolumeMetadataHandler::handleRequest(
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     auto dmReq = new DmIoSetVolumeMetaData(message);
     dmReq->cb = BIND_MSG_CALLBACK(SetVolumeMetadataHandler::handleResponse, asyncHdr, message);
 

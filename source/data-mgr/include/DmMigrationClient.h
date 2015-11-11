@@ -88,11 +88,6 @@ class DmMigrationClient : public DmMigrationBase {
                                std::vector<std::string>& update_list,
                                std::vector<std::string>& delete_list);
 
-    /**
-     * Response handler - no-op for OK, otherwise fail migration.
-     */
-    void dmMigrationCheckResp(EPSvcRequest*, const Error&, boost::shared_ptr<std::string>);
-
     // Called by MigrationMgr to clean up any ongoing residue due to migration
     void abortMigration();
 

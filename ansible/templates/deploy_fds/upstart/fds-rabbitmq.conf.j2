@@ -25,6 +25,7 @@ script
   . ${fds_root}/etc/formation_env
   echo 'Loaded '${fds_root}/etc/formation_env >> ${fds_root}/bin/rabbitmq.out
   echo "\n ***** Starting RabbitMQ *****\n" >> ${fds_root}/bin/rabbitmq.out
+  export PATH=$PATH:/opt/fds-stats-deps/embedded/bin
   exec /opt/fds-stats-deps/embedded/bin/./rabbitmq-server start >> ${fds_root}/bin/rabbitmq.out 2>&1
 end script
 {% endblock %}
