@@ -12,7 +12,7 @@ then
 elif [[ "${1}" == "jenkins_build_on_master_commit" ]]
 then
     # For master mergess, disable some tests
-    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
+    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest DmMigrationFailover"
 fi
 
 for test_case in ${DISABLED_SYSTEM_TEST_SCENARIO_LIST}
