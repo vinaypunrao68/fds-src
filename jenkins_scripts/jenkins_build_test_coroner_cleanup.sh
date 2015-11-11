@@ -2,13 +2,23 @@
 
 . jenkins_scripts/jenkins_system_test.lib
 
-# For check-in's, disable some tests
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="StaticMigration BuildSmokeTest_onpr QosTest DmMigrationFailover"
+
+# For long system test, do not disable any tests
+DISABLED_SYSTEM_TEST_SCENARIO_LIST=""
 
 if [[ "${1}" == "smoke_test_only" ]]
 then
     SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr"
+elif [[ "${1}" == "jenkins_build_on_master_commit" ]]
+then
+    # For master mergess, disable some tests
+    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
 fi
+
+for test_case in ${DISABLED_SYSTEM_TEST_SCENARIO_LIST}
+do
+    SYSTEM_TEST_SCENARIO_LIST=${SYSTEM_TEST_SCENARIO_LIST/${test_case}/}
+done
 
 error_trap_enabled
 
