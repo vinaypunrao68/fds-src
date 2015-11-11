@@ -31,12 +31,6 @@ make package fds-platform BUILD_TYPE=${1}
 make package fds-deps
 cd omnibus/installer
 
-if [[ ${#JENKINS_URL} -gt 0 ]]
-then
-    jenkins_scripts/deploy_artifacts.sh
-fi
-
-
 # making directories that the build_install script will look for packages
 
 mkdir -p ../omnibus-fds-stats-service/pkg
