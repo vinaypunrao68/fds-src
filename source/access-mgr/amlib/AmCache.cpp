@@ -31,20 +31,15 @@ AmCache::init(processor_cb_type cb) {
 }
 
 Error
-AmCache::registerVolume(fds_volid_t const vol_uuid,
-                        size_t const num_objs,
-                        bool const can_cache_meta) {
-    Error err;
-    if (can_cache_meta) {
-        err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-        if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-            return err;
-        }
-        err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
-        if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-            descriptor_cache.removeVolume(vol_uuid);
-            return err;
-        }
+AmCache::registerVolume(fds_volid_t const vol_uuid, size_t const num_objs) {
+    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
+        return err;
+    }
+    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
+    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
+        descriptor_cache.removeVolume(vol_uuid);
+        return err;
     }
     err = object_cache.addVolume(vol_uuid, num_objs);
     if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
@@ -56,16 +51,11 @@ AmCache::registerVolume(fds_volid_t const vol_uuid,
 
 Error
 AmCache::removeVolume(fds_volid_t const volId) {
-    Error err = descriptor_cache.removeVolume(volId);
-    if (err != ERR_OK) {
-        return err;
-    }
-    err = offset_cache.removeVolume(volId);
-    if (err != ERR_OK) {
-        return err;
-    }
-    err = object_cache.removeVolume(volId);
-    return err;
+    descriptor_cache.removeVolume(volId);
+    offset_cache.removeVolume(volId);
+    object_cache.removeVolume(volId);
+    dispatcher->removeVolume(volId);
+    return ERR_OK;
 }
 
 BlobDescriptor::ptr
@@ -133,14 +123,10 @@ AmCache::getObjects(GetBlobReq* blobReq) {
 
         // If this is a null object return a zero size object to the connector,
         if (NullObjectID != *obj_id) {
-            try {
             auto err = object_cache.get(blobReq->io_vol_id, *obj_id, blobObjectPtr);
             if (ERR_OK != err) {
                 ++miss_cnt;
                 continue;
-            }
-            } catch (std::exception &e) {
-                fds_panic("%s", e.what());
             }
         }
         ++hit_cnt;
