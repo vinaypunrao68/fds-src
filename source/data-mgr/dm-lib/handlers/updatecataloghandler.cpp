@@ -35,6 +35,8 @@ void UpdateCatalogHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& async
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */

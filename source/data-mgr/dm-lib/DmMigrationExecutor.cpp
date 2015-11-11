@@ -36,6 +36,8 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 {
     volumeUuid = volDesc.volUUID;
 
+    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+
 	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
 }
 
@@ -447,13 +449,10 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
         auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
         fds_assert((unsigned)(fwdCatReq->fwdCatMsg->volume_id) == volumeUuid.v);
         if (fwdCatReq->fwdCatMsg->lastForward) {
-            fds_scoped_lock lock(progressLock);
             /* All forwards have been applied.  At this point we don't expect anything from
              * migration source.  We can resume active IO
              */
-            migrationProgress = MIGRATION_COMPLETE;
-            LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
-            dataMgr.qosCtrl->resumeIOs(volumeUuid);
+            finishActiveMigration();
         }
         delete dmReq;
     };
@@ -486,6 +485,10 @@ Error
 DmMigrationExecutor::finishActiveMigration()
 {
 	fds_scoped_lock lock(progressLock);
+
+    // watermark should only ever need to be checked on a resync, but good to filter regardless
+    dataMgr.dmMigrationMgr->setDmtWatermark(volumeUuid, dmtVersion);
+
 	migrationProgress = MIGRATION_COMPLETE;
     LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);

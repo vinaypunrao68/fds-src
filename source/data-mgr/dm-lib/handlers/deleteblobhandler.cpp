@@ -35,6 +35,8 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     // setup the request
     auto dmRequest = new DmIoDeleteBlob(message);
 

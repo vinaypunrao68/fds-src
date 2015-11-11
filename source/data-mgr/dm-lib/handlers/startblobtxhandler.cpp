@@ -46,6 +46,8 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     auto dmReq = new DmIoStartBlobTx(volId,
                                      message->blob_name,
                                      message->blob_version,
