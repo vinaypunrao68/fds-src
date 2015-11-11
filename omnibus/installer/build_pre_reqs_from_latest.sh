@@ -71,7 +71,7 @@ then
     cd ../../jenkins_scripts
     echo "Uploading artifacts to artifactory"
     ./deploy_artifacts.sh
-    cd ../../../omnibus/installer
+    cd ../omnibus/installer
 fi
 
 echo "Building the offline installer."
