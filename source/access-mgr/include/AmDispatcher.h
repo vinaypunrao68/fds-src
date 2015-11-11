@@ -117,6 +117,11 @@ struct AmDispatcher : HasModuleProvider
                               boost::shared_ptr<std::string> payload) const;
 
     /**
+     * Releases any state about this volume
+     */
+    Error removeVolume(fds_volid_t const volId);
+
+    /**
      * Dispatches an open volume request to DM.
      */
     Error closeVolume(fds_volid_t vol_id, fds_int64_t token);

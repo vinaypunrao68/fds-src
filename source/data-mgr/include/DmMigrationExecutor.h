@@ -216,9 +216,12 @@ class DmMigrationExecutor : public DmMigrationBase {
     /* Lock to synchronize access to forwardedMsgs and migrationProgress */
     fds_mutex                                       progressLock;
 
-    /* boolean set to true once the commit log state migration message has been received AND applied. 
+    /* boolean set to true once the commit log state migration message has been received AND applied.
        access to this variable should be protected with the progressLock */
     fds_bool_t txStateIsMigrated;
+
+    // DMT at the time migration began
+    fds_uint64_t dmtVersion;
 
 };  // DmMigrationExecutor
 

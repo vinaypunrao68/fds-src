@@ -22,7 +22,7 @@ public class InodeMap {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         bb.putLong(Long.MAX_VALUE);
         ROOT = new Inode(new FileHandle(0, Integer.MAX_VALUE, Stat.Type.DIRECTORY.toMode(), bytes));
-        ROOT_METADATA = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, Long.MAX_VALUE, Integer.MAX_VALUE);
+        ROOT_METADATA = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, Long.MAX_VALUE);
     }
 
     private final Chunker chunker;
@@ -41,7 +41,7 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (x) -> x);
+        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
         return currentValue.map(m -> new InodeMetadata(m));
     }
 

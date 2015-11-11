@@ -219,6 +219,11 @@ namespace fds {
         void undoTargetDmtCommit();
 
         /**
+         * Get rid of target DMT in the dmtManager
+         */
+        void clearTargetDmt();
+
+        /**
          * Returns true if there is no target DMT computed or committed
          * as an official version
          */

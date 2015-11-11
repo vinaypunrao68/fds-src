@@ -799,4 +799,14 @@ DmMigrationMgr::waitForAbortToFinish()
 	lk.unlock();
 	LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }
+
+bool
+DmMigrationMgr::shouldFilterDmt(fds_volid_t volId, fds_uint64_t dmt_version) {
+    return (dmt_watermark[volId] >= dmt_version);
+}
+
+void
+DmMigrationMgr::setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version) {
+    dmt_watermark[volId] = dmt_version;
+}
 }  // namespace fds

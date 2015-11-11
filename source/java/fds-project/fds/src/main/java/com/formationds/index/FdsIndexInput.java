@@ -28,7 +28,7 @@ public class FdsIndexInput extends IndexInput {
         this.objectSize = objectSize;
         this.offset = 0;
         this.position = 0;
-        this.length = io.mapMetadata(domain, volume, blobName, om -> {
+        this.length = io.mapMetadata(domain, volume, blobName, (x, om) -> {
             if (!om.isPresent()) {
                 throw new FileNotFoundException();
             }
