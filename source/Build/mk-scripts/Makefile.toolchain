@@ -61,6 +61,7 @@ toolchain_cmdconsole_incl := -I$(toolchain_cmdconsole)/
 toolchain_gmock        := $(topdir)/../gmock-1.7.0
 toolchain_gmock_incl   := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
 toolchain_gmock_lib    := -L$(toolchain_gmock)
+toolchain_gmock_flags  := -DGTEST_USE_OWN_TR1_TUPLE=0
 
 ## Python binding settings
 #
@@ -92,7 +93,7 @@ main_ld_flags      += $(coverage_cc_flags)
 endif
 
 toolchain_cc_flags   := $(toolchain_incl_flags) $(coverage_cc_flags)
-toolchain_cpp_flags  := $(toolchain_incl_flags) $(coverage_cpp_flags)
+toolchain_cpp_flags  := $(toolchain_incl_flags) $(coverage_cpp_flags) ${toolchain_gmock_flags}
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)

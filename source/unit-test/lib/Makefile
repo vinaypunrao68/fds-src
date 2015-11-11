@@ -26,7 +26,7 @@ user_incl_dir     := \
 user_build_dir    := \
     dlt
 
-user_cpp_flags    := -DGTEST_USE_OWN_TR1_TUPLE=0
+user_cpp_flags    :=
 user_cpp          :=  \
     fds_timer_test.cpp \
     fds_config_test.cpp \
