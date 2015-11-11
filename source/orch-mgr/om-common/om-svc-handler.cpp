@@ -449,7 +449,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
      case fpi::FDSP_STOR_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
 
-       if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) || msg->healthReport.serviceInfo.incarnationNo == 0 )
+       if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
            NodeUuid uuid( msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid );
            auto domain = OM_NodeDomainMod::om_local_domain();
