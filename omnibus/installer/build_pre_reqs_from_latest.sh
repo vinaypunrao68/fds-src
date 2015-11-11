@@ -70,7 +70,7 @@ if [[ ${#JENKINS_URL} -gt 0 ]]
 then
     cd ../../jenkins_scripts
     echo "Uploading artifacts to artifactory"
-    deploy_artifacts.sh
+    ./deploy_artifacts.sh
     cd ../../../omnibus/installer
 fi
 
