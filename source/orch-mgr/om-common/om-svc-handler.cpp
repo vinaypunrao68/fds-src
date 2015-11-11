@@ -299,16 +299,19 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     auto curTimePoint = std::chrono::system_clock::now();
     std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
-    LOGDEBUG << "OmSvcHandler: Received heartbeat from PM:"
-             << std::hex << svcUuid.svc_uuid
-             <<std::dec <<" at:" << std::ctime(&time);
+    LOGDEBUG << "Received heartbeat from PM:"
+             << std::hex << svcUuid.svc_uuid <<std::dec;
 
     // Get the time since epoch and convert it to minutes
     auto timeSinceEpoch = curTimePoint.time_since_epoch();
     double current      = std::chrono::duration<double,std::ratio<60>>
                                        (timeSinceEpoch).count();
 
-    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
+    bool updSvcState = false;
+    if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+        updSvcState = true;
+    }
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 
 void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,

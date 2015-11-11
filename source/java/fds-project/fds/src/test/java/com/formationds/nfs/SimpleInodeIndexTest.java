@@ -25,9 +25,9 @@ public class SimpleInodeIndexTest {
         int parentId = 3;
         int sueId = 4;
         int johnId = 5;
-        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, parentId, exportId);
-        InodeMetadata daughter = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, sueId, exportId).withLink(parentId, SUE);
-        InodeMetadata son = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, johnId, exportId).withLink(parentId, JOHN);
+        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, parentId);
+        InodeMetadata daughter = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, sueId).withLink(parentId, SUE);
+        InodeMetadata son = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, johnId).withLink(parentId, JOHN);
         index.index(StubExportResolver.EXPORT_ID, false, parent);
         index.index(StubExportResolver.EXPORT_ID, false, daughter);
         index.index(StubExportResolver.EXPORT_ID, false, son);

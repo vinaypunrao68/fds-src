@@ -61,7 +61,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public String[] listAll() throws IOException {
         return io.scan(domain, volume, INDEX_FILE_PREFIX,
-                metadata -> metadata.get().get(LUCENE_RESOURCE_NAME)).toArray(new String[0]);
+                (x, metadata) -> metadata.get().get(LUCENE_RESOURCE_NAME)).toArray(new String[0]);
     }
 
     @Override
@@ -72,7 +72,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public long fileLength(String s) throws IOException {
         String indexFile = blobName(s);
-        return io.mapMetadata(domain, volume, indexFile, metadata -> {
+        return io.mapMetadata(domain, volume, indexFile, (x, metadata) -> {
             if (!metadata.isPresent()) {
                 return 0l;
             }
@@ -84,7 +84,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public IndexOutput createOutput(String fileName, IOContext ioContext) throws IOException {
         String blobName = blobName(fileName);
-        boolean exists = io.mapMetadata(domain, volume, blobName, metadata -> metadata.isPresent());
+        boolean exists = io.mapMetadata(domain, volume, blobName, (x, metadata) -> metadata.isPresent());
         if (exists) {
             io.deleteBlob(domain, volume, blobName);
         }
