@@ -225,7 +225,7 @@ namespace fds
                         LOGDEBUG << svcInfo.name
                                  << " uuid( "
                                  << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
-                                 << " ) incarnation number is newer then service map or is zero, not safe to change the status!";
+                                 << " ) incarnation number is newer then service map, not safe to change the status!";
 
                         return false;
                     }
@@ -244,7 +244,7 @@ namespace fds
                         LOGDEBUG << svcInfo.name
                                  << " uuid( "
                                  << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
-                                 << " ) incarnation number is the same as service map, safe to change its status!";
+                                 << " ) incarnation number is the same as service map or is zero, safe to change its status!";
 
                         return true;
                     }
