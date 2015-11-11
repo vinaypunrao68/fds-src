@@ -23,7 +23,7 @@ public class TransactionalIo {
     public <T> T mapMetadata(String domain, String volumeName, String blobName, MetadataMapper<T> mapper) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
         synchronized (metaLock(key)) {
-            return mapper.map(io.readMetadata(domain, volumeName, blobName));
+            return mapper.map(blobName, io.readMetadata(domain, volumeName, blobName));
         }
     }
 
@@ -106,7 +106,7 @@ public class TransactionalIo {
         List<BlobMetadata> mds = io.scan(domain, volume, blobNamePrefix);
         List<T> result = new ArrayList<>(mds.size());
         for (BlobMetadata meta : mds) {
-            result.add(mapper.map(Optional.of(meta.getMetadata())));
+            result.add(mapper.map(meta.getBlobName(), Optional.of(meta.getMetadata())));
         }
         return result;
     }

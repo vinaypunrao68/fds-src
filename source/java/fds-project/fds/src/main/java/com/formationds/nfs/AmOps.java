@@ -102,7 +102,7 @@ public class AmOps implements IoOps {
         ByteBuffer dupe = buf.duplicate();
         int length = dupe.remaining();
         String description = "AM.writeObject";
-        String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + "objectOffset=" + objectOffset.getValue() + ", buf" + length;
+        String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + length;
 
         WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
             @Override

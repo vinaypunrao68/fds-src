@@ -621,18 +621,6 @@ DmMigrationClient::sendFinishFwdMsg()
 }
 
 void
-DmMigrationClient::dmMigrationCheckResp(EPSvcRequest *req,
-													 const Error& error,
-													 boost::shared_ptr<std::string> payload)
-{
-	LOGMIGRATE << "Received response for processInitialBlobFilterSet " <<
-			"with error: " << error;
-	if (!error.ok()) {
-		abortMigration();
-	}
-}
-
-void
 DmMigrationClient::abortMigration()
 {
 	/**

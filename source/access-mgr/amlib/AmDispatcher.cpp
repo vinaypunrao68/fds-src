@@ -390,6 +390,26 @@ AmDispatcher::openVolumeCb(AmRequest* amReq,
     amReq->proc_cb(e);
 }
 
+Error
+AmDispatcher::removeVolume(fds_volid_t const volId) {
+    // We need to remove any barriers for this volume as we don't expect to
+    // see any aborts/commits for them now
+    std::lock_guard<std::mutex> g(tx_map_lock);
+    for (auto it = tx_map_barrier.begin(); tx_map_barrier.end() != it; ) {
+        if (it->first.first == volId) {
+            // Drain as errors
+            auto queue = std::move(std::get<2>(it->second));
+            it = tx_map_barrier.erase(it);
+            for (auto& req : queue) {
+                req->proc_cb(ERR_VOLUME_ACCESS_DENIED);
+            }
+        } else {
+            ++it;
+        }
+    }
+    return ERR_OK;
+}
+
 /**
  * Dispatch a request to DM asking for permission to access this volume.
  */
@@ -402,31 +422,22 @@ AmDispatcher::closeVolume(fds_volid_t vol_id, fds_int64_t token) {
     volMDMsg->volume_id = vol_id.get();
     volMDMsg->token = token;
 
-    // This gives this request blocking semantics
-    std::promise<Error> done;
-    std::shared_future<Error> ready(done.get_future());
-    MultiPrimarySvcRequestRespCb cb =
-        [&done] (MultiPrimarySvcRequest* svcReq,
-                 const Error& error,
-                 boost::shared_ptr<std::string> payload) mutable -> void {
-            return done.set_value(error); // Trigger processor thread
-        };
-
-    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
-    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, cb);
-
     /**
      * Need an AmRequest to call the serialization setter.
      */
-    auto amReq = std::unique_ptr<AmRequest>(new AmRequest(fds::fds_io_op_t(0), vol_id, "", "", nullptr));
-    setSerialization(amReq.get(), asyncCloseVolReq);
+    AmRequest amReq(fds::fds_io_op_t(0), vol_id, "", "", nullptr);
+    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
+    auto respCb = [this, ver = dmt_version] (MultiPrimarySvcRequest* svcReq,
+                                             const Error& error,
+                                             boost::shared_ptr<std::string> payload) mutable -> void {
+        dmtMgr->releaseVersion(ver);
+    };
+    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, respCb);
+
+    setSerialization(&amReq, asyncCloseVolReq);
 
     asyncCloseVolReq->invoke();
-    auto err = ready.get();
-
-    // Release the DMT version so we can roll if needed
-    dmtMgr->releaseVersion(dmt_version);
-    return err;
+    return ERR_OK;
 }
 
 void

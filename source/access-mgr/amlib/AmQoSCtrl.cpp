@@ -227,17 +227,13 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const& error) {
     if (FDS_ATTACH_VOL == amReq->io_type) {
         auto volReq = static_cast<AttachVolumeReq*>(amReq);
         /** Drain wait queue into QoS */
-        if (error.ok()) {
-            wait_queue->remove_if(amReq->volume_name,
-                                  [this, volReq] (AmRequest* amReq) {
-                                      amReq->setVolId(volReq->volDesc->GetID());
-                                      GLOGTRACE << "Resuming request: 0x" << std::hex << amReq->io_req_id;
-                                      htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
-                                      return true;
-                                  });
-        } else {
-            removeVolume(amReq->volume_name, amReq->io_vol_id);
-        }
+        wait_queue->remove_if(amReq->volume_name,
+                              [this, volReq] (AmRequest* amReq) {
+                                  amReq->setVolId(volReq->volDesc->GetID());
+                                  GLOGTRACE << "Resuming request: 0x" << std::hex << amReq->io_req_id;
+                                  htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+                                  return true;
+                              });
     }
     processor_cb(amReq, error);
 }
@@ -308,7 +304,7 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
 Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     Error err(ERR_OK);
     // If we don't already have this volume, let's register it
-    FDS_VolumeQueue* queue = getQueue(volDesc.volUUID);
+    auto queue = getQueue(volDesc.volUUID);
     if (!queue) {
         if (volDesc.isSnapshot()) {
             GLOGDEBUG << "Volume is a snapshot : [0x" << std::hex << volDesc.volUUID << "]";
@@ -326,13 +322,14 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
                     << " because: " << err;
                 delete queue;
             } else {
+                queue->activate();
                 err = ERR_OK;
             }
         }
     }
 
-    if (queue && ERR_OK == err) {
-        err = volTable->registerVolume(volDesc, queue);
+    if (ERR_OK == err) {
+        err = volTable->registerVolume(volDesc);
     }
 
     // Search the queue for the first attach we find.
@@ -417,15 +414,13 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     Error err(ERR_OK);
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
-    if (invalid_vol_id == amReq->io_vol_id) {
-        auto vol = volTable->getVolume(amReq->volume_name);
-        if (vol) {
-            amReq->setVolId(vol->voldesc->volUUID);
-        }
+    auto vol = volTable->getVolume(amReq->volume_name);
+    if (vol) {
+        amReq->setVolId(vol->voldesc->volUUID);
     }
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
 
-    if (invalid_vol_id == amReq->io_vol_id) {
+    if (invalid_vol_id == amReq->io_vol_id || (vol && !vol->access_token)) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.
@@ -455,7 +450,12 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
             err = volTable->attachVolume(amReq->volume_name);
             if (ERR_NOT_READY == err) {
                 // We don't have domain tables yet...just reject.
-                removeVolume(amReq->volume_name, invalid_vol_id);
+                // Drain any wait queue into as an Error
+                wait_queue->remove_if(amReq->volume_name,
+                                      [this] (AmRequest* amReq) {
+                                          processor_cb(amReq, ERR_NOT_READY);
+                                          return true;
+                                      });
             }
         }
     } else {

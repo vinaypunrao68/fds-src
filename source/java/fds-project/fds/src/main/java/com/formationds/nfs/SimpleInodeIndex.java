@@ -1,11 +1,12 @@
 package com.formationds.nfs;
 
+import com.google.common.collect.Multimap;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Inode;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -23,31 +24,35 @@ public class SimpleInodeIndex implements InodeIndex {
         String volumeName = exportResolver.volumeName(parent.exportIndex());
         String blobName = blobName(InodeMetadata.fileId(parent), name);
         return io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName,
-                metadata -> metadata.map(m -> new InodeMetadata(m)));
+                (x, metadata) -> metadata.map(m -> new InodeMetadata(m)));
     }
 
     @Override
     public List<DirectoryEntry> list(InodeMetadata directory, long exportId) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
+        String blobNamePrefix = "index-" + directory.getFileId() + "/";
         return io.scan(
                 BlockyVfs.DOMAIN,
                 volumeName,
-                "index-" + directory.getFileId() + "/",
-                md -> new InodeMetadata(md.get())
-                        .asDirectoryEntry(directory.getFileId(), exportId));
+                blobNamePrefix,
+                (blobName, md) -> new InodeMetadata(md.get())
+                        .asDirectoryEntry(blobName.replace(blobNamePrefix, ""), exportId));
     }
 
     @Override
     public void index(long exportId, boolean deferrable, InodeMetadata entry) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
-        Map<Long, String> links = entry.getLinks();
+        Multimap<Long, String> links = entry.getLinks();
         for (long parentId : links.keySet()) {
-            String blobName = blobName(parentId, links.get(parentId));
-            io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, deferrable, metadata -> {
-                metadata.clear();
-                metadata.putAll(entry.asMap());
-                return null;
-            });
+            Collection<String> names = links.get(parentId);
+            for (String name : names) {
+                String blobName = blobName(parentId, name);
+                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, deferrable, metadata -> {
+                    metadata.clear();
+                    metadata.putAll(entry.asMap());
+                    return null;
+                });
+            }
         }
     }
 
@@ -57,9 +62,13 @@ public class SimpleInodeIndex implements InodeIndex {
 
     @Override
     public void remove(long exportId, InodeMetadata inodeMetadata) throws IOException {
-        Set<Long> parents = inodeMetadata.getLinks().keySet();
+        Multimap<Long, String> links = inodeMetadata.getLinks();
+        Set<Long> parents = links.keySet();
         for (Long parentId : parents) {
-            unlink(exportId, parentId, inodeMetadata.getLinks().get(parentId));
+            Collection<String> names = links.get(parentId);
+            for (String name : names) {
+                unlink(exportId, parentId, name);
+            }
         }
     }
 
