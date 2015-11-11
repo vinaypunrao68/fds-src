@@ -7,7 +7,13 @@ user_rtime_env    := user
 user_incl_dir     := $(topdir) .
 user_cpp_flags    :=
 #user_cpp          := $(wildcard *.cpp)
-user_cpp          := VolumeGroupHandle.cpp Volume.cpp Dm.cpp
+user_cpp          := volumegroup_extensions.cpp \
+	VolumeGroupHandle.cpp \
+	Volume.cpp \
+	Dm.cpp \
+	Om.cpp \
+	Am.cpp
+
 user_ar_libs      := dm-clus-lib
 dm-clus-lib       := $(user_cpp)
 

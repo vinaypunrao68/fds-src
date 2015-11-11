@@ -358,6 +358,7 @@ struct EPSvcRequest : SvcRequestIf {
     friend class FailoverSvcRequest;
     friend class QuorumSvcRequest;
     friend class MultiPrimarySvcRequest;
+    friend class VolumeGroupBroadcastRequest;
 };
 
 /**

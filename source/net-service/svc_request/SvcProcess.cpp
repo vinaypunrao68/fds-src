@@ -25,20 +25,33 @@ SvcProcess::SvcProcess(int argc, char *argv[],
 {
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
+    init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
             handler, processor);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
-                               const std::string &def_cfg_file,
-                               const std::string &base_path,
-                               const std::string &def_log_file,
-                               fds::Module **mod_vec,
-                               PlatNetSvcHandlerPtr handler,
-                               fpi::PlatNetSvcProcessorPtr processor)
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       const std::string &def_log_file,
+                       fds::Module **mod_vec,
+                       PlatNetSvcHandlerPtr handler,
+                       fpi::PlatNetSvcProcessorPtr processor)
+: SvcProcess(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
+            handler, processor)
 {
-    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor);
+}
+
+SvcProcess::SvcProcess(int argc, char *argv[],
+                       bool initAsModule,
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       const std::string &def_log_file,
+                       fds::Module **mod_vec,
+                       PlatNetSvcHandlerPtr handler,
+                       fpi::PlatNetSvcProcessorPtr processor)
+{
+    init(argc, argv, initAsModule, def_cfg_file,
+         base_path, def_log_file, mod_vec, handler, processor);
 }
 
 SvcProcess::~SvcProcess()
@@ -46,15 +59,31 @@ SvcProcess::~SvcProcess()
 }
 
 void SvcProcess::init(int argc, char *argv[],
-                          const std::string &def_cfg_file,
-                          const std::string &base_path,
-                          const std::string &def_log_file,
-                          fds::Module **mod_vec,
-                          PlatNetSvcHandlerPtr handler,
-                          fpi::PlatNetSvcProcessorPtr processor)
+                      const std::string &def_cfg_file,
+                      const std::string &base_path,
+                      const std::string &def_log_file,
+                      fds::Module **mod_vec,
+                      PlatNetSvcHandlerPtr handler,
+                      fpi::PlatNetSvcProcessorPtr processor)
 {
-    /* Set up process related services such as logger, timer, etc. */
-    FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
+    init(argc, argv, false, def_cfg_file,
+         base_path, def_log_file, mod_vec, handler, processor);
+}
+void SvcProcess::init(int argc, char *argv[],
+                      bool initAsModule,
+                      const std::string &def_cfg_file,
+                      const std::string &base_path,
+                      const std::string &def_log_file,
+                      fds::Module **mod_vec,
+                      PlatNetSvcHandlerPtr handler,
+                      fpi::PlatNetSvcProcessorPtr processor)
+{
+    if (!initAsModule) {
+        /* Set up process related services such as logger, timer, etc. */
+        FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
+    } else {
+        initAsModule_(argc, argv, def_cfg_file, base_path, mod_vec);
+    }
 
     /* Extract service name pm/sm/dm/am etc */
     std::vector<std::string> strs;
@@ -71,6 +100,33 @@ void SvcProcess::init(int argc, char *argv[],
 
     /* Set up service layer */
     setupSvcMgr_(handler, processor);
+}
+
+void SvcProcess::initAsModule_(int argc, char *argv[],
+                               const std::string &def_cfg_file,
+                               const std::string &base_path,
+                               fds::Module **mod_vec)
+{
+    fds_verify(g_fdslog != nullptr);
+    std::string  fdsroot, cfgfile;
+    mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
+    fdsroot      = mod_vectors_->get_sys_params()->fds_root;
+    proc_root    = new FdsRootDir(fdsroot);
+    cfgfile = proc_root->dir_fds_etc() + def_cfg_file;
+    /* Check if config file exists */
+    struct stat buf;
+    if (stat(cfgfile.c_str(), &buf) == -1) {
+        // LOGGER isn't ready at this point yet.
+        std::cerr << "Configuration file " << cfgfile << " not found. Exiting."
+            << std::endl;
+        exit(ERR_DISK_READ_FAILED);
+    }
+
+    setup_config(argc, argv, cfgfile, base_path);
+    setup_cntrs_mgr(net::get_my_hostname());
+    setup_timer_service();
+    int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
+    proc_thrp   = new fds_threadpool(num_thr);
 }
 
 void SvcProcess::start_modules()

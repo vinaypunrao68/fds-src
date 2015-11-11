@@ -135,9 +135,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                            << ", qos threads " << _max_thrds;
 
                  // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
+                 // TODO(Rao): Make bypass_dispatcher configurable
                  dispatcher = new QoSWFQDispatcher(this,
                                                    parentSm->totalRate,
                                                    parentSm->qosOutNum,
+                                                   false,
                                                    log);
                  // dispatcher = new QoSHTBDispatcher(this, log, 150);
 

@@ -229,8 +229,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
                   fds_log *log) :
                 FDS_QoSControl(_max_thrds, algo, log, "DM") {
             parentDm = _parent;
+            // TODO(Rao): Make bypass_dispatcher configurable
             dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                    parentDm->qosOutstandingTasks, log);
+                    parentDm->qosOutstandingTasks, false, log);
 
             serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
                 new SynchronizedTaskExecutor<size_t>(*threadPool));

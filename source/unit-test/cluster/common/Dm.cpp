@@ -28,23 +28,16 @@ namespace fds {
     }
 
 
-#if 0
-template <class QosVolumeIoT>
-std::ostream& operator<<(std::ostream &out, const QosVolumeIoT& io) {
-    out << " msgType: " << static_cast<int>(QosVolumeIoT::reqMsgTypeId)
-        << " volumeid: " << io.io_vol_id;
-        // TODO: Print message
-    return out;
-}
-#endif
-
 DmHandler::DmHandler(DmProcess* dmProc)
     : PlatNetSvcHandler(dmProc),
     dm(dmProc)
 {
-    // REGISTER_VOLUMEMSG_HANDLER();
-    // REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
-    // REGISTER_QOS_HANDLER(fpi::StartTxMsg, &dm::handleStartTxMsg);
+    initHandlers();
+}
+
+void DmHandler::initHandlers()
+{
+    registerHandler<StartTxIo>();
 }
 
 dmQosCtrl::dmQosCtrl(DmProcess *parent,
@@ -56,7 +49,7 @@ dmQosCtrl::dmQosCtrl(DmProcess *parent,
     : FDS_QoSControl(_max_thrds, algo, log, "DM")
 {
     parentDm = parent;
-    dispatcher = new QoSWFQDispatcher(this, scheduleRate, qosOutstandingTasks, log);
+    dispatcher = new QoSWFQDispatcher(this, scheduleRate, qosOutstandingTasks, false, log);
 }
 
 Error dmQosCtrl::processIO(FDS_IOType* io) {
@@ -71,11 +64,12 @@ dmQosCtrl::~dmQosCtrl() {
     delete dispatcher;
 }
 
-DmProcess::DmProcess(int argc, char *argv[])
+DmProcess::DmProcess(int argc, char *argv[], bool initAsModule)
 {
     auto handler = boost::make_shared<DmHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    init(argc, argv, "platform.conf", "fds.dm.", "dm.log", nullptr, handler, processor);
+    init(argc, argv, initAsModule, "platform.conf",
+         "fds.dm.", "dm.log", nullptr, handler, processor);
 
     /* Init qos handler */
     qosCtrl.reset(new dmQosCtrl(this,
@@ -113,7 +107,8 @@ Error DmProcess::processIO(FDS_IOType* io) {
 
 int DmProcess::run() {
     LOGNOTIFY << "Doing work";
-    while (true) {
+    readyWaiter.done();
+    while (true){
         sleep(1000);
     }
     return 0;

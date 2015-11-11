@@ -31,7 +31,7 @@ struct dmQosCtrl : FDS_QoSControl {
 };
 
 struct DmProcess : SvcProcess {
-    DmProcess(int argc, char *argv[]);
+    DmProcess(int argc, char *argv[], bool initAsModule);
     Error processIO(FDS_IOType* io);
 
     virtual int run() override;
@@ -61,6 +61,8 @@ struct DmProcess : SvcProcess {
 struct DmHandler: PlatNetSvcHandler {
     explicit DmHandler(DmProcess* dmProc);
 
+    void initHandlers();
+
     template <class QosVolumeIoT>
     void registerHandler() {
         asyncReqHandlers_[QosVolumeIoT::reqMsgTypeId] =
@@ -74,12 +76,15 @@ struct DmHandler: PlatNetSvcHandler {
                                         this,
                                         asyncHdr,
                                         std::placeholders::_1);
-                auto qosMsg = new QosVolumeIoT(volumeIoHdr.groupId,
+                fds_volid_t volId(volumeIoHdr.groupId);
+                auto qosMsg = new QosVolumeIoT(volId,
                                                payload,
                                                cbfunc);
-                auto enqRet = dm->qosCtrl->enqueueIO(volumeIoHdr.groupId, qosMsg);
+                auto enqRet = dm->qosCtrl->enqueueIO(volId, qosMsg);
                 if (enqRet != ERR_OK) {
-                    GLOGWARN << "Failed to enqueue " << *qosMsg;
+                    fds_panic("Not handled");
+                    // TODO(Rao): Fix it
+                    // GLOGWARN << "Failed to enqueue " << *qosMsg;
                     delete qosMsg;
                 }
             };
@@ -88,7 +93,7 @@ struct DmHandler: PlatNetSvcHandler {
     template <class QosVolumeIoT>
     void responseCb(fpi::AsyncHdrPtr& asyncHdr,
                     QosVolumeIoT *io) {
-        asyncHdr->msg_code = static_cast<int32_t>(io->respStatus);
+        asyncHdr->msg_code = static_cast<int32_t>(io->respStatus.GetErrno());
         if (io->respStatus == ERR_OK) {
             sendAsyncResp(*asyncHdr, QosVolumeIoT::respMsgTypeId, *(io->respMsg));
         } else {

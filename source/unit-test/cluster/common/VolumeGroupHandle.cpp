@@ -24,93 +24,13 @@ std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
     return out;
 }
 
-VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
-                                         const SvcRequestId &id,
-                                         const fpi::SvcUuid &myEpId,
-                                         VolumeGroupHandle *groupHandle)
-: SvcRequestIf(provider, id, myEpId),
-    groupHandle_(groupHandle),
-    nAcked_(0),
-    nSuccessAcked_(0)
-{
-}
-
-std::string VolumeGroupRequest::logString()
-{
-    std::stringstream ss;
-    ss << volumeIoHdr_;
-    return ss.str();
-}
-
-void VolumeGroupBroadcastRequest::invoke()
-{
-    state_ = SvcRequestState::INVOCATION_PROGRESS;
-    for (const auto &handle : groupHandle_->functionalReplicas_) {
-        reqStates_.push_back(std::make_pair(handle.svcUuid,
-                                            SvcRequestState::INVOCATION_PROGRESS));
-        sendPayload_(handle.svcUuid);
-    }
-}
-
-void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
-                                                  SHPTR<std::string>& payload)
-{
-    DBG(GLOGDEBUG << fds::logString(*header));
-    auto volumeStatePair = getVolumeRequestStatePair_(header->msg_src_uuid);
-    if (isComplete()) {
-        /* Drop completed requests */
-        GLOGWARN << logString() << " Already completed";
-        return;
-    } else if (!volumeStatePair) {
-        /* Drop responses from uknown endpoint src ids */
-        GLOGWARN << fds::logString(*header) << " Unknown EpId";
-        return;
-    } else if (volumeStatePair->second == SvcRequestState::SVC_REQUEST_COMPLETE) {
-        GLOGWARN << fds::logString(*header) << " Already completed";
-        return;
-    }
-    volumeStatePair->second = SvcRequestState::SVC_REQUEST_COMPLETE;
-
-    Error outStatus = ERR_OK;
-    groupHandle_->handleVolumeResponse(volumeIoHdr_, header->msg_code, outStatus);
-    if (outStatus == ERR_OK) {
-        ++nSuccessAcked_;
-        responseCb_(ERR_OK, payload); 
-        responseCb_ = 0;
-    } else {
-        GLOGWARN << "Volume response: " << fds::logString(*header)
-            << " outstatus: " << outStatus;
-    }
-    ++nAcked_;
-    if (nAcked_ == reqStates_.size()) {
-        if (responseCb_) {
-            /* All replicas have failed..return error code from last replica */
-            responseCb_(header->msg_code, payload);
-            responseCb_ = 0;
-            complete(header->msg_code);
-        } else {
-            /* Atleast one replica succeeded */
-            complete(ERR_OK);
-        }
-    }
-}
-
-VolumeGroupBroadcastRequest::VolumeRequestStatePair* 
-VolumeGroupBroadcastRequest::getVolumeRequestStatePair_(const fpi::SvcUuid &svcUuid)
-{
-    for (auto &s : reqStates_) {
-        if (s.first == svcUuid) {
-            return &s;
-        }
-    }
-    return nullptr;
-}
-
-VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider)
+VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
+                                     const fpi::VolumeGroupInfo &groupInfo)
 : HasModuleProvider(provider)
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    setGroupInfo_(groupInfo);
 }
 
 void VolumeGroupHandle::handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
@@ -142,6 +62,37 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
     }
 }
 
+std::vector<fpi::SvcUuid> VolumeGroupHandle::getFunctionReplicaSvcUuids() const
+{
+    std::vector<fpi::SvcUuid> svcUuids;   
+    for (const auto &r : functionalReplicas_) {
+        svcUuids.push_back(r.svcUuid);
+    }
+    return svcUuids;
+}
+
+void VolumeGroupHandle::setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo)
+{
+    groupId_ = groupInfo.groupId;
+    version_ = groupInfo.version;
+    functionalReplicas_.clear();
+    for (const auto &svcUuId : groupInfo.functionalReplicas) {
+        functionalReplicas_.push_back(VolumeReplicaHandle(svcUuId));
+    }
+    nonfunctionalReplicas_.clear();
+    for (const auto &svcUuId : groupInfo.nonfunctionalReplicas) {
+        nonfunctionalReplicas_.push_back(VolumeReplicaHandle(svcUuId));
+    }
+}
+
+void VolumeGroupHandle::setVolumeIoHdr_(fpi::VolumeIoHdr &hdr)
+{
+    hdr.version = version_;
+    hdr.groupId = groupId_;
+    hdr.opId =  opSeqNo_;
+    hdr.commitId = commitNo_;
+}
+
 VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::VolumeIoHdr &hdr)
 {
     for (auto &h : functionalReplicas_) {
@@ -156,6 +107,8 @@ VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::Volum
     }
     return nullptr;
 }
+
+#if 0
 void VolumeGroupHandle::sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
                                                       const StringPtr &payload,
                                                       const VolumeResponseCb &cb)
@@ -163,7 +116,86 @@ void VolumeGroupHandle::sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &ms
     auto req = requestMgr_->newSvcRequest<VolumeGroupBroadcastRequest>(this);
     req->setPayloadBuf(msgTypeId, payload);
     req->responseCb_ = cb;
+    req->onEPAppStatusCb(&VolumeGroupHandle::handleVolumeResponse, this, );
     req->setTaskExecutorId(groupId_);
     req->invoke();
 }
+#endif
+
+VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
+                                         const SvcRequestId &id,
+                                         const fpi::SvcUuid &myEpId,
+                                         VolumeGroupHandle *groupHandle)
+: MultiEpSvcRequest(provider, id, myEpId, 0, groupHandle->getFunctionReplicaSvcUuids()),
+    groupHandle_(groupHandle),
+    nAcked_(0),
+    nSuccessAcked_(0)
+{
+}
+
+std::string VolumeGroupRequest::logString()
+{
+    std::stringstream ss;
+    ss << volumeIoHdr_;
+    return ss.str();
+}
+
+void VolumeGroupBroadcastRequest::invoke()
+{
+    invokeWork_();
+}
+
+void VolumeGroupBroadcastRequest::invokeWork_()
+{
+    state_ = SvcRequestState::INVOCATION_PROGRESS;
+    for (auto &ep : epReqs_) {
+        ep->setPayloadBuf(msgTypeId_, payloadBuf_);
+        ep->setTimeoutMs(timeoutMs_);
+        ep.get()->invokeWork_();
+    }
+}
+
+void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
+                                                  SHPTR<std::string>& payload)
+{
+    DBG(GLOGDEBUG << fds::logString(*header));
+    auto epReq = getEpReq_(header->msg_src_uuid);
+    if (isComplete()) {
+        /* Drop completed requests */
+        GLOGWARN << logString() << " Already completed";
+        return;
+    } else if (!epReq) {
+        /* Drop responses from uknown endpoint src ids */
+        GLOGWARN << fds::logString(*header) << " Unknown EpId";
+        return;
+    } else if (epReq->isComplete()) {
+        GLOGWARN << fds::logString(*header) << " Already completed";
+        return;
+    }
+    epReq->complete(header->msg_code, header, payload);
+
+    Error outStatus = ERR_OK;
+    groupHandle_->handleVolumeResponse(volumeIoHdr_, header->msg_code, outStatus);
+    if (outStatus == ERR_OK) {
+        ++nSuccessAcked_;
+        responseCb_(ERR_OK, payload); 
+        responseCb_ = 0;
+    } else {
+        GLOGWARN << "Volume response: " << fds::logString(*header)
+            << " outstatus: " << outStatus;
+    }
+    ++nAcked_;
+    if (nAcked_ == epReqs_.size()) {
+        if (responseCb_) {
+            /* All replicas have failed..return error code from last replica */
+            responseCb_(header->msg_code, payload);
+            responseCb_ = 0;
+            complete(header->msg_code);
+        } else {
+            /* Atleast one replica succeeded */
+            complete(ERR_OK);
+        }
+    }
+}
+
 }  // namespace fds

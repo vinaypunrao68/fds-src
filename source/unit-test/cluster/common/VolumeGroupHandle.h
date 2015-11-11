@@ -5,7 +5,9 @@
 
 #include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
+#include <net/SvcRequestPool.h>
 #include <fdsp/volumegroup_types.h>
+#include <volumegroup_extensions.h>
 
 namespace fds {
 struct VolumeGroupHandle;
@@ -17,8 +19,9 @@ struct VolumeGroupConstants {
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
 
 struct VolumeReplicaHandle {
-    VolumeReplicaHandle()
-        : state(fpi::VolumeState::VOLUME_UNINIT),
+    VolumeReplicaHandle(const fpi::SvcUuid &id)
+        : svcUuid(id),
+        state(fpi::VolumeState::VOLUME_UNINIT),
         lastError(ERR_OK),
         appliedOpId(VolumeGroupConstants::OPSTARTID),
         appliedCommitId(VolumeGroupConstants::COMMITSTARTID)
@@ -42,16 +45,12 @@ using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
 /**
 * @brief Payload is sent to all replicas.
 */
-struct VolumeGroupRequest : SvcRequestIf {
+struct VolumeGroupRequest : MultiEpSvcRequest {
     VolumeGroupRequest(CommonModuleProviderIf* provider,
                         const SvcRequestId &id,
                         const fpi::SvcUuid &myEpId,
                         VolumeGroupHandle *groupHandle);
     virtual std::string logString() override;
- protected:
-    virtual void invokeWork_() override {
-        fds_panic("Shouldn't come here");
-    }
 
     VolumeGroupHandle          *groupHandle_; 
     fpi::VolumeIoHdr            volumeIoHdr_; 
@@ -64,22 +63,18 @@ struct VolumeGroupRequest : SvcRequestIf {
 
 
 struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
-    using VolumeRequestStatePair = std::pair<fpi::SvcUuid, SvcRequestState>;    
-
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
     virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
-                                SHPTR<std::string>& payload);
-
+                                SHPTR<std::string>& payload) override;
  protected:
-    VolumeRequestStatePair* getVolumeRequestStatePair_(const fpi::SvcUuid &svcUuid);
-
-    std::vector<VolumeRequestStatePair> reqStates_;
+    virtual void invokeWork_() override;
 };
 
 struct VolumeGroupHandle : HasModuleProvider {
-    explicit VolumeGroupHandle(CommonModuleProviderIf* provider);
+    explicit VolumeGroupHandle(CommonModuleProviderIf* provider,
+                               const fpi::VolumeGroupInfo &groupInfo);
 
     template<class F>
     void runSynchronized(F&& f)
@@ -92,18 +87,32 @@ struct VolumeGroupHandle : HasModuleProvider {
                        SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
         runSynchronized([this, msgTypeId, msg, cb]() {
             opSeqNo_++;
-            updateVolumeIoHdr(getVolumeIoHdrRef(*msg));
-            sendVolumeBroadcastRequest_(msgTypeId, serializeFdspMsg(msg), cb);
+            /* Update the header in the message */
+            setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
+
+            /* Create a request and send */
+            auto req = requestMgr_->newSvcRequest<VolumeGroupBroadcastRequest>(this);
+            req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
+            req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
+            req->responseCb_ = cb;
+            req->setTaskExecutorId(groupId_);
+            req->invoke();
         });
     }
     virtual void handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
                                        const Error &inStatus,
                                        Error &outStatus);
+    std::vector<fpi::SvcUuid> getFunctionReplicaSvcUuids() const;
+
  protected:
+    void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
+    void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
     VolumeReplicaHandle* getVolumeReplicaHandle_(const fpi::VolumeIoHdr &hdr);
+#if 0
     void sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
                                       const StringPtr &payload,
                                       const VolumeResponseCb &cb);
+#endif
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
@@ -117,6 +126,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     friend class VolumeGroupBroadcastRequest;
     
 };
+
 
 }  // namespace fds
 

@@ -33,8 +33,8 @@ template <class ReqT,
 struct QosVolumeIo : public SvcMsgIo {
     using ReqMsgT = ReqT;
     using RespMsgT = RespT;
-    const fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
-    const fpi::FDSPMsgTypeId respMsgTypeId = RespTypeId;
+    const static fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
+    const static fpi::FDSPMsgTypeId respMsgTypeId = RespTypeId;
 
     using CbType = std::function<void (QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>*)>;
 
@@ -43,7 +43,7 @@ struct QosVolumeIo : public SvcMsgIo {
                 const CbType &cb)
     : SvcMsgIo(msgType)
     {
-        this->ioType = FDS_DM_VOLUME_IO;
+        this->io_type = FDS_DM_VOLUME_IO;
         this->io_vol_id = volId;
         this->reqMsg = reqMsg;
         this->respStatus = ERR_OK;
@@ -61,6 +61,31 @@ struct QosVolumeIo : public SvcMsgIo {
     SHPTR<RespMsgT>         respMsg;
     CbType                  cb;
 };
+
+template <class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
+const fpi::FDSPMsgTypeId QosVolumeIo<ReqT, ReqTypeId, RespT, RespTypeId>::reqMsgTypeId;
+
+template <class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
+const fpi::FDSPMsgTypeId QosVolumeIo<ReqT, ReqTypeId, RespT, RespTypeId>::respMsgTypeId;
+
+template <class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
+std::ostream& operator<<(std::ostream &out,
+                         const QosVolumeIo<ReqT, ReqTypeId, RespT, RespTypeId> & io) {
+    out << " msgType: " << static_cast<int>(ReqTypeId)
+        << " volumeid: " << io.io_vol_id;
+        // TODO: Print message
+    return out;
+}
+
 using StartTxIo         = DECLARE_QOSVOLUMEIO(fpi::StartTxMsg, fpi::EmptyMsg);
 using UpdateTxIo        = DECLARE_QOSVOLUMEIO(fpi::UpdateTxMsg, fpi::EmptyMsg);
 using CommitTxIo        = DECLARE_QOSVOLUMEIO(fpi::CommitTxMsg, fpi::EmptyMsg);
