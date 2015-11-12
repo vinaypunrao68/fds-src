@@ -205,6 +205,25 @@ class DmMigrationMgr : public DmMigrationBase {
     typedef std::unique_ptr<DmMigrationMgr> unique_ptr;
     typedef std::shared_ptr<DmMigrationMgr> shared_ptr;
 
+
+    /**
+     * DMT watermark is used to reject operations to a resyncing DM
+     * until the DMT version is updated, which indicates the end of
+     * forwarding of commits from another DM. This is to prevent
+     * overwriting forwarded commits with commits directy from AM that
+     * logically preceeded the forwarded writes.
+     */
+
+    // shouldFilterDmt() checks the wartermark and should be used by all writepath operations except forwarding
+    bool shouldFilterDmt(fds_volid_t volId, fds_uint64_t dmt_version);
+
+    /**
+     * setDmtWatermark() is called by the executor before unblocking
+     * the QoS queue. The watermark outlives the executor which may be
+     * freed soon after.
+     */
+    void setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version);
+
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
@@ -390,8 +409,12 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void waitForOngoingExecutorsToFinish();
 
-};  // DmMigrationMgr
+    /**
+     * DMT watermark map - for rejecting messages from AM during resync that duplicate forwarded commits
+     */
+    std::unordered_map<fds_volid_t, fds_uint64_t> dmt_watermark;
 
+};  // DmMigrationMgr
 }  // namespace fds
 
 

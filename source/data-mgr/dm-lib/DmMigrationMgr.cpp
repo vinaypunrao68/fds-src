@@ -813,4 +813,14 @@ DmMigrationMgr::waitForOngoingExecutorsToFinish()
     std::unique_lock<std::mutex> lk(waitForPrevMigrMutex);
     migrationCV.wait(lk, [this]{return executorMap.empty();});
 }
+
+bool
+DmMigrationMgr::shouldFilterDmt(fds_volid_t volId, fds_uint64_t dmt_version) {
+    return (dmt_watermark[volId] >= dmt_version);
+}
+
+void
+DmMigrationMgr::setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version) {
+    dmt_watermark[volId] = dmt_version;
+}
 }  // namespace fds

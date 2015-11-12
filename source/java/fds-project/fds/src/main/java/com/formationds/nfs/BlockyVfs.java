@@ -82,7 +82,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         String volume = exportResolver.volumeName(parent.exportIndex());
-        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.allocate(volume), inodeMap.volumeId(parent))
+        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.allocate(volume))
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
@@ -119,7 +119,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
                     Sets.newHashSet(),
                     Sets.newHashSet());
 
-            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, InodeAllocator.START_VALUE, exportId)
+            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, InodeAllocator.START_VALUE)
                     .withUpdatedAtime()
                     .withUpdatedCtime()
                     .withUpdatedMtime()
@@ -218,7 +218,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedSource = sourceMetadata.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = linkMetadata.get()
-                .withoutLink(inodeMap.fileId(source))
+                .withoutLink(inodeMap.fileId(source), oldName)
                 .withLink(inodeMap.fileId(destination), newName);
 
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
@@ -286,7 +286,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = link.get()
-                .withoutLink(inodeMap.fileId(parentInode));
+                .withoutLink(inodeMap.fileId(parentInode), path);
 
 
         inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);

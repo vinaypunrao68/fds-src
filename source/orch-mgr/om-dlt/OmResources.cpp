@@ -1756,7 +1756,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                 auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                 double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
-                gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes );
+                gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes, false );
             } 
             else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 
             {    
@@ -1961,7 +1961,13 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                 break;
             case fpi::FDSP_PLATFORM:
                 // TODO how do we set the node state?
-                error = om_handle_restart( node_uuid, reg_node_req );
+                {
+                    auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                    double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                    gl_orch_mgr->omMonitor->updateKnownPMsMap(svc.svc_id.svc_uuid, timeInMinutes, false );
+                    error = om_handle_restart( node_uuid, reg_node_req );
+                }
                 break;    
             default:
                 // skip any other service types
@@ -2700,7 +2706,11 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
                                                         const fpi::ServiceStatus status )
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+    fds_mutex dbLock;
+    {
+        fds_mutex::scoped_lock l(dbLock);
+        change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+    }
     om_locDomain->om_bcast_svcmap();
 }
 
