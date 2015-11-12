@@ -41,7 +41,7 @@ struct QosVolumeIo : public SvcMsgIo {
     QosVolumeIo(fds_volid_t volId,
                 const SHPTR<ReqMsgT> &reqMsg,
                 const CbType &cb)
-    : SvcMsgIo(msgType)
+    : SvcMsgIo(ReqTypeId)
     {
         this->io_type = FDS_DM_VOLUME_IO;
         this->io_vol_id = volId;
@@ -127,6 +127,15 @@ struct Volume : HasModuleProvider {
         // TODO(Rao):
         // 1. Make sure existing volume on disk isn't destroyed
         // 2. Load state from disk
+
+        /* Register with Qos ctrl */
+        // TODO(Rao): Set right qos params
+        // TODO(Rao): This shouldn't be here
+#define FdsDmSysTaskPrio    5
+        volQueue_.reset(new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio));
+        volQueue_->activate();
+        auto err = qosCtrl_->registerVolume(volId_, volQueue_.get());
+        fds_verify(err == ERR_OK);
         
     }
 
@@ -139,6 +148,7 @@ struct Volume : HasModuleProvider {
         auto insRet = txTable_.insert(
             std::make_pair(ioHdr.txId, std::unique_ptr<CatWriteBatch>(new CatWriteBatch)));
         fds_verify(insRet.second == true);
+        io->respMsg.reset(new fpi::EmptyMsg());
         // TODO(Rao): Incase insertion fails due to duplicate entry return an error
     }
     void handleUpdateTx(UpdateTxIo *io)
@@ -175,13 +185,14 @@ struct Volume : HasModuleProvider {
     }
 
     using TxTbl                 = std::unordered_map<int64_t, std::unique_ptr<CatWriteBatch>>;
-    FDS_QoSControl              *qosCtrl_;
-    fds_volid_t                 volId_;
-    fpi::VolumeState            state_;
-    int64_t                     appliedOpId_;
-    int64_t                     appliedCommitId_;
-    std::unique_ptr<Catalog>    catalog_;
-    TxTbl                       txTable_;
+    FDS_QoSControl                          *qosCtrl_;
+    fds_volid_t                             volId_;
+    std::unique_ptr<FDS_VolumeQueue>        volQueue_;;
+    fpi::VolumeState                        state_;
+    int64_t                                 appliedOpId_;
+    int64_t                                 appliedCommitId_;
+    std::unique_ptr<Catalog>                catalog_;
+    TxTbl                                   txTable_;
 };
 using VolumePtr = SHPTR<Volume>;
 }  // namespace fds

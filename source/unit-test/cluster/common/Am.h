@@ -5,10 +5,7 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <net/SvcProcess.h>
-
-namespace FDS_ProtocolInterface {
-class VolumeGroupInfo;
-}
+#include <VolumeGroupHandle.h>
 
 namespace fds {
 struct VolumeGroupHandle;
@@ -17,6 +14,7 @@ struct AmProcess : SvcProcess {
     AmProcess(int argc, char *argv[], bool initAsModule);
     void attachVolume(const fpi::VolumeGroupInfo &groupInfo);
     void putBlob(const fds_volid_t &volId);
+    void putBlob(const fds_volid_t &volId, const VolumeResponseCb &cb);
     int run() override;
 
  protected:

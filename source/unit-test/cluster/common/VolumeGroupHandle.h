@@ -26,11 +26,17 @@ struct VolumeReplicaHandle {
         appliedOpId(VolumeGroupConstants::OPSTARTID),
         appliedCommitId(VolumeGroupConstants::COMMITSTARTID)
     {
-        svcUuid.svc_uuid = 0;
     }
     inline bool isFunctional() const {
         return state == fpi::VolumeState::VOLUME_FUNCTIONAL;
     }
+    void setInfo(const fpi::VolumeState &state, int64_t opId, int64_t commitId)
+    {
+        this->state = state;
+        appliedOpId = opId;
+        appliedCommitId = commitId;
+    }
+
     fpi::SvcUuid            svcUuid;
     int                     state;
     Error                   lastError;
@@ -79,6 +85,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     template<class F>
     void runSynchronized(F&& f)
     {
+        // TODO(Rao): Use threadpool directly
         taskExecutor_->scheduleOnHashKey(groupId_, std::forward<F>(f));
     }
 
@@ -99,15 +106,16 @@ struct VolumeGroupHandle : HasModuleProvider {
             req->invoke();
         });
     }
-    virtual void handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
-                                       const Error &inStatus,
-                                       Error &outStatus);
+    virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
+                                      const fpi::VolumeIoHdr &hdr,
+                                      const Error &inStatus,
+                                      Error &outStatus);
     std::vector<fpi::SvcUuid> getFunctionReplicaSvcUuids() const;
 
  protected:
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
-    VolumeReplicaHandle* getVolumeReplicaHandle_(const fpi::VolumeIoHdr &hdr);
+    VolumeReplicaHandle* getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
 #if 0
     void sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
                                       const StringPtr &payload,
@@ -122,6 +130,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     fpi::VolumeGroupVersion             version_;
     int64_t                             opSeqNo_;
     int64_t                             commitNo_;
+    // TDOO(Rao): Need the state of the replica group.  Based on the state accept/reject
+    // io
 
     friend class VolumeGroupBroadcastRequest;
     

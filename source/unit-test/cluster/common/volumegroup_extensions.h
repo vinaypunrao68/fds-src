@@ -6,8 +6,9 @@
 #include <sstream>
 #include <fdsp/volumegroup_types.h>
 
-namespace fds {
 namespace fpi = FDS_ProtocolInterface;
+
+namespace fds {
 
 template <class MsgT>
 fpi::VolumeIoHdr& getVolumeIoHdrRef(MsgT& msg)

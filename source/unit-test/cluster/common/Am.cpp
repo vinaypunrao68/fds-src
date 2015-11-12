@@ -20,7 +20,7 @@ AmProcess::AmProcess(int argc, char *argv[], bool initAsModule)
 
 void AmProcess::putBlob(const fds_volid_t &volId)
 {
-    /* Create some random blob start tx */
+    fds_verify("Not implemented");
     fpi::StartTxMsgPtr msg(new fpi::StartTxMsg());
     msg->volumeIoHdr.txId = txId_++;
     volHandle_->sendModifyMsg<fpi::StartTxMsg>(
@@ -29,6 +29,17 @@ void AmProcess::putBlob(const fds_volid_t &volId)
         [msg](const Error&, StringPtr) {
             GLOGNOTIFY << "Received response: " << fds::logString(*msg);
         });
+}
+
+void AmProcess::putBlob(const fds_volid_t &volId, const VolumeResponseCb &cb)
+{
+    /* Create some random blob start tx */
+    fpi::StartTxMsgPtr msg(new fpi::StartTxMsg());
+    msg->volumeIoHdr.txId = txId_++;
+    volHandle_->sendModifyMsg<fpi::StartTxMsg>(
+        FDSP_MSG_TYPEID(fpi::StartTxMsg),
+        msg,
+        cb);
 }
 
 void AmProcess::attachVolume(const fpi::VolumeGroupInfo &groupInfo)

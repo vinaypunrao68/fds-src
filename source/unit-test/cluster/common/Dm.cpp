@@ -1,11 +1,13 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#include "Dm.h"
-#include "lib/QoSWFQDispatcher.h"
+#include <lib/QoSWFQDispatcher.h>
+#include <Volume.h>
+#include <Dm.h>
 
 namespace fds {
 
+#define ASSERT_IN_DISPATCHER_CONTEXT()
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
 #define FdsDmSysTaskPrio    5
 
@@ -73,7 +75,7 @@ DmProcess::DmProcess(int argc, char *argv[], bool initAsModule)
 
     /* Init qos handler */
     qosCtrl.reset(new dmQosCtrl(this,
-                            10,
+                            3,
                             FDS_QoSControl::FDS_DISPATCH_WFQ,
                             2 * 60 * 1000,
                             20,
@@ -98,11 +100,21 @@ Error DmProcess::processIO(FDS_IOType* io) {
         case FDSP_MSG_TYPEID(fpi::UpdateTxMsg):
         case FDSP_MSG_TYPEID(fpi::CommitTxMsg):
         default:
-            fds_verify("Unknown message");
+            fds_panic("Unknown message");
             break;
     }
     
     return err;
+}
+
+Error DmProcess::addVolume(const fds_volid_t &volId)
+{
+    ASSERT_IN_DISPATCHER_CONTEXT();
+    fds_verify(volumeTbl.find(volId) == volumeTbl.end());
+    auto volume = new Volume(this, qosCtrl.get(), volId);
+    volumeTbl[volId].reset(volume);
+    volume->init();
+    return ERR_OK;
 }
 
 int DmProcess::run() {

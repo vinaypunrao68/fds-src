@@ -5,7 +5,7 @@ user_rtime_env    := user
 # TODO: remove this once we have correct placement of header API.
 #
 user_incl_dir     := $(topdir) .
-user_cpp_flags    :=
+user_cpp_flags    := -O0
 #user_cpp          := $(wildcard *.cpp)
 user_cpp          := volumegroup_extensions.cpp \
 	VolumeGroupHandle.cpp \

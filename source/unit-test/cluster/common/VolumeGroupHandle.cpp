@@ -31,17 +31,30 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     setGroupInfo_(groupInfo);
+    // TODO(Rao): Go through protocol figure out the states of the replicas
+    // For now set every handle as functional and start their op/commit ids
+    // from beginning
+    for (auto &r : functionalReplicas_) {
+        r.setInfo(fpi::VolumeState::VOLUME_FUNCTIONAL,
+                   VolumeGroupConstants::OPSTARTID,
+                   VolumeGroupConstants::COMMITSTARTID);
+    }
+    // TODO(Rao): Set this to be the latest ids after querying the replicas
+    opSeqNo_ = VolumeGroupConstants::OPSTARTID;
+    commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 }
 
-void VolumeGroupHandle::handleVolumeResponse(const fpi::VolumeIoHdr &hdr,
-                                               const Error &inStatus,
-                                               Error &outStatus)
+void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
+                                             const fpi::VolumeIoHdr &hdr,
+                                             const Error &inStatus,
+                                             Error &outStatus)
 {
     outStatus = inStatus;
 
-    auto volumeHandle = getVolumeReplicaHandle_(hdr);
+    auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
     fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
-    fds_verify(volumeHandle->appliedCommitId+1 == hdr.commitId);
+    fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
+               volumeHandle->appliedCommitId+1 == hdr.commitId);
     if (volumeHandle->isFunctional()) {
         if (inStatus == ERR_OK) {
             volumeHandle->appliedOpId = hdr.opId;
@@ -93,15 +106,15 @@ void VolumeGroupHandle::setVolumeIoHdr_(fpi::VolumeIoHdr &hdr)
     hdr.commitId = commitNo_;
 }
 
-VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::VolumeIoHdr &hdr)
+VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid)
 {
     for (auto &h : functionalReplicas_) {
-        if (h.svcUuid == hdr.svcUuid) {
+        if (h.svcUuid == svcUuid) {
             return &h;
         }
     }
     for (auto &h : nonfunctionalReplicas_) {
-        if (h.svcUuid == hdr.svcUuid) {
+        if (h.svcUuid == svcUuid) {
             return &h;
         }
     }
@@ -175,7 +188,10 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     epReq->complete(header->msg_code, header, payload);
 
     Error outStatus = ERR_OK;
-    groupHandle_->handleVolumeResponse(volumeIoHdr_, header->msg_code, outStatus);
+    groupHandle_->handleVolumeResponse(header->msg_src_uuid,
+                                       volumeIoHdr_,
+                                       header->msg_code,
+                                       outStatus);
     if (outStatus == ERR_OK) {
         ++nSuccessAcked_;
         responseCb_(ERR_OK, payload); 

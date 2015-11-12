@@ -36,6 +36,8 @@ struct DmProcess : SvcProcess {
 
     virtual int run() override;
 
+    Error addVolume(const fds_volid_t &volId);
+
     template <class Functor, class IoType, class... Args>
     void runSynchronizedVolumeIoHandler(Functor&& f, IoType *io) {
         auto volId = io->getVolumeId();

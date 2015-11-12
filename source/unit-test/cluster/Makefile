@@ -31,7 +31,7 @@ user_incl_dir     := \
 user_build_dir    := \
    common 
 
-user_cpp_flags    := 
+user_cpp_flags    := -O0
 user_cpp          :=  \
     Volumegroup_gtest.cpp \
     OmMain.cpp \
