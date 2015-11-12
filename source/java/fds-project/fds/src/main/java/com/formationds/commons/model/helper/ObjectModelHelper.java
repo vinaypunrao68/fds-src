@@ -11,8 +11,19 @@ import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
 import com.formationds.commons.model.type.Protocol;
-import com.formationds.protocol.NfsOption;
-import com.google.gson.*;
+
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import com.google.gson.LongSerializationPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,18 +84,18 @@ public class ObjectModelHelper {
             {
                 klass = VolumeSettingsNfs.class;
             }
-            else
+            else // must be a object volume
             {
-            	klass = VolumeSettingsObject.class;
+                klass = VolumeSettingsObject.class;
             }
-            
+
             return context.deserialize( jsonObject, klass );
         }
     }
 
     // implement NfsOptions Adapter
     public static class NfsOptionAdapter
-            implements JsonSerializer<NfsOptionBase >, JsonDeserializer<NfsOptionBase>
+            implements JsonSerializer<NfsOptionBase>, JsonDeserializer<NfsOptionBase>
     {
         private static final String CLASSNAME = "CLASSNAME";
         private static final String INSTANCE  = "INSTANCE";
@@ -102,7 +113,7 @@ public class ObjectModelHelper {
             Class<?> klass;
             try
             {
-                klass = Class.forName( className) ;
+                klass = Class.forName( className );
             }
             catch (ClassNotFoundException e)
             {
@@ -236,7 +247,7 @@ public class ObjectModelHelper {
                                 .setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                                 .setLongSerializationPolicy( LongSerializationPolicy.STRING )
                                 .registerTypeAdapter( VolumeSettings.class, new VolumeSettingsAdapter() )
-                                .registerTypeAdapter( NfsOption.class, new NfsOptionAdapter() )
+                                .registerTypeAdapter( NfsOptionBase.class, new NfsOptionAdapter() )
                                 .setPrettyPrinting()
                                 .create();
     }
