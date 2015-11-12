@@ -1724,12 +1724,14 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * object and leave it's metadata as it is. Otherwise update
                  * metadata information.
                  */
-                if (!ts || (objMeta->getTimeStamp() < ts)) {
+                auto objDelCnt = objMeta->getDeleteCount();
+                auto objTS = objMeta->getTimeStamp();
+                if (!ts || (objTS < ts)) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                     updatedMeta->updateTimestamp();
                     LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                              << " current timestamp " << updatedMeta->getTimeStamp()
-                             << " current delCount " << std::dec << updatedMeta->getDeleteCount();
+                             << " current delCount " << std::dec << (fds_uint16_t)updatedMeta->getDeleteCount();
                     /**
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
@@ -1738,6 +1740,11 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                         ++tokStats.tkn_reclaim_size;
                     }
                     metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                } else if (objDelCnt >= fds::objDelCountThresh && objTS > ts) {
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << objTS
+                             << " current delCount " << std::dec << (fds_uint16_t)objDelCnt;
+                    ++tokStats.tkn_reclaim_size;
                 }
             }
         }
