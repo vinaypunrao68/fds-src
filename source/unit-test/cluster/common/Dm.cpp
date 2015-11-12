@@ -11,25 +11,6 @@ namespace fds {
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
 #define FdsDmSysTaskPrio    5
 
-#define REGISTER_VOLUMEMSG_HANDLER(QosVolumeIoT, cbfunc)  \
-    asyncReqHandlers_[QosVolumeIoT::reqMsgTypeId] = \
-    [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& asyncHdr, \
-        boost::shared_ptr<std::string>& payloadBuf) \
-    { \
-        boost::shared_ptr<QosVolumeIoT::ReqMsgT> payload; \
-        fds::deserializeFdspMsg(payloadBuf, payload); \
-        auto &volumeIoHdr = getVolumeIoHdrRef(*payload) \
-        auto qosMsg = new QosVolumeIoT(volumeIoHdr.groupId, \
-                                        payload, \
-                                        cbfunc); \
-        auto enqRet = dm->qosCtrl->enqueMsg(volumeIoHdr.groupId, qosMsg); \
-        if (enqRet != ERR_OK) { \
-            GLOGWARN << "Failed to enqueue " << *qosMsg; \
-            delete qosMsg; \
-        } \
-    }
-
-
 DmHandler::DmHandler(DmProcess* dmProc)
     : PlatNetSvcHandler(dmProc),
     dm(dmProc)
@@ -40,6 +21,8 @@ DmHandler::DmHandler(DmProcess* dmProc)
 void DmHandler::initHandlers()
 {
     registerHandler<StartTxIo>();
+    registerHandler<UpdateTxIo>();
+    registerHandler<CommitTxIo>();
 }
 
 dmQosCtrl::dmQosCtrl(DmProcess *parent,
@@ -98,7 +81,13 @@ Error DmProcess::processIO(FDS_IOType* io) {
                                            static_cast<StartTxIo*>(volIo));
             break;
         case FDSP_MSG_TYPEID(fpi::UpdateTxMsg):
+            runSynchronizedVolumeIoHandler(&Volume::handleUpdateTx,
+                                           static_cast<UpdateTxIo*>(volIo));
+            break;
         case FDSP_MSG_TYPEID(fpi::CommitTxMsg):
+            runSynchronizedVolumeIoHandler(&Volume::handleCommitTx,
+                                           static_cast<CommitTxIo*>(volIo));
+            break;
         default:
             fds_panic("Unknown message");
             break;

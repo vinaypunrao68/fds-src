@@ -7,8 +7,10 @@ namespace fds {
 std::string logString(const fpi::VolumeIoHdr &hdr)
 {
     std::stringstream ss;
-    ss << " volume id: " << hdr.groupId
-        << " version id: " << hdr.version;
+    ss << " volumeId: " << hdr.groupId
+        << " versionId: " << hdr.version
+        << " opId: " << hdr.opId
+        << " commitId: " << hdr.commitId;
     return ss.str();
 }
 

@@ -10,6 +10,11 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
+struct VolumeGroupConstants {
+    static const int64_t            OPSTARTID = 0;
+    static const int64_t            COMMITSTARTID = 0;
+};
+
 template <class MsgT>
 fpi::VolumeIoHdr& getVolumeIoHdrRef(MsgT& msg)
 {

@@ -12,10 +12,6 @@
 namespace fds {
 struct VolumeGroupHandle;
 
-struct VolumeGroupConstants {
-    static const int64_t            OPSTARTID = 0;
-    static const int64_t            COMMITSTARTID = 0;
-};
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
 
 struct VolumeReplicaHandle {
@@ -92,20 +88,21 @@ struct VolumeGroupHandle : HasModuleProvider {
     template<class MsgT>
     void sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                        SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
-        runSynchronized([this, msgTypeId, msg, cb]() {
+        runSynchronized([this, msgTypeId, msg, cb]() mutable {
             opSeqNo_++;
-            /* Update the header in the message */
-            setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
-
-            /* Create a request and send */
-            auto req = requestMgr_->newSvcRequest<VolumeGroupBroadcastRequest>(this);
-            req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
-            req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
-            req->responseCb_ = cb;
-            req->setTaskExecutorId(groupId_);
-            req->invoke();
+            invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
         });
     }
+    template<class MsgT>
+    void sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+        runSynchronized([this, msgTypeId, msg, cb]() mutable {
+            opSeqNo_++;
+            commitNo_++;
+            invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
+        });
+    }
+
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const fpi::VolumeIoHdr &hdr,
                                       const Error &inStatus,
@@ -113,6 +110,21 @@ struct VolumeGroupHandle : HasModuleProvider {
     std::vector<fpi::SvcUuid> getFunctionReplicaSvcUuids() const;
 
  protected:
+    template<class MsgT, class ReqT>
+    void invokeCommon_(const fpi::FDSPMsgTypeId &msgTypeId,
+                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+        /* Update the header in the message */
+        setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
+
+        /* Create a request and send */
+        auto req = requestMgr_->newSvcRequest<ReqT>(this);
+        req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
+        req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
+        req->responseCb_ = cb;
+        req->setTaskExecutorId(groupId_);
+        LOGNOTIFY << fds::logString(req->volumeIoHdr_);
+        req->invoke();
+    }
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
     VolumeReplicaHandle* getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);

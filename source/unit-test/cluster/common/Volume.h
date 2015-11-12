@@ -9,7 +9,8 @@
 #include <fdsp/volumegroup_types.h>
 #include <lib/Catalog.h>
 #include <fdsp_utils.h>
-#include "volumegroup_extensions.h"
+#include <volumegroup_extensions.h>
+#include <TxLog.h>
 
 namespace fds {
 
@@ -81,7 +82,7 @@ template <class ReqT,
 std::ostream& operator<<(std::ostream &out,
                          const QosVolumeIo<ReqT, ReqTypeId, RespT, RespTypeId> & io) {
     out << " msgType: " << static_cast<int>(ReqTypeId)
-        << " volumeid: " << io.io_vol_id;
+        << fds::logString(getVolumeIoHdrRef(*(io.reqMsg)));
         // TODO: Print message
     return out;
 }
@@ -98,6 +99,7 @@ struct ScopedVolumeIo {
     {}
     ~ScopedVolumeIo() {
         if (io->cb) {
+            LOGNOTIFY << "Responding: " << *io;
             io->cb(io);
         }
         qosCtrl->markIODone(io);
@@ -122,11 +124,25 @@ struct Volume : HasModuleProvider {
     {
         std::string catName = MODULEPROVIDER()->proc_fdsroot()->dir_sys_repo_dm() +
             "/" + std::to_string(volId_.get());
-        catalog_.reset(new Catalog(catName));
-        catalog_->GetWriteOptions().sync = false;
+#ifdef USECATALOG
+        db_.reset(new Catalog(catName));
+        db_->GetWriteOptions().sync = false;
+#else
+        leveldb::DB* tempDb;
+        leveldb::Options options;
+        options.create_if_missing = true;
+        auto status = leveldb::DB::Open(options, catName, &tempDb);
+        fds_verify(status.ok());
+        db_.reset(tempDb);
+#endif
         // TODO(Rao):
         // 1. Make sure existing volume on disk isn't destroyed
         // 2. Load state from disk
+        // TODO(Rao): Init commit id from what's read on disk
+        appliedOpId_ = VolumeGroupConstants::OPSTARTID;
+        appliedCommitId_ = VolumeGroupConstants::COMMITSTARTID;
+
+        txLog_.init(1000, 0);
 
         /* Register with Qos ctrl */
         // TODO(Rao): Set right qos params
@@ -141,18 +157,25 @@ struct Volume : HasModuleProvider {
 
     void handleStartTx(StartTxIo *io)
     {
+        LOGNOTIFY << *io;
+
         ScopedVolumeIo<StartTxIo>  s(io, qosCtrl_);
         /* Start a new transaction */
         auto &reqMsg = *(io->reqMsg);
         auto &ioHdr = getVolumeIoHdrRef(reqMsg);
         auto insRet = txTable_.insert(
-            std::make_pair(ioHdr.txId, std::unique_ptr<CatWriteBatch>(new CatWriteBatch)));
+            std::make_pair(ioHdr.txId, CatWriteBatchPtr(new CatWriteBatch)));
         fds_verify(insRet.second == true);
         io->respMsg.reset(new fpi::EmptyMsg());
         // TODO(Rao): Incase insertion fails due to duplicate entry return an error
+
+        appliedOpId_++;
     }
     void handleUpdateTx(UpdateTxIo *io)
     {
+        LOGNOTIFY << *io;
+
+        ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
         auto &reqMsg = *(io->reqMsg);
         auto &ioHdr = getVolumeIoHdrRef(reqMsg);
         auto itr = txTable_.find(ioHdr.txId);
@@ -164,9 +187,15 @@ struct Volume : HasModuleProvider {
         for (const auto &kv : reqMsg.kvPairs) {
            batch->Put(kv.first, kv.second); 
         }
+        io->respMsg.reset(new fpi::EmptyMsg());
+
+        appliedOpId_++;
     }
     void handleCommitTx(CommitTxIo *io)
     {
+        LOGNOTIFY << *io;
+
+        ScopedVolumeIo<CommitTxIo>  s(io, qosCtrl_);
         auto &reqMsg = *(io->reqMsg);
         auto &ioHdr = getVolumeIoHdrRef(reqMsg);
         auto itr = txTable_.find(ioHdr.txId);
@@ -174,25 +203,54 @@ struct Volume : HasModuleProvider {
             fds_panic("tx not found");
             // TODO(Rao): Handle this case
         }
-        auto ret = catalog_->Update(itr->second.get());
-        fds_verify(ret == ERR_OK);
+        auto &batchPtr = itr->second;
 
-        /* Update the log */
-        // TODO(Rao):
+        /* Make sure commit id is correct */
+        fds_verify(appliedCommitId_+1 == ioHdr.commitId);
+
+        /* Update log and commit to catalog */
+        auto logRet = txLog_.append(ioHdr.commitId, batchPtr);
+        fds_verify(logRet == ERR_OK);
+
+        /* Commit the batch to leveldb */
+        batchPtr->Put("commitid", std::to_string(ioHdr.commitId));
+        LOGNOTIFY << "Prior leveldb update";
+#ifdef USECATALOG
+        auto catRet = db_->Update(batchPtr.get());
+        LOGNOTIFY << "Post leveldb update";
+        fds_verify(catRet == ERR_OK);
+#else
+        auto catRet = db_->Write(leveldb::WriteOptions(), batchPtr.get());
+        LOGNOTIFY << "Post leveldb update";
+        fds_verify(catRet.ok());
+#endif
+        io->respMsg.reset(new fpi::EmptyMsg());
+
+        appliedOpId_++;
+        appliedCommitId_++;
 
         /* Clear out transaction */
         txTable_.erase(itr);
+
+        LOGNOTIFY << "Completed commit " << *io;
     }
 
-    using TxTbl                 = std::unordered_map<int64_t, std::unique_ptr<CatWriteBatch>>;
+    using CatWriteBatchPtr      = SHPTR<CatWriteBatch>;
+    using TxTbl                 = std::unordered_map<int64_t, CatWriteBatchPtr>;
     FDS_QoSControl                          *qosCtrl_;
     fds_volid_t                             volId_;
     std::unique_ptr<FDS_VolumeQueue>        volQueue_;;
     fpi::VolumeState                        state_;
     int64_t                                 appliedOpId_;
     int64_t                                 appliedCommitId_;
-    std::unique_ptr<Catalog>                catalog_;
+#ifdef USECATALOG
+    std::unique_ptr<Catalog>                db_;
+#else
+    std::unique_ptr<leveldb::DB>            db_; 
+    leveldb::DB*                            db2_;
+#endif
     TxTbl                                   txTable_;
+    TxLog<CatWriteBatch>                    txLog_;
 };
 using VolumePtr = SHPTR<Volume>;
 }  // namespace fds

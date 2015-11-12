@@ -51,11 +51,14 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 {
     outStatus = inStatus;
 
+    GLOGNOTIFY << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+        << fds::logString(hdr) << inStatus;
+
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
-    fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
-    fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
-               volumeHandle->appliedCommitId+1 == hdr.commitId);
     if (volumeHandle->isFunctional()) {
+        fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
+        fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
+                   volumeHandle->appliedCommitId+1 == hdr.commitId);
         if (inStatus == ERR_OK) {
             volumeHandle->appliedOpId = hdr.opId;
             volumeHandle->appliedCommitId = hdr.commitId;

@@ -33,12 +33,32 @@ void AmProcess::putBlob(const fds_volid_t &volId)
 
 void AmProcess::putBlob(const fds_volid_t &volId, const VolumeResponseCb &cb)
 {
+    int64_t txId = txId_++;
+
     /* Create some random blob start tx */
-    fpi::StartTxMsgPtr msg(new fpi::StartTxMsg());
-    msg->volumeIoHdr.txId = txId_++;
+    fpi::StartTxMsgPtr startMsg(new fpi::StartTxMsg());
+    startMsg->volumeIoHdr.txId = txId;
     volHandle_->sendModifyMsg<fpi::StartTxMsg>(
         FDSP_MSG_TYPEID(fpi::StartTxMsg),
-        msg,
+        startMsg,
+        cb);
+
+    /* Update Tx */
+    fpi::UpdateTxMsgPtr updateMsg(new fpi::UpdateTxMsg());
+    updateMsg->volumeIoHdr.txId = txId;
+    updateMsg->kvPairs["file1:1"] = "obj1";
+    updateMsg->kvPairs["file1:2"] = "obj2";
+    volHandle_->sendModifyMsg<fpi::UpdateTxMsg>(
+        FDSP_MSG_TYPEID(fpi::UpdateTxMsg),
+        updateMsg,
+        cb);
+
+    /* Commit Tx */
+    fpi::CommitTxMsgPtr commitMsg(new fpi::CommitTxMsg());
+    commitMsg->volumeIoHdr.txId = txId;
+    volHandle_->sendWriteMsg<fpi::CommitTxMsg>(
+        FDSP_MSG_TYPEID(fpi::CommitTxMsg),
+        commitMsg,
         cb);
 }
 
