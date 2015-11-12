@@ -143,7 +143,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     if (0 == miss_cnt) {
         // Data was found in cache, done
         LOGTRACE << "Data found in cache!";
-        AmDataProvider::getBlobCb(blobReq, ERR_OK);
+        return AmDataProvider::getBlobCb(blobReq, ERR_OK);
     }
 
     // We did not find all the data, so create some GetObjectReqs and defer to
@@ -351,7 +351,7 @@ AmCache::getBlob(AmRequest *amReq) {
         LOGDEBUG << "Can't read from cache, dispatching to DM.";
     }
 
-    return AmDataProvider::getOffsets(amReq);
+    AmDataProvider::getOffsets(amReq);
 }
 
 void
