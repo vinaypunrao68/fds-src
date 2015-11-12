@@ -478,7 +478,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
     * It is expected that if a service restarts, it will re-register with the
     * OM. Which should update all the appropriate service dependencies.
     *
-    * So I don't believe that is anything to do here.
+    * So I don't believe that is anything else to do here.
     */
 }
 

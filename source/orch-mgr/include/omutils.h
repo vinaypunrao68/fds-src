@@ -26,7 +26,7 @@ namespace fds
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status,
                                const bool updateSvcMap );
-    bool isSameSvcInfoInstance( const fpi::SvcInfo svcInfo );
+    bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo );
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
     fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);
     
