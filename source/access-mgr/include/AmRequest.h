@@ -33,10 +33,14 @@ class AmRequest : public FDS_IOType {
     // Table version used to message Object Service
     fds_uint64_t   dlt_version;
 
+    std::size_t    object_size;
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
     fds_uint64_t   blob_offset_end;
     std::string    volume_name;
+
+    bool           forced_unit_access {false};
+    bool           page_out_cache {true};
 
     // Flag to indicate when a request has been responded to
     std::atomic<bool> completed;

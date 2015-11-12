@@ -196,7 +196,7 @@ namespace fds
         }
     }
 
-    bool isSameSvcInfoInstance( const fpi::SvcInfo svcInfo )
+    bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo )
     {
         std::vector<fpi::SvcInfo> entries;
         MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
@@ -213,8 +213,7 @@ namespace fds
 
                     if ( svcInfo.incarnationNo < svc.incarnationNo )
                     {
-                        LOGDEBUG << "unreachable service "
-                                 << svcInfo.name
+                        LOGDEBUG << svcInfo.name
                                  << " uuid( "
                                  << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
                                  << " ) incarnation number is older then service map, not safe to change the status!";
@@ -223,8 +222,7 @@ namespace fds
                     }
                     else if ( svcInfo.incarnationNo > svc.incarnationNo )
                     {
-                        LOGDEBUG << "unreachable service "
-                                 << svcInfo.name
+                        LOGDEBUG << svcInfo.name
                                  << " uuid( "
                                  << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
                                  << " ) incarnation number is newer then service map, not safe to change the status!";
@@ -232,15 +230,21 @@ namespace fds
                         return false;
                     }
                     /*
-                     * entries are the same, unreachable service and service map are the same
+                     * entries are the same, service and service map are the same or service incarnation is zero
                      */
-                    else if ( svc.incarnationNo == svcInfo.incarnationNo )
+                    else if ( ( svc.incarnationNo == svcInfo.incarnationNo ) ||
+                              ( svcInfo.incarnationNo == 0 ) )
                     {
-                        LOGDEBUG << "unreachable service "
-                                 << svcInfo.name
+                        if ( svcInfo.incarnationNo == 0 )
+                        {
+                            // update incarnation number
+                            svcInfo.incarnationNo = util::getTimeStampSeconds();
+                        }
+
+                        LOGDEBUG << svcInfo.name
                                  << " uuid( "
                                  << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
-                                 << " ) incarnation number is the same as service map, safe to change its status!";
+                                 << " ) incarnation number is the same as service map or is zero, safe to change its status!";
 
                         return true;
                     }
@@ -248,8 +252,9 @@ namespace fds
             }
         }
 
-        LOGDEBUG << " No Matching Service Map enteries found for unreachable service "
+        LOGDEBUG << " No Matching Service Map enteries found for service "
                  << svcInfo.name << ":" << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec;
+
         return false;
     }
 

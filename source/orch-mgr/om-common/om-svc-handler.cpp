@@ -299,16 +299,19 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     auto curTimePoint = std::chrono::system_clock::now();
     std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
-    LOGDEBUG << "OmSvcHandler: Received heartbeat from PM:"
-             << std::hex << svcUuid.svc_uuid
-             <<std::dec <<" at:" << std::ctime(&time);
+    LOGDEBUG << "Received heartbeat from PM:"
+             << std::hex << svcUuid.svc_uuid <<std::dec;
 
     // Get the time since epoch and convert it to minutes
     auto timeSinceEpoch = curTimePoint.time_since_epoch();
     double current      = std::chrono::duration<double,std::ratio<60>>
                                        (timeSinceEpoch).count();
 
-    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current);
+    bool updSvcState = false;
+    if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+        updSvcState = true;
+    }
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 
 void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
@@ -319,6 +322,34 @@ void OmSvcHandler::svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
              << " for start request";
 
     NodeUuid node_uuid(msg->pmSvcUuid);
+
+    int64_t uuid = msg->pmSvcUuid.svc_uuid;
+
+    if (lastHeardResp.first == 0) {
+        // This is the very first start resp in OM's history
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
+
+    } else if (lastHeardResp.first == uuid) {
+        int32_t current     = fds::util::getTimeStampSeconds();
+        int32_t elapsedSecs = current - lastHeardResp.second;
+
+        // If we are receiving a resp from the same PM within a second, ignore the response.
+        if (elapsedSecs <= 1) {
+
+            LOGDEBUG << "Received response from the same PM less than a second ago, will ignore";
+            lastHeardResp.second = current;
+            return;
+        }
+        lastHeardResp.second = current;
+
+    } else {
+        // Update to hold the latest response received
+        lastHeardResp = std::make_pair(uuid, fds::util::getTimeStampSeconds());
+    }
+
+    auto item = std::make_pair(node_uuid.uuid_get_val(), 0);
+    gl_orch_mgr->removeFromSentQ(item);
+
     OM_PmAgent::pointer agent = OM_Module::om_singleton()->om_nodedomain_mod()->
             om_loc_domain_ctrl()->om_pm_agent(node_uuid);
 
@@ -420,6 +451,20 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
        // no break
      case fpi::FDSP_STOR_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+
+       if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
+       {
+           NodeUuid uuid( msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid );
+           auto domain = OM_NodeDomainMod::om_local_domain();
+
+           LOGNORMAL << "Will set service to state ( "
+                     << msg->healthReport.serviceInfo.svc_status
+                     << " ) : " << msg->healthReport.serviceInfo.name
+                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+
+           domain->om_change_svc_state_and_bcast_svcmap( uuid, service_type, msg->healthReport.serviceInfo.svc_status );
+           domain->om_service_up( uuid, service_type );
+       }
        break;
      default:
        LOGDEBUG << "unimplemented health report running service: "
@@ -433,7 +478,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
     * It is expected that if a service restarts, it will re-register with the
     * OM. Which should update all the appropriate service dependencies.
     *
-    * So I don't believe that is anything to do here.
+    * So I don't believe that is anything else to do here.
     */
 }
 
@@ -492,11 +537,10 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
     // we only handle specific errors from SM and DM for now
-    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) )
-    {
+    if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) {
         /*
          * if unreachable service incarnation is the same as the service map, change the state to INVALID
-         */
+        */
         if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
             auto domain = OM_NodeDomainMod::om_local_domain();

@@ -41,8 +41,8 @@ public class AsyncAmTest extends BaseAmTest {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
-        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(dir.getFileId(), "panda");
 
         index.index(NFS_EXPORT_ID, false, dir);
@@ -58,10 +58,10 @@ public class AsyncAmTest extends BaseAmTest {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
-        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
 
-        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "panda")
                 .withLink(barDir.getFileId(), "lemur");
 
@@ -81,14 +81,14 @@ public class AsyncAmTest extends BaseAmTest {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
-        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
 
-        InodeMetadata blue = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 3, NFS_EXPORT_ID)
+        InodeMetadata blue = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 3)
                 .withLink(fooDir.getFileId(), "blue")
                 .withLink(barDir.getFileId(), "blue");
 
-        InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "red");
 
         index.index(NFS_EXPORT_ID, false, fooDir);

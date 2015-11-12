@@ -4,9 +4,7 @@
 
 package com.formationds.commons.model.helper;
 
-import com.formationds.client.v08.model.VolumeSettings;
-import com.formationds.client.v08.model.VolumeSettingsBlock;
-import com.formationds.client.v08.model.VolumeSettingsObject;
+import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.*;
@@ -56,23 +54,33 @@ public class ObjectModelHelper {
                                            JsonDeserializationContext context ) throws JsonParseException {
             JsonObject jsonObject = json.getAsJsonObject();
 
-            Class<?> klass = null;
+            Class<?> klass;
             String type = jsonObject.get( "type" ).getAsString();
             
-            if ( type.equalsIgnoreCase( "BLOCK" ) ){
+            if ( type.equalsIgnoreCase( "BLOCK" ) )
+            {
             	klass = VolumeSettingsBlock.class;
             }
-            else {
-            	klass = VolumeSettingsObject.class;
+            else if ( type.equalsIgnoreCase( "ISCSI" ) )
+            {
+                klass = VolumeSettingsISCSI.class;
             }
-            
+            else if ( type.equalsIgnoreCase( "NFS" ) )
+            {
+                klass = VolumeSettingsNfs.class;
+            }
+            else // must be a object volume
+            {
+                klass = VolumeSettingsObject.class;
+            }
+
             return context.deserialize( jsonObject, klass );
         }
     }
 
     // implement NfsOptions Adapter
     public static class NfsOptionAdapter
-            implements JsonSerializer<NfsOptionBase >, JsonDeserializer<NfsOptionBase>
+            implements JsonSerializer<NfsOptionBase>, JsonDeserializer<NfsOptionBase>
     {
         private static final String CLASSNAME = "CLASSNAME";
         private static final String INSTANCE  = "INSTANCE";
@@ -90,7 +98,7 @@ public class ObjectModelHelper {
             Class<?> klass;
             try
             {
-                klass = Class.forName( className) ;
+                klass = Class.forName( className );
             }
             catch (ClassNotFoundException e)
             {
@@ -224,6 +232,7 @@ public class ObjectModelHelper {
                                 .setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                                 .setLongSerializationPolicy( LongSerializationPolicy.STRING )
                                 .registerTypeAdapter( VolumeSettings.class, new VolumeSettingsAdapter() )
+                                .registerTypeAdapter( NfsOptionBase.class, new NfsOptionAdapter() )
                                 .setPrettyPrinting()
                                 .create();
     }

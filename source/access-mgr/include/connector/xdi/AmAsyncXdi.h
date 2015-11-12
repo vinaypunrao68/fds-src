@@ -206,18 +206,27 @@ struct AmAsyncXdiRequest
     static
     void logio(char const* op,
           server_handle_type& handle,
+          api_type::shared_string_type& volName)
+    { LOGIO << " op [" << op << "] handle [" << handle->id << "] vol [" << *volName << "]"; }
+
+    static
+    void logio(char const* op,
+          server_handle_type& handle,
+          api_type::shared_string_type& volName,
           api_type::shared_string_type& blobName)
-    { LOGIO << " op [" << op << "] handle [" << handle->id << "] blob [" << *blobName << "]"; }
+    { LOGIO << " op [" << op << "] handle [" << handle->id << "] vol [" << *volName << "] blob [" << *blobName << "]"; }
 
     static
     void logio(char const* op,
                server_handle_type& handle,
+               api_type::shared_string_type& volName,
                api_type::shared_string_type& blobName,
                api_type::shared_int_type& length,
                api_type::shared_offset_type& offset)
     {
         LOGIO << " op [" << op
               << "] handle [" << handle->id
+              << "] vol [" << *volName
               << "] blob [" << *blobName
               << "] offset {" << std::hex << offset
               << "} length {" << std::dec << *length << "}";
@@ -230,37 +239,37 @@ struct AmAsyncXdiRequest
     // These just forward to the generic template implementation in
     // AmAsyncDataApi.cxx
     void abortBlobTx(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::abortBlobTx(get_handle(requestId), domainName, volumeName, blobName, txDesc); }  // NOLINT
+    { logio(__func__, requestId, volumeName, blobName); api_type::abortBlobTx(get_handle(requestId), domainName, volumeName, blobName, txDesc); }  // NOLINT
     void attachVolume(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_vol_mode_type& mode)  // NOLINT
-    { api_type::attachVolume(get_handle(requestId), domainName, volumeName, mode); }
+    { logio(__func__, requestId, volumeName); api_type::attachVolume(get_handle(requestId), domainName, volumeName, mode); }
     void commitBlobTx(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::commitBlobTx(get_handle(requestId), domainName, volumeName, blobName, txDesc); }
+    { logio(__func__, requestId, volumeName, blobName); api_type::commitBlobTx(get_handle(requestId), domainName, volumeName, blobName, txDesc); }
     void deleteBlob(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::deleteBlob(get_handle(requestId), domainName, volumeName, blobName, txDesc); }
+    { logio(__func__, requestId, volumeName, blobName); api_type::deleteBlob(get_handle(requestId), domainName, volumeName, blobName, txDesc); }
     void getBlob(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& length, api_type::shared_offset_type& offset)  // NOLINT
-    { logio(__func__, requestId, blobName, length, offset); api_type::getBlob(get_handle(requestId), domainName, volumeName, blobName, length, offset); }  // NOLINT
+    { logio(__func__, requestId, volumeName, blobName, length, offset); api_type::getBlob(get_handle(requestId), domainName, volumeName, blobName, length, offset); }  // NOLINT
     void getBlobWithMeta(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& length, api_type::shared_offset_type& offset)  // NOLINT
-    { logio(__func__, requestId, blobName, length, offset); api_type::getBlobWithMeta(get_handle(requestId), domainName, volumeName, blobName, length, offset); }  // NOLINT
+    { logio(__func__, requestId, volumeName, blobName, length, offset); api_type::getBlobWithMeta(get_handle(requestId), domainName, volumeName, blobName, length, offset); }  // NOLINT
     void renameBlob(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& sourceBlobName, api_type::shared_string_type& destinationBlobName)  // NOLINT
-    { logio(__func__, requestId, sourceBlobName); api_type::renameBlob(get_handle(requestId), domainName, volumeName, sourceBlobName, destinationBlobName); }  // NOLINT
+    { logio(__func__, requestId, volumeName, sourceBlobName); api_type::renameBlob(get_handle(requestId), domainName, volumeName, sourceBlobName, destinationBlobName); }  // NOLINT
     void startBlobTx(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& blobMode)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::startBlobTx(get_handle(requestId), domainName, volumeName, blobName, blobMode); }
+    { logio(__func__, requestId, volumeName, blobName); api_type::startBlobTx(get_handle(requestId), domainName, volumeName, blobName, blobMode); }
     void statBlob(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::statBlob(get_handle(requestId), domainName, volumeName, blobName); }
+    { logio(__func__, requestId, volumeName, blobName); api_type::statBlob(get_handle(requestId), domainName, volumeName, blobName); }
     void updateBlob(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_string_type& bytes, api_type::shared_int_type& length, api_type::shared_offset_type& objectOffset)  // NOLINT
-    { logio(__func__, requestId, blobName, length, objectOffset); api_type::updateBlob(get_handle(requestId), domainName, volumeName, blobName, txDesc, bytes, length, objectOffset); }   // NOLINT
+    { logio(__func__, requestId, volumeName, blobName, length, objectOffset); api_type::updateBlob(get_handle(requestId), domainName, volumeName, blobName, txDesc, bytes, length, objectOffset); }   // NOLINT
     void updateBlobOnce(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_int_type& blobMode, api_type::shared_string_type& bytes, api_type::shared_int_type& length, api_type::shared_offset_type& objectOffset, api_type::shared_meta_type& metadata)  // NOLINT
-    { logio(__func__, requestId, blobName, length, objectOffset); api_type::updateBlobOnce(get_handle(requestId), domainName, volumeName, blobName, blobMode, bytes, length, objectOffset, metadata); }   // NOLINT
+    { logio(__func__, requestId, volumeName, blobName, length, objectOffset); api_type::updateBlobOnce(get_handle(requestId), domainName, volumeName, blobName, blobMode, bytes, length, objectOffset, metadata); }   // NOLINT
     void updateMetadata(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_string_type& blobName, api_type::shared_tx_ctx_type& txDesc, api_type::shared_meta_type& metadata)  // NOLINT
-    { logio(__func__, requestId, blobName); api_type::updateMetadata(get_handle(requestId), domainName, volumeName, blobName, txDesc, metadata); }
+    { logio(__func__, requestId, volumeName, blobName); api_type::updateMetadata(get_handle(requestId), domainName, volumeName, blobName, txDesc, metadata); }
     void volumeContents(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_int_type& count, api_type::shared_size_type& offset, api_type::shared_string_type& pattern, boost::shared_ptr<fpi::PatternSemantics>& patternSems, boost::shared_ptr<fpi::BlobListOrder>& orderBy, api_type::shared_bool_type& descending, api_type::shared_string_type& delimiter)  // NOLINT
-    { api_type::volumeContents(get_handle(requestId), domainName, volumeName, count, offset, pattern, patternSems, orderBy, descending, delimiter); }
+    { logio(__func__, requestId, volumeName); api_type::volumeContents(get_handle(requestId), domainName, volumeName, count, offset, pattern, patternSems, orderBy, descending, delimiter); }
     void volumeStatus(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
-    { api_type::volumeStatus(get_handle(requestId), domainName, volumeName); }
+    { logio(__func__, requestId, volumeName); api_type::volumeStatus(get_handle(requestId), domainName, volumeName); }
     void setVolumeMetadata(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName, api_type::shared_meta_type& metadata)  // NOLINT
-    { api_type::setVolumeMetadata(get_handle(requestId), domainName, volumeName, metadata); }
+    { logio(__func__, requestId, volumeName); api_type::setVolumeMetadata(get_handle(requestId), domainName, volumeName, metadata); }
     void getVolumeMetadata(server_handle_type& requestId, api_type::shared_string_type& domainName, api_type::shared_string_type& volumeName)  // NOLINT
-    { api_type::getVolumeMetadata(get_handle(requestId), domainName, volumeName); }
+    { logio(__func__, requestId, volumeName); api_type::getVolumeMetadata(get_handle(requestId), domainName, volumeName); }
 
     // TODO(bszmyd): Tue 13 Jan 2015 04:00:24 PM PST
     // Delete these when we can. These are the synchronous forwarding.

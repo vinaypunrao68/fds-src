@@ -991,6 +991,14 @@ class OM_NodeDomainMod : public Module
                     fpi::FDSP_MgrIdType svcType);
 
     /**
+     * Notification that service is up to DLT and DMT state machines
+     * @param svcUuid service that is up
+     */
+    virtual void
+    om_service_up(const NodeUuid& svcUuid,
+                  fpi::FDSP_MgrIdType svcType);
+
+    /**
      * Unregister the node matching uuid from the domain manager.
      */
     virtual Error om_del_services(const NodeUuid& node_uuid,

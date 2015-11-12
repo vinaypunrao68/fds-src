@@ -98,6 +98,8 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
             ++assoc_map[volDesc->name];
             descriptor = volDesc;
         }
+    } else {
+        resp->setError(error);
     }
     blockResp->attachResp(descriptor);
     finishResponse(resp);
@@ -284,6 +286,8 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
         // Adjust the buffers in our vector so they align and are of the
         // correct length according to the original request
         resp->handleReadResponse(*bufs, length);
+    } else {
+        resp->setError(error);
     }
     finishResponse(resp);
 }

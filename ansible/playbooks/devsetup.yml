@@ -107,6 +107,15 @@
     - name: install latest fds-stats-service package
       apt: name=fds-stats-service force=yes state=latest update_cache=yes cache_valid_time=600
 
+    - name: install latest rabbitmq-c package
+      apt: name=rabbitmq-c force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest simple amqp client package
+      apt: name=simpleamqpclient force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest fds-stats-client-c package
+      apt: name=fds-stats-client-c force=yes state=latest update_cache=yes cache_valid_time=600
+
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
 
@@ -290,3 +299,5 @@
         apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
         register: install
 
+    -   name: set local for error messages
+        command: update-locale LC_MESSAGES=POSIX

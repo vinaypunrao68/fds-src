@@ -4,8 +4,10 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 
+#include <deque>
 #include <mutex>
 #include <string>
+#include <tuple>
 #include <fds_volume.h>
 #include <net/SvcRequest.h>
 #include "AmRequest.h"
@@ -13,7 +15,8 @@
 
 namespace fds {
 
-/* Forward declaarations */
+/* Forward declarations */
+struct StartBlobTxReq;
 class MockSvcHandler;
 struct DLT;
 
@@ -102,26 +105,31 @@ struct AmDispatcher : HasModuleProvider
      * Dispatches a test volume request to OM.
      */
     Error attachVolume(std::string const& volume_name);
-    void dispatchAttachVolume(AmRequest *amReq);
+    void attachVolume(AmRequest *amReq);
 
     /**
      * Dispatches an open volume request to DM.
      */
-    void dispatchOpenVolume(AmRequest *amReq);
+    void openVolume(AmRequest *amReq);
     void openVolumeCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) const;
 
     /**
+     * Releases any state about this volume
+     */
+    Error removeVolume(fds_volid_t const volId);
+
+    /**
      * Dispatches an open volume request to DM.
      */
-    Error dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token);
+    Error closeVolume(fds_volid_t vol_id, fds_int64_t token);
 
     /**
      * Dispatches a stat volume request.
      */
-    void dispatchStatVolume(AmRequest *amReq);
+    void statVolume(AmRequest *amReq);
 
     /**
      * Callback for stat volume responses.
@@ -134,7 +142,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a set volume metadata request.
      */
-    void dispatchSetVolumeMetadata(AmRequest *amReq);
+    void setVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for set volume metadata responses.
@@ -147,7 +155,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a get volume metadata request.
      */
-    void dispatchGetVolumeMetadata(AmRequest *amReq);
+    void getVolumeMetadata(AmRequest *amReq);
 
     /**
      * Callback for get volume metadata responses.
@@ -160,12 +168,12 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Aborts a blob transaction request.
      */
-    void dispatchAbortBlobTx(AmRequest *amReq);
+    void abortBlobTx(AmRequest *amReq);
 
     /**
      * Dipatches a start blob transaction request.
      */
-    void dispatchStartBlobTx(AmRequest *amReq);
+    void startBlobTx(AmRequest *amReq);
 
     /**
      * Callback for start blob transaction responses.
@@ -178,7 +186,7 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a commit blob transaction request.
      */
-    void dispatchCommitBlobTx(AmRequest *amReq);
+    void commitBlobTx(AmRequest *amReq);
 
     /**
      * Callback for commit blob transaction responses.
@@ -191,42 +199,42 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches an update catalog request.
      */
-    void dispatchUpdateCatalog(AmRequest *amReq);
+    void putBlob(AmRequest *amReq);
 
     /**
      * Dispatches an update catalog once request.
      */
-    void dispatchUpdateCatalogOnce(AmRequest *amReq);
+    void putBlobOnce(AmRequest *amReq);
 
     /**
      * Dipatches a put object request.
      */
-    void dispatchPutObject(AmRequest *amReq);
+    void putObject(AmRequest *amReq);
 
     /**
      * Dipatches a get object request.
      */
-    void dispatchGetObject(AmRequest *amReq);
+    void getObject(AmRequest *amReq);
 
     /**
      * Dispatches a delete blob transaction request.
      */
-    void dispatchDeleteBlob(AmRequest *amReq);
+    void deleteBlob(AmRequest *amReq);
 
     /**
      * Dipatches a query catalog request.
      */
-    void dispatchQueryCatalog(AmRequest *amReq);
+    void getBlob(AmRequest *amReq);
 
     /**
      * Dispatches a stat blob transaction request.
      */
-    void dispatchStatBlob(AmRequest *amReq);
+    void statBlob(AmRequest *amReq);
 
     /**
      * Dispatches a rename blob request.
      */
-    void dispatchRenameBlob(AmRequest *amReq);
+    void renameBlob(AmRequest *amReq);
 
     /**
      * Dispatches a rename blob request.
@@ -239,15 +247,15 @@ struct AmDispatcher : HasModuleProvider
     /**
      * Dispatches a set metadata on blob transaction request.
      */
-    void dispatchSetBlobMetadata(AmRequest *amReq);
+    void setBlobMetadata(AmRequest *amReq);
 
     /**
      * Dispatches a volume contents (list bucket) transaction request.
      */
-    void dispatchVolumeContents(AmRequest *amReq);
+    void volumeContents(AmRequest *amReq);
 
-    bool  getNoNetwork() {
-           return noNetwork;
+    bool getNoNetwork() const {
+        return noNetwork;
     }
 
   private:
@@ -265,6 +273,13 @@ struct AmDispatcher : HasModuleProvider
     boost::shared_ptr<DMTManager> dmtMgr;
 
     mutable VolumeDispatchTable dispatchTable;
+
+    using dmt_ver_count_type = std::tuple<fds_uint64_t, size_t, std::deque<StartBlobTxReq*>>;
+    using blob_id_type = std::pair<fds_volid_t, std::string>;
+    using tx_map_barrier_type = std::map<blob_id_type, dmt_ver_count_type>;
+
+    std::mutex tx_map_lock;
+    tx_map_barrier_type tx_map_barrier;
 
     template<typename Msg>
     MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
@@ -290,6 +305,9 @@ struct AmDispatcher : HasModuleProvider
                                                 boost::shared_ptr<Msg> const& payload,
                                                 FailoverSvcRequestRespCb cb,
                                                 uint32_t timeout=0) const;
+
+    void _startBlobTx(AmRequest *amReq);
+
     /**
      * Callback for delete blob responses.
      */
@@ -386,6 +404,12 @@ struct AmDispatcher : HasModuleProvider
 
     boost::shared_ptr<MockSvcHandler> mockHandler_;
     uint64_t mockTimeoutUs_  = 200;
+
+    /**
+     * Drains any pending start tx requests into the svc layer with updated
+     * dmt version
+     */
+    void releaseTx(blob_id_type const& blob_id);
 
     /**
      * Sets the configured request serialization.
