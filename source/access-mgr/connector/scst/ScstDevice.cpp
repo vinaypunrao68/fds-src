@@ -183,6 +183,8 @@ void ScstDevice::execAllocCmd() {
 
     // Allocate a page aligned memory buffer for Scst usage
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
+    // This is mostly to shutup valgrind
+    memset((void*) fast_reply.alloc_reply.pbuf, 0x00, length);
     fastReply();
 }
 
@@ -258,6 +260,7 @@ void ScstDevice::execUserCmd() {
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+        memset((void*) buffer, 0x00, scsi_cmd.alloc_len);
         task->setResponseBuffer(buffer, false);
     } else {
         task->setResponseBuffer(buffer, true);

@@ -8,7 +8,6 @@ struct AmDispatcherMockCbs
 {
     static void getObjectCb(AmRequest *amReq)
     {
-        amReq->proc_cb(ERR_OK);                        
     }
     static void queryCatalogCb(AmRequest *amReq)
     {
@@ -20,7 +19,6 @@ struct AmDispatcherMockCbs
         }
         blobReq->object_ids.clear();
         blobReq->object_ids.emplace_back(new ObjectID());
-        amReq->proc_cb(ERR_OK);
     }
 };
 }  // namespace fds
