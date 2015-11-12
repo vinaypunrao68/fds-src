@@ -86,7 +86,10 @@ OM_NodeAgent::handle_service_deployed()
     }
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
+    fds_mutex dbLock;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+    fds_mutex::scoped_lock l(dbLock);
     change_service_state( configDB,
                           rs_get_uuid().uuid_get_val(),
                           fpi::SVC_STATUS_ACTIVE );

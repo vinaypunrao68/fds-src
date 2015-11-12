@@ -35,11 +35,11 @@ public class TransactionalIoTest {
     public void testMapAndMutateMetadata() throws Exception {
         transactionalIo.mutateMetadata(domain, volume, blobName, false, (meta) -> meta.put("foo", "bar"));
         assertEquals("bar", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
-        assertEquals("bar", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("bar", transactionalIo.mapMetadata(domain, volume, blobName, (x, om) -> om.get().get("foo")));
 
         transactionalIo.mutateMetadata(domain, volume, blobName, false, meta -> meta.put("foo", "panda"));
         assertEquals("panda", ioOps.readMetadata(domain, volume, blobName).get().get("foo"));
-        assertEquals("panda", transactionalIo.mapMetadata(domain, volume, blobName, om -> om.get().get("foo")));
+        assertEquals("panda", transactionalIo.mapMetadata(domain, volume, blobName, (x, om) -> om.get().get("foo")));
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TransactionalIoTest {
         testMapAndMutateMetadata();
         transactionalIo.deleteBlob(domain, volume, blobName);
 
-        Optional<Map<String, String>> cachedMeta = transactionalIo.mapMetadata(domain, volume, blobName, om -> om);
+        Optional<Map<String, String>> cachedMeta = transactionalIo.mapMetadata(domain, volume, blobName, (x, om) -> om);
         assertFalse(cachedMeta.isPresent());
         Optional<ObjectAndMetadata> cachedObject = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov);
