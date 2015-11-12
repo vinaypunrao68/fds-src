@@ -244,19 +244,14 @@ class DmMigrationMgr : public DmMigrationBase {
     std::atomic<bool> migrationAborted;
 
     /**
-     * If OM issues a re-sync or start migration and the migration is aborted,
-     * then the following is used to ensure that migration is fully aborted
+     * If OM issues a re-sync or start migration and there is ongoing migrations,
+     * then the following is used to ensure that migration is fully finished/aborted
      * before restarting a new one.
      */
-    fds_bool_t migrationAbortFinished;
-    std::mutex migrationAbortMutex;
-
-    // Used for waiting for prev migr to finish - lock prior to doing a executorMap.clear
-    std::mutex waitForPrevMigrMutex;
+    std::mutex migrationBatchMutex;
 
     // This cv is used for both abort and success
     std::condition_variable migrationCV;
-
 
     /**
      * Seconds to sleep prior to starting migration
@@ -397,17 +392,9 @@ class DmMigrationMgr : public DmMigrationBase {
 
     /**
      * Both DMs
-     * If migration is undergoing error, this method waits for that abort to finish
+     * If a migration batch is ongoing, this method waits for that batch to finish
      */
-    void waitForAbortToFinish();
-
-    /**
-     * Executor only
-     * If active migration is in progress, and the dest node received another start migr
-     * message from OM, most likely due to a non-source DM failure, the executor
-     * needs to finish the current migration or erroring out before starting a new one.
-     */
-    void waitForOngoingExecutorsToFinish();
+    void waitForMigrationBatchToFinish();
 
     /**
      * DMT watermark map - for rejecting messages from AM during resync that duplicate forwarded commits

@@ -139,7 +139,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish();
 
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
@@ -332,7 +332,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish();
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
@@ -565,6 +565,7 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * Just nuke all the clientMap because DMT Close can only happen once all the executors
 			 * have Cb'ed to the OM.
 			 */
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			clientMap.clear();
 			LOGMIGRATE << "Migration clients cleared and state reset";
 		}
@@ -578,13 +579,11 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.
 			 */
-			{
-			    std::unique_lock<std::mutex> lk(waitForPrevMigrMutex);
-			    executorMap.clear();
-			}
-			migrationCV.notify_one();
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
+			executorMap.clear();
 		}
 	}
+	migrationCV.notify_one();
 	return err;
 }
 
@@ -693,6 +692,8 @@ DmMigrationMgr::abortMigrationReal()
 				eiter->second->abortMigration();
 				++eiter;
 			}
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
+			fds_verify(migrationAborted);
 			clientMap.clear();
 			executorMap.clear();
 		}
@@ -708,11 +709,6 @@ DmMigrationMgr::abortMigrationReal()
      * another migration was initiated from the OM and are waiting,
      * we need to wake them up now.
      */
-    {
-    	std::lock_guard<std::mutex> lk(migrationAbortMutex);
-    	fds_verify(migrationAborted && !migrationAbortFinished);
-    	migrationAbortFinished = true;
-    }
     migrationCV.notify_one();
 
 }
@@ -788,30 +784,17 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 }
 
 void
-DmMigrationMgr::waitForAbortToFinish()
+DmMigrationMgr::waitForMigrationBatchToFinish()
 {
-	LOGMIGRATE << "Waiting for previous migration abort to finish, if there is any.";
-	std::unique_lock<std::mutex> lk(migrationAbortMutex);
-	migrationCV.wait(lk,
-			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
-					(!std::atomic_load(&migrationAborted)));});
-	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
-		// reset state
-		std::atomic_store(&migrationAborted, false);
-		migrationAbortFinished = false;
-	}
-	lk.unlock();
-	LOGMIGRATE << "Done waiting for previous migration abort to finish";
-}
+	LOGMIGRATE << "Waiting for previous migrations to finish, if there is any.";
+	bool expected = true;
+	std::unique_lock<std::mutex> lk(migrationBatchMutex);
+	migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
 
-void
-DmMigrationMgr::waitForOngoingExecutorsToFinish()
-{
-    if (!executorMap.empty()) {
-        LOGMIGRATE << "Waiting for previous migrations to finish.";
-    }
-    std::unique_lock<std::mutex> lk(waitForPrevMigrMutex);
-    migrationCV.wait(lk, [this]{return executorMap.empty();});
+	// If migrationAborted was set true, set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
+	LOGMIGRATE << "Done waiting for previous migrations to finish";
 }
 
 bool
