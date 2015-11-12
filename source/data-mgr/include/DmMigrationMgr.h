@@ -231,7 +231,12 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     fds_bool_t migrationAbortFinished;
     std::mutex migrationAbortMutex;
-    std::condition_variable migrationAbortCV;
+
+    // Used for waiting for prev migr to finish - lock prior to doing a executorMap.clear
+    std::mutex waitForPrevMigrMutex;
+
+    // This cv is used for both abort and success
+    std::condition_variable migrationCV;
 
 
     /**
@@ -376,6 +381,14 @@ class DmMigrationMgr : public DmMigrationBase {
      * If migration is undergoing error, this method waits for that abort to finish
      */
     void waitForAbortToFinish();
+
+    /**
+     * Executor only
+     * If active migration is in progress, and the dest node received another start migr
+     * message from OM, most likely due to a non-source DM failure, the executor
+     * needs to finish the current migration or erroring out before starting a new one.
+     */
+    void waitForOngoingExecutorsToFinish();
 
 };  // DmMigrationMgr
 

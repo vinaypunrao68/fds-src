@@ -578,7 +578,11 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.
 			 */
-			executorMap.clear();
+			{
+			    std::unique_lock<std::mutex> lk(waitForPrevMigrMutex);
+			    executorMap.clear();
+			}
+			migrationCV.notify_one();
 		}
 	}
 	return err;
@@ -709,7 +713,7 @@ DmMigrationMgr::abortMigrationReal()
     	fds_verify(migrationAborted && !migrationAbortFinished);
     	migrationAbortFinished = true;
     }
-    migrationAbortCV.notify_one();
+    migrationCV.notify_one();
 
 }
 
@@ -786,9 +790,9 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 void
 DmMigrationMgr::waitForAbortToFinish()
 {
-	LOGMIGRATE << "Waiting for previous migration abort to finish";
+	LOGMIGRATE << "Waiting for previous migration abort to finish, if there is any.";
 	std::unique_lock<std::mutex> lk(migrationAbortMutex);
-	migrationAbortCV.wait(lk,
+	migrationCV.wait(lk,
 			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
 					(!std::atomic_load(&migrationAborted)));});
 	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
@@ -798,5 +802,15 @@ DmMigrationMgr::waitForAbortToFinish()
 	}
 	lk.unlock();
 	LOGMIGRATE << "Done waiting for previous migration abort to finish";
+}
+
+void
+DmMigrationMgr::waitForOngoingExecutorsToFinish()
+{
+    if (!executorMap.empty()) {
+        LOGMIGRATE << "Waiting for previous migrations to finish.";
+    }
+    std::unique_lock<std::mutex> lk(waitForPrevMigrMutex);
+    migrationCV.wait(lk, [this]{return executorMap.empty();});
 }
 }  // namespace fds
