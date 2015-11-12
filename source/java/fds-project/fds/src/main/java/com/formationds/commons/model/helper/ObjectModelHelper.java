@@ -236,7 +236,7 @@ public class ObjectModelHelper {
                                 .setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                                 .setLongSerializationPolicy( LongSerializationPolicy.STRING )
                                 .registerTypeAdapter( VolumeSettings.class, new VolumeSettingsAdapter() )
-                                .registerTypeAdapter( NfsOption.class, new NfsOption() )
+                                .registerTypeAdapter( NfsOption.class, new NfsOptionAdapter() )
                                 .setPrettyPrinting()
                                 .create();
     }
