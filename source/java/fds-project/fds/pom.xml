@@ -55,6 +55,12 @@
       <artifactId>formationds-jsvc-layer</artifactId>
       <version>${formationds.jsvc.layer.version}</version>
     </dependency>
+    
+    <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>stats-client</artifactId>
+        <version>${formationds.stats.client.version}</version>
+    </dependency>
 
     <!-- third party dependencies -->
     <dependency>
