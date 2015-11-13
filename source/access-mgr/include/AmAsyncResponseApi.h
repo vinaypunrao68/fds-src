@@ -40,8 +40,11 @@ struct BlobDescriptor {
           blobKvMeta(_blobKvMeta)
     { }
 
+    explicit BlobDescriptor(BlobDescriptor const& rhs) = default;
+    explicit BlobDescriptor(BlobDescriptor&& rhs) = default;
+    BlobDescriptor& operator=(BlobDescriptor const& rhs) = default;
+    BlobDescriptor& operator=(BlobDescriptor&& rhs) = default;
     ~BlobDescriptor() = default;
-    explicit BlobDescriptor(const BlobDescriptor &blobDesc) = default;
 
     /**
      * Returns const iterator to key value metadata

@@ -10,6 +10,7 @@ import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
@@ -101,6 +102,11 @@ public class AsyncAmTest extends BaseAmTest {
     }
 
     private class MyExportResolver implements ExportResolver {
+        @Override
+        public Collection<String> exportNames() {
+            return Lists.newArrayList(volumeName);
+        }
+
         @Override
         public int exportId(String volumeName) {
             return NFS_EXPORT_ID;

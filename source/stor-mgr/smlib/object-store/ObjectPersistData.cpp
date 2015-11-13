@@ -235,11 +235,6 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     fiu_do_on("sm.objectstore.fail.data.disk",
               if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
               {  err = ERR_DISK_WRITE_FAILED; });
-    if (!err.ok()) {
-        if (mediaTrackerFn) {
-            mediaTrackerFn(smTokId, req->getTier(), err);
-        }
-    }
     return err;
 }
 
@@ -262,11 +257,6 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     fiu_do_on("sm.objectstore.fail.data.disk",
               if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
               {  err = ERR_DISK_READ_FAILED; });
-    if (!err.ok()) {
-        if (mediaTrackerFn) {
-            mediaTrackerFn(smTokId, req->getTier(), err);
-        }
-    }
     return err;
 }
 

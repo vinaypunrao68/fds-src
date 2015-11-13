@@ -158,13 +158,13 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             removed = curSmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-            fds_verify(removed == 1);
+//            fds_verify(removed == 1);
             removedSMs.insert(uuid);
         } else {
             removed = curDmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-            fds_verify(removed == 1);
+//            fds_verify(removed == 1);
             removedDMs.insert(uuid);
         }
     }
@@ -177,7 +177,7 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
         if (svc_type == fpi::FDSP_STOR_MGR) {
             // For now, assume it's incorrect to add a node
             // that already exists
-            fds_verify(curSmMap.count(uuid) == 0);
+//            fds_verify(curSmMap.count(uuid) == 0);
             curSmMap[uuid] = (*it);
             addedSMs.insert(uuid);
         } else {

@@ -268,11 +268,7 @@ ObjectMetadataDb::get(fds_volid_t volId,
               {    err = ERR_NO_BYTES_READ;    } );
     if (!err.ok()) {
         // Object not found. Return.
-        fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        if (mediaTrackerFn) {
-            mediaTrackerFn(smTokId, metaTier, err);
-        }
-        return NULL;
+        return nullptr;
     }
 
     ObjMetaData::const_ptr objMeta(new ObjMetaData(buf));
@@ -302,12 +298,6 @@ Error ObjectMetadataDb::put(fds_volid_t volId,
                        << diskId;
               if (diskId == 12)
               {    err = ERR_DISK_WRITE_FAILED;    } );
-    if (!err.ok()) {
-        fds_token_id smTokId = SmDiskMap::smTokenId(objId, bitsPerToken_);
-        if (mediaTrackerFn) {
-            mediaTrackerFn(smTokId, metaTier, err);
-        }
-    }
     return err;
 }
 

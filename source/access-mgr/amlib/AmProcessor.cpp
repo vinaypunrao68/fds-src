@@ -135,6 +135,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     break;;
                 case ERR_NOT_FOUND:
                 case ERR_BLOB_NOT_FOUND:
+                case ERR_BLOB_OFFSET_INVALID:
                 case ERR_CAT_ENTRY_NOT_FOUND:
                 case ERR_VOL_NOT_FOUND:
                     code = fpi::MISSING_RESOURCE;
@@ -174,7 +175,7 @@ bool AmProcessor_impl::stop() {
         shut_down = true;
     }
 
-    if (qos_ctrl->stop()) {
+    if (qos_ctrl->shutdown()) {
         parent_mod->mod_shutdown();
         return true;
     }
@@ -188,7 +189,7 @@ AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     // Remove the volume from QoS/VolumeTable, this is
     // called to clear any waiting requests with an error and
     // remove the QoS allocations
-    return qos_ctrl->removeVolume(volDesc.name, volDesc.volUUID);
+    return qos_ctrl->removeVolume(volDesc);
 }
 
 Error

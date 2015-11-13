@@ -243,7 +243,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     fwdMsg->blob_version = blob_version;
     fwdMsg->sequence_id = commitBlobReq->sequence_id;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
-    meta_list->moveToFdspPayload(fwdMsg->meta_list);
+    meta_list->toFdspPayload(fwdMsg->meta_list);
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response

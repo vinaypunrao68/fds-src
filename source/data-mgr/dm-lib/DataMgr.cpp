@@ -1038,6 +1038,18 @@ DataMgr::~DataMgr()
     // shutdown all data manager modules
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
+
+    dmMigrationMgr.reset();
+
+    for (auto it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        delete it->second;
+    }
+    vol_meta_map.clear();
+    delete sysTaskQueue;
+    delete vol_map_mtx;
+    delete qosCtrl;
 }
 
 int DataMgr::run()
@@ -1174,6 +1186,8 @@ void DataMgr::flushIO()
 
 void DataMgr::mod_shutdown()
 {
+    /* NOTE: DON'T DELETE ANY OBJECTES HERE.  DO ALL THE DELETIONS INSIDE DESTRUCTORS */
+
     // Don't double-free.
     {
         // The expected goofiness is due to c_e_s() setting "expected" to the current value if it
@@ -1214,14 +1228,10 @@ void DataMgr::mod_shutdown()
          it++) {
         //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
-        delete it->second;
     }
-    vol_meta_map.clear();
 
     qosCtrl->deregisterVolume(FdsDmSysTaskId);
-    delete sysTaskQueue;
-    delete vol_map_mtx;
-    delete qosCtrl;
+    qosCtrl->threadPool->stop();
 
     _shutdownGate.open();
 }

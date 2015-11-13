@@ -81,6 +81,7 @@ struct LockfreeWorker {
 struct LFMQThreadpool {
     LFMQThreadpool(uint32_t sz, bool steal = false);
     ~LFMQThreadpool();
+    void stop();
     template <class F, class... Args>
     void schedule(F&& f, Args&&... args)
     {

@@ -111,7 +111,8 @@ ObjectStoreLoadProc::put(fds_volid_t volId,
     Error err(ERR_OK);
     fds_uint64_t start_nano = util::getTimeStampNanos();
     if (objectStore) {
-        err = objectStore->putObject(volId, objId, objData, false);
+        diskio::DataTier tier;
+        err = objectStore->putObject(volId, objId, objData, false, tier);
     } else {
         fds_panic("no known modules are initialized for put operation!");
     }
