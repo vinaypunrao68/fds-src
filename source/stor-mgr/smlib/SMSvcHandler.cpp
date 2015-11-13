@@ -1224,9 +1224,8 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     std::string filename;
     // verify the file checksum
     if (msg->filename.empty() && msg->checksum.empty()) {
-        LOGWARN << "no active objects for token:" << msg->token
-                << " for [" << msg->volumeIds.size() <<"]";
-//        objStorMgr->objectStore->removeObjectSet(msg->token, hdr->msg_src_uuid.svc_uuid);
+        LOGDEBUG << "no active objects for token:" << msg->token
+                 << " for [" << msg->volumeIds.size() <<"]";
     } else {
         filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
         if (!util::fileExists(filename)) {
@@ -1249,8 +1248,6 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     for (auto volId : msg->volumeIds) {
         objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
                                               ts, filename);
-        //objStorMgr->objectStore->cleansertObjectSet(msg->token, fds_volid_t(volId),
-          //                                          ts, filename, hdr->msg_src_uuid.svc_uuid);
     }
 
     fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
