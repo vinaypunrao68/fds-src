@@ -7,7 +7,8 @@
 #include <list>
 #include <fds_module.h>
 #include <net/filetransferservice.h>
-namespace fds { 
+#include <util/atomiccounter.h>
+namespace fds {
 struct DataMgr;
 namespace refcount {
 struct ObjectRefScanMgr;
@@ -24,8 +25,7 @@ struct RefCountManager : Module {
     void scanDoneCb(ObjectRefScanMgr*);
     void objectFileTransferredCb(fds::net::FileTransferService::Handle::ptr,
                                  const Error& err,
-                                 fds_token_id token,
-                                 VolumeList volumeList);
+                                 fds_token_id token);
 
     void handleActiveObjectsResponse(fds_token_id token,
                                      EPSvcRequest* request,
@@ -34,7 +34,17 @@ struct RefCountManager : Module {
   protected:
     SHPTR<ObjectRefScanMgr> scanner;
     DataMgr* dm;
+
+    struct FileTransferContext {
+        RefCountManager *refCountManager;
+        VolumeList volumeList;
+        fds_token_id currentToken = 0;
+        util::AtomicCounter numResponsesToRecieve;
+        void tokenDone(fds_token_id token, fpi::SvcUuid svcId, const Error& err);
+        bool processNextToken();
+    } transferContext;
 };
+
 
 }  // namespace refcount
 }  // namespace fds

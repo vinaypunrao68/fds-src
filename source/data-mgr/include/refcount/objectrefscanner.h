@@ -207,6 +207,8 @@ struct ObjectRefScanMgr : HasModuleProvider, Module {
     inline size_t getScanSuccessVolsCnt() const {return scanSuccessVols.size();}
     inline uint64_t getObjectsScannedCntr() const { return objectsScannedCntr; }
 
+    bool setStateStopped();
+
  protected:
     /**
     * @brief Runs the scanner for scanning volumes and snaps.  Currently we scan

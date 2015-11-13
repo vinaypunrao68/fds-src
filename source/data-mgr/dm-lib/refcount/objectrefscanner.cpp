@@ -224,7 +224,8 @@ void ObjectRefScanMgr::scanStep() {
     } else {
         /* Scan finished */
         bfStore->sync(true /* clear cache */);
-        state = STOPPED;
+        // stop from refcountmanager
+        // state = STOPPED;
         dataMgr->counters->refscanRunning.set(0);
         dumpStats();
         if (scandoneCb) {
@@ -236,6 +237,17 @@ void ObjectRefScanMgr::scanStep() {
             timer->schedule(scanTask, scanIntervalSec);
         }
     }
+}
+
+bool ObjectRefScanMgr::setStateStopped() {
+    auto expectedState = RUNNING;
+    bool wasStopped = state.compare_exchange_strong(expectedState, STOPPED);
+    if (!wasStopped) {
+        GLOGWARN << "could not set state to STOPPED "
+                 << "current state: " << state;
+        return false;
+    }
+    return true;
 }
 
 util::BloomFilterPtr ObjectRefScanMgr::getTokenBloomFilter(const fds_token_id &tokenId)
@@ -404,7 +416,6 @@ Error VolumeObjectRefScanner::scanStep() {
         auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(volId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
-            GLOGDEBUG << "mytest calculated objid: " << oid << " token: " << kv.first;
             bloomfilter->add(oid);
             objRefMgr->objectsScannedCntr++;
         }
@@ -417,12 +428,12 @@ Error VolumeObjectRefScanner::finishScan(const Error &e) {
     state = COMPLETE;
     completionError = e;
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
-    auto err = volcatIf->freeVolumeSnapshot(volId, snap);
-    if (err != ERR_OK) {
-        GLOGWARN << "Failed to release snapshot for volId: " << volId;
+    if (e != ERR_VOL_NOT_FOUND) {
+        if (ERR_OK != volcatIf->freeVolumeSnapshot(volId, snap)) {
+            GLOGWARN << "Failed to release snapshot for volId: " << volId;
+        }
     }
-
-    return err;
+    return e;
 }
 }  // namespace refcount
 }  // namespace fds
