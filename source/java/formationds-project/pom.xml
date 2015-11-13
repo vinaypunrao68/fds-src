@@ -75,8 +75,7 @@
       </activation>
       <properties>
         <!-- thrift properties -->
-        <!-- <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary> -->
-        <thrift.binary>${basedir}/../../../../../opensource/thrift-${thrift.version}/dist/fds-thrift-${thrift.version}/bin/thrift</thrift.binary>
+        <thrift.binary>${basedir}/../../../../Build/fds-thrift-${thrift.version}/bin/thrift</thrift.binary>
       </properties>
     </profile>
   </profiles>
