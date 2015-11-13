@@ -137,14 +137,14 @@ class Disk:
         dev = re.split('/', path)
         assert len(dev) == 3
         fp = open('/sys/block/' + dev[2] + '/queue/rotational', 'r')
-        rotation = fp.read().strip()
+        rotation = int (fp.read().strip())
         fp.close()
 
         if virtualized:                        # Virtualized, treat as HDD's, can tune in the config file if desired
             self.dsk_typ = Disk.DSK_TYP_HDD
-        elif rotation == '0':                  # SSD
+        elif rotation == 0:                  # SSD
             self.dsk_typ = Disk.DSK_TYP_SSD
-        elif rotation > '0':                   # HDD
+        elif rotation > 0:                   # HDD
             self.dsk_typ = Disk.DSK_TYP_HDD
                                                # else this device is on a hardware controller,
                                                # so leave the dsk_typ set to the default UKN (unknown)
