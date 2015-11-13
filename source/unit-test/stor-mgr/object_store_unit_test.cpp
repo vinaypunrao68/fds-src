@@ -39,6 +39,7 @@ static TestVolume::ptr largeCapVolume;
 static TestVolume::ptr vlargeCapVolume;
 static TestVolume::ptr largeObjVolume;
 static TestVolume::ptr migrVolume;
+static diskio::DataTier tier;
 
 class ObjectStoreTest : public FdsProcess {
   public:
@@ -167,7 +168,7 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
-                    err = objectStore->putObject(volId, oid, data, false);
+                    err = objectStore->putObject(volId, oid, data, false, tier);
                     EXPECT_EQ(err, expectedError);
                 }
                 break;
@@ -250,7 +251,7 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
         boost::shared_ptr<std::string> data =
                 (vlargeCapVolume->testdata_).dataset_map_[oid].getObjectData();
         if ((SmDiskMap::smTokenId(oid, bitsPerDltToken) == smToken)) {
-            err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false);
+            err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false, tier);
             if (ignorePut) {
                 bf->add(oid);
                 ignorePut = false;
@@ -365,7 +366,7 @@ TEST_F(SmObjectStoreTest, one_thread_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false, tier);
         EXPECT_TRUE(err.ok());
     }
     float_t used_pct = objectStore->getUsedCapacityAsPct();
@@ -394,7 +395,7 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false, tier);
         EXPECT_TRUE(err.ok());
         if (!err.ok()) {
             std::cout << oid << " putObject returned " << err << std::endl;

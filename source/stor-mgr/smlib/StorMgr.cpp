@@ -705,6 +705,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier useTier = diskio::maxTier;
 
     fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
@@ -721,7 +722,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         err = objectStore->putObject(volId,
                                      objId,
                                      boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
-                                     putReq->forwardedReq);
+                                     putReq->forwardedReq, useTier);
 
         qosCtrl->markIODone(*putReq);
 
@@ -742,6 +743,10 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         }
     }
 
+    if (!err.ok()) {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, useTier, err);
+    }
     putReq->response_cb(err, putReq);
 }
 
@@ -891,8 +896,10 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
         // a shared ptr structure so that we can directly store that, even
         // after the network message is freed.
         getReq->getObjectNetResp->data_obj = *objData;
+    } else {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, tierUsed, err);
     }
-
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     // end of ObjectStore layer latency
