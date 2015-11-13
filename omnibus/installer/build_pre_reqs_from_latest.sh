@@ -31,12 +31,6 @@ make package fds-platform BUILD_TYPE=${1}
 make package fds-deps
 cd omnibus/installer
 
-if [[ ${#JENKINS_URL} -gt 0 ]]
-then
-    jenkins_scripts/deploy_artifacts.sh
-fi
-
-
 # making directories that the build_install script will look for packages
 
 mkdir -p ../omnibus-fds-stats-service/pkg
@@ -65,13 +59,12 @@ apt-get download fds-stats-client-c
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-client-c package from apt repo' && exit 99
 mv fds-stats-client-c*.deb ../omnibus-fds-stats-client-c/pkg
 
-#upload to artifactory is this is running in jenkins
 if [[ ${#JENKINS_URL} -gt 0 ]]
 then
     cd ../../jenkins_scripts
-    echo "Uploading artifacts to artifactory"
-    deploy_artifacts.sh
-    cd ../../../omnibus/installer
+    echo "Uploading the platform and fds-deps packages to artifactory"
+    ./deploy_artifacts.sh
+    cd ../omnibus/installer
 fi
 
 echo "Building the offline installer."
