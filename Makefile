@@ -1,7 +1,6 @@
 topdir         := .
 user_ext_build := true
-# DO NOT MERGE TO MASTER
-##user_predep := use_thrift_from_artifactory
+user_predep := use_thrift_from_artifactory
 
 user_build_dir := \
     jansson-2.5   \

@@ -17,10 +17,7 @@ toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 # Thrift settings.
 #
 tool_thrift_version  := 0.9.3
-# DO NOT MERGE TO MASTER
-#toolchain_thrf       := $(topdir)/../Build/thrift-$(tool_thrift_version)
-#tool_thrift          := $(toolchain_bin)/thrift
-toolchain_thrf       := $(topdir)/../../opensource/thrift-$(tool_thrift_version)/dist/fds-thrift-${tool_thrift_version}
+toolchain_thrf       := $(topdir)/../Build/fds-thrift-$(tool_thrift_version)
 tool_thrift          := $(toolchain_thrf)/bin/thrift
 toolchain_thrf_incl  := -I$(toolchain_thrf)/include
 toolchain_thrf_lib   := -L${toolchain_thrf}/lib
