@@ -4,7 +4,7 @@ from svc_types.ttypes import FDSPMsgTypeId
 import platformservice
 from platformservice import *
 import FdspUtils
-
+import humanize
 
 class ScavengerContext(Context):
     def __init__(self, *args):
@@ -59,7 +59,7 @@ class ScavengerContext(Context):
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('dm', help= "-Uuid of the DM to send the command to", type=str, default='dm', nargs='?')
-    def startrefscan(self, dm):
+    def refscan(self, dm):
         try:
             for uuid in self.config.getServiceId(dm, False):
                 print 'starting refscan on dm:{}'.format(uuid)
@@ -89,27 +89,37 @@ class ScavengerContext(Context):
 
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
-    def status(self, sm):
+    def info(self, sm):
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'status of scavenger on sm:{}'.format(uuid)
-                getStatusMsg = FdspUtils.newScavengerStatusMsg()
-                scavCB = WaitedCallback()
-                self.smClient().sendAsyncSvcReq(uuid, getStatusMsg, scavCB)
-                scavCB.wait()
-                resp = scavCB.payload.status
-                print "Scavenger status: ",
-                if resp == 1:
-                    print "ACTIVE"
-                elif resp == 2:
-                    print "INACTIVE"
-                elif resp == 3:
-                    print "DISABLED"
-                elif resp == 4:
-                    print "FINISHING"
+                cntrs = ServiceMap.client(uuid).getCounters('*')
+                keys=cntrs.keys()
+                totalobjects =0
+                deletedobjects=0
+                totaltokens=0
+                for key in keys:
+                    if key.find('scavenger.token') >= 0:
+                        if key.endswith('.total'):
+                            totalobjects += cntrs[key]
+                            totaltokens += 1
+                        elif key.endswith('.deleted'):
+                            deletedobjects += cntrs[key]
+                data = []
+                gcstart='not yet'
+                key = 'sm.scavenger.start.timestamp'
+                if key in cntrs:
+                    gcstart='{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))
+                data.append(('gc.start',gcstart))
+                data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
+                data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
+                data.append(('objects.total',totalobjects))
+                data.append(('objects.deleted',deletedobjects))
+                data.append(('tokens.total',totaltokens))
+                print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'sm', uuid, '-'*40))
+                print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
-            return 'get status failed'
+            return 'get counters failed'
 
 
     #--------------------------------------------------------------------------------------
