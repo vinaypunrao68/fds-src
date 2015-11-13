@@ -513,6 +513,13 @@ VolumePlacement::undoTargetDmtCommit() {
             fds_verify(err.ok());
             prevDmtVersion = DMT_VER_INVALID;
         }
+    }
+}
+
+void
+VolumePlacement::clearTargetDmt() {
+    if (dmtMgr->hasTargetDMT()) {
+        LOGDEBUG << "Clearing target DMT";
 
         // forget about target DMT and remove it from DMT manager
         dmtMgr->unsetTarget(true);
