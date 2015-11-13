@@ -58,7 +58,7 @@
     
     <dependency>
         <groupId>com.formationds</groupId>
-        <artifactId>stats-client</artifactId>
+        <artifactId>fds-stats-client</artifactId>
         <version>${formationds.stats.client.version}</version>
     </dependency>
 
