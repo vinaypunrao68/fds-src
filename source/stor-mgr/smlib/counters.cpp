@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <counters.h>
+#include <util/stringutils.h>
 namespace fds { namespace sm {
 Counters::Counters(FdsCountersMgr *mgr) : FdsCounters("sm", mgr),
                                           scavengerRunning("sm.scavenger.running", this),
@@ -10,8 +11,8 @@ Counters::Counters(FdsCountersMgr *mgr) : FdsCounters("sm", mgr),
     for (auto i = 0; i < 256 ; i++) {
         scanvengedTokens.insert(std::make_pair<fds_token_id, std::pair<SimpleNumericCounter* ,SimpleNumericCounter* > >(
             i, std::make_pair<SimpleNumericCounter* ,SimpleNumericCounter*>(
-                new SimpleNumericCounter("sm.scavenger.token.total", fds_volid_t(i), this),
-                new SimpleNumericCounter("sm.scavenger.token.deleted", fds_volid_t(i), this))));
+                new SimpleNumericCounter(util::strformat("sm.scavenger.token.%ld.total", i), this),
+                new SimpleNumericCounter(util::strformat("sm.scavenger.token.%ld.deleted", i), this))));
     }
 }
 
