@@ -179,7 +179,7 @@ def setupHistoryFile():
     '''
     import os
     import readline
-    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
+    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
     except IOError:
