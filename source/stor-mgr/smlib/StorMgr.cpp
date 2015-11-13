@@ -991,24 +991,51 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 
     // When this lock is held, any put/delete request in that
     // object id range will block
-    auto token_lock = getTokenLock(snapReq->token_id, true);
+    {
+        auto token_lock = getTokenLock(snapReq->token_id, true);
 
-    // if this is the second snapshot for migration, start forwarding puts and deletes
-    // for this migration client (which is addressed by executorID on destination side)
-    migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
+        // if this is the second snapshot for migration, start forwarding puts and deletes
+        // for this migration client (which is addressed by executorID on destination side)
+        migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
+    }
 
-    if (snapReq->isPersistent) {
-        objectStore->snapshotMetadata(snapReq->token_id,
-                                      snapReq->smio_persist_snap_resp_cb,
+    if (!(snapReq->isPersistent)) {
+        leveldb::ReadOptions options;
+        std::shared_ptr<leveldb::DB> db;
+        {
+            auto token_lock = getTokenLock(snapReq->token_id, true);
+            objectStore->snapshotMetadata(snapReq->token_id,
+                                          [&](const Error& error, SmIoSnapshotObjectDB*,
+                                              leveldb::ReadOptions& _options,
+                                              std::shared_ptr<leveldb::DB> _db,
+                                              bool, fds_uint32_t)
+                                          {
+                                              err = error;
+                                              options = _options;
+                                              db=_db;
+                                          },
                                       snapReq);
+        }
+        snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
-        objectStore->snapshotMetadata(snapReq->token_id,
-                                      snapReq->smio_snap_resp_cb,
-                                      snapReq);
+        std::string snapDir;
+        leveldb::CopyEnv *env = nullptr;
+        {
+            auto token_lock = getTokenLock(snapReq->token_id, true);
+            objectStore->snapshotMetadata(snapReq->token_id,
+                                          [&](const Error& error, SmIoSnapshotObjectDB*,
+                                              std::string& _snapDir, leveldb::CopyEnv *_env) {
+                                              err = error;
+                                              snapDir = _snapDir;
+                                              env = _env;
+                                          },
+                                          snapReq);
+        }
+
+        snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
     /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq,
-                        diskio::diskTier);
+    qosCtrl->markIODone(*snapReq, diskio::diskTier);
 }
 
 void
