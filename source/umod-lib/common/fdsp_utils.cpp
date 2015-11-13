@@ -398,4 +398,9 @@ DEFINE_OUTPUT_FUNCS(ActiveObjectsMsg) {
     out << "]";
     return out;
 }
+
+DEFINE_OUTPUT_FUNCS(SvcUuid) {
+    out << SvcMgr::mapToSvcUuidAndName(msg);
+    return out;
+}
 }  // namespace fds
