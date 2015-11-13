@@ -108,6 +108,7 @@ AmQoSCtrl::updateQoS(long int const* rate, float const* throttle) {
 void
 AmQoSCtrl::execRequest(FDS_IOType* io) {
     auto amReq = static_cast<AmRequest*>(io);
+    LOGDEBUG << "Executing request: 0x" << std::hex << amReq->io_req_id;
     switch (amReq->io_type) {
         /* === Volume operations === */
         case fds::FDS_ATTACH_VOL:
@@ -214,7 +215,7 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
-    LOGDEBUG << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void { execRequest(io); }, io);
     return ERR_OK;
 }

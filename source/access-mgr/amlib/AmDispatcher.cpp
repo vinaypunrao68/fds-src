@@ -609,6 +609,7 @@ AmDispatcher::startBlobTx(AmRequest* amReq) {
                                                                       std::deque<StartBlobTxReq*>())));
         } else if (std::get<0>(it->second) != blobReq->dmt_version) {
             // Delay the request
+            LOGDEBUG << "Delaying Tx start while old tx's clean up.";
             dmtMgr->releaseVersion(amReq->dmt_version);
             return std::get<2>(it->second).push_back(blobReq);
         }
@@ -1112,18 +1113,6 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
             }
         }
 
-        // TODO(bszmyd): Mon 23 Mar 2015 02:49:01 AM PDT
-        // This is the matching error scenario from the trickery
-        // in AmProcessor::getBlobCb due to the write/read race
-        // between DM/SM. If this is a retry then the object id should be
-        // anything but what it was...or we should be able to get the object
-        if (blobReq->retry && !std::equal(new_ids.begin(),
-                                          new_ids.end(),
-                                          blobReq->object_ids.begin(),
-                                          [](ObjectID::ptr const& a, ObjectID::ptr const& b)
-                                            { return *a == *b; })) {
-            blobReq->retry = false; // We've gotten a new Id we're not insane
-        }
         blobReq->object_ids.swap(new_ids);
         blobReq->object_ids.shrink_to_fit();
     }

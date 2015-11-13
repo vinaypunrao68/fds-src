@@ -135,6 +135,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     break;;
                 case ERR_NOT_FOUND:
                 case ERR_BLOB_NOT_FOUND:
+                case ERR_BLOB_OFFSET_INVALID:
                 case ERR_CAT_ENTRY_NOT_FOUND:
                 case ERR_VOL_NOT_FOUND:
                     code = fpi::MISSING_RESOURCE;

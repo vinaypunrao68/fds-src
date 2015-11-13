@@ -143,7 +143,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     if (0 == miss_cnt) {
         // Data was found in cache, done
         LOGTRACE << "Data found in cache!";
-        return AmDataProvider::getBlobCb(blobReq, ERR_OK);
+        return getBlobCb(blobReq, ERR_OK);
     }
 
     // We did not find all the data, so create some GetObjectReqs and defer to
@@ -367,50 +367,39 @@ AmCache::getOffsetsCb(AmRequest* amReq, Error const error) {
 
 void
 AmCache::getBlobCb(AmRequest *amReq, Error const error) {
+    if (ERR_OK != error) {
+        return AmDataProvider::getBlobCb(amReq, ERR_OK);
+    }
+
     auto blobReq = static_cast<GetBlobReq *>(amReq);
-    if (ERR_NOT_FOUND == error && !blobReq->retry) {
-        // TODO(bszmyd): Mon 23 Mar 2015 02:40:25 AM PDT
-        // This is somewhat of a trick since we don't really support
-        // transactions. If we can't find the object, do an index lookup
-        // again. If we get back the same ObjectID, then fine...try SM again,
-        // but that's the end of it.
-        blobReq->metadata_cached = false;
-        blobReq->retry = true;
-        GLOGDEBUG << "Dispatching retry on [ " << blobReq->volume_name
-                  << ", " << blobReq->getBlobName()
-                  << ", 0x" << std::hex << blobReq->blob_offset << std::dec
-                  << "B ]";
-        return getBlob(amReq);
-    } else if (ERR_OK == error) {
 
-        // We still return all of the object even if less was requested, adjust
-        // the return length, not the buffer.
-        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    // We still return all of the object even if less was requested, adjust
+    // the return length, not the buffer.
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
 
-        // Calculate the sum size of our buffers
-        size_t vector_size = std::accumulate(cb->return_buffers->cbegin(),
-                                             cb->return_buffers->cend(),
-                                             0,
-                                             [] (size_t const& total_size, boost::shared_ptr<std::string> const& buf)
-                                             { return total_size + buf->size(); });
+    // Calculate the sum size of our buffers
+    size_t vector_size = std::accumulate(cb->return_buffers->cbegin(),
+                                         cb->return_buffers->cend(),
+                                         0,
+                                         [] (size_t const& total_size, boost::shared_ptr<std::string> const& buf)
+                                         { return total_size + buf->size(); });
 
-        cb->return_size = std::min(amReq->data_len, vector_size);
+    cb->return_size = std::min(amReq->data_len, vector_size);
 
-        // If we have a cache token, we can stash this metadata
-        if (!blobReq->metadata_cached && blobReq->page_out_cache) {
-            auto iOff = amReq->blob_offset;
-            for (auto const& obj_id : blobReq->object_ids) {
-                auto blob_pair = BlobOffsetPair(amReq->getBlobName(), iOff);
-                offset_cache.add(amReq->io_vol_id, blob_pair, obj_id);
-                iOff += amReq->object_size;
-            }
-            if (blobReq->get_metadata) {
-                auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
-                if (cbm->blobDesc)
-                    descriptor_cache.add(amReq->io_vol_id,
-                                         amReq->getBlobName(),
-                                         cbm->blobDesc);
-            }
+    // If we have a cache token, we can stash this metadata
+    if (!blobReq->metadata_cached && blobReq->page_out_cache) {
+        auto iOff = amReq->blob_offset;
+        for (auto const& obj_id : blobReq->object_ids) {
+            auto blob_pair = BlobOffsetPair(amReq->getBlobName(), iOff);
+            offset_cache.add(amReq->io_vol_id, blob_pair, obj_id);
+            iOff += amReq->object_size;
+        }
+        if (blobReq->get_metadata) {
+            auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            if (cbm->blobDesc)
+                descriptor_cache.add(amReq->io_vol_id,
+                                     amReq->getBlobName(),
+                                     cbm->blobDesc);
         }
     }
 

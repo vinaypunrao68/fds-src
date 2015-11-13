@@ -837,8 +837,8 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
 
 void
 ScstDevice::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
+    LOGIO << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
+           << " " << response->getError();
 
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
@@ -849,9 +849,6 @@ ScstDevice::respondTask(BlockTask* response) {
             fds_uint32_t i = 0, context = 0;
             boost::shared_ptr<std::string> buf = scst_response->getNextReadBuffer(context);
             while (buf != NULL) {
-                LOGDEBUG << "Handle 0x" << std::hex << scst_response->getHandle()
-                         << "...Size 0x" << buf->length() << "B"
-                         << "...Buffer # " << std::dec << context;
                 memcpy(buffer + i, buf->c_str(), buf->length());
                 i += buf->length();
                 buf = scst_response->getNextReadBuffer(context);
