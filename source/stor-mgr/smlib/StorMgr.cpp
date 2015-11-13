@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
@@ -42,16 +41,16 @@ ObjectStorMgr *objStorMgr;
  * list below.
  */
 ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
-    : Module("sm"),
-      modProvider_(modProvider),
-      totalRate(6000),  // will be over-written using node capability
-      qosThrds(100),  // will be over-written from config
-      qosOutNum(10),
-      volTbl(nullptr),
-      qosCtrl(nullptr),
-      shuttingDown(false),
-      sampleCounter(0),
-      lastCapacityMessageSentAt(0)
+        : Module("sm"),
+          modProvider_(modProvider),
+          totalRate(6000),  // will be over-written using node capability
+          qosThrds(100),  // will be over-written from config
+          qosOutNum(10),
+          volTbl(nullptr),
+          qosCtrl(nullptr),
+          shuttingDown(false),
+          sampleCounter(0),
+          lastCapacityMessageSentAt(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -91,7 +90,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
         "fds.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
-        fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
+            fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
     counters.reset(new sm::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
@@ -216,7 +215,7 @@ void ObjectStorMgr::mod_enable_service()
         // cache and SSDs)
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
-                modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
+            modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
     }
 
     /*
@@ -307,7 +306,7 @@ void ObjectStorMgr::mod_enable_service()
         VolumeDesc*  testVdb;
         std::string testVolName;
         int numTestVols = modProvider_->get_fds_config()->\
-                          get<int>("fds.sm.testing.test_volume_cnt");
+                get<int>("fds.sm.testing.test_volume_cnt");
         for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*
@@ -428,9 +427,9 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
 Error ObjectStorMgr::handleDltUpdate() {
 
     if (true == MODULEPROVIDER()->get_fds_config()->\
-                    get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
+        get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
         auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
-                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+                get<int>("fds.sm.testing.sleep_duration_before_migration");
         LOGNOTIFY << "Sleep for " << sleep_time
                   << " before sending NotifyDLTUpdate response to OM";
         sleep(sleep_time);
@@ -507,8 +506,8 @@ ObjectStorMgr::registerVolume(fds_volid_t  volumeId,
         vol = objStorMgr->getVol(volumeId);
         fds_assert(vol != NULL);
         err = objStorMgr->regVolQos(vdb->isSnapshot() ?
-                vdb->qosQueueId : vol->getVolId(),
-                static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
+                                    vdb->qosQueueId : vol->getVolId(),
+                                    static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
         if (!err.ok()) {
             // most likely axceeded min iops
             objStorMgr->deregVol(volumeId);
@@ -560,7 +559,7 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
 
             lastCapacityMessageSentAt = pct_used;
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
             lastCapacityMessageSentAt = pct_used;
 
@@ -686,7 +685,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
                        token_locks.resize(0x01<<b_p_t);
                        token_locks.shrink_to_fit();
                        for (auto& p : token_locks)
-                           { p = new fds_rwlock(); }
+                       { p = new fds_rwlock(); }
                    });
 
 
@@ -820,7 +819,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
                                           addObjRefReq->getDestVolId(),
-                                              oid);
+                                          oid);
         if (!rc.ok()) {
             LOGERROR << "Failed to add association entry for object " << oid
                      << "in to odb with err " << rc;
@@ -914,8 +913,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     ObjectID objectId;
-    // since volId received for delete operation is system volumeId. Preserve volId of the 
-    // volume to be deleted 
+    // since volId received for delete operation is system volumeId. Preserve volId of the
+    // volume to be deleted
     fds_volid_t delVolId    = ioReq->getVolId();
     ioReq->setVolId(volId);
 
@@ -928,24 +927,24 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_SNAPSHOT_TOKEN:
         case FDS_SM_MIGRATION_ABORT:
         case FDS_SM_NOTIFY_DLT_CLOSE:
-        {
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        }
-        case FDS_SM_GET_OBJECT:
             {
-            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-
-            // It's possible that the volume information on this SM may not have
-            // all volume information propagated when IO is enabled.  If the
-            // volume is not found, then the object lookup should fail.
-            if (NULL == smVol) {
-                err = fds::ERR_VOL_NOT_FOUND;
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
                 break;
             }
-            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                                     static_cast<FDS_IOType*>(ioReq));
-            break;
+        case FDS_SM_GET_OBJECT:
+            {
+                StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+
+                // It's possible that the volume information on this SM may not have
+                // all volume information propagated when IO is enabled.  If the
+                // volume is not found, then the object lookup should fail.
+                if (NULL == smVol) {
+                    err = fds::ERR_VOL_NOT_FOUND;
+                    break;
+                }
+                err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                                         static_cast<FDS_IOType*>(ioReq));
+                break;
             }
         case FDS_SM_PUT_OBJECT:
             // Volume association resolution is handled in object store layer
@@ -1014,7 +1013,7 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                               options = _options;
                                               db=_db;
                                           },
-                                      snapReq);
+                                          snapReq);
         }
         snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
@@ -1342,8 +1341,8 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
                 err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
                 err != ERR_SM_TIER_WRITEBACK_NOT_DONE) {
                 LOGERROR << "Failed to move " << objId << " from tier "
-                    << moveReq->fromTier << " to tier " << moveReq->fromTier
-                    << " relocate? " << moveReq->relocate << " " << err;
+                         << moveReq->fromTier << " to tier " << moveReq->fromTier
+                         << " relocate? " << moveReq->relocate << " " << err;
                 // we will just continue to move other objects; ok for promotions
                 // demotion should not assume that object was written back to HDD
                 // anyway, because writeback is eventual
@@ -1403,107 +1402,107 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     switch (io->io_type) {
         case FDS_IO_READ:
         case FDS_IO_WRITE:
-        {
-            fds_panic("must not get here!");
-            break;
-        }
+            {
+                fds_panic("must not get here!");
+                break;
+            }
         case FDS_SM_DELETE_OBJECT:
-        {
-            LOGDEBUG << "Processing a Delete request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::deleteObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoDeleteObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoDeleteObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a Delete request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoDeleteObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoDeleteObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_GET_OBJECT:
-        {
-            LOGDEBUG << "Processing a get request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::getObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoGetObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::getObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoGetObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a get request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::getObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoGetObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::getObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoGetObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_PUT_OBJECT:
-        {
-            LOGDEBUG << "Processing a put request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::putObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoPutObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::putObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoPutObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a put request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::putObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoPutObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::putObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoPutObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_ADD_OBJECT_REF:
-        {
-            LOGDEBUG << "Processing and add object reference request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::addObjectRefInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoAddObjRefReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoAddObjRefReq *>(io));
+            {
+                LOGDEBUG << "Processing and add object reference request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoAddObjRefReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoAddObjRefReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_SNAPSHOT_TOKEN:
-        {
-            threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_COMPACT_OBJECTS:
-        {
-            LOGDEBUG << "Processing sync apply metadata";
-            threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
-            break;
-        }
+            {
+                LOGDEBUG << "Processing sync apply metadata";
+                threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
-        {
-            threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_APPLY_DELTA_SET:
-        {
-            threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
+                break;
+            }
         case FDS_SM_READ_DELTA_SET:
-        {
-            threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
+                break;
+            }
         case FDS_SM_MIGRATION_ABORT:
-        {
-            threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
+                break;
+            }
         case FDS_SM_NOTIFY_DLT_CLOSE:
-        {
-            threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
+                break;
+            }
         default:
             fds_assert(!"Unknown message");
             break;
@@ -1515,56 +1514,56 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 Error
 ObjectStorMgr::getAllVolumeDescriptors()
 {
-	Error err(ERR_OK);
-	fpi::GetAllVolumeDescriptors list;
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
 
     if (!err.ok()) {
-    	return err;
+        return err;
     }
 
     for (const auto& volAdd : list.volumeList) {
-    	VolumeDesc vdb(volAdd.vol_desc);
-    	fds_volid_t volumeId (vdb.volUUID);
+        VolumeDesc vdb(volAdd.vol_desc);
+        fds_volid_t volumeId (vdb.volUUID);
 
-    	GLOGNOTIFY << "Pulled create for vol "
-    			<< "[" << std::hex << volumeId << std::dec << ", "
-				<< vdb.getName() << "]";
+        GLOGNOTIFY << "Pulled create for vol "
+                   << "[" << std::hex << volumeId << std::dec << ", "
+                   << vdb.getName() << "]";
 
-		Error err = regVol(vdb);
-		if (err.ok()) {
-			StorMgrVolume * vol = getVol(volumeId);
-			fds_assert(vol);
+        Error err = regVol(vdb);
+        if (err.ok()) {
+            StorMgrVolume * vol = getVol(volumeId);
+            fds_assert(vol);
 
-			fds_volid_t queueId = vol->getQueue()->getVolUuid();
-			if (!getQueue(queueId)) {
-				err = regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
-					vol->getQueue().get()));
-			}
+            fds_volid_t queueId = vol->getQueue()->getVolUuid();
+            if (!getQueue(queueId)) {
+                err = regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
+                    vol->getQueue().get()));
+            }
 
-			if (!err.ok()) {
-				// most likely axceeded min iops
-				deregVol(volumeId);
-			}
-		}
-		if (!err.ok()) {
-			GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-					  << std::dec << " " << err;
-		}
+            if (!err.ok()) {
+                // most likely axceeded min iops
+                deregVol(volumeId);
+            }
+        }
+        if (!err.ok()) {
+            GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                      << std::dec << " " << err;
+        }
 
-		// Start the hybrid tier migration on the first volume add call. The volume information
-		// is propagated after DLT update, and this can cause missing volume and associated volume
-		// policy.
-		// Although this is called every time when a volume is added, but hybrid tier migration
-		// controller will decided if it need to start tier migration or not.
-		SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
-		err = objectStore->tieringControlCmd(&tierCmd);
-		if (err != ERR_OK) {
-			LOGWARN << "Failed to enable Hybrid Tier Migration";
-		}
+        // Start the hybrid tier migration on the first volume add call. The volume information
+        // is propagated after DLT update, and this can cause missing volume and associated volume
+        // policy.
+        // Although this is called every time when a volume is added, but hybrid tier migration
+        // controller will decided if it need to start tier migration or not.
+        SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
+        err = objectStore->tieringControlCmd(&tierCmd);
+        if (err != ERR_OK) {
+            LOGWARN << "Failed to enable Hybrid Tier Migration";
+        }
     }
 
-	return err;
+    return err;
 }
 
 bool
