@@ -214,6 +214,24 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
                                       iter->second->isMarkedDeleted() ||
                                       iter->second->isSnapshot()
                                       )) {
+            // check for in memory snapshots
+
+                // wait for all snapshots to be released
+            if (0 != iter->second->getNumInMemorySnapshots()) {
+                LOGWARN << "waiting for all db mem snapshots to be released.";
+                int count = 0;
+                do {
+                    usleep(500000);
+                } while ( count < 120 &&
+                          0 != iter->second->getNumInMemorySnapshots());
+
+                if (0 != iter->second->getNumInMemorySnapshots()) {
+                    LOGCRITICAL << "Mem snaps not released even after 1 minute"
+                                << " for vol:" << volId
+                                << " .. please check";
+                }
+            }
+
             volMap_.erase(iter);
         }
     }
@@ -664,7 +682,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
     // it's possible.
     if (metaList != nullptr) {
-    	mergeMetaList(blobMeta.meta_list, *metaList);
+        mergeMetaList(blobMeta.meta_list, *metaList);
     }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
@@ -742,7 +760,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
     // it's possible.
     if (metaList != nullptr) {
-    	mergeMetaList(blobMeta.meta_list, *metaList);
+        mergeMetaList(blobMeta.meta_list, *metaList);
     }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = seq_id;
@@ -990,13 +1008,13 @@ Error DmVolumeCatalog::putObject(fds_volid_t volId,
 }
 
 Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->getInMemorySnapshot(snap);
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->freeInMemorySnapshot(snap);
+    GET_VOL(volId);
+    return vol->freeInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
