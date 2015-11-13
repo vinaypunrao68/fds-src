@@ -271,7 +271,6 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
                 try {
                     s = std::stoi(value, NULL);
                 } catch(std::out_of_range& e) {
-                    std::cout << "int cast failed.. trying int64 : " << key <<std::endl;
                     remove(config_, key);
                     Setting& s1 = add(config_, key, Setting::TypeInt64);
                     s1 = std::stoll(value, NULL);

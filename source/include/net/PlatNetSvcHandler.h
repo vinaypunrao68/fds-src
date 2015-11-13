@@ -186,9 +186,9 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void resetCounters(const std::string& id) override;
     virtual void resetCounters(boost::shared_ptr<std::string>& id) override;
 
-    virtual void setConfigVal(const std::string& id, const int64_t val) override;
-    virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-                              boost::shared_ptr<int64_t>& val) override;
+    virtual void setConfigVal(const std::string& name, const std::string& value) override;
+    virtual void setConfigVal(boost::shared_ptr<std::string>& name,  // NOLINT
+                              boost::shared_ptr<std::string>& value) override;
 
     virtual void setFlag(const std::string& id, const int64_t value) override;
     virtual void setFlag(boost::shared_ptr<std::string>& id,

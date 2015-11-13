@@ -190,9 +190,9 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
     }
 
     @Override
-    public void setConfigVal( String id, long value ) throws TException {
-        logger.trace( "setConfigVal: {} = {}", id, value );
-        omNativePlatformClientFactory.getClient().setConfigVal( id, value );
+    public void setConfigVal( String name, String value ) throws TException {
+        logger.trace( "setConfigVal: {} = {}", name, value );
+        omNativePlatformClientFactory.getClient().setConfigVal( name, value );
     }
 
     @Override

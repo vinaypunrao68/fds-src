@@ -371,7 +371,7 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
 {
 }
 
-void PlatNetSvcHandler::setConfigVal(const std::string& id, const int64_t val)
+void PlatNetSvcHandler::setConfigVal(const std::string& name, const std::string& value)
 {
 }
 
@@ -455,20 +455,17 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
  * @param id
  * @param val
  */
-void PlatNetSvcHandler::
-setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-             boost::shared_ptr<int64_t>& val)
-{
-    if (!MODULEPROVIDER())
-    {
+void PlatNetSvcHandler:: setConfigVal(SHPTR<std::string>& name, SHPTR<std::string>& value) {
+    if (!MODULEPROVIDER()) {
         return;
     }
 
-    try
-    {
-        MODULEPROVIDER()->get_fds_config()->set(*id, static_cast<fds_uint64_t>(*val));
-    } catch(...)
-    {
+    try {
+        if (name->find("log_severity") != std::string::npos) {
+            LOGGERPTR->setSeverityFilter(fds_log::getLevelFromName(*value));
+        }
+        MODULEPROVIDER()->get_fds_config()->set(*name, *value);
+    } catch(...) {
         // TODO(Rao): Only ignore SettingNotFound exception
         /* Ignore the error */
     }
