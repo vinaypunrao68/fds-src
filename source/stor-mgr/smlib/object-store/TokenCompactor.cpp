@@ -85,6 +85,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // copy non-garbage objects
     persistGcHandler->notifyStartGc(token_id, cur_tier);
 
+    /*
     // we may have writes currently in flight that are writing to old file.
     // If we take db snapshot before these in flight write finish and
     // metadata is updated, then we will miss data that needs to be copied
@@ -100,6 +101,8 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
         std::atomic_exchange(&state, TCSTATE_IDLE);
         return Error(ERR_NOT_READY);
     }
+    */
+    handleTimerEvent();
 
     return err;
 }
@@ -320,10 +323,13 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         // we are done!
         // NOTE: we are currently doing completion on timer only! when no error
         // otherwise need to make sure to remember the error
+        /*
         if (!tc_timer->schedule(tc_timer_task, std::chrono::seconds(2))) {
             LOGNOTIFY << "Failed to schedule completion timer, completing now..";
             handleCompactionDone(error);
         }
+        */
+        handleTimerEvent();
     }
 
     delete req;
