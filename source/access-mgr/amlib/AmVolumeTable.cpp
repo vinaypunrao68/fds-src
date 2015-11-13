@@ -216,8 +216,8 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
         AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
+    volReq->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
     if (vol->access_token) {
-        volReq->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
         auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
         cb->mode = boost::make_shared<fpi::VolumeAccessMode>(vol->access_token->getMode());
         cb->volDesc = volReq->volDesc;
@@ -275,7 +275,6 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
             cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
             cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
         }
-        volReq->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
     } else {
         LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
                   << ") write(" << volReq->mode.can_write
@@ -298,6 +297,7 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
     fpi::VolumeAccessMode rw;
     auto volReq = new AttachVolumeReq(vol_id, "", rw, nullptr);
     volReq->token = vol->getToken();
+    volReq->renewal = true;
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
     AmDataProvider::openVolume(volReq);
