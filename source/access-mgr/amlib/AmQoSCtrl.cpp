@@ -379,7 +379,7 @@ AmQoSCtrl::detachVolume(AmRequest *amReq) {
 }
 
 Error
-AmQoSCtrl::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+AmQoSCtrl::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
     Error err(ERR_OK);
 
     err = volTable->modifyVolumePolicy(vol_uuid, vdesc);

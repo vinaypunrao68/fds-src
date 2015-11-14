@@ -39,7 +39,6 @@ class AmQoSCtrl :
     Error processIO(FDS_IOType *io) override;
     void init(processor_cb_type const& cb);
     fds_uint32_t waitForWorkers() { return 1; }
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
     Error enqueueRequest(AmRequest *amReq);
     bool shutdown();
 
@@ -47,6 +46,7 @@ class AmQoSCtrl :
      * These are the QoS specific DataProvider routines.
      * Everything else is pass-thru.
      */
+    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
     Error registerVolume(VolumeDesc const& volDesc) override;
     Error removeVolume(VolumeDesc const& volDesc) override;
 

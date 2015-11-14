@@ -80,7 +80,7 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
     return ERR_OK;
 }
 
-Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
     auto vol = getVolume(vol_uuid);
     if (vol)
     {
@@ -145,14 +145,14 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     if (volume_map.end() != map) {
         ret_vol = map->second;
     } else {
-        GLOGDEBUG << "AmVolumeTable::getVolume - Volume "
-            << std::hex << vol_uuid << std::dec
-            << " is not attached";
+        GLOGTRACE << "AmVolumeTable::getVolume - Volume "
+                  << std::hex << vol_uuid << std::dec
+                  << " is not attached";
     }
     return ret_vol;
 }
 
-bool
+AmVolumeTable::volume_ptr_type
 AmVolumeTable::ensureReadable(AmRequest* amReq) const {
     auto vol = getVolume(amReq->io_vol_id);
     if (vol) {
@@ -162,19 +162,18 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) const {
             amReq->forced_unit_access = true;
             amReq->page_out_cache = false;
         }
-        return true;
+        return vol;
     }
-    return false;
+    return nullptr;
 }
 
-bool
+AmVolumeTable::volume_ptr_type
 AmVolumeTable::ensureWritable(AmRequest* amReq) const {
-    auto vol = getVolume(amReq->io_vol_id);
-    if (vol && !vol->voldesc->isSnapshot() && vol->getMode().first) {
-        amReq->object_size = vol->voldesc->maxObjSizeInBytes;
-        return true;
+    auto vol = ensureReadable(amReq);
+    if (vol && vol->getMode().first) {
+        return vol;
     }
-    return false;
+    return nullptr;
 }
 
 std::vector<AmVolumeTable::volume_ptr_type>
@@ -228,7 +227,7 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
      * FEATURE TOGGLE: Single AM Enforcement
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
-    GLOGDEBUG << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
+    GLOGTRACE << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
               << ") write(" << volReq->mode.can_write << ")";
     AmDataProvider::openVolume(amReq);
 }
@@ -246,16 +245,21 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
-    if (error.ok()) {
+    auto err = error;
+    if (err.ok()) {
         GLOGDEBUG << "For volume: " << amReq->io_vol_id
                   << ", received access token: 0x" << std::hex << volReq->token;
-    } else {
+    } else if (ERR_VOLUME_ACCESS_DENIED == err) {
         LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
                   << ") write(" << volReq->mode.can_write
-                  << ") error(" << error << ") access is R/O.";
+                  << ") error(" << err << ") access is R/O.";
+        err = ERR_OK;
         volReq->mode.can_cache = false;
         volReq->mode.can_write = false;
         volReq->token = invalid_vol_token;
+    } else {
+        LOGNOTIFY << "Failed to open volume : " << amReq->io_vol_id;
+        return AmDataProvider::openVolumeCb(amReq, err);
     }
 
     auto access_token = boost::make_shared<AmVolumeAccessToken>(
@@ -288,7 +292,7 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
     // Get the current volume and token
     auto vol = getVolume(vol_id);
     if (!vol) {
-        GLOGDEBUG << "Ignoring token renewal for unknown (detached?) volume: " << vol_id;
+        GLOGTRACE << "Ignoring token renewal for unknown (detached?) volume: " << vol_id;
         return;
     }
 
@@ -311,7 +315,7 @@ AmVolumeTable::renewTokenCb(AmRequest *amReq, const Error& error) {
     if (vol) {
         auto access_token = vol->access_token;
         if (error.ok()) {
-            GLOGDEBUG << "For volume: " << volReq->io_vol_id
+            GLOGTRACE << "For volume: " << volReq->io_vol_id
                       << ", received renew for token: 0x" << std::hex << volReq->token;
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
