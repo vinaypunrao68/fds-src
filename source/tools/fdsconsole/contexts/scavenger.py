@@ -91,9 +91,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def info(self, sm):
         try:
+            gcdata =[]
             cluster_totalobjects = 0
             cluster_deletedobjects = 0
             numsvcs=0
+            dm = True if sm == 'sm' else False
             for uuid in self.config.getServiceId(sm, False):
                 numsvcs += 1
                 cntrs = ServiceMap.client(uuid).getCounters('*')
@@ -125,12 +127,35 @@ class ScavengerContext(Context):
                 print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'sm', uuid, '-'*40))
                 print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
 
-            if numsvcs > 1:
-                data =[]
-                data.append(('objects.total',cluster_totalobjects))
-                data.append(('objects.deleted',cluster_deletedobjects))
-                print ('{}\ngc info for the cluster\n{}'.format('-'*40,'-'*40))
-                print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+            gcdata.append(('sm.objects.total',cluster_totalobjects))
+            gcdata.append(('sm.objects.deleted',cluster_deletedobjects))
+
+            if dm:
+                totalobjects =0
+                totalvolumes=0
+                for uuid in self.config.getServiceId('dm', False):
+                    cntrs = ServiceMap.client(uuid).getCounters('*')
+                    keys=cntrs.keys()
+                    data = []
+                    key='dm.refscan.lastrun.timestamp'
+                    if key in cntrs and cntrs[key] > 0:
+                        data.append(('dm.refscan.lastrun', '{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))))
+                    else:
+                        data.append(('dm.refscan.lastrun', 'not yet'))
+                    data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
+                    data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
+                    totalobjects += cntrs.get('dm.refscan.num_objects',0)
+                    totalvolumes += cntrs.get('dm.refscan.num_volumes',0)
+                    print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'dm', uuid, '-'*40))
+                    print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+
+                gcdata.append(('dm.objects.total',totalobjects))
+                gcdata.append(('dm.volumes.total',totalvolumes))
+
+
+            print ('\n{}\ncombined gc info\n{}'.format('='*40,'='*40))
+            print tabulate(gcdata,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+            print '=' * 40
 
         except Exception, e:
             log.exception(e)
