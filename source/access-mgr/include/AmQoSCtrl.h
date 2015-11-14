@@ -27,9 +27,10 @@ class AmQoSCtrl :
 {
     using processor_cb_type = std::function<void(AmRequest*, Error const&)>;
     processor_cb_type processor_cb;
- public:
+
     QoSHTBDispatcher *htb_dispatcher;
 
+ public:
     AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, CommonModuleProviderIf* provider, fds_log *log);
     virtual ~AmQoSCtrl();
 

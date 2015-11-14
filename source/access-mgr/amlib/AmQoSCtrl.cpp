@@ -222,8 +222,8 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
 
 
 void startSHDispatcher(AmQoSCtrl *qosctl) {
-    if (qosctl && qosctl->htb_dispatcher) {
-        qosctl->htb_dispatcher->dispatchIOs();
+    if (qosctl && qosctl->dispatcher) {
+        qosctl->dispatcher->dispatchIOs();
     }
 }
 

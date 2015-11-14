@@ -246,39 +246,39 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
-    auto const& vol_desc = *vol->voldesc;
     if (error.ok()) {
-        GLOGDEBUG << "For volume: " << vol_desc.volUUID
+        GLOGDEBUG << "For volume: " << amReq->io_vol_id
                   << ", received access token: 0x" << std::hex << volReq->token;
-
-
-        // If this is a new token, create an access token for the volume
-        auto access_token = boost::make_shared<AmVolumeAccessToken>(
-                                token_timer,
-                                volReq->mode,
-                                volReq->token,
-                                [this, vol_id = vol_desc.volUUID] () mutable -> void {
-                                    this->renewToken(vol_id);
-                            });
-
-        // Assign the volume the token we got from DM
-        vol->access_token = access_token;
-
-        // Renew this token at a regular interval
-        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
-            { LOGWARN << "Failed to schedule token renewal timer!"; }
-
-        // If this is a real request, set the return data (could be implicit// from QoS)
-        if (amReq->cb) {
-            auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
-            cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
-            cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
-        }
     } else {
         LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
                   << ") write(" << volReq->mode.can_write
-                  << ") error(" << error << ")";
+                  << ") error(" << error << ") access is R/O.";
+        volReq->mode.can_cache = false;
+        volReq->mode.can_write = false;
+        volReq->token = invalid_vol_token;
+    }
+
+    auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                            token_timer,
+                            volReq->mode,
+                            volReq->token,
+                            [this, vol_id = amReq->io_vol_id] () mutable -> void {
+                                this->renewToken(vol_id);
+                        });
+
+    // Assign the volume the token we got from DM
+    vol->access_token = access_token;
+
+    // Renew this token at a regular interval
+    auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+    if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+        { LOGWARN << "Failed to schedule token renewal timer!"; }
+
+    // If this is a real request, set the return data (could be implicit// from QoS)
+    if (amReq->cb) {
+        auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+        cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
+        cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
     }
     AmDataProvider::openVolumeCb(amReq, error);
 }

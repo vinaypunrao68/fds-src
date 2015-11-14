@@ -62,8 +62,11 @@ class AmCache :
     void getBlobCb(AmRequest * amReq, Error const error) override;
     void getOffsetsCb(AmRequest * amReq, Error const error) override;
     void getObjectCb(AmRequest * amReq, Error const error) override;
+    void deleteBlobCb(AmRequest * amReq, Error const error) override;
+    void openVolumeCb(AmRequest * amReq, Error const error) override;
     void renameBlobCb(AmRequest * amReq, Error const error) override;
     void statBlobCb(AmRequest * amReq, Error const error) override;
+    void volumeContentsCb(AmRequest * amReq, Error const error) override;
 
   private:
     descriptor_cache_type descriptor_cache;
