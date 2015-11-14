@@ -315,7 +315,7 @@ void FileTransferService::handleVerifyRequest(SHPTR<fpi::AsyncHdr>& asyncHdr,
     } else {
         std::string chksum = util::getFileChecksum(destFile);        
         if (chksum != message->checksum) {
-            GLOGERROR << "file checksum mismatch [orig:" << message->checksum
+            GLOGDEBUG << "file checksum mismatch [orig:" << message->checksum
                       << " new:" << chksum << "]"
                       << " file:" << destFile;
             err = ERR_CHECKSUM_MISMATCH;
