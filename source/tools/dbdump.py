@@ -49,7 +49,7 @@ def dumpActiveObjects():
         cols.append(row[1])
 
     data=[]
-    for row in conn.execute("select * from liveObjTbl where length(filename)>0"):
+    for row in conn.execute("select * from liveObjTbl where length(filename)>0 order by smtoken,volid"):
         data.append(row)
 
     print 'active objects table :' , len(data)
