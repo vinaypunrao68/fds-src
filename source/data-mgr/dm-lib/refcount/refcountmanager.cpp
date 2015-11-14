@@ -35,7 +35,6 @@ void RefCountManager::scanActiveObjects() {
 }
 
 void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
-    LOGNORMAL << "ref scan callback";
     // now transfer the active objects to all SMs
     transferContext.volumeList.reset(new std::list<fds_volid_t>(scanner->getScanSuccessVols()));
     transferContext.currentToken = 0;
@@ -102,7 +101,9 @@ void RefCountManager::FileTransferContext::tokenDone(fds_token_id token, fpi::Sv
 
     if (numResponsesToRecieve.get() == 0) {
         ++currentToken;
-        processNextToken();
+        if (!processNextToken()) {
+            LOGNORMAL << "refscan and file transfers complete";
+        }
     }
 }
 
@@ -110,6 +111,7 @@ bool RefCountManager::FileTransferContext::processNextToken() {
     std::string filename, tokenFileName;
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
     auto dlt = svcMgr->getCurrentDLT();
+    auto myuuid = svcMgr->getSelfSvcUuid().svc_uuid;
     if (currentToken >= dlt->getNumTokens()) {
         LOGDEBUG << "no more tokens to process";
         refCountManager->scanner->setStateStopped();
@@ -127,9 +129,9 @@ bool RefCountManager::FileTransferContext::processNextToken() {
     numResponsesToRecieve.set(tokenGroup->getLength());
 
     if (filename.length() > 0) {
-        LOGNORMAL << "will process active object file for token : " << currentToken;
+        LOGDEBUG << "will process active object file for token : " << currentToken;
         refCountManager->dm->counters->refscanNumTokenFiles.incr(1);
-        tokenFileName = util::strformat("token_%d.bf", currentToken);
+        tokenFileName = util::strformat("token_%d_%ld.bf", currentToken, myuuid);
         for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
             refCountManager->dm->
                     fileTransfer->send(svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR ),
