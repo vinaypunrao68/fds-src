@@ -125,16 +125,29 @@ namespace fds
 
         // If we dont' have a dl_map and create is true, open the diskmap truncating
         // any disk-map already present
+#ifdef DEBUG
         bool fDumpDiskMap = g_fdsprocess->get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
+#endif
         if ((dl_map == NULL) && (creat == true))
         {
             const FdsRootDir   *dir = g_fdsprocess->proc_fdsroot();
             FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
-            if (fDumpDiskMap) {
+
+#ifdef DEBUG
+            if (fDumpDiskMap)
+            {
                 dl_map = (std::ofstream*)(&std::cout);
-            } else {
-                dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
             }
+            else
+            {
+#endif
+
+                dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
+
+#ifdef DEBUG
+            }
+#endif
+
         }
 
         dl_total_disks  = 0;
