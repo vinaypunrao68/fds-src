@@ -39,7 +39,9 @@ util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
 }
 
 void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfilter) {
-    auto serializer = serialize::getFileSerializer(getFilePath(key));
+    auto filename = getFilePath(key);
+    bfs::remove(filename);
+    auto serializer = serialize::getFileSerializer(filename);
     auto writeSize = bloomfilter->write(serializer);
 }
 
@@ -282,7 +284,9 @@ void ObjectRefScanMgr::prescanInit()
     std::vector<fds_volid_t> vols;
     dataMgr->getActiveVolumes(vols);
     for (const auto &v : vols) {
-        scanList.push_back(VolumeRefScannerContext(this, v));
+        if (dataMgr->amIPrimary(v)) {
+            scanList.push_back(VolumeRefScannerContext(this, v));
+        }
     }
     currentItr = scanList.begin();
 
@@ -418,6 +422,7 @@ Error VolumeObjectRefScanner::scanStep() {
         for (const auto &oid : objects) {
             bloomfilter->add(oid);
             objRefMgr->objectsScannedCntr++;
+            objRefMgr->dataMgr->counters->refscanNumObjects.set(objRefMgr->objectsScannedCntr);
         }
     }
 
