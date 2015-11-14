@@ -1021,6 +1021,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     LOGDEBUG << "DACT_Error fired.";
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
+    fds_bool_t am_dm_needs_dmt_rollback = false;
     if (vp->hasNoTargetDmt()) {
         // if we did not even have target DMT computed, nothing to recover
         // got back to all ok /IDLE state
@@ -1031,7 +1032,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
 
         // Revert to previously committed DMT locally in OM
-        vp->undoTargetDmtCommit();
+        am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
 
         // We already computed target DMT, so most likely sent start migration msg
         // Send abort migration to DMs first, so that we can restart migration later
@@ -1049,9 +1050,16 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // We will revert volume placement and persistent state right now without waiting
         // for abort migration acks and send DMT commit for previously committed DMT to AMs
 
+        /**
+         * TODO(Neil) FS-3600 part II - in case of network error, the abort migration to DMT may fail.
+         * In this case, the DM that didn't receive the abort may think that everyone else is on the
+         * previously targeted DMT, and the cluster will be in a split brain issue.
+         * Need to think about how to solve this later.
+         */
+
         // send DMT commit to AMs and SMs if target was committed
         fds_uint32_t commitCnt = 0;
-        if (!vp->hasNonCommitedTarget()) {
+        if (am_dm_needs_dmt_rollback) {
             LOGDEBUG << "AM and SM has already committed target DMT. Need to roll them back.";
             // has target DMT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_ACCESS_MGR,
@@ -1064,9 +1072,6 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
             }
             LOGNORMAL << "Sent DMT commit to " << commitCnt << " nodes, will wait for resp";
         }
-
-        // Now, we can clear the target DMT once that the above has been fired.
-        vp->clearTargetDmt();
 
         // see if we already recovered or need to wait for acks
         if ((abortCnt < 1) && (commitCnt < 1)) {

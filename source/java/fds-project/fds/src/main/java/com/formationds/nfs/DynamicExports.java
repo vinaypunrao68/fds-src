@@ -12,10 +12,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class DynamicExports implements ExportResolver {
@@ -76,6 +73,11 @@ public class DynamicExports implements ExportResolver {
             ids.put(exportName, export.getIndex());
         });
         return ids;
+    }
+
+    @Override
+    public Collection<String> exportNames() {
+        return new HashSet<>(exportsByName.keySet());
     }
 
     public void start() throws IOException {
