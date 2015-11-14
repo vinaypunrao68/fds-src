@@ -93,15 +93,22 @@ FileTransferService::Handle::~Handle(){
 }
 
 bool FileTransferService::exists(fds_uint64_t hashCode) {
-    return transferMap.end() != transferMap.find(hashCode);
+    synchronized(transferMutex) {
+        return transferMap.end() != transferMap.find(hashCode);
+    }
+    return false;
 }
 
 FileTransferService::Handle::ptr FileTransferService::get(fds_uint64_t hashCode) {
     if (!exists(hashCode)) return NULL;
-    return transferMap.at(hashCode);
+    synchronized(transferMutex) {
+        return transferMap.at(hashCode);
+    }
+    return NULL;
 }
 
-FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svcMgr_) : svcMgr(svcMgr_)  {
+FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svcMgr_)
+        : svcMgr(svcMgr_), transferMutex("transfer mutex")  {
     if (destDir.rfind('/') != destDir.length() - 1) {
         this->destDir = destDir + "/";
     } else {
@@ -135,15 +142,16 @@ bool FileTransferService::send(const fpi::SvcUuid &svcId,
 
     GLOGDEBUG << " send: " << srcFile << " as [" << destFile <<"] to " << svcId.svc_uuid;
 
-    if (transferMap.end() != transferMap.find(hashCode)) {
-        GLOGWARN << "transfer info already exists [svc: " << svcId.svc_uuid << ":" << srcFile << "]";
-        return false;
-    }
-
     Handle::ptr handle(new Handle(srcFile, destFile, svcId, this));
-    handle->cb = cb;
-    handle->fDeleteFileAfterTransfer = fDeleteFileAfterTransfer;
-    transferMap[hashCode] = handle;
+    synchronized(transferMutex) {
+        if (transferMap.end() != transferMap.find(hashCode)) {
+            GLOGWARN << "transfer info already exists [svc: " << svcId.svc_uuid << ":" << srcFile << "]";
+            return false;
+        }
+        handle->cb = cb;
+        handle->fDeleteFileAfterTransfer = fDeleteFileAfterTransfer;
+        transferMap[hashCode] = handle;
+    }
     sendVerifyRequest(handle);
     dump();
     return true;
@@ -339,13 +347,17 @@ void FileTransferService::done(fds_uint64_t hashCode, const Error& error) {
     }
 
     // now remove the handle from the map
-    transferMap.erase(hashCode);
+    synchronized(transferMutex) {
+        transferMap.erase(hashCode);
+    }
 }
 
 void FileTransferService::dump() {
-    GLOGDEBUG << (void*)this << "[File Transfer infos] : " << transferMap.size();
-    for (const auto & item : transferMap) {
-        GLOGDEBUG << item.first << " : " << item.second;
+    synchronized(transferMutex) {
+        GLOGDEBUG << (void*)this << "[File Transfer infos] : " << transferMap.size();
+        for (const auto & item : transferMap) {
+            GLOGDEBUG << item.first << " : " << item.second;
+        }
     }
 }
 

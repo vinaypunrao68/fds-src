@@ -11,7 +11,8 @@
 #include <fds_defines.h>
 #include <fdsp/filetransfer_api_types.h>
 
-namespace fds { 
+#include <concurrency/Mutex.h>
+namespace fds {
 class EPSvcRequest;
 class SvcMgr;
 class SimpleNumericCounter;
@@ -109,6 +110,7 @@ struct FileTransferService : HasLogger {
     SimpleNumericCounter *failSent;
     SimpleNumericCounter *inProgressSent;
     SimpleNumericCounter *avoidedTransfers;
+    fds::fds_mutex       transferMutex;
 };
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle& handle);
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle::ptr& handle);
