@@ -62,9 +62,10 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
 
     // TODO(anna) do not do compaction if sync is in progress, return 'not ready'
 
-    LOGNORMAL << "Start Compaction of token " << tok_id
-              << " disk_id " << disk_id << " tier " << tier
-              << " verify data?" << verify;
+    LOGNORMAL << "started compaction of token:" << tok_id
+              << " disk:" << disk_id
+              << " tier:" << tier
+              << " verify:" << verify;
     dynamic_cast<ObjectStorMgr*>(data_store)->counters->compactorRunning.incr();
 
     // remember the token we are goint to work on and object id range for this
@@ -174,8 +175,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
     ObjMetaData omd;
     fds_uint32_t offset = 0;
 
-    LOGNORMAL << "Index DB snapshot for token " << token_id
-              << " received with result " << error;
+    LOGDEBUG << "snapshot done for token:" << token_id
+             << " received with result:" << error;
     fds_verify(total_objs == 0);  // smth went wrong, we set work only once
 
     // we must be in IN_PROGRESS state
@@ -346,9 +347,11 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
         fds_verify(false);
     }
 
-    LOGNORMAL << "Compaction finished for token " << token_id
-              << " disk_id " << cur_disk_id << " tier " << cur_tier
-              << " verify data? " << verifyData << ", result " << tc_error;
+    LOGNORMAL << "finished compaction for token:" << token_id
+              << " disk:" << cur_disk_id
+              << " tier:" << cur_tier
+              << " verify:" << verifyData
+              << " result:" << tc_error;
 
     // check error happened in the middle of compaction
     if (!tc_error.ok()) {
