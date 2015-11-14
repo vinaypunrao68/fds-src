@@ -242,7 +242,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
     auto vol = getVolume(amReq->io_vol_id);
     if (!vol) {
         GLOGDEBUG << "Volume has been removed, dropping lease to: " << amReq->volume_name;
-        AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
+        return AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
     auto err = error;
