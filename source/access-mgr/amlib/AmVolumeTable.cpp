@@ -11,6 +11,7 @@
 
 #include "AmTxManager.h"
 #include "requests/AttachVolumeReq.h"
+#include "requests/StatVolumeReq.h"
 #include "PerfTrace.h"
 
 namespace fds {
@@ -18,9 +19,11 @@ namespace fds {
 /***** AmVolumeTable methods ******/
 
 /* creates its own logger */
-AmVolumeTable::AmVolumeTable(CommonModuleProviderIf *modProvider, fds_log *parent_log) :
+AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
+                             CommonModuleProviderIf *modProvider,
+                             fds_log *parent_log) :
     volume_map(),
-    txMgr(new AmTxManager(modProvider))
+    AmDataProvider(prev, new AmTxManager(this, modProvider))
 {
     if (parent_log) {
         SetLog(parent_log);
@@ -29,25 +32,18 @@ AmVolumeTable::AmVolumeTable(CommonModuleProviderIf *modProvider, fds_log *paren
 
 AmVolumeTable::~AmVolumeTable() = default;
 
-void AmVolumeTable::init(processor_cb_type const& complete_cb) {
-    processor_cb = [this, complete_cb](AmRequest* amReq, Error const& error) mutable -> void {
-        GLOGTRACE << "Completing request: 0x" << std::hex << amReq->io_req_id;
-        complete_cb(amReq, error);
-    };
-
+void AmVolumeTable::start() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     vol_tok_renewal_freq = std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
-    FdsConfigAccessor features(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
-    auto safe_atomic_write = features.get<bool>("am.safe_atomic_write", false);
-
-    txMgr->init(safe_atomic_write, processor_cb);
+    AmDataProvider::start();
 }
 
 void
 AmVolumeTable::stop() {
     // Stop all timers, we're not going to attach anymore
     token_timer.destroy();
+    AmDataProvider::stop();
 }
 
 /*
@@ -67,7 +63,7 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
         auto new_vol = std::make_shared<AmVolume>(volDesc, nullptr);
         volume_map[vol_uuid] = std::move(new_vol);
         // Create caches
-        txMgr->registerVolume(volDesc);
+        AmDataProvider::registerVolume(volDesc);
         map_rwlock.write_unlock();
 
         LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
@@ -108,21 +104,18 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& 
  * Removes volume from the map, returns error if volume does not exist
  */
 Error
-AmVolumeTable::removeVolume(fds_volid_t const volId) {
+AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
     WriteGuard wg(map_rwlock);
 
-    // Remove the volume from the caches (if there is one)
-    txMgr->removeVolume(volId);
-
-    auto volIt = volume_map.find(volId);
+    auto volIt = volume_map.find(volDesc.volUUID);
     if (volume_map.end() == volIt) {
-        GLOGDEBUG << "Called for non-attached volume " << volId;
+        GLOGDEBUG << "Called for non-attached volume " << volDesc.volUUID;
         return ERR_VOL_NOT_FOUND;
     }
     auto vol = volIt->second;
 
     volume_map.erase(volIt);
-    LOGNOTIFY << "AmVolumeTable - Removed volume " << volId;
+    LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
 
     // If we had a token for a volume, give it back to DM
     if (vol && vol->access_token) {
@@ -132,12 +125,13 @@ AmVolumeTable::removeVolume(fds_volid_t const volId) {
             GLOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
         } else {
             LOGWARN << "Failed to cancel timer, volume will re-attach: "
-                    << volId << " using: 0x" << std::hex << token;
+                    << volDesc.volUUID << " using: 0x" << std::hex << token;
         }
-        txMgr->closeVolume(volId, token);
+        AmDataProvider::closeVolume(volDesc.volUUID, token);
     }
 
-    return ERR_OK;
+    // Remove the volume from the caches (if there is one)
+    return AmDataProvider::removeVolume(volDesc);
 }
 
 /*
@@ -170,7 +164,6 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) const {
         }
         return true;
     }
-    processor_cb(amReq, ERR_VOLUME_ACCESS_DENIED);
     return false;
 }
 
@@ -181,7 +174,6 @@ AmVolumeTable::ensureWritable(AmRequest* amReq) const {
         amReq->object_size = vol->voldesc->maxObjSizeInBytes;
         return true;
     }
-    processor_cb(amReq, ERR_NOT_READY);
     return false;
 }
 
@@ -215,18 +207,13 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
     return nullptr;
 }
 
-Error
-AmVolumeTable::attachVolume(std::string const& volume_name) {
-    return txMgr->attachVolume(volume_name);
-}
-
 void
 AmVolumeTable::openVolume(AmRequest *amReq) {
     // Check if we already are attached so we can have a current token
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
     auto vol = getVolume(amReq->io_vol_id);
     if (!vol) {
-        return processor_cb(amReq, ERR_VOLUME_ACCESS_DENIED);
+        AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
     volReq->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
@@ -234,12 +221,8 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
         auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
         cb->mode = boost::make_shared<fpi::VolumeAccessMode>(vol->access_token->getMode());
         cb->volDesc = volReq->volDesc;
-        return processor_cb(amReq, ERR_OK);
+        AmDataProvider::openVolumeCb(amReq, ERR_OK);
     }
-
-    amReq->proc_cb = [this, amReq] (Error const& error) mutable -> void {
-        openVolumeCb(amReq, error);
-    };
 
     /**
      * FEATURE TOGGLE: Single AM Enforcement
@@ -247,17 +230,20 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
      */
     GLOGDEBUG << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
               << ") write(" << volReq->mode.can_write << ")";
-    return txMgr->openVolume(amReq);
+    AmDataProvider::openVolume(amReq);
 }
 
 void
-AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error& error) {
+AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
     auto volReq = static_cast<AttachVolumeReq*>(amReq);
+    if (volReq->renewal) {
+        return renewTokenCb(amReq, error);
+    }
 
     auto vol = getVolume(amReq->io_vol_id);
     if (!vol) {
         GLOGDEBUG << "Volume has been removed, dropping lease to: " << amReq->volume_name;
-        return processor_cb(amReq, ERR_VOLUME_ACCESS_DENIED);
+        AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
     auto const& vol_desc = *vol->voldesc;
@@ -294,7 +280,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error& error) {
                   << ") write(" << volReq->mode.can_write
                   << ") error(" << error << ")";
     }
-    processor_cb(amReq, error);
+    AmDataProvider::openVolumeCb(amReq, error);
 }
 
 void
@@ -311,12 +297,10 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
     fpi::VolumeAccessMode rw;
     auto volReq = new AttachVolumeReq(vol_id, "", rw, nullptr);
     volReq->token = vol->getToken();
-    volReq->proc_cb = [this, volReq] (Error const& error) mutable -> void {
-        renewTokenCb(volReq, error);
-    };
+    volReq->renewal = true;
     // Dispatch for a renewal to DM, update the token on success. Remove the
     // volume otherwise.
-    return txMgr->openVolume(volReq);
+    AmDataProvider::openVolume(volReq);
 }
 
 void
@@ -354,109 +338,103 @@ AmVolumeTable::renewTokenCb(AmRequest *amReq, const Error& error) {
 }
 
 void
-AmVolumeTable::statVolume(AmRequest *amReq) {
-    return txMgr->statVolume(amReq);
+AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
+    if (error.ok()) {
+        StatVolumeCallback::ptr cb =
+            SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
+        auto volReq = static_cast<StatVolumeReq *>(amReq);
+        cb->current_usage_bytes = volReq->size;
+        cb->blob_count = volReq->blob_count;
+    }
+    AmDataProvider::statVolumeCb(amReq, error);
 }
 
 void
 AmVolumeTable::setVolumeMetadata(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->setVolumeMetadata(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::setVolumeMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
-}
-
-void
-AmVolumeTable::getVolumeMetadata(AmRequest *amReq) {
-    return txMgr->getVolumeMetadata(amReq);
+    AmDataProvider::setVolumeMetadata(amReq);
 }
 
 void
 AmVolumeTable::volumeContents(AmRequest *amReq) {
-    if (ensureReadable(amReq)) {
-        return txMgr->volumeContents(amReq);
+    if (!ensureReadable(amReq)) {
+        return AmDataProvider::volumeContentsCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::volumeContents(amReq);
 }
 
 void
 AmVolumeTable::startBlobTx(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->startBlobTx(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::startBlobTxCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::startBlobTx(amReq);
 }
 
 void
 AmVolumeTable::commitBlobTx(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->commitBlobTx(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::commitBlobTxCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
-}
-
-void
-AmVolumeTable::abortBlobTx(AmRequest *amReq) {
-    return txMgr->abortBlobTx(amReq);
+    AmDataProvider::commitBlobTx(amReq);
 }
 
 void
 AmVolumeTable::statBlob(AmRequest *amReq) {
-    if (ensureReadable(amReq)) {
-        return txMgr->statBlob(amReq);
+    if (!ensureReadable(amReq)) {
+        return AmDataProvider::statBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::statBlob(amReq);
 }
 
 void
 AmVolumeTable::setBlobMetadata(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->setBlobMetadata(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::setBlobMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::setBlobMetadata(amReq);
 }
 
 void
 AmVolumeTable::deleteBlob(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->deleteBlob(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::deleteBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::deleteBlob(amReq);
 }
 
 void
 AmVolumeTable::renameBlob(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->renameBlob(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::renameBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::renameBlob(amReq);
 }
 
 void
 AmVolumeTable::getBlob(AmRequest *amReq) {
-    if (ensureReadable(amReq)) {
-        return txMgr->getBlob(amReq);
+    if (!ensureReadable(amReq)) {
+        return AmDataProvider::getBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::getBlob(amReq);
 }
 
 void
 AmVolumeTable::putBlob(AmRequest *amReq) {
-    if (ensureWritable(amReq)) {
-        return txMgr->putBlob(amReq);
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::putBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
+    AmDataProvider::putBlob(amReq);
 }
 
-Error 
-AmVolumeTable::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
-    return txMgr->updateDlt(dlt_type, dlt_data, cb);
+void
+AmVolumeTable::putBlobOnce(AmRequest *amReq) {
+    if (!ensureWritable(amReq)) {
+        return AmDataProvider::putBlobOnceCb(amReq, ERR_VOLUME_ACCESS_DENIED);
+    }
+    AmDataProvider::putBlobOnce(amReq);
 }
-
-Error 
-AmVolumeTable::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
-    return txMgr->updateDmt(dmt_type, dmt_data, cb);
-}
-
-Error 
-AmVolumeTable::getDMT() {
-    return txMgr->getDMT();
-}
-
-Error 
-AmVolumeTable::getDLT() {
-    return txMgr->getDLT();
-}
-
 
 }  // namespace fds
