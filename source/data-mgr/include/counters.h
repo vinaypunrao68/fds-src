@@ -12,7 +12,8 @@ struct Counters : FdsCounters {
             : FdsCounters(id, mgr),
               refscanRunning("dm.refscan.running", this),
               refscanNumVolumes("dm.refscan.num_volumes", this),
-              refscanNumTokenFiles("dm.refscan.num_token_files", this),
+              refscanNumTokenFiles("dm.refscan.num_tokens", this),
+              refscanNumObjects("dm.refscan.num_objects", this),
               refscanLastRun("dm.refscan.lastrun.timestamp", this) {
     }
     ~Counters() = default;
@@ -21,6 +22,7 @@ struct Counters : FdsCounters {
     SimpleNumericCounter refscanNumVolumes;
     SimpleNumericCounter refscanNumTokenFiles;
     SimpleNumericCounter refscanLastRun;
+    SimpleNumericCounter refscanNumObjects;
 };
 }  // namespace dm
 }  // namespace fds
