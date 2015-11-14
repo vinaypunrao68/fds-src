@@ -41,7 +41,7 @@ class ScavengerContext(Context):
         except Exception, e:
             log.exception(e)
             return 'disable failed'
-    
+
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
@@ -69,7 +69,7 @@ class ScavengerContext(Context):
         except Exception, e:
             log.exception(e)
             return 'start refscan failed'
-    
+
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
@@ -91,7 +91,11 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def info(self, sm):
         try:
+            cluster_totalobjects = 0
+            cluster_deletedobjects = 0
+            numsvcs=0
             for uuid in self.config.getServiceId(sm, False):
+                numsvcs += 1
                 cntrs = ServiceMap.client(uuid).getCounters('*')
                 keys=cntrs.keys()
                 totalobjects =0
@@ -107,8 +111,11 @@ class ScavengerContext(Context):
                 data = []
                 gcstart='not yet'
                 key = 'sm.scavenger.start.timestamp'
-                if key in cntrs:
+                if key in cntrs and cntrs[key] > 0:
                     gcstart='{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))
+
+                cluster_totalobjects += totalobjects
+                cluster_deletedobjects += deletedobjects
                 data.append(('gc.start',gcstart))
                 data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
                 data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
@@ -117,6 +124,14 @@ class ScavengerContext(Context):
                 data.append(('tokens.total',totaltokens))
                 print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'sm', uuid, '-'*40))
                 print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+
+            if numsvcs > 1:
+                data =[]
+                data.append(('objects.total',cluster_totalobjects))
+                data.append(('objects.deleted',cluster_deletedobjects))
+                print ('{}\ngc info for the cluster\n{}'.format('-'*40,'-'*40))
+                print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+
         except Exception, e:
             log.exception(e)
             return 'get counters failed'
@@ -190,5 +205,3 @@ class ScrubberContext(Context):
         except Exception, e:
             log.exception(e)
             return 'scrubber status failed'
-
-
