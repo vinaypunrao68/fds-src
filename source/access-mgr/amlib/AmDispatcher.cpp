@@ -695,10 +695,15 @@ AmDispatcher::deleteBlobCb(AmRequest* amReq,
              << " blob:" << amReq->getBlobName();
 
     // Return if err
-    if (error != ERR_OK) {
-        LOGWARN << "error in response: " << error;
+    auto err = error;
+    if (err != ERR_OK) {
+        LOGWARN << "error in response: " << err;
+        if (ERR_BLOB_NOT_FOUND == err ||
+            ERR_CAT_ENTRY_NOT_FOUND == err) {
+            err = ERR_OK;
+        }
     }
-    AmDataProvider::deleteBlobCb(amReq, error);
+    AmDataProvider::deleteBlobCb(amReq, err);
 }
 
 void
