@@ -505,18 +505,23 @@ DmMigrationExecutor::abortMigration()
 	 * we are in an inconsistent state halfway through migration.
 	 */
 	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
-	volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
-	LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
-			<< " to " << fpi::ResourceState::InError;
-	dataMgr.qosCtrl->resumeIOs(volumeUuid);
-    {
-        fds_scoped_lock lock(progressLock);
-        if (migrationProgress != MIGRATION_ABORTED) {
-        	migrationProgress = MIGRATION_ABORTED;
-        	if (migrDoneCb) {
-        		LOGMIGRATE << "Abort migration called.";
-        		migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
-        	}
+    if (volumeMeta) {
+        volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
+        LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
+	            << " to " << fpi::ResourceState::InError;
+    } else {
+        LOGERROR << "Aborting migration: Executor hasn't started yet and has no volumeMetaData";
+    }
+    fds_scoped_lock lock(progressLock);
+    if (migrationProgress != INIT) {
+        // We should only resume something if we've stopped it.
+        dataMgr.qosCtrl->resumeIOs(volumeUuid);
+    }
+    if (migrationProgress != MIGRATION_ABORTED) {
+        migrationProgress = MIGRATION_ABORTED;
+        if (migrDoneCb) {
+            LOGMIGRATE << "Abort migration called.";
+            migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         }
     }
 }
