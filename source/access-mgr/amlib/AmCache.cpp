@@ -8,6 +8,7 @@
 #include <climits>
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
+#include "requests/AttachVolumeReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/GetObjectReq.h"
 #include "requests/RenameBlobReq.h"
@@ -34,26 +35,16 @@ AmCache::start() {
     AmDataProvider::start();
 }
 
-Error
+void
 AmCache::registerVolume(const VolumeDesc& volDesc) {
     auto const& vol_uuid = volDesc.volUUID;
     auto num_objs = (0 < volDesc.maxObjSizeInBytes) ?
         (max_volume_data / volDesc.maxObjSizeInBytes) : 0;
-    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        return err;
-    }
-    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        descriptor_cache.removeVolume(vol_uuid);
-        return err;
-    }
-    err = object_cache.addVolume(vol_uuid, num_objs);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        offset_cache.removeVolume(vol_uuid);
-        descriptor_cache.removeVolume(vol_uuid);
-    }
-    return AmDataProvider::registerVolume(volDesc);
+    descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+    offset_cache.addVolume(vol_uuid, max_metadata_entries);
+    object_cache.addVolume(vol_uuid, num_objs);
+    LOGDEBUG << "Created caches for volume: " << volDesc.name;
+    AmDataProvider::registerVolume(volDesc);
 }
 
 Error
@@ -280,6 +271,50 @@ AmCache::statBlob(AmRequest *amReq) {
 }
 
 void
+AmCache::deleteBlobCb(AmRequest* amReq, Error const error) {
+    if (error.ok()) {
+        descriptor_cache.remove(amReq->io_vol_id, amReq->getBlobName());
+        offset_cache.remove_if(amReq->io_vol_id,
+                               [amReq] (BlobOffsetPair const& blob_pair) -> bool {
+                                    return (amReq->getBlobName() == blob_pair.getName());
+                               });
+    }
+    AmDataProvider::deleteBlobCb(amReq, error);
+}
+
+void
+AmCache::openVolumeCb(AmRequest* amReq, Error const error) {
+    // Let's dump our meta cache to be safe if we loose a lease on a volume
+    if (ERR_OK != error || !static_cast<AttachVolumeReq*>(amReq)->mode.can_cache) {
+        descriptor_cache.clear(amReq->io_vol_id);
+        offset_cache.clear(amReq->io_vol_id);
+    }
+    AmDataProvider::openVolumeCb(amReq, error);
+}
+
+void
+AmCache::renameBlobCb(AmRequest* amReq, Error const error) {
+    if (error.ok()) {
+        // Place the new blob's descriptor in the cache
+        auto blobReq = static_cast<RenameBlobReq*>(amReq);
+        descriptor_cache.remove(amReq->io_vol_id, blobReq->getBlobName());
+        descriptor_cache.add(blobReq->io_vol_id,
+                             blobReq->new_blob_name,
+                             SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
+        // Remove all offsets for the old blob and new blobs
+        offset_cache.remove_if(amReq->io_vol_id,
+                               [blobReq] (BlobOffsetPair const& blob_pair) -> bool {
+                                   return (blobReq->new_blob_name == blob_pair.getName() ||
+                                           blobReq->getBlobName() == blob_pair.getName());
+                                });
+        // TODO(bszmyd): Sat 14 Nov 2015 02:39:16 AM MST
+        // Should we move the offsets to the other blob so we don't have to
+        // read them back post-rename?
+    }
+    AmDataProvider::renameBlobCb(amReq, error);
+}
+
+void
 AmCache::statBlobCb(AmRequest* amReq, Error const error) {
     // Insert metadata into cache.
     if (ERR_OK == error && amReq->page_out_cache) {
@@ -291,22 +326,16 @@ AmCache::statBlobCb(AmRequest* amReq, Error const error) {
 }
 
 void
-AmCache::renameBlobCb(AmRequest* amReq, Error const error) {
-    if (error.ok()) {
-        // Place the new blob's descriptor in the cache
-        auto blobReq = static_cast<RenameBlobReq*>(amReq);
-        // Remove all offsets for the old blob and new blobs
-        offset_cache.remove_if(amReq->io_vol_id,
-                               [blobReq] (BlobOffsetPair const& blob_pair) -> bool {
-                                   return (blobReq->new_blob_name == blob_pair.getName() ||
-                                           blobReq->getBlobName() == blob_pair.getName());
-                                });
-        descriptor_cache.remove(amReq->io_vol_id, blobReq->getBlobName());
-        descriptor_cache.add(blobReq->io_vol_id,
-                             blobReq->new_blob_name,
-                             SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
+AmCache::volumeContentsCb(AmRequest* amReq, Error const error) {
+    if (ERR_OK == error && amReq->page_out_cache) {
+        auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
+        for (auto const& blob : *cb->vecBlobs) {
+            descriptor_cache.add(amReq->io_vol_id,
+                                 blob.getBlobName(),
+                                 boost::make_shared<BlobDescriptor>(blob));
+        }
     }
-    AmDataProvider::renameBlobCb(amReq, error);
+    AmDataProvider::volumeContentsCb(amReq, error);
 }
 
 void

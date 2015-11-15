@@ -37,15 +37,14 @@ struct AmDataProvider {
         if (_next_in_chain) {
             return _next_in_chain->retrieveVolDesc(volume_name);
         }
-        fds_panic("Unimplemented call escape!");
+        throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
-    virtual Error registerVolume(const VolumeDesc& volDesc)
+    virtual void registerVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
             return _next_in_chain->registerVolume(volDesc);
         }
-        fds_panic("Unimplemented call escape!");
     }
 
     virtual Error removeVolume(const VolumeDesc& volDesc)
@@ -53,11 +52,22 @@ struct AmDataProvider {
         if (_next_in_chain) {
             return _next_in_chain->removeVolume(volDesc);
         }
-        fds_panic("Unimplemented call escape!");
+        return ERR_OK;
     }
-    
-    virtual void closeVolume(fds_volid_t vol_id, int64_t token)
-    { forward_request(&AmDataProvider::closeVolume, vol_id, token); }
+
+    virtual Error modifyVolumePolicy(fds_volid_t const vol_id, VolumeDesc const& volDesc)
+    {
+        if (_next_in_chain) {
+            return _next_in_chain->modifyVolumePolicy(vol_id, volDesc);
+        }
+        return ERR_OK;
+    }
+
+    virtual Error updateQoS(int64_t const* rate, float const* throttle)
+    { return forward_request(&AmDataProvider::updateQoS, rate, throttle); }
+
+    virtual void closeVolume(fds_volid_t const vol_id, int64_t const token)
+    { return forward_request(&AmDataProvider::closeVolume, vol_id, token); }
 
     virtual void openVolume(AmRequest * amReq)
     { return forward_request(&AmDataProvider::openVolume, amReq); }
@@ -114,29 +124,21 @@ struct AmDataProvider {
         if (_next_in_chain) {
             return _next_in_chain->updateDlt(dlt_type, dlt_data, cb);
         }
-        fds_panic("Unimplemented call escape!");
+        throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
     virtual Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
         if (_next_in_chain) {
             return _next_in_chain->updateDmt(dmt_type, dmt_data, cb);
         }
-        fds_panic("Unimplemented call escape!");
+        throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
-    virtual Error getDMT() {
-        if (_next_in_chain) {
-            return _next_in_chain->getDMT();
-        }
-        fds_panic("Unimplemented call escape!");
-    }
+    virtual Error getDMT()
+    { return forward_request(&AmDataProvider::getDMT); }
 
-    virtual Error getDLT() {
-        if (_next_in_chain) {
-            return _next_in_chain->getDLT();
-        }
-        fds_panic("Unimplemented call escape!");
-    }
+    virtual Error getDLT()
+    { return forward_request(&AmDataProvider::getDLT); }
 
  protected:
     virtual void openVolumeCb(AmRequest * amReq, Error const error)
@@ -194,8 +196,8 @@ struct AmDataProvider {
     { return _next_in_chain.get(); }
 
  private:
-    template<typename ... Args>
-    constexpr void forward_request(void (AmDataProvider::*func)(Args...), Args... args) {
+    template<typename Ret, typename ... Args>
+    constexpr Ret forward_request(Ret (AmDataProvider::*func)(Args...), Args... args) {
         if (_next_in_chain) {
             return ((_next_in_chain.get())->*(func))(args...);
         }

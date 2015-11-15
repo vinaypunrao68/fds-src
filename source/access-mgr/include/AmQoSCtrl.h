@@ -27,9 +27,10 @@ class AmQoSCtrl :
 {
     using processor_cb_type = std::function<void(AmRequest*, Error const&)>;
     processor_cb_type processor_cb;
- public:
+
     QoSHTBDispatcher *htb_dispatcher;
 
+ public:
     AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, CommonModuleProviderIf* provider, fds_log *log);
     virtual ~AmQoSCtrl();
 
@@ -38,7 +39,6 @@ class AmQoSCtrl :
     Error processIO(FDS_IOType *io) override;
     void init(processor_cb_type const& cb);
     fds_uint32_t waitForWorkers() { return 1; }
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
     Error enqueueRequest(AmRequest *amReq);
     bool shutdown();
 
@@ -46,7 +46,8 @@ class AmQoSCtrl :
      * These are the QoS specific DataProvider routines.
      * Everything else is pass-thru.
      */
-    Error registerVolume(VolumeDesc const& volDesc) override;
+    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     Error removeVolume(VolumeDesc const& volDesc) override;
 
  protected:
