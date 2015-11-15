@@ -40,12 +40,11 @@ struct AmDataProvider {
         throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
-    virtual Error registerVolume(const VolumeDesc& volDesc)
+    virtual void registerVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
             return _next_in_chain->registerVolume(volDesc);
         }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
     virtual Error removeVolume(const VolumeDesc& volDesc)
@@ -53,7 +52,7 @@ struct AmDataProvider {
         if (_next_in_chain) {
             return _next_in_chain->removeVolume(volDesc);
         }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
+        return ERR_OK;
     }
 
     virtual Error modifyVolumePolicy(fds_volid_t const vol_id, VolumeDesc const& volDesc)
@@ -61,7 +60,7 @@ struct AmDataProvider {
         if (_next_in_chain) {
             return _next_in_chain->modifyVolumePolicy(vol_id, volDesc);
         }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
+        return ERR_OK;
     }
 
     virtual Error updateQoS(int64_t const* rate, float const* throttle)

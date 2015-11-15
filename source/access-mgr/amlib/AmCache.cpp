@@ -35,26 +35,16 @@ AmCache::start() {
     AmDataProvider::start();
 }
 
-Error
+void
 AmCache::registerVolume(const VolumeDesc& volDesc) {
     auto const& vol_uuid = volDesc.volUUID;
     auto num_objs = (0 < volDesc.maxObjSizeInBytes) ?
         (max_volume_data / volDesc.maxObjSizeInBytes) : 0;
-    Error err = descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        return err;
-    }
-    err = offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        descriptor_cache.removeVolume(vol_uuid);
-        return err;
-    }
-    err = object_cache.addVolume(vol_uuid, num_objs);
-    if (ERR_OK != err && ERR_VOL_DUPLICATE != err) {
-        offset_cache.removeVolume(vol_uuid);
-        descriptor_cache.removeVolume(vol_uuid);
-    }
-    return AmDataProvider::registerVolume(volDesc);
+    descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
+    offset_cache.addVolume(vol_uuid, max_metadata_entries);
+    object_cache.addVolume(vol_uuid, num_objs);
+    LOGDEBUG << "Created caches for volume: " << volDesc.name;
+    AmDataProvider::registerVolume(volDesc);
 }
 
 Error

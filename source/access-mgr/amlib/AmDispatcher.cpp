@@ -137,6 +137,13 @@ AmDispatcher::start() {
     LOGNOTIFY << "AM request serialization set to: " << SerialNames[serialSelection]  << ".";
 }
 
+void
+AmDispatcher::stop() {
+    if (StatsCollector::singleton()->isStreaming()) {
+        StatsCollector::singleton()->stopStreaming();
+    }
+}
+
 Error
 AmDispatcher::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     auto err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt_type, dlt_data, cb);

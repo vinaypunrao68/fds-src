@@ -47,7 +47,7 @@ class AmQoSCtrl :
      * Everything else is pass-thru.
      */
     Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
-    Error registerVolume(VolumeDesc const& volDesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     Error removeVolume(VolumeDesc const& volDesc) override;
 
  protected:

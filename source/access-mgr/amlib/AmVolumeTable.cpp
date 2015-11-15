@@ -51,7 +51,7 @@ AmVolumeTable::stop() {
  * Search the wait queue for an attach on this volume (by name),
  * if found process it, and only it.
  */
-Error
+void
 AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
 {
     fds_volid_t vol_uuid = volDesc.GetID();
@@ -77,7 +77,6 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
     } else {
         map_rwlock.write_unlock();
     }
-    return ERR_OK;
 }
 
 Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
@@ -284,7 +283,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
         cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
     }
-    AmDataProvider::openVolumeCb(amReq, error);
+    AmDataProvider::openVolumeCb(amReq, err);
 }
 
 void

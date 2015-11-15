@@ -49,7 +49,7 @@ class AmCache :
      * Everything else is pass-thru.
      */
     void start();
-    Error registerVolume(const VolumeDesc& volDesc) override;
+    void registerVolume(const VolumeDesc& volDesc) override;
     Error removeVolume(const VolumeDesc& volDesc) override;
     void statBlob(AmRequest * amReq) override;
     void getBlob(AmRequest * amReq) override;

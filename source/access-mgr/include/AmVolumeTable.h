@@ -61,7 +61,7 @@ struct AmVolumeTable :
     void start() override;
     void stop() override;
     Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
-    Error registerVolume(VolumeDesc const& volDesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     Error removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest *amReq) override;
     void setVolumeMetadata(AmRequest *amReq) override;
