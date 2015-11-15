@@ -35,6 +35,7 @@ util::BloomFilterPtr BloomFilterStore::load(const std::string &key) {
     auto deserializer = serialize::getFileDeserializer(getFilePath(key));
     auto bloomfilter = util::BloomFilterPtr(new util::BloomFilter(bloomfilterBits));
     auto readSize = bloomfilter->read(deserializer);
+    delete deserializer;
     return bloomfilter;
 }
 
@@ -43,6 +44,7 @@ void BloomFilterStore::save(const std::string &key, util::BloomFilterPtr bloomfi
     bfs::remove(filename);
     auto serializer = serialize::getFileSerializer(filename);
     auto writeSize = bloomfilter->write(serializer);
+    delete serializer;
 }
 
 void BloomFilterStore::addToCache(const std::string &key, util::BloomFilterPtr bloomfilter) {
@@ -432,8 +434,10 @@ Error VolumeObjectRefScanner::scanStep() {
 Error VolumeObjectRefScanner::finishScan(const Error &e) {
     state = COMPLETE;
     completionError = e;
+    LOGDEBUG << "finishing scan:" << volId;
     auto volcatIf = objRefMgr->getDataMgr()->timeVolCat_->queryIface();
     if (e != ERR_VOL_NOT_FOUND) {
+        itr = nullptr;
         if (ERR_OK != volcatIf->freeVolumeSnapshot(volId, snap)) {
             GLOGWARN << "Failed to release snapshot for volId: " << volId;
         }

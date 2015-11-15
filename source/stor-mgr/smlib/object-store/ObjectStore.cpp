@@ -1697,6 +1697,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
         BloomFilter bf;
         bf.read(d);
         objectSets.push_back(bf);
+        delete d;
     }
 
     TimeStamp ts;
