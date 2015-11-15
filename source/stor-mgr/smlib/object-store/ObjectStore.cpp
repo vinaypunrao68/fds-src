@@ -85,6 +85,11 @@ ObjectStore::ObjectStore(const std::string &modName,
                                 dynamic_cast<ObjectStorMgr*>(data_store),
                                 std::placeholders::_1,
                                 std::placeholders::_2);
+    } else {
+        LOGWARN << "setting a dummy token func";
+        tokenLockFn = [](ObjectID const&, bool) {
+            return nullary_always([]{});
+        };
     }
 }
 
