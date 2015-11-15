@@ -62,7 +62,7 @@ extern ObjectStorMgr *objStorMgr;
  */
 const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
-
+#define OBJECTSTOREMGR(obj) if (NULL != dynamic_cast<ObjectStorMgr*>(obj)) dynamic_cast<ObjectStorMgr*>(obj)
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     protected:
      typedef enum {

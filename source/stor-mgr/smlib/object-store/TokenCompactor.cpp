@@ -66,7 +66,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
               << " disk:" << disk_id
               << " tier:" << tier
               << " verify:" << verify;
-    dynamic_cast<ObjectStorMgr*>(data_store)->counters->compactorRunning.incr();
+    OBJECTSTOREMGR(data_store)->counters->compactorRunning.incr();
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects
