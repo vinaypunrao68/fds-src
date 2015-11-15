@@ -44,7 +44,7 @@ DmMigrationMgr::~DmMigrationMgr()
     }
 
     if (abort_thread) {
-        abort_thread.join();
+        abort_thread->join();
         abort_thread = nullptr;
     }
 }
@@ -805,7 +805,7 @@ DmMigrationMgr::waitForAbortToFinish()
 
     // TODO: can we just use the join in place of the CV?
     if (abort_thread) {
-        abort_thread.join();
+        abort_thread->join();
         abort_thread = nullptr;
     }
 	lk.unlock();

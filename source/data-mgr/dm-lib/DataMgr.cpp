@@ -1034,7 +1034,7 @@ DataMgr::~DataMgr()
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 
-    delete dmMigrationMgr;
+    dmMigrationMgr.reset();
 
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
