@@ -321,6 +321,7 @@ void ObjectDB::forEachObject(std::function<void (const ObjectID&)> &func) {
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         func(ObjectID(it->key().ToString()));
     }
+    delete it;
 }
 
 /** Takes a persistent snapshot of the leveldb in ObjectDB
