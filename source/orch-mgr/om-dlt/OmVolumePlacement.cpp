@@ -502,8 +502,9 @@ void VolumePlacement::commitDMT( const bool unsetTarget )
     }
 }
 
-void
+fds_bool_t
 VolumePlacement::undoTargetDmtCommit() {
+    fds_bool_t rollBackNeeded = false;
     if (dmtMgr->hasTargetDMT()) {
         if (!hasNonCommitedTarget()) {
             LOGDEBUG << "Failure occured after commit - reverting committed DMT version to " << prevDmtVersion;
@@ -512,23 +513,20 @@ VolumePlacement::undoTargetDmtCommit() {
             Error err = dmtMgr->commitDMT(prevDmtVersion, false);
             fds_verify(err.ok());
             prevDmtVersion = DMT_VER_INVALID;
+
+            LOGDEBUG << "Clearing target DMT";
+
+            // forget about target DMT and remove it from DMT manager
+            dmtMgr->unsetTarget(true);
+
+            // also forget target DMT in persistent store
+            if (!configDB->setDmtType(0, "target")) {
+                LOGWARN << "unable to store target dmt type to config db";
+            }
+            rollBackNeeded = true;
         }
     }
-}
-
-void
-VolumePlacement::clearTargetDmt() {
-    if (dmtMgr->hasTargetDMT()) {
-        LOGDEBUG << "Clearing target DMT";
-
-        // forget about target DMT and remove it from DMT manager
-        dmtMgr->unsetTarget(true);
-
-        // also forget target DMT in persistent store
-        if (!configDB->setDmtType(0, "target")) {
-            LOGWARN << "unable to store target dmt type to config db";
-        }
-    }
+    return rollBackNeeded;
 }
 
 /**

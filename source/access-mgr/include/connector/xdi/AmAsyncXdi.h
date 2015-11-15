@@ -228,7 +228,7 @@ struct AmAsyncXdiRequest
               << "] handle [" << handle->id
               << "] vol [" << *volName
               << "] blob [" << *blobName
-              << "] offset {" << std::hex << offset
+              << "] offset {" << std::hex << offset->value
               << "} length {" << std::dec << *length << "}";
     }
 
