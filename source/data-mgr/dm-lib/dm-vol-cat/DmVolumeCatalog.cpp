@@ -206,6 +206,34 @@ Error DmVolumeCatalog::markVolumeDeleted(fds_volid_t volId) {
 
 Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
     LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
+    GET_VOL(volId);
+    if (!vol) return ERR_VOL_NOT_FOUND;
+
+
+        // wait for all snapshots to be released
+    if (0 != vol->getNumInMemorySnapshots()) {
+        LOGWARN << "waiting for all db mem snapshots to be released.";
+        uint count = 0;
+        uint sleeptime = 500000;  // half a second
+        uint maxwait = 10*60;  // 10 mins
+
+        do {
+            if (count && count % 40 == 0) {
+                LOGWARN << "still waiting for db snaps to be released "
+                        << " for vol:" << volId
+                        << " waittime: " << (count/2) << " seconds";
+            }
+            usleep(500000);
+            ++count;
+        } while ( count < (maxwait*2) && 0 != vol->getNumInMemorySnapshots());
+
+        if (0 != vol->getNumInMemorySnapshots()) {
+            LOGCRITICAL << "Mem snaps not released even after "
+                        << (count/2) << " seconds"
+                        << " for vol:" << volId
+                        << " .. please check";
+        }
+    }
 
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
@@ -214,24 +242,6 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
                                       iter->second->isMarkedDeleted() ||
                                       iter->second->isSnapshot()
                                       )) {
-            // check for in memory snapshots
-
-                // wait for all snapshots to be released
-            if (0 != iter->second->getNumInMemorySnapshots()) {
-                LOGWARN << "waiting for all db mem snapshots to be released.";
-                int count = 0;
-                do {
-                    usleep(500000);
-                } while ( count < 120 &&
-                          0 != iter->second->getNumInMemorySnapshots());
-
-                if (0 != iter->second->getNumInMemorySnapshots()) {
-                    LOGCRITICAL << "Mem snaps not released even after 1 minute"
-                                << " for vol:" << volId
-                                << " .. please check";
-                }
-            }
-
             volMap_.erase(iter);
         }
     }
