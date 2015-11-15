@@ -195,7 +195,7 @@ function activate() {
         sleep 14
 
         logwarn "asking OM to accept all discovered nodes..."
-        (cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
+	(cd ${TOOLSDIR}; /usr/bin/python fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
     fi
 }
 

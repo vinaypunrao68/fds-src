@@ -10,12 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 public class EvictingCache<TKey, TValue> {
     private final Cache<TKey, CacheEntry<TValue>> cache;
     private Cache<TKey, Object> locks;
-    private final Executor executor;
     private Evictor<TKey, CacheEntry<TValue>> evictor;
     private String name;
     private final BlockingDeque<Exception> exceptions;
@@ -23,7 +25,6 @@ public class EvictingCache<TKey, TValue> {
     public EvictingCache(Evictor<TKey, CacheEntry<TValue>> evictor, String name, int maxSize, int evictionInterval, TimeUnit evictionTimeUnit) {
         this.evictor = evictor;
         this.name = name;
-        executor = Executors.newCachedThreadPool();
         exceptions = new LinkedBlockingDeque<>();
 
         cache = CacheBuilder.newBuilder()
@@ -34,16 +35,14 @@ public class EvictingCache<TKey, TValue> {
                     if (!(cause.equals(RemovalCause.EXPLICIT) || cause.equals(RemovalCause.REPLACED))) {
                         TKey key = (TKey) notification.getKey();
                         CacheEntry<TValue> entry = (CacheEntry<TValue>) notification.getValue();
-                        executor.execute(() -> {
-                            if (entry.isDirty) {
-                                try {
-                                    evictor.flush(key, entry);
-                                    entry.isDirty = false;
-                                } catch (Exception e) {
-                                    exceptions.add(e);
-                                }
+                        if (entry.isDirty) {
+                            try {
+                                evictor.flush(key, entry);
+                                entry.isDirty = false;
+                            } catch (Exception e) {
+                                exceptions.add(e);
                             }
-                        });
+                        }
                     }
                 }).build();
 
