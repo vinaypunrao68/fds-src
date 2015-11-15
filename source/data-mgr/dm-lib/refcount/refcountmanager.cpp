@@ -64,6 +64,7 @@ void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Han
     auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
     msg->filename = handle->destFile;
     msg->checksum = handle->getCheckSum();
+    msg->scantimestamp = dm->counters->refscanLastRun.value();
     for (const auto& volId : *transferContext.volumeList) {
         msg->volumeIds.push_back(volId.get());
     }
@@ -148,6 +149,7 @@ bool RefCountManager::FileTransferContext::processNextToken() {
         for (const auto& volId : *volumeList) {
             msg->volumeIds.push_back(volId.get());
         }
+        msg->scantimestamp = refCountManager->dm->counters->refscanLastRun.value();
         LOGDEBUG << "msg=" << *msg;
         for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
             auto svcId = svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR);

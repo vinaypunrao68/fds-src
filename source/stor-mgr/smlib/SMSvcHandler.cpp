@@ -1244,7 +1244,7 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         }
     }
 
-    TimeStamp ts = util::getTimeStampNanos();
+    TimeStamp ts = msg->scantimestamp * 1000 * 1000 * 1000;
     for (auto volId : msg->volumeIds) {
         objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
                                               ts, filename);
