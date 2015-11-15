@@ -313,7 +313,7 @@ void ScavControl::startScavengeProcess()
     }
 
     bool periodic_expunge = g_fdsprocess->get_fds_config()->\
-                                get<bool>("fds.feature_toggle.common.periodic_expunge");
+            get<bool>("fds.feature_toggle.common.periodic_expunge", false);
     if (periodic_expunge &&
         !(dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler)->haveAllObjectSets()))
     {
@@ -736,7 +736,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
         diskio::TokenStat stat;
 
         if (g_fdsprocess->get_fds_config()->\
-                get<bool>("fds.feature_toggle.common.periodic_expunge")){
+            get<bool>("fds.feature_toggle.common.periodic_expunge", false)){
         /**
          * Evaluate all bloom filters for this particular SM token.
          * and calculate SM token threshold.

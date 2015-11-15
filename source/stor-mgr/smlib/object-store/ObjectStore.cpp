@@ -1777,7 +1777,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
 
     initObjectStoreMediaErrorHandlers();
-    setObjectDelCnt(g_fdsprocess->get_fds_config()->get<fds_uint32_t>("fds.sm.scavenger.delete_count_thresh",3));
+    setObjectDelCnt(g_fdsprocess->get_fds_config()->get<fds_uint32_t>("fds.sm.scavenger.expunge_threshold",3));
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {

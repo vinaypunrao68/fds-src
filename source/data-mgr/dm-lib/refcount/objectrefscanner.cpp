@@ -145,7 +145,8 @@ ObjectRefScanMgr::ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataM
 
 void ObjectRefScanMgr::mod_startup() {
     auto config = MODULEPROVIDER()->get_conf_helper();
-    timeBasedEnabled = config.get<bool>("objectrefscan.timebased", false);
+    timeBasedEnabled = dataMgr->features.isExpungeEnabled();
+            // config.get<bool>("objectrefscan.timebased", false);
     scanIntervalSec = std::chrono::seconds(config.get<int>("objectrefscan.interval",
                                                            172800 /* 2 days */));
     maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);

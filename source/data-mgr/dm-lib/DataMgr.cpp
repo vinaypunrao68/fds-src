@@ -974,7 +974,7 @@ int DataMgr::mod_init(SysParams const *const param)
         "fds.feature_toggle.common.volume_open_support", false));
 
     features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
-        "fds.dm.enable_expunge", false));
+        "fds.feature_toggle.common.periodic_expunge", false));
 
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
