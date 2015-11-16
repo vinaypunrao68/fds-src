@@ -129,8 +129,7 @@ public class InodeMap {
 
     public void update(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry, exportId, tru
-                    e);
+            doUpdate(entry, exportId, true);
         }
     }
 
