@@ -167,18 +167,23 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 
     // add this DMT as target, we should not have another non-committed
     // target already
-    fds_verify(!dmtMgr->hasTargetDMT());
+//    fds_verify(!dmtMgr->hasTargetDMT());
     err = dmtMgr->add(newDmt, DMT_TARGET);
-    fds_verify(err.ok());
+    LOGDEBUG << "Adding new DMT target, result: " << err;
+    if ( err.ok() )
+    {
+//    fds_verify(err.ok());
+//    fds_verify(configDB != NULL);
+        if ( !configDB->storeDmt( *newDmt, "target" ) )
+        {
+            GLOGWARN << "unable to store dmt to config db "
+                     << "[ " << newDmt->getVersion() << " ]";
+        }
 
-    fds_verify(configDB != NULL);
-    if (!configDB->storeDmt(*newDmt, "target")) {
-        GLOGWARN << "unable to store dmt to config db "
-                << "[" << newDmt->getVersion() << "]";
+        LOGNORMAL << "Version: " << newDmt->getVersion();
+        LOGDEBUG << "Computed new DMT: " << *newDmt;
     }
 
-    LOGNORMAL << "Version: " << newDmt->getVersion();
-    LOGDEBUG << "Computed new DMT: " << *newDmt;
     return err;
 }
 
