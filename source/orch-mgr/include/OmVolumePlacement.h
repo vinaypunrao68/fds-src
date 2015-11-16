@@ -215,8 +215,9 @@ namespace fds {
 
         /**
          * Reverts committed DMT to previously committed DMT
+         * Returns a boolean to determine if AM and SMs need their DMTs rollbacked
          */
-        void undoTargetDmtCommit();
+        fds_bool_t undoTargetDmtCommit();
 
         /**
          * Returns true if there is no target DMT computed or committed

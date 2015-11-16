@@ -6,23 +6,21 @@
 
 #include <deque>
 #include <string>
-#include <fds_error.h>
 #include <unordered_map>
+
+#include "AmAsyncDataApi.h"
+#include "AmDataProvider.h"
+
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
-#include "AmAsyncDataApi.h"
 #include <fdsp/dm_types_types.h>
-#include "fds_volume.h"
 
 namespace fds {
 
-struct AmCache;
-struct AmRequest;
 struct AmTxDescriptor;
-struct AmVolume;
-struct AmVolumeAccessToken;
-struct GetBlobReq;
-struct GetObjectReq;
+struct PutBlobReq;
+class CommonModuleProviderIf;
+class RandNumGenerator;
 
 /**
  * Manages outstanding AM transactions. The transaction manager tracks which
@@ -31,7 +29,9 @@ struct GetObjectReq;
  * TODO(Andrew): Add volume and blob name associativity into the interface
  * and indexing.
  */
-struct AmTxManager {
+struct AmTxManager :
+    public AmDataProvider
+{
     using descriptor_ptr_type = std::shared_ptr<AmTxDescriptor>;
 
  private:
@@ -45,32 +45,43 @@ struct AmTxManager {
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
 
-    /// Maximum size of volume cache in bytes
-    fds_uint32_t maxPerVolumeCacheSize;
-
-    // Unique ptr to the data object cache
-    std::unique_ptr<AmCache> amCache;
-
   public:
-    AmTxManager();
+    AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager();
 
     /**
-     * Initialize the cache and volume table and register
-     * the callback we make to the transaction layer
+     * These are the Transaction specific DataProvider routines.
+     * Everything else is pass-thru.
      */
-    using processor_cb_type = std::function<void(AmRequest*)>;
-    void init(processor_cb_type cb);
+    void start() override;
+    void startBlobTx(AmRequest *amReq) override;
+    void commitBlobTx(AmRequest *amReq) override;
+    void abortBlobTx(AmRequest *amReq) override;
+    void setBlobMetadata(AmRequest *amReq) override;
+    void deleteBlob(AmRequest *amReq) override;
+    void renameBlob(AmRequest *amReq) override;
+    void getBlob(AmRequest *amReq) override;
+    void putBlob(AmRequest *amReq) override;
+    void putBlobOnce(AmRequest *amReq) override;
 
+  protected:
 
     /**
-     * Removes an existing transaction from the manager, destroying
-     * any staged object updates. An error is returned if the transaction
-     * ID does not already exist.
+     * These are the response we actually care about seeing the results of
      */
-    Error abortTx(const BlobTxId &txId);
+    void abortBlobTxCb(AmRequest * amReq, Error const error) override;
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
+    void startBlobTxCb(AmRequest * amReq, Error const error) override;
+    void putBlobCb(AmRequest * amReq, Error const error) override;
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
+
+  private:
+    descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
+
+    /// Unique ptr to a random num generator for tx IDs
+    std::unique_ptr<RandNumGenerator> randNumGen;
 
     /**
      * Adds a new transaction to the manager. An error is returned
@@ -83,23 +94,19 @@ struct AmTxManager {
                 fds_uint64_t dmtVer,
                 const std::string &name);
 
-    /**
-     * Notify that there is a newly attached volume, and build any
-     * necessary data structures.
-     */
-    Error registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta = false);
+    void applyPut(PutBlobReq* blobReq);
 
     /**
-     * Remove all metadata caches
+     * Removes an existing transaction from the manager, destroying
+     * any staged object updates. An error is returned if the transaction
+     * ID does not already exist.
      */
-    void invalidateMetaCache(const VolumeDesc& volDesc);
-    void invalidateMetaCache(const fds_volid_t volId);
+    Error abortTx(const BlobTxId &txId);
 
     /**
-     * Notify that we have detached a volume, and remove any available
-     * data structures.
+     * Updates an existing transaction with a new operation
      */
-    Error removeVolume(const VolumeDesc& volDesc);
+    Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
 
     /**
      * Removes the transaction and pushes all updates into the cache.
@@ -113,76 +120,19 @@ struct AmTxManager {
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
 
     /**
-     * Updates an existing transaction with a new operation
-     */
-    Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
-
-    /**
-     * Updates an existing transactions staged blob offsets.
-     */
-    Error updateStagedBlobOffset(const BlobTxId &txId,
-                                 const std::string &blobName,
-                                 fds_uint64_t blobOffset,
-                                 const ObjectID &objectId);
-
-    /**
      * Updates an existing transactions staged blob objects.
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
                                  const ObjectID &objectId,
                                  boost::shared_ptr<std::string> objectData);
 
-    /**
-     * Updates an existing transactions staged metadata.
-     */
+    Error updateStagedBlobOffset(const BlobTxId &txId,
+                                 const std::string &blobName,
+                                 fds_uint64_t blobOffset,
+                                 const ObjectID &objectId);
+
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);
-
-    /**
-     * Cache operations
-     * TODO(bszmyd): Sun 22 Mar 2015 07:13:59 PM PDT
-     * These are kinda ugly. When we do real transactions we should clean
-     * this up.
-     */
-    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId,
-                                          std::string const& blobName,
-                                          Error &error);
-    Error putBlobDescriptor(fds_volid_t const volId,
-                            std::string const& blobName,
-                            boost::shared_ptr<BlobDescriptor> const blobDesc);
-
-    Error getBlobOffsetObjects(fds_volid_t volId,
-                               std::string const& blobName,
-                               fds_uint64_t const obj_offset,
-                               fds_uint64_t const obj_offset_end,
-                               size_t const obj_size,
-                               std::vector<ObjectID::ptr>& obj_ids);
-
-    Error putOffsets(fds_volid_t const vol_id,
-                     std::string const& blob_name,
-                     fds_uint64_t const blob_offset,
-                     fds_uint32_t const object_size,
-                     std::vector<boost::shared_ptr<ObjectID>> const& object_ids);
-
-    void getObjects(GetBlobReq* blobReq);
-
-    Error removeBlob(fds_volid_t volId, const std::string &blobName);
-
-  private:
-    descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
-    processor_cb_type processor_enqueue;
-
-    typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
-    std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
-    std::mutex obj_get_lock;
-
-    /**
-     * Internal get object request handler
-     */
-    void getObject(GetBlobReq* blobReq,
-                   ObjectID::ptr const& obj_id,
-                   boost::shared_ptr<std::string>& buf);
-    void getObjectCb(ObjectID const obj_id, Error const& error);
 };
 
 }  // namespace fds

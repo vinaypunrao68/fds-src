@@ -15,11 +15,7 @@
 namespace fds
 {
 
-class AmRequest : public FDS_IOType {
-    // Callback members
-    typedef std::function<void (const Error&)> ProcessorCallback;
-
- public:
+struct AmRequest : public FDS_IOType {
     // Performance
     PerfContext    e2e_req_perf_ctx;
     PerfContext    qos_perf_ctx;
@@ -33,15 +29,18 @@ class AmRequest : public FDS_IOType {
     // Table version used to message Object Service
     fds_uint64_t   dlt_version;
 
+    std::size_t    object_size;
     std::size_t    data_len;
     fds_uint64_t   blob_offset;
     fds_uint64_t   blob_offset_end;
     std::string    volume_name;
 
+    bool           forced_unit_access {false};
+    bool           page_out_cache {true};
+
     // Flag to indicate when a request has been responded to
     std::atomic<bool> completed;
 
-    ProcessorCallback proc_cb;
     CallbackPtr cb;
 
     AmRequest(fds_io_op_t         _op,
@@ -102,7 +101,7 @@ struct AmMultiReq : public AmRequest {
         resp_acks = cnt;
     }
 
-    void notifyResponse(const Error &e) {
+    std::pair<bool, Error> notifyResponse(const Error &e) {
         size_t acks_left = 0;
         {
             std::lock_guard<std::mutex> g(resp_lock);
@@ -110,9 +109,9 @@ struct AmMultiReq : public AmRequest {
             acks_left = --resp_acks;
         }
         if (0 == acks_left) {
-            // Call back to processing layer
-            proc_cb(op_err);
+            return std::make_pair(true, op_err);
         }
+        return std::make_pair(false, ERR_OK);
     }
 
  protected:

@@ -328,7 +328,9 @@ FDS_VolumeQueue::FDS_VolumeQueue(fds_uint32_t q_capacity,
 }
 
 FDS_VolumeQueue::~FDS_VolumeQueue() {
-    delete volQueue;
+    if (volQueue) {
+        delete volQueue;
+    }
 }
 
 void FDS_VolumeQueue::modifyQosParams(fds_int64_t _iops_assured,

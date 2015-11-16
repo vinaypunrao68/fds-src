@@ -59,18 +59,34 @@ namespace fds
 
         int PlatformManager::mod_init (SysParams const *const param)
         {
+            const uint16_t MAX_NAP_LENGTH = 60;
+
             fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
             loadRedisKeyId();
             m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
 
-            if (!m_db->isConnected())
+            int napTime = 1;
+
+            while (!m_db->isConnected())
             {
-                LOGCRITICAL << "unable to talk to platformdb @ [" << fdsConfig->get<std::string> ("redis_host","localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "]";
-            } else {
-                m_db->getNodeInfo (m_nodeInfo);
-                m_db->getNodeDiskCapability (diskCapability);
+                if (napTime < MAX_NAP_LENGTH)
+                {
+                    napTime <<= 1;
+
+                    if (napTime > MAX_NAP_LENGTH)
+                    {
+                        napTime = MAX_NAP_LENGTH;
+                    }
+                }
+
+                LOGCRITICAL << "unable to talk to redis @ [" << fdsConfig->get<std::string> ("redis_host","localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "], will retry in " << napTime << " seconds";
+
+                sleep (napTime);
             }
+
+            m_db->getNodeInfo (m_nodeInfo);
+            m_db->getNodeDiskCapability (diskCapability);
 
             if (m_nodeInfo.uuid <= 0)
             {

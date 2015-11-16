@@ -387,7 +387,6 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
         return err;
     }
 
-    fpi::CtrlNotifyTxStateMsgPtr txMsg(new fpi::CtrlNotifyTxStateMsg());
     // Block commit log and get snapshot for the volume.
     {
         fds_scoped_lock lock(ssTakenScopeLock);
@@ -395,7 +394,6 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 			auto auto_lock = commitLog->getCommitLock(true);
 			err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
 			turnOnForwarding();
-			commitLog->snapshotOutstandingTx(txMsg->transactions);
 		}
 		if (ERR_OK != err) {
 			LOGERROR << "Failed to get snapshot volume=" << volId
@@ -405,18 +403,6 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 			snapshotTaken = true;
 		}
     }
-
-    txMsg->volume_id = volId.v;
-    auto txStateMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    txStateMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
-    txStateMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg),
-                           txMsg);
-    // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
-    txStateMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
-    txStateMsg->setTaskExecutorId(volId.v);
-    txStateMsg->invoke();
 
     return err;
 }
@@ -549,29 +535,30 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
      * are sent over the wire synchronously.
      */
     asyncCatUpdReq->setTaskExecutorId(volId.v);
+    dataMgr.dmMigrationMgr->asyncMsgIssued();
     asyncCatUpdReq->invoke();
 
     return err;
 }
 
 void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
-                                                EPSvcRequest* req,
+												EPSvcRequest* req,
 												const Error& error,
 												boost::shared_ptr<std::string> payload) {
-
     LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
-                   << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
-
+               << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
     	LOGERROR << "Forwarding failed. Aborting DM Migration.";
-    	abortMigration();
+        dataMgr.dmMigrationMgr->asyncMsgFailed();
+    }else{
+        dataMgr.dmMigrationMgr->asyncMsgPassed();
     }
 
     fds_assert(commitReq->usedForMigration);
     commitReq->localCb(error);
-
+    // commitReq must not be accessed from this point.
     return;
 }
 
@@ -631,18 +618,6 @@ DmMigrationClient::sendFinishFwdMsg()
 	thriftMsg->invoke();
 
 	return (err);
-}
-
-void
-DmMigrationClient::dmMigrationCheckResp(EPSvcRequest *req,
-													 const Error& error,
-													 boost::shared_ptr<std::string> payload)
-{
-	LOGMIGRATE << "Received response for processInitialBlobFilterSet " <<
-			"with error: " << error;
-	if (!error.ok()) {
-		abortMigration();
-	}
 }
 
 void

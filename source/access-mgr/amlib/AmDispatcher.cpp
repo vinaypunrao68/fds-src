@@ -61,8 +61,9 @@ enum class Serialization {
 static constexpr uint32_t DmDefaultPrimaryCnt { 2 };
 static const std::string DefaultSerialization { "volume" };
 
-AmDispatcher::AmDispatcher(CommonModuleProviderIf *modProvider) 
-        : HasModuleProvider(modProvider)
+AmDispatcher::AmDispatcher(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
+        : HasModuleProvider(modProvider),
+          AmDataProvider(prev, nullptr)
 {
 }
 AmDispatcher::~AmDispatcher() = default;
@@ -115,6 +116,10 @@ AmDispatcher::start() {
      */
     int serialSelection;
     auto serializationString = conf.get_abs<std::string>("fds.feature_toggle.am.serialization", DefaultSerialization);
+
+    // This determines if we can or cannot dispatch updatecatlog and putobject
+    // concurrently.
+    safe_atomic_write = conf.get_abs<bool>("fds.feature_toggle.am.safe_atomic_write", false);
     if (strcasecmp(serializationString.c_str(), SerialNames[0]) == 0) {
         serialization = Serialization::SERIAL_NONE;
         serialSelection = 0;
@@ -130,6 +135,13 @@ AmDispatcher::start() {
         LOGNOTIFY << "AM request serialization unrecognized: " << serializationString  << ".";
     }
     LOGNOTIFY << "AM request serialization set to: " << SerialNames[serialSelection]  << ".";
+}
+
+void
+AmDispatcher::stop() {
+    if (StatsCollector::singleton()->isStreaming()) {
+        StatsCollector::singleton()->stopStreaming();
+    }
 }
 
 Error
@@ -154,7 +166,7 @@ AmDispatcher::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callbac
 
 Error
 AmDispatcher::getDMT() {
-	if (getNoNetwork()) {
+	if (noNetwork) {
 		// Standalone mode
 		return (ERR_OK);
 	} else {
@@ -164,7 +176,7 @@ AmDispatcher::getDMT() {
 
 Error
 AmDispatcher::getDLT() {
-	if (getNoNetwork()) {
+	if (noNetwork) {
 		// Standalone mode
 		return (ERR_OK);
 	} else {
@@ -173,7 +185,7 @@ AmDispatcher::getDLT() {
 }
 
 Error
-AmDispatcher::attachVolume(std::string const& volume_name) {
+AmDispatcher::retrieveVolDesc(std::string const& volume_name) {
     if (!noNetwork) {
         // We need valid DLT and DMTs before we can start issuing IO,
         // block attachments here until this is true.
@@ -195,18 +207,6 @@ AmDispatcher::attachVolume(std::string const& volume_name) {
         }
     }
     return ERR_OK;
-}
-
-/**
- * This dispatch does not get an async reply
- * via SvcLayer since it's an RPC call through
- * OMgrClient. Expect the response via AMSvc
- */
-void
-AmDispatcher::dispatchAttachVolume(AmRequest *amReq) {
-    LOGDEBUG << "Attempting to attach to volume: " << amReq->volume_name;
-    auto error = attachVolume(amReq->volume_name);
-    amReq->proc_cb(error);
 }
 
 /**
@@ -236,7 +236,7 @@ AmDispatcher::createMultiPrimaryRequest(fds_volid_t const& volId,
         secondaries.push_back(uuid);
     }
 
-    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries);
+    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dmt_ver);
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb(cb);
@@ -296,7 +296,7 @@ AmDispatcher::createFailoverRequest(fds_volid_t const& volId,
         dmPrimariesForVol->set(i, dm_group->get(i));
     }
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary);
+    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dmt_ver);
     failoverReq->onResponseCb(cb);
     failoverReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     failoverReq->setPayload(message_type_id(*payload), payload);
@@ -353,8 +353,8 @@ AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf>
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::dispatchOpenVolume(AmRequest* amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+AmDispatcher::openVolume(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::openVolumeCb(amReq, ERR_OK););
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
     volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
@@ -377,7 +377,7 @@ void
 AmDispatcher::openVolumeCb(AmRequest* amReq,
                            MultiPrimarySvcRequest* svcReq,
                            const Error& error,
-                           boost::shared_ptr<std::string> payload) const {
+                           boost::shared_ptr<std::string> payload) {
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
     dmtMgr->releaseVersion(volReq->dmt_version);
     auto e = error;
@@ -387,50 +387,60 @@ AmDispatcher::openVolumeCb(AmRequest* amReq,
         volReq->token = (msg ? msg->token : invalid_vol_token);
         dispatchTable.registerVolumeSequence(amReq->io_vol_id, msg->sequence_id);
     }
-    amReq->proc_cb(e);
+    AmDataProvider::openVolumeCb(amReq, e);
+}
+
+Error
+AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
+    // We need to remove any barriers for this volume as we don't expect to
+    // see any aborts/commits for them now
+    std::lock_guard<std::mutex> g(tx_map_lock);
+    for (auto it = tx_map_barrier.begin(); tx_map_barrier.end() != it; ) {
+        if (it->first.first == volDesc.volUUID) {
+            // Drain as errors
+            auto queue = std::move(std::get<2>(it->second));
+            it = tx_map_barrier.erase(it);
+            for (auto& req : queue) {
+                AmDataProvider::startBlobTxCb(req, ERR_VOLUME_ACCESS_DENIED);
+            }
+        } else {
+            ++it;
+        }
+    }
+    return ERR_OK;
 }
 
 /**
  * Dispatch a request to DM asking for permission to access this volume.
  */
-Error
-AmDispatcher::dispatchCloseVolume(fds_volid_t vol_id, fds_int64_t token) {
-    fiu_do_on("am.uturn.dispatcher", return ERR_OK;);
+void
+AmDispatcher::closeVolume(fds_volid_t vol_id, fds_int64_t token) {
+    fiu_do_on("am.uturn.dispatcher", return;);
 
     LOGDEBUG << "Attempting to close volume: " << vol_id;
     auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
     volMDMsg->volume_id = vol_id.get();
     volMDMsg->token = token;
 
-    // This gives this request blocking semantics
-    std::promise<Error> done;
-    std::shared_future<Error> ready(done.get_future());
-    MultiPrimarySvcRequestRespCb cb =
-        [&done] (MultiPrimarySvcRequest* svcReq,
-                 const Error& error,
-                 boost::shared_ptr<std::string> payload) mutable -> void {
-            return done.set_value(error); // Trigger processor thread
-        };
-
-    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
-    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, cb);
-
     /**
      * Need an AmRequest to call the serialization setter.
      */
-    auto amReq = std::unique_ptr<AmRequest>(new AmRequest(fds::fds_io_op_t(0), vol_id, "", "", nullptr));
-    setSerialization(amReq.get(), asyncCloseVolReq);
+    AmRequest amReq(fds::fds_io_op_t(0), vol_id, "", "", nullptr);
+    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
+    auto respCb = [this, ver = dmt_version] (MultiPrimarySvcRequest* svcReq,
+                                             const Error& error,
+                                             boost::shared_ptr<std::string> payload) mutable -> void {
+        dmtMgr->releaseVersion(ver);
+    };
+    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, respCb);
+
+    setSerialization(&amReq, asyncCloseVolReq);
 
     asyncCloseVolReq->invoke();
-    auto err = ready.get();
-
-    // Release the DMT version so we can roll if needed
-    dmtMgr->releaseVersion(dmt_version);
-    return err;
 }
 
 void
-AmDispatcher::dispatchStatVolume(AmRequest *amReq) {
+AmDispatcher::statVolume(AmRequest* amReq) {
     auto volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
     volMDMsg->volume_id = amReq->io_vol_id.get();
 
@@ -462,12 +472,12 @@ AmDispatcher::statVolumeCb(AmRequest* amReq,
         volReq->blob_count = volMDMsg->volumeStatus.blobCount;
     }
     // Notify upper layers that the request is done.
-    amReq->proc_cb(error);
+    AmDataProvider::statVolumeCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchSetVolumeMetadata(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::setVolumeMetadataCb(amReq, ERR_OK););
 
     fpi::SetVolumeMetadataMsgPtr volMetaMsg =
             boost::make_shared<fpi::SetVolumeMetadataMsg>();
@@ -505,12 +515,12 @@ AmDispatcher::setVolumeMetadataCb(AmRequest* amReq,
     auto volMetaMsgRsp = deserializeFdspMsg<fpi::SetVolumeMetadataMsgRsp>(
         const_cast<Error&>(error), payload);
 
-    amReq->proc_cb(error);
+    AmDataProvider::setVolumeMetadataCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchGetVolumeMetadata(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+AmDispatcher::getVolumeMetadata(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::getVolumeMetadataCb(amReq, ERR_OK););
 
     auto volMetaMsg = boost::make_shared<fpi::GetVolumeMetadataMsg>();
     volMetaMsg->volumeId = amReq->io_vol_id.get();
@@ -545,12 +555,12 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
         }
     }
 
-    amReq->proc_cb(error);
+    AmDataProvider::getVolumeMetadataCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchAbortBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+AmDispatcher::abortBlobTx(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::abortBlobTxCb(amReq, ERR_OK););
 
     fds_volid_t volId = amReq->io_vol_id;
 
@@ -576,21 +586,50 @@ AmDispatcher::abortBlobTxCb(AmRequest *amReq,
                             boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
+
+    blob_id_type blob_id = std::make_pair(amReq->io_vol_id, amReq->getBlobName());
+    releaseTx(blob_id);
+
     dmtMgr->releaseVersion(amReq->dmt_version);
-    amReq->proc_cb(error);
+    AmDataProvider::abortBlobTxCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchStartBlobTx(AmRequest *amReq) {
+AmDispatcher::startBlobTx(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::startBlobTxCb(amReq, ERR_OK););
     auto *blobReq = static_cast<StartBlobTxReq *>(amReq);
 
     // Update DMT version in request
     blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+    // Check if we already have outstanding tx's on this blob
+    blob_id_type blob_id = std::make_pair(amReq->io_vol_id, amReq->getBlobName());
+    {
+        std::lock_guard<std::mutex> g(tx_map_lock);
+        auto it = tx_map_barrier.find(blob_id);
+        if (tx_map_barrier.end() == it) {
+            bool happened {false};
+            std::tie(it, happened) =
+                tx_map_barrier.emplace(std::make_pair(blob_id,
+                                                      std::make_tuple(blobReq->dmt_version,
+                                                                      0,
+                                                                      std::deque<StartBlobTxReq*>())));
+        } else if (std::get<0>(it->second) != blobReq->dmt_version) {
+            // Delay the request
+            LOGDEBUG << "Delaying Tx start while old tx's clean up.";
+            dmtMgr->releaseVersion(amReq->dmt_version);
+            return std::get<2>(it->second).push_back(blobReq);
+        }
+        ++std::get<1>(it->second);
+    }
+    _startBlobTx(amReq);
+}
 
+void
+AmDispatcher::_startBlobTx(AmRequest *amReq) {
     // Create network message
     auto startBlobTxMsg = boost::make_shared<fpi::StartBlobTxMsg>();
+    auto *blobReq = static_cast<StartBlobTxReq *>(amReq);
     startBlobTxMsg->blob_name    = amReq->getBlobName();
     startBlobTxMsg->blob_version = blob_version_invalid;
     startBlobTxMsg->volume_id    = amReq->io_vol_id.get();
@@ -618,19 +657,21 @@ AmDispatcher::startBlobTxCb(AmRequest *amReq,
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
 
-    // Release DMT version if transaction did not start.
+    // Release DMT version and tx map if transaction did not start.
     if (!error.ok()) {
         dmtMgr->releaseVersion(amReq->dmt_version);
+        blob_id_type blob_id = std::make_pair(amReq->io_vol_id, amReq->getBlobName());
+        releaseTx(blob_id);
     }
 
     // Notify upper layers that the request is done.
-    amReq->proc_cb(error);
+    AmDataProvider::startBlobTxCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchDeleteBlob(AmRequest *amReq)
+AmDispatcher::deleteBlob(AmRequest* amReq)
 {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::deleteBlobCb(amReq, ERR_OK););
     auto blobReq = static_cast<DeleteBlobReq *>(amReq);
     auto message = boost::make_shared<fpi::DeleteBlobMsg>();
     message->volume_id = amReq->io_vol_id.get();
@@ -661,18 +702,24 @@ AmDispatcher::deleteBlobCb(AmRequest* amReq,
              << " blob:" << amReq->getBlobName();
 
     // Return if err
-    if (error != ERR_OK) {
-        LOGWARN << "error in response: " << error;
+    auto err = error;
+    if (err != ERR_OK) {
+        LOGWARN << "error in response: " << err;
+        if (ERR_BLOB_NOT_FOUND == err ||
+            ERR_CAT_ENTRY_NOT_FOUND == err) {
+            err = ERR_OK;
+        }
     }
-    amReq->proc_cb(error);
+    AmDataProvider::deleteBlobCb(amReq, err);
 }
 
 void
-AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
+AmDispatcher::putBlob(AmRequest* amReq) {
     auto blobReq = static_cast<PutBlobReq *>(amReq);
-    fiu_do_on("am.uturn.dispatcher",
-              blobReq->notifyResponse(ERR_OK);  \
-              return;);
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::putBlobCb(amReq, ERR_OK););
+
+    // We can safely dispatch to SM before DM using transactions
+    putObject(amReq);
 
     auto updCatMsg(boost::make_shared<fpi::UpdateCatalogMsg>());
     updCatMsg->blob_name    = amReq->getBlobName();
@@ -692,7 +739,7 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogCb, amReq));
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putBlobCb, amReq));
     auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
                                                        blobReq->dmt_version,
                                                        updCatMsg,
@@ -707,11 +754,13 @@ AmDispatcher::dispatchUpdateCatalog(AmRequest *amReq) {
 }
 
 void
-AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
+AmDispatcher::putBlobOnce(AmRequest* amReq) {
     auto blobReq = static_cast<PutBlobReq *>(amReq);
-    fiu_do_on("am.uturn.dispatcher",
-              blobReq->notifyResponse(ERR_OK); \
-              return;);
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::putBlobOnceCb(amReq, ERR_OK););
+
+    if (!safe_atomic_write) {
+        putObject(amReq);
+    }
 
     blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
 
@@ -743,7 +792,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
         updCatMsg->meta_list.push_back(metaDataPair);
     }
 
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::updateCatalogOnceCb, amReq));
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putBlobOnceCb, amReq));
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
 
@@ -762,7 +811,7 @@ AmDispatcher::dispatchUpdateCatalogOnce(AmRequest *amReq) {
 }
 
 void
-AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
+AmDispatcher::putBlobOnceCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) {
@@ -770,52 +819,65 @@ AmDispatcher::updateCatalogOnceCb(AmRequest* amReq,
     if (!amReq->isCompleted()) { return; }
     dmtMgr->releaseVersion(amReq->dmt_version);
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
-    auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
 
+    bool done;
+    Error err;
     auto blobReq = static_cast<PutBlobReq *>(amReq);
-    if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->obj_id
-                 << " blob name: " << amReq->getBlobName()
-                 << " offset: " << amReq->blob_offset
-                 << " Error: " << error;
-    } else {
+    std::tie(done, err) = blobReq->notifyResponse(error);
+
+    if (ERR_OK == error) {
+        auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogOnceRspMsg>(const_cast<Error&>(error), payload);
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
         blobReq->final_blob_size = updCatRsp->byteCount;
         blobReq->final_meta_data.swap(updCatRsp->meta_list);
+        if (safe_atomic_write) {
+            return putObject(amReq);
+        }
     }
-    blobReq->notifyResponse(error);
+
+    if (safe_atomic_write || done) {
+        if (ERR_OK != err) {
+            LOGERROR << "Failed to update"
+                     << " blob name: " << amReq->getBlobName()
+                     << " offset: " << amReq->blob_offset
+                     << " Error: " << err;
+        }
+        AmDataProvider::putBlobOnceCb(amReq, err);
+    }
 }
 
 void
-AmDispatcher::updateCatalogCb(AmRequest* amReq,
+AmDispatcher::putBlobCb(AmRequest* amReq,
                               MultiPrimarySvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
-    auto updCatRsp = deserializeFdspMsg<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
-    auto blobReq = static_cast<PutBlobReq *>(amReq);
-    if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->obj_id
-                 << " blob name: " << amReq->getBlobName()
-                 << " offset: " << amReq->blob_offset
-                 << " Error: " << error;
-    } else {
-        LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
+    bool done;
+    Error err;
+    std::tie(done, err) = static_cast<AmMultiReq*>(amReq)->notifyResponse(error);
+
+    if (done) {
+        if (ERR_OK != error) {
+            LOGERROR << "Failed to update"
+                     << " blob name: " << amReq->getBlobName()
+                     << " offset: " << amReq->blob_offset
+                     << " Error: " << err;
+        }
+        AmDataProvider::putBlobCb(amReq, err);
     }
-    blobReq->notifyResponse(error);
 }
 
 void
-AmDispatcher::dispatchPutObject(AmRequest *amReq) {
+AmDispatcher::putObject(AmRequest* amReq) {
     auto blobReq = static_cast<PutBlobReq *>(amReq);
-    fds_assert(amReq->data_len > 0);
 
-    fiu_do_on("am.uturn.dispatcher",
-              static_cast<PutBlobReq*>(amReq)->notifyResponse(ERR_OK); \
-              return;);
+    // Sweet, we're done!
+    if (0 == amReq->data_len) {
+        return putObjectCb(amReq, ERR_OK);
+    }
 
     auto putObjMsg(boost::make_shared<fpi::PutObjectMsg>());
     putObjMsg->volume_id        = amReq->io_vol_id.get();
@@ -830,15 +892,17 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
     // until all in-flight IO for the previous version complete
     auto const dlt = dltMgr->getAndLockCurrentVersion();
     amReq->dlt_version = dlt->getVersion();
-    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putObjectCb, amReq));
+
+
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::dispatchObjectCb, amReq));
     auto asyncPutReq = createMultiPrimaryRequest(blobReq->obj_id,
                                                  dlt,
                                                  putObjMsg,
                                                  respCb,
                                                  message_timeout_io);
 
-    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     setSerialization(amReq, asyncPutReq);
+    PerfTracer::tracePointBegin(amReq->sm_perf_ctx);
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << logString(*putObjMsg)
@@ -846,34 +910,41 @@ AmDispatcher::dispatchPutObject(AmRequest *amReq) {
 }
 
 void
-AmDispatcher::putObjectCb(AmRequest* amReq,
+AmDispatcher::dispatchObjectCb(AmRequest* amReq,
                           MultiPrimarySvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload) {
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
-
     // notify DLT manager that request completed, so we can decrement refcnt
     dltMgr->releaseVersion(amReq->dlt_version);
-
-    auto blobReq = static_cast<fds::PutBlobReq*>(amReq);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
-    auto putObjRsp = deserializeFdspMsg<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
-    if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->obj_id
-            << " blob name: " << amReq->getBlobName()
-            << " offset: " << amReq->blob_offset << " Error: " << error;
-    } else {
-        LOGDEBUG << svcReq->logString() << logString(*putObjRsp)
-                 << " DLT version " << amReq->dlt_version;
-    }
-
-    blobReq->notifyResponse(error);
+    putObjectCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchGetObject(AmRequest *amReq)
+AmDispatcher::putObjectCb(AmRequest* amReq, const Error error) {
+    bool done;
+    Error err;
+    std::tie(done, err) = static_cast<AmMultiReq*>(amReq)->notifyResponse(error);
+    if (done) {
+        if (ERR_OK != err) {
+            LOGERROR << "Failed to update"
+                     << " blob name: " << amReq->getBlobName()
+                     << " offset: " << amReq->blob_offset
+                     << " Error: " << err;
+        }
+        if (fds::FDS_PUT_BLOB == amReq->io_type) {
+            return AmDataProvider::putBlobCb(amReq, err);
+        } else {
+            return AmDataProvider::putBlobOnceCb(amReq, err);
+        }
+    }
+}
+
+void
+AmDispatcher::getObject(AmRequest* amReq)
 {
     // The connectors expect some underlying string even for empty buffers
     fiu_do_on("am.uturn.dispatcher",
@@ -936,11 +1007,11 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
                  << amReq->blob_offset << " Error: " << error;
     }
 
-    amReq->proc_cb(error);
+    AmDataProvider::getObjectCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchQueryCatalog(AmRequest *amReq) {
+AmDispatcher::getOffsets(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher",
               mockHandler_->schedule(mockTimeoutUs_,
                                      std::bind(&AmDispatcherMockCbs::queryCatalogCb, amReq)); \
@@ -1054,34 +1125,21 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
             }
         }
 
-        // TODO(bszmyd): Mon 23 Mar 2015 02:49:01 AM PDT
-        // This is the matching error scenario from the trickery
-        // in AmProcessor::getBlobCb due to the write/read race
-        // between DM/SM. If this is a retry then the object id should be
-        // anything but what it was...or we should be able to get the object
-        if (blobReq->retry && !std::equal(new_ids.begin(),
-                                          new_ids.end(),
-                                          blobReq->object_ids.begin(),
-                                          [](ObjectID::ptr const& a, ObjectID::ptr const& b)
-                                            { return *a == *b; })) {
-            blobReq->retry = false; // We've gotten a new Id we're not insane
-        }
         blobReq->object_ids.swap(new_ids);
         blobReq->object_ids.shrink_to_fit();
     }
-    amReq->proc_cb(err);
+    AmDataProvider::getOffsetsCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchStatBlob(AmRequest *amReq)
+AmDispatcher::statBlob(AmRequest* amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb); \
               cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
               cb->blobDesc->setBlobName(amReq->getBlobName()); \
               cb->blobDesc->setBlobSize(0); \
-              amReq->proc_cb(ERR_OK); \
-              return;);
+              return AmDataProvider::statBlobCb(amReq, ERR_OK););
 
     auto message = boost::make_shared<fpi::GetBlobMetaDataMsg>();
     message->volume_id = amReq->io_vol_id.get();
@@ -1101,14 +1159,13 @@ AmDispatcher::dispatchStatBlob(AmRequest *amReq)
 }
 
 void
-AmDispatcher::dispatchRenameBlob(AmRequest *amReq) {
+AmDispatcher::renameBlob(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb); \
               cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
               cb->blobDesc->setBlobName(amReq->getBlobName()); \
               cb->blobDesc->setBlobSize(0); \
-              amReq->proc_cb(ERR_OK); \
-              return;);
+              return AmDataProvider::renameBlobCb(amReq, ERR_OK););
 
     auto blobReq = static_cast<RenameBlobReq *>(amReq);
     blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
@@ -1159,11 +1216,11 @@ AmDispatcher::renameBlobCb(AmRequest *amReq,
             cb->blobDesc->addKvMeta(meta.key,  meta.value);
         }
     }
-    amReq->proc_cb(error);
+    AmDataProvider::renameBlobCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchSetBlobMetadata(AmRequest *amReq) {
+AmDispatcher::setBlobMetadata(AmRequest* amReq) {
     auto vol_id = amReq->io_vol_id;
 
     auto blobReq = static_cast<SetBlobMetaDataReq *>(amReq);
@@ -1198,7 +1255,7 @@ AmDispatcher::setBlobMetadataCb(AmRequest *amReq,
     } else {
         LOGDEBUG << svcReq->logString() << fds::logString(*setMDRsp);
     }
-    amReq->proc_cb(error);
+    AmDataProvider::setBlobMetadataCb(amReq, error);
 }
 
 void
@@ -1224,12 +1281,12 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
             cb->blobDesc->addKvMeta(meta.key,  meta.value);
         }
     }
-    amReq->proc_cb(error);
+    AmDataProvider::statBlobCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchCommitBlobTx(AmRequest *amReq) {
-    fiu_do_on("am.uturn.dispatcher", amReq->proc_cb(ERR_OK); return;);
+AmDispatcher::commitBlobTx(AmRequest* amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::commitBlobTxCb(amReq, ERR_OK););
     auto blobReq = static_cast<CommitBlobTxReq *>(amReq);
     // Create network message
     auto commitBlobTxMsg = boost::make_shared<fpi::CommitBlobTxMsg>();
@@ -1263,6 +1320,10 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
     // Ensure we haven't already replied to this request
     if (!amReq->isCompleted()) { return; }
     dmtMgr->releaseVersion(amReq->dmt_version);
+
+    blob_id_type blob_id = std::make_pair(amReq->io_vol_id, amReq->getBlobName());
+    releaseTx(blob_id);
+
     auto response = deserializeFdspMsg<fpi::CommitBlobTxRspMsg>(const_cast<Error&>(error), payload);
     LOGDEBUG << svcReq->logString();
     if (ERR_OK == error) {
@@ -1271,18 +1332,17 @@ AmDispatcher::commitBlobTxCb(AmRequest *amReq,
         blobReq->final_meta_data.swap(response->meta_list);
     }
     // Notify upper layers that the request is done.
-    amReq->proc_cb(error);
+    AmDataProvider::commitBlobTxCb(amReq, error);
 }
 
 void
-AmDispatcher::dispatchVolumeContents(AmRequest *amReq)
+AmDispatcher::volumeContents(AmRequest* amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
               auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
               cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>(); \
               cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>(); \
-              amReq->proc_cb(ERR_OK); \
-              return;);
+              return AmDataProvider::volumeContentsCb(amReq, ERR_OK););
 
     auto volReq = static_cast<VolumeContentsReq*>(amReq);
     auto message = boost::make_shared<fpi::GetBucketMsg>();
@@ -1332,6 +1392,27 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>();
         cb->skippedPrefixes->swap(response->skipped_prefixes);
     }
-    amReq->proc_cb(error);
+    AmDataProvider::volumeContentsCb(amReq, error);
+}
+
+void
+AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
+        std::lock_guard<std::mutex> g(tx_map_lock);
+        auto it = tx_map_barrier.find(blob_id);
+        if (tx_map_barrier.end() == it) {
+            GLOGERROR << "Woah, missing map entry!";
+            fds_assert(false);
+            return;
+        }
+        GLOGDEBUG << "Draining any needed pending tx's";
+        if (0 == --std::get<1>(it->second)) {
+            // Drain
+            auto queue = std::move(std::get<2>(it->second));
+            tx_map_barrier.erase(it);
+            for (auto& req : queue) {
+                req->dmt_version = dmtMgr->getAndLockCurrentVersion();
+                _startBlobTx(req);
+            }
+        }
 }
 }  // namespace fds

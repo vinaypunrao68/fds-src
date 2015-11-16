@@ -39,6 +39,14 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
+    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
+        abortMigration();
+    }
+
+    if (abort_thread) {
+        abort_thread->join();
+        abort_thread = nullptr;
+    }
 }
 
 
@@ -518,32 +526,33 @@ DmMigrationMgr::forwardCatalogUpdate(fds_volid_t volId,
                 }
             }
         }
-    }
-    LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
 
-    for (auto client : clientMap) {
-    	auto pair = client.first;
-    	if (pair.second == volId) {
-    		auto destUuid = pair.first;
-    		auto dmClient = client.second;
-    		if (dmClient == nullptr) {
-				if (isMigrationAborted()) {
-					LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
-				} else {
-					LOGERROR << "Unable to find client for volume " << volId;
-					// this is an race cond error that needs to be fixed in dev env.
-					// Only panic in debug build.
-					fds_assert(0);
-				}
-    		} else {
-    			LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
-    			err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
-    			if (!err.ok()) {
-    				LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
-    				break;
-    			}
-    		}
-    	}
+        LOGDEBUG << "This IO request " << commitBlobReq << " is to forward to " << commitBlobReq->migrClientCnt << " clients";
+
+        for (auto client : clientMap) {
+            auto pair = client.first;
+            if (pair.second == volId) {
+                auto destUuid = pair.first;
+                auto dmClient = client.second;
+                if (dmClient == nullptr) {
+                    if (isMigrationAborted()) {
+                        LOGMIGRATE << "Unable to find client for volume " << volId << " during migration abort";
+                    } else {
+                        LOGERROR << "Unable to find client for volume " << volId;
+                        // this is an race cond error that needs to be fixed in dev env.
+                        // Only panic in debug build.
+                        fds_assert(0);
+                    }
+                } else {
+                    LOGMIGRATE << "On volume " << volId << " commit, forwarding to node " << destUuid;
+                    err = dmClient->forwardCatalogUpdate(commitBlobReq, blob_version, blob_obj_list, meta_list);
+                    if (!err.ok()) {
+                        LOGMIGRATE << "Error on volume " << volId << " node " << destUuid;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
 	return err;
@@ -662,9 +671,7 @@ DmMigrationMgr::abortMigration()
 	}
 
 	// Need to release a thread while this original one exits the read lock
-	std::thread t1(&DmMigrationMgr::abortMigrationReal, this);
-	t1.detach();
-
+	abort_thread = new std::thread(&DmMigrationMgr::abortMigrationReal, this);
 }
 
 void
@@ -795,7 +802,24 @@ DmMigrationMgr::waitForAbortToFinish()
 		std::atomic_store(&migrationAborted, false);
 		migrationAbortFinished = false;
 	}
+
+    // TODO: can we just use the join in place of the CV?
+    if (abort_thread) {
+        abort_thread->join();
+        abort_thread = nullptr;
+    }
 	lk.unlock();
-	LOGMIGRATE << "Done waiting for previous migration abort to finish";
+
+    LOGMIGRATE << "Done waiting for previous migration abort to finish";
+}
+
+bool
+DmMigrationMgr::shouldFilterDmt(fds_volid_t volId, fds_uint64_t dmt_version) {
+    return (dmt_watermark[volId] >= dmt_version);
+}
+
+void
+DmMigrationMgr::setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version) {
+    dmt_watermark[volId] = dmt_version;
 }
 }  // namespace fds

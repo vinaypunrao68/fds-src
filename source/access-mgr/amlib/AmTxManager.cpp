@@ -1,36 +1,34 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2015 Formation Data Systems, Inc.
  */
+#include "AmTxManager.h"
+
 #include <map>
 #include <string>
 #include <fds_process.h>
-#include "AmTxManager.h"
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
-#include "requests/GetBlobReq.h"
-#include "requests/GetObjectReq.h"
+#include "FdsRandom.h"
+#include <ObjectId.h>
+#include "requests/requests.h"
 
 namespace fds {
 
-static constexpr fds_uint32_t Ki { 1024 };
-static constexpr fds_uint32_t Mi { 1024 * Ki };
-
-AmTxManager::AmTxManager()
-    : amCache(nullptr)
+AmTxManager::AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
+    : AmDataProvider(prev, new AmCache(this, modProvider))
 {
 }
 
 AmTxManager::~AmTxManager() = default;
 
-void AmTxManager::init(processor_cb_type cb) {
-    // This funtion is used to enqueue requests to AmProcessor
-    processor_enqueue = cb;
+void AmTxManager::start() {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
-    // This is in terms of MiB
-    maxPerVolumeCacheSize = Mi * conf.get<fds_uint32_t>("cache.max_volume_data");
 
-    amCache.reset(new AmCache());
+    randNumGen = RandNumGenerator::unique_ptr(
+        new RandNumGenerator(RandNumGenerator::getRandSeed()));
+
+    AmDataProvider::start();
 }
 
 Error
@@ -162,162 +160,229 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta)
-{
-    // The cache size is controlled in terms of MiB, but the LRU
-    // knows only terms in # of elements. Do this conversion.
-    auto num_cached_objs = (0 < volDesc.maxObjSizeInBytes) ?
-        (maxPerVolumeCacheSize / volDesc.maxObjSizeInBytes) : 0;
-
-    // A duplicate is ok, renewal's of a token cause this
-    auto err = amCache->registerVolume(volDesc.volUUID, num_cached_objs, can_cache_meta);
-    switch (err.GetErrno()) {
-        case ERR_OK:
-            LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-            break;;
-        case ERR_VOL_DUPLICATE:
-            err = ERR_OK;
-            break;;
-        default:
-            LOGERROR << "Failed to register volume: " << err;
-            break;;
-    }
-
-    return err;
-}
-
-void
-AmTxManager::invalidateMetaCache(const VolumeDesc& volDesc)
-{ invalidateMetaCache(volDesc.volUUID); }
-
-void
-AmTxManager::invalidateMetaCache(const fds_volid_t volId)
-{ amCache->invalidateMetaCache(volId); }
-
-Error
-AmTxManager::removeVolume(const VolumeDesc& volDesc)
-{ return amCache->removeVolume(volDesc.volUUID); }
-
-Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
 {
     if (auto descriptor = pop_descriptor(txId)) {
-        return amCache->putTxDescriptor(descriptor, blobSize);
+        return static_cast<AmCache*>(getNextInChain())->putTxDescriptor(descriptor, blobSize);
     }
     return ERR_NOT_FOUND;
 }
 
-BlobDescriptor::ptr
-AmTxManager::getBlobDescriptor(fds_volid_t volId, const std::string &blobName, Error &error)
-{ return amCache->getBlobDescriptor(volId, blobName, error); }
-
-Error
-AmTxManager::getBlobOffsetObjects(fds_volid_t volId, const std::string &blobName, fds_uint64_t const obj_offset, fds_uint64_t const obj_offset_end, size_t const obj_size, std::vector<ObjectID::ptr>& obj_ids)
-{ return amCache->getBlobOffsetObjects(volId, blobName, obj_offset, obj_offset_end, obj_size, obj_ids); }
+void
+AmTxManager::startBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<StartBlobTxReq*>(amReq);
+    // Generate a random transaction ID to use
+    blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
+    AmDataProvider::startBlobTx(amReq);
+}
 
 void
-AmTxManager::getObjects(GetBlobReq* blobReq) {
-    LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
-    cb->return_buffers->assign(blobReq->object_ids.size(), nullptr);
-    cb->return_buffers->shrink_to_fit();
+AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<StartBlobTxReq*>(amReq);
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback, blobReq->cb);
+    auto err = error;
+    if (err.ok()) {
+        // Update callback and record new open transaction
+        cb->blobTxId = *blobReq->tx_desc;
+        err = addTx(blobReq->io_vol_id,
+                    *blobReq->tx_desc,
+                    blobReq->dmt_version,
+                    blobReq->getBlobName());
+    }
+    AmDataProvider::startBlobTxCb(blobReq, err);
+}
 
-    size_t hit_cnt, miss_cnt;
-    std::tie(hit_cnt, miss_cnt) = amCache->getObjects(blobReq->io_vol_id,
-                                                      blobReq->object_ids,
-                                                      *cb->return_buffers);
-    if (0 == miss_cnt) {
-        // Data was found in cache, done
-        LOGTRACE << "Data found in cache!";
-        blobReq->proc_cb(ERR_OK);
+void
+AmTxManager::commitBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        return AmDataProvider::commitBlobTxCb(amReq, err);
+    }
+    AmDataProvider::commitBlobTx(amReq);
+}
+
+void
+AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    // Push the committed update to the cache and remove from manager
+    if (ERR_OK == error) {
+        updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
+        commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+    } else {
+        LOGERROR << "Transaction failed to commit: " << error;
+    }
+    AmDataProvider::commitBlobTxCb(blobReq, error);
+}
+
+void
+AmTxManager::abortBlobTx(AmRequest *amReq) {
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        return AmDataProvider::abortBlobTxCb(amReq, err);
+    }
+    AmDataProvider::abortBlobTx(amReq);
+}
+
+void
+AmTxManager::abortBlobTxCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
+    if (ERR_OK != abortTx(*(blobReq->tx_desc))) {
+        LOGWARN << "Transaction unknown";
+    }
+    AmDataProvider::abortBlobTxCb(blobReq, error);
+}
+
+void
+AmTxManager::setBlobMetadata(AmRequest *amReq) {
+    auto blobReq = static_cast<SetBlobMetaDataReq*>(amReq);
+    // Assert that we have a tx and dmt_version for the message
+    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        return AmDataProvider::setBlobMetadataCb(amReq, err);
+    }
+    AmDataProvider::setBlobMetadata(amReq);
+}
+
+void
+AmTxManager::deleteBlob(AmRequest *amReq) {
+    auto blobReq = static_cast<DeleteBlobReq *>(amReq);
+    LOGDEBUG    << " volume:" << amReq->io_vol_id
+                << " blob:" << amReq->getBlobName()
+                << " txn:" << blobReq->tx_desc;
+
+    // Update the tx manager with the delete op
+    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        return AmDataProvider::deleteBlobCb(amReq, err);
+    }
+    updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
+    AmDataProvider::deleteBlob(amReq);
+}
+
+void
+AmTxManager::renameBlob(AmRequest *amReq) {
+    auto blobReq = static_cast<RenameBlobReq*>(amReq);
+    LOGDEBUG << "Renaming blob: " << blobReq->getBlobName()
+             << " to: " << blobReq->new_blob_name;
+    blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
+    AmDataProvider::renameBlob(amReq);
+}
+
+void
+AmTxManager::getBlob(AmRequest *amReq) {
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+    blobReq->blob_offset = (amReq->blob_offset * blobReq->object_size);
+    blobReq->blob_offset_end = blobReq->blob_offset;
+
+    // If this is a large read, the number of end offset needs to encompass
+    // the extra objects required.
+    amReq->object_size = blobReq->object_size;
+    if (blobReq->object_size < amReq->data_len) {
+        auto const extra_objects = (amReq->data_len / blobReq->object_size) - 1
+                                 + ((0 != amReq->data_len % blobReq->object_size) ? 1 : 0);
+        blobReq->blob_offset_end += extra_objects * blobReq->object_size;
+    }
+
+    // Create buffers for return objects, we don't know how many till we have
+    // a valid descriptor
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>();
+
+    // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT
+    // Don't support unaligned currently, reject if this is not
+    if (0 != (amReq->blob_offset % blobReq->object_size)) {
+        LOGERROR << "unaligned read not supported, offset: " << amReq->blob_offset
+                 << " length: " << amReq->data_len;
+        return AmDataProvider::getBlobCb(amReq, ERR_INVALID);
+    }
+
+    AmDataProvider::getBlob(amReq);
+}
+
+void
+AmTxManager::putBlob(AmRequest *amReq) {
+    // Use a stock object ID if the length is 0.
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    blobReq->blob_offset = (blobReq->blob_offset * blobReq->object_size);
+    if (amReq->data_len == 0) {
+        blobReq->obj_id = ObjectID();
+    } else {
+        SCOPED_PERF_TRACEPOINT_CTX(amReq->hash_perf_ctx);
+        blobReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
+    }
+
+    // Verify we have a dmt version (and transaction) for this update
+    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    if (!err.ok()) {
+        return AmDataProvider::putBlobCb(amReq, err);
+    }
+    AmDataProvider::putBlob(amReq);
+}
+
+void
+AmTxManager::putBlobOnce(AmRequest *amReq) {
+    // Use a stock object ID if the length is 0.
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    blobReq->blob_offset = (blobReq->blob_offset * blobReq->object_size);
+    if (amReq->data_len == 0) {
+        blobReq->obj_id = ObjectID();
+    } else {
+        SCOPED_PERF_TRACEPOINT_CTX(amReq->hash_perf_ctx);
+        blobReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
+    }
+
+    blobReq->setTxId(randNumGen->genNumSafe());
+    return AmDataProvider::putBlobOnce(amReq);
+}
+
+void
+AmTxManager::applyPut(PutBlobReq* blobReq) {
+    auto tx_desc = blobReq->tx_desc;
+    // Update the transaction manager with the stage offset update
+    if (ERR_OK != updateStagedBlobOffset(*tx_desc,
+                                         blobReq->getBlobName(),
+                                         blobReq->blob_offset,
+                                         blobReq->obj_id)) {
+        // An abort or commit already caused the tx
+        // to be cleaned up. Short-circuit
+        GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc->getValue();
         return;
     }
 
-    // We did not find all the data, so create some GetObjectReqs and defer to
-    // SM for the rest by iterating and checking if the buffer is valid, if
-    // not use the object to create a new GetObjectReq
-    LOGDEBUG << "Found: " << hit_cnt << "/" << (hit_cnt + miss_cnt) << " objects";
-    blobReq->setResponseCount(miss_cnt);
-    auto obj_it = blobReq->object_ids.cbegin();
-    auto buf_it = cb->return_buffers->begin();
-    for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
-        if (!*buf_it) {
-            LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
-            getObject(blobReq, *obj_it, *buf_it);
-        }
+    // Update the transaction manager with the staged object data
+    if (blobReq->data_len > 0) {
+        updateStagedBlobObject(*tx_desc, blobReq->obj_id, blobReq->dataPtr);
     }
 }
 
 void
-AmTxManager::getObject(GetBlobReq* blobReq,
-                       ObjectID::ptr const& obj_id,
-                       boost::shared_ptr<std::string>& buf) {
-    auto objReq = new GetObjectReq(blobReq, buf, obj_id);
-    objReq->proc_cb = [this, objId = *obj_id] (Error const& error) {
-                        this->getObjectCb(objId, error);
-                      };
-
-    std::lock_guard<std::mutex> g(obj_get_lock);
-    auto q = obj_get_queue.find(*obj_id);
-    if (obj_get_queue.end() == q) {
-        processor_enqueue(objReq);
-        auto new_queue = new std::deque<GetObjectReq*>();
-        obj_get_queue[*obj_id].reset(new_queue);
-        new_queue->push_back(objReq);
-    } else {
-        q->second->push_back(objReq);
+AmTxManager::putBlobCb(AmRequest* amReq, Error const error) {
+    if (error.ok()) {
+        applyPut(static_cast<PutBlobReq *>(amReq));
     }
+    AmDataProvider::putBlobCb(amReq, error);
 }
 
 void
-AmTxManager::getObjectCb(ObjectID const obj_id, Error const& error) {
-    std::unique_ptr<std::deque<GetObjectReq*>> queue;
-    {
-        // Find the waiting get requeust queue
-        std::lock_guard<std::mutex> g(obj_get_lock);
-        auto q = obj_get_queue.find(obj_id);
-        fds_assert(obj_get_queue.end() != q);
-        queue.swap(q->second);
-        obj_get_queue.erase(q);
-    }
-
-    // For each request waiting on this object, respond to it and set the buffer
-    // data member from the first request (the one that was actually dispatched)
-    // and populate the volume's cache
-    auto buf = queue->front()->obj_data;
-    for (auto& objReq : *queue) {
-        if (error.ok()) {
-            objReq->obj_data = buf;
-            amCache->putObject(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
+AmTxManager::putBlobOnceCb(AmRequest* amReq, Error const error) {
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
+    if (error.ok()) {
+        auto tx_desc = blobReq->tx_desc;
+        // Add the Tx to the manager if this an updateOnce
+        if (ERR_OK == addTx(amReq->io_vol_id,
+                            *tx_desc,
+                            blobReq->dmt_version,
+                            amReq->getBlobName())) {
+            // Stage the transaction metadata changes
+            updateStagedBlobDesc(*tx_desc, blobReq->final_meta_data);
+            applyPut(blobReq);
+            commitTx(*tx_desc, blobReq->final_blob_size);
         }
-        objReq->blobReq->notifyResponse(error);
-        delete objReq;
     }
+    AmDataProvider::putBlobOnceCb(amReq, error);
 }
-
-Error
-AmTxManager::putOffsets(fds_volid_t const vol_id,
-                        std::string const& blob_name,
-                        fds_uint64_t const blob_offset,
-                        fds_uint32_t const object_size,
-                        std::vector<boost::shared_ptr<ObjectID>> const& object_ids) {
-    auto iOff = blob_offset;
-    for (auto const& obj_id : object_ids) {
-        auto blob_pair = BlobOffsetPair(blob_name, iOff);
-        auto err = amCache->putOffset(vol_id, blob_pair, obj_id);
-        if (!err.ok())
-            { return err; }
-        iOff += object_size;
-    }
-    return ERR_OK;
-}
-
-Error
-AmTxManager::putBlobDescriptor(fds_volid_t const volId, std::string const& blobName, boost::shared_ptr<BlobDescriptor> const blobDesc)
-{ return amCache->putBlobDescriptor(volId, blobName, blobDesc); }
-
-Error
-AmTxManager::removeBlob(fds_volid_t volId, const std::string &blobName)
-{ return amCache->removeBlob(volId, blobName); }
 
 }  // namespace fds

@@ -37,6 +37,9 @@
         owner=root
         group=root
 
+-   name: set local for error messages
+    command: update-locale LC_MESSAGES=POSIX
+
 # OLD SUPER BLOCK LOCATION
 -   name: run fdsinstall step 3 - setup storage
     environment:
@@ -54,16 +57,9 @@
         - post-install
 
 # NEW Super Block , disk detection
--   name: Automatic disk identification (raided OS drives)
-    command: /fds/bin/disk_id.py -wv
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (no_raid_os_drives is not defined or no_raid_os_drives == "false")
-    tags:
-        - post-install
-
-# NEW Super Block , disk detection
--   name: Automatic disk identification (none raided OS drives)
-    command: /fds/bin/disk_id.py -wnv
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (no_raid_os_drives is defined and no_raid_os_drives == "true")
+-   name: Automatic disk identification
+    command: /fds/bin/disk_id.py -w
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true")
     tags:
         - post-install
 

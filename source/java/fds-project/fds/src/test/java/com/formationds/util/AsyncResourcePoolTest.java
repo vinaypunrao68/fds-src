@@ -78,7 +78,7 @@ public class AsyncResourcePoolTest {
 
         for(Map.Entry<Integer,CompletableFuture<Integer>> result : results.entrySet()) {
             int square = result.getKey() * result.getKey();
-            Assert.assertEquals(square, result.getValue().get(1000, TimeUnit.MILLISECONDS).intValue());
+            Assert.assertEquals(square, result.getValue().get(10000, TimeUnit.MILLISECONDS).intValue());
         }
 
         Assert.assertEquals(10, impl.allResources.stream().filter(r -> !r.destroyed).count());

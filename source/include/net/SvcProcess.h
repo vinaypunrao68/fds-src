@@ -121,6 +121,13 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     virtual void start_modules() override;
 
     /**
+    * @brief Shuts down
+    * 1. First all the registered module
+    * 2. SvcServer, timer, Process threadpool
+    */
+    virtual void shutdown_modules() override;
+
+    /**
     * @brief Registers the service.  Default implementation will register the service
     * with OM.
     * Override this behavior depending on the service type.

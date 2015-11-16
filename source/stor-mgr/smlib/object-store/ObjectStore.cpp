@@ -416,7 +416,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData,
-                       fds_bool_t forwardedIO) {
+                       fds_bool_t forwardedIO,
+                       diskio::DataTier &useTier) {
     Error err = checkAvailability();
     if (!err.ok()) {
         return err;
@@ -430,7 +431,7 @@ ObjectStore::putObject(fds_volid_t volId,
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
-    diskio::DataTier useTier = diskio::maxTier;
+    useTier = diskio::maxTier;
     LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
              << std::dec;
 

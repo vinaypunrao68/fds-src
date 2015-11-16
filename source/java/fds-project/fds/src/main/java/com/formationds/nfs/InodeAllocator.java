@@ -24,7 +24,7 @@ public class InodeAllocator {
                 if (v == null) {
                     v = io.mapMetadata(BlockyVfs.DOMAIN, volume, NUMBER_WELL, new MetadataMapper<Long>() {
                         @Override
-                        public Long map(Optional<Map<String, String>> metadata) throws IOException {
+                        public Long map(String blobName, Optional<Map<String, String>> metadata) throws IOException {
                             if (!metadata.isPresent()) {
                                 return START_VALUE;
                             }

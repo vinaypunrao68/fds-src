@@ -4,23 +4,26 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 
-#include <string>
-
 #include "AmAsyncDataApi.h"
-#include <fds_volume.h>
+#include "AmDataProvider.h"
 #include <blob/BlobTypes.h>
 #include <cache/VolumeSharedKvCache.h>
 
 namespace fds {
 
 struct AmTxDescriptor;
+struct GetBlobReq;
+struct GetObjectReq;
+struct CommonModuleProviderIf;
 
 /**
  * A client-side cache of blob metadata and data. The cache
  * multiplexes different volumes and allows for different
  * policy management for each volume.
  */
-class AmCache {
+class AmCache :
+    public AmDataProvider
+{
     typedef VolumeSharedCacheManager<std::string, BlobDescriptor>
         descriptor_cache_type;
     typedef VolumeSharedCacheManager<BlobOffsetPair, ObjectID, BlobOffsetPairHash>
@@ -29,28 +32,54 @@ class AmCache {
         object_cache_type;
 
   public:
-    AmCache();
+    AmCache(AmDataProvider* prev, CommonModuleProviderIf* modProvider);
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
     ~AmCache();
 
     /**
-     * Creates cache structures for the volume described
-     * in the volume descriptor.
+     * Updates the cache with the contents from a commited
+     * transaction. Any previously existing info will be
+     * overwritten.
      */
-    Error registerVolume(fds_volid_t const vol_uuid, size_t const num_objs, bool const can_cache_meta);
+    Error putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize);
 
     /**
-     * Removes metadata cache for the volume.
+     * These are the Cache specific DataProvider routines.
+     * Everything else is pass-thru.
      */
-    void invalidateMetaCache(fds_volid_t const volId);
+    void start();
+    void registerVolume(const VolumeDesc& volDesc) override;
+    Error removeVolume(const VolumeDesc& volDesc) override;
+    void statBlob(AmRequest * amReq) override;
+    void getBlob(AmRequest * amReq) override;
+
+  protected:
 
     /**
-     * Removes volume cache for the volume.
-     * Any dirty entries must be flushed back to persistent
-     * storage prior to removal, otherwise they will be lost.
+     * These are the response we actually care about seeing the results of
      */
-    Error removeVolume(fds_volid_t const volId);
+    void getBlobCb(AmRequest * amReq, Error const error) override;
+    void getOffsetsCb(AmRequest * amReq, Error const error) override;
+    void getObjectCb(AmRequest * amReq, Error const error) override;
+    void deleteBlobCb(AmRequest * amReq, Error const error) override;
+    void openVolumeCb(AmRequest * amReq, Error const error) override;
+    void renameBlobCb(AmRequest * amReq, Error const error) override;
+    void statBlobCb(AmRequest * amReq, Error const error) override;
+    void volumeContentsCb(AmRequest * amReq, Error const error) override;
+
+  private:
+    descriptor_cache_type descriptor_cache;
+    offset_cache_type offset_cache;
+    object_cache_type object_cache;
+
+    typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
+    std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
+    std::mutex obj_get_lock;
+
+    /// Cache maximums
+    size_t max_volume_data;
+    size_t max_metadata_entries;
 
     /**
      * Retrieves blob descriptor from cache for given volume
@@ -79,49 +108,14 @@ class AmCache {
      * Retrieves object data from cache for given volume and object ids.
      * Returns hit_cnt, miss_cnt
      */
-    std::pair<size_t, size_t> getObjects(fds_volid_t volId,
-                                         std::vector<ObjectID::ptr> const& objectIds,
-                                         std::vector<boost::shared_ptr<std::string>>& objects);
+    void getObjects(GetBlobReq* amReq);
 
     /**
-     * Updates the cache with the contents from a commited
-     * transaction. Any previously existing info will be
-     * overwritten.
+     * Internal get object request handler
      */
-    Error putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize);
-
-    /**
-     * Updates a blob descriptor in the cache for given volume id
-     * and blob name. Any previously existing descriptor will be
-     * overwritten.
-     */
-    Error putBlobDescriptor(fds_volid_t const volId,
-                            typename descriptor_cache_type::key_type const& blobName,
-                            typename descriptor_cache_type::value_type const blobDesc);
-
-    Error putOffset(fds_volid_t const volId,
-                    typename offset_cache_type::key_type const& blobOff,
-                    typename offset_cache_type::value_type const objId);
-
-    /**
-     * Inserts new object into the object cache.
-     */
-    Error putObject(fds_volid_t const volId,
-                    typename object_cache_type::key_type const& objId,
-                    typename object_cache_type::value_type const obj);
-
-    /**
-     * Removes cache entries for a specific blob in a volume.
-     */
-    Error removeBlob(fds_volid_t volId, const std::string &blobName);
-
-  private:
-    descriptor_cache_type descriptor_cache;
-    offset_cache_type offset_cache;
-    object_cache_type object_cache;
-
-    /// Max number of metadta entries per volume cache
-    size_t max_metadata_entries;
+    void getObject(GetBlobReq* blobReq,
+                   ObjectID::ptr const& obj_id,
+                   boost::shared_ptr<std::string>& buf);
 };
 
 }  // namespace fds
