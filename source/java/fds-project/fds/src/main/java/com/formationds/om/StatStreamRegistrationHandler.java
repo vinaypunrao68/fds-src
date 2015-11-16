@@ -26,7 +26,7 @@ public class StatStreamRegistrationHandler {
     public static Logger logger = LoggerFactory.getLogger( StatStreamRegistrationHandler.class );
 
     // TODO pull these values from the platform.conf file.
-    private static final String URL = "http://%s:%d/fds/config/v08/api/stats";
+    private static final String URL = "http://%s:%d/fds/config/v08/stats";
     private static final String METHOD = "POST";
     private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
     private static final Long FREQUENCY = TimeUnit.MINUTES.toSeconds( 1 );
