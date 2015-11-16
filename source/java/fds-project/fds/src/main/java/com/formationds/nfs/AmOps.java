@@ -10,7 +10,6 @@ import com.formationds.xdi.RecoverableException;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -92,7 +91,8 @@ public class AmOps implements IoOps {
         return handleExceptions(
                 new ErrorCode[]{ErrorCode.MISSING_RESOURCE},
                 ec -> {
-                    throw new FileNotFoundException();
+                    // Behavior change in AM, we may now get MISSING_RESOURCE if we read past the end of the blob
+                    return ByteBuffer.allocate(objectSize);
                 },
                 unit);
     }
