@@ -52,16 +52,10 @@ struct AmTxManager :
     ~AmTxManager();
 
     /**
-     * Notify that there is a newly attached volume, and build any
-     * necessary data structures.
-     */
-
-    /**
      * These are the Transaction specific DataProvider routines.
      * Everything else is pass-thru.
      */
     void start() override;
-    Error registerVolume(const VolumeDesc& volDesc) override;
     void startBlobTx(AmRequest *amReq) override;
     void commitBlobTx(AmRequest *amReq) override;
     void abortBlobTx(AmRequest *amReq) override;

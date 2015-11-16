@@ -51,7 +51,7 @@ AmVolumeTable::stop() {
  * Search the wait queue for an attach on this volume (by name),
  * if found process it, and only it.
  */
-Error
+void
 AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
 {
     fds_volid_t vol_uuid = volDesc.GetID();
@@ -77,10 +77,9 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
     } else {
         map_rwlock.write_unlock();
     }
-    return ERR_OK;
 }
 
-Error AmVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
     auto vol = getVolume(vol_uuid);
     if (vol)
     {
@@ -145,14 +144,14 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
     if (volume_map.end() != map) {
         ret_vol = map->second;
     } else {
-        GLOGDEBUG << "AmVolumeTable::getVolume - Volume "
-            << std::hex << vol_uuid << std::dec
-            << " is not attached";
+        GLOGTRACE << "AmVolumeTable::getVolume - Volume "
+                  << std::hex << vol_uuid << std::dec
+                  << " is not attached";
     }
     return ret_vol;
 }
 
-bool
+AmVolumeTable::volume_ptr_type
 AmVolumeTable::ensureReadable(AmRequest* amReq) const {
     auto vol = getVolume(amReq->io_vol_id);
     if (vol) {
@@ -162,19 +161,18 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) const {
             amReq->forced_unit_access = true;
             amReq->page_out_cache = false;
         }
-        return true;
+        return vol;
     }
-    return false;
+    return nullptr;
 }
 
-bool
+AmVolumeTable::volume_ptr_type
 AmVolumeTable::ensureWritable(AmRequest* amReq) const {
-    auto vol = getVolume(amReq->io_vol_id);
-    if (vol && !vol->voldesc->isSnapshot() && vol->getMode().first) {
-        amReq->object_size = vol->voldesc->maxObjSizeInBytes;
-        return true;
+    auto vol = ensureReadable(amReq);
+    if (vol && vol->getMode().first) {
+        return vol;
     }
-    return false;
+    return nullptr;
 }
 
 std::vector<AmVolumeTable::volume_ptr_type>
@@ -228,7 +226,7 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
      * FEATURE TOGGLE: Single AM Enforcement
      * Wed 01 Apr 2015 01:52:55 PM PDT
      */
-    GLOGDEBUG << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
+    GLOGTRACE << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
               << ") write(" << volReq->mode.can_write << ")";
     AmDataProvider::openVolume(amReq);
 }
@@ -243,44 +241,49 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
     auto vol = getVolume(amReq->io_vol_id);
     if (!vol) {
         GLOGDEBUG << "Volume has been removed, dropping lease to: " << amReq->volume_name;
-        AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
+        return AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
     }
 
-    auto const& vol_desc = *vol->voldesc;
-    if (error.ok()) {
-        GLOGDEBUG << "For volume: " << vol_desc.volUUID
+    auto err = error;
+    if (err.ok()) {
+        GLOGDEBUG << "For volume: " << amReq->io_vol_id
                   << ", received access token: 0x" << std::hex << volReq->token;
-
-
-        // If this is a new token, create an access token for the volume
-        auto access_token = boost::make_shared<AmVolumeAccessToken>(
-                                token_timer,
-                                volReq->mode,
-                                volReq->token,
-                                [this, vol_id = vol_desc.volUUID] () mutable -> void {
-                                    this->renewToken(vol_id);
-                            });
-
-        // Assign the volume the token we got from DM
-        vol->access_token = access_token;
-
-        // Renew this token at a regular interval
-        auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
-            { LOGWARN << "Failed to schedule token renewal timer!"; }
-
-        // If this is a real request, set the return data (could be implicit// from QoS)
-        if (amReq->cb) {
-            auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
-            cb->volDesc = boost::make_shared<VolumeDesc>(vol_desc);
-            cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
-        }
-    } else {
+    } else if (ERR_VOLUME_ACCESS_DENIED == err) {
         LOGNOTIFY << "Failed to open volume with mode: cache(" << volReq->mode.can_cache
                   << ") write(" << volReq->mode.can_write
-                  << ") error(" << error << ")";
+                  << ") error(" << err << ") access is R/O.";
+        err = ERR_OK;
+        volReq->mode.can_cache = false;
+        volReq->mode.can_write = false;
+        volReq->token = invalid_vol_token;
+    } else {
+        LOGNOTIFY << "Failed to open volume : " << amReq->io_vol_id;
+        return AmDataProvider::openVolumeCb(amReq, err);
     }
-    AmDataProvider::openVolumeCb(amReq, error);
+
+    auto access_token = boost::make_shared<AmVolumeAccessToken>(
+                            token_timer,
+                            volReq->mode,
+                            volReq->token,
+                            [this, vol_id = amReq->io_vol_id] () mutable -> void {
+                                this->renewToken(vol_id);
+                        });
+
+    // Assign the volume the token we got from DM
+    vol->access_token = access_token;
+
+    // Renew this token at a regular interval
+    auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
+    if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+        { LOGWARN << "Failed to schedule token renewal timer!"; }
+
+    // If this is a real request, set the return data (could be implicit// from QoS)
+    if (amReq->cb) {
+        auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+        cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
+        cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
+    }
+    AmDataProvider::openVolumeCb(amReq, err);
 }
 
 void
@@ -288,7 +291,7 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
     // Get the current volume and token
     auto vol = getVolume(vol_id);
     if (!vol) {
-        GLOGDEBUG << "Ignoring token renewal for unknown (detached?) volume: " << vol_id;
+        GLOGTRACE << "Ignoring token renewal for unknown (detached?) volume: " << vol_id;
         return;
     }
 
@@ -311,7 +314,7 @@ AmVolumeTable::renewTokenCb(AmRequest *amReq, const Error& error) {
     if (vol) {
         auto access_token = vol->access_token;
         if (error.ok()) {
-            GLOGDEBUG << "For volume: " << volReq->io_vol_id
+            GLOGTRACE << "For volume: " << volReq->io_vol_id
                       << ", received renew for token: 0x" << std::hex << volReq->token;
             access_token->setMode(volReq->mode);
             access_token->setToken(volReq->token);
