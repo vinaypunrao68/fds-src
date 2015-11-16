@@ -1,5 +1,9 @@
 package com.formationds.nfs;
 
+import com.google.common.collect.Lists;
+
+import java.util.Collection;
+
 public class StubExportResolver implements ExportResolver {
     public static final int EXPORT_ID = 1;
     private String volumeName;
@@ -8,6 +12,11 @@ public class StubExportResolver implements ExportResolver {
     public StubExportResolver(String volumeName, int objectSize) {
         this.volumeName = volumeName;
         this.objectSize = objectSize;
+    }
+
+    @Override
+    public Collection<String> exportNames() {
+        return Lists.newArrayList(volumeName);
     }
 
     @Override
