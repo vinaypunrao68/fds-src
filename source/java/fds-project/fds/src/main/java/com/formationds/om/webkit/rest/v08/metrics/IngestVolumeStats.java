@@ -9,7 +9,9 @@ import com.formationds.client.v08.model.stats.ContextType;
 import com.formationds.client.v08.model.stats.StatDataPoint;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
+import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -90,7 +92,18 @@ public class IngestVolumeStats
           
           // store them in the stats database
           StatDataPoint datapoint = new StatDataPoint();
-          datapoint.setMetricName( vdp.getKey() );
+          
+          String metricName = "UNKNOWN";
+          
+          try {
+        	  Metrics metric = Metrics.lookup( vdp.getKey() );
+        	  metricName = metric.name();
+          }
+          catch( UnsupportedMetricException ume ){
+        	  logger.warn( "Could not locate metric for key.", ume );
+          }
+          
+          datapoint.setMetricName( metricName );
           datapoint.setReportTime( vdp.getTimestamp() );
           datapoint.setMetricValue( vdp.getValue() );
           datapoint.setContextType( ContextType.VOLUME );
