@@ -53,8 +53,8 @@ struct MetaDataList :
      * Copies metadata list to FDSP metadata list message; if there is any
      * data in mlist, it will be cleared first;
      */
-    void moveToFdspPayload(fpi::FDSP_MetaDataList& mlist) const;
-    void copyToFdspPayload(fpi::FDSP_MetaDataList& mlist) const;
+
+    void toFdspPayload(fpi::FDSP_MetaDataList& mlist) const;
 
     /**
      * Merge name-value pairs from rhs into this and return reference to this
