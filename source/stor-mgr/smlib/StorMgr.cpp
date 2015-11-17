@@ -464,7 +464,7 @@ Error ObjectStorMgr::handleDltUpdate() {
                                                         std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
                                                                   std::placeholders::_1, std::placeholders::_2));
         } else {
-     
+
         }
     */
         // not doing resync, making all DLT tokens ready
