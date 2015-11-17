@@ -1,14 +1,14 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
-import com.formationds.apis.FDSP_ModifyVolType;
 import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
 import com.formationds.protocol.svc.types.Snapshot;
+import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.*;
-import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -17,6 +17,8 @@ import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,6 +56,8 @@ public class StubConfigurationApi implements ConfigurationApi {
     private List<VolumeDescriptor> volumes;
     private AtomicLong volumeId;
 
+    private List<SvcInfo> services;
+    
     private AtomicLong configurationVersion;
 
     public StubConfigurationApi() {
@@ -739,4 +743,40 @@ public class StubConfigurationApi implements ConfigurationApi {
     public void deleteSubscriptionID(long subID, boolean dematerialize)
             throws ApiException, NotMasterDomain, SubscriptionNotFound, SubscriptionNotModified, TException {
     }
+
+	@Override
+	public List<SvcInfo> getAllNodeInfo() throws TException {
+		return services;
+	}
+
+	@Override
+	public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException, TException {
+		for (SvcInfo svc : services) {
+			if (nodeUuid.equals(svc.getSvc_id())) {
+				return svc;
+			}
+		}
+		return null;
+	}
+	
+	@Override
+	public long getDiskCapacityNode(SvcUuid nodeUuid) throws ApiException, TException {
+		SvcInfo svc = getNodeInfo( nodeUuid );
+		if (svc != null) {
+			return Long.valueOf(svc.getProps().getOrDefault("disk_capacity", "0")) + 
+				   Long.valueOf(svc.getProps().getOrDefault("ssd_capacity", "0"));
+		}
+		throw new ApiException("Failed to retrieve service info for node with [" + nodeUuid + "]", 
+				ErrorCode.MISSING_RESOURCE);
+	}
+
+	@Override
+	public long getDiskCapacityTotal() throws ApiException, TException {
+		long total = 0;
+		for (SvcInfo svc : services) {
+			total += Long.valueOf(svc.getProps().getOrDefault("disk_capacity", "0"));
+			total += Long.valueOf(svc.getProps().getOrDefault("ssd_capacity", "0"));
+		}
+		return total;
+	}
 }

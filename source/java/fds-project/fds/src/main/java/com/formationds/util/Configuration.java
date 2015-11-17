@@ -512,7 +512,6 @@ public class Configuration {
                             .createLogger( Boolean.toString( additive ), Level.ERROR, name, null, new AppenderRef[0], new Property[0], config,
                                            null );
                 } catch (Exception e) {
-                    e.printStackTrace();
                     throw e;
                 }
             }
