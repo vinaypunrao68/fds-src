@@ -72,25 +72,27 @@ DmProcess::DmProcess(int argc, char *argv[], bool initAsModule)
 
 Error DmProcess::processIO(FDS_IOType* io) {
     Error err(ERR_OK);
+
     fds_verify(io->io_type == FDS_DM_VOLUME_IO);
 
-    auto volIo = static_cast<SvcMsgIo*>(io);
+    /* NOTE: After this point we only deal with shared pointers */
+    auto volIo = SHPTR<SvcMsgIo>(static_cast<SvcMsgIo*>(io));
     switch (volIo->msgType){
         case FDSP_MSG_TYPEID(fpi::StartTxMsg):
             runSynchronizedVolumeIoHandler(&Volume::handleStartTx,
-                                           static_cast<StartTxIo*>(volIo));
+                                           SHPTR_CAST(StartTxIo, volIo));
             break;
         case FDSP_MSG_TYPEID(fpi::UpdateTxMsg):
             runSynchronizedVolumeIoHandler(&Volume::handleUpdateTx,
-                                           static_cast<UpdateTxIo*>(volIo));
+                                           SHPTR_CAST(UpdateTxIo, volIo));
             break;
         case FDSP_MSG_TYPEID(fpi::CommitTxMsg):
             runSynchronizedVolumeIoHandler(&Volume::handleCommitTx,
-                                           static_cast<CommitTxIo*>(volIo));
+                                           SHPTR_CAST(CommitTxIo, volIo));
             break;
         case FDSP_MSG_TYPEID(fpi::SyncPullLogEntriesMsg):
             runSynchronizedVolumeIoHandler(&Volume::handleSyncPullLogEntries,
-                                           static_cast<SyncPullLogEntriesIo*>(volIo));
+                                           SHPTR_CAST(SyncPullLogEntriesIo, volIo));
             break;
         default:
             fds_panic("Unknown message");

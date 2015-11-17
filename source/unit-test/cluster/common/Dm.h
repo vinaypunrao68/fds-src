@@ -38,8 +38,9 @@ struct DmProcess : SvcProcess {
 
     Error addVolume(const fds_volid_t &volId);
 
+    //TODO(Rao): See if the below SHPTR can be const
     template <class Functor, class IoType, class... Args>
-    void runSynchronizedVolumeIoHandler(Functor&& f, IoType *io) {
+    void runSynchronizedVolumeIoHandler(Functor&& f, SHPTR<IoType> io) {
         auto volId = io->getVolumeId();
         auto itr = volumeTbl.find(io->getVolumeId());
         fds_verify(itr != volumeTbl.end());
@@ -80,6 +81,7 @@ struct DmHandler: PlatNetSvcHandler {
                                         std::placeholders::_1);
                 fds_volid_t volId(volumeIoHdr.groupId);
                 auto qosMsg = new QosVolumeIoT(volId,
+                                               dm->qosCtrl,
                                                payload,
                                                cbfunc);
                 auto enqRet = dm->qosCtrl->enqueueIO(volId, qosMsg);

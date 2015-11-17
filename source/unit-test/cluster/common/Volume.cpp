@@ -66,11 +66,11 @@ void Volume::init()
 
 }
 
-void Volume::handleStartTx(StartTxIo *io)
+void Volume::handleStartTx(StartTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    ScopedVolumeIo<StartTxIo>  s(io, qosCtrl_);
+    // ScopedVolumeIo<StartTxIo>  s(io, qosCtrl_);
 
     CHECK_VOLUME_FUNCTIONAL();
 
@@ -85,11 +85,11 @@ void Volume::handleStartTx(StartTxIo *io)
 
     opInfo_.appliedOpId++;
 }
-void Volume::handleUpdateTx(UpdateTxIo *io)
+void Volume::handleUpdateTx(UpdateTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
+    // ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
 
     CHECK_VOLUME_FUNCTIONAL();
 
@@ -109,11 +109,11 @@ void Volume::handleUpdateTx(UpdateTxIo *io)
     opInfo_.appliedOpId++;
 }
 
-void Volume::handleCommitTx(CommitTxIo *io)
+void Volume::handleCommitTx(CommitTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    ScopedVolumeIo<CommitTxIo>  s(io, qosCtrl_);
+    // ScopedVolumeIo<CommitTxIo>  s(io, qosCtrl_);
 
     CHECK_VOLUME_FUNCTIONAL();
 
@@ -226,24 +226,23 @@ void Volume::applySyncPullLogEntries_(int64_t startCommitId,
     }
 }
 
-void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIo *io)
+void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io)
 {
-    ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
+    // ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
 
     CHECK_VOLUME_FUNCTIONAL();
     auto &reqMsg = *(io->reqMsg);
     /* TODO(Rao): Do a common point version check */
 
     io->respMsg.reset(new fpi::SyncPullLogEntriesRespMsg());
-    io->respMsg->startCommtId = reqMsg->startCommitId;
     uint32_t bytesAddedCnt = 0;
-    for (auto id = reqMsg->startCommitId; id <= reqMsg->endCommitId; ++id) {
+    for (auto id = reqMsg.startCommitId; id <= reqMsg.endCommitId; ++id) {
         auto entry = txLog_.getEntry(id);
         leveldb::Slice s = leveldb::WriteBatchInternal::Contents(entry.get());
         if (bytesAddedCnt + s.size() > MAX_SYNCENTRIES_BYTES) {
             break;
         }
-        io->respMsg.entries.push_back(s.ToString());
+        io->respMsg->entries.push_back(s.ToString());
         bytesAddedCnt += s.size();
     }
 }

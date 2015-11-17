@@ -28,9 +28,9 @@ struct SvcMsgIo : public FDS_IOType {
         this->qosCtrl = qosCtrl;
     }
     virtual ~SvcMsgIo() {
-        qosCtrl->markIODone(io);
+        qosCtrl->markIODone(this);
     }
-    fds_volid_t getVolumeId() {
+    fds_volid_t getVolumeId() const {
         return fds_volid_t(io_vol_id);
     }
  
@@ -51,9 +51,10 @@ struct QosVolumeIo : public SvcMsgIo {
     using CbType = std::function<void (QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>*)>;
 
     QosVolumeIo(const fds_volid_t &volId,
+                FDS_QoSControl *qosCtrl,
                 const SHPTR<ReqMsgT> &reqMsg,
                 const CbType &cb)
-    : SvcMsgIo(ReqTypeId, volId)
+    : SvcMsgIo(ReqTypeId, volId, qosCtrl)
     {
         this->reqMsg = reqMsg;
         this->respStatus = ERR_OK;
@@ -63,7 +64,7 @@ struct QosVolumeIo : public SvcMsgIo {
     {
         if (cb) {
             LOGNOTIFY << "Responding: " << *this;
-            cb(io);
+            cb(this);
         }
     }
 
@@ -98,22 +99,25 @@ std::ostream& operator<<(std::ostream &out,
 }
 
 using StartTxIo         = DECLARE_QOSVOLUMEIO(fpi::StartTxMsg, fpi::EmptyMsg);
+using StartTxIoPtr      = SHPTR<StartTxIo>;
 using UpdateTxIo        = DECLARE_QOSVOLUMEIO(fpi::UpdateTxMsg, fpi::EmptyMsg);
+using UpdateTxIoPtr     = SHPTR<UpdateTxIo>;
 using CommitTxIo        = DECLARE_QOSVOLUMEIO(fpi::CommitTxMsg, fpi::EmptyMsg);
+using CommitTxIoPtr     = SHPTR<CommitTxIo>;
 using SyncPullLogEntriesIo  = DECLARE_QOSVOLUMEIO(fpi::SyncPullLogEntriesMsg, fpi::SyncPullLogEntriesRespMsg);
+using SyncPullLogEntriesIoPtr = SHPTR<SyncPullLogEntriesIo>;
 
 /**
 * @brief Function to be executed on qos
 */
 struct QosFunctionIo : SvcMsgIo {
     using Func = std::function<void(const Error&, StringPtr)>;
-    QosFunctionIo(const fds_volid_t &volId)
-        : SvcMsgIo(FDSP_MSG_TYPEID(fpi::QosFunction), volId)
+    QosFunctionIo(const fds_volid_t &volId, FDS_QoSControl *qosCtrl)
+        : SvcMsgIo(FDSP_MSG_TYPEID(fpi::QosFunction), volId, qosCtrl)
     {}
     Func                                            func;
-    /* Dummy, not needed..kept around for ScopeVolumeIo */
-    std::function<void(QosFunctionIo*)>             cb;
 };
+using QosFunctionIoPtr = SHPTR<QosFunctionIo>;
 
 #if 0
 template <class T>
@@ -146,9 +150,10 @@ struct Volume : HasModuleProvider {
 
     void init();
     /* Functional State handlers */
-    void handleStartTx(StartTxIo *io);
-    void handleUpdateTx(UpdateTxIo *io);
-    void handleCommitTx(CommitTxIo *io);
+    void handleStartTx(StartTxIoPtr io);
+    void handleUpdateTx(UpdateTxIoPtr io);
+    void handleCommitTx(CommitTxIoPtr io);
+    void handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io);
 
     /* Sync state handlers */
     /**
@@ -160,12 +165,10 @@ struct Volume : HasModuleProvider {
     std::function<void(ReqT*, const Error&, StringPtr)>
     qosFunction(const QosFunctionIo::Func &func )
     {
-        auto qosCtrl = qosCtrl_;
-        auto qosMsg = new QosFunctionIo(volId_);
+        auto qosMsg = new QosFunctionIo(volId_, qosCtrl_);
         qosMsg->func = func;
-        // TODO(Rao): qosctrl shouldn't be needed when qosMsg is holds qosCtrl as a reference
-        return [qosCtrl, qosMsg](ReqT*, const Error& e, StringPtr payload) {
-            auto enqRet = qosCtrl->enqueueIO(qosMsg->io_vol_id, qosMsg);
+        return [qosMsg](ReqT*, const Error& e, StringPtr payload) {
+            auto enqRet = qosMsg->qosCtrl->enqueueIO(qosMsg->io_vol_id, qosMsg);
             if (enqRet != ERR_OK) {
                 fds_panic("Not handled");
                 // TODO(Rao): Fix it
