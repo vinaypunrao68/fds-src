@@ -53,7 +53,6 @@ struct AmVolumeTable :
      */
     std::vector<volume_ptr_type> getVolumes() const;
 
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
 
     /**
      * These are the Volume specific DataProvider routines.
@@ -61,7 +60,8 @@ struct AmVolumeTable :
      */
     void start() override;
     void stop() override;
-    Error registerVolume(VolumeDesc const& volDesc) override;
+    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     Error removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest *amReq) override;
     void setVolumeMetadata(AmRequest *amReq) override;
@@ -96,8 +96,8 @@ struct AmVolumeTable :
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
-    bool ensureReadable(AmRequest *amReq) const;
-    bool ensureWritable(AmRequest *amReq) const;
+    volume_ptr_type ensureReadable(AmRequest *amReq) const;
+    volume_ptr_type ensureWritable(AmRequest *amReq) const;
 
     void renewToken(const fds_volid_t vol_id);
     void renewTokenCb(AmRequest *amReq, const Error& error);

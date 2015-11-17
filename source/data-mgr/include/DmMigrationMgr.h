@@ -401,6 +401,11 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     std::unordered_map<fds_volid_t, fds_uint64_t> dmt_watermark;
 
+    /**
+     * the thread used to manage waiting for all piece of migration to complete before cleaning up when we abort
+     */
+    std::thread *abort_thread;
+
 };  // DmMigrationMgr
 }  // namespace fds
 

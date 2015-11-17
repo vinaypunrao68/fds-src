@@ -222,8 +222,8 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
 
 
 void startSHDispatcher(AmQoSCtrl *qosctl) {
-    if (qosctl && qosctl->htb_dispatcher) {
-        qosctl->htb_dispatcher->dispatchIOs();
+    if (qosctl && qosctl->dispatcher) {
+        qosctl->dispatcher->dispatchIOs();
     }
 }
 
@@ -309,35 +309,18 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
     return err;
 }
 
-Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
-    Error err(ERR_OK);
+void
+AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
     auto queue = getQueue(volDesc.volUUID);
-    if (!queue) {
-        if (volDesc.isSnapshot()) {
-            GLOGDEBUG << "Volume is a snapshot : [0x" << std::hex << volDesc.volUUID << "]";
-            queue = getQueue(volDesc.qosQueueId);
-        }
-        if (!queue) {
-            queue = new FDS_VolumeQueue(4096,
-                                        volDesc.iops_throttle,
-                                        volDesc.iops_assured,
-                                        volDesc.relativePrio);
-            err = htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
-            if (ERR_OK != err && ERR_DUPLICATE != err) {
-                LOGERROR << "Volume failed to register : [0x"
-                    << std::hex << volDesc.volUUID << "]"
-                    << " because: " << err;
-                delete queue;
-            } else {
-                queue->activate();
-                err = ERR_OK;
-            }
-        }
-    }
-
-    if (ERR_OK == err) {
-        err = AmDataProvider::registerVolume(volDesc);
+    if (!queue && !volDesc.isSnapshot()) {
+        queue = new FDS_VolumeQueue(4096,
+                                    volDesc.iops_throttle,
+                                    volDesc.iops_assured,
+                                    volDesc.relativePrio);
+        htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
+        queue->activate();
+        AmDataProvider::registerVolume(volDesc);
     }
 
     // Search the queue for the first attach we find.
@@ -346,23 +329,17 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // we find we process it (to cause volumeOpen to start), and remove
     // it from the queue...but only the first.
     wait_queue->remove_if(volDesc.name,
-                          [this, err, &vol_desc = volDesc, found = false]
+                          [this, &vol_desc = volDesc, found = false]
                           (AmRequest* amReq) mutable -> bool {
                               if (!found && FDS_ATTACH_VOL == amReq->io_type) {
                                   auto volReq = static_cast<AttachVolumeReq*>(amReq);
-                                  if (err.ok()) {
-                                      volReq->setVolId(vol_desc.volUUID);
-                                      AmDataProvider::openVolume(amReq);
-                                      found = true;
-                                  } else {
-                                      processor_cb(amReq, err);
-                                  }
-                                  return true;
+                                  volReq->setVolId(vol_desc.volUUID);
+                                  AmDataProvider::openVolume(amReq);
+                                  found = true;
+                                  return found;
                               }
                               return false;
                           });
-
-    return err;
 }
 
 void
@@ -379,7 +356,7 @@ AmQoSCtrl::detachVolume(AmRequest *amReq) {
 }
 
 Error
-AmQoSCtrl::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+AmQoSCtrl::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
     Error err(ERR_OK);
 
     err = volTable->modifyVolumePolicy(vol_uuid, vdesc);
@@ -419,7 +396,7 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     }
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
 
-    if (invalid_vol_id == amReq->io_vol_id || (vol && !vol->access_token)) {
+    if (invalid_vol_id == amReq->io_vol_id) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.

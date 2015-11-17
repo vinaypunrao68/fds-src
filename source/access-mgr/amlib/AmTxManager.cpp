@@ -160,26 +160,6 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
 }
 
 Error
-AmTxManager::registerVolume(const VolumeDesc& volDesc)
-{
-    // A duplicate is ok, renewal's of a token cause this
-    auto err = AmDataProvider::registerVolume(volDesc);
-    switch (err.GetErrno()) {
-        case ERR_OK:
-            LOGDEBUG << "Created caches for volume: " << std::hex << volDesc.volUUID;
-            break;;
-        case ERR_VOL_DUPLICATE:
-            err = ERR_OK;
-            break;;
-        default:
-            LOGERROR << "Failed to register volume: " << err;
-            break;;
-    }
-
-    return err;
-}
-
-Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
 {
     if (auto descriptor = pop_descriptor(txId)) {

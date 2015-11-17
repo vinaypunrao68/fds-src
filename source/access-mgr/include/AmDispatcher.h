@@ -90,8 +90,8 @@ struct AmDispatcher :
      * These are the Volume specific DataProvider routines.
      * Everything else is pass-thru.
      */
-    Error registerVolume(VolumeDesc const& volDesc) override { return ERR_OK; }
     Error removeVolume(VolumeDesc const& volDesc) override;
+    void stop() override;
     void start() override;
     Error retrieveVolDesc(std::string const& volume_name) override;
     void openVolume(AmRequest * amReq) override;

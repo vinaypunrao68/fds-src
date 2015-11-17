@@ -39,6 +39,14 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
+    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
+        abortMigration();
+    }
+
+    if (abort_thread) {
+        abort_thread->join();
+        abort_thread = nullptr;
+    }
 }
 
 
@@ -666,9 +674,7 @@ DmMigrationMgr::abortMigration()
 	}
 
 	// Need to release a thread while this original one exits the read lock
-	std::thread t1(&DmMigrationMgr::abortMigrationReal, this);
-	t1.detach();
-
+	abort_thread = new std::thread(&DmMigrationMgr::abortMigrationReal, this);
 }
 
 void
@@ -795,6 +801,15 @@ DmMigrationMgr::waitForMigrationBatchToFinish()
 	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
 
 	LOGMIGRATE << "Done waiting for previous migrations to finish";
+
+    // TODO: can we just use the join in place of the CV?
+    if (abort_thread) {
+        abort_thread->join();
+        abort_thread = nullptr;
+    }
+	lk.unlock();
+
+    LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }
 
 bool
