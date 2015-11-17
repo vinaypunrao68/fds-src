@@ -1994,7 +1994,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             }
         }
 
-        apiException("Failed to retrieve service info for node[" + std::to_string(nodeUuid.get()->svc_uuid) + "]");
+        apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
     }
 
     int64_t getDiskCapacityNode(boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
@@ -2002,11 +2002,17 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         getNodeInfo(*svcInfo, nodeUuid);
 
         if (svcInfo == nullptr) {
-            apiException("Failed to retrieve service info for node [" + std::to_string(nodeUuid.get()->svc_uuid) + "]");
+            apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
         }
 
         return std::stol(svcInfo->props.at("disk_capacity")) + std::stol(svcInfo->props.at("ssd_capacity"));
 
+    }
+
+    std::string getNodeUuidString(fpi::SvcUuid* nodeUuid) {
+        std::stringstream nodeUuidStr;
+        nodeUuidStr << std::hex << nodeUuid->svc_uuid << std::dec;
+        return nodeUuidStr.str();
     }
 
     int64_t getDiskCapacityTotal() {
