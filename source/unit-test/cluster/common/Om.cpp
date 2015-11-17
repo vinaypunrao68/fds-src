@@ -116,9 +116,7 @@ void Om::setupConfigDb_()
 int Om::run() {
     LOGNOTIFY << "Doing work";
     readyWaiter.done();
-    while (true) {
-        sleep(1000);
-    }
+    shutdownGate_.waitUntilOpened();
     return 0;
 }
 

@@ -72,9 +72,7 @@ void AmProcess::attachVolume(const fpi::VolumeGroupInfo &groupInfo)
 int AmProcess::run() {
     LOGNOTIFY << "Doing work";
     readyWaiter.done();
-    while (true) {
-        sleep(1000);
-    }
+    shutdownGate_.waitUntilOpened();
     return 0;
 }
 

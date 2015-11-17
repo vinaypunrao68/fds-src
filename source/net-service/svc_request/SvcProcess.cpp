@@ -185,6 +185,9 @@ void SvcProcess::start_modules()
 void SvcProcess::shutdown_modules()
 {
     LOGNOTIFY << "Shuttingdown modules";
+
+    shutdownGate_.open();
+
     mod_vectors_->mod_stop_services();
     mod_vectors_->mod_shutdown_locksteps();
     mod_vectors_->mod_shutdown();

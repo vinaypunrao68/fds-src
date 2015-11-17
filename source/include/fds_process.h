@@ -19,6 +19,7 @@
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
 #include <concurrency/taskstatus.h>
+#include <util/ExecutionGate.h>
 #include <unordered_map>
 
 namespace fds {
@@ -170,6 +171,12 @@ class FdsProcess : public boost::noncopyable,
      *    Call shutdown_modules()
      */
     virtual int main();
+
+    /**
+    * @brief To manually stop the process.  When stop is called, shutdown sequence will
+    * be invoked.
+    */
+    virtual void stop();
     /**
      *    For each module, call mod_startup().
      *    For each module, call mod_lockstep()
@@ -322,6 +329,9 @@ class FdsProcess : public boost::noncopyable,
      * Set it in the derived main()
      */
     concurrency::TaskStatus readyWaiter;
+    
+    /* Whether process is going through shutdown process or not */
+    util::ExecutionGate     shutdownGate_; 
 };
 
 }  // namespace fds

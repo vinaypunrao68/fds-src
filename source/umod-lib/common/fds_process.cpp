@@ -164,7 +164,7 @@ void FdsProcess::init(int argc, char *argv[],
 
     proc_thrp    = NULL;
     proc_id = argv[0];
-
+    
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
@@ -324,6 +324,12 @@ int FdsProcess::main()
     return ret;
 }
 
+void FdsProcess::stop() {
+    std::call_once(mod_shutdown_invoked_,
+                   &FdsProcess::shutdown_modules,
+                   this);
+}
+
 /**
 * @brief Runs mod_init() and mod_startup() on all the modules.
 */
@@ -352,6 +358,7 @@ void FdsProcess::start_modules() {
 * @brief Runs shutdown() on all the modules
 */
 void FdsProcess::shutdown_modules() {
+    shutdownGate_.open();
     /* Do FDS shutdown sequence. */
     mod_vectors_->mod_stop_services();
     mod_vectors_->mod_shutdown_locksteps();

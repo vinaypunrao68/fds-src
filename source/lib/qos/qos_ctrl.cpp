@@ -26,6 +26,17 @@ FDS_QoSControl::~FDS_QoSControl()  {
     delete threadPool;
 }
 
+void FDS_QoSControl::stop() {
+    threadPool->stop();
+    if (dispatcher) {
+        dispatcher->stop();
+        if (dispatcherThread) {
+            dispatcherThread->join();
+            dispatcherThread.reset();
+        }
+    }
+}
+
 fds_uint32_t FDS_QoSControl::waitForWorkers() {
     return 10;
 }

@@ -56,10 +56,10 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
     if (volumeHandle->isFunctional()) {
-        fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
-        fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
-                   volumeHandle->appliedCommitId+1 == hdr.commitId);
         if (inStatus == ERR_OK) {
+            fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
+            fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
+                       volumeHandle->appliedCommitId+1 == hdr.commitId);
             volumeHandle->appliedOpId = hdr.opId;
             volumeHandle->appliedCommitId = hdr.commitId;
         } else {
@@ -197,8 +197,10 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        outStatus);
     if (outStatus == ERR_OK) {
         ++nSuccessAcked_;
-        responseCb_(ERR_OK, payload); 
-        responseCb_ = 0;
+        if (responseCb_) {
+            responseCb_(ERR_OK, payload); 
+            responseCb_ = 0;
+        }
     } else {
         GLOGWARN << "Volume response: " << fds::logString(*header)
             << " outstatus: " << outStatus;

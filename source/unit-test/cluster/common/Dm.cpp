@@ -105,13 +105,16 @@ Error DmProcess::addVolume(const fds_volid_t &volId)
     volume->init();
     return ERR_OK;
 }
+void DmProcess::shutdown_modules()
+{
+    qosCtrl->stop();
+    SvcProcess::shutdown_modules();
+}
 
 int DmProcess::run() {
     LOGNOTIFY << "Doing work";
     readyWaiter.done();
-    while (true){
-        sleep(1000);
-    }
+    shutdownGate_.waitUntilOpened();
     return 0;
 }
 

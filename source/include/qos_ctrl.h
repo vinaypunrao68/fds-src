@@ -48,6 +48,7 @@ class FDS_QoSControl {
    
    FDS_QoSControl();
    ~FDS_QoSControl();
+   void stop();
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    

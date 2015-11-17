@@ -53,7 +53,7 @@ struct DmProcess : SvcProcess {
                 (thisVol->*f)(io);
             });
     }
-
+    void shutdown_modules() override;
 
     std::unique_ptr<dmQosCtrl>                  qosCtrl;
     std::unique_ptr<FDS_VolumeQueue>            sysTaskQueue;
