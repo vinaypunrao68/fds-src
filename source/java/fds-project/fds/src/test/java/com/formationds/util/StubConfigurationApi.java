@@ -744,39 +744,39 @@ public class StubConfigurationApi implements ConfigurationApi {
             throws ApiException, NotMasterDomain, SubscriptionNotFound, SubscriptionNotModified, TException {
     }
 
-	@Override
-	public List<SvcInfo> getAllNodeInfo() throws TException {
-		return services;
-	}
+    @Override
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return services;
+    }
 
-	@Override
-	public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException, TException {
-		for (SvcInfo svc : services) {
-			if (nodeUuid.equals(svc.getSvc_id())) {
-				return svc;
-			}
-		}
-		return null;
-	}
-	
-	@Override
-	public long getDiskCapacityNode(SvcUuid nodeUuid) throws ApiException, TException {
-		SvcInfo svc = getNodeInfo( nodeUuid );
-		if (svc != null) {
-			return Long.valueOf(svc.getProps().getOrDefault("disk_capacity", "0")) + 
-				   Long.valueOf(svc.getProps().getOrDefault("ssd_capacity", "0"));
-		}
-		throw new ApiException("Failed to retrieve service info for node with [" + nodeUuid + "]", 
-				ErrorCode.MISSING_RESOURCE);
-	}
+    @Override
+    public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
+        for ( SvcInfo svc : services ) {
+            if ( nodeUuid.equals( svc.getSvc_id() ) ) {
+                return svc;
+            }
+        }
+        return null;
+    }
 
-	@Override
-	public long getDiskCapacityTotal() throws ApiException, TException {
-		long total = 0;
-		for (SvcInfo svc : services) {
-			total += Long.valueOf(svc.getProps().getOrDefault("disk_capacity", "0"));
-			total += Long.valueOf(svc.getProps().getOrDefault("ssd_capacity", "0"));
-		}
-		return total;
-	}
+    @Override
+    public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
+        SvcInfo svc = getNodeInfo( nodeUuid );
+        if ( svc != null ) {
+            return Long.valueOf( svc.getProps().getOrDefault( "disk_capacity", "0" ) ) +
+                   Long.valueOf( svc.getProps().getOrDefault( "ssd_capacity", "0" ) );
+        }
+        throw new ApiException( "Failed to retrieve service info for node with [" + nodeUuid + "]",
+                                ErrorCode.MISSING_RESOURCE );
+    }
+
+    @Override
+    public long getDiskCapacityTotal() throws ApiException, TException {
+        long total = 0;
+        for ( SvcInfo svc : services ) {
+            total += Long.valueOf( svc.getProps().getOrDefault( "disk_capacity", "0" ) );
+            total += Long.valueOf( svc.getProps().getOrDefault( "ssd_capacity", "0" ) );
+        }
+        return total;
+    }
 }

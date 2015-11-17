@@ -1018,27 +1018,25 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                 doDemat);
     }
 
+    @Override
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return getConfig().getAllNodeInfo();
+    }
 
-	@Override
-	public List<SvcInfo> getAllNodeInfo() throws TException {
-		return getConfig().getAllNodeInfo();
-	}
+    @Override
+    public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getNodeInfo( nodeUuid );
+    }
 
-	@Override
-	public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException,
-			TException {
-		return getConfig().getNodeInfo(nodeUuid);
-	}
+    @Override
+    public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getDiskCapacityNode( nodeUuid );
+    }
 
-	@Override
-	public long getDiskCapacityNode(SvcUuid nodeUuid) throws ApiException, TException {
-		return getConfig().getDiskCapacityNode(nodeUuid);
-	}
-
-	@Override
-	public long getDiskCapacityTotal() throws ApiException, TException {
-		return getConfig().getDiskCapacityTotal();
-	}
+    @Override
+    public long getDiskCapacityTotal() throws ApiException, TException {
+        return getConfig().getDiskCapacityTotal();
+    }
 
     private synchronized CachedConfiguration getCache() {
         return cache;

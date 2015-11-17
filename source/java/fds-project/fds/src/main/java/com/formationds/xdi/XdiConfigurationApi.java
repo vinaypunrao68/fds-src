@@ -803,6 +803,15 @@ public class XdiConfigurationApi implements ConfigurationApi {
         config.deleteSubscriptionID(subID, dematerialize);
     }
 
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return config.getAllNodeInfo();
+    }
+
+    public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException,
+            TException {
+        return config.getNodeInfo(nodeUuid);
+    }
+
 	@Override
 	public long getDiskCapacityNode(SvcUuid nodeUuid) throws ApiException, TException {
 		return config.getDiskCapacityNode(nodeUuid);
@@ -812,7 +821,6 @@ public class XdiConfigurationApi implements ConfigurationApi {
 	public long getDiskCapacityTotal() throws ApiException, TException {
 		return config.getDiskCapacityTotal();
 	}
-
     
     public CachedConfiguration getCache() {
         return fillCacheMaybe();
@@ -891,13 +899,4 @@ public class XdiConfigurationApi implements ConfigurationApi {
             }
         }
     }
-
-	public List<SvcInfo> getAllNodeInfo() throws TException {
-		return config.getAllNodeInfo();
-	}
-
-	public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException,
-			TException {
-		return config.getNodeInfo(nodeUuid);
-	}
 }
