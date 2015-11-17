@@ -394,7 +394,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Both DMs
      * If a migration batch is ongoing, this method waits for that batch to finish
      */
-    void waitForMigrationBatchToFinish();
+    void waitForMigrationBatchToFinish(MigrationRole role);
 
     /**
      * DMT watermark map - for rejecting messages from AM during resync that duplicate forwarded commits

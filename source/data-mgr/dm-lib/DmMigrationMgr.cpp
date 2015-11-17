@@ -147,7 +147,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
-    waitForMigrationBatchToFinish();
+    waitForMigrationBatchToFinish(MIGR_EXECUTOR);
 
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
@@ -340,7 +340,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
-    waitForMigrationBatchToFinish();
+    waitForMigrationBatchToFinish(MIGR_CLIENT);
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
@@ -790,12 +790,16 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 }
 
 void
-DmMigrationMgr::waitForMigrationBatchToFinish()
+DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 {
+    // If executor - wait for the maps to be empty.
+    // If client - only wait for the abort to be done
 	LOGMIGRATE << "Waiting for previous migrations to finish, if there is any.";
 	bool expected = true;
-	std::unique_lock<std::mutex> lk(migrationBatchMutex);
-	migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
+	if (role == MIGR_EXECUTOR) {
+	    std::unique_lock<std::mutex> lk(migrationBatchMutex);
+	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
+	}
 
 	// If migrationAborted was set true, set it to false to clean things up
 	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
@@ -807,7 +811,6 @@ DmMigrationMgr::waitForMigrationBatchToFinish()
         abort_thread->join();
         abort_thread = nullptr;
     }
-	lk.unlock();
 
     LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }
