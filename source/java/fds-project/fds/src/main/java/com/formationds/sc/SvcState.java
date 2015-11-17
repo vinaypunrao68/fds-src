@@ -8,8 +8,10 @@ import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     private int incarnationNo = 0;
@@ -39,8 +41,8 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     private Map<Long, SvcInfo> svcInfoMap;
 
     private volatile boolean isOpen;
-    private Dlt dlt;
-    private Dmt dmt;
+    private TableContainer<Dlt> dltContainer;
+    private TableContainer<Dmt> dmtContainer;
 
     public SvcState(HostAndPort listenerAddress, HostAndPort omAddress, long uuid) {
         this.listenerAddress = listenerAddress;
@@ -89,8 +91,8 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
         // register
         OMSvc.Iface omClient = omClient();
         SvcInfo svcInfo = pollOmSvcInfo(omClient);
-        dlt = new Dlt(omClient.getDLT(0).dlt_data.bufferForDlt_data());
-        dmt = new Dmt(omClient.getDMT(0).dmt_data.bufferForDmt_data());
+        dltContainer = new TableContainer<>(new Dlt(omClient.getDLT(0).dlt_data.bufferForDlt_data()));
+        dmtContainer = new TableContainer<>(new Dmt(omClient.getDMT(0).dmt_data.bufferForDmt_data()));
 
         while(true) {
             if(svcInfo == null) {
@@ -131,18 +133,18 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
         return null;
     }
 
-    public Dlt getDlt() {
+    public <T> CompletableFuture<T> useDlt(Function<Dlt, CompletableFuture<T>> consumer) {
         if(!isOpen)
-            throw new IllegalStateException("must call openAndRegister() before getDlt()");
+            throw new IllegalStateException("must call openAndRegister() before useDlt()");
 
-        return dlt;
+        return dltContainer.use(consumer);
     }
 
-    public Dmt getDmt() {
+    public <T> CompletableFuture<T> useDmt(Function<Dmt, CompletableFuture<T>> consumer) {
         if(!isOpen)
             throw new IllegalStateException("must call openAndRegister() before getDmt()");
 
-        return dmt;
+        return dmtContainer.use(consumer);
     }
 
     private SvcInfo pollOmSvcInfo(OMSvc.Iface omClient) throws TException {
@@ -183,6 +185,7 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     @Override
     public synchronized void close() throws Exception {
         host.close();
+        handler.close();
         isOpen = false;
     }
 
@@ -201,14 +204,24 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
 
             case CtrlNotifyDLTUpdateTypeId: {
                 CtrlNotifyDLTUpdate dltUpdate = ThriftUtil.deserialize(payload, new CtrlNotifyDLTUpdate());
-                dlt = new Dlt(dltUpdate.dlt_data.bufferForDlt_data());
-                // TODO: wait for pending I/O to complete and respond with same message
+                Dlt dlt = new Dlt(dltUpdate.dlt_data.bufferForDlt_data());
+                CompletableFuture<Void> pending = dltContainer.update(dlt);
+                pending.thenRun(() -> {
+                    PlatNetSvcChannel channel = getChannel(asyncHdr.getMsg_src_uuid().getSvc_uuid());
+                    // TODO: what is the appropriate response here?
+                });
                 break;
             }
             case CtrlNotifyDMTUpdateTypeId: {
                 CtrlNotifyDMTUpdate dmtUpdate = ThriftUtil.deserialize(payload, new CtrlNotifyDMTUpdate());
-                dmt = new Dmt(dmtUpdate.dmt_data.bufferForDmt_data());
-                // TODO: wait for pending I/O to complete and respond with same message
+                Dmt dmt = new Dmt(dmtUpdate.dmt_data.bufferForDmt_data());
+                dmtContainer.suspend();
+                CompletableFuture<Void> pending = dmtContainer.update(dmt);
+                pending.thenRun(() -> {
+                    PlatNetSvcChannel channel = getChannel(asyncHdr.getMsg_src_uuid().getSvc_uuid());
+                    // TODO: what is the appropriate response here?
+                    dmtContainer.resume();
+                });
                 break;
             }
             default:

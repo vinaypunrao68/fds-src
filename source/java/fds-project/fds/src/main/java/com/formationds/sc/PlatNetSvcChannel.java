@@ -9,6 +9,7 @@ import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -57,12 +58,29 @@ public class PlatNetSvcChannel {
     }
 
     public PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, ByteBuffer message, long timeout, TimeUnit timeoutUnits) {
+        return call(msgType, message, Optional.empty(), timeout, timeoutUnits);
+    }
+
+    public PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, ByteBuffer message, long tableVersion, long timeout, TimeUnit timeoutUnits) {
+        return call(msgType, message, Optional.of(tableVersion), timeout, timeoutUnits);
+    }
+
+    private PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, ByteBuffer message, Optional<Long> tableVersion, long timeout, TimeUnit timeoutUnits) {
         try {
             long id = idSource.get();
             AsyncHdr asyncHdr = makeAsyncHdr(sourceUuid, targetUuid, id, msgType, message);
+            tableVersion.ifPresent(v -> asyncHdr.setDlt_version(v));
             CompletableFuture<AsyncSvcResponse> response = handler.awaitResponse(id, timeout, timeoutUnits);
             client.asyncReqt(asyncHdr, message);
             return new PlatNetSvcResponseFuture(response);
+        } catch (TException ex) {
+            return new PlatNetSvcResponseFuture(CompletableFutureUtility.exceptionFuture(ex));
+        }
+    }
+
+    public PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, TBase<?, ?> object, long tableVersion, long timeout, TimeUnit timeUnit) {
+        try {
+            return call(msgType, ThriftUtil.serialize(object), tableVersion, timeout, timeUnit);
         } catch (TException ex) {
             return new PlatNetSvcResponseFuture(CompletableFutureUtility.exceptionFuture(ex));
         }
@@ -78,6 +96,10 @@ public class PlatNetSvcChannel {
 
     public PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, TBase<?, ?> object) {
         return call(msgType, object, timeout, timeoutUnit);
+    }
+
+    public PlatNetSvcResponseFuture call(FDSPMsgTypeId msgType, TBase<?, ?> object, long tableVersion) {
+        return call(msgType, object, tableVersion, timeout, timeoutUnit);
     }
 
     public PlatNetSvcChannel withDefaultTimeout(long timeout, TimeUnit timeoutUnit) {

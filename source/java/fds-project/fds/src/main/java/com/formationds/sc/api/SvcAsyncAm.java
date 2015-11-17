@@ -12,10 +12,7 @@ import com.formationds.protocol.sm.GetObjectResp;
 import com.formationds.protocol.svc.types.FDSPMsgTypeId;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.FDS_ObjectIdType;
-import com.formationds.sc.DmClient;
-import com.formationds.sc.FdsError;
-import com.formationds.sc.SvcException;
-import com.formationds.sc.SvcState;
+import com.formationds.sc.*;
 import com.formationds.util.ExceptionMap;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.xdi.AsyncAm;
@@ -30,16 +27,18 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class AmServiceApi implements AsyncAm {
+public class SvcAsyncAm implements AsyncAm {
     private final AsyncAm am;
     private final SvcState svc;
+    private final FdsChannels fdsChannels;
 
-    public AmServiceApi(AsyncAm am, SvcState svc) {
+    public SvcAsyncAm(AsyncAm am, SvcState svc) {
         this.am = am;
         this.svc = svc;
+        this.fdsChannels = new FdsChannels(svc);
+
     }
 
     @Override
@@ -56,9 +55,8 @@ public class AmServiceApi implements AsyncAm {
     public CompletableFuture<VolumeContents> volumeContents(String domainName, String volumeName, int count, long offset, String pattern, PatternSemantics patternSemantics, String delimiter, BlobListOrder order, boolean descending) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
             GetBucketMsg getBucketReq = new GetBucketMsg(volumeDescriptor.getVolUUID(), offset, count, pattern, order, descending, patternSemantics, delimiter);
-            CompletableFuture<GetBucketRspMsg> response = dm.getBucket(getBucketReq);
+            CompletableFuture<GetBucketRspMsg> response = fdsChannels.dmRead(volumeDescriptor.getVolUUID(), dm -> dm.getBucket(getBucketReq));
             return response.thenApply(resp ->
                             new VolumeContents(resp.getBlob_descr_list(), resp.getSkipped_prefixes())
             );
@@ -72,8 +70,7 @@ public class AmServiceApi implements AsyncAm {
     public CompletableFuture<BlobDescriptor> statBlob(String domainName, String volumeName, String blobName) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
-            CompletableFuture<GetBlobMetaDataMsg> blobMeta = dm.getBlobMetaData(volumeDescriptor.getVolUUID(), blobName);
+            CompletableFuture<GetBlobMetaDataMsg> blobMeta = fdsChannels.dmRead(volumeDescriptor.getVolUUID(), dm -> dm.getBlobMetaData(volumeDescriptor.getVolUUID(), blobName));
             CompletableFuture<BlobDescriptor> result = blobMeta.thenApply(m -> new BlobDescriptor(m.getBlob_name(), m.getByteCount(), buildMetadataMap(m.getMetaDataList())));
 
             return statBlobExceptionMap.applyOnFail(result);
@@ -100,9 +97,9 @@ public class AmServiceApi implements AsyncAm {
     public CompletableFuture<BlobWithMetadata> getBlobWithMeta(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
             CompletableFuture<QueryCatalogMsg> catalogFuture =
-                    dm.queryCatalog(volumeDescriptor.getVolUUID(), blobName, volumeDescriptor.getMaxObjSizeInBytes(), offset.getValue(), 1);
+                    fdsChannels.dmRead(volumeDescriptor.getVolUUID(),
+                            dm -> dm.queryCatalog(volumeDescriptor.getVolUUID(), blobName, volumeDescriptor.getMaxObjSizeInBytes(), offset.getValue(), 1));
 
             return catalogFuture.thenCompose(catalog -> {
                 FDSP_BlobObjectInfo object = catalog.obj_list.get(0);
@@ -133,9 +130,8 @@ public class AmServiceApi implements AsyncAm {
     public CompletableFuture<ByteBuffer> getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
             CompletableFuture<QueryCatalogMsg> catalogFuture =
-                    dm.queryCatalog(volumeDescriptor.getVolUUID(), blobName, volumeDescriptor.getMaxObjSizeInBytes(), offset.getValue(), 1);
+                    fdsChannels.dmRead(volumeDescriptor.getVolUUID(), dm -> dm.queryCatalog(volumeDescriptor.getVolUUID(), blobName, volumeDescriptor.getMaxObjSizeInBytes(), offset.getValue(), 1));
 
             return catalogFuture.thenCompose(catalog -> {
                 FDSP_BlobObjectInfo object = catalog.obj_list.get(0);
@@ -168,12 +164,10 @@ public class AmServiceApi implements AsyncAm {
 
     @Override
     public CompletableFuture<VolumeStatus> volumeStatus(String domainName, String volumeName) {
-        FDSP_VolumeDescType volumeDescriptor = null;
         try {
-            volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
-            return dm.statVolume(volumeDescriptor.getVolUUID()).thenApply(s ->
-                    new VolumeStatus(s.getVolumeStatus().getBlobCount(), s.getVolumeStatus().getSize()));
+            FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+            return fdsChannels.dmRead(volumeDescriptor.getVolUUID(), dm -> dm.statVolume(volumeDescriptor.getVolUUID()))
+                    .thenApply(s -> new VolumeStatus(s.getVolumeStatus().getBlobCount(), s.getVolumeStatus().getSize()));
         } catch (TException ex) {
             return CompletableFutureUtility.exceptionFuture(ex);
         }
@@ -188,8 +182,7 @@ public class AmServiceApi implements AsyncAm {
     public CompletableFuture<Map<String, String>> getVolumeMetadata(String domainName, String volumeName) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
-            DmClient dm = getDmClientForVolume(volumeDescriptor.getVolUUID());
-            CompletableFuture<GetVolumeMetadataMsgRsp> volumeMeta = dm.getVolumeMetadata(volumeDescriptor.getVolUUID());
+            CompletableFuture<GetVolumeMetadataMsgRsp> volumeMeta = fdsChannels.dmRead(volumeDescriptor.getVolUUID(), dm -> dm.getVolumeMetadata(volumeDescriptor.getVolUUID()));
             return volumeMeta.thenApply(m -> buildMetadataMap(m.getMetadataList()));
         } catch (Exception ex) {
             return CompletableFutureUtility.exceptionFuture(ex);
@@ -198,19 +191,8 @@ public class AmServiceApi implements AsyncAm {
 
     // TODO: add object cache
     private CompletionStage<ByteBuffer> getObject(long volumeId, FDS_ObjectIdType data_obj_id) {
-        long[] smUuids = svc.getDlt().getSmUuidsForObject(data_obj_id.getDigest());
-
-        GetObjectMsg getObjectMsg = new GetObjectMsg(volumeId, data_obj_id);
-        CompletableFuture<GetObjectResp> responseHandle = svc.getChannel(smUuids[0])
-                .call(FDSPMsgTypeId.GetObjectMsgTypeId, getObjectMsg)
-                .deserializeInto(FDSPMsgTypeId.GetObjectRespTypeId, new GetObjectResp());
-
-        return responseHandle.thenApply(r -> r.data_obj);
-    }
-
-    private DmClient getDmClientForVolume(long volumeId) {
-        long[] dmUuidsForVolumeId = svc.getDmt().getDmUuidsForVolumeId(volumeId);
-        return new DmClient(svc.getChannel(dmUuidsForVolumeId[0]));
+        return fdsChannels.smRead(data_obj_id.getDigest(), sm -> sm.getObject(new GetObjectMsg(volumeId, data_obj_id)))
+                .thenApply(getObjectResp -> getObjectResp.data_obj);
     }
 
     private FDSP_VolumeDescType getVolumeDescriptor(String volumeName) throws TException {

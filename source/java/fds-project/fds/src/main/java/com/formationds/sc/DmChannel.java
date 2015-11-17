@@ -5,15 +5,17 @@ import com.formationds.protocol.svc.types.FDSPMsgTypeId;
 
 import java.util.concurrent.CompletableFuture;
 
-public class DmClient {
+public class DmChannel {
     private PlatNetSvcChannel channel;
+    private long dmtVersion;
 
-    public DmClient(PlatNetSvcChannel channel) {
+    public DmChannel(PlatNetSvcChannel channel, long dmtVersion) {
         this.channel = channel;
+        this.dmtVersion = dmtVersion;
     }
 
     public CompletableFuture<QueryCatalogMsg> queryCatalog(QueryCatalogMsg msg) {
-        return channel.call(FDSPMsgTypeId.QueryCatalogMsgTypeId, msg)
+        return channel.call(FDSPMsgTypeId.QueryCatalogMsgTypeId, msg, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.QueryCatalogMsgTypeId, new QueryCatalogMsg());
     }
 
@@ -25,7 +27,7 @@ public class DmClient {
         queryCatalogMsg.setStart_offset(startOffset);
         queryCatalogMsg.setEnd_offset(endOffset);
 
-        return channel.call(FDSPMsgTypeId.QueryCatalogMsgTypeId, queryCatalogMsg)
+        return channel.call(FDSPMsgTypeId.QueryCatalogMsgTypeId, queryCatalogMsg, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.QueryCatalogMsgTypeId, queryCatalogMsg);
     }
 
@@ -34,7 +36,7 @@ public class DmClient {
     }
 
     public CompletableFuture<GetBucketRspMsg> getBucket(GetBucketMsg getBucketMsg) {
-        return channel.call(FDSPMsgTypeId.GetBucketMsgTypeId, getBucketMsg)
+        return channel.call(FDSPMsgTypeId.GetBucketMsgTypeId, getBucketMsg, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.GetBucketRspMsgTypeId, new GetBucketRspMsg());
     }
 
@@ -43,19 +45,19 @@ public class DmClient {
         req.setVolume_id(volumeId);
         req.setBlob_name(blobName);
 
-        return channel.call(FDSPMsgTypeId.GetBlobMetaDataMsgTypeId, req)
+        return channel.call(FDSPMsgTypeId.GetBlobMetaDataMsgTypeId, req, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.GetBlobMetaDataMsgTypeId, req);
     }
 
     public CompletableFuture<GetVolumeMetadataMsgRsp> getVolumeMetadata(long volUUID) {
-        return channel.call(FDSPMsgTypeId.GetVolumeMetadataMsgTypeId, new GetVolumeMetadataMsg(volUUID))
+        return channel.call(FDSPMsgTypeId.GetVolumeMetadataMsgTypeId, new GetVolumeMetadataMsg(volUUID), dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.GetVolumeMetadataRspMsgTypeId, new GetVolumeMetadataMsgRsp());
     }
 
     public CompletableFuture<StatVolumeMsg> statVolume(long volUUID) {
         StatVolumeMsg msg = new StatVolumeMsg();
         msg.setVolume_id(volUUID);
-        return channel.call(FDSPMsgTypeId.StatVolumeMsgTypeId, msg)
+        return channel.call(FDSPMsgTypeId.StatVolumeMsgTypeId, msg, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.StatVolumeMsgTypeId, msg);
     }
 }

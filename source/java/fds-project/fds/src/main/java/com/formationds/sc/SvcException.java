@@ -9,7 +9,7 @@ public class SvcException extends Throwable {
 
     @Override
     public String getMessage() {
-        return error.getMessage();
+        return error.toString();
     }
 
     public FdsError getFdsError() {

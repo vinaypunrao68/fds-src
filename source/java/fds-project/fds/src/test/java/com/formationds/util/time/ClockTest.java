@@ -17,7 +17,7 @@ public class ClockTest {
         CompletableFuture<Void> shortDelay = unitTestClock.delay(100, TimeUnit.MILLISECONDS);
         CompletableFuture<Void> longDelay = unitTestClock.delay(100, TimeUnit.SECONDS);
 
-        unitTestClock.setMillis(unitTestClock.currentTimeMillis() + 1000);
+        unitTestClock.setMillisAsync(unitTestClock.currentTimeMillis() + 1000);
 
         shortDelay.get(1, TimeUnit.SECONDS);
         assertTrue(!longDelay.isDone());

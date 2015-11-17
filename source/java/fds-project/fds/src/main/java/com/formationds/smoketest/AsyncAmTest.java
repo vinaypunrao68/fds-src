@@ -6,7 +6,7 @@ import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.nfs.*;
 import com.formationds.protocol.*;
 import com.formationds.sc.SvcState;
-import com.formationds.sc.api.AmServiceApi;
+import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.xdi.*;
 import com.google.common.collect.Maps;
@@ -526,7 +526,7 @@ public class AsyncAmTest extends BaseAmTest {
             svc = new SvcState(self, om, 18923L);
             svc.openAndRegister();
 
-            asyncAm = new AmServiceApi(asyncAm, svc);
+            asyncAm = new SvcAsyncAm(asyncAm, svc);
         }
 
     }

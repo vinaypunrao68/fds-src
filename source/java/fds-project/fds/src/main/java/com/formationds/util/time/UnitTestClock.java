@@ -29,7 +29,7 @@ public class UnitTestClock implements Clock {
         return epochMs * 1000 * 1000;
     }
 
-    public void setMillis(long millis) {
+    public void setMillisAsync(long millis) {
         synchronized (delayList) {
             epochMs = millis;
             HashSet<DelayListEntry> removeSet = new HashSet<>();
@@ -41,6 +41,22 @@ public class UnitTestClock implements Clock {
             }
             delayList.removeAll(removeSet);
         }
+    }
+
+    public void setMillisSync(long millis) {
+        HashSet<DelayListEntry> removeSet = new HashSet<>();
+        synchronized (delayList) {
+            epochMs = millis;
+            for(DelayListEntry entry : delayList) {
+                if(entry.time < epochMs) {
+                    removeSet.add(entry);
+                }
+            }
+            delayList.removeAll(removeSet);
+        }
+
+        for(DelayListEntry entry : removeSet)
+            entry.handle.complete(null);
     }
 
     @Override

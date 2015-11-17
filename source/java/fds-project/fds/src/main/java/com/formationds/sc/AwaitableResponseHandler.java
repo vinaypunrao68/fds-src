@@ -1,32 +1,27 @@
 package com.formationds.sc;
 
-import com.formationds.protocol.svc.PlatNetSvc;
-import com.formationds.protocol.svc.UpdateSvcMapMsg;
 import com.formationds.protocol.svc.types.*;
-import com.formationds.util.thrift.svc.SvcLayerException;
 import com.formationds.util.time.Clock;
 import com.formationds.util.time.SystemClock;
-import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 // TODO: this could be made generic to handle a wide variety of situations
-public class AwaitableResponseHandler {
+public class AwaitableResponseHandler implements AutoCloseable {
     private ServiceStatus status;
     private Clock clock;
     private final Map<Long, ResponseHandle> responseHandles;
-
-    private Timer cleanupTimer;
+    private boolean cleanupTimerStarted;
 
     public AwaitableResponseHandler() {
         status = ServiceStatus.SVC_STATUS_ACTIVE;
         clock = SystemClock.current();
         responseHandles = new HashMap<>();
+        cleanupTimerStarted = false;
     }
 
     public void setClock(Clock clock) {
@@ -51,15 +46,16 @@ public class AwaitableResponseHandler {
     }
 
     private void startCleanupTimer() {
-        if(cleanupTimer == null) {
-            cleanupTimer = new Timer(true);
-            cleanupTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    cleanup();
-                }
-            }, 1000L, 1000L);
+        if(!cleanupTimerStarted) {
+            cleanupTimerStarted = true;
+            cleanupCycle();
         }
+    }
+
+    private void cleanupCycle() {
+        cleanup();
+        if(cleanupTimerStarted)
+            clock.delay(1000, TimeUnit.MILLISECONDS).thenRunAsync(this::cleanupCycle);
     }
 
     public CompletableFuture<AsyncSvcResponse> awaitResponse(long msgId, long timeout, TimeUnit timeoutUnits) {
@@ -94,6 +90,11 @@ public class AwaitableResponseHandler {
                 responseHandle.completionHandle.completeExceptionally(new SvcException(asyncHdr.getMsg_code()));
 
         }
+    }
+
+    @Override
+    public void close() throws Exception {
+        cleanupTimerStarted = false;
     }
 
     private class ResponseHandle {

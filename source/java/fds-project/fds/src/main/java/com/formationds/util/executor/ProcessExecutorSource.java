@@ -26,4 +26,8 @@ public class ProcessExecutorSource implements Executor {
     public Executor boundedSubExecutor(int concurrentThreads) {
         return new SubExecutor(this, concurrentThreads);
     }
+
+    public <T> void completeAsync(CompletableFuture<T> completionHandle, T result) {
+        execute(() -> completionHandle.complete(result));
+    }
 }
