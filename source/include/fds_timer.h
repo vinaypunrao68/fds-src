@@ -98,7 +98,7 @@ public:
      * Destructor
      */
     ~FdsTimer()
-    { if (!aborted_) { destroy(); } }
+    { destroy(); }
 
     /**
      * Destroy the timer service 
@@ -172,8 +172,12 @@ private:
     std::string id_;
     /* Pending timer objects */
     std::set<FdsTimerTaskPtr, LessFdsTimerTaskPtr> pendingTasks_;
-    /* Whether timer thread should abort or not */
-    std::atomic<bool> aborted_;
+    /*
+     * Whether timer thread should abort or not. Zero means not aborted.
+     * value held indicates the # of times destroy() is called
+     * We only destroy, i.e join on timer thread once
+     */
+    std::atomic<int> abortCntr_;
     /* Timer thread sleep time */
     int timerThreadSleepMs_;
     /* Timer thread */
@@ -241,7 +245,7 @@ public:
      * Destructor
      */
     ~FdsTimer()
-    { if (!aborted_) { destroy(); } }
+    { destroy();} }
 
     /**
      * Destroy the timer service 

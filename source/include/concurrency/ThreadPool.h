@@ -110,6 +110,12 @@ class fds_threadpool : boost::noncopyable
 
   public:
     ~fds_threadpool();
+
+    /**
+    * @brief Stops all the threads in the threadpool.  Only implmented for LFThreadpool
+    */
+    void stop();
+
     /*
      * Create the threadpool with specified number of thread.
      */
