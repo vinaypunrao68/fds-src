@@ -5,10 +5,12 @@
 
 #include <sstream>
 #include <fdsp/volumegroup_types.h>
+#include <fds_defines.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
+using StringPtr = SHPTR<std::string>;
 
 struct VolumeGroupConstants {
     static const int64_t            OPSTARTID = 0;

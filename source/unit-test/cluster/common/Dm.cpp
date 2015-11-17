@@ -88,6 +88,10 @@ Error DmProcess::processIO(FDS_IOType* io) {
             runSynchronizedVolumeIoHandler(&Volume::handleCommitTx,
                                            static_cast<CommitTxIo*>(volIo));
             break;
+        case FDSP_MSG_TYPEID(fpi::SyncPullLogEntriesMsg):
+            runSynchronizedVolumeIoHandler(&Volume::handleSyncPullLogEntries,
+                                           static_cast<SyncPullLogEntriesIo*>(volIo));
+            break;
         default:
             fds_panic("Unknown message");
             break;

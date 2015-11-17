@@ -405,6 +405,9 @@ enum  FDSPMsgTypeId {
   StartTxMsgTypeId;
   UpdateTxMsgTypeId;
   CommitTxMsgTypeId;
+  SyncPullLogEntriesMsgTypeId;
+  SyncPullLogEntriesRespMsgTypeId;
+  QosFunctionTypeId;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

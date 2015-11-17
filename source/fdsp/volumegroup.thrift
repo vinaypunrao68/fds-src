@@ -101,3 +101,15 @@ struct UpdateTxMsg {
 struct CommitTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
 }
+
+struct SyncPullLogEntriesMsg {
+    1: required VolumeGroupId		groupId;
+    2: VolumeGroupVersion		lastCommitVersion;
+    3: required i64			startCommitId;
+    4: i64				endCommitId;
+}
+
+struct SyncPullLogEntriesRespMsg {
+    1: required i64			startCommitId;
+    2: list<binary>			entries;
+}

@@ -1,7 +1,18 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include "Volume.h"
+#include <Volume.h>
+namespace leveldb {
+typedef uint64_t SequenceNumber;
+}
+#include <db/write_batch_internal.h>
+
 namespace fds {
+// TODO(Rao): Complete these macros
+/**
+* @brief Ensure the volume is functional.  If not return an empty message with an error
+*/
+#define CHECK_VOLUME_FUNCTIONAL()
+
 const std::string Volume::OPINFOKEY = "OPINFO";
 
 Volume::Volume(CommonModuleProviderIf *provider,
@@ -54,11 +65,15 @@ void Volume::init()
     fds_verify(err == ERR_OK);
 
 }
+
 void Volume::handleStartTx(StartTxIo *io)
 {
     LOGNOTIFY << *io;
 
     ScopedVolumeIo<StartTxIo>  s(io, qosCtrl_);
+
+    CHECK_VOLUME_FUNCTIONAL();
+
     /* Start a new transaction */
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
@@ -75,6 +90,9 @@ void Volume::handleUpdateTx(UpdateTxIo *io)
     LOGNOTIFY << *io;
 
     ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
+
+    CHECK_VOLUME_FUNCTIONAL();
+
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
     auto itr = txTable_.find(ioHdr.txId);
@@ -90,11 +108,15 @@ void Volume::handleUpdateTx(UpdateTxIo *io)
 
     opInfo_.appliedOpId++;
 }
+
 void Volume::handleCommitTx(CommitTxIo *io)
 {
     LOGNOTIFY << *io;
 
     ScopedVolumeIo<CommitTxIo>  s(io, qosCtrl_);
+
+    CHECK_VOLUME_FUNCTIONAL();
+
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
     auto itr = txTable_.find(ioHdr.txId);
@@ -103,12 +125,22 @@ void Volume::handleCommitTx(CommitTxIo *io)
         // TODO(Rao): Handle this case
     }
     auto &batchPtr = itr->second;
+    commitBatch_(ioHdr.commitId, batchPtr);
+    io->respMsg.reset(new fpi::EmptyMsg());
 
-    /* Make sure commit id is correct */
-    fds_verify(opInfo_.appliedCommitId+1 == ioHdr.commitId);
+    opInfo_.appliedOpId++;
 
+    /* Clear out transaction */
+    txTable_.erase(itr);
+
+    LOGNOTIFY << "Completed commit " << *io;
+}
+
+void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
+{
+    fds_verify(opInfo_.appliedCommitId+1 == commitId);
     /* Update log and commit to catalog */
-    auto logRet = txLog_.append(ioHdr.commitId, batchPtr);
+    auto logRet = txLog_.append(commitId, batchPtr);
     fds_verify(logRet == ERR_OK);
 
     /* Commit the batch to leveldb */
@@ -123,21 +155,97 @@ void Volume::handleCommitTx(CommitTxIo *io)
     LOGNOTIFY << "Post leveldb update";
     fds_verify(catRet.ok());
 #endif
-    io->respMsg.reset(new fpi::EmptyMsg());
-
-    opInfo_.appliedOpId++;
     opInfo_.appliedCommitId++;
-
-    /* Clear out transaction */
-    txTable_.erase(itr);
-
-    LOGNOTIFY << "Completed commit " << *io;
 }
 
 std::ostream& operator<< (std::ostream& os, const Volume::OpInfo &info)
 {
     os << "applidOpId: " << info.appliedOpId << " commmitId: "  << info.appliedCommitId;
     return os;
+}
+
+void Volume::changeState_(fpi::VolumeState targetState)
+{
+    state_ = targetState;
+}
+
+void Volume::setError_(const Error &e)
+{
+    fds_verify(state_ == fpi::VolumeState::VOLUME_FUNCTIONAL);
+    fds_verify(lastError_ == ERR_OK);
+    changeState_(fpi::VolumeState::VOLUME_DOWN);
+    lastError_ = e;
+}
+
+#if 0
+void Volume::startSyncCheck() {
+    changeState_(fpi::VolumeState::SYNCCHECK);
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
+    auto request = requestMgr->newEpSvcRequest(coordinatorUuid_);
+    msg->onResponse([this](const Error &e, StringPtr payload) {
+        if (e != ERR_OK) {
+            // TODO(Rao): Multiple types of errors can be returned here..handle them
+            LOGERROR << "";
+            return;
+        }
+        changeState_(fpi::VolumeState::SYNC);
+        sendSyncPullLogEntriesMsg();
+    });
+}
+
+void sendSyncPullLogEntriesMsg(fpi::SvcUuid &svcUuid, int64_t endCommitId)
+{
+    auto pullEntriesMsg = fpi::PullCommitlogEntriesMsgPtr(new fpi::PullCommitlogEntriesMsg); 
+    pullEntriesMsg->groupId = volId_.get();
+    pullEntriesMsg->startCommitId = opInfo_.appliedCommitId;
+    pullEntriesMsg->endCommitId = endCommitId;
+    /* Set callback */
+    auto cb = QosSvcMsgCb<fpi::EmptyMsg>([this](const Error &e) {
+        fds_verify(e == ERR_OK);
+    });
+    pullEntriesMsg->responseCb(cb);
+    pullEntriesMsg->invoke();
+    /* Once applying if out commit log history is hole free, we can switch to being
+     * in functional state.
+     */
+}
+#endif
+
+void Volume::applySyncPullLogEntries_(int64_t startCommitId,
+                                      std::vector<std::string> &entries)
+{
+    fds_verify(opInfo_.appliedCommitId+1 == startCommitId);
+    auto commitId = startCommitId;
+    for (auto &entry : entries) {
+        auto batchPtr = CatWriteBatchPtr(new CatWriteBatch());
+        leveldb::Slice s(entry);
+        leveldb::WriteBatchInternal::SetContents(batchPtr.get(), s);
+        commitBatch_(commitId, batchPtr);
+        commitId++;
+    }
+}
+
+void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIo *io)
+{
+    ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
+
+    CHECK_VOLUME_FUNCTIONAL();
+    auto &reqMsg = *(io->reqMsg);
+    /* TODO(Rao): Do a common point version check */
+
+    io->respMsg.reset(new fpi::SyncPullLogEntriesRespMsg());
+    io->respMsg->startCommtId = reqMsg->startCommitId;
+    uint32_t bytesAddedCnt = 0;
+    for (auto id = reqMsg->startCommitId; id <= reqMsg->endCommitId; ++id) {
+        auto entry = txLog_.getEntry(id);
+        leveldb::Slice s = leveldb::WriteBatchInternal::Contents(entry.get());
+        if (bytesAddedCnt + s.size() > MAX_SYNCENTRIES_BYTES) {
+            break;
+        }
+        io->respMsg.entries.push_back(s.ToString());
+        bytesAddedCnt += s.size();
+    }
 }
 
 }  // namespace fds
