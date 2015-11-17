@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <exception>
 #include <convert.h>
 #include <string>
 #include <util/timeutils.h>
@@ -37,13 +38,27 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     // so that this conversion isn't needed
     switch (volSettings.volumeType) {
         case apis::OBJECT:
+            LOGDEBUG << "Found OBJECT volume Type";
             request->vol_info.volType = fpi::FDSP_VOL_S3_TYPE;
             break;
         case apis::BLOCK:
+            LOGDEBUG << "Found BLOCK volume Type";
             request->vol_info.volType = fpi::FDSP_VOL_BLKDEV_TYPE;
             break;
+        case apis::NFS:
+            LOGDEBUG << "Found NFS volume Type";
+            request->vol_info.volType = fpi::FDSP_VOL_NFS_TYPE;
+            break;
+        case apis::ISCSI:
+            LOGDEBUG << "Found iSCSI volume Type";
+            request->vol_info.volType = fpi::FDSP_VOL_ISCSI_TYPE;
+            break;
         default:
-            fds_panic("Unknown connector type!");
+            std::stringstream errMsg;
+            errMsg << "Unsupported Connector Type ( " << volSettings.volumeType << " ).";
+
+            LOGWARN << errMsg;
+            throw std::runtime_error( errMsg.str().c_str() );
     }
 
     // TODO(Andrew): Don't hard code to policy 50
@@ -92,15 +107,24 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
 
     switch (volDesc->volType) {
         case fpi::FDSP_VOL_BLKDEV_TYPE:
-            volDescriptor.policy.blockDeviceSizeInBytes =
-              ( volDesc->capacity * ( 1024 * 1024 ) );
+            volDescriptor.policy.blockDeviceSizeInBytes = ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.volumeType = apis::BLOCK;
             break;
-        default:
+        case fpi::FDSP_VOL_NFS_TYPE:
+            volDescriptor.policy.volumeType = apis::NFS;
+            break;
+        case fpi::FDSP_VOL_ISCSI_TYPE:
+            volDescriptor.policy.volumeType = apis::ISCSI;
+            break;
+        case fpi::FDSP_VOL_S3_TYPE:
             volDescriptor.policy.volumeType = apis::OBJECT;
+            volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+            break;
+        default:
+            LOGWARN << "Unsupported volume type " << volDesc->volType;
+            break;
     }
-    volDescriptor.policy.maxObjectSizeInBytes =
-            volDesc->maxObjSizeInBytes;
+
     volDescriptor.tenantId = volDesc->tennantId;
     volDescriptor.state    = volDesc->getState();
     volDescriptor.volId    = volDesc->volUUID.get();

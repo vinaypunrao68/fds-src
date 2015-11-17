@@ -818,6 +818,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                      << vol.localDomainId << " ]";
         }
 
+        LOGDEBUG << "CONFIGDB::VOLUME::TYPE::" << vol.volType;
+
         // add the volume data
         reply = kv_store.sendCommand("hmset vol:%ld uuid %ld"
                               " name %s"

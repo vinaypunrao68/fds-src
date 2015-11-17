@@ -17,6 +17,7 @@ import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
+import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -448,12 +449,17 @@ public class ExternalModelConverter {
 
         // this is the naive way we are trying to get rid of
         internalVolumes.stream().forEach( descriptor -> {
+            if( descriptor != null )
+            {
+                logger.trace(
+                    "Converting volume " + descriptor.getName( ) + " to external format." );
+                Volume externalVolume =
+                    ExternalModelConverter.convertToExternalVolume(
+                        descriptor,
+                        volumeStatus.get( descriptor.getVolId( ) ) );
 
-            logger.trace( "Converting volume " + descriptor.getName() + " to external format." );
-            Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor,
-                                                                                    volumeStatus
-                                                                                        .get( descriptor.getVolId() ) );
-            ext.add( externalVolume );
+                ext.add( externalVolume );
+            }
         } );
 
         return ext;
@@ -479,18 +485,31 @@ public class ExternalModelConverter {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-            extSettings = new VolumeSettingsISCSI.Builder()
-                .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B ) )
-                .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+            if( settings.getIscsiTarget() == null )
+            {
+                logger.trace( ObjectModelHelper.toJSON( internalVolume ) );
+                logger.trace( ObjectModelHelper.toJSON( extStatus ) );
+                throw new IllegalArgumentException( "iSCSI target must be provided." );
+            }
+
+            extSettings = new VolumeSettingsISCSI.Builder( )
+                .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
+                .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
                 .withUnit( SizeUnit.B )
                 .withTarget(
-                    new Target.Builder()
-                        .withLuns( convertToExternalLUN( settings.getIscsiTarget().getLuns() ) )
-                        .withInitiators( convertToExternalInitiators( settings.getIscsiTarget().getInitiators() ) )
-                        .withIncomingUsers( convertToExternalIncomingUser( settings.getIscsiTarget().getIncomingUsers() ) )
-                        .withOutgoingUsers( convertToExternalOutgoingUser( settings.getIscsiTarget().getOutgoingUsers() ) )
-                        .build() )
-                .build();
+                    new Target.Builder( )
+                        .withLuns( convertToExternalLUN( settings.getIscsiTarget( )
+                                                                 .getLuns( ) ) )
+                        .withInitiators( convertToExternalInitiators( settings.getIscsiTarget( )
+                                                                              .getInitiators( ) ) )
+                        .withIncomingUsers( convertToExternalIncomingUser(
+                            settings.getIscsiTarget( )
+                                    .getIncomingUsers( ) ) )
+                        .withOutgoingUsers( convertToExternalOutgoingUser(
+                            settings.getIscsiTarget( )
+                                    .getOutgoingUsers( ) ) )
+                        .build( ) )
+                .build( );
         } else if ( settings.getVolumeType().equals( VolumeType.NFS ) ) {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
@@ -559,6 +578,11 @@ public class ExternalModelConverter {
 
     public static List<LogicalUnitNumber> convertToInternalLogicalUnitNumber( final List<LUN> luns )
     {
+        if( luns == null )
+        {
+            return new ArrayList<>( );
+        }
+
         final List<LogicalUnitNumber> intLuns = new ArrayList<>( );
         for ( final LUN lun : luns )
         {
@@ -573,6 +597,10 @@ public class ExternalModelConverter {
 
     public static List<LUN> convertToExternalLUN( final List<LogicalUnitNumber> logicalUnitNumbers )
     {
+        if( logicalUnitNumbers == null )
+        {
+            return new ArrayList<>( );
+        }
 
         return logicalUnitNumbers.stream( )
                                  .map( logicalUnitNumber -> new LUN.Builder( )
@@ -586,6 +614,11 @@ public class ExternalModelConverter {
     public static List<com.formationds.protocol.Initiator> convertToInternalInitiators(
         final List<Initiator> initiators )
     {
+        if( initiators == null )
+        {
+            return new ArrayList<>( );
+        }
+
         return initiators.stream( )
                          .map( initiator -> new com.formationds.protocol.Initiator( initiator.getWWN( ) ) )
                          .collect( Collectors.toList( ) );
@@ -593,6 +626,11 @@ public class ExternalModelConverter {
 
     public static List<Initiator> convertToExternalInitiators( final List<com.formationds.protocol.Initiator> initiators )
     {
+        if( initiators == null )
+        {
+            return new ArrayList<>( );
+        }
+
         return initiators.stream( )
                                  .map( initiator -> new Initiator( initiator.getWwn() ) )
                                  .collect( Collectors.toList( ) );
@@ -601,33 +639,52 @@ public class ExternalModelConverter {
     public static List<com.formationds.protocol.Credentials> convertToInternalIncomingUsers(
         final List<Credentials> incomingUsers )
     {
+        if( incomingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
         return incomingUsers.stream( )
                          .map( user -> new com.formationds.protocol.Credentials( user.getName(),
                                                                                  user.getPasswd() ) )
                          .collect( Collectors.toList( ) );
     }
 
-    public static List<Credentials> convertToExternalIncomingUser( final List<com.formationds.protocol.Credentials> incomingUser )
+    public static List<Credentials> convertToExternalIncomingUser( final List<com.formationds.protocol.Credentials> incomingUsers )
     {
-        return incomingUser.stream( )
+        if( incomingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return incomingUsers.stream( )
                          .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
                          .collect( Collectors.toList( ) );
     }
 
     public static List<com.formationds.protocol.Credentials> convertToInternalOutgoingUsers(
-        final List<Credentials> outgoingUser )
+        final List<Credentials> outgoingUsers )
     {
-        return outgoingUser.stream( )
-                           .map( user -> new com.formationds.protocol.Credentials( user.getName(),
+        if( outgoingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return outgoingUsers.stream( )
+                            .map( user -> new com.formationds.protocol.Credentials( user.getName(),
                                                                                    user.getPasswd() ) )
-                           .collect( Collectors.toList( ) );
+                            .collect( Collectors.toList( ) );
     }
 
-    public static List<Credentials> convertToExternalOutgoingUser( final List<com.formationds.protocol.Credentials> outgoingUser )
+    public static List<Credentials> convertToExternalOutgoingUser( final List<com.formationds.protocol.Credentials> outgoingUsers )
     {
-        return outgoingUser.stream( )
-                           .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
-                           .collect( Collectors.toList( ) );
+        if( outgoingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return outgoingUsers.stream( )
+                            .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
+                            .collect( Collectors.toList( ) );
     }
 
     public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
@@ -653,8 +710,54 @@ public class ExternalModelConverter {
         }
 
         com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
+        if ( externalVolume.getSettings() instanceof VolumeSettingsISCSI )
+        { // iSCSI volume
+            VolumeSettingsISCSI iscsiSettings = ( VolumeSettingsISCSI ) externalVolume.getSettings( );
 
-        if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {        // block volume
+            if( iscsiSettings.getCapacity() == null )
+            {
+                throw new IllegalArgumentException( "iSCSI capacity must be provided" );
+            }
+
+            internalSettings.setBlockDeviceSizeInBytes( iscsiSettings.getCapacity( )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) );
+
+            Size blockSize = iscsiSettings.getBlockSize( );
+
+            if ( blockSize != null &&
+                blockSize.getValue( SizeUnit.B ).longValue( ) >= Size.of( 4, SizeUnit.KB )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) &&
+                blockSize.getValue( SizeUnit.B ).longValue( ) <= Size.of( 8, SizeUnit.MB )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) )
+            {
+                internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
+                                                                   .intValue( ) );
+            }
+            else
+            {
+                logger.warn( BLOCK_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
+            }
+
+            internalSettings.setVolumeType( VolumeType.ISCSI );
+
+            if( iscsiSettings.getTarget() == null )
+            {
+                throw new IllegalArgumentException( "iSCSI target must be provided." );
+            }
+
+            final IScsiTarget iscsiTarget =
+                new IScsiTarget( ).setLuns( convertToInternalLogicalUnitNumber( iscsiSettings.getTarget().getLuns() ) )
+                                  .setInitiators( convertToInternalInitiators( iscsiSettings.getTarget().getInitiators() ) )
+                                  .setIncomingUsers( convertToInternalIncomingUsers( iscsiSettings.getTarget().getIncomingUsers() ) )
+                                  .setOutgoingUsers( convertToInternalOutgoingUsers( iscsiSettings.getTarget().getOutgoingUsers() ) );
+
+            internalSettings.setIscsiTarget( iscsiTarget );
+        }
+        else if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {        // block volume
 
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) externalVolume.getSettings( );
 
@@ -684,43 +787,6 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.BLOCK );
-        }
-        else if ( externalVolume.getSettings() instanceof VolumeSettingsISCSI )
-        { // iSCSI volume
-            VolumeSettingsISCSI iscsiSettings = ( VolumeSettingsISCSI ) externalVolume.getSettings( );
-
-            internalSettings.setBlockDeviceSizeInBytes( iscsiSettings.getCapacity( )
-                                                                     .getValue( SizeUnit.B )
-                                                                     .longValue( ) );
-
-            Size blockSize = iscsiSettings.getBlockSize( );
-
-            if ( blockSize != null &&
-                blockSize.getValue( SizeUnit.B ).longValue( ) >= Size.of( 4, SizeUnit.KB )
-                                                                     .getValue( SizeUnit.B )
-                                                                     .longValue( ) &&
-                blockSize.getValue( SizeUnit.B ).longValue( ) <= Size.of( 8, SizeUnit.MB )
-                                                                     .getValue( SizeUnit.B )
-                                                                     .longValue( ) )
-            {
-                internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
-                                                                   .intValue( ) );
-            }
-            else
-            {
-                logger.warn( BLOCK_SIZE_NOT_SET );
-                internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
-            }
-
-            internalSettings.setVolumeType( VolumeType.ISCSI );
-            // TODO finish
-            final IScsiTarget iscsiTarget =
-                new IScsiTarget( ).setLuns( convertToInternalLogicalUnitNumber( iscsiSettings.getTarget().getLuns() ) )
-                                  .setInitiators( convertToInternalInitiators( iscsiSettings.getTarget().getInitiators() ) )
-                                  .setIncomingUsers( convertToInternalIncomingUsers( iscsiSettings.getTarget().getIncomingUsers() ) )
-                                  .setOutgoingUsers( convertToInternalOutgoingUsers( iscsiSettings.getTarget().getOutgoingUsers() ) );
-
-            internalSettings.setIscsiTarget( iscsiTarget );
         }
         else if ( externalVolume.getSettings() instanceof VolumeSettingsNfs )
         {   // NFS volume

@@ -92,5 +92,5 @@ struct IScsiTarget {
 /** NFS Options Map */
 struct NfsOption {
     /** nfs option */
-    1: optional map<string,string> options
+    1: optional list<string> options
 }
