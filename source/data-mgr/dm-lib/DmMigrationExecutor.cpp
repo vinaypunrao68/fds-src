@@ -30,9 +30,13 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  seqTimer(new FdsTimer),
       msgHandler(_dataMgr),
       migrationProgress(INIT),
-      txStateIsMigrated(true)
+      txStateIsMigrated(true),
+      deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
+      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
     volumeUuid = volDesc.volUUID;
+
+    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 
 	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
 }
@@ -402,7 +406,7 @@ void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
 	LOGMIGRATE << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
-	abortMigration();
+    dataMgr.dmMigrationMgr->abortMigration();
 }
 
 void
@@ -445,13 +449,10 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
         auto fwdCatReq = reinterpret_cast<DmIoFwdCat*>(dmReq);
         fds_assert((unsigned)(fwdCatReq->fwdCatMsg->volume_id) == volumeUuid.v);
         if (fwdCatReq->fwdCatMsg->lastForward) {
-            fds_scoped_lock lock(progressLock);
             /* All forwards have been applied.  At this point we don't expect anything from
              * migration source.  We can resume active IO
              */
-            migrationProgress = MIGRATION_COMPLETE;
-            LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
-            dataMgr.qosCtrl->resumeIOs(volumeUuid);
+            finishActiveMigration();
         }
         delete dmReq;
     };
@@ -484,6 +485,10 @@ Error
 DmMigrationExecutor::finishActiveMigration()
 {
 	fds_scoped_lock lock(progressLock);
+
+    // watermark should only ever need to be checked on a resync, but good to filter regardless
+    dataMgr.dmMigrationMgr->setDmtWatermark(volumeUuid, dmtVersion);
+
 	migrationProgress = MIGRATION_COMPLETE;
     LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
@@ -500,18 +505,23 @@ DmMigrationExecutor::abortMigration()
 	 * we are in an inconsistent state halfway through migration.
 	 */
 	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
-	volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
-	LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
-			<< " to " << fpi::ResourceState::InError;
-	dataMgr.qosCtrl->resumeIOs(volumeUuid);
-    {
-        fds_scoped_lock lock(progressLock);
-        if (migrationProgress != MIGRATION_ABORTED) {
-        	migrationProgress = MIGRATION_ABORTED;
-        	if (migrDoneCb) {
-        		LOGMIGRATE << "Abort migration called.";
-        		migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
-        	}
+    if (volumeMeta) {
+        volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
+        LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
+	            << " to " << fpi::ResourceState::InError;
+    } else {
+        LOGERROR << "Aborting migration: Executor hasn't started yet and has no volumeMetaData";
+    }
+    fds_scoped_lock lock(progressLock);
+    if (migrationProgress != INIT) {
+        // We should only resume something if we've stopped it.
+        dataMgr.qosCtrl->resumeIOs(volumeUuid);
+    }
+    if (migrationProgress != MIGRATION_ABORTED) {
+        migrationProgress = MIGRATION_ABORTED;
+        if (migrDoneCb) {
+            LOGMIGRATE << "Abort migration called.";
+            migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         }
     }
 }

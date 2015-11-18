@@ -41,6 +41,8 @@ void UpdateCatalogOnceHandler::handleRequest(
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
     auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,

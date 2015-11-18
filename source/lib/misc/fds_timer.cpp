@@ -52,7 +52,7 @@ FdsTimer::FdsTimer()
  */
 FdsTimer::FdsTimer(const std::string &id)
 : id_(std::string("FdsTimer:") + id + std::string(": ")),
-    aborted_(false),
+    abortCntr_(0),
     timerThreadSleepMs_(1000),
     timerThread_(std::bind(&FdsTimer::runTimerThread_, this))
 {
@@ -63,8 +63,10 @@ FdsTimer::FdsTimer(const std::string &id)
  */
 void FdsTimer::destroy()
 {
-    aborted_ = true;
-    timerThread_.join();
+    int prevAbortCnt = abortCntr_++;
+    if (prevAbortCnt == 0) {
+        timerThread_.join();
+    }
 }
 
 /**
@@ -104,7 +106,7 @@ void FdsTimer::runTimerThread_()
 
     GLOGNORMAL << log_string() << " Timer thread started...";
 
-    while (!aborted_) {
+    while (abortCntr_ == 0) {
         // TODO(Rao): Improve this sleep below so that it services tasks
         // more promptly than every timerThreadSleepMs_
         auto cur_time_pt = std::chrono::system_clock::now();

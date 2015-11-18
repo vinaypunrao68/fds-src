@@ -28,12 +28,15 @@ namespace fds
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
                 gl_DiskPlatMod.mod_startup();
+
+#ifdef DEBUG
                 bool fDumpDiskMap = get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
 
                 if (fDumpDiskMap) {
                     GLOGWARN << "exiting as fds.pm.dump_diskmap is true";
                     exit(0);
                 }
+#endif
 
                 platform->updateServiceInfoProperties(&svcInfo_.props);
             }

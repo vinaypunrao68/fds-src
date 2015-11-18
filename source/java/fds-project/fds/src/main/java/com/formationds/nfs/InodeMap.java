@@ -13,6 +13,8 @@ import java.util.Optional;
 
 public class InodeMap {
     private final TransactionalIo io;
+    private PersistentCounter usedBytes;
+    private PersistentCounter usedFiles;
     private final ExportResolver exportResolver;
     public static final Inode ROOT;
     public static final InodeMetadata ROOT_METADATA;
@@ -22,7 +24,7 @@ public class InodeMap {
         ByteBuffer bb = ByteBuffer.wrap(bytes);
         bb.putLong(Long.MAX_VALUE);
         ROOT = new Inode(new FileHandle(0, Integer.MAX_VALUE, Stat.Type.DIRECTORY.toMode(), bytes));
-        ROOT_METADATA = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, Long.MAX_VALUE, Integer.MAX_VALUE);
+        ROOT_METADATA = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0755, Long.MAX_VALUE);
     }
 
     private final Chunker chunker;
@@ -30,6 +32,8 @@ public class InodeMap {
     public InodeMap(TransactionalIo io, ExportResolver exportResolver) {
         this.exportResolver = exportResolver;
         this.io = io;
+        this.usedBytes = new PersistentCounter(io, "usedBytes", 0, true);
+        this.usedFiles = new PersistentCounter(io, "usedFiles", 0, true);
         chunker = new Chunker(io);
     }
 
@@ -41,7 +45,7 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (x) -> x);
+        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
         return currentValue.map(m -> new InodeMetadata(m));
     }
 
@@ -51,6 +55,14 @@ public class InodeMap {
 
     public static String blobName(long fileId) {
         return "inode-" + fileId;
+    }
+
+    public long usedBytes(String volume) throws IOException {
+        return usedBytes.currentValue(volume);
+    }
+
+    public long usedFiles(String volume) throws IOException {
+        return usedFiles.currentValue(volume);
     }
 
     public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {
@@ -65,14 +77,15 @@ public class InodeMap {
                     throw new NoEntException();
                 }
                 InodeMetadata inodeMetadata = new InodeMetadata(map);
-                long byteCount = inodeMetadata.getSize();
+                long oldByteCount = inodeMetadata.getSize();
                 int length = Math.min(data.length, count);
-                byteCount = Math.max(byteCount, offset + length);
+                long newByteCount = Math.max(oldByteCount, offset + length);
                 last[0] = inodeMetadata
                         .withUpdatedAtime()
                         .withUpdatedMtime()
                         .withUpdatedCtime()
-                        .withUpdatedSize(byteCount);
+                        .withUpdatedSize(newByteCount);
+                usedBytes.increment(volumeName, newByteCount - oldByteCount);
                 map.clear();
                 map.putAll(last[0].asMap());
                 return null;
@@ -85,7 +98,10 @@ public class InodeMap {
     }
 
     public Inode create(InodeMetadata metadata, long exportId) throws IOException {
-        return doUpdate(metadata, exportId, false);
+        String volumeName = exportResolver.volumeName((int) exportId);
+        Inode inode = doUpdate(metadata, exportId, false);
+        usedFiles.increment(volumeName);
+        return inode;
     }
 
     private Inode doUpdate(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
@@ -122,11 +138,14 @@ public class InodeMap {
         String volumeName = volumeName(inode);
 
         try {
+            Optional<InodeMetadata> om = stat(inode);
             io.deleteBlob(BlockyVfs.DOMAIN, volumeName, blobName);
+            if (om.isPresent()) {
+                usedBytes.decrement(volumeName, om.get().getSize());
+                usedFiles.decrement(volumeName, 1);
+            }
         } catch (Exception e) {
             throw new IOException(e);
-        } finally {
-            //cache.invalidate(key);
         }
     }
 

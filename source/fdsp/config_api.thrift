@@ -81,7 +81,7 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
-   * Set the scavenger actin for the given Local Domain.
+   * Set the scavenger acting for the given Local Domain.
    *
    * @param domainName - A string representing the name of the Local Domain whose scavenger action is to be set.
    * @param scavengerAction - A string representing the new scavenger action for the Local Domain. One of
@@ -790,5 +790,30 @@ service ConfigurationService {
             2: common.NotMasterDomain notMasterDomain,
             3: config_types.SubscriptionNotFound notFound,
             4: config_types.SubscriptionNotModified notModified);
+
+  /**
+   * @return a list of <em>Platform</em> Service Info records for all known nodes in 
+   *   the service map
+   */ 
+  list<svc_types.SvcInfo> getAllNodeInfo();
+  
+  /**
+   * @param nodeUuid the UUID for the node to retrieve
+   * @return the <em>Platform</em> Service Info record for the specified node.
+   */
+  svc_types.SvcInfo getNodeInfo(1: svc_types.SvcUuid nodeUuid)
+    throws (1: common.ApiException e);
+
+  /**
+   * @param nodeUuid the UUID for the node to retrieve
+   * @return the disk capacity for the specified node
+   */
+  i64 getDiskCapacityNode(1: svc_types.SvcUuid nodeUuid)
+    throws (1: common.ApiException e);
+
+  /**
+   * @return the total disk capacity of all nodes currently in the system
+   */
+  i64 getDiskCapacityTotal() throws (1: common.ApiException e);
 
 }

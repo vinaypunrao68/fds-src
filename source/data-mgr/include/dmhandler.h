@@ -34,6 +34,15 @@
 
 #define HANDLE_INVALID_TX_ID() HANDLE_INVALID_TX_ID_VAL(message->txId)
 
+#define HANDLE_FILTER_OLD_DMT_DURING_RESYNC_VAL(__vol,__dmt)
+/*    if (dataManager.dmMigrationMgr->shouldFilterDmt(__vol, __dmt)) {  \
+        LOGDEBUG << "Disregarding message " << logString(*message) << " for DMT: " << __dmt; \
+        handleResponse(asyncHdr, message, ERR_IO_DMT_MISMATCH, nullptr); \
+        return; \
+        }*/
+
+#define HANDLE_FILTER_OLD_DMT_DURING_RESYNC() HANDLE_FILTER_OLD_DMT_DURING_RESYNC_VAL(volId, asyncHdr->dlt_version)
+
 #define HANDLE_U_TURN() \
     if (dataManager.testUturnAll) { \
         LOGNOTIFY << "Uturn testing" << logString(*message); \

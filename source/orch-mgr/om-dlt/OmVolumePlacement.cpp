@@ -167,18 +167,23 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 
     // add this DMT as target, we should not have another non-committed
     // target already
-    fds_verify(!dmtMgr->hasTargetDMT());
+//    fds_verify(!dmtMgr->hasTargetDMT());
     err = dmtMgr->add(newDmt, DMT_TARGET);
-    fds_verify(err.ok());
+    LOGDEBUG << "Adding new DMT target, result: " << err;
+    if ( err.ok() )
+    {
+//    fds_verify(err.ok());
+//    fds_verify(configDB != NULL);
+        if ( !configDB->storeDmt( *newDmt, "target" ) )
+        {
+            GLOGWARN << "unable to store dmt to config db "
+                     << "[ " << newDmt->getVersion() << " ]";
+        }
 
-    fds_verify(configDB != NULL);
-    if (!configDB->storeDmt(*newDmt, "target")) {
-        GLOGWARN << "unable to store dmt to config db "
-                << "[" << newDmt->getVersion() << "]";
+        LOGNORMAL << "Version: " << newDmt->getVersion();
+        LOGDEBUG << "Computed new DMT: " << *newDmt;
     }
 
-    LOGNORMAL << "Version: " << newDmt->getVersion();
-    LOGDEBUG << "Computed new DMT: " << *newDmt;
     return err;
 }
 
@@ -502,8 +507,9 @@ void VolumePlacement::commitDMT( const bool unsetTarget )
     }
 }
 
-void
+fds_bool_t
 VolumePlacement::undoTargetDmtCommit() {
+    fds_bool_t rollBackNeeded = false;
     if (dmtMgr->hasTargetDMT()) {
         if (!hasNonCommitedTarget()) {
             LOGDEBUG << "Failure occured after commit - reverting committed DMT version to " << prevDmtVersion;
@@ -512,16 +518,20 @@ VolumePlacement::undoTargetDmtCommit() {
             Error err = dmtMgr->commitDMT(prevDmtVersion, false);
             fds_verify(err.ok());
             prevDmtVersion = DMT_VER_INVALID;
-        }
 
-        // forget about target DMT and remove it from DMT manager
-        dmtMgr->unsetTarget(true);
+            LOGDEBUG << "Clearing target DMT";
 
-        // also forget target DMT in persistent store
-        if (!configDB->setDmtType(0, "target")) {
-            LOGWARN << "unable to store target dmt type to config db";
+            // forget about target DMT and remove it from DMT manager
+            dmtMgr->unsetTarget(true);
+
+            // also forget target DMT in persistent store
+            if (!configDB->setDmtType(0, "target")) {
+                LOGWARN << "unable to store target dmt type to config db";
+            }
+            rollBackNeeded = true;
         }
     }
+    return rollBackNeeded;
 }
 
 /**

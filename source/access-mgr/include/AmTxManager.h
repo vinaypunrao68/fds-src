@@ -6,23 +6,19 @@
 
 #include <deque>
 #include <string>
-#include <fds_error.h>
 #include <unordered_map>
+
+#include "AmAsyncDataApi.h"
+#include "AmDataProvider.h"
+
 #include <blob/BlobTypes.h>
 #include <concurrency/RwLock.h>
-#include "AmAsyncDataApi.h"
 #include <fdsp/dm_types_types.h>
-#include "fds_table.h"
-#include "fds_volume.h"
 
 namespace fds {
 
-struct AmCache;
-struct AmDispatcher;
-struct AmRequest;
 struct AmTxDescriptor;
-struct GetBlobReq;
-struct GetObjectReq;
+struct PutBlobReq;
 class CommonModuleProviderIf;
 class RandNumGenerator;
 
@@ -33,7 +29,9 @@ class RandNumGenerator;
  * TODO(Andrew): Add volume and blob name associativity into the interface
  * and indexing.
  */
-struct AmTxManager {
+struct AmTxManager :
+    public AmDataProvider
+{
     using descriptor_ptr_type = std::shared_ptr<AmTxDescriptor>;
 
  private:
@@ -47,78 +45,40 @@ struct AmTxManager {
     /// Maximum number of entries to stage
     fds_uint32_t maxStagedEntries;
 
-    /// Maximum size of volume cache in bytes
-    fds_uint32_t maxPerVolumeCacheSize;
-
-    // Unique ptr to the data object cache
-    std::unique_ptr<AmCache> amCache;
-
-    // Unique ptr to the dispatcher
-    std::unique_ptr<AmDispatcher> amDispatcher;
-
-    /**
-     * FEATURE TOGGLE: Safe UpdateBlobOnce
-     * Wed 19 Aug 2015 10:56:46 AM MDT
-     */
-    bool safe_atomic_write { false };
-
   public:
-    explicit AmTxManager(CommonModuleProviderIf *modProvider);
+    AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager();
 
     /**
-     * Initialize the cache and volume table and register
-     * the callback we make to the transaction layer
+     * These are the Transaction specific DataProvider routines.
+     * Everything else is pass-thru.
      */
-    using processor_cb_type = std::function<void(AmRequest*, Error const&)>;
-    void init(bool const safe_atomic, processor_cb_type cb);
+    void start() override;
+    void startBlobTx(AmRequest *amReq) override;
+    void commitBlobTx(AmRequest *amReq) override;
+    void abortBlobTx(AmRequest *amReq) override;
+    void setBlobMetadata(AmRequest *amReq) override;
+    void deleteBlob(AmRequest *amReq) override;
+    void renameBlob(AmRequest *amReq) override;
+    void getBlob(AmRequest *amReq) override;
+    void putBlob(AmRequest *amReq) override;
+    void putBlobOnce(AmRequest *amReq) override;
 
+  protected:
 
     /**
-     * Notify that there is a newly attached volume, and build any
-     * necessary data structures.
+     * These are the response we actually care about seeing the results of
      */
-    Error registerVolume(const VolumeDesc& volDesc, bool const can_cache_meta = false);
-
-    /**
-     * Notify that we have detached a volume, and remove any available
-     * data structures.
-     */
-    Error removeVolume(const fds_volid_t volId);
-
-    /** These are here as a pass-thru to dispatcher until we have stackable
-     * interfaces */
-    Error attachVolume(std::string const& volume_name);
-    void openVolume(AmRequest *amReq);
-    Error closeVolume(fds_volid_t vol_id, fds_int64_t token);
-    void statVolume(AmRequest *amReq);
-    void setVolumeMetadata(AmRequest *amReq);
-    void getVolumeMetadata(AmRequest *amReq);
-    void volumeContents(AmRequest *amReq);
-    void startBlobTx(AmRequest *amReq);
-    void commitBlobTx(AmRequest *amReq);
-    void abortBlobTx(AmRequest *amReq);
-    void statBlob(AmRequest *amReq);
-    void setBlobMetadata(AmRequest *amReq);
-    void deleteBlob(AmRequest *amReq);
-    void renameBlob(AmRequest *amReq);
-    void getBlob(AmRequest *amReq);
-    void updateCatalog(AmRequest *amReq);
-    bool getNoNetwork() const;
-    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
-    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
-    Error getDMT();
-    Error getDLT();
+    void abortBlobTxCb(AmRequest * amReq, Error const error) override;
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
+    void startBlobTxCb(AmRequest * amReq, Error const error) override;
+    void putBlobCb(AmRequest * amReq, Error const error) override;
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
 
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
-    processor_cb_type processor_cb;
-
-    typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
-    std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
-    std::mutex obj_get_lock;
 
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
@@ -133,6 +93,8 @@ struct AmTxManager {
                 const BlobTxId &txId,
                 fds_uint64_t dmtVer,
                 const std::string &name);
+
+    void applyPut(PutBlobReq* blobReq);
 
     /**
      * Removes an existing transaction from the manager, destroying
@@ -158,15 +120,6 @@ struct AmTxManager {
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
 
     /**
-     * Internal cache accessors
-     */
-    Error putOffsets(fds_volid_t const vol_id,
-                     std::string const& blob_name,
-                     fds_uint64_t const blob_offset,
-                     fds_uint32_t const object_size,
-                     std::vector<boost::shared_ptr<ObjectID>> const& object_ids);
-
-    /**
      * Updates an existing transactions staged blob objects.
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
@@ -180,23 +133,6 @@ struct AmTxManager {
 
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);
-
-
-    /**
-     * Internal get object request handler
-     */
-    void getObjects(GetBlobReq* blobReq);
-    void getObject(GetBlobReq* blobReq,
-                   ObjectID::ptr const& obj_id,
-                   boost::shared_ptr<std::string>& buf);
-    void getBlobCb(AmRequest *amReq, Error const& error);
-    void getObjectCb(ObjectID const obj_id, Error const& error);
-    void putObject(AmRequest *amReq);
-    void queryCatalog(AmRequest *amReq);
-    void queryCatalogCb(AmRequest *amReq, Error const& error);
-    void updateCatalogCb(AmRequest *amReq, Error const& error);
-    void updateCatalogOnceCb(AmRequest *amReq, Error const& error);
-    void renameBlobCb(AmRequest *amReq, Error const& error);
 };
 
 }  // namespace fds

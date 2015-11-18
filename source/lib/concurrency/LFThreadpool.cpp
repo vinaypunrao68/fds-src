@@ -24,6 +24,9 @@ void LockfreeWorker::start() {
 
 void LockfreeWorker::finish()
 {
+    if (worker == nullptr) {
+        return;
+    }
     state_ = ABORTING;
     while (state_ == ABORTING) {
         /* We loop here because it's possible in workLoop() to miss a wake up.
@@ -36,6 +39,7 @@ void LockfreeWorker::finish()
     fds_assert(state_ == ABORTED);
     worker->join();
     delete worker;
+    worker = nullptr;
 }
 
 void LockfreeWorker::enqueue(LockFreeTask *t)
@@ -216,6 +220,13 @@ LFMQThreadpool::~LFMQThreadpool()
     for (auto &w : workers) {
         w->finish();
         delete w;
+    }
+}
+
+void LFMQThreadpool::stop()
+{
+    for (auto &w : workers) {
+        w->finish();
     }
 }
 

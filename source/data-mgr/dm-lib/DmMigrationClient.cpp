@@ -517,7 +517,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
     fwdMsg->txId = 0;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
-    meta_list->copyToFdspPayload(fwdMsg->meta_list);
+    meta_list->toFdspPayload(fwdMsg->meta_list);
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
@@ -618,18 +618,6 @@ DmMigrationClient::sendFinishFwdMsg()
 	thriftMsg->invoke();
 
 	return (err);
-}
-
-void
-DmMigrationClient::dmMigrationCheckResp(EPSvcRequest *req,
-													 const Error& error,
-													 boost::shared_ptr<std::string> payload)
-{
-	LOGMIGRATE << "Received response for processInitialBlobFilterSet " <<
-			"with error: " << error;
-	if (!error.ok()) {
-		abortMigration();
-	}
 }
 
 void
