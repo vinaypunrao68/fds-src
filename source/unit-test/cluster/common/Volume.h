@@ -17,6 +17,8 @@ namespace fds {
 #define DECLARE_QOSVOLUMEIO(ReqT, RespT) \
     QosVolumeIo<ReqT, FDSP_MSG_TYPEID(ReqT), RespT, FDSP_MSG_TYPEID(RespT)>
 
+struct EPSvcRequest;
+
 struct SvcMsgIo : public FDS_IOType {
     SvcMsgIo(const fpi::FDSPMsgTypeId &msgType,
              const fds_volid_t &volId,
@@ -48,7 +50,9 @@ struct QosVolumeIo : public SvcMsgIo {
     const static fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
     const static fpi::FDSPMsgTypeId respMsgTypeId = RespTypeId;
 
-    using CbType = std::function<void (QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>*)>;
+    using ThisType = QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>;
+    // TODO(Rao): Consider making this const ref
+    using CbType = std::function<void (const ThisType&)>;
 
     QosVolumeIo(const fds_volid_t &volId,
                 FDS_QoSControl *qosCtrl,
@@ -64,7 +68,7 @@ struct QosVolumeIo : public SvcMsgIo {
     {
         if (cb) {
             LOGNOTIFY << "Responding: " << *this;
-            cb(this);
+            cb(*this);
         }
     }
 
@@ -100,12 +104,16 @@ std::ostream& operator<<(std::ostream &out,
 
 using StartTxIo         = DECLARE_QOSVOLUMEIO(fpi::StartTxMsg, fpi::EmptyMsg);
 using StartTxIoPtr      = SHPTR<StartTxIo>;
+
 using UpdateTxIo        = DECLARE_QOSVOLUMEIO(fpi::UpdateTxMsg, fpi::EmptyMsg);
 using UpdateTxIoPtr     = SHPTR<UpdateTxIo>;
+
 using CommitTxIo        = DECLARE_QOSVOLUMEIO(fpi::CommitTxMsg, fpi::EmptyMsg);
 using CommitTxIoPtr     = SHPTR<CommitTxIo>;
+
 using SyncPullLogEntriesIo  = DECLARE_QOSVOLUMEIO(fpi::SyncPullLogEntriesMsg, fpi::SyncPullLogEntriesRespMsg);
 using SyncPullLogEntriesIoPtr = SHPTR<SyncPullLogEntriesIo>;
+std::ostream& operator<<(std::ostream &out, const SyncPullLogEntriesIo& io);
 
 /**
 * @brief Function to be executed on qos
@@ -161,9 +169,9 @@ struct Volume : HasModuleProvider {
     */
     void startSyncCheck();
 
-    template <class ReqT>
+    template <class ReqT=EPSvcRequest>
     std::function<void(ReqT*, const Error&, StringPtr)>
-    qosFunction(const QosFunctionIo::Func &func )
+    synchronizedQosCb(const QosFunctionIo::Func &func )
     {
         auto qosMsg = new QosFunctionIo(volId_, qosCtrl_);
         qosMsg->func = func;
@@ -192,8 +200,12 @@ struct Volume : HasModuleProvider {
     void changeState_(fpi::VolumeState targetState);
     void setError_(const Error &e);
     void commitBatch_(int64_t commitId, const CatWriteBatchPtr& writeBatch);
+
+    void startSyncCheck_();
     void applySyncPullLogEntries_(int64_t startCommitId,
                                   std::vector<std::string> &entries);
+    void sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &syncInfo);
+    void applySyncPullLogEntries_(const fpi::SyncPullLogEntriesRespMsgPtr &entriesMsg);
 
     using TxTbl                 = std::unordered_map<int64_t, CatWriteBatchPtr>;
     FDS_QoSControl                          *qosCtrl_;
@@ -202,6 +214,7 @@ struct Volume : HasModuleProvider {
     fpi::VolumeState                        state_;
     Error                                   lastError_;
     OpInfo                                  opInfo_;
+    fpi::SvcUuid                            coordinatorUuid_;
 #ifdef USECATALOG
     std::unique_ptr<Catalog>                db_;
 #else

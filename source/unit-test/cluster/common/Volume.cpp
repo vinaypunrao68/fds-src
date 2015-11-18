@@ -1,6 +1,9 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
 #include <Volume.h>
+#include <net/SvcMgr.h>
+#include <net/SvcRequestPool.h>
+
 namespace leveldb {
 typedef uint64_t SequenceNumber;
 }
@@ -11,9 +14,20 @@ namespace fds {
 /**
 * @brief Ensure the volume is functional.  If not return an empty message with an error
 */
-#define CHECK_VOLUME_FUNCTIONAL()
+#define FUNCTIONAL_STATE_CHECK()
+#define SYNC_STATE_CHECK()
 
 const std::string Volume::OPINFOKEY = "OPINFO";
+
+std::ostream& operator<<(std::ostream &out, const SyncPullLogEntriesIo& io)
+{
+    out << " msgType: SyncPullLogEntriesIo "
+        << " groupId: " << io.reqMsg->groupId
+        << " lastCommitVersion: " << io.reqMsg->lastCommitVersion
+        << " startCommitId: " << io.reqMsg->startCommitId
+        << " endCommitId: " << io.reqMsg->endCommitId;
+    return out;
+}
 
 Volume::Volume(CommonModuleProviderIf *provider,
                FDS_QoSControl *qosCtrl,
@@ -63,16 +77,14 @@ void Volume::init()
     volQueue_->activate();
     auto err = qosCtrl_->registerVolume(volId_, volQueue_.get());
     fds_verify(err == ERR_OK);
-
 }
 
 void Volume::handleStartTx(StartTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    // ScopedVolumeIo<StartTxIo>  s(io, qosCtrl_);
-
-    CHECK_VOLUME_FUNCTIONAL();
+    FUNCTIONAL_STATE_CHECK();
+    // TODO(Rao): Op id checks
 
     /* Start a new transaction */
     auto &reqMsg = *(io->reqMsg);
@@ -89,9 +101,8 @@ void Volume::handleUpdateTx(UpdateTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    // ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
-
-    CHECK_VOLUME_FUNCTIONAL();
+    FUNCTIONAL_STATE_CHECK();
+    // TODO(Rao): Op id checks
 
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
@@ -113,9 +124,8 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
-    // ScopedVolumeIo<CommitTxIo>  s(io, qosCtrl_);
-
-    CHECK_VOLUME_FUNCTIONAL();
+    FUNCTIONAL_STATE_CHECK();
+    // TODO(Rao): Op id checks
 
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
@@ -177,67 +187,93 @@ void Volume::setError_(const Error &e)
     lastError_ = e;
 }
 
-#if 0
-void Volume::startSyncCheck() {
-    changeState_(fpi::VolumeState::SYNCCHECK);
+void Volume::startSyncCheck_()
+{
+    changeState_(fpi::VolumeState::VOLUME_QUICKSYNC_CHECK);
+
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    auto request = requestMgr->newEpSvcRequest(coordinatorUuid_);
-    msg->onResponse([this](const Error &e, StringPtr payload) {
-        if (e != ERR_OK) {
+    auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
+    req->onResponseCb(synchronizedQosCb([this](const Error &e_, StringPtr payload) {
+        SYNC_STATE_CHECK();
+        Error err = e_;
+        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
+        if (err != ERR_OK) {
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "";
+            LOGERROR << "Failed to receive sync info from coordinator: " << err; 
+            setError_(err);
             return;
         }
-        changeState_(fpi::VolumeState::SYNC);
-        sendSyncPullLogEntriesMsg();
-    });
+        changeState_(fpi::VolumeState::VOLUME_QUICKSYNC_INPROGRESS);
+        sendSyncPullLogEntriesMsg_(responseMsg);
+    }));
+    req->invoke();
 }
 
-void sendSyncPullLogEntriesMsg(fpi::SvcUuid &svcUuid, int64_t endCommitId)
+void Volume::sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &syncInfo)
 {
-    auto pullEntriesMsg = fpi::PullCommitlogEntriesMsgPtr(new fpi::PullCommitlogEntriesMsg); 
+    /* Pick sync peer.  For now pick the first functional service */
+    fds_verify(syncInfo->group.functionalReplicas.size() > 0);
+
+    auto syncPeerUuid = syncInfo->group.functionalReplicas[0];
+    auto pullEntriesMsg = fpi::SyncPullLogEntriesMsgPtr(new fpi::SyncPullLogEntriesMsg); 
     pullEntriesMsg->groupId = volId_.get();
     pullEntriesMsg->startCommitId = opInfo_.appliedCommitId;
-    pullEntriesMsg->endCommitId = endCommitId;
-    /* Set callback */
-    auto cb = QosSvcMsgCb<fpi::EmptyMsg>([this](const Error &e) {
-        fds_verify(e == ERR_OK);
-    });
-    pullEntriesMsg->responseCb(cb);
-    pullEntriesMsg->invoke();
-    /* Once applying if out commit log history is hole free, we can switch to being
-     * in functional state.
-     */
-}
-#endif
+    pullEntriesMsg->endCommitId = syncInfo->syncpointCommitId;
 
-void Volume::applySyncPullLogEntries_(int64_t startCommitId,
-                                      std::vector<std::string> &entries)
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto req = requestMgr->newEPSvcRequest(syncPeerUuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::SyncPullLogEntriesMsg), pullEntriesMsg);
+    req->onResponseCb(synchronizedQosCb([this](const Error &e_, StringPtr payload) {
+        SYNC_STATE_CHECK();
+        Error err = e_;
+        auto responseMsg = fds::deserializeFdspMsg<fpi::SyncPullLogEntriesRespMsg>(err, payload);
+        if (err != ERR_OK) {
+            // TODO(Rao): Multiple types of errors can be returned here..handle them
+            LOGERROR << "Failed to receive sync entries: " << err;
+            setError_(err);
+            return;
+        }
+        applySyncPullLogEntries_(responseMsg);
+    }));
+    req->invoke();
+}
+
+void Volume::applySyncPullLogEntries_(const fpi::SyncPullLogEntriesRespMsgPtr &entriesMsg)
 {
-    fds_verify(opInfo_.appliedCommitId+1 == startCommitId);
-    auto commitId = startCommitId;
-    for (auto &entry : entries) {
+    fds_verify(opInfo_.appliedCommitId+1 == entriesMsg->startCommitId);
+    auto commitId = entriesMsg->startCommitId;
+    for (const auto &entry : entriesMsg->entries) {
         auto batchPtr = CatWriteBatchPtr(new CatWriteBatch());
         leveldb::Slice s(entry);
         leveldb::WriteBatchInternal::SetContents(batchPtr.get(), s);
         commitBatch_(commitId, batchPtr);
         commitId++;
     }
+    /* Once applying if out commit log history is hole free, we can switch to being
+     * in functional state.
+     */
 }
 
 void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io)
 {
-    // ScopedVolumeIo<UpdateTxIo>  s(io, qosCtrl_);
+    LOGNOTIFY << *io;
 
-    CHECK_VOLUME_FUNCTIONAL();
+    FUNCTIONAL_STATE_CHECK();
+
     auto &reqMsg = *(io->reqMsg);
     /* TODO(Rao): Do a common point version check */
 
     io->respMsg.reset(new fpi::SyncPullLogEntriesRespMsg());
+    io->respMsg->startCommitId = reqMsg.startCommitId;
     uint32_t bytesAddedCnt = 0;
-    for (auto id = reqMsg.startCommitId; id <= reqMsg.endCommitId; ++id) {
-        auto entry = txLog_.getEntry(id);
+    auto itr = txLog_.iterator(reqMsg.startCommitId);
+    for (auto id = reqMsg.startCommitId;
+         txLog_.isValid(itr) && id <= reqMsg.endCommitId;
+         ++id, itr++) {
+        auto entry = txLog_.get(itr);
         leveldb::Slice s = leveldb::WriteBatchInternal::Contents(entry.get());
         if (bytesAddedCnt + s.size() > MAX_SYNCENTRIES_BYTES) {
             break;

@@ -81,7 +81,7 @@ struct DmHandler: PlatNetSvcHandler {
                                         std::placeholders::_1);
                 fds_volid_t volId(volumeIoHdr.groupId);
                 auto qosMsg = new QosVolumeIoT(volId,
-                                               dm->qosCtrl,
+                                               dm->qosCtrl.get(),
                                                payload,
                                                cbfunc);
                 auto enqRet = dm->qosCtrl->enqueueIO(volId, qosMsg);
@@ -96,12 +96,12 @@ struct DmHandler: PlatNetSvcHandler {
 
     template <class QosVolumeIoT>
     void responseCb(fpi::AsyncHdrPtr& asyncHdr,
-                    QosVolumeIoT *io) {
-        asyncHdr->msg_code = static_cast<int32_t>(io->respStatus.GetErrno());
-        if (io->respStatus == ERR_OK) {
-            sendAsyncResp(*asyncHdr, QosVolumeIoT::respMsgTypeId, *(io->respMsg));
+                    const QosVolumeIoT &io) {
+        asyncHdr->msg_code = static_cast<int32_t>(io.respStatus.GetErrno());
+        if (io.respStatus == ERR_OK) {
+            sendAsyncResp(*asyncHdr, QosVolumeIoT::respMsgTypeId, *(io.respMsg));
         } else {
-            GLOGWARN << "Returning error response: " << io->respStatus
+            GLOGWARN << "Returning error response: " << io.respStatus
                 << " header: " << fds::logString(*asyncHdr);
             sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         }
