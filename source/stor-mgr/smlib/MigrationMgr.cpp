@@ -670,9 +670,6 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         return ERR_NOT_FOUND;
     }
 
-    // we must only receive this message when are resyncing on restart
-    fds_verify(resyncOnRestart);
-
     {  // scope for client lock
         SCOPEDWRITE(clientLock);
         // ok if migration client does not exist
@@ -1289,11 +1286,6 @@ MigrationMgr::resetDltTokensStates(fds_uint32_t& bitsPerDltToken) {
         fds_uint32_t numTokens = pow(2, bitsPerDltToken);
         dltTokenStates.clear();
         dltTokenStates.assign(numTokens, false);
-    } else {
-    // resync on restart should happen only once during on SM run between restarts
-    //fds_verify(!resyncOnRestart);
-    // if this is not a first migration msgs (= SM is gaining additional DLT tokens),
-    // nothing to do here, because these DLT tokens are alrady marked not ready
     }
 }
 
