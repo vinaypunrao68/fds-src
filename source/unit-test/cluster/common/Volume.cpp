@@ -16,6 +16,7 @@ namespace fds {
 */
 #define FUNCTIONAL_STATE_CHECK()
 #define SYNC_STATE_CHECK()
+#define ASSERT_SYNCHRONIZED()
 
 const std::string Volume::OPINFOKEY = "OPINFO";
 
@@ -83,6 +84,7 @@ void Volume::handleStartTx(StartTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
+    ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
     // TODO(Rao): Op id checks
 
@@ -101,6 +103,7 @@ void Volume::handleUpdateTx(UpdateTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
+    ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
     // TODO(Rao): Op id checks
 
@@ -124,6 +127,7 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
 {
     LOGNOTIFY << *io;
 
+    ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
     // TODO(Rao): Op id checks
 
@@ -144,6 +148,12 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
     txTable_.erase(itr);
 
     LOGNOTIFY << "Completed commit " << *io;
+}
+
+void Volume::handleQosFunctionIo(QosFunctionIoPtr io)
+{
+    ASSERT_SYNCHRONIZED();
+    io->func();
 }
 
 void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
@@ -196,7 +206,7 @@ void Volume::startSyncCheck_()
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
     auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    req->onResponseCb(synchronizedQosCb([this](const Error &e_, StringPtr payload) {
+    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
         SYNC_STATE_CHECK();
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
@@ -226,7 +236,7 @@ void Volume::sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPt
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeerUuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::SyncPullLogEntriesMsg), pullEntriesMsg);
-    req->onResponseCb(synchronizedQosCb([this](const Error &e_, StringPtr payload) {
+    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
         SYNC_STATE_CHECK();
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::SyncPullLogEntriesRespMsg>(err, payload);
@@ -261,6 +271,7 @@ void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io)
 {
     LOGNOTIFY << *io;
 
+    ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
 
     auto &reqMsg = *(io->reqMsg);

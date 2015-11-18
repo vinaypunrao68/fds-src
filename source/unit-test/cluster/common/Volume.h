@@ -119,7 +119,7 @@ std::ostream& operator<<(std::ostream &out, const SyncPullLogEntriesIo& io);
 * @brief Function to be executed on qos
 */
 struct QosFunctionIo : SvcMsgIo {
-    using Func = std::function<void(const Error&, StringPtr)>;
+    using Func = std::function<void()>;
     QosFunctionIo(const fds_volid_t &volId, FDS_QoSControl *qosCtrl)
         : SvcMsgIo(FDSP_MSG_TYPEID(fpi::QosFunction), volId, qosCtrl)
     {}
@@ -163,19 +163,22 @@ struct Volume : HasModuleProvider {
     void handleCommitTx(CommitTxIoPtr io);
     void handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io);
 
+    /* Any state handlers */
+    void handleQosFunctionIo(QosFunctionIoPtr io);
+
     /* Sync state handlers */
     /**
     * @brief Initiates running sync protocol
     */
     void startSyncCheck();
 
-    template <class ReqT=EPSvcRequest>
+    template <class ReqT=EPSvcRequest, class F>
     std::function<void(ReqT*, const Error&, StringPtr)>
-    synchronizedQosCb(const QosFunctionIo::Func &func )
+    synchronizedResponseCb(F &&func)
     {
         auto qosMsg = new QosFunctionIo(volId_, qosCtrl_);
-        qosMsg->func = func;
-        return [qosMsg](ReqT*, const Error& e, StringPtr payload) {
+        return [qosMsg, func](ReqT*, const Error& e, StringPtr payload) {
+            qosMsg->func = std::bind(func, e, payload);
             auto enqRet = qosMsg->qosCtrl->enqueueIO(qosMsg->io_vol_id, qosMsg);
             if (enqRet != ERR_OK) {
                 fds_panic("Not handled");

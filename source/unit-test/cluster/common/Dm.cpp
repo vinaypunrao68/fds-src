@@ -94,6 +94,10 @@ Error DmProcess::processIO(FDS_IOType* io) {
             runSynchronizedVolumeIoHandler(&Volume::handleSyncPullLogEntries,
                                            SHPTR_CAST(SyncPullLogEntriesIo, volIo));
             break;
+        case FDSP_MSG_TYPEID(fpi::QosFunction):
+            runSynchronizedVolumeIoHandler(&Volume::handleQosFunctionIo,
+                                           SHPTR_CAST(QosFunctionIo, volIo));
+            break;
         default:
             fds_panic("Unknown message");
             break;
