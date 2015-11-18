@@ -1220,15 +1220,13 @@ MigrationMgr::notifyDltUpdate(const DLT *dlt,
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
         numBitsPerDltToken = bitsPerDltToken;
-        if (dltTokenStatesEmpty() &&
-            dlt->getVersion() == 1) {
-            // The case where SM starts up and there was no DLT before,
-            // so this SM is up and does not resync or migration
-            // Initialize DLT tokens that this SM owns to ready
-            resetDltTokensStates(bitsPerDltToken);
-            const TokenList& tokens = dlt->getTokens(mySvcUuid);
-            changeDltTokensAvailability(tokens, true);
-        }
+
+        // The case where SM starts up and there was no DLT before,
+        // so this SM is up and does not resync or migration
+        // Initialize DLT tokens that this SM owns to ready
+        resetDltTokensStates(bitsPerDltToken);
+        const TokenList& tokens = dlt->getTokens(mySvcUuid);
+        changeDltTokensAvailability(tokens, true);
     }
 }
 
