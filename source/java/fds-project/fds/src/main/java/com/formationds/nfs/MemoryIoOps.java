@@ -38,8 +38,12 @@ public class MemoryIoOps implements IoOps {
         if (!metadataCache.containsKey(new MetaKey(domain, volumeName, blobName))) {
             throw new FileNotFoundException();
         }
-
         ObjectKey key = new ObjectKey(domain, volumeName, blobName, objectOffset);
+
+        if (!objectCache.containsKey(key)) {
+            throw new FileNotFoundException();
+        }
+
         byte[] bytes = objectCache.get(key);
         if (bytes == null) {
             bytes = new byte[objectSize];
