@@ -29,7 +29,7 @@ import static org.junit.Assert.*;
 
 //@Ignore
 public class AsyncAmTest extends BaseAmTest {
-    private static final boolean USE_SVC_IMPL = true;
+    private static final boolean USE_SVC_IMPL = false;
     public static final int NFS_EXPORT_ID = 42;
     private static SvcState svc;
     private Counters counters;
