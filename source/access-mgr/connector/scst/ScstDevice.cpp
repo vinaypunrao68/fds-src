@@ -837,9 +837,6 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
 
 void
 ScstDevice::respondTask(BlockTask* response) {
-    LOGIO << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-           << " " << response->getError();
-
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
         if (fpi::OK != scst_response->getError()) {
