@@ -11,8 +11,6 @@ start on runlevel [2345]
 stop on runlevel [!2345]
 
 env fds_root={{ fds_root }}
-env LANG=POSIX
-env LC_MESSAGES=POSIX
 
 limit nofile 400000 400000
 limit core unlimited unlimited
@@ -22,6 +20,7 @@ respawn limit 5 60
 
 script
   chdir ${fds_root}/bin
+
   echo '=====================================================' > ${fds_root}/bin/pm.out
   echo 'UPTIME:\t'`date` >> ${fds_root}/bin/pm.out
   echo 'Loading '${fds_root}/etc/formation_env >> ${fds_root}/bin/pm.out
@@ -33,6 +32,8 @@ script
   echo '=====================================================' >> ${fds_root}/bin/pm.out
   echo ''
 
+  export LANG=POSIX
+  export LC_MESSAGES=POSIX
   exec platformd --fds-root=${fds_root} --foreground > ${fds_root}/bin/pm.out 2>&1
 end script
 {% endblock %}
