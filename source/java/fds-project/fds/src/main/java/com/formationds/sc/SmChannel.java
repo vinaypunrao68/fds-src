@@ -1,10 +1,9 @@
 package com.formationds.sc;
 
-import com.formationds.protocol.sm.GetObjectMsg;
-import com.formationds.protocol.sm.GetObjectResp;
-import com.formationds.protocol.sm.PutObjectMsg;
-import com.formationds.protocol.sm.PutObjectRspMsg;
+import com.formationds.protocol.sm.*;
 import com.formationds.protocol.svc.types.FDSPMsgTypeId;
+import com.formationds.xdi.s3.DeleteObject;
+
 import java.util.concurrent.CompletableFuture;
 
 public class SmChannel {
@@ -26,5 +25,15 @@ public class SmChannel {
         return channel
                 .call(FDSPMsgTypeId.PutObjectMsgTypeId, putObjectMsg, tableVersion)
                 .deserializeInto(FDSPMsgTypeId.PutObjectRspMsgTypeId, new PutObjectRspMsg());
+    }
+
+    public CompletableFuture<AddObjectRefRspMsg> addObjectRef(AddObjectRefMsg msg) {
+        return channel.call(FDSPMsgTypeId.AddObjectRefMsgTypeId, msg, tableVersion)
+                .deserializeInto(FDSPMsgTypeId.AddObjectRefRspMsgTypeId, new AddObjectRefRspMsg());
+    }
+
+    public CompletableFuture<DeleteObjectRspMsg> deleteObject(DeleteObjectMsg msg) {
+        return channel.call(FDSPMsgTypeId.DeleteObjectMsgTypeId, msg)
+                .deserializeInto(FDSPMsgTypeId.DeleteObjectRspMsgTypeId, new DeleteObjectRspMsg());
     }
 }

@@ -175,7 +175,13 @@ public class SvcAsyncAm implements AsyncAm {
 
     @Override
     public CompletableFuture<Void> setVolumeMetadata(String domainName, String volumeName, Map<String, String> metadata) {
-        return am.setVolumeMetadata(domainName, volumeName, metadata);
+        try {
+            FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+            fdsChannels.dmWrite(volumeDescriptor.getVolUUID(), )
+            return am.setVolumeMetadata(domainName, volumeName, metadata);
+        } catch (TException ex) {
+            return CompletableFutureUtility.exceptionFuture(ex);
+        }
     }
 
     @Override
