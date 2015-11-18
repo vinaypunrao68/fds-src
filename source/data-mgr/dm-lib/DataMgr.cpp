@@ -1034,8 +1034,6 @@ DataMgr::~DataMgr()
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 
-    dmMigrationMgr.reset();
-
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
          it++) {
@@ -1208,6 +1206,10 @@ void DataMgr::mod_shutdown()
         catSyncMgr->mod_shutdown();
     } else {
         LOGWARN << "catalog sync feature - NOT enabled";
+    }
+
+    if (dmMigrationMgr) {
+        dmMigrationMgr->mod_shutdown();
     }
 
     LOGNORMAL << "Destructing the Data Manager";

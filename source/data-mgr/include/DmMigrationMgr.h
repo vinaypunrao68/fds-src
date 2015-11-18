@@ -24,6 +24,8 @@ class DmMigrationMgr : public DmMigrationBase {
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
 
+    void mod_shutdown();
+
     inline bool isMigrationEnabled() {
     	return enableMigrationFeature;
     }

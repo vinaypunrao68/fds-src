@@ -39,7 +39,12 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+   if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
         abortMigration();
     }
 
@@ -48,7 +53,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
