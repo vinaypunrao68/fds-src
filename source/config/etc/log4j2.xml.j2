@@ -1,3 +1,5 @@
+{% extends 'fds_config_defaults.j2' %}
+{% block content %}
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Properties>
@@ -19,7 +21,7 @@
     </Properties>
     <Appenders>
 
-        <!-- log4j2 docs show filePattern using variables like 
+        <!-- log4j2 docs show filePattern using variables like
             "filePattern="logs/$${date:yyyy-MM}/app-%d{yyyy-MM-dd}-%i.log.gz"
             to archive files.  The $${date:yyyy-MM} portion of that is supposed to create
             a directory based on the month, but is instead creating a directory named "${date:yyyy-MM}".
@@ -71,12 +73,12 @@
         <Root level="FATAL">
             <AppenderRef ref="console"/>
         </Root>
-        <Logger name="com.formationds" level="trace" additivity="false">
+        <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        <Logger name="com.formationds.platform" level="trace" additivity="false">
+        <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="jsvclayer"/>
         </Logger>
     </Loggers>
 </Configuration>
-
+{% endblock %}

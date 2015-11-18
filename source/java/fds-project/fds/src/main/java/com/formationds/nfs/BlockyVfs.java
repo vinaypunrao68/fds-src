@@ -329,11 +329,17 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        InodeMetadata updated = inodeMap.write(inode, data, offset, count);
-        inodeIndex.index(inode.exportIndex(), true, updated);
-        counters.increment(Counters.Key.write);
-        counters.increment(Counters.Key.bytesWritten, count);
-        return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        InodeMetadata updated = null;
+        try {
+            updated = inodeMap.write(inode, data, offset, count);
+            inodeIndex.index(inode.exportIndex(), true, updated);
+            counters.increment(Counters.Key.write);
+            counters.increment(Counters.Key.bytesWritten, count);
+            return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        } catch (IOException e) {
+            LOG.error("Error writing inode " + updated.getFileId(), e);
+            throw e;
+        }
     }
 
     @Override
