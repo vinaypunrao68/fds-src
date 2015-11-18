@@ -8,6 +8,7 @@
 #include <deque>
 #include <string>
 
+#include "fdsp/common_types.h"
 #include "fds_process.h"
 #include "fds_table.h"
 #include <fiu-control.h>
@@ -149,6 +150,10 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     break;;
             }
         }
+        LOGIO << amReq->io_type
+              << " on: [" << std::hex << amReq->getBlobName()
+              << "] had result: [" << error
+              << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
         amReq->cb->call(code);
     }
     delete amReq;

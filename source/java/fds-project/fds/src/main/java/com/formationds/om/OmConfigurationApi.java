@@ -9,9 +9,12 @@ import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.EndUserMessages;
+import com.formationds.protocol.ApiException;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
@@ -19,6 +22,7 @@ import com.formationds.protocol.pm.NotifyStopServiceMsg;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -1012,6 +1016,26 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         EventManager.notifyEvent(OmEvents.DELETE_SUBSCRIPTION_ID,
                 subID,
                 doDemat);
+    }
+
+    @Override
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return getConfig().getAllNodeInfo();
+    }
+
+    @Override
+    public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getNodeInfo( nodeUuid );
+    }
+
+    @Override
+    public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getDiskCapacityNode( nodeUuid );
+    }
+
+    @Override
+    public long getDiskCapacityTotal() throws ApiException, TException {
+        return getConfig().getDiskCapacityTotal();
     }
 
     private synchronized CachedConfiguration getCache() {

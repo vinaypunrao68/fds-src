@@ -96,7 +96,6 @@
 {#
    fds.xdi. specific entries
 #}
-
 {% set am_host = am_host if am_host is defined else 'localhost' %}
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
 {% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
@@ -143,6 +142,17 @@
 {% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log' %}
 {% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_xdi_java_opts is defined else '' %}
+{% set java_log_severity = 'INFO' if fds_log_severity is not defined
+       			   	   else 'TRACE' if fds_log_severity == 'trace'
+       			   	   else 'DEBUG' if fds_log_severity == 'debug'
+       			   	   else 'DEBUG' if fds_log_severity == 'io'
+       			   	   else 'INFO' if fds_log_severity == 'normal'
+       			   	   else 'INFO' if fds_log_severity == 'notification'
+       			   	   else 'WARN' if fds_log_severity == 'warning'
+       			   	   else 'ERROR' if fds_log_severity == 'error'
+       			   	   else 'FATAL' if fds_log_severity == 'critical'
+				   else 'INFO'
+%}
 {#
 #}
 {% block content %}{% endblock %}

@@ -323,10 +323,10 @@ function stopApp() {
 function startInfluxDB() {
     local ret=0
     sudo service influxdb status 2>&1 >> /dev/null
-    if [ $? != 0 ]; then
+    if [[ $? -ne 0 ]]; then
         sudo service influxdb start 2>&1 >> /dev/null
         ret=$?
-        if [ $ret != 0 ]; then
+        if [[ $ret -ne 0 ]]; then
             logwarn "Failed to start InfluxDB"
         fi
     fi
@@ -336,10 +336,10 @@ function startInfluxDB() {
 function stopInfluxDB() {
     local ret=0
     sudo service influxdb status 2>&1 >> /dev/null
-    if [ $? == 0 ]; then
+    if [[ $? == 0 ]]; then
         sudo service influxdb stop 2>&1 >> /dev/null
         ret=$?
-        if [ $ret != 0 ]; then
+        if [[ $ret -ne 0 ]]; then
             logwarn "Failed to stop InfluxDB"
         fi
     fi
@@ -353,7 +353,7 @@ function cleanInfluxDB() {
     local isRunning=$?
 
     ## if it is not running, start it.
-    if [ $isRunning != 0 ]; then
+    if [[ $isRunning -ne 0 ]]; then
         loginfo "Starting InfluxDB for clean"
         startInfluxDB
         sleep 5
@@ -362,7 +362,7 @@ function cleanInfluxDB() {
     loginfo "cleaning up InfluxDB databases"
     for db in om-eventdb om-metricdb; do
         local out=$(curl -s --write-out ":%{http_code}" -X DELETE "http://localhost:8086/db/$db?u=root&p=root")
-        if [ $? != 0 ]; then
+        if [[ $? -ne 0 ]]; then
             logwarn InfluxDB Request failed: $out
         fi
         local msg=$(echo $out | cut -d : -f 1)
@@ -375,7 +375,7 @@ function cleanInfluxDB() {
     done
 
     ## if influx was NOT running originally, stop it again.
-    if [ $isRunning != 0 ]; then
+    if [[ $isRunning -ne 0 ]]; then
         loginfo "Stopping InfluxDB"
         stopInfluxDB
     fi

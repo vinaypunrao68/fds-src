@@ -184,6 +184,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void deleteSubscriptionName(const std::string& subName, const int64_t tenantID, const bool dematerialize) {};
     void deleteSubscriptionID(const int64_t subID, const bool dematerialize) {};
 
+    virtual void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return, const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) {};
+    virtual int64_t getDiskCapacityNode(const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) { return 0; };
     // stubs to keep cpp compiler happy - END
 
     /**
@@ -1963,6 +1965,77 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             // TODO(Greg)
         }
     };
+
+    void getAllNodeInfo(std::vector< ::FDS_ProtocolInterface::SvcInfo> & _return) {
+
+        std::vector<fpi::SvcInfo> svcInfos;
+        bool success = om->getConfigDB()->getSvcMap( svcInfos );
+        if (success && svcInfos.size() > 0) {
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    _return.push_back(svcInfo);
+                }
+            }
+        } else {
+            LOGERROR << "Failed to retrieve Service Map";
+            apiException("Failed to retrieve Service Map");
+        }
+    }
+
+    void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return,
+                      boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+        std::vector<fpi::SvcInfo> svcInfos;
+        getAllNodeInfo(svcInfos);
+        for (fpi::SvcInfo svcInfo : svcInfos) {
+            if ( svcInfo.svc_id.svc_uuid == *nodeUuid ) {
+                _return = svcInfo;
+                return;
+            }
+        }
+
+        apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
+    }
+
+    int64_t getDiskCapacityNode(boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+        fpi::SvcInfo *svcInfo = nullptr;
+        getNodeInfo(*svcInfo, nodeUuid);
+
+        if (svcInfo == nullptr) {
+            apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
+        }
+
+        return std::stol(svcInfo->props.at("disk_capacity")) + std::stol(svcInfo->props.at("ssd_capacity"));
+
+    }
+
+    std::string getNodeUuidString(fpi::SvcUuid* nodeUuid) {
+        std::stringstream nodeUuidStr;
+        nodeUuidStr << std::hex << nodeUuid->svc_uuid << std::dec;
+        return nodeUuidStr.str();
+    }
+
+    int64_t getDiskCapacityTotal() {
+        int64_t total = 0;
+        std::vector<fpi::SvcInfo> svcInfos;
+        bool success = om->getConfigDB()->getSvcMap( svcInfos );
+        if (success && svcInfos.size() > 0) {
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    total += std::stol(svcInfo.props.at("disk_capacity"));
+                    total += std::stol(svcInfo.props.at("ssd_capacity"));
+                }
+            }
+
+            return total;
+        } else {
+            LOGERROR << "Failed to retrieve Service Map";
+            apiException("Failed to retrieve Service Map");
+        }
+        return -1;
+    };
+
 };
 }  // namespace apis
 

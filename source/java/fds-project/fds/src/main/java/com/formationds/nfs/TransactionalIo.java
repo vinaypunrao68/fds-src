@@ -4,6 +4,7 @@ import com.formationds.apis.ObjectOffset;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -74,7 +75,12 @@ public class TransactionalIo {
         ObjectKey objectKey = new ObjectKey(domain, volume, blobName, objectOffset);
 
         synchronized (objectLock(objectKey)) {
-            ByteBuffer buffer = io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize);
+            ByteBuffer buffer = null;
+            try {
+                buffer = io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize);
+            } catch (FileNotFoundException e) {
+                buffer = ByteBuffer.allocate(objectSize);
+            }
             Map<String, String> metadata;
             synchronized (metaLock(metaKey)) {
                 metadata = io.readMetadata(domain, volume, blobName).orElse(new HashMap<>());
