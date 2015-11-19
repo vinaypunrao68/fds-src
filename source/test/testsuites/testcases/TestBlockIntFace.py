@@ -190,12 +190,13 @@ class TestBlockDetachVolume(TestCase.FDSTestCase):
 # writing block data.
 #
 class TestBlockFioSeqW(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, volume=None):
+    def __init__(self, parameters=None, volume=None, expect_failure=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_BlockFioWrite,
                                              "Writing a block volume")
         self.passedVol = volume
+        self.expectFailure = expect_failure
 
     def test_BlockFioWrite(self):
         """
@@ -231,7 +232,11 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
                  (nbd_device, verify_fatal)
         status = om_node.nd_agent.exec_wait(fioCmd)
 
-        if status != 0:
+        if self.expectFailure:
+            if status == 0:
+                self.log.error("Expected to fail to run write workload with status.")
+                return False
+        elif status != 0:
             self.log.error("Failed to run write workload with status %s." % status)
             return False
 

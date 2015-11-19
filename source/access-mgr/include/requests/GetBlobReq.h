@@ -17,9 +17,6 @@ struct GetBlobReq: public AmMultiReq {
     fds_bool_t get_metadata;
 
     fds_bool_t metadata_cached;
-    // TODO(bszmyd): Mon 23 Mar 2015 02:59:55 AM PDT
-    // Take this out when we support transactions.
-    fds_bool_t retry { false };
 
     // IDs used to provide a consistent read across objects
     std::vector<ObjectID::ptr> object_ids;

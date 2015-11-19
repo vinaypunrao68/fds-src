@@ -288,6 +288,14 @@ fds_threadpool::~fds_threadpool()
 
 }
 
+void fds_threadpool::stop()
+{
+    if (use_lftp_instead) {
+        lfthreadpool->stop();
+    } else {
+        GLOGWARN << "STOP NOT IMPLMENTED BY fds_threadpool.  Consider using LFThreadpool";
+    }
+}
 
 /** \fds_threadpool::schedule
  * --------------------------

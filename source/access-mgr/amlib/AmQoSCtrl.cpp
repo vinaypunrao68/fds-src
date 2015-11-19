@@ -74,9 +74,10 @@ bool WaitQueue::empty() const {
 
 AmQoSCtrl::AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, CommonModuleProviderIf* provider, fds_log *log)
     : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH"),
-      volTable(new AmVolumeTable(provider, GetLog())),
+      AmDataProvider(nullptr, new AmVolumeTable(this, provider, GetLog())),
       wait_queue(new WaitQueue())
 {
+    volTable = dynamic_cast<AmVolumeTable*>(getNextInChain());
     total_rate = 200000;
     if (FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET == dispatchAlgo) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
@@ -107,10 +108,11 @@ AmQoSCtrl::updateQoS(long int const* rate, float const* throttle) {
 void
 AmQoSCtrl::execRequest(FDS_IOType* io) {
     auto amReq = static_cast<AmRequest*>(io);
+    LOGDEBUG << "Executing request: 0x" << std::hex << amReq->io_req_id;
     switch (amReq->io_type) {
         /* === Volume operations === */
         case fds::FDS_ATTACH_VOL:
-            volTable->openVolume(amReq);
+            AmDataProvider::openVolume(amReq);
             break;
 
         case fds::FDS_DETACH_VOL:
@@ -122,42 +124,42 @@ AmQoSCtrl::execRequest(FDS_IOType* io) {
                       completeRequest(amReq, ERR_OK); \
                       return;);
 
-            volTable->getVolumeMetadata(amReq);
+            AmDataProvider::getVolumeMetadata(amReq);
             break;
 
         case fds::FDS_SET_VOLUME_METADATA:
             fiu_do_on("am.uturn.processor.setVolMetadata",
                       completeRequest(amReq, ERR_OK); \
                       return;);
-            volTable->setVolumeMetadata(amReq);
+            AmDataProvider::setVolumeMetadata(amReq);
             break;
 
         case fds::FDS_STAT_VOLUME:
             fiu_do_on("am.uturn.processor.statVol",
                       completeRequest(amReq, ERR_OK); \
                       return;);
-            volTable->statVolume(amReq);
+            AmDataProvider::statVolume(amReq);
             break;
 
         case fds::FDS_VOLUME_CONTENTS:
-            volTable->volumeContents(amReq);
+            AmDataProvider::volumeContents(amReq);
             break;
 
         /* == Tx based operations == */
         case fds::FDS_ABORT_BLOB_TX:
-            volTable->abortBlobTx(amReq);
+            AmDataProvider::abortBlobTx(amReq);
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:
-            volTable->commitBlobTx(amReq);
+            AmDataProvider::commitBlobTx(amReq);
             break;
 
         case fds::FDS_DELETE_BLOB:
-            volTable->deleteBlob(amReq);
+            AmDataProvider::deleteBlob(amReq);
             break;
 
         case fds::FDS_SET_BLOB_METADATA:
-            volTable->setBlobMetadata(amReq);
+            AmDataProvider::setBlobMetadata(amReq);
             break;
 
         case fds::FDS_START_BLOB_TX:
@@ -165,7 +167,7 @@ AmQoSCtrl::execRequest(FDS_IOType* io) {
                       completeRequest(amReq, ERR_OK); \
                       return;);
 
-            volTable->startBlobTx(amReq);
+            AmDataProvider::startBlobTx(amReq);
             break;
 
 
@@ -175,25 +177,31 @@ AmQoSCtrl::execRequest(FDS_IOType* io) {
                       completeRequest(amReq, ERR_OK); \
                       return;);
 
-            volTable->getBlob(amReq);
+            AmDataProvider::getBlob(amReq);
             break;
 
         case fds::FDS_STAT_BLOB:
-            volTable->statBlob(amReq);
+            AmDataProvider::statBlob(amReq);
             break;
 
         case fds::FDS_PUT_BLOB:
+            fiu_do_on("am.uturn.processor.putBlob",
+                      completeRequest(amReq, ERR_OK); \
+                      return;);
+            AmDataProvider::putBlob(amReq);
+            break;
+
         case fds::FDS_PUT_BLOB_ONCE:
             // We piggy back this operation with some runtime conditions
             fiu_do_on("am.uturn.processor.putBlob",
                       completeRequest(amReq, ERR_OK); \
                       return;);
 
-            volTable->putBlob(amReq);
+            AmDataProvider::putBlobOnce(amReq);
             break;
 
         case fds::FDS_RENAME_BLOB:
-            volTable->renameBlob(amReq);
+            AmDataProvider::renameBlob(amReq);
             break;
 
         default :
@@ -207,19 +215,19 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
-    LOGDEBUG << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void { execRequest(io); }, io);
     return ERR_OK;
 }
 
 
 void startSHDispatcher(AmQoSCtrl *qosctl) {
-    if (qosctl && qosctl->htb_dispatcher) {
-        qosctl->htb_dispatcher->dispatchIOs();
+    if (qosctl && qosctl->dispatcher) {
+        qosctl->dispatcher->dispatchIOs();
     }
 }
 
-void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const& error) {
+void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     if (0 != amReq->enqueue_ts) {
         markIODone(amReq);
     }
@@ -241,7 +249,7 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const& error) {
 
 void AmQoSCtrl::init(processor_cb_type const& cb) {
     processor_cb = cb;
-    volTable->init([this] (AmRequest* amReq, Error const& error) mutable -> void { completeRequest(amReq, error); });
+    AmDataProvider::start();
     dispatcherThread.reset(new std::thread(startSHDispatcher, this));
 }
 
@@ -301,35 +309,18 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
     return err;
 }
 
-Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
-    Error err(ERR_OK);
+void
+AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
     auto queue = getQueue(volDesc.volUUID);
-    if (!queue) {
-        if (volDesc.isSnapshot()) {
-            GLOGDEBUG << "Volume is a snapshot : [0x" << std::hex << volDesc.volUUID << "]";
-            queue = getQueue(volDesc.qosQueueId);
-        }
-        if (!queue) {
-            queue = new FDS_VolumeQueue(4096,
-                                        volDesc.iops_throttle,
-                                        volDesc.iops_assured,
-                                        volDesc.relativePrio);
-            err = htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
-            if (ERR_OK != err && ERR_DUPLICATE != err) {
-                LOGERROR << "Volume failed to register : [0x"
-                    << std::hex << volDesc.volUUID << "]"
-                    << " because: " << err;
-                delete queue;
-            } else {
-                queue->activate();
-                err = ERR_OK;
-            }
-        }
-    }
-
-    if (ERR_OK == err) {
-        err = volTable->registerVolume(volDesc);
+    if (!queue && !volDesc.isSnapshot()) {
+        queue = new FDS_VolumeQueue(4096,
+                                    volDesc.iops_throttle,
+                                    volDesc.iops_assured,
+                                    volDesc.relativePrio);
+        htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
+        queue->activate();
+        AmDataProvider::registerVolume(volDesc);
     }
 
     // Search the queue for the first attach we find.
@@ -338,23 +329,17 @@ Error AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // we find we process it (to cause volumeOpen to start), and remove
     // it from the queue...but only the first.
     wait_queue->remove_if(volDesc.name,
-                          [this, err, &vol_desc = volDesc, found = false]
+                          [this, &vol_desc = volDesc, found = false]
                           (AmRequest* amReq) mutable -> bool {
                               if (!found && FDS_ATTACH_VOL == amReq->io_type) {
                                   auto volReq = static_cast<AttachVolumeReq*>(amReq);
-                                  if (err.ok()) {
-                                      volReq->setVolId(vol_desc.volUUID);
-                                      volTable->openVolume(amReq);
-                                      found = true;
-                                  } else {
-                                      processor_cb(amReq, err);
-                                  }
-                                  return true;
+                                  volReq->setVolId(vol_desc.volUUID);
+                                  AmDataProvider::openVolume(amReq);
+                                  found = true;
+                                  return found;
                               }
                               return false;
                           });
-
-    return err;
 }
 
 void
@@ -366,12 +351,12 @@ AmQoSCtrl::detachVolume(AmRequest *amReq) {
         return completeRequest(amReq, ERR_NOT_READY);
     }
 
-    removeVolume(vol->voldesc->name, vol->voldesc->volUUID);
+    removeVolume(*vol->voldesc);
     completeRequest(amReq, ERR_OK);
 }
 
 Error
-AmQoSCtrl::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
+AmQoSCtrl::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
     Error err(ERR_OK);
 
     err = volTable->modifyVolumePolicy(vol_uuid, vdesc);
@@ -384,29 +369,20 @@ AmQoSCtrl::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc) {
     return err;
 }
 
-
-fds_uint32_t AmQoSCtrl::waitForWorkers() {
-    return 1;
-}
-
 /*
  * Removes volume from the map, returns error if volume does not exist
  */
 Error
-AmQoSCtrl::removeVolume(std::string const& volName, fds_volid_t const volId) {
-    htb_dispatcher->deregisterQueue(volId.get());
+AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
+    htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
 
     /** Drain any wait queue into as any Error */
-    wait_queue->remove_if(volName,
+    wait_queue->remove_if(volDesc.name,
                           [this] (AmRequest* amReq) {
                               processor_cb(amReq, ERR_VOL_NOT_FOUND);
                               return true;
                           });
-
-    // Remove the volume from the caches (if there is one)
-    volTable->removeVolume(volId);
-
-    return ERR_OK;
+    return AmDataProvider::removeVolume(volDesc);
 }
 
 Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
@@ -420,7 +396,7 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     }
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
 
-    if (invalid_vol_id == amReq->io_vol_id || (vol && !vol->access_token)) {
+    if (invalid_vol_id == amReq->io_vol_id) {
         /**
          * If the volume id is invalid, we haven't attached to it yet just queue
          * the request, hopefully we'll get an attach.
@@ -447,7 +423,7 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
                 amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 wait_queue->delay(amReq);
             }
-            err = volTable->attachVolume(amReq->volume_name);
+            err = AmDataProvider::retrieveVolDesc(amReq->volume_name);
             if (ERR_NOT_READY == err) {
                 // We don't have domain tables yet...just reject.
                 // Drain any wait queue into as an Error
@@ -471,36 +447,16 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
 }
 
 bool
-AmQoSCtrl::stop() {
+AmQoSCtrl::shutdown() {
     if (htb_dispatcher->num_outstanding_ios == 0 && wait_queue->empty()) {
         // Close all attached volumes before finishing shutdown
         for (auto const& vol : volTable->getVolumes()) {
-          removeVolume(vol->voldesc->name, vol->voldesc->volUUID);
+          removeVolume(*vol->voldesc);
         }
         return true;
     }
-    volTable->stop();
+    AmDataProvider::stop();
     return false;
-}
-
-Error
-AmQoSCtrl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
-    return volTable->updateDlt(dlt_type, dlt_data, cb);
-}
-
-Error
-AmQoSCtrl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
-    return volTable->updateDmt(dmt_type, dmt_data, cb);
-}
-
-Error
-AmQoSCtrl::getDMT() {
-    return volTable->getDMT();
-}
-
-Error
-AmQoSCtrl::getDLT() {
-    return volTable->getDLT();
 }
 
 }  // namespace fds

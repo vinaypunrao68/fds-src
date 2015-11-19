@@ -452,24 +452,12 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNORMAL << "SM received first DLT after restart, which matched "
-                  << "its persistent state, will start full resync of DLT tokens";
-
-        // Start the resync process
-        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
-        } else {
-            // not doing resync, making all DLT tokens ready
-            migrationMgr->notifyDltUpdate(curDlt,
-                                          curDlt->getNumBitsForToken(),
-                                          getUuid());
-            // pretend we successfully started resync, return success
-            err = ERR_OK;
-        }
+        // not doing resync, making all DLT tokens ready
+        migrationMgr->notifyDltUpdate(curDlt,
+                                      curDlt->getNumBitsForToken(),
+                                      getUuid());
+        // pretend we successfully started resync, return success
+        err = ERR_OK;
     } else if (err.ok()) {
         if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
             // we only care about DLT which contains this SM
@@ -705,6 +693,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier useTier = diskio::maxTier;
 
     fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
@@ -721,7 +710,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         err = objectStore->putObject(volId,
                                      objId,
                                      boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
-                                     putReq->forwardedReq);
+                                     putReq->forwardedReq, useTier);
 
         qosCtrl->markIODone(*putReq);
 
@@ -742,6 +731,10 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         }
     }
 
+    if (!err.ok()) {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, useTier, err);
+    }
     putReq->response_cb(err, putReq);
 }
 
@@ -891,8 +884,10 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
         // a shared ptr structure so that we can directly store that, even
         // after the network message is freed.
         getReq->getObjectNetResp->data_obj = *objData;
+    } else {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, tierUsed, err);
     }
-
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     // end of ObjectStore layer latency
