@@ -44,8 +44,15 @@ DmMigrationMgr::~DmMigrationMgr()
 void
 DmMigrationMgr::mod_shutdown()
 {
-   if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -668,6 +675,9 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
