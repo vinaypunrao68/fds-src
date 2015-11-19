@@ -231,7 +231,7 @@ void Volume::sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPt
     auto pullEntriesMsg = fpi::SyncPullLogEntriesMsgPtr(new fpi::SyncPullLogEntriesMsg); 
     pullEntriesMsg->groupId = volId_.get();
     pullEntriesMsg->startCommitId = opInfo_.appliedCommitId;
-    pullEntriesMsg->endCommitId = syncInfo->syncpointCommitId;
+    pullEntriesMsg->endCommitId = syncInfo->group.lastCommitId;
 
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeerUuid);

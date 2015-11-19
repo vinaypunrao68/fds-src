@@ -23,8 +23,26 @@ struct VolumeReplicaHandle {
         appliedCommitId(VolumeGroupConstants::COMMITSTARTID)
     {
     }
+    inline static bool isFunctional(const fpi::VolumeState& s)
+    {
+        return s == fpi::VolumeState::VOLUME_FUNCTIONAL;
+    }
+    inline static bool isSyncing(const fpi::VolumeState& s)
+    {
+        return s == fpi::VolumeState::VOLUME_QUICKSYNC_CHECK;
+    }
+    inline static bool isNonFunctional(const fpi::VolumeState& s)
+    {
+        return s == fpi::VolumeState::VOLUME_DOWN;
+    }
     inline bool isFunctional() const {
-        return state == fpi::VolumeState::VOLUME_FUNCTIONAL;
+        return isFunctional(state);
+    }
+    inline bool isSyncing() const {
+        return isSyncing(state);
+    }
+    inline bool isNonFunctional() const {
+        return isNonFunctional(state);
     }
     void setInfo(const fpi::VolumeState &state, int64_t opId, int64_t commitId)
     {
@@ -34,7 +52,7 @@ struct VolumeReplicaHandle {
     }
 
     fpi::SvcUuid            svcUuid;
-    int                     state;
+    fpi::VolumeState        state;
     Error                   lastError;
     /* Last succesfully applied operation id */
     int64_t                 appliedOpId;
@@ -75,6 +93,9 @@ struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
 };
 
 struct VolumeGroupHandle : HasModuleProvider {
+    using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
+    using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
+
     explicit VolumeGroupHandle(CommonModuleProviderIf* provider,
                                const fpi::VolumeGroupInfo &groupInfo);
 
@@ -93,6 +114,7 @@ struct VolumeGroupHandle : HasModuleProvider {
             invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
         });
     }
+
     template<class MsgT>
     void sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                        SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
@@ -103,11 +125,16 @@ struct VolumeGroupHandle : HasModuleProvider {
         });
     }
 
+    virtual void handleAddToVolumeGroupMsg(
+        const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+        const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
+
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const fpi::VolumeIoHdr &hdr,
                                       const Error &inStatus,
-                                      Error &outStatus);
-    std::vector<fpi::SvcUuid> getFunctionReplicaSvcUuids() const;
+                                      Error &outStatus,
+                                      uint8_t &successAcks);
+    std::vector<fpi::SvcUuid> getIoReadySvcUuids() const;
 
  protected:
     template<class MsgT, class ReqT>
@@ -125,19 +152,18 @@ struct VolumeGroupHandle : HasModuleProvider {
         LOGNOTIFY << fds::logString(req->volumeIoHdr_);
         req->invoke();
     }
+    Error changeVolumeReplicaState_(const fpi::AddToVolumeGroupCtrlMsg& update);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
+    fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
-    VolumeReplicaHandle* getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
-#if 0
-    void sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
-                                      const StringPtr &payload,
-                                      const VolumeResponseCb &cb);
-#endif
+    VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
+    VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::VolumeState& s);
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
-    std::vector<VolumeReplicaHandle>    functionalReplicas_;
-    std::vector<VolumeReplicaHandle>    nonfunctionalReplicas_;
+    VolumeReplicaHandleList             functionalReplicas_;
+    VolumeReplicaHandleList             nonfunctionalReplicas_;
+    VolumeReplicaHandleList             syncingReplicas_;
     int64_t                             groupId_;
     fpi::VolumeGroupVersion             version_;
     int64_t                             opSeqNo_;

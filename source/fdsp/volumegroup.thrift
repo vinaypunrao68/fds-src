@@ -9,6 +9,17 @@ namespace java com.formationds.protocol.replica
 typedef i32             VolumeGroupVersion
 typedef i64             VolumeGroupId
 
+enum VolumeState {
+    VOLUME_UNINIT,
+    VOLUME_INITING,
+    VOLUME_FUNCTIONAL,
+    VOLUME_NONFUNCTIONAL_BEGIN,
+    VOLUME_DOWN,
+    VOLUME_QUICKSYNC_CHECK,
+    VOLUME_QUICKSYNC_INPROGRESS,
+    VOLUME_NONFUNCTIONAL_END
+}
+
 /* Header that must be part of every replica group io request */
 struct VolumeIoHdr {
     1: required VolumeGroupVersion		version;
@@ -29,8 +40,12 @@ struct VolumeIoHdr {
 struct VolumeGroupInfo {
     1: required VolumeGroupId			groupId;
     2: required VolumeGroupVersion		version;
-    3: list<svc_types.SvcUuid>			functionalReplicas;
-    4: list<svc_types.SvcUuid>			nonfunctionalReplicas;
+    /* Current coordinator op id */
+    3: i64					lastOpId;
+    /* Current coordinator commit id */
+    4: i64					lastCommitId;
+    5: list<svc_types.SvcUuid>			functionalReplicas;
+    6: list<svc_types.SvcUuid>			nonfunctionalReplicas;
 }
 
 /* Message to update information about a replica group */
@@ -42,29 +57,17 @@ struct VolumeGroupInfoUpdateCtrlMsg {
  * the group
  */
 struct AddToVolumeGroupCtrlMsg {
-    1: required VolumeGroupId		groupId;
-    2: required svc_types.SvcUuid	svcUuid;
-    3: required i64			lastCommitId;
+    1: VolumeState			targetState;
+    2: required VolumeGroupId		groupId;
+    3: required svc_types.SvcUuid	svcUuid;
     4: required i64			lastOpId;
+    5: required i64			lastCommitId;
 }
 
 /* Response message from Volumegroup coordinator to replica */
 struct AddToVolumeGroupRespCtrlMsg {
-    /* Upto what commit the replica is missing */
-    1: required i64			syncpointCommitId;
     /* Current replica group */
-    2: required VolumeGroupInfo		group;
-}
-
-enum VolumeState {
-    VOLUME_UNINIT,
-    VOLUME_INITING,
-    VOLUME_FUNCTIONAL,
-    VOLUME_NONFUNCTIONAL_BEGIN,
-    VOLUME_DOWN,
-    VOLUME_QUICKSYNC_CHECK,
-    VOLUME_QUICKSYNC_INPROGRESS,
-    VOLUME_NONFUNCTIONAL_END
+    1: required VolumeGroupInfo		group;
 }
 
 /* Notification from replica to any entitiy in the domain of the current state */

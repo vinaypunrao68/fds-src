@@ -15,6 +15,7 @@ struct AmProcess : SvcProcess {
     void attachVolume(const fpi::VolumeGroupInfo &groupInfo);
     void putBlob(const fds_volid_t &volId);
     void putBlob(const fds_volid_t &volId, const VolumeResponseCb &cb);
+    SHPTR<VolumeGroupHandle> getVolumeHandle(const fds_volid_t &volId);
     int run() override;
 
  protected:

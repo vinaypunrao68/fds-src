@@ -4,6 +4,25 @@
 #include <net/SvcRequestPool.h>
 
 namespace fds {
+
+#define NONE_RET
+
+#define ASSERT_SYNCHRONIZED()
+
+#define INVALID_REAPLICA_HANDLE() functionalReplicas_.end()
+
+#define GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, ret__) \
+    auto volumeHandle__ = getVolumeReplicaHandle_(svcUuid__); \
+    do { \
+    if (volumeHandle__ == INVALID_REAPLICA_HANDLE()) { \
+        LOGWARN << "Failed to lookup replica handle for: " << svcUuid__.svc_uuid; \
+        return ret__; \
+    } \
+    } while (false)
+
+#define GET_VOLUMEREPLICA_HANDLE(volumeHandle__, svcUuid__) \
+        GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
+
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
     out << " version: " << h.version
@@ -44,24 +63,44 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 }
 
+void VolumeGroupHandle::handleAddToVolumeGroupMsg(
+    const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+    const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb)
+
+{
+    runSynchronized([this, addMsg, cb]() mutable {
+        auto err = changeVolumeReplicaState_(*addMsg);
+        auto respMsg = MAKE_SHARED<fpi::AddToVolumeGroupRespCtrlMsg>();
+        respMsg->group = getGroupInfoForExternalUse_();
+        cb(err, respMsg);
+    });
+}
+
 void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                              const fpi::VolumeIoHdr &hdr,
                                              const Error &inStatus,
-                                             Error &outStatus)
+                                             Error &outStatus,
+                                             uint8_t &successAcks)
 {
+    ASSERT_SYNCHRONIZED();
+
     outStatus = inStatus;
 
     GLOGNOTIFY << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
         << fds::logString(hdr) << inStatus;
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
-    if (volumeHandle->isFunctional()) {
+    if (volumeHandle->isFunctional() ||
+        volumeHandle->isSyncing()) {
         if (inStatus == ERR_OK) {
             fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
             fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
                        volumeHandle->appliedCommitId+1 == hdr.commitId);
             volumeHandle->appliedOpId = hdr.opId;
             volumeHandle->appliedCommitId = hdr.commitId;
+            if (volumeHandle->isFunctional()) {
+                successAcks++;
+            }
         } else {
             volumeHandle->state = fpi::VolumeState::VOLUME_DOWN;
             volumeHandle->lastError = inStatus;
@@ -78,19 +117,81 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
     }
 }
 
-std::vector<fpi::SvcUuid> VolumeGroupHandle::getFunctionReplicaSvcUuids() const
+std::vector<fpi::SvcUuid> VolumeGroupHandle::getIoReadySvcUuids() const
 {
     std::vector<fpi::SvcUuid> svcUuids;   
     for (const auto &r : functionalReplicas_) {
         svcUuids.push_back(r.svcUuid);
     }
+    for (const auto &r : syncingReplicas_) {
+        svcUuids.push_back(r.svcUuid);
+    }
     return svcUuids;
+}
+
+VolumeGroupHandle::VolumeReplicaHandleList&
+VolumeGroupHandle::getVolumeReplicaHandleList_(const fpi::VolumeState& s)
+{
+    if (VolumeReplicaHandle::isFunctional(s)) {
+        return functionalReplicas_;
+    } else if (VolumeReplicaHandle::isSyncing(s)) {
+        return syncingReplicas_;
+    } else {
+        fds_verify(VolumeReplicaHandle::isNonFunctional(s));
+        return nonfunctionalReplicas_;
+    }
+}
+
+Error VolumeGroupHandle::changeVolumeReplicaState_(
+    const fpi::AddToVolumeGroupCtrlMsg& update)
+{
+    GET_VOLUMEREPLICA_HANDLE_RETURN(srcItr, update.svcUuid, ERR_INVALID);
+    LOGNORMAL << " Incoming update: " << fds::logString(update)
+        << " handler: " << *srcItr;
+
+    auto srcState = srcItr->state;
+
+    fds_verify(VolumeReplicaHandle::isSyncing(update.targetState));
+
+    if (VolumeReplicaHandle::isSyncing(update.targetState)) {
+        srcItr->setInfo(update.targetState, opSeqNo_, commitNo_);
+    }
+
+    /* Move the handle from the appropriate replica list */
+    auto &srcList = getVolumeReplicaHandleList_(srcState);
+    auto &dstList = getVolumeReplicaHandleList_(update.targetState);
+    auto dstItr = std::move(srcItr, srcItr+1, std::back_inserter(dstList));
+    srcList.erase(srcItr, srcItr+1);
+
+    // LOGNORMAL << " After update handler: " << dstList.back();
+    return ERR_OK;
+}
+
+fpi::VolumeGroupInfo VolumeGroupHandle::getGroupInfoForExternalUse_()
+{
+    fpi::VolumeGroupInfo groupInfo; 
+    groupInfo.groupId = groupId_;
+    groupInfo.version = version_;
+    groupInfo.lastOpId = opSeqNo_;
+    groupInfo.lastCommitId = commitNo_;
+    for (const auto &replica : functionalReplicas_) {
+        groupInfo.functionalReplicas.push_back(replica.svcUuid); 
+    }
+    for (const auto &replica : nonfunctionalReplicas_) {
+        groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
+    }
+    for (const auto &replica : syncingReplicas_) {
+        groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
+    }
+    return groupInfo;
 }
 
 void VolumeGroupHandle::setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo)
 {
     groupId_ = groupInfo.groupId;
     version_ = groupInfo.version;
+    opSeqNo_ = groupInfo.lastOpId;
+    commitNo_ = groupInfo.lastCommitId;
     functionalReplicas_.clear();
     for (const auto &svcUuId : groupInfo.functionalReplicas) {
         functionalReplicas_.push_back(VolumeReplicaHandle(svcUuId));
@@ -109,19 +210,20 @@ void VolumeGroupHandle::setVolumeIoHdr_(fpi::VolumeIoHdr &hdr)
     hdr.commitId = commitNo_;
 }
 
-VolumeReplicaHandle* VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid)
+VolumeGroupHandle::VolumeReplicaHandleItr
+VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid)
 {
-    for (auto &h : functionalReplicas_) {
-        if (h.svcUuid == svcUuid) {
-            return &h;
-        }
+#define CHECKIN(__list) \
+    for (auto itr = __list.begin(); itr != __list.end(); itr++) { \
+        if (itr->svcUuid == svcUuid) { \
+            return itr; \
+        } \
     }
-    for (auto &h : nonfunctionalReplicas_) {
-        if (h.svcUuid == svcUuid) {
-            return &h;
-        }
-    }
-    return nullptr;
+    
+    CHECKIN(functionalReplicas_);
+    CHECKIN(nonfunctionalReplicas_);
+    CHECKIN(syncingReplicas_);
+    return INVALID_REAPLICA_HANDLE();
 }
 
 #if 0
@@ -142,7 +244,7 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
                                          const SvcRequestId &id,
                                          const fpi::SvcUuid &myEpId,
                                          VolumeGroupHandle *groupHandle)
-: MultiEpSvcRequest(provider, id, myEpId, 0, groupHandle->getFunctionReplicaSvcUuids()),
+: MultiEpSvcRequest(provider, id, myEpId, 0, groupHandle->getIoReadySvcUuids()),
     groupHandle_(groupHandle),
     nAcked_(0),
     nSuccessAcked_(0)
@@ -194,14 +296,13 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     groupHandle_->handleVolumeResponse(header->msg_src_uuid,
                                        volumeIoHdr_,
                                        header->msg_code,
-                                       outStatus);
-    if (outStatus == ERR_OK) {
-        ++nSuccessAcked_;
-        if (responseCb_) {
-            responseCb_(ERR_OK, payload); 
-            responseCb_ = 0;
-        }
-    } else {
+                                       outStatus,
+                                       nSuccessAcked_);
+    if (nSuccessAcked_ > 0 && responseCb_) {
+        responseCb_(ERR_OK, payload); 
+        responseCb_ = 0;
+    }
+    if (outStatus != ERR_OK) {
         GLOGWARN << "Volume response: " << fds::logString(*header)
             << " outstatus: " << outStatus;
     }

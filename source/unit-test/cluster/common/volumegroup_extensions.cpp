@@ -18,4 +18,14 @@ std::string logString(const fpi::StartTxMsg& msg) {
     return logString(getVolumeIoHdrRef(msg));
 }
 
+std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg) {
+    std::stringstream ss;
+    ss << " targetState: " << msg.targetState
+        << " groupId: " << msg.groupId
+        << " svcUuid: " << msg.svcUuid.svc_uuid
+        << " lastOpId: " << msg.lastOpId
+        << " lastCommitId: " << msg.lastCommitId;
+    return ss.str();
+}
+
 }  // namespace fds

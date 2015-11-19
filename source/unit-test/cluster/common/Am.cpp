@@ -8,11 +8,48 @@
 
 namespace fds {
 
+struct AmHandler : PlatNetSvcHandler {
+    explicit AmHandler(AmProcess* amProc)
+        : PlatNetSvcHandler(amProc),
+        am(amProc)
+    {
+        initHandlers();
+    }
+    void initHandlers()
+    {
+        REGISTER_FDSP_MSG_HANDLER(fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
+    }
+    template<class T>
+    void responseCb(fpi::AsyncHdrPtr asyncHdr,
+                    const Error &e,
+                    fpi::FDSPMsgTypeId &msgType,
+                    SHPTR<T> payload) {
+        asyncHdr->msg_code = e.GetErrno();
+        sendAsyncResp(*asyncHdr, msgType, *payload);
+    }
+    void addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                          fpi::AddToVolumeGroupCtrlMsgPtr& addMsg)
+    {
+        fds_volid_t volId(addMsg->groupId);
+        am->getVolumeHandle(volId)->handleAddToVolumeGroupMsg(
+            addMsg,
+            [this, asyncHdr](const Error& e,
+                             const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
+                asyncHdr->msg_code = e.GetErrno();
+                sendAsyncResp(*asyncHdr,
+                              FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
+                              *payload);
+            });
+    }
+    AmProcess *am;
+};
+
+
 AmProcess::AmProcess(int argc, char *argv[], bool initAsModule)
 {
     txId_ = 0;
 
-    auto handler = boost::make_shared<PlatNetSvcHandler>(this);
+    auto handler = boost::make_shared<AmHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     init(argc, argv, initAsModule, "platform.conf",
          "fds.am.", "am.log", nullptr, handler, processor);
@@ -67,6 +104,11 @@ void AmProcess::attachVolume(const fpi::VolumeGroupInfo &groupInfo)
     /* Only one volhanle supported */
     fds_verify(!volHandle_);
     volHandle_.reset(new VolumeGroupHandle(this, groupInfo));
+}
+
+SHPTR<VolumeGroupHandle> AmProcess::getVolumeHandle(const fds_volid_t &volId)
+{
+    return volHandle_;
 }
 
 int AmProcess::run() {

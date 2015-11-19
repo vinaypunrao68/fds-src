@@ -27,6 +27,7 @@
 #define TYPE_SHAREDPTR(T) typedef boost::shared_ptr<T> ptr
 #define SHPTR boost::shared_ptr
 #define SHPTR_CAST(T, ptr_) boost::static_pointer_cast<T>(ptr_)
+#define MAKE_SHARED boost::make_shared
 
 #ifndef DONTLOGLINE
 #define _ATLINE_ << "[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
