@@ -101,8 +101,6 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/StatVolumeReq.h
     ./access-mgr/include/requests/VolumeContentsReq.h
     ./access-mgr/include/AccessMgr.h
-    ./access-mgr/include/AmAsyncDataApi.h
-    ./access-mgr/include/AmAsyncDataApi_impl.h
     ./access-mgr/include/AmAsyncResponseApi.h
     ./access-mgr/include/AmCache.h
     ./access-mgr/include/AmDispatcher.h
@@ -220,37 +218,7 @@ set(SOURCE_FILES
     ./include/S3Client.h
     ./include/StatTypes.h
     ./include/Tracebuffer.h
-./include/apis/AmService.cpp
-./include/apis/AmService.h
-./include/apis/AmService_server.skeleton.cpp
-./include/apis/AsyncAmServiceRequest.cpp
-./include/apis/AsyncAmServiceRequest.h
-./include/apis/AsyncAmServiceRequest_server.skeleton.cpp
-./include/apis/AsyncAmServiceResponse.cpp
-./include/apis/AsyncAmServiceResponse.h
-./include/apis/AsyncAmServiceResponse_server.skeleton.cpp
-./include/apis/ConfigurationService.cpp
-./include/apis/ConfigurationService.h
-./include/apis/ConfigurationService_server.skeleton.cpp
-./include/apis/Streaming.cpp
-./include/apis/Streaming.h
-./include/apis/Streaming_server.skeleton.cpp
-./include/apis/apis_constants.cpp
-./include/apis/apis_constants.h
-./include/apis/apis_types.cpp
-./include/apis/apis_types.h
-./include/apis/common_constants.cpp
-./include/apis/common_constants.h
-./include/apis/common_types.cpp
-./include/apis/common_types.h
-./include/apis/fds_stream_constants.cpp
-./include/apis/fds_stream_constants.h
-./include/apis/fds_stream_types.cpp
-./include/apis/fds_stream_types.h
-./include/apis/snapshot_constants.cpp
-./include/apis/snapshot_constants.h
-./include/apis/snapshot_types.cpp
-./include/apis/snapshot_types.h
+
 ./include/blob/BlobTypes.h
 ./include/cache/KvCache.h
 ./include/cache/SharedKvCache.h
