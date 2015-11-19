@@ -38,7 +38,7 @@ KODIR="${SOURCEDIR}/fds_client/blk_dev"
 RABBITDIR="/opt/fds-stats-deps/embedded/bin"
 STATSDIR="/opt/fds-stats/embedded"
 
-########################################################################
+#######################################################################
 
 REDIS_ARG=
 
@@ -224,7 +224,7 @@ function startApp() {
     case ${appname} in
         stats|all|rabbitmq)
             loginfo "Starting RabbitMQ server..."
-            ${RABBITDIR}/rabbitmq-server start &
+            PATH=$PATH:${RABBITDIR} rabbitmq-server start &
 	    loginfo "Starting stats service..."
             ${STATSDIR}/scripts/fds-stats-service &
             ;;
@@ -299,7 +299,7 @@ function stopApp() {
     # Stop the stats service and rabbitmq
     case "$appname" in
         stats|rabbitmq|all)
-            ${RABBITDIR}/rabbitmqctl -q stop >> /dev/null
+            PATH=$PATH:${RABBITDIR} rabbitmqctl -q stop >> /dev/null
             ;;
     esac
 

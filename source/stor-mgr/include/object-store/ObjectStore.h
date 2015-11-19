@@ -181,7 +181,8 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error putObject(fds_volid_t volId,
                     const ObjectID &objId,
                     boost::shared_ptr<const std::string> objData,
-                    fds_bool_t forwardedIO);
+                    fds_bool_t forwardedIO,
+                    diskio::DataTier &useTier);
 
     /**
      * Gets an specific object for a volume. The object's data

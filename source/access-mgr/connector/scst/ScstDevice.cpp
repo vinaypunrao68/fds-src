@@ -183,6 +183,8 @@ void ScstDevice::execAllocCmd() {
 
     // Allocate a page aligned memory buffer for Scst usage
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
+    // This is mostly to shutup valgrind
+    memset((void*) fast_reply.alloc_reply.pbuf, 0x00, length);
     fastReply();
 }
 
@@ -258,6 +260,7 @@ void ScstDevice::execUserCmd() {
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+        memset((void*) buffer, 0x00, scsi_cmd.alloc_len);
         task->setResponseBuffer(buffer, false);
     } else {
         task->setResponseBuffer(buffer, true);
@@ -834,9 +837,6 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
 
 void
 ScstDevice::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
-
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
         if (fpi::OK != scst_response->getError()) {
@@ -846,9 +846,6 @@ ScstDevice::respondTask(BlockTask* response) {
             fds_uint32_t i = 0, context = 0;
             boost::shared_ptr<std::string> buf = scst_response->getNextReadBuffer(context);
             while (buf != NULL) {
-                LOGDEBUG << "Handle 0x" << std::hex << scst_response->getHandle()
-                         << "...Size 0x" << buf->length() << "B"
-                         << "...Buffer # " << std::dec << context;
                 memcpy(buffer + i, buf->c_str(), buf->length());
                 i += buf->length();
                 buf = scst_response->getNextReadBuffer(context);
