@@ -128,6 +128,9 @@ void SvcProcess::start_modules()
 
 void SvcProcess::shutdown_modules()
 {
+    LOGNOTIFY << "Stopping timer";
+    timer_servicePtr_->destroy();
+
     LOGNOTIFY << "Shuttingdown modules";
     mod_vectors_->mod_stop_services();
     mod_vectors_->mod_shutdown_locksteps();
@@ -136,8 +139,6 @@ void SvcProcess::shutdown_modules()
     LOGNOTIFY << "Stopping server";
     svcMgr_->stopServer();
 
-    LOGNOTIFY << "Stopping timer";
-    timer_servicePtr_->destroy();
 
     LOGNOTIFY << "Stopping threadpool";
     proc_thrp->stop();

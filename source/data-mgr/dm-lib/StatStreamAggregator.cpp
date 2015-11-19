@@ -274,7 +274,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
                                            DataMgr& dataManager)
         : Module(name),
           dataManager_(dataManager),
-          process_tm_(new FdsTimer()),
+          process_tm_(MODULEPROVIDER()->getTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -342,7 +342,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
 }
 
 StatStreamAggregator::~StatStreamAggregator() {
-    process_tm_->destroy();
+    
 }
 
 int StatStreamAggregator::mod_init(SysParams const *const param)
