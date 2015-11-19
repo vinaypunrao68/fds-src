@@ -18,6 +18,7 @@ import time
 import logging
 import shlex
 import random
+import shutil
 import re
 import os
 import fdslib.platformservice as plat_svc

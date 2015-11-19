@@ -19,6 +19,7 @@ import javax.security.auth.Subject;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -26,16 +27,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class BlockyVfs implements VirtualFileSystem, AclCheckable {
-    public static final String DOMAIN = "nfs";
     private static final Logger LOG = Logger.getLogger(BlockyVfs.class);
     private InodeMap inodeMap;
-    private InodeAllocator allocator;
+    private PersistentCounter allocator;
     private InodeIndex inodeIndex;
     private ExportResolver exportResolver;
     private SimpleIdMap idMap;
     private ExecutorService executor;
     private Chunker chunker;
     private final Counters counters;
+
+    public static final String DOMAIN = "nfs";
+    public static final long MIN_FILE_ID = 256;
+    public static final String FILE_ID_WELL = "file-id-well";
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
         IoOps ops = RecoveryHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
@@ -45,7 +49,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
         TransactionalIo txs = new TransactionalIo(ops);
         inodeMap = new InodeMap(txs, resolver);
-        allocator = new InodeAllocator(txs);
+        allocator = new PersistentCounter(txs, FILE_ID_WELL, MIN_FILE_ID, false);
         this.exportResolver = resolver;
         inodeIndex = new SimpleInodeIndex(txs, resolver);
         idMap = new SimpleIdMap();
@@ -82,7 +86,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         String volume = exportResolver.volumeName(parent.exportIndex());
-        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.allocate(volume), inodeMap.volumeId(parent))
+        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.increment(volume))
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
@@ -95,7 +99,14 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public FsStat getFsStat() throws IOException {
-        return new FsStat(1024l * 1024l * 1024l * 1024l, 0, 0, 0);
+        long totalFiles = 0;
+        long usedBytes = 0;
+        Collection<String> volumes = exportResolver.exportNames();
+        for (String volume : volumes) {
+            usedBytes += inodeMap.usedBytes(volume);
+            totalFiles += inodeMap.usedFiles(volume);
+        }
+        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedBytes, totalFiles);
     }
 
     @Override
@@ -119,11 +130,11 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
                     Sets.newHashSet(),
                     Sets.newHashSet());
 
-            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, InodeAllocator.START_VALUE, exportId)
+            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, MIN_FILE_ID)
                     .withUpdatedAtime()
                     .withUpdatedCtime()
                     .withUpdatedMtime()
-                    .withLink(InodeAllocator.START_VALUE, ".");
+                    .withLink(MIN_FILE_ID, ".");
 
             Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode(exportId));
             if (!statResult.isPresent()) {
@@ -218,7 +229,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedSource = sourceMetadata.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = linkMetadata.get()
-                .withoutLink(inodeMap.fileId(source))
+                .withoutLink(inodeMap.fileId(source), oldName)
                 .withLink(inodeMap.fileId(destination), newName);
 
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
@@ -286,7 +297,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
 
         InodeMetadata updatedLink = link.get()
-                .withoutLink(inodeMap.fileId(parentInode));
+                .withoutLink(inodeMap.fileId(parentInode), path);
 
 
         inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
@@ -318,11 +329,17 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        InodeMetadata updated = inodeMap.write(inode, data, offset, count);
-        inodeIndex.index(inode.exportIndex(), true, updated);
-        counters.increment(Counters.Key.write);
-        counters.increment(Counters.Key.bytesWritten, count);
-        return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        InodeMetadata updated = null;
+        try {
+            updated = inodeMap.write(inode, data, offset, count);
+            inodeIndex.index(inode.exportIndex(), true, updated);
+            counters.increment(Counters.Key.write);
+            counters.increment(Counters.Key.bytesWritten, count);
+            return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        } catch (IOException e) {
+            LOG.error("Error writing inode " + updated.getFileId(), e);
+            throw e;
+        }
     }
 
     @Override

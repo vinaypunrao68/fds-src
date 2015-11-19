@@ -18,7 +18,7 @@ class LocalDomainService( AbstractService ):
         domains = self.get_local_domains()
         
         for domain in domains:
-            if domain.id == domain_id:
+            if int(domain.id) == int(domain_id):
                 return domain
             
         return None

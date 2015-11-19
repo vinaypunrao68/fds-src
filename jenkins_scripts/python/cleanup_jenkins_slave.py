@@ -18,7 +18,9 @@ whitelist = [
         ['su', '-'],
         ['/usr/bin/python', 'jenkins_scripts/python/cleanup_jenkins_slave.py'],
         ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh'],
-        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted']
+        ['/bin/bash', '-l', 'jenkins_scripts/long_system_test.sh'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_on_master_commit']
 ]
 
 # Be very careful adding stuff here - if you add 'java' you will

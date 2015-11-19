@@ -41,6 +41,8 @@ void UpdateCatalogOnceHandler::handleRequest(
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
     auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,
@@ -181,7 +183,19 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 void UpdateCatalogOnceHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                      boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                                      Error const& e, DmRequest* dmRequest) {
-    delete dmRequest;
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 
 }  // namespace dm

@@ -39,7 +39,7 @@ class Disk:
 ## Public member functions
 ## -----------------------
     # Parse the disk information
-    def __init__(self, path, virtualized, sdb_non_os):
+    def __init__(self, path, virtualized, is_os_disk):
         assert path != None
         assert re.match(Disk.DSK_PREFIX, path)
 
@@ -49,16 +49,7 @@ class Disk:
         self.dsk_formatted = 'Unknown'
         self.dsk_index_use = False
         self.dsk_bus = Disk.DISK_BUS_NA
-
-        if path == '/dev/sda':
-            self.dsk_os_use = True
-        elif path == '/dev/sdb':
-            if sdb_non_os:
-                self.dsk_os_use = False
-            else:
-                self.dsk_os_use = True
-        else:
-            self.dsk_os_use = False
+        self.dsk_os_use = is_os_disk
 
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
@@ -100,12 +91,12 @@ class Disk:
 
     # get all Disk objects in the system, including the boot device(s)
     @staticmethod
-    def sys_disks(virtualized, sdb_non_os):
+    def sys_disks (virtualized, os_device_list):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path()
 
         for path in path_list:
-            disk = Disk(path, virtualized, sdb_non_os)
+            disk = Disk (path, virtualized, path in os_device_list)
             dev_list.append(disk)
 
         return dev_list
@@ -146,14 +137,14 @@ class Disk:
         dev = re.split('/', path)
         assert len(dev) == 3
         fp = open('/sys/block/' + dev[2] + '/queue/rotational', 'r')
-        rotation = fp.read().strip()
+        rotation = int (fp.read().strip())
         fp.close()
 
-        if rotation == '0':                    # SSD
-            self.dsk_typ = Disk.DSK_TYP_SSD
-        elif rotation > '6000':                # HDD
+        if virtualized:                        # Virtualized, treat as HDD's, can tune in the config file if desired
             self.dsk_typ = Disk.DSK_TYP_HDD
-        elif virtualized:                      # Virtualized treated as HDD's, can tune in the config file
+        elif rotation == 0:                  # SSD
+            self.dsk_typ = Disk.DSK_TYP_SSD
+        elif rotation > 0:                   # HDD
             self.dsk_typ = Disk.DSK_TYP_HDD
                                                # else this device is on a hardware controller,
                                                # so leave the dsk_typ set to the default UKN (unknown)
@@ -184,6 +175,44 @@ def debug_dump (devlist):
     print "==========="
     for disk in devlist:
         disk.print_disk()
+
+def discover_os_devices ():
+    '''
+    Auto discover the OS disks
+
+    returns:
+        A list of devices that are used by the OS
+    '''
+
+    os_device_list = []
+    root_device = ""
+
+    output = subprocess.Popen(["df", "/"], stdout=subprocess.PIPE).stdout
+
+    for line in output:
+        items = line.strip ('\r\n').split()
+        if "/" == items[5]:
+            root_device = items[0]
+
+    if 0 == len(root_device):
+        print "Unable to find the root file system in 'df' output.  Can not continue."
+        sys.exit(1)
+
+    if "/dev/md" in root_device:
+        call_list = ['mdadm', '--detail', root_device]
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            if "/dev/sd" in line:
+                items = line.strip ('\r\n').split()
+                os_device=items[6].rstrip('0123456789')
+                if os_device not in os_device_list:
+                    os_device_list.append (os_device)
+    else:
+        os_device = root_device.rstrip('0123456789')
+        if os_device not in os_device_list:
+            os_device_list.append (os_device)
+
+    return os_device_list
 
 def disk_type_with_stor_cli (stor_client):
     '''
@@ -268,11 +297,10 @@ if __name__ == "__main__":
     # Parse command line options
     parser = optparse.OptionParser("usage: %prog [options]")
 
-    parser.add_option('-f', '--fds-root', dest = 'fds_root', default='/fds', help = 'Path to fds-root')
-    parser.add_option('-s', '--stor', dest = 'stor_cli', default='/usr/local/MegaRAID Storage Manager/StorCLI/storcli64', help = 'Full path and file name of the StorCli binary')
-    parser.add_option('-n', '--sdb-non-os', dest = 'sdb_non_os', action = 'store_true', default=False, help = 'Treat /dev/sdb as a non OS device.  Use this when using hardware raid1 for the OS drive or a single OS drive device.')
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
-    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs and disables checking for storage controller tools')
+    parser.add_option('-f', '--fds-root', dest = 'fds_root', default='/fds', help = 'Path to fds-root')
+    parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
+    parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
 
     (options, args)   = parser.parse_args()
@@ -285,7 +313,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # verify stor_cli setting is good
-    if not options.virtual:
+    if options.stor_cli:
         if not os.access (options.stor_cli, os.X_OK):
             print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
             sys.exit(1)
@@ -298,42 +326,46 @@ if __name__ == "__main__":
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
 
+    os_device_list = discover_os_devices()
+
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')
     sys.stdout.flush()
     dbg_print ('')
 
-    dev_list = Disk.sys_disks(options.virtual, options.sdb_non_os)
+    dev_list = Disk.sys_disks (options.virtual, os_device_list)
 
-    sys.stdout.write ("Complete")
+    sys.stdout.write ("Complete ")
     sys.stdout.flush()
 
     controller_disk_list = []   # List of disk types attached via add-in controllers
 
-    for disk in dev_list:
-        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-            sys.stdout.write ("  Phase 2:   ")
-            sys.stdout.flush()
-            dbg_print ('')
+    if options.stor_cli:
+        for disk in dev_list:
+            if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
+                sys.stdout.write ("  Phase 2:   ")
+                sys.stdout.flush()
+                dbg_print ('')
 
-            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+                controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
 
-            sys.stdout.write ("Complete")
-            sys.stdout.flush()
+                sys.stdout.write ("Complete")
+                sys.stdout.flush()
 
-            break
+                break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
         if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-            if len(controller_disk_list) > 0:
+            print disk.get_type(), disk.get_path()
+            if len (controller_disk_list) > 0:
                 disk.dsk_typ = controller_disk_list.pop(0)
                 if disk.dsk_typ == Disk.DSK_TYP_HDD:
                     disk.set_bus (controller_disk_list.pop(0))
             else:
                 # devices exist in /dev/sd* that can't be identified.
-                print ( "Error:  Identified but unknown type devices remain, but are not known to controller cards.  Can not continue.")
+                print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
                 #debug_dump (dev_list)
                 sys.exit(1)
 
@@ -365,7 +397,7 @@ if __name__ == "__main__":
                 hdd_device_list.append (disk.get_path())
 
     if len (ssd_device_list) + len (hdd_device_list) < 2:
-        print "Error:  At least 2 devices usable as data storage must be present.  Found %d device(s).  Perhaps --sdb-non-os can be used?  Can not continue." % (len (ssd_device_list) + len (hdd_device_list))
+        print "Error:  At least 2 devices usable as data storage must be present.  Found %d device(s).  Can not continue." % (len (ssd_device_list) + len (hdd_device_list))
         sys.exit(1)
 
     # reverse these two lists -- pop() works from the tail of the list

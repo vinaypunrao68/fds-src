@@ -5,5 +5,5 @@ import java.util.Map;
 import java.util.Optional;
 
 public interface MetadataMapper<T> {
-    public T map(Optional<Map<String, String>> metadata) throws IOException;
+    public T map(String blobName, Optional<Map<String, String>> metadata) throws IOException;
 }

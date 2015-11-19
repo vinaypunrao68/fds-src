@@ -562,7 +562,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
-
     LOGDEBUG << "vol:" << vol_name
              << " snap:" << vdesc->isSnapshot()
              << " state:" << vdesc->getState()
@@ -586,7 +585,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     // do this processing only in the case..
-    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) {
+    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
         VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
@@ -966,9 +965,7 @@ int DataMgr::mod_init(SysParams const *const param)
     // timeline feature toggle
     features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
             "fds.dm.enable_timeline", true));
-    if (features.isTimelineEnabled()) {
-        timelineMgr.reset(new timeline::TimelineManager(this));
-    }
+    timelineMgr.reset(new timeline::TimelineManager(this));
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
@@ -1037,6 +1034,18 @@ DataMgr::~DataMgr()
     // shutdown all data manager modules
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
+
+    dmMigrationMgr.reset();
+
+    for (auto it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        delete it->second;
+    }
+    vol_meta_map.clear();
+    delete sysTaskQueue;
+    delete vol_map_mtx;
+    delete qosCtrl;
 }
 
 int DataMgr::run()
@@ -1172,6 +1181,8 @@ void DataMgr::flushIO()
 
 void DataMgr::mod_shutdown()
 {
+    /* NOTE: DON'T DELETE ANY OBJECTES HERE.  DO ALL THE DELETIONS INSIDE DESTRUCTORS */
+
     // Don't double-free.
     {
         // The expected goofiness is due to c_e_s() setting "expected" to the current value if it
@@ -1208,14 +1219,10 @@ void DataMgr::mod_shutdown()
          it++) {
         //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
-        delete it->second;
     }
-    vol_meta_map.clear();
 
     qosCtrl->deregisterVolume(FdsDmSysTaskId);
-    delete sysTaskQueue;
-    delete vol_map_mtx;
-    delete qosCtrl;
+    qosCtrl->threadPool->stop();
 
     _shutdownGate.open();
 }

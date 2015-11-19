@@ -52,7 +52,6 @@ class DMMain : public SvcProcess
     virtual int run()
     {
         int retval = _dm->run();
-        _dm.reset();
 
         _shutdownGate.waitUntilOpened();
 

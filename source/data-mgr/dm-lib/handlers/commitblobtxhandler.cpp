@@ -44,6 +44,8 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     auto dmReq = new DmIoCommitBlobTx(volId,
                                       message->blob_name,
                                       message->blob_version,
@@ -120,7 +122,7 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
         return;
     }
 
-    meta_list->moveToFdspPayload(commitBlobReq->rspMsg.meta_list);
+    meta_list->toFdspPayload(commitBlobReq->rspMsg.meta_list);
     commitBlobReq->rspMsg.byteCount = blobSize;
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
@@ -133,6 +135,20 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // DM resources
     helper.markIoDone();
 
+    /**
+     * There are 2 cases here:
+     * 1.
+     * Per AM design, it will ensure that when a new DMT version is published, it will first
+     * finish all open transaction on the current, DMT before switching over to the new DMT.
+     * Because of this, the new DM (executor) will not receive any active I/O.
+     * 2.
+     * In the case of a DM communication error, the AM reports the DM down to OM, the OM
+     * then marks the DM inactive and publishes a new service map marking the DM as inactive.
+     * It then publishes a new DMT version, where if the DM (executor) was a primary, demotes
+     * it to a secondary. The resync then happens per case 1.
+     * Once the Resync is completed, a new service map is then published (this may need to be
+     * fixed due to the need for atomicity for new DMT + new service map in one shot).
+     */
     // do forwarding if needed and commit was successful
     fds_volid_t volId(commitBlobReq->volId);
 	if (!(dataManager.features.isTestModeEnabled()) &&
@@ -142,6 +158,11 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 
 		commitBlobReq->usedForMigration = true;
+
+        // Respond to AM before we forward
+        helper.skipImplicitCb = true;
+        commitBlobReq->cb(helper.err, commitBlobReq);
+
 		helper.err = dataManager.dmMigrationMgr->forwardCatalogUpdate(volId,
 																	  commitBlobReq,
 																	  blob_version,
@@ -173,7 +194,19 @@ void CommitBlobTxHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& async
 void CommitBlobTxHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                          	 	boost::shared_ptr<fpi::CommitBlobTxMsg>& message,
 												Error const& e, DmRequest* dmRequest) {
-    delete dmRequest;
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 }  // namespace dm
 }  // namespace fds
