@@ -1086,6 +1086,7 @@ class OM_NodeDomainMod : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
+    void raiseAbortMigrationEvt(NodeUuid uuid);
     /**
      * Apply an event to domain state machine
      */
@@ -1106,6 +1107,7 @@ class OM_NodeDomainMod : public Module
     Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
     void removeRegisteredSvc(int64_t uuid);
 
+    void removeNodeComplete(NodeUuid uuid);
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1124,6 +1126,10 @@ class OM_NodeDomainMod : public Module
                                      std::vector<fpi::SvcInfo>* smSvcs,
                                      std::vector<fpi::SvcInfo>* dmSvcs );
     void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
+    void isAnySvcPendingRemoval( std::vector<fpi::SvcInfo>* smSvcs,
+                                  std::vector<fpi::SvcInfo>* dmSvcs);
+     void handlePendingSvcRemoval( std::vector<fpi::SvcInfo> smSvcs,
+                                  std::vector<fpi::SvcInfo> dmSvcs);
     
 
     fds_bool_t                       om_test_mode;

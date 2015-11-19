@@ -1828,6 +1828,40 @@ OM_PmAgent::send_remove_service
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
 
+    fpi::SvcUuid svcuuid;
+    {
+    fds_mutex::scoped_lock l(dbNodeInfoLock);
+    // the agent is already NULL
+    if (remove_sm) {
+        fds::retrieveSvcId(node_uuid.uuid_get_val(), svcuuid, fpi::FDSP_STOR_MGR);
+        // assumption being made that svcID is the same as the node id !!
+        DLT::addToRemoveList(svcuuid.svc_uuid);
+
+        change_service_state( configDB,
+                              svcuuid.svc_uuid,
+                              fpi::SVC_STATUS_REMOVED,
+                              true);
+    }
+    if (remove_dm) {
+        fds::retrieveSvcId(node_uuid.uuid_get_val(), svcuuid, fpi::FDSP_DATA_MGR);
+        DLT::addToRemoveList(svcuuid.svc_uuid);
+
+        change_service_state( configDB,
+                              svcuuid.svc_uuid,
+                              fpi::SVC_STATUS_REMOVED,
+                              true );
+    }
+    if (remove_am) {
+
+        fds::retrieveSvcId(node_uuid.uuid_get_val(), svcuuid, fpi::FDSP_ACCESS_MGR);
+        DLT::addToRemoveList(svcuuid.svc_uuid);
+        change_service_state( configDB,
+                              svcuuid.svc_uuid,
+                              fpi::SVC_STATUS_REMOVED,
+                              true );
+
+    }
+    }
     err = domain->om_del_services(node_uuid,
                                   get_node_name(),
                                   remove_sm,
@@ -1841,8 +1875,8 @@ OM_PmAgent::send_remove_service
                         << std::dec << ", result: " << err.GetErrstr();
     }
 
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
-
+    //cm->addPendingRmService(svc.svc_type, node_uuid);
+    /*
     std::vector<fpi::SvcInfo>::iterator iter;
     if (remove_sm)
     {
@@ -1887,7 +1921,7 @@ OM_PmAgent::send_remove_service
             LOGERROR << "Failed to delete AM from service map for node:"
                      << std::hex << node_uuid << std::dec;
     }
-
+*/
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 

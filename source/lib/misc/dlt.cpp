@@ -18,6 +18,9 @@
  */
 namespace fds {
 
+// Definition of static member
+std::vector<fds_int64_t> DLT::nodeVec;
+
 std::ostream& operator<< (std::ostream &out, const TableColumn& column) {
     out << "Node Group : ";
     for (uint i = 0; i < column.length; i++) {
@@ -198,7 +201,7 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() const {
-    LOGDEBUG << "generating node-token map";
+    LOGDEBUG << "!Generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -206,10 +209,36 @@ void DLT::generateNodeTokenMap() const {
     for (iter = distList->begin(); iter != distList->end(); iter++) {
         const DltTokenGroupPtr& nodeList= *iter;
         for (i = 0; i < depth; i++) {
+            //LOGDEBUG <<"!Pushing to tokenMap for UUID:" << std::hex << nodeList->get(i) << std::dec;
             (*mapNodeTokens)[nodeList->get(i)].push_back(token);
         }
         token++;
     }
+}
+
+void DLT::printNumbersInTokenMap(NodeUuid &uid) const{
+
+
+    TokenList tokenList;
+    NodeTokenMap::const_iterator iter = mapNodeTokens->find(uid);
+
+    if (iter != mapNodeTokens->end()) {
+
+        TokenList::const_iterator tokenIter;
+        NodeUuid curNode = 0;
+        const TokenList& tlist = iter->second;
+
+        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter) {
+
+            curNode = distList->at(*tokenIter)->get(0);
+
+            if (curNode == uid) {
+                //LOGDEBUG << "Add for node:" << std::hex << uid.uuid_get_val() << std::dec;
+                tokenList.push_back(*tokenIter);
+            }
+        }
+    }
+    LOGDEBUG << "!#of Tokens for uuid:" << std::hex << uid.uuid_get_val() << std::dec << " tokens:" << tokenList.size();
 }
 
 // get the Tokens for a given Node
@@ -217,9 +246,11 @@ const TokenList& DLT::getTokens(const NodeUuid &uid) const {
     static TokenList emptyTokenList;
     NodeTokenMap::const_iterator iter = mapNodeTokens->find(uid);
     if (iter != mapNodeTokens->end()) {
+        LOGDEBUG << "!Non empty token";
         return iter->second;
     } else {
         // TODO(prem) : need to revisit this
+        LOGDEBUG << "!Empty mapNodeTokens";
         return emptyTokenList;
     }
 }
@@ -228,15 +259,20 @@ const TokenList& DLT::getTokens(const NodeUuid &uid) const {
 void DLT::getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const {
     NodeTokenMap::const_iterator iter = mapNodeTokens->find(uid);
     if (iter != mapNodeTokens->end()) {
+        LOGDEBUG << "!Non empty token";
         TokenList::const_iterator tokenIter;
         NodeUuid curNode;
         const TokenList& tlist = iter->second;
         for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter) {
+            //LOGDEBUG << "Tokenlist iteration";
             curNode = distList->at(*tokenIter)->get(index);
             if (curNode == uid) {
+                //LOGDEBUG << "Push back for node:" << std::hex << uid.uuid_get_val() << std::dec;
                 tokenList->push_back(*tokenIter);
             }
         }
+    } else {
+        LOGDEBUG <<"!Empty mapNodeTokens";
     }
 }
 
@@ -349,6 +385,8 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
         return ERR_INVALID_DLT;
     }
 
+    LOGDEBUG << "!Depth of DLT:" << depth;
+
     // check each column in DLT
     NodeUuidSet colSet;
     for (fds_token_id i = 0; i < columns; ++i) {
@@ -358,12 +396,18 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DLT;
+                if (!isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DLT cell
+                    LOGERROR << "DLT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DLT;
+                } else {
+                LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val() << std::dec << " marked for removed is present in DLT";
+                //skipThis = true;
+                }
             }
-            colSet.insert(uuid);
+                colSet.insert(uuid);
+
         }
 
         // make sure that column contains all unique uuids
@@ -646,6 +690,50 @@ std::set<fds_token_id> DLT::token_diff(const NodeUuid &uid,
             old_set.begin(), old_set.end(),
             std::insert_iterator<std::set<fds_token_id> >(ret_set, ret_set.end()));
     return ret_set;
+}
+
+
+void DLT::addToRemoveList(fds_int64_t nodeUuid) {
+    DLT::nodeVec.push_back(nodeUuid);
+}
+
+void DLT::clearFromRemoveList(fds_int64_t nodeUuid) {
+    std::vector<fds_int64_t>::iterator iter;
+    iter = std::find_if(DLT::nodeVec.begin(), DLT::nodeVec.end(),
+                        [nodeUuid](fds_int64_t id)->bool
+                        {
+                        return nodeUuid == id;
+                       });
+    if (iter != DLT::nodeVec.end()) {
+        //LOGDEBUG << "Erased SM:" << std::hex << nodeUuid << std::dec
+        //         << "from the remove list";
+        nodeVec.erase(iter);
+    } else {
+        //LOGWARN << "Did not delete SM:" << std::hex
+        //        << nodeUuid << std::dec << "from the dlt remove list";
+    }
+}
+
+bool DLT::isMarkedForRemoval(fds_int64_t nodeUuid) {
+    std::vector<fds_int64_t>::iterator iter;
+    iter = std::find_if(DLT::nodeVec.begin(), DLT::nodeVec.end(),
+                        [nodeUuid](fds_int64_t id)->bool
+                        {
+                        return nodeUuid == id;
+                       });
+    if (iter == DLT::nodeVec.end())
+        return true;
+
+    return false;
+}
+
+bool DLT::isAnyRemovalPending(fds_int64_t& nodeUuid) {
+    if (nodeVec.size() != 0) {
+        nodeUuid = nodeVec.back();
+        return true;
+    }
+
+    return false;
 }
 //================================================================================
 

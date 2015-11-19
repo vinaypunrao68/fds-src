@@ -123,11 +123,13 @@ ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             addedSMs.clear();
+            LOGDEBUG << "!Clearing removed and added SMs";
             removedSMs.clear();
             break;
         case fpi::FDSP_DATA_MGR:
             addedDMs.clear();
             removedDMs.clear();
+            LOGDEBUG << "!Clearing removed and added DMs";
             resyncDMs.clear();
             break;
         default:
@@ -158,13 +160,15 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             removed = curSmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-//            fds_verify(removed == 1);
+
+            LOGDEBUG << "!Adding to removedSMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             removedSMs.insert(uuid);
         } else {
             removed = curDmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-//            fds_verify(removed == 1);
+
+            LOGDEBUG << "!Adding to removedDMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             removedDMs.insert(uuid);
         }
     }
@@ -179,12 +183,14 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             // that already exists
 //            fds_verify(curSmMap.count(uuid) == 0);
             curSmMap[uuid] = (*it);
+            LOGDEBUG << "!Adding to addedSMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             addedSMs.insert(uuid);
         } else {
             // For now, assume it's incorrect to add a node
             // that already exists
             // fds_verify(curDmMap.count(uuid) == 0);
             curDmMap[uuid] = (*it);
+            LOGDEBUG << "!Adding to addedDMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             addedDMs.insert(uuid);
         }
     }

@@ -387,6 +387,7 @@ void
 OM_DLTMod::dlt_deploy_event(DltComputeEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
+    LOGDEBUG << "DLT - process event";
     dlt_dply_fsm->process_event(evt);
 }
 
@@ -490,7 +491,7 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 {
 
     fds_bool_t stop = fsm.lock.test_and_set();
-    LOGDEBUG << "GRD_DltCompute: proceed check if DLT meeds update? " << !stop;
+    LOGDEBUG << "GRD_DltCompute: proceed check if DLT needs update? " << !stop;
     if (stop) {
         // since we don't want to lose this event, retry later just in case
         LOGDEBUG << "GRD_DltCompute: DLT re-compute already in progress, "
@@ -651,11 +652,25 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // persist commited DLT
     dp->persistCommitedTargetDlt();
 
+    // Now print
+    NodeUuidSet smNodes = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
+    LOGDEBUG << "********At the end of commit ******";
+    for (auto uuid : smNodes) {
+        dp->printToks(uuid);
+    }
+
+
     // set all added DMs to ACTIVE state
     NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
     for (auto uuid : addedNodes) {
         OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
         sm_agent->handle_service_deployed();
+    }
+
+    NodeUuidSet removedNodes = cm->getRemovedServices(fpi::FDSP_STOR_MGR);
+
+    for (auto uuid : removedNodes) {
+        domain->removeNodeComplete(uuid);
     }
 
     // once we persisted DLT and set SM states to 'active', we officially
@@ -814,7 +829,15 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
-        dp->undoTargetDltCommit();
+
+        if (!dp->isAbortAfterRestartTrue()) {
+            LOGDEBUG << "!!!@@@SHOULD NOT SEE THIS";
+            dp->undoTargetDltCommit();
+        } else {
+            targetDltVersion = dp->getTargetVersionForAbort();
+            LOGDEBUG << "!!TARGET dlt version is:" << targetDltVersion;
+            //dp->clearAbortParams();
+        }
 
         // we already computed target DLT, so most likely sent start migration msg
         // send abort migration to SMs first, so that we can restart migratino later
@@ -884,6 +907,21 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                     << " SM additions/deletions may be pending for long time!";
         }
     }
+
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+
+    if ( dp->isAbortAfterRestartTrue() ) {
+        LOGDEBUG << "Will try re-compute DLT in a minute, abortMsg has been sent on restart";
+        if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+                                      std::chrono::seconds(60))) {
+            LOGWARN << "Failed to start retry timer for DLT computation"
+                    << " SM additions/deletions may be pending for long time!";
+        }
+
+        dp->clearAbortParams();
+    }
+
 }
 
 // DACT_ChkEndErr

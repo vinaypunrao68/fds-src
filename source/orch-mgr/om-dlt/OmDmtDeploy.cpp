@@ -981,6 +981,8 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    LOGDEBUG << "DACT_UpdDone";
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_Module* om = OM_Module::om_singleton();
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -994,6 +996,12 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     for (auto uuid : addDms) {
         OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(uuid);
         dm_agent->handle_service_deployed();
+    }
+
+    NodeUuidSet removeDms = cm->getRemovedServices(fpi::FDSP_DATA_MGR);
+
+    for (auto uuid : removeDms) {
+        domain->removeNodeComplete(uuid);
     }
 
     // since we accounted for added/removed nodes in DMT, reset pending nodes in

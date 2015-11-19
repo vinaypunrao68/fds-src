@@ -676,9 +676,9 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     // but this is an optimization, may do later
     fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
     if (targetVersion > 0 && targetVersion != committedVersion) {
-        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+        LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DMT and re-compute it again if discovered "
-                  << "SMs re-register";
+                  << "DMs re-register";
         if (!configDB->setDmtType(0, "next")) {
             LOGWARN << "unable to reset target DMT version to config db ";
         }
