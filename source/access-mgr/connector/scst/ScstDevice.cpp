@@ -57,6 +57,9 @@ static constexpr size_t Gi = Ki * Mi;
 static constexpr ssize_t max_block_size = 8 * Mi;
 /// ******************************************
 
+static uint8_t const ieee_oui[] = { 0x88, 0xA0, 0x84 };
+static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
+
 static constexpr bool ensure(bool b)
 { return (!b ? throw fds::BlockError::connection_closed : true); }
 
@@ -183,6 +186,8 @@ void ScstDevice::execAllocCmd() {
 
     // Allocate a page aligned memory buffer for Scst usage
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
+    // This is mostly to shutup valgrind
+    memset((void*) fast_reply.alloc_reply.pbuf, 0x00, length);
     fastReply();
 }
 
@@ -258,6 +263,7 @@ void ScstDevice::execUserCmd() {
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
+        memset((void*) buffer, 0x00, scsi_cmd.alloc_len);
         task->setResponseBuffer(buffer, false);
     } else {
         task->setResponseBuffer(buffer, true);
@@ -310,7 +316,6 @@ void ScstDevice::execUserCmd() {
         }
     case INQUIRY:
         {
-            static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
             size_t buflen = scsi_cmd.bufflen;
             size_t param_cursor = 0ull;
             if (buflen < 4) {
@@ -362,35 +367,7 @@ void ScstDevice::execUserCmd() {
                     param_cursor += sizeof(serial_number) - 1;
                     break;
                 case 0x83: // Device ID
-                    {
-                        /* |                                 PAGE                                  |*/
-                        /* |                                LENGTH                                 |*/
-                        /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-                        /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-                        /* |                                 resv                                  |*/
-                        /* |                          DESIGNATOR LENGTH                            |*/
-                        uint8_t device_id_header [] = {
-                            0,
-                            0,
-                            0x52,       // iSCSI / ASCII
-                            0b10100001, // T10 Vendor ID
-                            0,
-                            0           // ID Length
-                        };
-                        auto const targetName = scst_target->targetName();
-                        if (param_cursor < buflen) {
-                            *reinterpret_cast<uint16_t*>(&device_id_header) = htobe16(targetName.size() + 5);
-                            device_id_header[5] = targetName.size() + 1;
-                            memcpy(&buffer[param_cursor], device_id_header, std::min(buflen - param_cursor, sizeof(device_id_header)));
-                        }
-                        param_cursor += sizeof(device_id_header);
-                        if (param_cursor < buflen) {
-                            memcpy(&buffer[param_cursor],
-                                   targetName.c_str(),
-                                   std::min(buflen - param_cursor - 1, targetName.size()));
-                        }
-                        param_cursor += targetName.size() + 1; // name is null terminated
-                    }
+                    param_cursor += inquiry_page_dev_id(param_cursor, buflen, buffer);
                     break;;
                 default:
                     LOGERROR << "Request for unsupported page code.";
@@ -730,6 +707,91 @@ void ScstDevice::execUserCmd() {
     readyResponses.push(task);
 }
 
+size_t
+ScstDevice::inquiry_page_dev_id(size_t cursor, size_t const buflen, uint8_t* buffer) const {
+    /* |                                 PAGE                                  |*/
+    /* |                                LENGTH                                 |*/
+    auto len_cursor = cursor; // We'll come back and fill this out when we know
+    cursor += 2;
+
+    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+    /* |                                 resv                                  |*/
+    /* |                          DESIGNATOR LENGTH                            |*/
+    uint8_t vendor_specific_id [] = {
+        0x52,       // iSCSI / ASCII
+        0b00000000, // LUN assoc / Vendor Specifc
+        0,
+        0           // ID Length
+    };
+    if (cursor < buflen) {
+        vendor_specific_id[3] = volumeName.size();
+        memcpy(&buffer[cursor],
+               vendor_specific_id,
+               std::min(buflen - cursor, sizeof(vendor_specific_id)));
+    }
+    cursor += sizeof(vendor_specific_id);
+    if (cursor < buflen) {
+        memcpy(&buffer[cursor],
+               volumeName.c_str(),
+               std::min(buflen - cursor, volumeName.size()));
+    }
+    cursor += volumeName.size();
+
+    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+    /* |                                 resv                                  |*/
+    /* |                          DESIGNATOR LENGTH                            |*/
+    uint8_t t10_vendor_id [] = {
+        0x52,       // iSCSI / ASCII
+        0b00000001, // LUN assoc / T10 Vendor ID
+        0,
+        0           // ID Length
+    };
+
+    if (cursor < buflen) {
+        t10_vendor_id[3] = sizeof(vendor_name);
+        memcpy(&buffer[cursor], t10_vendor_id, std::min(buflen - cursor, sizeof(t10_vendor_id)));
+    }
+    cursor += sizeof(t10_vendor_id);
+    if (cursor < buflen) {
+        memcpy(&buffer[cursor],
+               vendor_name,
+               std::min(buflen - cursor, sizeof(vendor_name)));
+    }
+    cursor += sizeof(vendor_name);
+
+    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
+    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
+    /* |                                 resv                                  |*/
+    /* |                          DESIGNATOR LENGTH                            |*/
+    uint8_t naa_vendor_id [] = {
+        0x51,       // iSCSI / Binary
+        0b00000011, // LUN assoc / NAA
+        0,
+        8           // ID Length
+    };
+
+    if (cursor < buflen) {
+        memcpy(&buffer[cursor], naa_vendor_id, std::min(buflen - cursor, sizeof(naa_vendor_id)));
+    }
+    cursor += sizeof(naa_vendor_id);
+    if (cursor < buflen + 8) {
+        // Write Company_Id
+        buffer[cursor] = ((0x5) << 4) | (ieee_oui[0] >> 4);
+        buffer[cursor+1] = (ieee_oui[0] << 4) | (ieee_oui[1] >> 4);
+        buffer[cursor+2] = (ieee_oui[1] << 4) | (ieee_oui[2] >> 4);
+        buffer[cursor+3] = (ieee_oui[2] << 4);
+        // Write Vendor Specific_Id
+        *reinterpret_cast<uint32_t*>(&buffer[cursor+4]) = htobe32((uint32_t)volume_id);
+    }
+    cursor += 8;
+
+    *reinterpret_cast<uint16_t*>(&buffer[len_cursor]) = htobe16(cursor - len_cursor - 2);
+
+    return cursor;
+}
+
 void
 ScstDevice::getAndRespond() {
     cmd.preply = 0ull;
@@ -834,9 +896,6 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
 
 void
 ScstDevice::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
-
     auto scst_response = static_cast<ScstTask*>(response);
     if (scst_response->isRead()) {
         if (fpi::OK != scst_response->getError()) {
@@ -846,9 +905,6 @@ ScstDevice::respondTask(BlockTask* response) {
             fds_uint32_t i = 0, context = 0;
             boost::shared_ptr<std::string> buf = scst_response->getNextReadBuffer(context);
             while (buf != NULL) {
-                LOGDEBUG << "Handle 0x" << std::hex << scst_response->getHandle()
-                         << "...Size 0x" << buf->length() << "B"
-                         << "...Buffer # " << std::dec << context;
                 memcpy(buffer + i, buf->c_str(), buf->length());
                 i += buf->length();
                 buf = scst_response->getNextReadBuffer(context);
@@ -876,7 +932,8 @@ ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     if (volDesc) {
         volume_size = (volDesc->capacity * Mi);
         physical_block_size = volDesc->maxObjSizeInBytes;
-        snprintf(serial_number, sizeof(serial_number), "%.16lX", volDesc->GetID().get());
+        volume_id = volDesc->GetID().get();
+        snprintf(serial_number, sizeof(serial_number), "%.16lX", volume_id);
         LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
             << "B and object size: 0x" << physical_block_size
             << "B with serial: " << serial_number;
