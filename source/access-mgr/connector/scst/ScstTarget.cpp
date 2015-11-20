@@ -19,6 +19,7 @@
 
 #include "connector/scst/ScstTarget.h"
 
+#include <algorithm>
 #include <iterator>
 #include <fstream>
 #include <thread>
@@ -38,7 +39,11 @@ static std::string scst_iscsi_target_mgmt   { "mgmt" };
 static std::string scst_iscsi_cmd_add       { "add_target" };
 static std::string scst_iscsi_cmd_remove    { "del_target" };
 
+static std::string scst_iscsi_ini_path      { "/ini_groups/" };
+static std::string scst_iscsi_ini_mgmt      { "/ini_groups/mgmt" };
 static std::string scst_iscsi_lun_mgmt      { "/luns/mgmt" };
+
+static std::string scst_iscsi_host_mgmt      { "/initiators/mgmt" };
 
 ScstTarget::ScstTarget(std::string const& name, 
                        size_t const followers,
@@ -62,6 +67,9 @@ ScstTarget::ScstTarget(std::string const& name,
     tgt_dev << scst_iscsi_cmd_add << " " << target_name << std::endl;
     tgt_dev.close();
 
+    // Clear any mappings we might have left from before
+    clearMasking();
+
     // Start watching the loop
     evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
@@ -74,23 +82,25 @@ ScstTarget::ScstTarget(std::string const& name,
     asyncWatcher->set<ScstTarget, &ScstTarget::wakeupCb>(this);
     asyncWatcher->start();
 
-    // Just we spawn a leader thread to start this target handling requests
+    // Spawn a leader thread to start this target handling requests
     auto t = std::thread(&ScstTarget::follow, this);
     t.detach();
 }
 
-int32_t
+void
 ScstTarget::addDevice(std::string const& volume_name) {
+    std::unique_lock<std::mutex> l(deviceLock);
+
     // Check if we have a device with this name already
     if (device_map.end() != device_map.find(volume_name)) {
-        GLOGWARN << "Already have a device for volume: [" << volume_name << "]";
-        return -1;
+        GLOGDEBUG << "Already have a device for volume: [" << volume_name << "]";
+        return;
     }
 
     auto processor = amProcessor.lock();
     if (!processor) {
-        GLOGNORMAL << "No processing layer, shutdown.";
-        return -1;
+        GLOGERROR << "No processing layer, shutdown.";
+        return;
     }
 
     // Get the next available LUN number
@@ -99,7 +109,7 @@ ScstTarget::addDevice(std::string const& volume_name) {
                                    [] (device_ptr& p) -> bool { return (!!p); });
     if (lun_table.end() == lun_it) {
         GLOGNOTIFY << "Target [" << target_name << "] has exhausted all LUNs.";
-        return -1;
+        return;
     }
     int32_t lun_number = std::distance(lun_table.begin(), lun_it);
     GLOGDEBUG << "Mapping [" << volume_name
@@ -109,45 +119,121 @@ ScstTarget::addDevice(std::string const& volume_name) {
     try {
     device = new ScstDevice(volume_name, this, processor);
     } catch (ScstError& e) {
-        return -1;
+        return;
     }
 
     lun_it->reset(device);
     device_map[volume_name] = lun_it;
-    {
-        // Wait for device to attach before adding it to the LUN map
-        std::unique_lock<std::mutex> l(lunMapLock);
-        lunsToMap.push_back(lun_number);
-        asyncWatcher->send();
-        lunsMappedCv.wait(l, [this] () -> bool { return lunsToMap.empty(); });
 
-        // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
-        // We can support other target-drivers than iSCSI...TBD
-        // Create an iSCSI target in the SCST mid-ware for our handler
-        std::ofstream lun_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_lun_mgmt,
-                               std::ios::out);
-        if (!lun_mgmt.is_open()) {
-            GLOGERROR << "Could not map lun for [" << device->getName() << "]";
-        }
-        lun_mgmt << "add " + volume_name + " " + std::to_string(lun_number) << std::endl;
-        lun_mgmt.close();
+    devicesToStart.push_back(lun_number);
+    asyncWatcher->send();
+    // Wait for devices to start before continuing
+    deviceStartCv.wait(l, [this] () -> bool { return devicesToStart.empty(); });
+}
+
+void ScstTarget::mapDevices() {
+    // Map the luns to either the security group or default group depending on
+    // whether we have any assigned initiators.
+    std::lock_guard<std::mutex> g(deviceLock);
+    
+    // add to default group
+    auto lun_mgmt_path = (ini_members.empty() ?
+                              (scst_iscsi_target_path + target_name + scst_iscsi_lun_mgmt) :
+                              (scst_iscsi_target_path + target_name + scst_iscsi_ini_path
+                                    + "allowed" + scst_iscsi_lun_mgmt));
+
+    std::ofstream lun_mgmt(lun_mgmt_path, std::ios::out);
+    if (!lun_mgmt.is_open()) {
+        GLOGERROR << "Could not map luns for [" << target_name << "]";
+        return;
     }
-    return lun_number;
+
+    for (auto const& device : device_map) {
+        lun_mgmt << "add " << device.first
+                 << " " << std::distance(lun_table.begin(), device.second)
+                 << std::endl;
+    }
 }
 
 void
-ScstTarget::_mapReadyLUNs() {
+ScstTarget::clearMasking() {
+    GLOGNORMAL << "Clearing initiator mask for: " << target_name;
+    // Remove the security group
     {
-        std::lock_guard<std::mutex> g(lunMapLock);
-        for (auto& lun: lunsToMap) {
+        std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
+                              std::ios::out);
+        if (ini_mgmt.is_open()) {
+            ini_mgmt << "del allowed" << std::endl;
+        }
+    }
+    ini_members.clear();
+}
+
+void
+ScstTarget::setInitiatorMasking(std::vector<std::string> const& new_members) {
+    std::unique_lock<std::mutex> l(deviceLock);
+
+    if (new_members.empty()) {
+        return clearMasking();
+    }
+
+    // Ensure ini group exists
+    {
+        std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
+                              std::ios::out);
+        if (!ini_mgmt.is_open()) {
+            throw ScstError::scst_error;
+        }
+        ini_mgmt << "create allowed" << std::endl;
+    }
+
+    {
+        std::ofstream host_mgmt(scst_iscsi_target_path
+                                   + target_name
+                                   + scst_iscsi_ini_path
+                                   + "allowed"
+                                   + scst_iscsi_host_mgmt,
+                               std::ios::out);
+        if (! host_mgmt.is_open()) {
+            throw ScstError::scst_error;
+        }
+        // For each ini that is no longer in the list, remove from group
+        std::vector<std::string> manip_list;
+        std::set_difference(ini_members.begin(), ini_members.end(),
+                            new_members.begin(), new_members.end(),
+                            std::inserter(manip_list, manip_list.begin()));
+
+        for (auto const& host : manip_list) {
+            host_mgmt << "del " << host << std::endl;
+        }
+        manip_list.clear();
+
+        // For each ini that is new to the list, add to the group
+        std::set_difference(new_members.begin(), new_members.end(),
+                            ini_members.begin(), ini_members.end(),
+                            std::inserter(manip_list, manip_list.begin()));
+        for (auto const& host : manip_list) {
+            host_mgmt << "add " << host << std::endl;
+        }
+
+        ini_members = new_members;
+    }
+}
+
+// Starting the devices has to happen inside the ev-loop
+void
+ScstTarget::startNewDevices() {
+    {
+        std::lock_guard<std::mutex> g(deviceLock);
+        for (auto& lun: devicesToStart) {
             auto& device = lun_table[lun];
 
             // Persist changes in the LUN table and device map
             device->start(evLoop);
         }
-        lunsToMap.clear();
+        devicesToStart.clear();
     }
-    lunsMappedCv.notify_all();
+    deviceStartCv.notify_all();
 }
 
 void
@@ -162,6 +248,7 @@ ScstTarget::toggle_state(bool const enable) {
 
     // Enable target
     if (enable) {
+        mapDevices();
         dev << "1" << std::endl;
     } else { 
         dev << "0" << std::endl;
@@ -173,7 +260,7 @@ ScstTarget::toggle_state(bool const enable) {
 
 void
 ScstTarget::wakeupCb(ev::async &watcher, int revents) {
-    _mapReadyLUNs();
+    startNewDevices();
 }
 
 void

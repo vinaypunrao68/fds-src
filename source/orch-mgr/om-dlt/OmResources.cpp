@@ -692,15 +692,16 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT if any SMs joined";
 
     try {
-        // start cluster update process that will recompute DLT /rebalance /etc
-        // so that we move to DLT that reflects actual nodes that came up
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_Module *om = OM_Module::om_singleton();
         ClusterMap *cm = om->om_clusmap_mod();
         DataPlacement *dp = om->om_dataplace_mod();
 
         if ( dp->isAbortAfterRestartTrue() ) {
+            LOGDEBUG << "OM needs to send abortMigration to all SMs,"
+                     << "prev DLT computation was interrupted";
+
             NodeUuid uuid;
             NodeUuidSet nonFailedSms = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
 
@@ -709,21 +710,23 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             }
 
             if (uuid.uuid_get_val() != 0) {
-
                 LOGDEBUG << "Raising abort migration event from uuid:"
                          << std::hex << uuid.uuid_get_val() << std::dec;
                 domain->raiseAbortMigrationEvt(uuid);
-                //dp->clearAbortFlag();
+            } else {
+                LOGWARN << "No active/up SMs according to clustermap! Did not send abort";
             }
-        } else {
+        }  else {
+            // start cluster update process that will recompute DLT /rebalance /etc
+            // so that we move to DLT that reflects actual nodes that came up
 
-            LOGDEBUG << "!!About to call dlt update cluster";
             domain->om_dlt_update_cluster();
         }
 
         if ( (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size() > 0 ) {
             domain->om_dmt_update_cluster();
         }
+
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_WaitDone :: " << e.what();
@@ -1476,14 +1479,17 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             OM_Module *om = OM_Module::om_singleton();
             DataPlacement *dp = om->om_dataplace_mod();
             VolumePlacement* vp = om->om_volplace_mod();
-            // loadDltsFromConfigDB should set this flag if
-            // we require a restart
-            // we require the target NOT to be unset in this case
-            // because if it is, an errorEvt in the DLT will get ignored
-            // Once we have raised an error causing abort migration, we will
-            // unset the target
+
+            // If OM was in the middle of DLT computation with startMigration
+            // messages sent to the SMs, then OM needs to send out an abort
+            // In the state machine, the DACT_Error does a hasNoTargetDlt()
+            // which checks for a NULL value of newDlt, and returns without action
+            // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
+            // At the end of error handling we will explicitly clear "next" version
+            // and newDlt out as a part of clearAbortParams()
             bool unset = !(dp->isAbortAfterRestartTrue());
             dp->commitDlt( unset );
+
             LOGNOTIFY << "OM deployed DLT with "
                       << deployed_sm_services.size() << " nodes";
 
@@ -3161,6 +3167,20 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
     // if we are in this stage.
     dltMod->dlt_deploy_event(DltCloseOkEvt(dlt_version));
     return err;
+}
+
+void
+OM_NodeDomainMod::raiseAbortMigrationEvt(NodeUuid uuid) {
+
+    LOGDEBUG << "Raising abort migration event from random SM, uuid:"
+             << std::hex << uuid.uuid_get_val() << std::dec;
+
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DLTMod *dltMod = om->om_dlt_mod();
+
+    // tell DLT state machine about abort (error state)
+    dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid,
+                                              Error(ERR_SM_TOK_MIGRATION_ABORTED)));
 }
 
 } // namespace fds

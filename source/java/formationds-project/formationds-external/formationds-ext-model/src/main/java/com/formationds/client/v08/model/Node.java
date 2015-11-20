@@ -222,34 +222,28 @@ public class Node extends AbstractResource<Long> {
     private NodeAddress address;
     private NodeState state;
     private Map<ServiceType, List<Service>> serviceMap;
+    private Size ssdCapacity;
+    private Size diskCapacity;
 
     protected Node() {}
-
-    /**
-     * @param address the node address
-     * @param state the current node state
-     * @param serviceMap the node's current service map
-     */
-    public Node( NodeAddress address, NodeState state,
-                 Map<ServiceType, List<Service>> serviceMap ) {
-        super( null, address.getHostAddress() );
-        this.address = address;
-        this.state = state;
-        this.serviceMap = serviceMap;
-    }
 
     /**
      *
      * @param uid the node unique id
      * @param address the node address
      * @param state the current node state
+     * @param diskCapacity the nodes disk capacity
+     * @param ssdCapacity the node SSD capacity
      * @param services the node's current service map
      */
     public Node( Long uid, NodeAddress address, NodeState state,
+                 Size diskCapacity, Size ssdCapacity,
                  Map<ServiceType, List<Service>> services ) {
         super( uid, address.getHostAddress() );
         this.address = address;
         this.state = state;
+        this.diskCapacity = diskCapacity;
+        this.ssdCapacity = ssdCapacity;
         this.serviceMap = services;
     }
 
@@ -310,5 +304,21 @@ public class Node extends AbstractResource<Long> {
     @Override
     public int hashCode() {
         return Objects.hash( super.hashCode(), address, state, serviceMap );
+    }
+
+    /**
+     *
+     * @return the SSD capacity
+     */
+    public Size getSsdCapacity() {
+        return ssdCapacity;
+    }
+
+    /**
+     *
+     * @return the Disk capacity
+     */
+    public Size getDiskCapacity() {
+        return diskCapacity;
     }
 }

@@ -830,13 +830,17 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
 
-        if (!dp->isAbortAfterRestartTrue()) {
-            LOGDEBUG << "!!!@@@SHOULD NOT SEE THIS";
+        // This flag is set only if OM came up after a restart and found it
+        // was interrupted during a DLT computation. In this case, we do not
+        // want to do undoTarget.. since it resets newDlt/committedDlt values
+        // which have already been set to what they should be in ::loadDltsFromConfigDb.
+        // The "next" version will be cleared out in the clearAbortParams method call
+        // after all this processing is done
+        if ( !dp->isAbortAfterRestartTrue() ) {
             dp->undoTargetDltCommit();
         } else {
             targetDltVersion = dp->getTargetVersionForAbort();
-            LOGDEBUG << "!!TARGET dlt version is:" << targetDltVersion;
-            //dp->clearAbortParams();
+            LOGDEBUG << "Re-setting target DLT version for abort msg to:" << targetDltVersion;
         }
 
         // we already computed target DLT, so most likely sent start migration msg
@@ -908,20 +912,21 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         }
     }
 
-    OM_Module *om = OM_Module::om_singleton();
+    OM_Module *om     = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
 
     if ( dp->isAbortAfterRestartTrue() ) {
-        LOGDEBUG << "Will try re-compute DLT in a minute, abortMsg has been sent on restart";
+
+        LOGDEBUG << "Will try re-compute DLT in a minute, abortMigrationMsg has been sent on restart";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
-                                      std::chrono::seconds(60))) {
+                                     std::chrono::seconds(60))) {
+
             LOGWARN << "Failed to start retry timer for DLT computation"
                     << " SM additions/deletions may be pending for long time!";
         }
 
         dp->clearAbortParams();
     }
-
 }
 
 // DACT_ChkEndErr

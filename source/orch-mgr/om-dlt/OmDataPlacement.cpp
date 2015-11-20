@@ -704,20 +704,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             LOGWARN << "unable to reset DLT target version in configDB";
         }
 
-        /////
-        OM_Module *om = OM_Module::om_singleton();
-        OM_DLTMod *dltMod = om->om_dlt_mod();
-
-        //fds_int64_t nodeUuid;
-        //DLT::isAnyRemovalPending(nodeUuid);
         setAbortParams(true, nextVersion);
-
-        //domain->raiseAbortMigrationEvt(NodeUuid(nodeUuid));
-
-        ///
-        //fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort( currentVersion,
-        //                                                              nextVersion);
-        //LOGNORMAL << "Sent abort migration msgs to " << abortCnt << " SMs";
 
     } else {
         if (0 == nextVersion) {
@@ -731,19 +718,23 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
     return err;
 }
 
-void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
+void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB)
+{
     this->configDB = configDB;
 }
 
-void DataPlacement::setAbortParams(bool abort, fds_int64_t version) {
-    sendMigAbortAfterRestart = true;
-    targetVersionForAbort = version;
+void DataPlacement::setAbortParams(bool abort, fds_int64_t version)
+{
+    sendMigAbortAfterRestart = abort;
+    targetVersionForAbort    = version;
 
 }
 
-void DataPlacement::clearAbortParams() {
+void DataPlacement::clearAbortParams()
+{
     sendMigAbortAfterRestart = false;
-    targetVersionForAbort = 0;
+    targetVersionForAbort    = 0;
+
 
     // We prevented this from being cleared out during om_load_state
     // so do it now
@@ -751,14 +742,15 @@ void DataPlacement::clearAbortParams() {
         LOGWARN << "Failed to unset target DLT in config db";
     }
     newDlt = NULL;
-
 }
 
-bool DataPlacement::isAbortAfterRestartTrue() {
+bool DataPlacement::isAbortAfterRestartTrue()
+{
     return sendMigAbortAfterRestart;
 }
 
-fds_uint64_t DataPlacement::getTargetVersionForAbort() {
+fds_uint64_t DataPlacement::getTargetVersionForAbort()
+{
     return targetVersionForAbort;
 }
 
