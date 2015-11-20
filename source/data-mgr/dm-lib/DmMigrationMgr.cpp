@@ -39,8 +39,20 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -48,7 +60,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
@@ -664,6 +675,9 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
