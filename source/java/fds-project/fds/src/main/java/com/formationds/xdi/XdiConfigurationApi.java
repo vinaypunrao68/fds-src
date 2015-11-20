@@ -10,10 +10,13 @@ import com.formationds.protocol.NotMasterDomain;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -800,7 +803,25 @@ public class XdiConfigurationApi implements ConfigurationApi {
         config.deleteSubscriptionID(subID, dematerialize);
     }
 
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return config.getAllNodeInfo();
+    }
 
+    public SvcInfo getNodeInfo(SvcUuid nodeUuid) throws ApiException,
+            TException {
+        return config.getNodeInfo(nodeUuid);
+    }
+
+	@Override
+	public long getDiskCapacityNode(SvcUuid nodeUuid) throws ApiException, TException {
+		return config.getDiskCapacityNode(nodeUuid);
+	}
+
+	@Override
+	public long getDiskCapacityTotal() throws ApiException, TException {
+		return config.getDiskCapacityTotal();
+	}
+    
     public CachedConfiguration getCache() {
         return fillCacheMaybe();
     }

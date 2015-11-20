@@ -39,8 +39,20 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -48,7 +60,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
@@ -147,7 +158,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               LOGDEBUG << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish(MIGR_EXECUTOR);
 
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
@@ -340,7 +351,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish(MIGR_CLIENT);
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
@@ -573,6 +584,7 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * Just nuke all the clientMap because DMT Close can only happen once all the executors
 			 * have Cb'ed to the OM.
 			 */
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			clientMap.clear();
 			LOGMIGRATE << "Migration clients cleared and state reset";
 		}
@@ -586,9 +598,11 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.
 			 */
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			executorMap.clear();
 		}
 	}
+	migrationCV.notify_one();
 	return err;
 }
 
@@ -661,6 +675,9 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
@@ -695,6 +712,8 @@ DmMigrationMgr::abortMigrationReal()
 				eiter->second->abortMigration();
 				++eiter;
 			}
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
+			fds_verify(migrationAborted);
 			clientMap.clear();
 			executorMap.clear();
 		}
@@ -710,12 +729,7 @@ DmMigrationMgr::abortMigrationReal()
      * another migration was initiated from the OM and are waiting,
      * we need to wake them up now.
      */
-    {
-    	std::lock_guard<std::mutex> lk(migrationAbortMutex);
-    	fds_verify(migrationAborted && !migrationAbortFinished);
-    	migrationAbortFinished = true;
-    }
-    migrationAbortCV.notify_one();
+    migrationCV.notify_one();
 
 }
 
@@ -790,25 +804,27 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 }
 
 void
-DmMigrationMgr::waitForAbortToFinish()
+DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 {
-	LOGMIGRATE << "Waiting for previous migration abort to finish";
-	std::unique_lock<std::mutex> lk(migrationAbortMutex);
-	migrationAbortCV.wait(lk,
-			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
-					(!std::atomic_load(&migrationAborted)));});
-	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
-		// reset state
-		std::atomic_store(&migrationAborted, false);
-		migrationAbortFinished = false;
+    // If executor - wait for the maps to be empty.
+    // If client - only wait for the abort to be done
+	LOGMIGRATE << "Waiting for previous migrations to finish, if there is any.";
+	bool expected = true;
+	if (role == MIGR_EXECUTOR) {
+	    std::unique_lock<std::mutex> lk(migrationBatchMutex);
+	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
 	}
+
+	// If migrationAborted was set true, set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
+	LOGMIGRATE << "Done waiting for previous migrations to finish";
 
     // TODO: can we just use the join in place of the CV?
     if (abort_thread) {
         abort_thread->join();
         abort_thread = nullptr;
     }
-	lk.unlock();
 
     LOGMIGRATE << "Done waiting for previous migration abort to finish";
 }

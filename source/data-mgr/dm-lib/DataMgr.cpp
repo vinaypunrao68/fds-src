@@ -936,7 +936,7 @@ int DataMgr::mod_init(SysParams const *const param)
     sampleCounter = 0;
 
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
-    closedmt_timer = boost::make_shared<FdsTimer>();
+    closedmt_timer = MODULEPROVIDER()->getTimer();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
@@ -1033,8 +1033,6 @@ DataMgr::~DataMgr()
     // shutdown all data manager modules
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
-
-    dmMigrationMgr.reset();
 
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
@@ -1210,8 +1208,11 @@ void DataMgr::mod_shutdown()
         LOGWARN << "catalog sync feature - NOT enabled";
     }
 
+    if (dmMigrationMgr) {
+        dmMigrationMgr->mod_shutdown();
+    }
+
     LOGNORMAL << "Destructing the Data Manager";
-    closedmt_timer->destroy();
 
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
