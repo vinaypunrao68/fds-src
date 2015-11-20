@@ -48,8 +48,6 @@ angular.module( 'statistics' ).factory( '$stats_push_helper', [ function(){
                 var newData = newStatList[i];
                 
                 if ( newData.metricName === statName ){
-                    
-                    console.log( 'Found one: ' + newData.metricName + ': ' + parseInt(newData.metricValue ) );
                     timeSum.sum += parseInt( newData.metricValue );
                     timeSum.itemCount++;
                 }
@@ -58,7 +56,7 @@ angular.module( 'statistics' ).factory( '$stats_push_helper', [ function(){
     };
     
     // Put sums into the correct data series
-    service.injectSumsIntoSeries = function( timeSums, tempStats ){
+    service.injectSumsIntoSeries = function( timeSums, tempStats, averageValues ){
         
         for ( var seriesIt = 0; seriesIt < tempStats.series.length; seriesIt++ ){
             
@@ -69,8 +67,15 @@ angular.module( 'statistics' ).factory( '$stats_push_helper', [ function(){
                 var ourData = timeSums[ourDataIt];
                 
                 if ( inSeries.type === ourData.metricName && ourData.itemCount > 0 ){
-//                    tempStats.series[seriesIt].datapoints.push( { x: (new Date()).getTime(), y: timeSum / numStats } );        
-                    inSeries.datapoints.push( { x: (new Date()).getTime(), y: ourData.sum } );
+                    var d = (new Date()).getTime();
+//                    console.log( 'Adding x: ' + d + ' y: ' + ourData.sum );
+                    var value = ourData.sum;
+                    
+                    if ( angular.isDefined( averageValues ) && averageValues === true ){
+                        value = ourData.sum / ourData.itemCount;
+                    }
+                    
+                    inSeries.datapoints.push( { x: d, y: value } );
                 }
             }
         }
@@ -103,7 +108,7 @@ angular.module( 'statistics' ).factory( '$stats_push_helper', [ function(){
     // newStatList = the list of stats we need to sort through
     // metricNames = the metric names that we're looking for
     // durationToKeep = how long to keep data in the list - in ms.
-    service.push_stat = function( data, newStatList, metricNames, durationToKeep ){
+    service.push_stat = function( data, newStatList, metricNames, durationToKeep, averageValues ){
         
         // make a temp copy so we don't trigger any changes until we're ready.
         var tempStats = { series: [] };
@@ -116,7 +121,7 @@ angular.module( 'statistics' ).factory( '$stats_push_helper', [ function(){
         service.sumTheProperPoints( timeSums, newStatList );
 
         // put the new data into the right series
-        service.injectSumsIntoSeries( timeSums, tempStats );
+        service.injectSumsIntoSeries( timeSums, tempStats, averageValues );
 
         // get rid of old points.
         service.deleteOldStats( tempStats, durationToKeep );
