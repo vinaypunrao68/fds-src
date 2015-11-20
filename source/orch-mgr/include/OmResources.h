@@ -1102,9 +1102,11 @@ class OM_NodeDomainMod : public Module
      * Methods related to tracking registering services
      * for svcMap updates
      */
-    void addRegisteringSvc(SvcInfoPtr infoPtr);
+    void  addRegisteringSvc(SvcInfoPtr infoPtr);
     Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
-    void removeRegisteredSvc(int64_t uuid);
+    void  removeRegisteredSvc(int64_t uuid);
+
+    void raiseAbortMigrationEvt(NodeUuid uuid);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
