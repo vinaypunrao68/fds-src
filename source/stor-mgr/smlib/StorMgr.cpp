@@ -452,24 +452,12 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNORMAL << "SM received first DLT after restart, which matched "
-                  << "its persistent state, will start full resync of DLT tokens";
-
-        // Start the resync process
-        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
-        } else {
-            // not doing resync, making all DLT tokens ready
-            migrationMgr->notifyDltUpdate(curDlt,
-                                          curDlt->getNumBitsForToken(),
-                                          getUuid());
-            // pretend we successfully started resync, return success
-            err = ERR_OK;
-        }
+        // not doing resync, making all DLT tokens ready
+        migrationMgr->notifyDltUpdate(curDlt,
+                                      curDlt->getNumBitsForToken(),
+                                      getUuid());
+        // pretend we successfully started resync, return success
+        err = ERR_OK;
     } else if (err.ok()) {
         if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
             // we only care about DLT which contains this SM

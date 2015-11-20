@@ -42,7 +42,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final String FILE_ID_WELL = "file-id-well";
 
     public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = RecoveryHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
+        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
@@ -86,7 +86,9 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         String volume = exportResolver.volumeName(parent.exportIndex());
-        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.increment(volume))
+        long fileId = allocator.increment(volume);
+        LOG.debug("Allocating fileID " + fileId);
+        InodeMetadata metadata = new InodeMetadata(type, subject, mode, fileId)
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
@@ -337,7 +339,12 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             counters.increment(Counters.Key.bytesWritten, count);
             return new WriteResult(stabilityLevel, Math.max(data.length, count));
         } catch (IOException e) {
-            LOG.error("Error writing inode " + updated.getFileId(), e);
+            if (updated != null) {
+                LOG.error("Error writing inode " + updated.getFileId(), e);
+            } else {
+                LOG.error("Error writing inode", e);
+            }
+
             throw e;
         }
     }
