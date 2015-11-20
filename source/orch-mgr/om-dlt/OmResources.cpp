@@ -1959,6 +1959,9 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                     }
                 }
                 break;
+            case fpi::FDSP_ACCESS_MGR:
+                error = om_handle_restart( node_uuid, reg_node_req );
+                break;
             case fpi::FDSP_PLATFORM:
                 // TODO how do we set the node state?
                 {
