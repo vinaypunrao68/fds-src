@@ -23,8 +23,10 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
                              CommonModuleProviderIf *modProvider,
                              fds_log *parent_log) :
     volume_map(),
-    AmDataProvider(prev, new AmTxManager(this, modProvider))
+    AmDataProvider(prev, new AmTxManager(this, modProvider)),
+    HasModuleProvider(modProvider)
 {
+    token_timer = MODULEPROVIDER()->getTimer();
     if (parent_log) {
         SetLog(parent_log);
     }
@@ -33,7 +35,7 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
 AmVolumeTable::~AmVolumeTable() = default;
 
 void AmVolumeTable::start() {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    FdsConfigAccessor conf(MODULEPROVIDER()->get_fds_config(), "fds.am.");
     vol_tok_renewal_freq = std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
 
     AmDataProvider::start();
@@ -41,8 +43,6 @@ void AmVolumeTable::start() {
 
 void
 AmVolumeTable::stop() {
-    // Stop all timers, we're not going to attach anymore
-    token_timer.destroy();
     AmDataProvider::stop();
 }
 
@@ -120,7 +120,7 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
     if (vol && vol->access_token) {
         // If we had a cache token for this volume, close it
         fds_int64_t token = vol->getToken();
-        if (token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
+        if (token_timer->cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token))) {
             GLOGDEBUG << "Canceled timer for token: 0x" << std::hex << token;
         } else {
             LOGWARN << "Failed to cancel timer, volume will re-attach: "
@@ -262,7 +262,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
     }
 
     auto access_token = boost::make_shared<AmVolumeAccessToken>(
-                            token_timer,
+                            *token_timer,
                             volReq->mode,
                             volReq->token,
                             [this, vol_id = amReq->io_vol_id] () mutable -> void {
@@ -274,7 +274,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
 
     // Renew this token at a regular interval
     auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-    if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+    if (!token_timer->schedule(timer_task, vol_tok_renewal_freq))
         { LOGWARN << "Failed to schedule token renewal timer!"; }
 
     // If this is a real request, set the return data (could be implicit// from QoS)
@@ -295,7 +295,7 @@ AmVolumeTable::renewToken(const fds_volid_t vol_id) {
         return;
     }
 
-    token_timer.cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token));
+    token_timer->cancel(boost::dynamic_pointer_cast<FdsTimerTask>(vol->access_token));
 
     fpi::VolumeAccessMode rw;
     auto volReq = new AttachVolumeReq(vol_id, "", rw, nullptr);
@@ -333,7 +333,7 @@ AmVolumeTable::renewTokenCb(AmRequest *amReq, const Error& error) {
 
         // Renew this token at a regular interval
         auto timer_task = boost::dynamic_pointer_cast<FdsTimerTask>(access_token);
-        if (!token_timer.schedule(timer_task, vol_tok_renewal_freq))
+        if (!token_timer->schedule(timer_task, vol_tok_renewal_freq))
             { LOGWARN << "Failed to schedule token renewal timer!"; }
     }
 
