@@ -107,6 +107,8 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Start Migration for target DLT "
              << migrationMsg->DLT_version;
 
+/* (Gurpreet: Fix for ignoring multiple start migration messages from OM. UNTESTED!!)
+
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
     fds_uint64_t reqMigrTgtDlt = migrationMsg->DLT_version;
     auto ongoingMigrTgtDlt = objStorMgr->migrationMgr->getTargetDltVersion();
@@ -120,7 +122,7 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         }
         return;
     }
-
+*/
     // first disable GC and Tier Migration
     // Note that after disabling GC, GC work in QoS queue will still
     // finish... however, there is no correctness issue if we are running
