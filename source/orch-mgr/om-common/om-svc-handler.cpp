@@ -20,6 +20,7 @@
 #include <net/SvcMgr.h>
 #include <ctime>
 #include <omutils.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
@@ -150,7 +151,14 @@ OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 {
     LOGNORMAL << " receive getVolumeDescriptor msg";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_get_volume_descriptor(hdr, msg->volume_name);
+    auto resp = fpi::GetVolumeDescriptorResp();
+    VolumeDesc desc(msg->volume_name, invalid_vol_id);
+    auto err = local->om_get_volume_descriptor(hdr, msg->volume_name, desc);
+    if (ERR_OK == err) {
+        desc.toFdspDesc(resp.vol_desc);
+    }
+    hdr->msg_code = err.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetVolumeDescriptorResp), resp);
 }
 
 void
@@ -257,7 +265,7 @@ populate_voldesc_list(fpi::GetAllVolumeDescriptors &list, VolumeInfo::pointer vo
 	}
 	list.volumeList.emplace_back();
 	auto &volAdd = list.volumeList.back();
-	vol->vol_populate_fdsp_descriptor(volAdd);
+	vol->vol_get_properties()->toFdspDesc(volAdd.vol_desc);
 	LOGDEBUG << "Populated list with volume " << volAdd.vol_desc.vol_name;
 
 }
