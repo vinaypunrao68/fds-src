@@ -476,6 +476,9 @@ namespace fds {
          */
         fds_uint32_t numOfPrimarySMs;
 
+        bool        sendMigAbortAfterRestart;
+       fds_uint64_t targetVersionForAbort;
+
   public:
         DataPlacement();
         ~DataPlacement();
@@ -608,6 +611,11 @@ namespace fds {
         inline fds_uint32_t getNumOfPrimarySMs() const {
             return numOfPrimarySMs;
         }
+
+        void         setAbortParams(bool abort, fds_int64_t version);
+        void         clearAbortParams();
+        bool         isAbortAfterRestartTrue();
+        fds_uint64_t getTargetVersionForAbort();
 
   private:  // methods
         /**

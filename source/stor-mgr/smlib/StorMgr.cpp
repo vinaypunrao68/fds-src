@@ -138,10 +138,6 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    std::vector<nullary_always> token_locks;
-    for (auto& tokenDiskPair: tokenDiskPairs) {
-        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
-    }
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
@@ -280,7 +276,7 @@ void ObjectStorMgr::mod_enable_service()
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
 
-                // if second phase of start up failes, object store will set the state
+                // if second phase of start up fails, object store will set the state
                 // during validating token ownership in the superblock
                 handleDltUpdate();
             }
