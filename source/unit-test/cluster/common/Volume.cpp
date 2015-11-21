@@ -17,6 +17,7 @@ namespace fds {
 #define FUNCTIONAL_STATE_CHECK()
 #define SYNC_STATE_CHECK()
 #define ASSERT_SYNCHRONIZED()
+#define ENSURE_IO_ORDER(io)
 
 const std::string Volume::OPINFOKEY = "OPINFO";
 
@@ -30,20 +31,74 @@ std::ostream& operator<<(std::ostream &out, const SyncPullLogEntriesIo& io)
     return out;
 }
 
+std::ostream& operator<< (std::ostream& os, const Volume::OpInfo &info)
+{
+    os << "applidOpId: " << info.appliedOpId << " commmitId: "  << info.appliedCommitId;
+    return os;
+}
+
 Volume::Volume(CommonModuleProviderIf *provider,
                FDS_QoSControl *qosCtrl,
                const fds_volid_t &volId)
-    : HasModuleProvider(provider)
+    : HasModuleProvider(provider),
+    functional_("Functional"),
+    syncing_("Syncing")
 {
     qosCtrl_ = qosCtrl;
     volId_ = volId;
     state_ = fpi::VolumeState::VOLUME_UNINIT;
 }
+
+void Volume::initBehaviors()
+{
+#define on(__msgType__) \
+    OnMsg<fpi::FDSPMsgTypeId, SvcMsgIo>(FDSP_MSG_TYPEID(__msgType__))
+
+    functional_ = {
+        on(fpi::StartTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(StartTxIo, io_);
+            ENSURE_IO_ORDER(io);
+            handleStartTx(io);
+        },
+        on(fpi::UpdateTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(UpdateTxIo, io_);
+            ENSURE_IO_ORDER(io);
+            handleUpdateTxCommon_(io, true);
+        },
+        on(fpi::CommitTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(CommitTxIo, io_);
+            ENSURE_IO_ORDER(io);
+            handleCommitTxCommon_(io, true, nullptr);
+        }
+    };
+
+    syncing_ = functional_;
+    syncing_ += {
+        on(fpi::UpdateTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(UpdateTxIo, io_);
+            ENSURE_IO_ORDER(io);
+            bool txMustExist = txTable_.size() > 0;
+            handleUpdateTxCommon_(io, txMustExist);
+        },
+        on(fpi::CommitTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(CommitTxIo, io_);
+            ENSURE_IO_ORDER(io);
+            bool txMustExist = txTable_.size() > 0;
+            /* All commits are sent bufferCommitLog */
+            handleCommitTxCommon_(io, txMustExist, &bufferCommitLog_);
+        }
+    };
+}
+
 void Volume::init()
 {
     leveldb::Status status;
     std::string opinfoStr;
 
+    initBehaviors();
+    currentBehavior_ = &functional_;
+
+    /* Load state from level db */
     std::string catName = MODULEPROVIDER()->proc_fdsroot()->dir_sys_repo_dm() +
         "/" + std::to_string(volId_.get());
 #ifdef USECATALOG
@@ -68,8 +123,9 @@ void Volume::init()
     // TODO(Rao):
     // 1. Make sure existing volume on disk isn't destroyed
 
-    txLog_.init(1000, 0);
+    commitLog_.init(1000, 0);
 
+    /* Create system volume queue */
     /* Register with Qos ctrl */
     // TODO(Rao): Set right qos params
     // TODO(Rao): This shouldn't be here
@@ -99,6 +155,7 @@ void Volume::handleStartTx(StartTxIoPtr io)
 
     opInfo_.appliedOpId++;
 }
+
 void Volume::handleUpdateTx(UpdateTxIoPtr io)
 {
     LOGNOTIFY << *io;
@@ -106,21 +163,37 @@ void Volume::handleUpdateTx(UpdateTxIoPtr io)
     ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
     // TODO(Rao): Op id checks
+    handleUpdateTxCommon_(io, true);
+}
 
+void Volume::handleUpdateTxCommon_(UpdateTxIoPtr io, bool txMustExist)
+{
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
-    auto itr = txTable_.find(ioHdr.txId);
-    if (itr == txTable_.end()) {
-        fds_panic("tx not found");
-        // TODO(Rao): Handle this case
-    }
-    auto &batch = itr->second;
-    for (const auto &kv : reqMsg.kvPairs) {
-        batch->Put(kv.first, kv.second); 
-    }
+    io->respStatus = updateTxTbl_(ioHdr.txId, reqMsg.kvPairs, txMustExist);
     io->respMsg.reset(new fpi::EmptyMsg());
 
     opInfo_.appliedOpId++;
+}
+
+Error Volume::updateTxTbl_(int64_t txId,
+                           const fpi::TxUpdates &kvPairs,
+                           bool txMustExist)
+{
+    auto itr = txTable_.find(txId);
+    if (itr == txTable_.end()) {
+        if (txMustExist) {
+            // TODO(Rao): Handle this case
+            fds_panic("tx not found");
+        } else {
+            return ERR_OK;
+        }
+    }
+    auto &batch = itr->second;
+    for (const auto &kv : kvPairs) {
+        batch->Put(kv.first, kv.second); 
+    }
+    return ERR_OK;
 }
 
 void Volume::handleCommitTx(CommitTxIoPtr io)
@@ -130,16 +203,37 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
     ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
     // TODO(Rao): Op id checks
+    handleCommitTxCommon_(io, true, nullptr);
+}
 
+void Volume::handleCommitTxCommon_(CommitTxIoPtr io,
+                                   bool txMustExist,
+                                   VolumeCommitLog *alternateLog)
+{
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
+
+    /* Fetch transaction */
     auto itr = txTable_.find(ioHdr.txId);
     if (itr == txTable_.end()) {
-        fds_panic("tx not found");
-        // TODO(Rao): Handle this case
+        if (txMustExist) {
+            // TODO(Rao): Handle this case
+            fds_panic("tx not found");
+        } else {
+            /* Ignore and consider it a success*/
+            LOGNOTIFY << "Skipping commit " << *io;
+        }
+        io->respMsg.reset(new fpi::EmptyMsg());
+        opInfo_.appliedOpId++;
     }
+
+    /* Commit transaction.  Commit to alternate log if set */
     auto &batchPtr = itr->second;
-    commitBatch_(ioHdr.commitId, batchPtr);
+    if (!alternateLog) {
+        commitBatch_(ioHdr.commitId, batchPtr);
+    } else {
+        io->respStatus = alternateLog->append(ioHdr.commitId, batchPtr);
+    }
     io->respMsg.reset(new fpi::EmptyMsg());
 
     opInfo_.appliedOpId++;
@@ -150,17 +244,11 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
     LOGNOTIFY << "Completed commit " << *io;
 }
 
-void Volume::handleQosFunctionIo(QosFunctionIoPtr io)
-{
-    ASSERT_SYNCHRONIZED();
-    io->func();
-}
-
 void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
 {
     fds_verify(opInfo_.appliedCommitId+1 == commitId);
     /* Update log and commit to catalog */
-    auto logRet = txLog_.append(commitId, batchPtr);
+    auto logRet = commitLog_.append(commitId, batchPtr);
     fds_verify(logRet == ERR_OK);
 
     /* Commit the batch to leveldb */
@@ -178,15 +266,22 @@ void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
     opInfo_.appliedCommitId++;
 }
 
-std::ostream& operator<< (std::ostream& os, const Volume::OpInfo &info)
+
+void Volume::handleQosFunctionIo(QosFunctionIoPtr io)
 {
-    os << "applidOpId: " << info.appliedOpId << " commmitId: "  << info.appliedCommitId;
-    return os;
+    ASSERT_SYNCHRONIZED();
+    io->func();
+}
+
+
+void Volume::changeBehavior_(Volume::VolumeBehavior *target)
+{
+    currentBehavior_ = target;
 }
 
 void Volume::changeState_(fpi::VolumeState targetState)
 {
-    state_ = targetState;
+    state_ = targetState; 
 }
 
 void Volume::setError_(const Error &e)
@@ -197,9 +292,32 @@ void Volume::setError_(const Error &e)
     lastError_ = e;
 }
 
+void Volume::handleUpdateTxSyncState(UpdateTxIoPtr io)
+{
+    
+    LOGNOTIFY << *io;
+
+    ASSERT_SYNCHRONIZED();
+    SYNC_STATE_CHECK();
+    bool txMustExist = txTable_.size() > 0;
+    handleUpdateTxCommon_(io, txMustExist);
+}
+
+void Volume::handleCommitTxSyncState(CommitTxIoPtr io)
+{
+    LOGNOTIFY << *io;
+
+    ASSERT_SYNCHRONIZED();
+    SYNC_STATE_CHECK();
+    bool txMustExist = txTable_.size() > 0;
+    /* All commits are sent bufferCommitLog */
+    handleCommitTxCommon_(io, txMustExist, &bufferCommitLog_);
+}
+
 void Volume::startSyncCheck_()
 {
     changeState_(fpi::VolumeState::VOLUME_QUICKSYNC_CHECK);
+    fds_verify(txTable_.size() == 0);
 
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
 
@@ -280,11 +398,11 @@ void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io)
     io->respMsg.reset(new fpi::SyncPullLogEntriesRespMsg());
     io->respMsg->startCommitId = reqMsg.startCommitId;
     uint32_t bytesAddedCnt = 0;
-    auto itr = txLog_.iterator(reqMsg.startCommitId);
+    auto itr = commitLog_.iterator(reqMsg.startCommitId);
     for (auto id = reqMsg.startCommitId;
-         txLog_.isValid(itr) && id <= reqMsg.endCommitId;
+         commitLog_.isValid(itr) && id <= reqMsg.endCommitId;
          ++id, itr++) {
-        auto entry = txLog_.get(itr);
+        auto entry = commitLog_.get(itr);
         leveldb::Slice s = leveldb::WriteBatchInternal::Contents(entry.get());
         if (bytesAddedCnt + s.size() > MAX_SYNCENTRIES_BYTES) {
             break;

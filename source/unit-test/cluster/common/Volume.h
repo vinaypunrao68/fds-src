@@ -11,6 +11,17 @@
 #include <fdsp_utils.h>
 #include <volumegroup_extensions.h>
 #include <TxLog.h>
+#include <Behavior.h>
+
+namespace std {
+template<>
+struct hash<fpi::FDSPMsgTypeId> {
+    size_t operator()(const fpi::FDSPMsgTypeId& id) const
+    {
+        return static_cast<size_t>(id);
+    }
+};
+}
 
 namespace fds {
 
@@ -125,31 +136,14 @@ struct QosFunctionIo : SvcMsgIo {
     {}
     Func                                            func;
 };
-using QosFunctionIoPtr = SHPTR<QosFunctionIo>;
-
-#if 0
-template <class T>
-struct ScopedVolumeIo {
-    ScopedVolumeIo(T *_io, FDS_QoSControl *_qosCtrl)
-    : io(_io),
-    qosCtrl(_qosCtrl)
-    {}
-    ~ScopedVolumeIo() {
-        if (io->cb) {
-            LOGNOTIFY << "Responding: " << *io;
-            io->cb(io);
-        }
-        qosCtrl->markIODone(io);
-        delete io;
-    }
-    T                   *io;
-    FDS_QoSControl      *qosCtrl;
-};
-#endif
+using QosFunctionIoPtr      = SHPTR<QosFunctionIo>;
 
 using CatWriteBatchPtr      = SHPTR<CatWriteBatch>;
 
 struct Volume : HasModuleProvider {
+    using VolumeCommitLog       = TxLog<CatWriteBatch> ;
+    using VolumeBehavior        = Behavior<fpi::FDSPMsgTypeId, SvcMsgIo>;
+    using TxTbl                 = std::unordered_map<int64_t, CatWriteBatchPtr>;
 
     Volume(CommonModuleProviderIf *provider,
            FDS_QoSControl *qosCtrl,
@@ -157,6 +151,8 @@ struct Volume : HasModuleProvider {
     virtual ~Volume() {}
 
     void init();
+    void initBehaviors();
+
     /* Functional State handlers */
     void handleStartTx(StartTxIoPtr io);
     void handleUpdateTx(UpdateTxIoPtr io);
@@ -167,6 +163,9 @@ struct Volume : HasModuleProvider {
     void handleQosFunctionIo(QosFunctionIoPtr io);
 
     /* Sync state handlers */
+    void handleUpdateTxSyncState(UpdateTxIoPtr io);
+    void handleCommitTxSyncState(CommitTxIoPtr io);
+
     /**
     * @brief Initiates running sync protocol
     */
@@ -201,7 +200,13 @@ struct Volume : HasModuleProvider {
     };
  protected:
     void changeState_(fpi::VolumeState targetState);
+    void changeBehavior_(VolumeBehavior *target);
     void setError_(const Error &e);
+    void handleUpdateTxCommon_(UpdateTxIoPtr io, bool txMustExist);
+    void handleCommitTxCommon_(CommitTxIoPtr io, bool txMustExist, VolumeCommitLog *alternateLog);
+    Error updateTxTbl_(int64_t txId,
+                       const fpi::TxUpdates &kvPairs,
+                       bool txMustExist);
     void commitBatch_(int64_t commitId, const CatWriteBatchPtr& writeBatch);
 
     void startSyncCheck_();
@@ -210,10 +215,12 @@ struct Volume : HasModuleProvider {
     void sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &syncInfo);
     void applySyncPullLogEntries_(const fpi::SyncPullLogEntriesRespMsgPtr &entriesMsg);
 
-    using TxTbl                 = std::unordered_map<int64_t, CatWriteBatchPtr>;
     FDS_QoSControl                          *qosCtrl_;
     fds_volid_t                             volId_;
     std::unique_ptr<FDS_VolumeQueue>        volQueue_;;
+    VolumeBehavior                          functional_;
+    VolumeBehavior                          syncing_;
+    VolumeBehavior                          *currentBehavior_;
     fpi::VolumeState                        state_;
     Error                                   lastError_;
     OpInfo                                  opInfo_;
@@ -225,7 +232,9 @@ struct Volume : HasModuleProvider {
     leveldb::DB*                            db2_;
 #endif
     TxTbl                                   txTable_;
-    TxLog<CatWriteBatch>                    txLog_;
+    VolumeCommitLog                         commitLog_;
+    /* Commits that are buffered during sync.  Only valid in sync state */
+    VolumeCommitLog                         bufferCommitLog_;
 
     static const std::string                OPINFOKEY;
     static const uint32_t                   MAX_SYNCENTRIES_BYTES = 1 * MB;

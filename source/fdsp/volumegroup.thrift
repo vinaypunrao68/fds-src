@@ -96,9 +96,10 @@ struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
 }
 
+typedef map<string, string> 		TxUpdates
 struct UpdateTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
-    2: map<string, string>		kvPairs;
+    2: TxUpdates			kvPairs;
 }
 
 struct CommitTxMsg {

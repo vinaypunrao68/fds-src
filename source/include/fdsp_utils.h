@@ -8,6 +8,7 @@
 #include <string>
 #include <unistd.h>
 #include <exception>
+#include <functional>
 #include <arpa/inet.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
