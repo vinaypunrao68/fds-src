@@ -18,6 +18,7 @@
 #include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
+#include "fds_module_provider.h"
 
 namespace fds {
 
@@ -27,7 +28,8 @@ class CommonModuleProviderIf;
 
 struct AmVolumeTable :
     public HasLogger,
-    public AmDataProvider
+    public AmDataProvider,
+    public HasModuleProvider
 {
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
@@ -92,7 +94,7 @@ struct AmVolumeTable :
     mutable fds_rwlock map_rwlock;
 
     /// Timer for token renewal
-    FdsTimer token_timer;
+    boost::shared_ptr<FdsTimer> token_timer;
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
