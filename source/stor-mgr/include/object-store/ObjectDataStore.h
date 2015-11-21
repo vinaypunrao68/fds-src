@@ -116,7 +116,8 @@ public:
     boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
                                                        const ObjectID &objId,
                                                        ObjMetaData::const_ptr objMetaData,
-                                                       Error &err);
+                                                       Error &err,
+                                                       diskio::DataTier *tier=nullptr);
 
     /**
      * Removes object from cache and notifies persistent layer
