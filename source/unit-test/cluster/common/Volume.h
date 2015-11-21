@@ -154,17 +154,14 @@ struct Volume : HasModuleProvider {
     void initBehaviors();
 
     /* Functional State handlers */
-    void handleStartTx(StartTxIoPtr io);
-    void handleUpdateTx(UpdateTxIoPtr io);
-    void handleCommitTx(CommitTxIoPtr io);
-    void handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io);
-
-    /* Any state handlers */
-    void handleQosFunctionIo(QosFunctionIoPtr io);
+    void handleStartTx(const StartTxIoPtr &io);
+    void handleUpdateTx(const UpdateTxIoPtr &io);
+    void handleCommitTx(const CommitTxIoPtr &io);
+    void handleSyncPullLogEntries(const SyncPullLogEntriesIoPtr &io);
 
     /* Sync state handlers */
-    void handleUpdateTxSyncState(UpdateTxIoPtr io);
-    void handleCommitTxSyncState(CommitTxIoPtr io);
+    void handleUpdateTxSyncState(const UpdateTxIoPtr &io);
+    void handleCommitTxSyncState(const CommitTxIoPtr &io);
 
     /**
     * @brief Initiates running sync protocol
@@ -187,6 +184,7 @@ struct Volume : HasModuleProvider {
             }
         };
     }
+    inline VolumeBehavior* getCurrentBehavior() { return currentBehavior_; }
 
     struct OpInfo {
         int64_t                             appliedOpId;
@@ -202,8 +200,10 @@ struct Volume : HasModuleProvider {
     void changeState_(fpi::VolumeState targetState);
     void changeBehavior_(VolumeBehavior *target);
     void setError_(const Error &e);
-    void handleUpdateTxCommon_(UpdateTxIoPtr io, bool txMustExist);
-    void handleCommitTxCommon_(CommitTxIoPtr io, bool txMustExist, VolumeCommitLog *alternateLog);
+    void handleUpdateTxCommon_(const UpdateTxIoPtr &io, bool txMustExist);
+    void handleCommitTxCommon_(const CommitTxIoPtr &io,
+                               bool txMustExist,
+                               VolumeCommitLog *alternateLog);
     Error updateTxTbl_(int64_t txId,
                        const fpi::TxUpdates &kvPairs,
                        bool txMustExist);

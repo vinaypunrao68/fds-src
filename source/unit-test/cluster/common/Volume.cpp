@@ -53,8 +53,16 @@ void Volume::initBehaviors()
 {
 #define on(__msgType__) \
     OnMsg<fpi::FDSPMsgTypeId, SvcMsgIo>(FDSP_MSG_TYPEID(__msgType__))
+    VolumeBehavior common("Common");
+    common = {
+        on(fpi::QosFunction) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(QosFunctionIo, io_);
+            io->func();
+        }
+    };
 
-    functional_ = {
+    functional_ = common;
+    functional_ += {
         on(fpi::StartTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
             auto io = SHPTR_CAST(StartTxIo, io_);
             ENSURE_IO_ORDER(io);
@@ -69,6 +77,10 @@ void Volume::initBehaviors()
             auto io = SHPTR_CAST(CommitTxIo, io_);
             ENSURE_IO_ORDER(io);
             handleCommitTxCommon_(io, true, nullptr);
+        },
+        on(fpi::SyncPullLogEntriesMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+            auto io = SHPTR_CAST(SyncPullLogEntriesIo, io_);
+            handleSyncPullLogEntries(io);
         }
     };
 
@@ -136,7 +148,7 @@ void Volume::init()
     fds_verify(err == ERR_OK);
 }
 
-void Volume::handleStartTx(StartTxIoPtr io)
+void Volume::handleStartTx(const StartTxIoPtr &io)
 {
     LOGNOTIFY << *io;
 
@@ -156,7 +168,7 @@ void Volume::handleStartTx(StartTxIoPtr io)
     opInfo_.appliedOpId++;
 }
 
-void Volume::handleUpdateTx(UpdateTxIoPtr io)
+void Volume::handleUpdateTx(const UpdateTxIoPtr &io)
 {
     LOGNOTIFY << *io;
 
@@ -166,7 +178,7 @@ void Volume::handleUpdateTx(UpdateTxIoPtr io)
     handleUpdateTxCommon_(io, true);
 }
 
-void Volume::handleUpdateTxCommon_(UpdateTxIoPtr io, bool txMustExist)
+void Volume::handleUpdateTxCommon_(const UpdateTxIoPtr &io, bool txMustExist)
 {
     auto &reqMsg = *(io->reqMsg);
     auto &ioHdr = getVolumeIoHdrRef(reqMsg);
@@ -196,7 +208,7 @@ Error Volume::updateTxTbl_(int64_t txId,
     return ERR_OK;
 }
 
-void Volume::handleCommitTx(CommitTxIoPtr io)
+void Volume::handleCommitTx(const CommitTxIoPtr &io)
 {
     LOGNOTIFY << *io;
 
@@ -206,7 +218,7 @@ void Volume::handleCommitTx(CommitTxIoPtr io)
     handleCommitTxCommon_(io, true, nullptr);
 }
 
-void Volume::handleCommitTxCommon_(CommitTxIoPtr io,
+void Volume::handleCommitTxCommon_(const CommitTxIoPtr &io,
                                    bool txMustExist,
                                    VolumeCommitLog *alternateLog)
 {
@@ -267,12 +279,13 @@ void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
 }
 
 
+#if 0
 void Volume::handleQosFunctionIo(QosFunctionIoPtr io)
 {
     ASSERT_SYNCHRONIZED();
     io->func();
 }
-
+#endif
 
 void Volume::changeBehavior_(Volume::VolumeBehavior *target)
 {
@@ -292,7 +305,7 @@ void Volume::setError_(const Error &e)
     lastError_ = e;
 }
 
-void Volume::handleUpdateTxSyncState(UpdateTxIoPtr io)
+void Volume::handleUpdateTxSyncState(const UpdateTxIoPtr &io)
 {
     
     LOGNOTIFY << *io;
@@ -303,7 +316,7 @@ void Volume::handleUpdateTxSyncState(UpdateTxIoPtr io)
     handleUpdateTxCommon_(io, txMustExist);
 }
 
-void Volume::handleCommitTxSyncState(CommitTxIoPtr io)
+void Volume::handleCommitTxSyncState(const CommitTxIoPtr &io)
 {
     LOGNOTIFY << *io;
 
@@ -385,7 +398,7 @@ void Volume::applySyncPullLogEntries_(const fpi::SyncPullLogEntriesRespMsgPtr &e
      */
 }
 
-void Volume::handleSyncPullLogEntries(SyncPullLogEntriesIoPtr io)
+void Volume::handleSyncPullLogEntries(const SyncPullLogEntriesIoPtr &io)
 {
     LOGNOTIFY << *io;
 

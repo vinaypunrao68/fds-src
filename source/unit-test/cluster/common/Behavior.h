@@ -28,11 +28,11 @@ struct Behavior {
             handlers_[item.first] = item.second;
         }
     }
-    void handle(const KeyT& key)
+    void handle(const KeyT& key, const SHPTR<ArgT>& arg)
     {
         auto itr = handlers_.find(key);
         if (itr != handlers_.end()) {
-            (itr->second)();
+            (itr->second)(arg);
         } else {
             // TODO: We shouldn't panic here
             fds_panic("Unhandled message");
