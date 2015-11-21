@@ -32,6 +32,8 @@ const fpi::VolumeIoHdr& getVolumeIoHdrRef(const MsgT& msg)
 std::string logString(const fpi::VolumeIoHdr &hdr);
 std::string logString(const fpi::StartTxMsg& msg);
 std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg);
+std::string logString(const fpi::PullCommitLogEntriesMsg &msg);
+std::string logString(const fpi::PullActiveTxsMsg& msg);
 
 }  // namespace fds
 

@@ -36,6 +36,10 @@ struct TxLog {
         }
         return ERR_OK;
     }
+    Iterator iterator()
+    {
+        return entries_.begin();
+    }
     Iterator iterator(int64_t commitId)
     {
         auto dist = distFromStart(commitId);
@@ -54,9 +58,11 @@ struct TxLog {
     }
     int32_t distFromStart(int64_t commitId)
     {
-        return entries_.size() - (lastCommitId_ - commitId - 1);
+        return startCommitId() - commitId;
     }
-
+    int64_t startCommitId() const {
+        return lastCommitId_ - entries_.size() + 1; 
+    }
  protected:
     uint32_t                                maxEntries_;
     std::list<SHPTR<EntryT>>                entries_;

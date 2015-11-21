@@ -50,6 +50,7 @@ struct SvcMsgIo : public FDS_IOType {
     fpi::FDSPMsgTypeId      msgType;
     FDS_QoSControl          *qosCtrl;
 };
+using SvcMsgIoPtr = SHPTR<SvcMsgIo>;
 
 template <class ReqT,
           fpi::FDSPMsgTypeId ReqTypeId,
@@ -75,12 +76,16 @@ struct QosVolumeIo : public SvcMsgIo {
         this->respStatus = ERR_OK;
         this->cb = cb;
     }
-    virtual ~QosVolumeIo()
-    {
+    void respondBack() {
         if (cb) {
             LOGNOTIFY << "Responding: " << *this;
             cb(*this);
+            cb = 0;
         }
+    }
+    virtual ~QosVolumeIo()
+    {
+        respondBack();
     }
 
     SHPTR<ReqMsgT>          reqMsg;
@@ -122,9 +127,14 @@ using UpdateTxIoPtr     = SHPTR<UpdateTxIo>;
 using CommitTxIo        = DECLARE_QOSVOLUMEIO(fpi::CommitTxMsg, fpi::EmptyMsg);
 using CommitTxIoPtr     = SHPTR<CommitTxIo>;
 
-using SyncPullLogEntriesIo  = DECLARE_QOSVOLUMEIO(fpi::SyncPullLogEntriesMsg, fpi::SyncPullLogEntriesRespMsg);
-using SyncPullLogEntriesIoPtr = SHPTR<SyncPullLogEntriesIo>;
-std::ostream& operator<<(std::ostream &out, const SyncPullLogEntriesIo& io);
+using PullActiveTxsIo  = DECLARE_QOSVOLUMEIO(fpi::PullActiveTxsMsg, fpi::PullActiveTxsRespMsg);
+using PullActiveTxsIoPtr = SHPTR<PullActiveTxsIo>;
+std::ostream& operator<<(std::ostream &out, const PullActiveTxsIo &io);
+
+using PullCommitLogEntriesIo  = DECLARE_QOSVOLUMEIO(fpi::PullCommitLogEntriesMsg, fpi::PullCommitLogEntriesRespMsg);
+using PullCommitLogEntriesIoPtr = SHPTR<PullCommitLogEntriesIo>;
+
+std::ostream& operator<<(std::ostream &out, const PullCommitLogEntriesIo& io);
 
 /**
 * @brief Function to be executed on qos
@@ -139,11 +149,26 @@ struct QosFunctionIo : SvcMsgIo {
 using QosFunctionIoPtr      = SHPTR<QosFunctionIo>;
 
 using CatWriteBatchPtr      = SHPTR<CatWriteBatch>;
+using VolumeCommitLog       = TxLog<CatWriteBatch> ;
+
+struct QuickSyncCtx {
+    QuickSyncCtx()
+    : bufferIo(false)
+    {
+    }
+    fpi::SvcUuid                            syncPeer;
+    bool                                    bufferIo;
+    int64_t                                 startingBufferOpId; 
+    /* Active IO that's been buffered */
+    std::list<SvcMsgIoPtr>                  bufferedIo;
+    /* Commits that are buffered during sync */
+    VolumeCommitLog                         bufferCommitLog;
+};
+using QuickSyncCtxPtr = std::unique_ptr<QuickSyncCtx>;
 
 struct Volume : HasModuleProvider {
-    using VolumeCommitLog       = TxLog<CatWriteBatch> ;
     using VolumeBehavior        = Behavior<fpi::FDSPMsgTypeId, SvcMsgIo>;
-    using TxTbl                 = std::unordered_map<int64_t, CatWriteBatchPtr>;
+    using TxTbl                 = std::map<int64_t, CatWriteBatchPtr>;
 
     Volume(CommonModuleProviderIf *provider,
            FDS_QoSControl *qosCtrl,
@@ -153,20 +178,8 @@ struct Volume : HasModuleProvider {
     void init();
     void initBehaviors();
 
-    /* Functional State handlers */
-    void handleStartTx(const StartTxIoPtr &io);
-    void handleUpdateTx(const UpdateTxIoPtr &io);
-    void handleCommitTx(const CommitTxIoPtr &io);
-    void handleSyncPullLogEntries(const SyncPullLogEntriesIoPtr &io);
-
-    /* Sync state handlers */
-    void handleUpdateTxSyncState(const UpdateTxIoPtr &io);
-    void handleCommitTxSyncState(const CommitTxIoPtr &io);
-
-    /**
-    * @brief Initiates running sync protocol
-    */
-    void startSyncCheck();
+    /* For testing */
+    void forceQuickSync(const fpi::SvcUuid &coordinator);
 
     template <class ReqT=EPSvcRequest, class F>
     std::function<void(ReqT*, const Error&, StringPtr)>
@@ -197,9 +210,12 @@ struct Volume : HasModuleProvider {
         }
     };
  protected:
-    void changeState_(fpi::VolumeState targetState);
     void changeBehavior_(VolumeBehavior *target);
     void setError_(const Error &e);
+
+    void handleStartTx_(const StartTxIoPtr &io);
+    void handlePullActiveTxs_(const PullActiveTxsIoPtr &io);
+    void handlePullCommitLogEntries_(const PullCommitLogEntriesIoPtr &io);
     void handleUpdateTxCommon_(const UpdateTxIoPtr &io, bool txMustExist);
     void handleCommitTxCommon_(const CommitTxIoPtr &io,
                                bool txMustExist,
@@ -210,10 +226,13 @@ struct Volume : HasModuleProvider {
     void commitBatch_(int64_t commitId, const CatWriteBatchPtr& writeBatch);
 
     void startSyncCheck_();
-    void applySyncPullLogEntries_(int64_t startCommitId,
-                                  std::vector<std::string> &entries);
-    void sendSyncPullLogEntriesMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &syncInfo);
-    void applySyncPullLogEntries_(const fpi::SyncPullLogEntriesRespMsgPtr &entriesMsg);
+    void sendPullActiveTxsMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &syncInfo);
+    void applyPulledActiveTxs_(const fpi::PullActiveTxsRespMsgPtr &txsResp);
+    void applyBufferedIo_();
+    void sendPullCommitLogEntriesMsg_(const int64_t &syncCommitId);
+    void applyPulledCommitLogEntries_(const fpi::PullCommitLogEntriesRespMsgPtr &entriesMsg);
+    void applyBufferedCommits_();
+
 
     FDS_QoSControl                          *qosCtrl_;
     fds_volid_t                             volId_;
@@ -221,7 +240,6 @@ struct Volume : HasModuleProvider {
     VolumeBehavior                          functional_;
     VolumeBehavior                          syncing_;
     VolumeBehavior                          *currentBehavior_;
-    fpi::VolumeState                        state_;
     Error                                   lastError_;
     OpInfo                                  opInfo_;
     fpi::SvcUuid                            coordinatorUuid_;
@@ -233,8 +251,7 @@ struct Volume : HasModuleProvider {
 #endif
     TxTbl                                   txTable_;
     VolumeCommitLog                         commitLog_;
-    /* Commits that are buffered during sync.  Only valid in sync state */
-    VolumeCommitLog                         bufferCommitLog_;
+    QuickSyncCtxPtr                         quicksyncCtx_;
 
     static const std::string                OPINFOKEY;
     static const uint32_t                   MAX_SYNCENTRIES_BYTES = 1 * MB;

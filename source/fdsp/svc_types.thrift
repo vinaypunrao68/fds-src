@@ -405,8 +405,10 @@ enum  FDSPMsgTypeId {
   StartTxMsgTypeId;
   UpdateTxMsgTypeId;
   CommitTxMsgTypeId;
-  SyncPullLogEntriesMsgTypeId;
-  SyncPullLogEntriesRespMsgTypeId;
+  PullActiveTxsMsgTypeId;
+  PullActiveTxsRespMsgTypeId; 
+  PullCommitLogEntriesMsgTypeId;
+  PullCommitLogEntriesRespMsgTypeId;
   QosFunctionTypeId;
 
   /** Health Status */

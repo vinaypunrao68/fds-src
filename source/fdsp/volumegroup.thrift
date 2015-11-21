@@ -106,14 +106,27 @@ struct CommitTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
 }
 
-struct SyncPullLogEntriesMsg {
+struct PullActiveTxsMsg {
+    1: required VolumeGroupId		groupId;
+}
+
+struct PullActiveTxsRespMsg {
+    1: list<i64>			txIds;
+    2: list<binary>			txData;
+    3: i64				lastOpId;
+    /* Current coordinator commit id */
+    4: i64				lastCommitId;
+}
+
+struct PullCommitLogEntriesMsg {
     1: required VolumeGroupId		groupId;
     2: VolumeGroupVersion		lastCommitVersion;
     3: required i64			startCommitId;
     4: i64				endCommitId;
 }
 
-struct SyncPullLogEntriesRespMsg {
+struct PullCommitLogEntriesRespMsg {
     1: required i64			startCommitId;
     2: list<binary>			entries;
 }
+

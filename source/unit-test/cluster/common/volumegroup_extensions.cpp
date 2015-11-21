@@ -28,4 +28,19 @@ std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg) {
     return ss.str();
 }
 
+std::string logString(const fpi::PullCommitLogEntriesMsg &msg)
+{
+    std::stringstream ss;
+    ss << " PullCommitLogEntriesMsg groupId: " << msg.groupId
+        << " startCommitId: " << msg.startCommitId
+        << " endCommitId: " << msg.endCommitId;
+    return ss.str();
+}
+
+std::string logString(const fpi::PullActiveTxsMsg& msg)
+{
+    std::stringstream ss;
+    ss << "PullActiveTxsMsg groupId: " << msg.groupId;
+    return ss.str();
+}
 }  // namespace fds
