@@ -7,7 +7,6 @@ import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
 import com.formationds.client.v08.model.iscsi.LUN;
 import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.om.webkit.rest.v08.presets.GetDataProtectionPolicyPresets;
 import org.junit.Test;
 
 import java.time.Duration;
@@ -64,6 +63,7 @@ public class VolumeTest {
         assert readVolume.getName().equals( basicVolume.getName() );
     }
 
+    @SuppressWarnings( "unchecked" )
     @Test
     public void testVolumeIscsiJson()
     {
@@ -73,6 +73,26 @@ public class VolumeTest {
                                                          .withAccessType( LUN.AccessType.RW )
                                                          .build() )
                                         .build();
+
+        final Tenant tenant = new Tenant( 3L, "Paul" );
+//        final VolumeStatus status = new VolumeStatus( VolumeState.Active,
+//                                                      Size.of( 3, SizeUnit.GB ) );
+        RecurrenceRule rule = new RecurrenceRule();
+        rule.setFrequency( "WEEKLY" );
+        WeekDays days = new WeekDays();
+        days.add( iCalWeekDays.MO );
+        rule.setDays( days );
+
+        final SnapshotPolicy sPolicy = new SnapshotPolicy( SnapshotPolicyType.SYSTEM_TIMELINE,
+                                                           rule,
+                                                           Duration.ofDays( 30 ) );
+        List<SnapshotPolicy> sPolicies = new ArrayList<>();
+        sPolicies.add( sPolicy );
+
+        final QosPolicy qPolicy = new QosPolicy( 3, 0, 2000 );
+
+        final DataProtectionPolicy dPolicy = new DataProtectionPolicy( Duration.ofDays( 1L ),
+                                                                       sPolicies );
         final Volume volume = new Volume.Builder( "TestVolume_1" )
                                         .application( "Candy Crush" )
                                         .settings( new VolumeSettingsISCSI.Builder()
@@ -80,10 +100,12 @@ public class VolumeTest {
                                                                   .withBlockSize( Size.kb( 128L ) )
                                                                   .withCapacity( Size.gb( 10L ) )
                                                                   .build() )
-                                        .qosPolicy( QosPolicy.of( 7, 10000, 100000 ) )
+                                        .qosPolicy( qPolicy )
                                         .mediaPolicy( MediaPolicy.HYBRID )
                                         .accessPolicy( VolumeAccessPolicy.nonExclusivePolicy() )
-                                        .dataProtectionPolicy( new GetDataProtectionPolicyPresets().getDataProtectionPolicyPresets().get( 0 ) )
+                                        .dataProtectionPolicy( dPolicy )
+//                                        .status( status )
+                                        .tenant( tenant )
                                         .create();
 
         System.out.println( ObjectModelHelper.toJSON( volume ) );

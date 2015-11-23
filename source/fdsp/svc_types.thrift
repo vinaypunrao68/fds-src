@@ -3,6 +3,8 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
+include "common.thrift"
+
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.svc.types
 
@@ -171,12 +173,13 @@ struct FDSP_VolumeDescType {
   13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
 
   14: bool                      fSnapshot,
-  15: ResourceState      state,
+  15: ResourceState             state,
   16: i64                       contCommitlogRetention,
   17: i64                       srcVolumeId,
   18: i64                       timelineTime,
-  19: i64                       createTime
-  // 20: Removed.
+  19: i64                       createTime,
+  20: common.IScsiTarget        iscsi,
+  21: common.NfsOption          nfs
 }
 
 struct FDSP_PolicyInfoType {

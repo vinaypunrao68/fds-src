@@ -190,7 +190,7 @@ struct VolumeSettings {
   /** the iscsi target */
   7: optional common.IScsiTarget iscsiTarget;
   /** nfs options */
-  8: optional common.NfsOption options;
+  8: optional common.NfsOption nfsOptions;
 }
 
 /**

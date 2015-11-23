@@ -818,8 +818,6 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                      << vol.localDomainId << " ]";
         }
 
-        LOGDEBUG << "CONFIGDB::VOLUME::TYPE::" << vol.volType;
-
         // add the volume data
         reply = kv_store.sendCommand("hmset vol:%ld uuid %ld"
                               " name %s"
@@ -848,7 +846,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " state %d"
                               " create.time %ld",
                               volId, volId,
-                              vol.name.c_str(),
+                              vol.name.c_str( ),
                               vol.tennantId,
                               vol.localDomainId,
                               vol.globDomainId,
@@ -870,15 +868,76 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.iops_throttle,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              vol.srcVolumeId.get(),
-                              vol.getState(),
-                              vol.createTime);
-        if (reply.isOk()) return true;
-        LOGWARN << "msg: " << reply.getString();
+                              vol.srcVolumeId.get( ),
+                              vol.getState( ),
+                              vol.createTime );
+        LOGDEBUG << "VOLUME::CREATE::" << reply.getStatus() << ":" << reply.isOk();
+        if ( reply.isOk( ) )
+        {
+            LOGDEBUG << "VOLUME::TYPE::" << vol.volType;
+            if( vol.volType == fpi::FDSP_VOL_NFS_TYPE ||
+                vol.volType == fpi::FDSP_VOL_ISCSI_TYPE )
+            {
+                boost::shared_ptr <std::string> serialized = {};
+                if ( vol.volType == fpi::FDSP_VOL_ISCSI_TYPE ) {
+                    fds::serializeFdspMsg( vol.iscsiSettings, serialized );
+                }
+                else if ( vol.volType == fpi::FDSP_VOL_NFS_TYPE ) {
+                    fds::serializeFdspMsg( vol.nfsSettings, serialized );
+                }
+
+                return setVolumeSettings(volId, serialized);
+            }
+
+            return true;
+        }
+
+        LOGWARN << "REDIS: " << reply.getString();
     } catch(RedisException& e) {
-        LOGERROR << e.what();
+        LOGERROR << "error with Redis: " << e.what();
         TRACKMOD();
     }
+    return false;
+}
+
+bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string> serialized )
+{
+    try
+    {
+        return kv_store.sendCommand( "set vol:%ld:settings %b",
+                                     volumeId,
+                                     serialized->data(),
+                                     serialized->length() )
+                        .isOk();
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "error with Redis: " << e.what();
+    }
+
+    return false;
+}
+
+bool ConfigDB::getVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string>& serialized )
+{
+    try
+    {
+        Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
+        if ( !reply.isNil() )
+        {
+            serialized = boost::make_shared<std::string>( reply.getString() );
+            LOGDEBUG << "Retrieved Volume Settings for volume id " << volumeId;
+            return true;
+        }
+
+        LOGDEBUG << "Reply: " << reply.getStatus() << " '" << reply.getString() << "'";
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "error with Redis: " << e.what();
+    }
+
+    LOGDEBUG << "Failed to retrieved Volume Settings for volume id " << volumeId;
     return false;
 }
 
@@ -1046,12 +1105,45 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
             else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else if (key == "create.time") {vol.createTime = strtoull(value.c_str(), NULL, 10);} //NOLINT
-            else { //NOLINT
+            else
+            { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
                 fds_assert(!"unknown key");
             }
         }
-        return true;
+
+        LOGDEBUG << "VOLUME TYPE::" << vol.volType;
+        if( vol.volType == fpi::FDSP_VOL_ISCSI_TYPE || vol.volType == fpi::FDSP_VOL_NFS_TYPE )
+        {
+            boost::shared_ptr <std::string> serialized = {};
+            if ( getVolumeSettings( volId, serialized ) )
+            {
+                LOGDEBUG << "SERIALIZED::" << serialized;
+                if (vol.volType == fpi::FDSP_VOL_ISCSI_TYPE)
+                {
+                    LOGDEBUG << "Found volume of type iSCSI, getting the volume settings";
+
+                    auto iscsi = boost::make_shared<fpi::IScsiTarget>( vol.iscsiSettings );
+                    fds::deserializeFdspMsg( serialized, iscsi );
+                    vol.iscsiSettings = *iscsi;
+                    return true;
+                }
+                else if (vol.volType == fpi::FDSP_VOL_NFS_TYPE)
+                {
+                    LOGDEBUG << "Found volume of type NFS, getting the volume settings";
+
+                    auto nfs = boost::make_shared<fpi::NfsOption>( vol.nfsSettings );
+                    fds::deserializeFdspMsg( serialized, nfs );
+                    vol.nfsSettings = *nfs;
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            return true;
+        }
+
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
@@ -2970,7 +3062,7 @@ ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const st
         if ((ret = getSubscriptions(subscriptions)) == ReturnType::SUCCESS) {
             for (subIterator = subscriptions.begin(); subIterator != subscriptions.end(); subIterator++) {
                 if ((subIterator->getName().compare(name) == 0) &&
-                        (subIterator->getTenantID() == tenantId)){
+                    (subIterator->getTenantID() == tenantId)) {
                     break;
                 }
             }
@@ -2981,18 +3073,16 @@ ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const st
 
         if (subIterator == subscriptions.end()) {
             LOGDEBUG << "Unable to find subscription [" << name << "]" <<
-                            " for tenant [" << tenantId << "].";
+                     " for tenant [" << tenantId << "].";
             return ReturnType::NOT_FOUND;
         }
 
         subscription = *subIterator;
         return ReturnType::SUCCESS;
-    } catch(RedisException& e) {
+    } catch (RedisException &e) {
         LOGCRITICAL << "Exception with Redis: " << e.what();
     }
     return ReturnType::CONFIGDB_EXCEPTION;
 }
-
-
 }  // namespace kvstore
 }  // namespace fds

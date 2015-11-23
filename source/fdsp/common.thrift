@@ -93,4 +93,6 @@ struct IScsiTarget {
 struct NfsOption {
     /** nfs option */
     1: optional list<string> options
+    /** ip filters */
+    2: optional list<string> ipfilters
 }

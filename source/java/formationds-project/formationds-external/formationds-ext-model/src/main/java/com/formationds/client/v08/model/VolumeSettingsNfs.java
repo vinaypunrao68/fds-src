@@ -99,7 +99,7 @@ public class VolumeSettingsNfs
     /**
      * @return Returns set of NFS options
      */
-    public Set< NfsOptionBase > getOptions( )
+    public Set<NfsOptionBase> getOptions( )
     {
         return options;
     }

@@ -912,7 +912,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request);
-        if (err != ERR_OK) apiException("error creating volume");
+        if ( err != ERR_OK ) apiException( "error creating volume " + err.GetErrstr() );
 
         // wait for the volume to be active upto 5 minutes
         int count = 600;
@@ -925,7 +925,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         if (!vol || !vol->isStateActive()) {
             LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
-            apiException("error creating volume");
+            apiException("error creating volume Timeout on waiting for volume to become ACTIVE " + *volumeName );
         }
     }
 
