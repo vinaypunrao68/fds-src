@@ -1,4 +1,14 @@
-{% extends 'fds_config_defaults.j2' %}
+{% set java_log_severity = 'INFO' if fds_log_severity is not defined
+       			   	   else 'TRACE' if fds_log_severity == 'trace'
+       			   	   else 'DEBUG' if fds_log_severity == 'debug'
+       			   	   else 'DEBUG' if fds_log_severity == 'io'
+       			   	   else 'INFO' if fds_log_severity == 'normal'
+       			   	   else 'INFO' if fds_log_severity == 'notification'
+       			   	   else 'WARN' if fds_log_severity == 'warning'
+       			   	   else 'ERROR' if fds_log_severity == 'error'
+       			   	   else 'FATAL' if fds_log_severity == 'critical'
+				   else 'INFO'
+%}
 {% block content %}
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>

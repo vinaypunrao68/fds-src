@@ -93,7 +93,7 @@ struct AmDispatcher :
     Error removeVolume(VolumeDesc const& volDesc) override;
     void stop() override;
     void start() override;
-    Error retrieveVolDesc(std::string const& volume_name) override;
+    void lookupVolume(std::string const volume_name) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(fds_volid_t vol_id, int64_t token) override;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
@@ -172,10 +172,15 @@ struct AmDispatcher :
 
     void _startBlobTx(AmRequest *amReq);
 
+    void lookupVolumeCb(std::string const& volume_name,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
+
     void openVolumeCb(AmRequest* amReq,
-                              MultiPrimarySvcRequest* svcReq,
-                              const Error& error,
-                              boost::shared_ptr<std::string> payload);
+                      MultiPrimarySvcRequest* svcReq,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload);
 
 
     /**

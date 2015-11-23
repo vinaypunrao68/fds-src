@@ -382,7 +382,12 @@ namespace fds {
                 FDS_VolumeQueue *que = queue_map[queue_id];
 
                 FDS_IOType *io = que->dequeueIO();
-                assert(io != NULL);
+                if (io == NULL) {
+                    // Most likely NULL means that the queue is not ready to serve I/O
+                    // Probably due to snapshot
+                    qda_lock.read_unlock();
+                    continue;
+                }
 
                 ioProcessForDispatch(queue_id, io);
 

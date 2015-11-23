@@ -39,8 +39,20 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -48,7 +60,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
@@ -664,6 +675,9 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
@@ -801,18 +815,18 @@ DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
 	}
 
-	// If migrationAborted was set true, set it to false to clean things up
-	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
-
-	LOGMIGRATE << "Done waiting for previous migrations to finish";
-
     // TODO: can we just use the join in place of the CV?
     if (abort_thread) {
         abort_thread->join();
         abort_thread = nullptr;
+
+        LOGMIGRATE << "Done waiting for previous migration abort to finish";
     }
 
-    LOGMIGRATE << "Done waiting for previous migration abort to finish";
+	// If migrationAborted was set true, set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
+	LOGMIGRATE << "Done waiting for previous migrations to finish";
 }
 
 bool

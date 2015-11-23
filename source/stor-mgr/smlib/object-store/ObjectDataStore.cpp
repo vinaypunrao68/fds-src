@@ -119,7 +119,7 @@ boost::shared_ptr<const std::string>
 ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
-                               Error &err) {
+                               Error &err, diskio::DataTier *usedTier) {
     // Check the cache for the object
     boost::shared_ptr<const std::string> objCachedData
             = dataCache->getObjectData(volId, objId, err);
@@ -156,6 +156,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                              volId);
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->readObjectData(objId, plReq);
+        if (usedTier) { *usedTier = tier; }
     }
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from persistent layer "

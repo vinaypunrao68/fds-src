@@ -310,6 +310,38 @@ Error AmQoSCtrl::markIODone(AmRequest *io) {
 }
 
 void
+AmQoSCtrl::lookupVolumeCb(VolumeDesc const vol_desc, Error const error) {
+    if (ERR_OK == error) {
+        registerVolume(vol_desc);
+
+        // Search the queue for the first attach we find.
+        // The wait queue will iterate the queue for the given volume and
+        // apply the callback to each request. For the first attach request
+        // we find we process it (to cause volumeOpen to start), and remove
+        // it from the queue...but only the first.
+        wait_queue->remove_if(vol_desc.name,
+                              [this, vol_id = vol_desc.volUUID, found = false]
+                              (AmRequest* amReq) mutable -> bool {
+                                  if (!found && FDS_ATTACH_VOL == amReq->io_type) {
+                                      auto volReq = static_cast<AttachVolumeReq*>(amReq);
+                                      volReq->setVolId(vol_id);
+                                      AmDataProvider::openVolume(amReq);
+                                      found = true;
+                                      return found;
+                                  }
+                                  return false;
+                              });
+    } else {
+        /** Drain any wait queue into as any Error */
+        wait_queue->remove_if(vol_desc.name,
+                              [this] (AmRequest* amReq) {
+                                  processor_cb(amReq, ERR_VOL_NOT_FOUND);
+                                  return true;
+                              });
+    }
+}
+
+void
 AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
     auto queue = getQueue(volDesc.volUUID);
@@ -320,26 +352,14 @@ AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
                                     volDesc.relativePrio);
         htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
         queue->activate();
-        AmDataProvider::registerVolume(volDesc);
+    } else {
+        htb_dispatcher->modifyQueueQosParams(volDesc.volUUID.get(),
+                                             volDesc.iops_assured,
+                                             volDesc.iops_throttle,
+                                             volDesc.relativePrio);
     }
 
-    // Search the queue for the first attach we find.
-    // The wait queue will iterate the queue for the given volume and
-    // apply the callback to each request. For the first attach request
-    // we find we process it (to cause volumeOpen to start), and remove
-    // it from the queue...but only the first.
-    wait_queue->remove_if(volDesc.name,
-                          [this, &vol_desc = volDesc, found = false]
-                          (AmRequest* amReq) mutable -> bool {
-                              if (!found && FDS_ATTACH_VOL == amReq->io_type) {
-                                  auto volReq = static_cast<AttachVolumeReq*>(amReq);
-                                  volReq->setVolId(vol_desc.volUUID);
-                                  AmDataProvider::openVolume(amReq);
-                                  found = true;
-                                  return found;
-                              }
-                              return false;
-                          });
+    AmDataProvider::registerVolume(volDesc);
 }
 
 void
@@ -376,12 +396,6 @@ Error
 AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
     htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
 
-    /** Drain any wait queue into as any Error */
-    wait_queue->remove_if(volDesc.name,
-                          [this] (AmRequest* amReq) {
-                              processor_cb(amReq, ERR_VOL_NOT_FOUND);
-                              return true;
-                          });
     return AmDataProvider::removeVolume(volDesc);
 }
 
@@ -423,16 +437,8 @@ Error AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
                 amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 wait_queue->delay(amReq);
             }
-            err = AmDataProvider::retrieveVolDesc(amReq->volume_name);
-            if (ERR_NOT_READY == err) {
-                // We don't have domain tables yet...just reject.
-                // Drain any wait queue into as an Error
-                wait_queue->remove_if(amReq->volume_name,
-                                      [this] (AmRequest* amReq) {
-                                          processor_cb(amReq, ERR_NOT_READY);
-                                          return true;
-                                      });
-            }
+            AmDataProvider::lookupVolume(amReq->volume_name);
+            err = ERR_OK;
         }
     } else {
         GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;

@@ -138,10 +138,6 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    std::vector<nullary_always> token_locks;
-    for (auto& tokenDiskPair: tokenDiskPairs) {
-        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
-    }
     objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
 }
 
@@ -280,7 +276,7 @@ void ObjectStorMgr::mod_enable_service()
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
 
-                // if second phase of start up failes, object store will set the state
+                // if second phase of start up fails, object store will set the state
                 // during validating token ownership in the superblock
                 handleDltUpdate();
             }
@@ -452,24 +448,12 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNORMAL << "SM received first DLT after restart, which matched "
-                  << "its persistent state, will start full resync of DLT tokens";
-
-        // Start the resync process
-        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
-        } else {
-            // not doing resync, making all DLT tokens ready
-            migrationMgr->notifyDltUpdate(curDlt,
-                                          curDlt->getNumBitsForToken(),
-                                          getUuid());
-            // pretend we successfully started resync, return success
-            err = ERR_OK;
-        }
+        // not doing resync, making all DLT tokens ready
+        migrationMgr->notifyDltUpdate(curDlt,
+                                      curDlt->getNumBitsForToken(),
+                                      getUuid());
+        // pretend we successfully started resync, return success
+        err = ERR_OK;
     } else if (err.ok()) {
         if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
             // we only care about DLT which contains this SM
