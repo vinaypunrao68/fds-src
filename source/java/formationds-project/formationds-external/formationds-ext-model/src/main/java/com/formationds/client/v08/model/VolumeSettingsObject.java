@@ -12,20 +12,21 @@ import java.util.Objects;
 public class VolumeSettingsObject extends VolumeSettings {
     private Size maxObjectSize;
 
-    public VolumeSettingsObject() { super(VolumeType.OBJECT); }
+    public VolumeSettingsObject() { super(); }
     public VolumeSettingsObject( long maxObjectSize, SizeUnit unit ) {
         this(Size.of( maxObjectSize, unit ));
     }
     public VolumeSettingsObject( Size maxObjectSize ) {
-        super( VolumeType.OBJECT );
+        super( );
         this.maxObjectSize = maxObjectSize;
+        this.type = VolumeType.OBJECT;
     }
 
     public VolumeSettingsObject newSettingsFrom() {
         return new VolumeSettingsObject( getMaxObjectSize() );
     }
 
-    public Size getMaxObjectSize() {
+    public Size getMaxObjectSize( ) {
         return maxObjectSize;
     }
 

@@ -134,6 +134,8 @@ enum FDSP_MediaPolicy {
 enum FDSP_VolType {
   FDSP_VOL_S3_TYPE,
   FDSP_VOL_BLKDEV_TYPE
+  FDSP_VOL_NFS_TYPE
+  FDSP_VOL_ISCSI_TYPE
 }
 
 enum ResourceState {

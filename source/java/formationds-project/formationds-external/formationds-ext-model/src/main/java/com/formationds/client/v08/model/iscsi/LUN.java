@@ -4,6 +4,8 @@
 
 package com.formationds.client.v08.model.iscsi;
 
+import java.util.Objects;
+
 /**
  * @author ptinius
  */
@@ -63,6 +65,22 @@ public class LUN
     public String getLunName( )
     {
         return lunName;
+    }
+
+    @Override
+    public boolean equals( final Object o )
+    {
+        if ( this == o ) return true;
+        if ( !( o instanceof LUN ) ) return false;
+        final LUN lun = ( LUN ) o;
+        return getAccessType( ) == lun.getAccessType( ) &&
+            Objects.equals( getLunName( ), lun.getLunName( ) );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( getAccessType( ), getLunName( ) );
     }
 
     @Override

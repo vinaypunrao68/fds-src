@@ -11,7 +11,9 @@ package com.formationds.client.v08.model;
 public class VolumeSettingsSystem extends VolumeSettings {
     public static final VolumeSettingsSystem SYSTEM = new VolumeSettingsSystem();
     public VolumeSettingsSystem() {
-        super( VolumeType.SYSTEM );
+        super( );
+
+        this.type = VolumeType.SYSTEM;
     }
 
     public VolumeSettingsSystem newSettingsFrom() { return new VolumeSettingsSystem(); }
