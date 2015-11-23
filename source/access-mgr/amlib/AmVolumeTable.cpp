@@ -317,20 +317,6 @@ AmVolumeTable::ensureWritable(AmRequest* amReq) {
     return nullptr;
 }
 
-std::vector<AmVolumeTable::volume_ptr_type>
-AmVolumeTable::getVolumes() const
-{
-    std::vector<volume_ptr_type> volumes;
-    ReadGuard rg(map_rwlock);
-    volumes.reserve(volume_map.size());
-
-    // Create a vector of volume pointers from the values in our map
-    for (auto const& kv : volume_map) {
-      volumes.push_back(kv.second);
-    }
-    return volumes;
-}
-
 /**
  * returns volume UUID if found in volume map, otherwise returns invalid_vol_id
  */

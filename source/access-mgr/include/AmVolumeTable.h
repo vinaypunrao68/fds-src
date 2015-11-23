@@ -38,22 +38,6 @@ struct AmVolumeTable :
     ~AmVolumeTable() override;
     
     /**
-     * Returns NULL is volume does not exist
-     */
-    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
-
-    /**
-     * Returns volume if found in volume map.
-     * if volume does not exist, returns 'nullptr'
-     */
-    volume_ptr_type getVolume(const std::string& vol_name) const;
-
-    /**
-     * Return volumes that we are currently attached to
-     */
-    std::vector<volume_ptr_type> getVolumes() const;
-
-    /**
      * These are the Volume specific DataProvider routines.
      * Everything else is pass-thru.
      */
@@ -108,6 +92,13 @@ struct AmVolumeTable :
     boost::shared_ptr<FdsTimer> token_timer;
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
+
+    /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     volume_ptr_type ensureReadable(AmRequest *amReq);
     volume_ptr_type ensureWritable(AmRequest *amReq);
