@@ -314,6 +314,7 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
+  GetVolumeDescriptorRespTypeId             = 3002;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;

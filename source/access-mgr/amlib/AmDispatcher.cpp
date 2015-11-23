@@ -184,29 +184,46 @@ AmDispatcher::getDLT() {
 	}
 }
 
-Error
-AmDispatcher::retrieveVolDesc(std::string const& volume_name) {
+void
+AmDispatcher::lookupVolume(std::string const volume_name) {
     if (!noNetwork) {
         // We need valid DLT and DMTs before we can start issuing IO,
         // block attachments here until this is true.
         if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
             nullptr == dltMgr->getDLT()) {
             LOGWARN << "Could not attach to volume before receiving domain tables.";
-            return ERR_NOT_READY;
+            VolumeDesc dummy(volume_name, invalid_vol_id);
+            return AmDataProvider::lookupVolumeCb(dummy, ERR_NOT_READY);
         }
         try {
             auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
             fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
             msg->volume_name = volume_name;
             req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
+            req->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::lookupVolumeCb, volume_name));
             req->invoke();
             LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
         } catch(...) {
             LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
-            return ERR_NOT_READY;
+            VolumeDesc dummy(volume_name, invalid_vol_id);
+            return AmDataProvider::lookupVolumeCb(dummy, ERR_NOT_READY);
         }
     }
-    return ERR_OK;
+}
+
+void
+AmDispatcher::lookupVolumeCb(std::string const& volume_name,
+                             EPSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload) {
+    // Deserialize if all OK
+    VolumeDesc desc(volume_name, invalid_vol_id);
+    if (ERR_OK == error) {
+        // using the same structure for input and output
+        auto response = MSG_DESERIALIZE(GetVolumeDescriptorResp, error, payload);
+        desc = VolumeDesc(response->vol_desc);
+    }
+    AmDataProvider::lookupVolumeCb(desc, error);
 }
 
 /**

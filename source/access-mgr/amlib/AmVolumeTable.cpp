@@ -55,28 +55,26 @@ void
 AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
 {
     fds_volid_t vol_uuid = volDesc.GetID();
-    map_rwlock.write_lock();
-    auto const& it = volume_map.find(vol_uuid);
-    if (volume_map.cend() == it) {
-        /** Internal bookkeeping */
-        // Create the volume and add it to the known volume map
-        auto new_vol = std::make_shared<AmVolume>(volDesc, nullptr);
-        volume_map[vol_uuid] = std::move(new_vol);
-        // Create caches
-        AmDataProvider::registerVolume(volDesc);
-        map_rwlock.write_unlock();
+    {
+        WriteGuard wg(map_rwlock);
+        auto const& it = volume_map.find(vol_uuid);
+        if (volume_map.cend() == it) {
+            /** Internal bookkeeping */
+            // Create the volume and add it to the known volume map
+            auto new_vol = std::make_shared<AmVolume>(volDesc, nullptr);
+            volume_map[vol_uuid] = std::move(new_vol);
 
-        LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
-                  << " " << std::hex << vol_uuid << std::dec
-                  << ", policy " << volDesc.volPolicyId
-                  << " (iops_throttle=" << volDesc.iops_throttle
-                  << ", iops_assured=" << volDesc.iops_assured
-                  << ", prio=" << volDesc.relativePrio << ")"
-                  << ", primary=" << volDesc.primary
-                  << ", replica=" << volDesc.replica;
-    } else {
-        map_rwlock.write_unlock();
+            LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
+                      << " " << std::hex << vol_uuid << std::dec
+                      << ", policy " << volDesc.volPolicyId
+                      << " (iops_throttle=" << volDesc.iops_throttle
+                      << ", iops_assured=" << volDesc.iops_assured
+                      << ", prio=" << volDesc.relativePrio << ")"
+                      << ", primary=" << volDesc.primary
+                      << ", replica=" << volDesc.replica;
+        }
     }
+    AmDataProvider::registerVolume(volDesc);
 }
 
 Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
