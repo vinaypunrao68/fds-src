@@ -392,6 +392,8 @@ struct MultiEpSvcRequest : SvcRequestIf {
     std::vector<EPSvcRequestPtr> epReqs_;
     /* Callback to invoke before failing over to the next endpoint */
     EPAppStatusCb epAppStatusCb_;
+    /* Keep track of the worst error we've seen */
+    Error response_ {ERR_OK};
 };
 
 /**
