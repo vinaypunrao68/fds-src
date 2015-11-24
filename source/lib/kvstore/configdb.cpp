@@ -871,10 +871,8 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.srcVolumeId.get( ),
                               vol.getState( ),
                               vol.createTime );
-        LOGDEBUG << "VOLUME::CREATE::" << reply.getStatus() << ":" << reply.isOk();
         if ( reply.isOk( ) )
         {
-            LOGDEBUG << "VOLUME::TYPE::" << vol.volType;
             if( vol.volType == fpi::FDSP_VOL_NFS_TYPE ||
                 vol.volType == fpi::FDSP_VOL_ISCSI_TYPE )
             {
@@ -886,8 +884,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                     fds::serializeFdspMsg( vol.nfsSettings, serialized );
                 }
 
-                return setVolumeSettings(volId, serialized);
+                return setVolumeSettings( volId, serialized );
             }
+            // all others just fall through.
 
             return true;
         }
@@ -904,6 +903,7 @@ bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
 {
     try
     {
+        LOGDEBUG << "Setting volume settings for volume ID[ " << volumeId << " ]";
         return kv_store.sendCommand( "set vol:%ld:settings %b",
                                      volumeId,
                                      serialized->data(),
@@ -922,22 +922,21 @@ bool ConfigDB::getVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
 {
     try
     {
+        LOGDEBUG << "Volume Settings for volume ID[ " << volumeId << " ]";
         Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
         if ( !reply.isNil() )
         {
-            serialized = boost::make_shared<std::string>( reply.getString() );
-            LOGDEBUG << "Retrieved Volume Settings for volume id " << volumeId;
+            serialized = boost::make_shared<std::string>(reply.getString());
+            LOGDEBUG << "Successful retrieved Volume Settings for volume ID[ " << volumeId << " ]";
             return true;
         }
-
-        LOGDEBUG << "Reply: " << reply.getStatus() << " '" << reply.getString() << "'";
     }
     catch(const RedisException& e)
     {
         LOGERROR << "error with Redis: " << e.what();
     }
 
-    LOGDEBUG << "Failed to retrieved Volume Settings for volume id " << volumeId;
+    LOGDEBUG << "Failed to retrieved Volume Settings for volume ID[ " << volumeId << " ]";
     return false;
 }
 
@@ -1112,37 +1111,35 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             }
         }
 
-        LOGDEBUG << "VOLUME TYPE::" << vol.volType;
-        if( vol.volType == fpi::FDSP_VOL_ISCSI_TYPE || vol.volType == fpi::FDSP_VOL_NFS_TYPE )
+        LOGDEBUG << "volume TYPE[ " << vol.volType << " ] ID[ " << vol.volUUID << " ]";
+        if ( vol.volType ==  fpi::FDSP_VOL_ISCSI_TYPE ||
+             vol.volType ==  fpi::FDSP_VOL_NFS_TYPE )
         {
             boost::shared_ptr <std::string> serialized = {};
+
             if ( getVolumeSettings( volId, serialized ) )
             {
-                LOGDEBUG << "SERIALIZED::" << serialized;
-                if (vol.volType == fpi::FDSP_VOL_ISCSI_TYPE)
+                LOGDEBUG << "SERIALIZED[ " << serialized << " ]";
+                if ( vol.volType == fpi::FDSP_VOL_ISCSI_TYPE )
                 {
-                    LOGDEBUG << "Found volume of type iSCSI, getting the volume settings";
+                    LOGDEBUG << "iSCSI: getting the volume settings for volume ID[ " << volId << " ]";
 
                     auto iscsi = boost::make_shared<fpi::IScsiTarget>( vol.iscsiSettings );
                     fds::deserializeFdspMsg( serialized, iscsi );
-                    vol.iscsiSettings = *iscsi;
                     return true;
                 }
-                else if (vol.volType == fpi::FDSP_VOL_NFS_TYPE)
+                else if ( vol.volType == fpi::FDSP_VOL_NFS_TYPE )
                 {
-                    LOGDEBUG << "Found volume of type NFS, getting the volume settings";
+                    LOGDEBUG << "NFS: getting the volume settings for volume ID[ \" << volId << \" ]\"";
 
                     auto nfs = boost::make_shared<fpi::NfsOption>( vol.nfsSettings );
                     fds::deserializeFdspMsg( serialized, nfs );
-                    vol.nfsSettings = *nfs;
                     return true;
                 }
             }
         }
-        else
-        {
-            return true;
-        }
+
+        return true;
 
     } catch(RedisException& e) {
         LOGERROR << e.what();
