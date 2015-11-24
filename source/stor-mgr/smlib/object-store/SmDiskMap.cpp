@@ -229,16 +229,12 @@ void SmDiskMap::getDiskMap() {
     std::string   path, dev;
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
-    if (!dir) {
-        std::cout << "FdsRootDir is NULL.\n";
-        return;
-    }
 
     std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
     
     if (map.fail() == true) {
-        std::cout << "DiskMap read failed. Check " << path 
-                  << "/dev for a valid disk map\n";
+        std::cout << "DiskMap read failed. Check " << dir->dir_dev() 
+                  << " for a valid disk map\n";
         return;
     }
 

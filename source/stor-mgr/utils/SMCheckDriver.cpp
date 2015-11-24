@@ -137,11 +137,9 @@ main(int argc, char** argv) {
             nullptr
     };
 
-    std::cout << "ARGS: ";
     std::vector<char*> new_argv;
     for (int i = 0; i < argc; ++i) {
         new_argv.push_back(argv[i]);
-        std::cout<< argv[i] << "\n";
     }
     new_argv.push_back("--fds.sm.enable_graphite=false");
 
