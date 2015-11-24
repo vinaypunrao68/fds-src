@@ -120,6 +120,10 @@ int SMCheckDriver::run() {
 
 int
 main(int argc, char** argv) {
+    if (getuid() != 0) {
+        std::cout << "User is not Root. Exiting..." << std::endl;
+        return 0;
+    }
     fds::SmDiskMap::ptr smDiskMap = fds::SmDiskMap::ptr(
             new fds::SmDiskMap("SMchk"));
 
@@ -133,9 +137,11 @@ main(int argc, char** argv) {
             nullptr
     };
 
+    std::cout << "ARGS: ";
     std::vector<char*> new_argv;
     for (int i = 0; i < argc; ++i) {
         new_argv.push_back(argv[i]);
+        std::cout<< argv[i] << "\n";
     }
     new_argv.push_back("--fds.sm.enable_graphite=false");
 
