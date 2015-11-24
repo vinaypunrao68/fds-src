@@ -1606,8 +1606,9 @@ OM_NodeDomainMod::om_startup_domain()
                 }
             }
         }
-    }
 #endif
+
+    }
 
     // check that committed DLT matches the SM services in cluster map
     err = dp->validateDltOnDomainActivate( sm_services );
