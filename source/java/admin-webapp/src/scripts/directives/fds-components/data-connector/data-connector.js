@@ -12,6 +12,10 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.types = [];
             $scope._selectedSize = 10;
             $scope._selectedUnit = $scope.sizes[1];
+            $scope._acls = false;
+            $scope._root_squash = false;
+            $scope._async = false;
+            $scope._ip_filters = [];
 
             var findUnit = function(){
 
@@ -26,11 +30,15 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
             };
             
-            var refreshSelection = function(){
+            $scope.refreshSelection = function(){
                  
                 if ( angular.isDefined( $scope.volumeType.capacity ) ){
                     $scope.volumeType.capacity.value = $scope._selectedSize;
                     $scope.volumeType.capacity.unit = $scope._selectedUnit.name;
+                }
+                
+                if ( angular.isDefined( $scope.volumeType.target ) ){
+                    $scope.volumeType.target.incomingUsers = [{username: $scope._username, password: $scope._password}];
                 }
             };
             
@@ -43,7 +51,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
             };
             
-            $scope.$on( 'fds::refresh', refreshSelection );
+            $scope.$on( 'fds::refresh', $scope.refreshSelection );
             
             $scope.$watch( 'volumeType', function( newVal ){
                 
@@ -58,6 +66,14 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 if ( angular.isDefined( $scope.volumeType.capacity ) ){
                     $scope._selectedSize = $scope.volumeType.capacity.value;
                     findUnit();
+                }
+                
+                if ( angular.isDefined( $scope.volumeType.target ) && 
+                     angular.isDefined( $scope.volumeType.target.incomingUsers ) && 
+                     $scope.volumeType.target.incomingUsers.length > 0 ){
+                    
+                    $scope._username = $scope.volumeType.target.incomingUsers[0].username;
+                    $scope._password = $scope.volumeType.target.incomingUsers[0].password;
                 }
                 
             });

@@ -212,6 +212,20 @@ var en_US = {
         tt_firebreak: 'Firebreak status over the past 24 hours',
         tt_priority: 'Volume priority',
         
+        iscsi: {
+            l_incoming_users: 'Incoming Credentials'
+        },
+        
+        nfs: {
+            l_ip_filters: 'IP Filters',
+            l_ip_filter: 'IP Filter',
+            l_options: 'NFS Options',
+            l_async: 'Asynchronous',
+            l_root_squash: 'Root Squash',
+            l_acls: 'Use ACLs',
+            l_add_filter: 'Add Filter'
+        },
+        
         view : {
             desc_dedup_suffix: 'Deduplicated',
             desc_logical_suffix: 'Logical',
