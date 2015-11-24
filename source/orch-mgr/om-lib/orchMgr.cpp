@@ -179,7 +179,10 @@ void OrchMgr::setupSvcInfo_()
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGDEBUG << "Registering OM service: " << fds::logString(svcInfo_);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    LOGDEBUG << "Registering OM service: " << fds::logString( svcInfo_ )
+             << " LOCAL DOMAIN UP " << domain->om_local_domain_up()
+             << " DOWN " << domain->om_local_domain_down();
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});

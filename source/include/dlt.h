@@ -165,7 +165,7 @@ namespace fds {
          * Checks if DLT is valid
          * Invalid cases:
          *    -- A column has repeating node uuids (non-unique)
-         *    -- A cell in a DMT has an invalid Service UUID
+         *    -- A cell in a DLT has an invalid Service UUID
          *    -- DLT must not contain any uuids that are not in 'expectedUuidSet'
          * @param expectedUuidSet a set of UUIDs that are expected to be
          *        in this DLT; one or more UUIDs may be missing from the DLT,

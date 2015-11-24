@@ -10,6 +10,7 @@
 #include <string>
 
 #include <fds_dmt.h>
+#include <include/net/SvcMgr.h>
 
 namespace fds {
 
@@ -193,6 +194,42 @@ std::ostream& operator<< (std::ostream &oss, const DMT& dmt) {
     return oss;
 }
 
+Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
+    Error err(ERR_OK);
+
+    // we should not have more rows than nodes
+    if (getDepth() > expectedUuidSet.size()) {
+        LOGERROR << "DLT has more rows (" << depth
+                 << ") than nodes (" << expectedUuidSet.size() << ")";
+        return ERR_INVALID_DLT;
+    }
+
+    // check each column in DLT
+    NodeUuidSet colSet;
+    for (fds_token_id i = 0; i < getNumColumns(); ++i) {
+        colSet.clear();
+        DmtColumnPtr column = getNodeGroup(i);
+        for (fds_uint32_t j = 0; j < getDepth() ; ++j) {
+            NodeUuid uuid = column->get(j);
+            if ((uuid.uuid_get_val() == 0) ||
+                (expectedUuidSet.count(uuid) == 0)) {
+                // unexpected uuid in this DLT cell
+                LOGERROR << "DLT contains unexpected uuid " << std::hex
+                         << uuid.uuid_get_val() << std::dec;
+                return ERR_INVALID_DLT;
+            }
+            colSet.insert(uuid);
+        }
+
+        // make sure that column contains all unique uuids
+        if (colSet.size() < depth) {
+            LOGERROR << "Found non-unique uuids in DLT column " << i;
+            return ERR_INVALID_DLT;
+        }
+    }
+
+    return err;
+}
 Error DMT::verify() const {
     Error err(ERR_OK);
     std::vector<DmtColumnPtr>::const_iterator it;
