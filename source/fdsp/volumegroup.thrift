@@ -70,28 +70,6 @@ struct AddToVolumeGroupRespCtrlMsg {
     1: required VolumeGroupInfo		group;
 }
 
-/* Notification from replica to any entitiy in the domain of the current state */
-struct VolumeStateUpdateInfoCtrlMsg {
-    1: required VolumeGroupId		groupId;
-    2: required VolumeGroupVersion	version;
-    /* Id of the replica sending this message */
-    3: required svc_types.SvcUuid	svcUuid;
-    4: required VolumeState		state; 
-}
-
-/* Query message to ge the 
-struct GetVolumeStateCtrlMsg {
-    1: required VolumeGroupId		groupId;
-    2: required svc_types.SvcUuid	svcUuid;
-}
-
-/* Header to include when sending sync messages */
-struct VolumeSyncEntryHdr {
-    1: required VolumeGroupId		groupId;
-    2: required svc_types.SvcUuid	svcUuid;
-    3: required i64			commitId;
-}
-
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
 }

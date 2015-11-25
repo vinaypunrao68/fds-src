@@ -78,7 +78,7 @@ struct QosVolumeIo : public SvcMsgIo {
     }
     void respondBack() {
         if (cb) {
-            LOGNOTIFY << "Responding: " << *this;
+            LOGDEBUG << "Responding: " << *this;
             cb(*this);
             cb = 0;
         }
@@ -199,6 +199,8 @@ struct Volume : HasModuleProvider {
     }
     inline VolumeBehavior* getCurrentBehavior() { return currentBehavior_; }
 
+    const std::string& logString() const { return logStr_; }
+
     struct OpInfo {
         int64_t                             appliedOpId;
         int64_t                             appliedCommitId;
@@ -220,9 +222,6 @@ struct Volume : HasModuleProvider {
     void handleCommitTxCommon_(const CommitTxIoPtr &io,
                                bool txMustExist,
                                VolumeCommitLog *alternateLog);
-    Error updateTxTbl_(int64_t txId,
-                       const fpi::TxUpdates &kvPairs,
-                       bool txMustExist);
     void commitBatch_(int64_t commitId, const CatWriteBatchPtr& writeBatch);
 
     void startSyncCheck_();
@@ -230,10 +229,12 @@ struct Volume : HasModuleProvider {
     void applyPulledActiveTxs_(const fpi::PullActiveTxsRespMsgPtr &txsResp);
     void applyBufferedIo_();
     void sendPullCommitLogEntriesMsg_(const int64_t &syncCommitId);
+    void concludeQuickSync_(const fpi::PullCommitLogEntriesRespMsgPtr &pulledCommitsMsg);
     void applyPulledCommitLogEntries_(const fpi::PullCommitLogEntriesRespMsgPtr &entriesMsg);
     void applyBufferedCommits_();
 
 
+    std::string                             logStr_;
     FDS_QoSControl                          *qosCtrl_;
     fds_volid_t                             volId_;
     std::unique_ptr<FDS_VolumeQueue>        volQueue_;;
@@ -255,6 +256,7 @@ struct Volume : HasModuleProvider {
 
     static const std::string                OPINFOKEY;
     static const uint32_t                   MAX_SYNCENTRIES_BYTES = 1 * MB;
+    static const uint32_t                   MAX_COMMITLOG_ENTRIES = 1000;
 };
 using VolumePtr = SHPTR<Volume>;
 

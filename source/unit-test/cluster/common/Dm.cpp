@@ -20,9 +20,12 @@ DmHandler::DmHandler(DmProcess* dmProc)
 
 void DmHandler::initHandlers()
 {
-    registerHandler<StartTxIo>();
-    registerHandler<UpdateTxIo>();
-    registerHandler<CommitTxIo>();
+    registerHandler<StartTxIo>(getVolIdFromSvcMsgWithIoHdr<StartTxIo::ReqMsgT>);
+    registerHandler<UpdateTxIo>(getVolIdFromSvcMsgWithIoHdr<UpdateTxIo::ReqMsgT>);
+    registerHandler<CommitTxIo>(getVolIdFromSvcMsgWithIoHdr<CommitTxIo::ReqMsgT>);
+
+    registerHandler<PullActiveTxsIo>(getVolIdFromSvcMsg<PullActiveTxsIo::ReqMsgT>);
+    registerHandler<PullCommitLogEntriesIo>(getVolIdFromSvcMsg<PullCommitLogEntriesIo::ReqMsgT>);
 }
 
 dmQosCtrl::dmQosCtrl(DmProcess *parent,

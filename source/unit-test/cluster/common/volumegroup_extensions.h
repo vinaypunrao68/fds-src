@@ -29,11 +29,25 @@ const fpi::VolumeIoHdr& getVolumeIoHdrRef(const MsgT& msg)
     return msg.volumeIoHdr;
 }
 
+template <class MsgT>
+int64_t getVolIdFromSvcMsg(const MsgT& msg)
+{
+    return msg.groupId;
+}
+
+template<class MsgT>
+int64_t getVolIdFromSvcMsgWithIoHdr(const MsgT &msg)
+{
+    return getVolumeIoHdrRef<MsgT>(msg).groupId;
+}
+
 std::string logString(const fpi::VolumeIoHdr &hdr);
 std::string logString(const fpi::StartTxMsg& msg);
 std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg);
 std::string logString(const fpi::PullCommitLogEntriesMsg &msg);
 std::string logString(const fpi::PullActiveTxsMsg& msg);
+std::string logString(const fpi::VolumeGroupInfo &group);
+std::string logString(const fpi::AddToVolumeGroupRespCtrlMsg& msg);
 
 }  // namespace fds
 

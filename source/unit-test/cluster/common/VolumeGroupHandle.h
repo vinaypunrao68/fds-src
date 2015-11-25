@@ -44,9 +44,17 @@ struct VolumeReplicaHandle {
     inline bool isNonFunctional() const {
         return isNonFunctional(state);
     }
-    void setInfo(const fpi::VolumeState &state, int64_t opId, int64_t commitId)
+    inline void setState(const fpi::VolumeState &state)
     {
         this->state = state;
+    }
+    inline void setError(const Error &e)
+    {
+        this->lastError = e;
+    }
+    inline void setInfo(const fpi::VolumeState &state, int64_t opId, int64_t commitId)
+    {
+        setState(state);
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
@@ -149,10 +157,12 @@ struct VolumeGroupHandle : HasModuleProvider {
         req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
-        LOGNOTIFY << fds::logString(req->volumeIoHdr_);
+        LOGDEBUG << fds::logString(req->volumeIoHdr_);
         req->invoke();
     }
-    Error changeVolumeReplicaState_(const fpi::AddToVolumeGroupCtrlMsg& update);
+    Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
+                                    const fpi::VolumeState &targetState,
+                                    const Error &e);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);

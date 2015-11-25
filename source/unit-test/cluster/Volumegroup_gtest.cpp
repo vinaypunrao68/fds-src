@@ -3,11 +3,13 @@
 #define GTEST_USE_OWN_TR1_TUPLE 0
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <chrono>
 #include <testlib/TestFixtures.h>
 #include <util/stringutils.h>
 #include <Dm.h>
 #include <Om.h>
 #include <Am.h>
+#include <concurrency/RwLock.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -98,7 +100,124 @@ TEST(ProcHandle, DISABLED_test1) {
     dm1.stop();
 }
 
-TEST_F(ClusterFixture, test1)
+TEST_F(ClusterFixture, DISABLED_test_quicksync)
+{
+    // Temporary hack
+    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
+    ProcessHandle<fds::Om>          om("Om", "/fds", 1024, 7000);
+    g_fdsprocess = om.proc.get();
+    g_cntrs_mgr = om.proc->get_cntrs_mgr();
+
+    ProcessHandle<fds::AmProcess>   am("Om", "/fds", 1024, 7000);
+    ProcessHandle<fds::DmProcess>   dm1("DmProcess", "/fds", 1024, 7000);
+    ProcessHandle<fds::DmProcess>   dm2("DmProcess", "/fds/node1", 2048, 9850);
+    ProcessHandle<fds::DmProcess>   dm3("DmProcess", "/fds/node2", 4096, 10850);
+
+    fds_volid_t v(10);
+    fpi::VolumeGroupInfo volumeGroup;
+    volumeGroup.groupId = v.get();
+    volumeGroup.version = 0;
+    volumeGroup.functionalReplicas.push_back(dm1.proc->getSvcMgr()->getSelfSvcUuid());
+    volumeGroup.functionalReplicas.push_back(dm2.proc->getSvcMgr()->getSelfSvcUuid());
+    volumeGroup.functionalReplicas.push_back(dm3.proc->getSvcMgr()->getSelfSvcUuid());
+
+    ASSERT_EQ(dm1.proc->addVolume(v), ERR_OK);
+    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
+    ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
+    am.proc->attachVolume(volumeGroup);
+    
+    int nPuts = 20;
+    for (int i = 0; i < nPuts; i++) {
+        concurrency::TaskStatus s(3);
+        am.proc->putBlob(v,
+                        [&s](const Error& e, StringPtr resp) {
+                        GLOGNOTIFY << "Received response: " << e;
+                        s.done();
+                        });
+        s.await();
+        if (i==10) {
+            dm2.stop();
+        }
+    }
+    sleep(7);
+
+    std::cout << "Starting sync";
+    dm2.start();
+    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
+    dm2.proc->getVolume(v)->forceQuickSync(am.proc->getSvcMgr()->getSelfSvcUuid());
+    sleep(4);
+
+    for (int i = 0; i < nPuts; i++) {
+        concurrency::TaskStatus s(3);
+        am.proc->putBlob(v,
+                        [&s](const Error& e, StringPtr resp) {
+                        GLOGNOTIFY << "Received response: " << e;
+                        s.done();
+                        });
+        s.await();
+    }
+    sleep(5);
+
+    GLOGNOTIFY << "Exiting from test";
+}
+
+TEST_F(ClusterFixture, test_quicksync_activeio)
+{
+    // Temporary hack
+    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
+    ProcessHandle<fds::Om>          om("Om", "/fds", 1024, 7000);
+    g_fdsprocess = om.proc.get();
+    g_cntrs_mgr = om.proc->get_cntrs_mgr();
+
+    ProcessHandle<fds::AmProcess>   am("Om", "/fds", 1024, 7000);
+    ProcessHandle<fds::DmProcess>   dm1("DmProcess", "/fds", 1024, 7000);
+    ProcessHandle<fds::DmProcess>   dm2("DmProcess", "/fds/node1", 2048, 9850);
+    ProcessHandle<fds::DmProcess>   dm3("DmProcess", "/fds/node2", 4096, 10850);
+
+    fds_volid_t v(10);
+    fpi::VolumeGroupInfo volumeGroup;
+    volumeGroup.groupId = v.get();
+    volumeGroup.version = 0;
+    volumeGroup.functionalReplicas.push_back(dm1.proc->getSvcMgr()->getSelfSvcUuid());
+    volumeGroup.functionalReplicas.push_back(dm2.proc->getSvcMgr()->getSelfSvcUuid());
+    volumeGroup.functionalReplicas.push_back(dm3.proc->getSvcMgr()->getSelfSvcUuid());
+
+    ASSERT_EQ(dm1.proc->addVolume(v), ERR_OK);
+    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
+    ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
+    am.proc->attachVolume(volumeGroup);
+    
+    int nPuts = 80;
+    for (int i = 0; i < nPuts; i++) {
+        concurrency::TaskStatus s(3);
+        am.proc->putBlob(v,
+                        [&s](const Error& e, StringPtr resp) {
+                        GLOGNOTIFY << "Received response: " << e;
+                        s.done();
+                        });
+        s.await();
+        if (i==10) {
+            dm2.stop();
+            sleep(6);
+            GLOGNOTIFY << "Stopped dm2";
+        }
+        if (i==20) {
+            GLOGNOTIFY << "Starting dm2";
+            dm2.start();
+            ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
+            dm2.proc->getVolume(v)->forceQuickSync(am.proc->getSvcMgr()->getSelfSvcUuid());
+        }
+        if (i > 20 && i % 10 == 0) {
+           std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    GLOGNOTIFY << "Received all responses";
+
+    sleep(5);
+
+    GLOGNOTIFY << "Exiting from test";
+}
+TEST_F(ClusterFixture, DISABLED_test1)
 {
     // Temporary hack
     // TODO(Rao): Get rid of this by putting perftraceing under PERF macro

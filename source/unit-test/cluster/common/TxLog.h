@@ -44,6 +44,7 @@ struct TxLog {
     {
         auto dist = distFromStart(commitId);
         if (dist < 0 || dist >= entries_.size()) {
+            fds_assert(!"Bad reqquest for iterator");
             return entries_.end();
         }
         return std::next(entries_.begin(), dist);
@@ -58,7 +59,7 @@ struct TxLog {
     }
     int32_t distFromStart(int64_t commitId)
     {
-        return startCommitId() - commitId;
+        return commitId - startCommitId();
     }
     int64_t startCommitId() const {
         return lastCommitId_ - entries_.size() + 1; 

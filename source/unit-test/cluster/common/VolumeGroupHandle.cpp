@@ -35,8 +35,9 @@ std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 
 std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
 {
-    out << " svcUuid: " << h.svcUuid.svc_uuid
-        << " state: " << h.state
+    out << "VolumeReplicaHandle" 
+        << " svcUuid: " << h.svcUuid.svc_uuid
+        << " state: " << fpi::_VolumeState_VALUES_TO_NAMES.at(static_cast<int>(h.state))
         << " lasterr: " << h.lastError
         << " appliedOp: " << h.appliedOpId
         << " appliedCommit: " << h.appliedCommitId;
@@ -69,8 +70,14 @@ void VolumeGroupHandle::handleAddToVolumeGroupMsg(
 
 {
     runSynchronized([this, addMsg, cb]() mutable {
-        auto err = changeVolumeReplicaState_(*addMsg);
         auto respMsg = MAKE_SHARED<fpi::AddToVolumeGroupRespCtrlMsg>();
+        auto volumeHandle = getVolumeReplicaHandle_(addMsg->svcUuid);
+        if (volumeHandle == INVALID_REAPLICA_HANDLE()) {
+            LOGWARN << "Failed to lookup replica handle for: " << addMsg->svcUuid.svc_uuid;
+            cb(ERR_INVALID, respMsg);
+            return;
+        }
+        auto err = changeVolumeReplicaState_(volumeHandle, addMsg->targetState, ERR_OK);
         respMsg->group = getGroupInfoForExternalUse_();
         cb(err, respMsg);
     });
@@ -86,7 +93,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     outStatus = inStatus;
 
-    GLOGNOTIFY << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+    LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
         << fds::logString(hdr) << inStatus;
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
@@ -102,12 +109,10 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                 successAcks++;
             }
         } else {
-            volumeHandle->state = fpi::VolumeState::VOLUME_DOWN;
-            volumeHandle->lastError = inStatus;
-            // GLOGWARN << hdr << " Volume marked down: " << *volumeHandle;
-            GLOGWARN << " Replica marked down: " << *volumeHandle;
-            // TODO(Rao): Change group state
-            // changeGroupState();
+            auto changeErr = changeVolumeReplicaState_(volumeHandle,
+                                                       fpi::VolumeState::VOLUME_DOWN,
+                                                       inStatus);
+            fds_verify(changeErr == ERR_OK);
         }
     } else {
         /* When replica isn't functional we don't expect subsequent IO to return with
@@ -142,28 +147,44 @@ VolumeGroupHandle::getVolumeReplicaHandleList_(const fpi::VolumeState& s)
     }
 }
 
-Error VolumeGroupHandle::changeVolumeReplicaState_(
-    const fpi::AddToVolumeGroupCtrlMsg& update)
+/**
+* @brief 
+* NOTE: Ensure all state changes for volume go through this function so that we have
+* central function to coordinate state changes
+*
+* @param volumeHandle
+* @param targetState
+*
+* @return 
+*/
+Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
+                                                   const fpi::VolumeState &targetState,
+                                                   const Error &e)
 {
-    GET_VOLUMEREPLICA_HANDLE_RETURN(srcItr, update.svcUuid, ERR_INVALID);
-    LOGNORMAL << " Incoming update: " << fds::logString(update)
-        << " handler: " << *srcItr;
+    LOGNORMAL << " Target state: "
+        << fpi::_VolumeState_VALUES_TO_NAMES.at(static_cast<int>(targetState))
+        << " Prior update handle: " << *volumeHandle;
 
-    auto srcState = srcItr->state;
+    auto srcState = volumeHandle->state;
 
-    fds_verify(VolumeReplicaHandle::isSyncing(update.targetState));
-
-    if (VolumeReplicaHandle::isSyncing(update.targetState)) {
-        srcItr->setInfo(update.targetState, opSeqNo_, commitNo_);
+    if (VolumeReplicaHandle::isSyncing(targetState)) {
+        volumeHandle->setInfo(targetState, opSeqNo_, commitNo_);
+    } else if (VolumeReplicaHandle::isNonFunctional(targetState)) {
+        volumeHandle->setState(targetState);
+        volumeHandle->setError(e);
+    } else if (VolumeReplicaHandle::isFunctional(targetState)){
+        volumeHandle->setState(targetState);
+        volumeHandle->setError(ERR_OK);
     }
+    LOGNORMAL << "After update handle: " << *volumeHandle;
 
     /* Move the handle from the appropriate replica list */
     auto &srcList = getVolumeReplicaHandleList_(srcState);
-    auto &dstList = getVolumeReplicaHandleList_(update.targetState);
-    auto dstItr = std::move(srcItr, srcItr+1, std::back_inserter(dstList));
-    srcList.erase(srcItr, srcItr+1);
+    auto &dstList = getVolumeReplicaHandleList_(targetState);
+    auto dstItr = std::move(volumeHandle, volumeHandle+1, std::back_inserter(dstList));
+    srcList.erase(volumeHandle, volumeHandle+1);
+    volumeHandle = dstList.end() - 1;
 
-    // LOGNORMAL << " After update handler: " << dstList.back();
     return ERR_OK;
 }
 
@@ -303,7 +324,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
         responseCb_ = 0;
     }
     if (outStatus != ERR_OK) {
-        GLOGWARN << "Volume response: " << fds::logString(*header)
+        GLOGWARN << logString() << " " << fds::logString(*header)
             << " outstatus: " << outStatus;
     }
     ++nAcked_;

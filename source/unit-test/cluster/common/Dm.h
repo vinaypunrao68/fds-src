@@ -38,6 +38,12 @@ struct DmProcess : SvcProcess {
 
     Error addVolume(const fds_volid_t &volId);
 
+    /* Exposed for testing */
+    VolumePtr getVolume(const fds_volid_t &volId)
+    {
+        return volumeTbl[volId];
+    }
+
     //TODO(Rao): See if the below SHPTR can be const
     template <class Functor, class IoType, class... Args>
     void runSynchronizedVolumeIoHandler(Functor&& f, SHPTR<IoType> io) {
@@ -66,20 +72,19 @@ struct DmHandler: PlatNetSvcHandler {
 
     void initHandlers();
 
-    template <class QosVolumeIoT>
-    void registerHandler() {
+    template <class QosVolumeIoT, typename F>
+    void registerHandler(F volidFunc) {
         asyncReqHandlers_[QosVolumeIoT::reqMsgTypeId] =
-            [this] (SHPTR<fpi::AsyncHdr>& asyncHdr,
+            [this, volidFunc] (SHPTR<fpi::AsyncHdr>& asyncHdr,
                     SHPTR<std::string>& payloadBuf)
             {
                 SHPTR<typename QosVolumeIoT::ReqMsgT> payload;
                 fds::deserializeFdspMsg(payloadBuf, payload);
-                auto &volumeIoHdr = getVolumeIoHdrRef(*payload);
                 auto cbfunc = std::bind(&DmHandler::responseCb<QosVolumeIoT>,
                                         this,
                                         asyncHdr,
                                         std::placeholders::_1);
-                fds_volid_t volId(volumeIoHdr.groupId);
+                fds_volid_t volId(volidFunc(*payload));
                 auto qosMsg = new QosVolumeIoT(volId,
                                                dm->qosCtrl.get(),
                                                payload,

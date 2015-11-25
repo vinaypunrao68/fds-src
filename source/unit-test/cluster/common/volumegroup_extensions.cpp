@@ -43,4 +43,23 @@ std::string logString(const fpi::PullActiveTxsMsg& msg)
     ss << "PullActiveTxsMsg groupId: " << msg.groupId;
     return ss.str();
 }
+
+std::string logString(const fpi::VolumeGroupInfo &group)
+{
+    std::stringstream ss;
+    ss << " groupId: " << group.groupId
+        << " version: " << group.version
+        << " lastOpId: " << group.lastOpId
+        << " lastCommitId: " << group.lastCommitId
+        << " functional size: " << group.functionalReplicas.size()
+        << " nonfunctionalReplicas size: " << group.nonfunctionalReplicas.size();
+    return ss.str();
+}
+
+std::string logString(const fpi::AddToVolumeGroupRespCtrlMsg& msg)
+{
+    std::stringstream ss;
+    ss << "AddToVolumeGroupRespCtrlMsg groupId: " << fds::logString(msg.group);
+    return ss.str();
+}
 }  // namespace fds
