@@ -1594,6 +1594,11 @@ OM_PmAgent::send_stop_service
         return Error(ERR_OK);
     }
     
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    if (shutdownNode) {
+        domain->addToShutdownList(get_uuid().uuid_get_val());
+    }
+
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         LOGNORMAL << "Stop services for node" << get_node_name()
                   << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec

@@ -1529,6 +1529,7 @@ OM_NodeDomainMod::om_startup_domain()
     LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
               << " and other commands for the domain";
 
+    clearShutdownList();
     // get SMs and DMs from cluster map
     for (ClusterMap::const_sm_iterator sm_cit = cm->cbegin_sm();
          sm_cit != cm->cend_sm();
@@ -2565,15 +2566,25 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      */
 
     if (om_local_domain_up()) {
-        if (msg->node_type == fpi::FDSP_STOR_MGR) {
-            om_dlt_update_cluster();
-        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-            // Send the DMT to DMs.
-            om_dmt_update_cluster(fPrevRegistered);
-            if (fPrevRegistered) {
-                om_locDomain->om_bcast_vol_list(newNode);
-                LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
+
+        int64_t pmUuid = uuid.uuid_get_val();
+        pmUuid &= ~0xF; // clear out the last 4 bits
+        LOGDEBUG << "!!PmUuid is :" << std::hex << pmUuid << std::dec;
+
+        if ( !isNodeShuttingDown(pmUuid) ) {
+            if (msg->node_type == fpi::FDSP_STOR_MGR) {
+                om_dlt_update_cluster();
+            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+                // Send the DMT to DMs.
+                om_dmt_update_cluster(fPrevRegistered);
+                if (fPrevRegistered) {
+                    om_locDomain->om_bcast_vol_list(newNode);
+                    LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
+                }
             }
+        } else {
+            LOGDEBUG << "Node:" << std::hex << pmUuid << std::dec
+                     << "is shutting down, will not attempt dlt/dmt update";
         }
     } else {
         local_domain_event(RegNodeEvt(uuid, msg->node_type));
@@ -2696,6 +2707,16 @@ OM_NodeDomainMod::om_shutdown_domain()
 
     LOGNOTIFY << "Shutting down domain, will stop processing node add/remove"
               << " and other commands for the domain";
+
+    RsArray pmNodes;
+    fds_uint32_t pmCount = om_locDomain->om_pm_nodes()->rs_container_snapshot(&pmNodes);
+    for (RsContainer::const_iterator it = pmNodes.cbegin();
+         it != pmNodes.cend();
+         ++it) {
+        NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(*it);
+        addToShutdownList(cur->get_uuid().uuid_get_val());
+    }
+
     local_domain_event(ShutdownEvt());
 
     return err;
@@ -3017,6 +3038,47 @@ OM_NodeDomainMod::raiseAbortMigrationEvt(NodeUuid uuid) {
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+
+void
+OM_NodeDomainMod::addToShutdownList(int64_t uuid)
+{
+
+    if (!isNodeShuttingDown(uuid)) {
+        LOGDEBUG << "Tracking node: " << std::hex << uuid
+                 << std::dec << " , add to shutting down list";
+        shuttingDownNodes.push_back(uuid);
+    } else {
+        LOGDEBUG << "Node: " << std::hex << uuid << std::dec
+                 << " is already in shutting down list";
+    }
+
+}
+
+void
+OM_NodeDomainMod::clearShutdownList()
+{
+    LOGDEBUG << "Clearing shutting down node list";
+    shuttingDownNodes.clear();
+}
+
+bool
+OM_NodeDomainMod::isNodeShuttingDown(int64_t uuid)
+{
+    if ( shuttingDownNodes.size() == 0 )
+        return false;
+
+    bool nodeIsShuttingDown = false;
+
+    std::vector<int64_t>::iterator iter;
+    for (auto nodeId : shuttingDownNodes) {
+        if ( nodeId == uuid ) {
+            nodeIsShuttingDown = true;
+            break;
+        }
+    }
+
+    return nodeIsShuttingDown;
 }
 
 } // namespace fds

@@ -1109,6 +1109,10 @@ class OM_NodeDomainMod : public Module
 
     void raiseAbortMigrationEvt(NodeUuid uuid);
 
+    void addToShutdownList(int64_t uuid);
+    void clearShutdownList();
+    bool isNodeShuttingDown(int64_t uuid);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1141,6 +1145,8 @@ class OM_NodeDomainMod : public Module
     // locks to protect accesses
     fds_rwlock svcRegMapLock;
     std::map<int64_t, SvcInfoPtr> registeringSvcs;
+
+    std::vector<int64_t> shuttingDownNodes;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
