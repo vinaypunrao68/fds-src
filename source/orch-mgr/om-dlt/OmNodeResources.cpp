@@ -1437,12 +1437,12 @@ OM_PmAgent::send_start_service
             LOGERROR <<"No node services found in configDB, returning..";
             return Error(ERR_NOT_FOUND);
         }
-
-        fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_ACTIVE );
-        set_node_state(fpi::FDS_Node_Up);
     }
+
+    fds::change_service_state( configDB,
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_ACTIVE );
+    set_node_state(fpi::FDS_Node_Up);
 
     if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
         LOGDEBUG << "Node UUID(" 
@@ -1464,6 +1464,8 @@ OM_PmAgent::send_start_service
 
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
+
+    domain->clearShutdownList();
 
     std::vector<fpi::SvcInfo> existingSvcs;
     fpi::SvcUuid svcuuid;

@@ -2569,7 +2569,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
         int64_t pmUuid = uuid.uuid_get_val();
         pmUuid &= ~0xF; // clear out the last 4 bits
-        LOGDEBUG << "!!PmUuid is :" << std::hex << pmUuid << std::dec;
 
         if ( !isNodeShuttingDown(pmUuid) ) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
@@ -2776,19 +2775,28 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType) {
-    if ( om_local_domain_up() )
-    {
-        if (svcType == fpi::FDSP_STOR_MGR)
+                                  fpi::FDSP_MgrIdType svcType)
+{
+    int64_t pmUuid = svcUuid.uuid_get_val();
+    pmUuid &= ~0xF;
+
+    if (!isNodeShuttingDown(pmUuid)) {
+        if ( om_local_domain_up() )
         {
-            // this is SM -- notify DLT state machine
-            om_dlt_update_cluster();
+            if (svcType == fpi::FDSP_STOR_MGR)
+            {
+                // this is SM -- notify DLT state machine
+                om_dlt_update_cluster();
+            }
+            else if (svcType == fpi::FDSP_DATA_MGR)
+            {
+                // this is DM -- notify DMT state machine
+                om_dmt_update_cluster();
+            }
         }
-        else if (svcType == fpi::FDSP_DATA_MGR)
-        {
-            // this is DM -- notify DMT state machine
-            om_dmt_update_cluster();
-        }
+    } else {
+        LOGDEBUG << "Node:" << std::hex << pmUuid << std::dec
+                 << " is shutting down, will not update dlt/dmt";
     }
 }
 
@@ -2796,18 +2804,26 @@ void
 OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                                 fpi::FDSP_MgrIdType svcType)
 {
-    if ( om_local_domain_up() )
-    {
-        if (svcType == fpi::FDSP_STOR_MGR)
+    int64_t pmUuid = svcUuid.uuid_get_val();
+    pmUuid &= ~0xF;
+
+    if (!isNodeShuttingDown(pmUuid)) {
+        if ( om_local_domain_up() )
         {
-            // this is SM -- notify DLT state machine
-            om_dlt_update_cluster();
+            if (svcType == fpi::FDSP_STOR_MGR)
+            {
+                // this is SM -- notify DLT state machine
+                om_dlt_update_cluster();
+            }
+            else if (svcType == fpi::FDSP_DATA_MGR)
+            {
+                // this is DM -- notify DMT state machine
+                om_dmt_update_cluster();
+            }
         }
-        else if (svcType == fpi::FDSP_DATA_MGR)
-        {
-            // this is DM -- notify DMT state machine
-            om_dmt_update_cluster();
-        }
+    } else {
+        LOGDEBUG << "Node:" << std::hex << pmUuid << std::dec
+                 << " is shutting down, will not update dlt/dmt";
     }
 }
 
