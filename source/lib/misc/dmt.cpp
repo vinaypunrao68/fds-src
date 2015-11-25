@@ -199,12 +199,12 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
 
     // we should not have more rows than nodes
     if (getDepth() > expectedUuidSet.size()) {
-        LOGERROR << "DLT has more rows (" << depth
+        LOGERROR << "DMT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;
     }
 
-    // check each column in DLT
+    // check each column in DMT
     NodeUuidSet colSet;
     for (fds_token_id i = 0; i < getNumColumns(); ++i) {
         colSet.clear();
@@ -213,18 +213,18 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
+                // unexpected uuid in this DMT cell
+                LOGERROR << "DMT contains unexpected uuid " << std::hex
                          << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DLT;
+                return ERR_INVALID_DMT;
             }
             colSet.insert(uuid);
         }
 
         // make sure that column contains all unique uuids
         if (colSet.size() < depth) {
-            LOGERROR << "Found non-unique uuids in DLT column " << i;
-            return ERR_INVALID_DLT;
+            LOGERROR << "Found non-unique uuids in DMT column " << i;
+            return ERR_INVALID_DMT;
         }
     }
 
