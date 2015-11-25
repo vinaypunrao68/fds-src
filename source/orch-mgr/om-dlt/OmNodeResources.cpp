@@ -1465,7 +1465,7 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
-    domain->clearShutdownList();
+    domain->clearFromShutdownList(get_uuid().uuid_get_val());
 
     std::vector<fpi::SvcInfo> existingSvcs;
     fpi::SvcUuid svcuuid;

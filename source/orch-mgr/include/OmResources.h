@@ -1110,6 +1110,7 @@ class OM_NodeDomainMod : public Module
     void raiseAbortMigrationEvt(NodeUuid uuid);
 
     void addToShutdownList(int64_t uuid);
+    void clearFromShutdownList(int64_t uuid);
     void clearShutdownList();
     bool isNodeShuttingDown(int64_t uuid);
 

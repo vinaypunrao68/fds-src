@@ -3072,6 +3072,30 @@ OM_NodeDomainMod::addToShutdownList(int64_t uuid)
 }
 
 void
+OM_NodeDomainMod::clearFromShutdownList(int64_t uuid)
+{
+
+    if (shuttingDownNodes.size() == 0) {
+        return;
+    }
+
+    std::vector<int64_t>::iterator iter;
+    for (iter = shuttingDownNodes.begin();
+            iter != shuttingDownNodes.end(); iter++) {
+        if (*iter == uuid) {
+            break;
+        }
+    }
+
+    if (iter != shuttingDownNodes.end()) {
+        shuttingDownNodes.erase(iter);
+    } else {
+        LOGDEBUG << "Uuid:" << std::hex << uuid << std::dec
+                 << " was never in or is already removed from shutting down list";
+    }
+}
+
+void
 OM_NodeDomainMod::clearShutdownList()
 {
     LOGDEBUG << "Clearing shutting down node list";
