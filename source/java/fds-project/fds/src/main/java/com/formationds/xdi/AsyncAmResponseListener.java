@@ -13,6 +13,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
+import org.joda.time.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -29,8 +30,8 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
     private static final Logger LOG = Logger.getLogger(AsyncAmResponseListener.class);
     private Cache<String, CompletableFuture> pending;
     private ExecutorService executor;
-    
-    public AsyncAmResponseListener(long timeout, TimeUnit timeUnit) {
+
+    public AsyncAmResponseListener(Duration timeout) {
         executor = Executors.newCachedThreadPool();
         this.pending = CacheBuilder.newBuilder()
                 .removalListener(notification -> {
@@ -42,7 +43,7 @@ public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
                         }
                     }
                 })
-                .expireAfterWrite(timeout, timeUnit)
+                .expireAfterWrite(timeout.getMillis(), TimeUnit.MILLISECONDS)
                 .build();
     }
 

@@ -1030,7 +1030,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
     void listVolumes(std::vector<VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
-        checkDomainStatus();
+//        checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
