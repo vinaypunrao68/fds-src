@@ -15,6 +15,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
+import org.joda.time.Duration;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +25,6 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -124,7 +124,7 @@ public class IndexFiles {
 
     public static Directory openDirectory(String volume, boolean truncate) throws Exception {
         int serverPort = new ServerPortFinder().findPort("LuceneTest", 10000);
-        AsyncAm asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, 10, TimeUnit.MINUTES);
+        AsyncAm asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, Duration.standardSeconds(30));
         asyncAm.start();
         Counters counters = new Counters();
         IoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters).start();

@@ -9,6 +9,7 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import org.apache.log4j.Logger;
 import org.apache.lucene.store.*;
+import org.joda.time.Duration;
 import org.junit.Ignore;
 
 import java.io.IOException;
@@ -49,7 +50,7 @@ public class FdsLuceneDirectory extends Directory {
     public FdsLuceneDirectory(String domain, String volume, int objectSize, String amHost, int amPort) throws IOException {
         init(domain, volume, objectSize);
         int serverPort = new ServerPortFinder().findPort("FdsLuceneDirectory AM client", 10000);
-        AsyncAm asyncAm = new RealAsyncAm(amHost, amPort, serverPort, 10, TimeUnit.MINUTES);
+        AsyncAm asyncAm = new RealAsyncAm(amHost, amPort, serverPort, Duration.standardSeconds(30));
         asyncAm.start();
         Counters counters = new Counters();
         AmOps amOps = new AmOps(asyncAm, counters);

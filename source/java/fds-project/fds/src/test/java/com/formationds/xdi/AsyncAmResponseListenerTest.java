@@ -1,13 +1,13 @@
 package com.formationds.xdi;
 
-import com.formationds.protocol.ApiException;
 import com.formationds.apis.RequestId;
 import com.formationds.apis.TxDescriptor;
+import com.formationds.protocol.ApiException;
+import org.joda.time.Duration;
 import org.junit.Test;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
@@ -15,7 +15,7 @@ public class AsyncAmResponseListenerTest {
 
     @Test
     public void testTimeout() throws Exception {
-        AsyncAmResponseListener listener = new AsyncAmResponseListener(1l, TimeUnit.NANOSECONDS);
+        AsyncAmResponseListener listener = new AsyncAmResponseListener(Duration.millis(1));
         listener.start();
         RequestId requestId = new RequestId("foo");
         CompletableFuture<TxDescriptor> cf = listener.expect(requestId);
@@ -35,7 +35,7 @@ public class AsyncAmResponseListenerTest {
 
     @Test
     public void testCallbackGetsInvoked() throws Exception {
-        AsyncAmResponseListener listener = new AsyncAmResponseListener(1l, TimeUnit.DAYS);
+        AsyncAmResponseListener listener = new AsyncAmResponseListener(Duration.millis(10));
         listener.start();
         RequestId requestId = new RequestId("foo");
         CompletableFuture<TxDescriptor> cf = listener.expect(requestId);
