@@ -2,8 +2,10 @@ package com.formationds.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.Fds;
-import com.formationds.apis.*;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
 import com.formationds.xdi.RealAsyncAm;
@@ -11,6 +13,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
+import org.joda.time.Duration;
 
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -30,7 +33,7 @@ public class FdsServerOperations implements NbdServerOperations {
     private final Map<String, Long> volumeCapacity;
 
     public FdsServerOperations(ConfigurationService.Iface config, Executor executor) throws Exception {
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, 9881, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, 9881, Duration.standardSeconds(30));
         this.config = config;
         this.executor = executor;
         volumeObjectSizes = new ConcurrentHashMap<>();
