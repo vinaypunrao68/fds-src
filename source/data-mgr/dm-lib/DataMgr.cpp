@@ -815,7 +815,14 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
 
 void DataMgr::detachVolume(fds_volid_t vol_uuid) {
     VolumeMeta* vol_meta = NULL;
-    qosCtrl->deregisterVolume(vol_uuid);
+    // TODO(Neil):
+    // This is hack-ish because we need to somehow cleanup the volRemoveThread
+    // but I don't want to have a join in the QoS since I want to keep it clean
+    // and not related to DM.
+    // For now, due to time crunch, this may have to do but in the future it's
+    // an area for cleanup.
+    volRemoveThread = new std::thread (&fds::DataMgr::dmQosCtrl::deregisterVolumeThreaded, this->qosCtrl, vol_uuid,
+                                        [this]{volRemoveThread = NULL;});
     vol_map_mtx->lock();
     if (vol_meta_map.count(vol_uuid) > 0) {
         vol_meta = vol_meta_map[vol_uuid];
@@ -1219,6 +1226,12 @@ void DataMgr::mod_shutdown()
          it++) {
         //  qosCtrl->quieseceIOs(it->first);
         qosCtrl->deregisterVolume(it->first);
+    }
+
+    // If we already have a Threaded deregistering volume active, join it
+    if (volRemoveThread) {
+        volRemoveThread->join();
+        volRemoveThread = NULL;
     }
 
     qosCtrl->deregisterVolume(FdsDmSysTaskId);

@@ -54,6 +54,7 @@ class FDS_QoSControl {
    virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
    Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
    Error   deregisterVolume(fds_volid_t voluuid);
+   Error   deregisterVolumeThreaded(fds_volid_t voluuid, std::function<void()> cleanUp);
    Error modifyVolumeQosParams(fds_volid_t vol_uuid, 
 			       fds_int64_t iops_assured,
 			       fds_int64_t iops_throttle,
