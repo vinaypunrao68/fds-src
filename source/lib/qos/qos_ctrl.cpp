@@ -68,18 +68,11 @@ Error FDS_QoSControl::modifyVolumeQosParams(fds_volid_t vol_uuid,
     return err;
 }
 
+
 Error   FDS_QoSControl::deregisterVolume(fds_volid_t vol_uuid) {
     Error err(ERR_OK);
     err = dispatcher->deregisterQueue(vol_uuid.get());
     return err;
-}
-
-Error FDS_QoSControl::deregisterVolumeThreaded(fds_volid_t vol_uuid, std::function<void()> cleanUp)
-{
-    Error err(ERR_OK);
-    err = deregisterVolume(vol_uuid);
-    cleanUp();
-    return (err);
 }
 
 Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {

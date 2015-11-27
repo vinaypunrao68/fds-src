@@ -570,7 +570,7 @@ private:
                                 fds_errno_t statusCode,
                                 const std::string& statusInfo);
 
-    std::thread *volRemoveThread;
+
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
