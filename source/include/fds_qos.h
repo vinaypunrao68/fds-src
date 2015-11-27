@@ -386,6 +386,9 @@ namespace fds {
                     // Most likely NULL means that the queue is not ready to serve I/O
                     // Probably due to snapshot
                     qda_lock.read_unlock();
+
+                    LOGDEBUG << "NULL io dequeue in QOS. more than one of these messages per volume per migration means something is wrong.";
+
                     continue;
                 }
 
