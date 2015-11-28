@@ -104,7 +104,6 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 DmMigrationExecutor::shared_ptr
 DmMigrationMgr::getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
-    SCOPEDREAD(migrExecutorLock);
     auto search = executorMap.find(uniqueId);
     if (search == executorMap.end()) {
         return nullptr;
@@ -472,7 +471,6 @@ DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, con
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    SCOPEDREAD(migrClientLock);
     if (!result.OK()) {
         LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
         abortMigration();
