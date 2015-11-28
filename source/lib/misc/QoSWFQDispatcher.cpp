@@ -166,7 +166,9 @@ QoSWFQDispatcher::getNextQueueForDispatch()
         n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
     }
 
-    while ((!next_qd) || (n_pios == 0)) {                                                           // O(1) condition / O(?) loop
+    unsigned totalQueueCount = getNextQueueCount();
+    unsigned queueCounted = 0;
+    while (((!next_qd) || (n_pios == 0)) && (totalQueueCount && (queueCounted < totalQueueCount))) { // O(1) condition / O(?) loop
         if (next_qd) {                                                                              //     O(1)
             next_qd->num_priority_based_ios_dispatched = 0;                                         //     O(1)
         }
@@ -177,9 +179,10 @@ QoSWFQDispatcher::getNextQueueForDispatch()
             next_qd->num_priority_based_ios_dispatched = 0;                                         //     O(1)
             n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
         }
+        ++queueCounted;
     }
 
-    if (next_qd == NULL) {
+    if ((next_qd == NULL) || (n_pios == 0)) {
         // none of the active queues have any IOs pending, will not dispatch
         return 0;
     }
