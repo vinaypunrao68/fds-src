@@ -101,12 +101,11 @@ const uint16_t SmSuperblockMinorVer = 0;
  * We are saving persistent data on a disk, and we can't have any garbage
  * from the class definitions, which may have run-time data.
  */
-struct SmSuperblockHeader {
+struct __attribute__((__packed__)) SmSuperblockHeader {
   public:
     /* Constructor and destructor
      */
     SmSuperblockHeader();
-    ~SmSuperblockHeader();
 
     void initSuperblockHeader();
     Error validateSuperblockHeader();
@@ -191,10 +190,9 @@ static_assert((sizeof(struct SmSuperblockHeader) == SM_SUPERBLOCK_SECTOR_SIZE),
  *
  *      - Additional data (POD) should be added to the end of the
  */
-struct SmSuperblock {
+struct __attribute__((__packed__)) SmSuperblock {
   public:
     SmSuperblock();
-    ~SmSuperblock();
 
     /* Interfaces for loading and storing superblock
      */
@@ -238,7 +236,7 @@ struct SmSuperblock {
 
     /* Pad the superblock for future extensibility.
      */
-    char SmSuperblockPadding[2048];
+    char SmSuperblockPadding[2040];
 };
 
 /* compile time assert to check that the superblock header is properly aligned

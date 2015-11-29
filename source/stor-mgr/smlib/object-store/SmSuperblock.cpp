@@ -29,10 +29,6 @@ SmSuperblockHeader::SmSuperblockHeader()
     memset(this, SmSuperblockHdrPoison, sizeof(*this));
 }
 
-SmSuperblockHeader::~SmSuperblockHeader()
-{
-}
-
 void
 SmSuperblockHeader::initSuperblockHeader()
 {
@@ -84,11 +80,7 @@ SmSuperblockHeader::validateSuperblockHeader()
 
 SmSuperblock::SmSuperblock()
 {
-}
-
-
-SmSuperblock::~SmSuperblock()
-{
+    memset(SmSuperblockPadding, '\0', sizeof(SmSuperblockPadding));
 }
 
 void
