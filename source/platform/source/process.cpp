@@ -190,7 +190,7 @@ namespace fds
 
             // This needs to live through the lifetime of the exec call
             ValgrindOptions valgrind_options(prog, fds_root);
-            if (!is_java && valgrind_options.runningOnUnnestedValgrind()) {
+            if (!is_java) {
                 valgrindOptCount = valgrind_options().size();
 
                 // Adjust the argv to actually run valgrind...the rest of the
