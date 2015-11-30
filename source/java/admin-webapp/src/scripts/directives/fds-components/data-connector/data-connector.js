@@ -30,6 +30,10 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
             };
             
+            $scope.get_option = function( value ){
+                return { 'name': value };
+            };
+            
             $scope.refreshSelection = function(){
                  
                 if ( angular.isDefined( $scope.volumeType.capacity ) ){
@@ -40,6 +44,43 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 // this means its iSCSI
                 if ( angular.isDefined( $scope.volumeType.target ) ){
                     $scope.volumeType.target.incomingUsers = [{username: $scope._username, password: $scope._password}];
+                }
+                
+                // this is the NFS ip filters
+                if ( angular.isDefined( $scope.volumeType.filters )){
+                    
+                    $scope.volumeType.filters = [];
+                    
+                    for ( var fI = 0; fI < $scope._ip_filters; fI++ ){
+                        $scope.volumeType.filters.push( { 'pattern': { 'value': $scope._ip_filters[fI] }, 'mode': 'ALLOW' } );
+                    }
+                }
+                
+                // this is the NFS options
+                if ( angular.isDefined( $scope.volumeType.options ) ){
+                    
+                    $scope.volumeType.options = [];
+                    
+                    if ( $scope._acls === false ){
+                        $scope.volumeType.options = $scope.get_option( 'no_acls' );
+                    }
+                    else {
+                        $scope.volumeType.options = $scope.get_option( 'acls' );
+                    }
+                    
+                    if ( $scope._async === false ){
+                        $scope.volumeType.options = $scope.get_option( 'sync' );
+                    }
+                    else {
+                        $scope.volumeType.options = $scope.get_option( 'async' );
+                    }
+                    
+                    if ( $scope._root_squash === false ){
+                        $scope.volumeType.options = $scope.get_option( 'squash' );
+                    }
+                    else {
+                        $scope.volumeType.options = $scope.get_option( 'squash_all' );
+                    }
                 }
             };
             
@@ -69,12 +110,57 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                     findUnit();
                 }
                 
+                // this means its iscsi
                 if ( angular.isDefined( $scope.volumeType.target ) && 
                      angular.isDefined( $scope.volumeType.target.incomingUsers ) && 
                      $scope.volumeType.target.incomingUsers.length > 0 ){
                     
                     $scope._username = $scope.volumeType.target.incomingUsers[0].username;
                     $scope._password = $scope.volumeType.target.incomingUsers[0].password;
+                }
+                
+                // this means it's NFS
+                if ( angular.isDefned( $scope.volumeType.filters ) && 
+                    $scope.volumeType.filters.length > 0 ){
+                    
+                    for ( var i = 0; i < $scope.volumeType.filters.length; i++ ){
+                        var filter = $scope.volumeType.filters[i];
+                        
+                        // the UI does not show the DENY portions yet.
+                        if ( filter.mode !== 'ALLOW' ){
+                            continue;
+                        }
+                        
+                        $scope._ip_filters.push( filter.pattern.value );
+                    }
+                }
+                
+                // this is the NFS options
+                if ( angular.isDefined( $scope.volumeType.options ) ){
+                    
+                    for ( var oI = 0; oI < $scope.volumeType.options.length; oI++ ){
+                        
+                        var opt = $scope.volumeType.options[oI];
+                        
+                        if ( opt.name === 'sync' ){
+                            $scope._async = false;
+                        }
+                        else if ( opt.name === 'async' ){
+                            $scope._async = true;
+                        }
+                        else if ( opt.name === 'squash' ){
+                            $scope._root_squash = true;
+                        }
+                        else if ( opt.name === 'squash_all' ){
+                            $scope._root_squash = false;
+                        }
+                        else if ( opt.name === 'acl' ){
+                            $scope._acls = true;
+                        }
+                        else if ( opt.name === 'no_acl' ){
+                            $scope._acls = false;
+                        }
+                    }
                 }
                 
             });

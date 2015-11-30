@@ -217,7 +217,7 @@ var en_US = {
         },
         
         nfs: {
-            l_ip_filters: 'IP Filters',
+            l_ip_filters: 'Allowed IP Filters',
             l_ip_filter: 'IP Filter',
             l_options: 'NFS Options',
             l_async: 'Asynchronous',
