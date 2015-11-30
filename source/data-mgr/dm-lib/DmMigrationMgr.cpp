@@ -39,8 +39,20 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -48,7 +60,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
@@ -93,7 +104,6 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 DmMigrationExecutor::shared_ptr
 DmMigrationMgr::getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
-    SCOPEDREAD(migrExecutorLock);
     auto search = executorMap.find(uniqueId);
     if (search == executorMap.end()) {
         return nullptr;
@@ -461,7 +471,6 @@ DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, con
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    SCOPEDREAD(migrClientLock);
     if (!result.OK()) {
         LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
         abortMigration();
@@ -575,14 +584,14 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 */
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			clientMap.clear();
-			LOGMIGRATE << "Migration clients cleared and state reset";
+			LOGNORMAL << "Migration clients cleared and state reset";
 		}
 	} else if (role == MIGR_EXECUTOR) {
 		{
 			SCOPEDWRITE(migrExecutorLock);
 			LOGMIGRATE << "Waiting for all outstanding executor async messages to be finished";
 			trackIOReqs.waitForTrackIOReqs();
-			LOGMIGRATE << "Migration executors state reset";
+			LOGNORMAL << "Migration executors state reset";
 			/**
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.
@@ -664,6 +673,9 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
@@ -801,18 +813,18 @@ DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
 	}
 
-	// If migrationAborted was set true, set it to false to clean things up
-	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
-
-	LOGMIGRATE << "Done waiting for previous migrations to finish";
-
     // TODO: can we just use the join in place of the CV?
     if (abort_thread) {
         abort_thread->join();
         abort_thread = nullptr;
+
+        LOGMIGRATE << "Done waiting for previous migration abort to finish";
     }
 
-    LOGMIGRATE << "Done waiting for previous migration abort to finish";
+	// If migrationAborted was set true, set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
+	LOGMIGRATE << "Done waiting for previous migrations to finish";
 }
 
 bool

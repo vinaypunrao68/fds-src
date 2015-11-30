@@ -612,9 +612,10 @@ class OM_NodeContainer : public DomainContainer
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                                         const std::string& vol_name) {
-        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
+    inline Error om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                          const std::string& vol_name,
+                                          VolumeDesc& desc) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name, desc);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {
@@ -1102,9 +1103,11 @@ class OM_NodeDomainMod : public Module
      * Methods related to tracking registering services
      * for svcMap updates
      */
-    void addRegisteringSvc(SvcInfoPtr infoPtr);
+    void  addRegisteringSvc(SvcInfoPtr infoPtr);
     Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
-    void removeRegisteredSvc(int64_t uuid);
+    void  removeRegisteredSvc(int64_t uuid);
+
+    void raiseAbortMigrationEvt(NodeUuid uuid);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);

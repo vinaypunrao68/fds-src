@@ -80,8 +80,8 @@
     </Appenders>
 
     <Loggers>
-        <Root level="FATAL">
-            <AppenderRef ref="console"/>
+        <Root level="WARN">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Root>
         <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>

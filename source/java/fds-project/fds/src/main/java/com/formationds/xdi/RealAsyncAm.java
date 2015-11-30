@@ -8,7 +8,6 @@ import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
-import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.log4j.Logger;
@@ -22,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
@@ -31,18 +29,12 @@ public class RealAsyncAm implements AsyncAm {
     private String amHost;
     private int amPort;
     private int responsePort;
-    private AsyncRequestStatistics statistics;
 
-    public RealAsyncAm(String amHost, int amPort, int responseServerPort) throws Exception {
-        this(amHost, amPort, responseServerPort, 10, TimeUnit.SECONDS);
-    }
-
-    public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws IOException {
+    public RealAsyncAm(String amHost, int amPort, int responsePort, Duration timeout) throws IOException {
         this.amHost = amHost;
         this.amPort = amPort;
         this.responsePort = responsePort;
-        statistics = new AsyncRequestStatistics();
-        responseListener = new AsyncAmResponseListener(timeoutDuration, timeoutDurationUnit);
+        responseListener = new AsyncAmResponseListener(timeout);
     }
 
     @Override
