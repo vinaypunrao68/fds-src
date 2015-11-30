@@ -35,6 +35,10 @@ OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid, fpi::FDSP_MgrIdType type)
     : NodeAgent(uuid)
 {
     node_svc_type = type;
+
+    // DM abort migration may wait out this timeout, tack on another 10 seconds for processing time
+    dm_migration_abort_timeout = 10000 + uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                          get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
 }
 
 int
@@ -317,7 +321,7 @@ OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_dm_migration_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2,
             std::placeholders::_3));
-    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(dm_migration_abort_timeout);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     LOGNORMAL << "OM: Send abort DM migration (DMT version " << dmtVersion

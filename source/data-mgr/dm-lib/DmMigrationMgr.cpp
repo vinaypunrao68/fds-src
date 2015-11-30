@@ -10,7 +10,7 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(nullptr),
-    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID)
+      maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID), migrationAborted(false)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                       get<int>("fds.dm.migration.migration_max_concurrency"));
