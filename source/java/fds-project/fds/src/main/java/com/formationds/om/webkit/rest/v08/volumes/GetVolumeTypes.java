@@ -59,8 +59,8 @@ public class GetVolumeTypes implements RequestHandler{
 			
 			volumeTypes.add( objectType );
 			volumeTypes.add( blockType );
-			volumeTypes.add( iscsiType );
-			volumeTypes.add(  nfsType );
+//			volumeTypes.add( iscsiType );
+//			volumeTypes.add(  nfsType );
 		}
 		
 		return volumeTypes;
