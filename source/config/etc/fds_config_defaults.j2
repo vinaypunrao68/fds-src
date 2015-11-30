@@ -121,6 +121,7 @@
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
+{% set ft_common_enable_valgrind      		  = fds_ft_common_enable_valgrind 	           if fds_ft_common_enable_valgrind                  is defined else 'false'  %}
 {% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'false' %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_am_nbd_enabled                          = fds_ft_am_nbd_enabled                          if fds_ft_am_nbd_enabled                          is defined else 'true'  %}

@@ -104,7 +104,6 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 DmMigrationExecutor::shared_ptr
 DmMigrationMgr::getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
-    SCOPEDREAD(migrExecutorLock);
     auto search = executorMap.find(uniqueId);
     if (search == executorMap.end()) {
         return nullptr;
@@ -472,7 +471,6 @@ DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, con
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    SCOPEDREAD(migrClientLock);
     if (!result.OK()) {
         LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
         abortMigration();
@@ -586,14 +584,14 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 */
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			clientMap.clear();
-			LOGMIGRATE << "Migration clients cleared and state reset";
+			LOGNORMAL << "Migration clients cleared and state reset";
 		}
 	} else if (role == MIGR_EXECUTOR) {
 		{
 			SCOPEDWRITE(migrExecutorLock);
 			LOGMIGRATE << "Waiting for all outstanding executor async messages to be finished";
 			trackIOReqs.waitForTrackIOReqs();
-			LOGMIGRATE << "Migration executors state reset";
+			LOGNORMAL << "Migration executors state reset";
 			/**
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.

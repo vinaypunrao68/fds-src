@@ -85,6 +85,7 @@ fds: {
 
         /* Options when running under valgrind */
         valgrind: {
+           enabled = {{ ft_common_enable_valgrind }}
            app_name = "valgrind"
            /* All paths relative to fds_root */
            base_dir = "memcheck/"
