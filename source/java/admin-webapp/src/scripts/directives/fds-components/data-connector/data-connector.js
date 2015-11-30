@@ -37,6 +37,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                     $scope.volumeType.capacity.unit = $scope._selectedUnit.name;
                 }
                 
+                // this means its iSCSI
                 if ( angular.isDefined( $scope.volumeType.target ) ){
                     $scope.volumeType.target.incomingUsers = [{username: $scope._username, password: $scope._password}];
                 }

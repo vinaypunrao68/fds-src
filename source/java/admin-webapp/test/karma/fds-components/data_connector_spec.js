@@ -1,4 +1,4 @@
-ddescribe( 'Test the data connector controller', function(){
+describe( 'Test the data connector controller', function(){
     
     var $dc, $scope, $mock_dc_api, $iso_scope;
     
