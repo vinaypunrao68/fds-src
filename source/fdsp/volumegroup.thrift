@@ -7,7 +7,7 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.replica
 
 typedef i32             VolumeGroupVersion
-typedef i64             VolumeGroupId
+typedef svc_types.ReplicaId VolumeGroupId
 
 enum VolumeState {
     VOLUME_UNINIT,

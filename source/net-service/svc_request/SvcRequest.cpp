@@ -46,13 +46,18 @@ SvcRequestTimer::SvcRequestTimer(CommonModuleProviderIf* provider,
                                  const SvcRequestId &id,
                                  const fpi::FDSPMsgTypeId &msgTypeId,
                                  const fpi::SvcUuid &myEpId,
-                                 const fpi::SvcUuid &peerEpId)
+                                 const fpi::SvcUuid &peerEpId,
+                                 const fpi::ReplicaId &replicaId,
+                                 const int32_t &replicaVersion)
     : HasModuleProvider(provider),
     FdsTimerTask(*(MODULEPROVIDER()->getTimer()))
 {
     header_.reset(new fpi::AsyncHdr());
     *header_ = MODULEPROVIDER()->getSvcMgr()->\
-               getSvcRequestMgr()->newSvcRequestHeader(id, msgTypeId, peerEpId, myEpId, DLT_VER_INVALID);
+               getSvcRequestMgr()->newSvcRequestHeader(id, msgTypeId,
+                                                       peerEpId, myEpId,
+                                                       DLT_VER_INVALID,
+                                                       replicaId, replicaVersion);
     header_->msg_code = ERR_SVC_REQUEST_TIMEOUT;
 }
 
@@ -210,16 +215,16 @@ void SvcRequestIf::invoke()
 
 
 /**
- * Common send handler across all async requests
  * Make sure access to this function is synchronized.  Sending and handling
  * of the response SHOULDN'T happen simultaneously.  Currently we ensure this by
  * using SvcMgr::taskExecutor_
  * @param epId
  */
-void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
+void EPSvcRequest::sendPayload_()
 {
     auto header = MODULEPROVIDER()->getSvcMgr()->\
-    getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_, myEpId_, peerEpId, dlt_version_);
+    getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_, myEpId_, peerEpId_,
+                                               dlt_version_, replicaId_, replicaVersion_);
     header->msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(*header));
@@ -237,7 +242,10 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
                 << logString());
             auto respHdr = MODULEPROVIDER()->getSvcMgr()->\
                            getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_,
-                                                                      peerEpId, myEpId_);
+                                                                      peerEpId_, myEpId_,
+                                                                      dlt_version_,
+                                                                      replicaId_,
+                                                                      replicaVersion_);
             MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postEmptyResponse(respHdr);
             return;
         }
@@ -245,44 +253,32 @@ void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
        /* start the timer */
        if (timeoutMs_) {
            timer_.reset(new SvcRequestTimer(MODULEPROVIDER(), id_,
-                                            msgTypeId_, myEpId_, peerEpId));
+                                            msgTypeId_, myEpId_,
+                                            peerEpId_, replicaId_,
+                                            replicaVersion_));
            bool ret = MODULEPROVIDER()->getTimer()->\
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
-    } catch(util::FiuException &e) {
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->\
-                       getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
-        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        GLOGERROR << logString() << " Error: " << respHdr->msg_code
-            << " exception: " << e.what();
-        MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
-    } catch(apache::thrift::TException &tx) {
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->\
-                       newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
-        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        GLOGWARN << logString() << " Warning: " << respHdr->msg_code
-            << " exception: " << tx.what();
-        MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
-    } catch(std::runtime_error &e) {
-        GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->\
-                       newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
-        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
-        GLOGERROR << logString() << " Error: " << respHdr->msg_code
-            << " exception: " << e.what();
-        MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
     } catch(std::exception &e) {
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->\
-                       newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = MODULEPROVIDER()->getSvcMgr()->\
+                       getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_,
+                                                                  peerEpId_, myEpId_,
+                                                                  dlt_version_,
+                                                                  replicaId_,
+                                                                  replicaVersion_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
         fds_assert(!"Unknown exception");
     } catch(...) {
-        auto respHdr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->\
-                       newSvcRequestHeaderPtr(id_, msgTypeId_, peerEpId, myEpId_);
+        auto respHdr = MODULEPROVIDER()->getSvcMgr()->\
+                       getSvcRequestMgr()->newSvcRequestHeaderPtr(id_, msgTypeId_,
+                                                                  peerEpId_, myEpId_,
+                                                                  dlt_version_,
+                                                                  replicaId_,
+                                                                  replicaVersion_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
@@ -312,6 +308,8 @@ EPSvcRequest::EPSvcRequest(CommonModuleProviderIf* provider,
     : SvcRequestIf(provider, id, myEpId)
 {
     peerEpId_ = peerEpId;
+    replicaId_ = 0;
+    replicaVersion_ = 0;
 }
 
 EPSvcRequest::~EPSvcRequest()
@@ -337,7 +335,7 @@ void EPSvcRequest::invokeWork_()
     state_ = INVOCATION_PROGRESS;
 
     SVCPERF(util::StopWatch sw; sw.start());
-    sendPayload_(peerEpId_);
+    sendPayload_();
     SVCPERF(MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->\
             sendPayloadLat.update(sw.getElapsedNanos()));
 }
@@ -581,7 +579,10 @@ void FailoverSvcRequest::invokeWork_()
                        newSvcRequestHeaderPtr(id_,
                                               msgTypeId_,
                                               epReqs_[curEpIdx_]->peerEpId_,
-                                              myEpId_);
+                                              myEpId_,
+                                              epReqs_[curEpIdx_]->dlt_version_,
+                                              epReqs_[curEpIdx_]->replicaId_,
+                                              epReqs_[curEpIdx_]->replicaVersion_);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(respHdr);
     }

@@ -129,7 +129,9 @@ struct SvcRequestTimer : HasModuleProvider, FdsTimerTask {
                     const SvcRequestId &id,
                     const fpi::FDSPMsgTypeId &msgTypeId,
                     const fpi::SvcUuid &myEpId,
-                    const fpi::SvcUuid &peerEpId);
+                    const fpi::SvcUuid &peerEpId,
+                    const fpi::ReplicaId &replicaId,
+                    const int32_t &replicaVersion);
 
     virtual void runTimerTask() override;
 
@@ -289,7 +291,6 @@ struct SvcRequestIf : HasModuleProvider {
 
  protected:
     virtual void invokeWork_() = 0;
-    void sendPayload_(const fpi::SvcUuid &epId);
     std::stringstream& logSvcReqCommon_(std::stringstream &oss,
                                         const std::string &type);
 
@@ -347,13 +348,18 @@ struct EPSvcRequest : SvcRequestIf {
 
     void onResponseCb(EPSvcRequestRespCb cb);
     inline void set_minor(int minor) { minor_version = minor; }
+    inline void setReplicaId(const fpi::ReplicaId &replicaId) { replicaId_ = replicaId; }
+    inline void setReplicaVersion(const int32_t &version) { replicaVersion_ = version; }
 
  protected:
     virtual void invokeWork_() override;
+    void sendPayload_();
 
-    fpi::SvcUuid peerEpId_;
+    fpi::SvcUuid                    peerEpId_;
+    fpi::ReplicaId                  replicaId_;
+    int32_t                         replicaVersion_;
     /* Reponse callback */
-    EPSvcRequestRespCb respCb_;
+    EPSvcRequestRespCb              respCb_;
 
     friend class FailoverSvcRequest;
     friend class QuorumSvcRequest;

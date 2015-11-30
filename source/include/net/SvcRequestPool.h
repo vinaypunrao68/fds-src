@@ -63,13 +63,17 @@ class SvcRequestPool : HasModuleProvider {
                                       const fpi::FDSPMsgTypeId &msgTypeId,
                                       const fpi::SvcUuid &srcUuid,
                                       const fpi::SvcUuid &dstUuid,
-                                      const fds_uint64_t dlt_version);
+                                      const fds_uint64_t dlt_version,
+                                      const fpi::ReplicaId &replicaId,
+                                      const int32_t &replicaVersion);
     boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
         const SvcRequestId& reqId,
         const fpi::FDSPMsgTypeId &msgTypeId,
         const fpi::SvcUuid &srcUuid,
         const fpi::SvcUuid &dstUuid,
-        fds_uint64_t const dlt_version = DLT_VER_INVALID);
+        fds_uint64_t const dlt_version,
+        const fpi::ReplicaId &replicaId,
+        const int32_t &replicaVersion);
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();
