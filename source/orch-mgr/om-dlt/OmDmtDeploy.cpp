@@ -66,7 +66,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     struct DST_Error
             : public msm::front::interrupt_state<mpl::vector<DmtEndErrorEvt, DmtRecoveryEvt>>
     {
-        DST_Error() : abortMigrAcksToWait(0), commitDmtAcksToWait(0) {}
+        DST_Error() : abortMigrAcksToWait( 0 ),
+                      commitDmtAcksToWait( 0 ) {}
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -83,6 +84,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     };
     struct DST_AllOk : public msm::front::state<>
     {
+        DST_AllOk() : close_acks_to_wait( 0 ),
+                      tryAgainTimer( new FdsTimer() ),
+                      tryAgainTimerTask( new RetryTimerTask( *tryAgainTimer ) ) {}
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -92,6 +97,16 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
         }
+
+
+        fds_uint32_t close_acks_to_wait;
+
+        /**
+         * Timer to try to compute DMT again, in case new DMs joined or DMs
+         * got removed while deploying current DMT
+         */
+        FdsTimerPtr tryAgainTimer;
+        FdsTimerTaskPtr tryAgainTimerTask;
     };
     struct DST_Waiting : public msm::front::state<>
     {

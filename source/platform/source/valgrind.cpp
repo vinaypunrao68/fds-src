@@ -31,9 +31,13 @@ ValgrindOptions::ValgrindOptions(char const* prog_name, char const* fds_root) :
 
 void ValgrindOptions::initialize()
 {
-    // Options come from platform.conf
+    // Options come from platform.conf, completely disable if we are not enabled
     auto config(g_fdsprocess->get_conf_helper());
     config.set_base_path(base_config_path);
+    if (!config.get<bool>("enabled", false)) {
+        return;
+    }
+    GLOGNOTIFY << "Valgrind enabled, expect slow performance.";
 
     options.emplace_back(config.get<std::string>("app_name"));
     auto base_dir = config.get<std::string>("base_dir") + dir_delimiter;
@@ -81,11 +85,6 @@ std::vector<std::string const*> ValgrindOptions::operator()()
     }
 
     return return_value;
-}
-
-bool ValgrindOptions::runningOnUnnestedValgrind() const
-{
-    return (unnested_valgrind == RUNNING_ON_VALGRIND);
 }
 
 bool ValgrindOptions::suppFileExists(std::string const& path) const

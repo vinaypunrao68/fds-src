@@ -94,6 +94,19 @@ namespace fds {
         Error verify() const;
 
         /**
+         * Checks if DMT is valid
+         * Invalid cases:
+         *    -- A column has repeating node uuids (non-unique)
+         *    -- A cell in a DMT has an invalid Service UUID
+         *    -- DMT must not contain any uuids that are not in 'expectedUuidSet'
+         * @param expectedUuidSet a set of UUIDs that are expected to be
+         *        in this DMT; one or more UUIDs may be missing from the DMT,
+         *        but DMT must not contain any UUID that is not in the set
+         * @return ERR_OK or ERR_DLT_INVALID
+         */
+        Error verify(const NodeUuidSet& expectedUuidSet) const;
+
+        /**
          * Returns a set of nodes in DMT
          */
         void getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const;
