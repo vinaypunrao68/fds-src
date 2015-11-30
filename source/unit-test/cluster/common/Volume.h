@@ -30,8 +30,8 @@ namespace fds {
 
 struct EPSvcRequest;
 
-struct SvcMsgIo : public FDS_IOType {
-    SvcMsgIo(const fpi::FDSPMsgTypeId &msgType,
+struct VolumeIoBase : public FDS_IOType {
+    VolumeIoBase(const fpi::FDSPMsgTypeId &msgType,
              const fds_volid_t &volId,
              FDS_QoSControl *qosCtrl)
     {
@@ -40,7 +40,7 @@ struct SvcMsgIo : public FDS_IOType {
         this->io_vol_id = volId;
         this->qosCtrl = qosCtrl;
     }
-    virtual ~SvcMsgIo() {
+    virtual ~VolumeIoBase() {
         qosCtrl->markIODone(this);
     }
     fds_volid_t getVolumeId() const {
@@ -50,13 +50,13 @@ struct SvcMsgIo : public FDS_IOType {
     fpi::FDSPMsgTypeId      msgType;
     FDS_QoSControl          *qosCtrl;
 };
-using SvcMsgIoPtr = SHPTR<SvcMsgIo>;
+using VolumeIoBasePtr = SHPTR<VolumeIoBase>;
 
 template <class ReqT,
           fpi::FDSPMsgTypeId ReqTypeId,
           class RespT,
           fpi::FDSPMsgTypeId RespTypeId>
-struct QosVolumeIo : public SvcMsgIo {
+struct QosVolumeIo : public VolumeIoBase {
     using ReqMsgT = ReqT;
     using RespMsgT = RespT;
     const static fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
@@ -70,7 +70,7 @@ struct QosVolumeIo : public SvcMsgIo {
                 FDS_QoSControl *qosCtrl,
                 const SHPTR<ReqMsgT> &reqMsg,
                 const CbType &cb)
-    : SvcMsgIo(ReqTypeId, volId, qosCtrl)
+    : VolumeIoBase(ReqTypeId, volId, qosCtrl)
     {
         this->reqMsg = reqMsg;
         this->respStatus = ERR_OK;
@@ -139,10 +139,10 @@ std::ostream& operator<<(std::ostream &out, const PullCommitLogEntriesIo& io);
 /**
 * @brief Function to be executed on qos
 */
-struct QosFunctionIo : SvcMsgIo {
+struct QosFunctionIo : VolumeIoBase {
     using Func = std::function<void()>;
     QosFunctionIo(const fds_volid_t &volId, FDS_QoSControl *qosCtrl)
-        : SvcMsgIo(FDSP_MSG_TYPEID(fpi::QosFunction), volId, qosCtrl)
+        : VolumeIoBase(FDSP_MSG_TYPEID(fpi::QosFunction), volId, qosCtrl)
     {}
     Func                                            func;
 };
@@ -160,14 +160,14 @@ struct QuickSyncCtx {
     bool                                    bufferIo;
     int64_t                                 startingBufferOpId; 
     /* Active IO that's been buffered */
-    std::list<SvcMsgIoPtr>                  bufferedIo;
+    std::list<VolumeIoBasePtr>                  bufferedIo;
     /* Commits that are buffered during sync */
     VolumeCommitLog                         bufferCommitLog;
 };
 using QuickSyncCtxPtr = std::unique_ptr<QuickSyncCtx>;
 
 struct Volume : HasModuleProvider {
-    using VolumeBehavior        = Behavior<fpi::FDSPMsgTypeId, SvcMsgIo>;
+    using VolumeBehavior        = Behavior<fpi::FDSPMsgTypeId, VolumeIoBase>;
     using TxTbl                 = std::map<int64_t, CatWriteBatchPtr>;
 
     Volume(CommonModuleProviderIf *provider,

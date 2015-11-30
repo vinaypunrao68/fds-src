@@ -79,13 +79,13 @@ Error DmProcess::processIO(FDS_IOType* io) {
     fds_verify(io->io_type == FDS_DM_VOLUME_IO);
 
     /* NOTE: After this point we only deal with shared pointers */
-    auto volIo = (static_cast<SvcMsgIo*>(io));
+    auto volIo = (static_cast<VolumeIoBase*>(io));
     auto volId = volIo->getVolumeId();
     auto itr = volumeTbl.find(volId);
     fds_verify(itr != volumeTbl.end());
     auto &volume = itr->second;
     qosCtrl->threadPool->scheduleWithAffinity(volId.get(), [volume, volIo]() {
-        volume->getCurrentBehavior()->handle(volIo->msgType, SHPTR<SvcMsgIo>(volIo));
+        volume->getCurrentBehavior()->handle(volIo->msgType, SHPTR<VolumeIoBase>(volIo));
     });
 #if 0
     switch (volIo->msgType){

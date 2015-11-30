@@ -87,10 +87,10 @@ Volume::Volume(CommonModuleProviderIf *provider,
 void Volume::initBehaviors()
 {
 #define on(__msgType__) \
-    OnMsg<fpi::FDSPMsgTypeId, SvcMsgIo>(FDSP_MSG_TYPEID(__msgType__))
+    OnMsg<fpi::FDSPMsgTypeId, VolumeIoBase>(FDSP_MSG_TYPEID(__msgType__))
     VolumeBehavior common("Common");
     common = {
-        on(fpi::QosFunction) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::QosFunction) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(QosFunctionIo, io_);
             io->func();
         }
@@ -98,26 +98,26 @@ void Volume::initBehaviors()
 
     functional_ = common;
     functional_ += {
-        on(fpi::StartTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::StartTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(StartTxIo, io_);
             ENSURE_IO_ORDER(io);
             handleStartTx_(io);
         },
-        on(fpi::UpdateTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::UpdateTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(UpdateTxIo, io_);
             ENSURE_IO_ORDER(io);
             handleUpdateTxCommon_(io, true);
         },
-        on(fpi::CommitTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::CommitTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(CommitTxIo, io_);
             ENSURE_IO_ORDER(io);
             handleCommitTxCommon_(io, true, nullptr);
         },
-        on(fpi::PullActiveTxsMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::PullActiveTxsMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(PullActiveTxsIo, io_);
             handlePullActiveTxs_(io);
         },
-        on(fpi::PullCommitLogEntriesMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::PullCommitLogEntriesMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(PullCommitLogEntriesIo, io_);
             handlePullCommitLogEntries_(io);
         }
@@ -125,20 +125,20 @@ void Volume::initBehaviors()
 
     syncing_ = common;
     syncing_ += {
-        on(fpi::StartTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::StartTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(StartTxIo, io_);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
             handleStartTx_(io);
         },
-        on(fpi::UpdateTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::UpdateTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(UpdateTxIo, io_);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
             bool txMustExist = txTable_.size() > 0;
             handleUpdateTxCommon_(io, true);
         },
-        on(fpi::CommitTxMsg) >> [this](const SHPTR<SvcMsgIo>& io_) {
+        on(fpi::CommitTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(CommitTxIo, io_);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
