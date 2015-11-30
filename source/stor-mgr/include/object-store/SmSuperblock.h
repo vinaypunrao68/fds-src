@@ -231,12 +231,13 @@ struct __attribute__((__packed__)) SmSuperblock {
      */
     SmSuperblockHeader Header;
     fds_uint64_t DLTVersion;
+    char SmSuperblockReserved[504]; // To be backwards compat with pre 2015-11-30 blocks
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
     /* Pad the superblock for future extensibility.
      */
-    char SmSuperblockPadding[2040];
+    char SmSuperblockPadding[2048];
 };
 
 /* compile time assert to check that the superblock header is properly aligned

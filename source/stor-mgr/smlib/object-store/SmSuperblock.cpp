@@ -80,6 +80,7 @@ SmSuperblockHeader::validateSuperblockHeader()
 
 SmSuperblock::SmSuperblock()
 {
+    memset(SmSuperblockReserved, '\0', sizeof(SmSuperblockReserved));
     memset(SmSuperblockPadding, '\0', sizeof(SmSuperblockPadding));
 }
 
