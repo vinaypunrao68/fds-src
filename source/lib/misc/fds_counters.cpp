@@ -19,6 +19,9 @@ void SamplerTask::runTimerTask()
     }
 }
 
+/*****************************************************************************
+ * Counter Manager
+ ****************************************************************************/
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
       lock_("Counters mutex"),
@@ -143,16 +146,7 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            bool lat = typeid(*c) == typeid(LatencyCounter);
-            auto volString = std::to_string(c->volid().get());
-            std::string strId = lat ? c->id() + "." + volString +
-                    ".latency" : c->id() + "." + volString;
-            m[strId] = static_cast<int64_t>(c->value());
-            if (lat) {
-                strId = c->id() + "." + volString + ".count";
-                m[strId] = static_cast<int64_t>(
-                        dynamic_cast<LatencyCounter*>(c)->count());
-            }
+            c->toMap(m);
         }
 	counters->reset();
     }
@@ -164,9 +158,14 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
 void FdsCountersMgr::reset()
 {
     fds_mutex::scoped_lock lock(lock_);
-    for (auto counters : exp_counters_)
+    for (auto counters : exp_counters_) {
         counters->reset();
+    }
 }
+
+/*****************************************************************************
+ * Counters
+ ****************************************************************************/
 
 /**
  * Constructor
@@ -242,14 +241,7 @@ std::string FdsCounters::toString()
 void FdsCounters::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
 {
     for (auto c : exp_counters_) {
-        bool lat = typeid(*c) == typeid(LatencyCounter);
-        std::string strId = lat ? c->id() + ".latency" : c->id();
-        m[strId] = static_cast<int64_t>(c->value());
-        if (lat) {
-            strId = c->id() + ".count";
-            m[strId] = static_cast<int64_t>(
-                    dynamic_cast<LatencyCounter*>(c)->count());
-        }
+        c->toMap(m);
     }
 }
 
@@ -280,6 +272,12 @@ void FdsCounters::remove_from_export(FdsBaseCounter* cp)
 {
     fds_verify(!"Not implemented yet");
 }
+
+
+/*****************************************************************************
+ * Base Counter
+ ****************************************************************************/
+
 
 /**
  * @brief  Base counter constructor.  Enables a counter to
@@ -377,6 +375,48 @@ void FdsBaseCounter::set_volid(fds_volid_t volid)
     volid_ = volid;
 }
 
+void FdsBaseCounter::toMap(std::map<std::string, int64_t>& m) const {
+    auto volString = std::to_string(volid_.get());
+    std::string strId = id() + (volid_enable()?"." + volString : "");
+    m[strId] = static_cast<int64_t>(value());
+}
+
+/*****************************************************************************
+ * Simple Numeric Counter - Cannot be reset via thrift
+ ****************************************************************************/
+SimpleNumericCounter::SimpleNumericCounter(const std::string &id, FdsCounters *export_parent) :
+        FdsBaseCounter(id, export_parent), val_(0) {
+}
+
+SimpleNumericCounter::SimpleNumericCounter(const std::string &id, fds_volid_t volid,
+                                           FdsCounters *export_parent) :
+        FdsBaseCounter(id, volid, export_parent), val_(0) {
+}
+
+SimpleNumericCounter::SimpleNumericCounter(const SimpleNumericCounter& c) {
+    val_ = c.val_.load(std::memory_order_relaxed);
+}
+
+uint64_t SimpleNumericCounter::value() const {
+    return val_.load(std::memory_order_relaxed);
+}
+
+void SimpleNumericCounter::incr(const uint64_t v) {
+    val_.fetch_add(v, std::memory_order_relaxed);
+}
+
+void SimpleNumericCounter::decr(const uint64_t v) {
+    val_.fetch_sub(v, std::memory_order_relaxed);
+}
+
+void SimpleNumericCounter::set(const uint64_t v) {
+    val_.store(v, std::memory_order_relaxed);
+}
+
+
+/*****************************************************************************
+ * Numeric Counter
+ ****************************************************************************/
 
 /**
  * Constructor
@@ -468,11 +508,9 @@ void NumericCounter::decr(const uint64_t v) {
         { min_value_.store(val, std::memory_order_release); }
 }
 
-/**
- *
- * @param id
- * @param export_parent
- */
+/*****************************************************************************
+ * Latency Counter
+ ****************************************************************************/
 LatencyCounter::LatencyCounter(const std::string &id, fds_volid_t volid, 
                                 FdsCounters *export_parent)
     :   FdsBaseCounter(id, volid, export_parent),
@@ -567,5 +605,14 @@ LatencyCounter & LatencyCounter::operator +=(const LatencyCounter & rhs) {
     }
     return *this;
 }
+
+void LatencyCounter::toMap(std::map<std::string, int64_t>& m) const {
+    m[id()] = static_cast<int64_t>(value());
+    auto volString = std::to_string(volid().get());
+    std::string strId = id() + (volid_enable()? "." + volString : "");
+    m[strId + ".latency"] = static_cast<int64_t>(value());
+    m[strId + ".count"] = static_cast<int64_t>(count());
+}
+
 
 }  // namespace fds
