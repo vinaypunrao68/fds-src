@@ -57,10 +57,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Idle. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Idle. Evt: " << e.logString();
         }
     };
     struct DST_Error
@@ -73,10 +73,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
         }
 
         fds_uint32_t abortMigrAcksToWait;
@@ -92,10 +92,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
         }
 
 
@@ -104,6 +104,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         /**
          * Timer to try to compute DMT again, in case new DMs joined or DMs
          * got removed while deploying current DMT
+         * NOTE: The timer needs to be actually called, for now these timers
+         * are not doing anything yet...
          */
         FdsTimerPtr tryAgainTimer;
         FdsTimerTaskPtr tryAgainTimerTask;
@@ -122,10 +124,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Waiting. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Waiting. Evt: " << e.logString();
         }
 
         /**
@@ -142,10 +144,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString();
         }
 
         NodeUuidSet dms_to_ack;
@@ -158,10 +160,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Commit. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Commit. Evt: " << e.logString();
         }
 
         // DMs that we send push_meta command and waiting for response from them
@@ -177,10 +179,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_BcastAM. Evt: " << e.logString();
+            LOGNOTIFY << "DST_BcastAM. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_BcastAM. Evt: " << e.logString();
+            LOGNOTIFY << "DST_BcastAM. Evt: " << e.logString();
         }
 
         fds_uint32_t commit_acks_to_wait;
@@ -195,10 +197,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Close. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Close. Evt: " << e.logString();
         }
 
         fds_uint32_t commit_acks_to_wait;
@@ -217,10 +219,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Done. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Done. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Done. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Done. Evt: " << e.logString();
         }
 
         fds_uint32_t close_acks_to_wait;
@@ -563,7 +565,7 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     fds_uint32_t nonFailedDms = cm->getNumNonfailedMembers(fpi::FDSP_DATA_MGR);
     fds_uint32_t totalDms = cm->getNumMembers(fpi::FDSP_DATA_MGR);
 
-    LOGDEBUG << "Added DMs size: " << added_nodes
+    LOGNOTIFY << "Added DMs size: " << added_nodes
              << " Removed DMs size: " << rm_nodes
 			 << " Resyncing DMs size: " << resync_nodes
              << " Total DMs: " << totalDms
@@ -621,7 +623,7 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
      * So we cannot depend on evt.dmResync as a guarantee for state.
      */
     if (!bret && resync_nodes) {
-    	LOGDEBUG << "DMT did not change, but dmResync requested";
+    	LOGNOTIFY << "DMT did not change, but dmResync requested";
     	bret = true;
     }
 
@@ -797,7 +799,7 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // unless all failed? -- in that case we should handle errors
 //    fds_verify(dst.commit_acks_to_wait > 0);
 
-    LOGDEBUG << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
+    LOGNOTIFY << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
 }
 
@@ -875,7 +877,7 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_ACCESS_MGR));
     }
 
-    LOGDEBUG << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
+    LOGNOTIFY << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
 }
 
@@ -958,7 +960,7 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     LOGDEBUG << "Sending dmt up event";
     domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_DATA_MGR));
 
-    LOGDEBUG << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
+    LOGNOTIFY << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
 }
 
 /**
@@ -1033,7 +1035,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_Error fired.";
+    LOGNOTIFY << "DACT_Error fired.";
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     fds_bool_t am_dm_needs_dmt_rollback = false;
@@ -1104,7 +1106,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_EndError";
+    LOGNOTIFY << "DACT_EndError";
     // End of error handling for FSM. Not balancing volume anymore so turn it off.
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -1121,7 +1123,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 {
     DmtRecoveryEvt recoverAckEvt = (DmtRecoveryEvt)evt;
     FdspNodeType node_type = recoverAckEvt.svcUuid.uuid_get_type();
-    LOGDEBUG << "DACT_EndError ack for abort migration? " << recoverAckEvt.ackForAbort
+    LOGNOTIFY << "DACT_EndError ack for abort migration? " << recoverAckEvt.ackForAbort
              << " node type " << node_type << " " << recoverAckEvt.ackError;
 
     // if we got SL timeout for one of the nodes we were trying to add to DMT
@@ -1174,7 +1176,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Recovered::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_Recovered";
+    LOGNOTIFY << "DACT_Recovered";
 }
 
 }  // namespace fds
