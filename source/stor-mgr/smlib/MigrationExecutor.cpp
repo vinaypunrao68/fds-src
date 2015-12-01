@@ -450,6 +450,10 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
               LOGDEBUG << "fault sm.all.filterset.resp.network.error"; \
               error = ERR_SVC_REQUEST_INVOCATION;);
 
+    fiu_do_on("sm.all.filterset.resp.migration.abort",
+              LOGDEBUG << "fault sm.all.filterset.resp.migration.abort"; \
+              error = ERR_SM_TOK_MIGRATION_ABORTED;);
+
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
              << std::hex << executorId << std::dec << " DLT token " << dltToken
              << " SM token " << smTokenId

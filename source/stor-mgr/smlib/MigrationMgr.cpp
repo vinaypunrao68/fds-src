@@ -811,6 +811,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // if we already synced some DLT tokens, they will be set to unavail
             // when DLT commit comes for the previousle committed DLT (to which OM
             // will revert to).
+            return;
         }
     }
 
