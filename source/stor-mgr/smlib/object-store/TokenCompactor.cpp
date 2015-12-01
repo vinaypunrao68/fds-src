@@ -4,9 +4,10 @@
 
 #include <vector>
 #include <map>
+#include <object-store/ObjectStore.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/TokenCompactor.h>
-
+#include <StorMgr.h>
 namespace fds {
 
 // TODO(Sean):
@@ -61,9 +62,11 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
 
     // TODO(anna) do not do compaction if sync is in progress, return 'not ready'
 
-    LOGNORMAL << "Start Compaction of token " << tok_id
-              << " disk_id " << disk_id << " tier " << tier
-              << " verify data?" << verify;
+    LOGNORMAL << "started compaction of token:" << tok_id
+              << " disk:" << disk_id
+              << " tier:" << tier
+              << " verify:" << verify;
+    OBJECTSTOREMGR(data_store)->counters->compactorRunning.incr();
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects
@@ -83,6 +86,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // copy non-garbage objects
     persistGcHandler->notifyStartGc(token_id, cur_tier);
 
+    /*
     // we may have writes currently in flight that are writing to old file.
     // If we take db snapshot before these in flight write finish and
     // metadata is updated, then we will miss data that needs to be copied
@@ -98,6 +102,8 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
         std::atomic_exchange(&state, TCSTATE_IDLE);
         return Error(ERR_NOT_READY);
     }
+    */
+    handleTimerEvent();
 
     return err;
 }
@@ -169,8 +175,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
     ObjMetaData omd;
     fds_uint32_t offset = 0;
 
-    LOGNORMAL << "Index DB snapshot for token " << token_id
-              << " received with result " << error;
+    LOGDEBUG << "snapshot done for token:" << token_id
+             << " received with result:" << error;
     fds_verify(total_objs == 0);  // smth went wrong, we set work only once
 
     // we must be in IN_PROGRESS state
@@ -318,10 +324,13 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         // we are done!
         // NOTE: we are currently doing completion on timer only! when no error
         // otherwise need to make sure to remember the error
+        /*
         if (!tc_timer->schedule(tc_timer_task, std::chrono::seconds(2))) {
             LOGNOTIFY << "Failed to schedule completion timer, completing now..";
             handleCompactionDone(error);
         }
+        */
+        handleTimerEvent();
     }
 
     delete req;
@@ -338,9 +347,11 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
         fds_verify(false);
     }
 
-    LOGNORMAL << "Compaction finished for token " << token_id
-              << " disk_id " << cur_disk_id << " tier " << cur_tier
-              << " verify data? " << verifyData << ", result " << tc_error;
+    LOGNORMAL << "finished compaction for token:" << token_id
+              << " disk:" << cur_disk_id
+              << " tier:" << cur_tier
+              << " verify:" << verifyData
+              << " result:" << tc_error;
 
     // check error happened in the middle of compaction
     if (!tc_error.ok()) {
@@ -389,10 +400,8 @@ fds_bool_t TokenCompactor::isIdle() const
 //
 fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
 {
-    // TODO(anna or Vinay) add other policies for checking GC
-    // The first version of this method just decides based on
-    // refcount -- if < 1 then garbage collect
-    if (md.getRefCnt() < 1L) {
+    auto deleteThresh = fds::objDelCountThresh;
+    if (md.getDeleteCount() >= deleteThresh) {
         return true;
     }
 

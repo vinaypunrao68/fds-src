@@ -483,7 +483,7 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(user.UserContext(self.config,'user'))
         self.root.add_sub_context(SMDebug.SMDebugContext(self.config, 'smdebug'))
         self.root.add_sub_context(DMDebug.DMDebugContext(self.config, 'dmdebug'))
-        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
+        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'gc'))
         scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
         scav.add_sub_context(scavenger.ScrubberContext(self.config, 'scrubber'))
 

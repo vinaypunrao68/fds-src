@@ -8,7 +8,7 @@
 #include <MigrationUtility.h>
 #include <fds_timer.h>
 #include <DmMigrationBase.h>
-
+#include <dmhandler.h>
 namespace fds {
 
 // Forward declaration.
