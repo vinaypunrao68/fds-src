@@ -58,6 +58,9 @@
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3);
 
+#define ASYNC_HANDLER_PARAMS(msgType) SHPTR<fpi::AsyncHdr>& hdr, SHPTR<fpi::msgType>& msg
+#define DECL_ASYNC_HANDLER(func, msgType) void func(ASYNC_HANDLER_PARAMS(msgType));
+
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
@@ -183,9 +186,9 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void resetCounters(const std::string& id) override;
     virtual void resetCounters(boost::shared_ptr<std::string>& id) override;
 
-    virtual void setConfigVal(const std::string& id, const int64_t val) override;
-    virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-                              boost::shared_ptr<int64_t>& val) override;
+    virtual void setConfigVal(const std::string& name, const std::string& value) override;
+    virtual void setConfigVal(boost::shared_ptr<std::string>& name,  // NOLINT
+                              boost::shared_ptr<std::string>& value) override;
 
     virtual void setFlag(const std::string& id, const int64_t value) override;
     virtual void setFlag(boost::shared_ptr<std::string>& id,
@@ -202,6 +205,8 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void getProperties(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
     virtual void getProperties(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
+    virtual void getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
+    virtual void getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
     virtual bool setFault(const std::string& command) override;
     virtual bool setFault(boost::shared_ptr<std::string>& command) override;  // NOLINT

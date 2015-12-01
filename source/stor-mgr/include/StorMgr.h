@@ -20,6 +20,7 @@
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
 #include "hash/md5.h"
+#include <net/filetransferservice.h>
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"
@@ -44,7 +45,7 @@
 #include <MigrationMgr.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <fdsp/event_types_types.h>
-
+#include "counters.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -61,7 +62,7 @@ extern ObjectStorMgr *objStorMgr;
  */
 const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
-
+#define OBJECTSTOREMGR(obj) if (NULL != dynamic_cast<ObjectStorMgr*>(obj)) dynamic_cast<ObjectStorMgr*>(obj)
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     protected:
      typedef enum {
@@ -202,6 +203,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
   public:
     SmQosCtrl  *qosCtrl;
+    net::FileTransferService::ptr fileTransfer;
+    SHPTR<sm::Counters> counters;
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()
@@ -275,6 +278,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      StorMgrVolumeTable *sm_getVolTables() {
          return volTbl;
      }
+
+     bool haveAllObjectSets() const;
 
      /**
       * A callback from stats collector to sample SM specific stats

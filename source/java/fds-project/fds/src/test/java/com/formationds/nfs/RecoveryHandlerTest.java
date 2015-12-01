@@ -2,12 +2,12 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.RecoverableException;
+import org.joda.time.Duration;
 import org.junit.Test;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +37,7 @@ public class RecoveryHandlerTest {
             }
         };
 
-        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.ofMillis(10));
+        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
         withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, map, false);
@@ -71,7 +71,7 @@ public class RecoveryHandlerTest {
             }
         };
 
-        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.ofMillis(10));
+        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         try {
             withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get();
         } catch (IOException e) {

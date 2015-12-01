@@ -4,10 +4,10 @@ import com.formationds.apis.ObjectOffset;
 import com.formationds.util.IoSupplier;
 import com.formationds.xdi.RecoverableException;
 import org.apache.log4j.Logger;
+import org.joda.time.Duration;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,7 +86,7 @@ public class RecoveryHandler implements IoOps {
             } catch (Exception e) {
                 if (e instanceof RecoverableException) {
                     try {
-                        Thread.sleep(retryInterval.toMillis());
+                        Thread.sleep(retryInterval.getMillis());
                     } catch (InterruptedException e1) {
                         break;
                     }

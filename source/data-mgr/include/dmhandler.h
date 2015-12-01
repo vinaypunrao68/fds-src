@@ -386,6 +386,12 @@ struct DmMigrationTxStateHandler : Handler {
                         Error const& e, DmRequest* dmRequest);
 };
 
+struct SimpleHandler : Handler {
+    explicit SimpleHandler(DataMgr& dataManager);
+    DECL_ASYNC_HANDLER(handleStartRefScanRequest, StartRefScanMsg);
+};
+
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

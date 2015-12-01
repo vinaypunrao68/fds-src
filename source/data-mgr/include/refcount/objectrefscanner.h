@@ -1,8 +1,8 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_DATA_MGR_INCLUDE_OBJECTREFSCANNER_H_
-#define SOURCE_DATA_MGR_INCLUDE_OBJECTREFSCANNER_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_REFCOUNT_OBJECTREFSCANNER_H_
+#define SOURCE_DATA_MGR_INCLUDE_REFCOUNT_OBJECTREFSCANNER_H_
 
 #include <list>
 #include <mutex>
@@ -14,11 +14,11 @@
 #include <util/stringutils.h>
 #include <util/bloomfilter.h>
 
-namespace fds {
-/* Forward declarations */
-struct ObjectRefMgr;
+namespace fds { 
 struct DataMgr;
-
+namespace refcount {
+/* Forward declarations */
+struct ObjectRefScanMgr;
 
 /**
 * @brief Manages bloomfilters.
@@ -42,9 +42,18 @@ struct BloomFilterStore {
     util::BloomFilterPtr get(const std::string &key, bool create = true);
 
     /**
+    * @brief returns true if key exists
+    *
+    * @param key
+    *
+    * @return 
+    */
+    bool exists(const std::string &key) const;
+
+    /**
     * @brief Writes all the cached bloomfilters to filesystem
     */
-    void sync();
+    void sync(bool clearCache = false);
     
     /**
     * @brief clears out the index and removes all bloomfilters from the filesystem
@@ -52,6 +61,10 @@ struct BloomFilterStore {
     void purge();
 
     inline size_t getIndexSize() const { return index.size(); } 
+
+    inline std::string getFilePath(const std::string &key) {
+        return basePath + key;
+    }
 
  protected:
     util::BloomFilterPtr load(const std::string &key);
@@ -82,7 +95,7 @@ struct BloomFilterStore {
 * @brief Object reference scanner interface
 */
 struct ObjectRefScannerIf {
-    explicit ObjectRefScannerIf(ObjectRefMgr* m)
+    explicit ObjectRefScannerIf(ObjectRefScanMgr* m)
     : objRefMgr(m),
       state(INIT),
       completionError(ERR_OK)
@@ -102,7 +115,7 @@ struct ObjectRefScannerIf {
     };
 
     /* Reference to parent manager */
-    ObjectRefMgr        *objRefMgr;
+    ObjectRefScanMgr        *objRefMgr;
     /* Current scanner state */
     State               state;
     /* Status that scanner completed with */
@@ -115,7 +128,7 @@ using ObjectRefScannerPtr = boost::shared_ptr<ObjectRefScannerIf>;
 * either a volume  or a snapshot
 */
 struct VolumeRefScannerContext : ObjectRefScannerIf {
-    VolumeRefScannerContext(ObjectRefMgr* m, fds_volid_t vId);
+    VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_t vId);
     Error scanStep();
     Error finishScan(const Error &e);
     bool isComplete() const;
@@ -131,7 +144,7 @@ struct VolumeRefScannerContext : ObjectRefScannerIf {
 * @brief Scans objects in a volume and updates bloomfilter
 */
 struct VolumeObjectRefScanner : ObjectRefScannerIf {
-    VolumeObjectRefScanner(ObjectRefMgr* m, fds_volid_t vId);
+    VolumeObjectRefScanner(ObjectRefScanMgr* m, fds_volid_t vId);
     Error init();
     virtual Error scanStep() override;
     virtual Error finishScan(const Error &e) override;
@@ -160,14 +173,21 @@ struct SnapshotRefScanner : ObjectRefScannerIf {
 * 4. During each scan step configured number of level db entries are scanned and 
 * appropriate bloom filter for the volume is update.
 */
-struct ObjectRefMgr : HasModuleProvider, Module {
-    using ScanDoneCb = std::function<void(ObjectRefMgr*)>;
-    ObjectRefMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
-    virtual ~ObjectRefMgr() = default;
+struct ObjectRefScanMgr : HasModuleProvider, Module {
+    TYPE_SHAREDPTR(ObjectRefScanMgr);
+    using ScanDoneCb = std::function<void(ObjectRefScanMgr*)>;
+    ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataMgr* dm);
+    virtual ~ObjectRefScanMgr() = default;
     virtual void mod_startup();
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */
-    void scanOnce(ScanDoneCb cb);
+    void scanOnce();
+
+    void setScanDoneCb(const ScanDoneCb &cb);
+
+    util::BloomFilterPtr getTokenBloomFilter(const fds_token_id &tokenId);
+    std::string getTokenBloomfilterPath(const fds_token_id &tokenId);
+
     void dumpStats() const;
 
     inline DataMgr* getDataMgr() const { return dataMgr; }
@@ -181,11 +201,13 @@ struct ObjectRefMgr : HasModuleProvider, Module {
         return util::strformat("vol%ld_tok%d", volId, tokenId);
     }
 
-    inline static std::string aggrBloomFilterKey(const fds_token_id &tokenId) {
+    inline static std::string tokenBloomFilterKey(const fds_token_id &tokenId) {
         return util::strformat("aggr_tok%d", tokenId);
     }
     inline size_t getScanSuccessVolsCnt() const {return scanSuccessVols.size();}
     inline uint64_t getObjectsScannedCntr() const { return objectsScannedCntr; }
+
+    bool setStateStopped();
 
  protected:
     /**
@@ -199,14 +221,21 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     */
     void prescanInit();
 
+    enum State {
+        STOPPED,
+        INIT,
+        RUNNING
+    };
+
     DataMgr                                     *dataMgr;
     const DLT                                   *currentDlt;
+    std::atomic<State>                          state;
     std::unique_ptr<BloomFilterStore>           bfStore;
     dm::Handler                                 qosHelper;
     /* Controls whether scanning based on timer is enabled or not.   NOTE it is still possible
      * to run the scanner manually
      */
-    bool                                        enabled;
+    bool                                        timeBasedEnabled;
     uint32_t                                    maxEntriesToScan;
     std::chrono::seconds                        scanIntervalSec;
     FdsTimerTaskPtr                             scanTask;
@@ -221,6 +250,7 @@ struct ObjectRefMgr : HasModuleProvider, Module {
     friend class VolumeObjectRefScanner;
 };
 
+}  // namespace refcount
 }  // namespace fds
 
-#endif      // SOURCE_DATA_MGR_INCLUDE_OBJECTREFSCANNER_H_
+#endif // SOURCE_DATA_MGR_INCLUDE_REFCOUNT_OBJECTREFSCANNER_H_

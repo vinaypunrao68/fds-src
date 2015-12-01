@@ -18,6 +18,7 @@ from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
+from fabric.contrib.files import *
 
 nbd_device = "/dev/nbd15"
 pwd = ""
@@ -207,7 +208,13 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-
+        if self.parameters['ansible_install_done'] is True:
+            env.user='root'
+            env.password='passwd'
+            env.host_string = om_node.nd_conf_dict['ip']
+            internal_ip = run("hostname")
+            # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
+            result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
         if self.childPID is None:
             # Not running in a forked process.
             # Stop on failures.

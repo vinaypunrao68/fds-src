@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 
+#include <functional>
 #include <fds_types.h>
 #include <fds_error.h>
 #include <leveldb/db.h>
@@ -77,10 +78,7 @@ class ObjectDB {
     fds::Error PersistentSnap(const std::string& fileName,
                               leveldb::CopyEnv **env);
 
-    /**
-     * Get all the keys of k-v pairs stored in object DB.
-     */
-    std::vector<ObjectID>  GetKeys() const;
+    void forEachObject(std::function<void (const ObjectID&)> &func);
 
     void PrintHistoAll() {
       std::cout << "Microseconds per op:" << std::endl
