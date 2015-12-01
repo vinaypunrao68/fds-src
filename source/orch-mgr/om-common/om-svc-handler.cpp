@@ -271,6 +271,8 @@ populate_voldesc_list(fpi::GetAllVolumeDescriptors &list, VolumeInfo::pointer vo
 }
 
 void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t> &nullarg) {
+    LOGDEBUG << "Received get all volume descriptors";
+
 	OM_Module *om = OM_Module::om_singleton();
 	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
 	OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();

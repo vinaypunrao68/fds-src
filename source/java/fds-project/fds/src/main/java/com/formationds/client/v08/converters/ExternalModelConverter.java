@@ -461,8 +461,6 @@ public class ExternalModelConverter {
     }
 
     private static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
-        logger.debug( "VOLUME DESCRIPTOR::" + internalVolume + " VOLUME STATUS::" + extStatus );
-
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
 
@@ -481,8 +479,7 @@ public class ExternalModelConverter {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-            logger.debug( "EXTERNAL iSCSI::" + settings.getIscsiTarget() );
-            if( settings.getIscsiTarget() == null )
+            if( internalVolume.getPolicy().getIscsiTarget() == null )
             {
                 throw new IllegalArgumentException( "iSCSI target must be provided for converting to external model." );
             }
@@ -493,23 +490,42 @@ public class ExternalModelConverter {
                 .withUnit( SizeUnit.B )
                 .withTarget(
                     new Target.Builder( )
-                        .withLuns( convertToExternalLUN( settings.getIscsiTarget( )
-                                                                 .getLuns( ) ) )
-                        .withInitiators( convertToExternalInitiators( settings.getIscsiTarget( )
-                                                                              .getInitiators( ) ) )
+                        .withLuns( convertToExternalLUN( internalVolume.getPolicy()
+                                                                       .getIscsiTarget( )
+                                                                       .getLuns( ) ) )
+                        .withInitiators( convertToExternalInitiators(internalVolume.getPolicy()
+                                                                                   .getIscsiTarget( )
+                                                                                   .getInitiators( ) ) )
                         .withIncomingUsers( convertToExternalIncomingUser(
-                            settings.getIscsiTarget( )
-                                    .getIncomingUsers( ) ) )
+                            internalVolume.getPolicy()
+                                          .getIscsiTarget( )
+                                          .getIncomingUsers( ) ) )
                         .withOutgoingUsers( convertToExternalOutgoingUser(
-                            settings.getIscsiTarget( )
-                                    .getOutgoingUsers( ) ) )
+                            internalVolume.getPolicy()
+                                          .getIscsiTarget( )
+                                          .getOutgoingUsers( ) ) )
                         .build( ) )
                 .build( );
         } else if ( settings.getVolumeType().equals( VolumeType.NFS ) ) {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-            extSettings = new VolumeSettingsBlock( capacity, blockSize );
+            final Set<NfsOptionBase> options = new HashSet<>( );
+            final Set<IPFilter> ipFilters = new HashSet<>( );
+
+            if( internalVolume.getPolicy().getNfsOptions() == null )
+            {
+                logger.debug( "No NFS options provided, defaulting to empty option set." );
+            }
+
+            // TODO populate NFS options and ipFilters
+
+            extSettings = new VolumeSettingsNfs.Builder()
+                                               .withIpFilters( ipFilters )
+                                               .withOptions( options )
+                                               .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+                                               .build();
+
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
             Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 

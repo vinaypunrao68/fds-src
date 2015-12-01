@@ -903,7 +903,7 @@ bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
 {
     try
     {
-        LOGDEBUG << "Setting volume settings for volume ID[ " << volumeId << " ]";
+        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ]";
         return kv_store.sendCommand( "set vol:%ld:settings %b",
                                      volumeId,
                                      serialized->data(),
@@ -918,17 +918,16 @@ bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
     return false;
 }
 
-bool ConfigDB::getVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string>& serialized )
+boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int volumeId )
 {
     try
     {
-        LOGDEBUG << "Volume Settings for volume ID[ " << volumeId << " ]";
+        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ]";
         Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
         if ( !reply.isNil() )
         {
-            serialized = boost::make_shared<std::string>(reply.getString());
             LOGDEBUG << "Successful retrieved Volume Settings for volume ID[ " << volumeId << " ]";
-            return true;
+            return boost::make_shared<std::string>( reply.getString( ) );
         }
     }
     catch(const RedisException& e)
@@ -937,7 +936,7 @@ bool ConfigDB::getVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
     }
 
     LOGDEBUG << "Failed to retrieved Volume Settings for volume ID[ " << volumeId << " ]";
-    return false;
+    return nullptr;
 }
 
 bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
@@ -1107,36 +1106,26 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else
             { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
-                fds_assert(!"unknown key");
+
             }
         }
 
         LOGDEBUG << "volume TYPE[ " << vol.volType << " ] ID[ " << vol.volUUID << " ]";
-        if ( vol.volType ==  fpi::FDSP_VOL_ISCSI_TYPE ||
-             vol.volType ==  fpi::FDSP_VOL_NFS_TYPE )
+        if ( vol.volType ==  fpi::FDSP_VOL_ISCSI_TYPE )
         {
-            boost::shared_ptr <std::string> serialized = {};
+            LOGDEBUG << "iSCSI: getting the volume settings for volume ID[ " << volId << " ]";
 
-            if ( getVolumeSettings( volId, serialized ) )
-            {
-                LOGDEBUG << "SERIALIZED[ " << serialized << " ]";
-                if ( vol.volType == fpi::FDSP_VOL_ISCSI_TYPE )
-                {
-                    LOGDEBUG << "iSCSI: getting the volume settings for volume ID[ " << volId << " ]";
+            auto iscsi = boost::make_shared<fpi::IScsiTarget>( );
+            fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), iscsi );
+            vol.iscsiSettings = *iscsi;
+        }
+        else if ( vol.volType ==  fpi::FDSP_VOL_NFS_TYPE )
+        {
+            LOGDEBUG << "NFS: getting the volume settings for volume ID[ \" << volId << \" ]\"";
 
-                    auto iscsi = boost::make_shared<fpi::IScsiTarget>( vol.iscsiSettings );
-                    fds::deserializeFdspMsg( serialized, iscsi );
-                    return true;
-                }
-                else if ( vol.volType == fpi::FDSP_VOL_NFS_TYPE )
-                {
-                    LOGDEBUG << "NFS: getting the volume settings for volume ID[ \" << volId << \" ]\"";
-
-                    auto nfs = boost::make_shared<fpi::NfsOption>( vol.nfsSettings );
-                    fds::deserializeFdspMsg( serialized, nfs );
-                    return true;
-                }
-            }
+            auto nfs = boost::make_shared<fpi::NfsOption>( );
+            fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), nfs );
+            vol.nfsSettings = *nfs;
         }
 
         return true;

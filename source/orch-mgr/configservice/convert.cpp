@@ -114,7 +114,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
             std::stringstream errMsg;
             errMsg << "Unsupported Connector Type ( " << volSettings.volumeType << " ).";
 
-            LOGWARN << errMsg;
+            LOGERROR << errMsg;
             throw std::runtime_error( errMsg.str().c_str() );
     }
 
@@ -187,20 +187,32 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
     switch ( volDesc->volType )
     {
         case fpi::FDSP_VOL_BLKDEV_TYPE:
+            LOGDEBUG << "BLOCK volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::BLOCK;
-            volDescriptor.policy.blockDeviceSizeInBytes = ( volDesc->capacity * ( 1024 * 1024 ) );
+            volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
             break;
         case fpi::FDSP_VOL_ISCSI_TYPE:
+            LOGDEBUG << "iSCSI volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::ISCSI;
-            volDescriptor.policy.blockDeviceSizeInBytes = ( volDesc->capacity * ( 1024 * 1024 ) );
+            volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
+            volDescriptor.policy.iscsiTarget = volDesc->iscsiSettings;
+            LOGDEBUG << "LUN count [ " << volDescriptor.policy.iscsiTarget.luns.size() << " ]";
+            for ( auto lun : volDescriptor.policy.iscsiTarget.luns )
+            {
+                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
+            }
+
             break;
         case fpi::FDSP_VOL_S3_TYPE:
+            LOGDEBUG << "OBJECT volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::OBJECT;
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
             break;
         case fpi::FDSP_VOL_NFS_TYPE:
+            LOGDEBUG << "NFS volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::NFS;
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+            volDescriptor.policy.nfsOptions = volDesc->nfsSettings;
             break;
         default:
             LOGWARN << "Unsupported volume type " << volDesc->volType;

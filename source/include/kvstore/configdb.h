@@ -83,7 +83,7 @@ struct ConfigDB : KVStore {
     bool getVolumes(std::vector<VolumeDesc>& volumes, int localDomain = 0);
     bool getVolume(fds_volid_t volumeId, VolumeDesc& volumeDesc);
     bool setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string> serialized );
-    bool getVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string>& serialized );
+    boost::shared_ptr<std::string>  getVolumeSettings( long unsigned int volumeId );
 
     // dlt
     // to store different types of dlt [current, new, old, target]
