@@ -15,6 +15,9 @@ using StringPtr = SHPTR<std::string>;
 struct VolumeGroupConstants {
     static const int64_t            OPSTARTID = 0;
     static const int64_t            COMMITSTARTID = 0;
+    static const int32_t            VERSION_INVALID = 0;
+    static const int32_t            VERSION_SKIPCHECK = 1;
+    static const int32_t            VERSION_START = 2;
 };
 
 template <class MsgT>
@@ -43,6 +46,8 @@ int64_t getVolIdFromSvcMsgWithIoHdr(const MsgT &msg)
 
 std::string logString(const fpi::VolumeIoHdr &hdr);
 std::string logString(const fpi::StartTxMsg& msg);
+std::string logString(const fpi::UpdateTxMsg& msg);
+std::string logString(const fpi::CommitTxMsg& msg);
 std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg);
 std::string logString(const fpi::PullCommitLogEntriesMsg &msg);
 std::string logString(const fpi::PullActiveTxsMsg& msg);

@@ -4,6 +4,12 @@
 
 namespace fds {
 
+const int64_t VolumeGroupConstants::OPSTARTID;
+const int64_t VolumeGroupConstants::COMMITSTARTID;
+const int32_t VolumeGroupConstants::VERSION_INVALID;
+const int32_t VolumeGroupConstants::VERSION_SKIPCHECK;
+const int32_t VolumeGroupConstants::VERSION_START;
+
 std::string logString(const fpi::VolumeIoHdr &hdr)
 {
     std::stringstream ss;
@@ -14,7 +20,18 @@ std::string logString(const fpi::VolumeIoHdr &hdr)
     return ss.str();
 }
 
-std::string logString(const fpi::StartTxMsg& msg) {
+std::string logString(const fpi::StartTxMsg& msg)
+{
+    return logString(getVolumeIoHdrRef(msg));
+}
+
+std::string logString(const fpi::UpdateTxMsg& msg)
+{
+    return logString(getVolumeIoHdrRef(msg));
+}
+
+std::string logString(const fpi::CommitTxMsg& msg)
+{
     return logString(getVolumeIoHdrRef(msg));
 }
 
@@ -22,6 +39,7 @@ std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg) {
     std::stringstream ss;
     ss << " targetState: " << msg.targetState
         << " groupId: " << msg.groupId
+        << " replicaVersion: " << msg.replicaVersion
         << " svcUuid: " << msg.svcUuid.svc_uuid
         << " lastOpId: " << msg.lastOpId
         << " lastCommitId: " << msg.lastCommitId;

@@ -18,6 +18,26 @@ namespace fds {
 #define FUNCTIONAL_STATE_CHECK()
 #define SYNC_STATE_CHECK()
 #define ASSERT_SYNCHRONIZED()
+
+#define VERSION_CHECK(expected__, actual__) \
+    do { \
+    if (expected__ != actual__) { \
+       GLOGWARN << "Version check failed.  expected: " \
+            << expected__ << " actual: " << actual__; \
+       return; \
+    } \
+    } while (false)
+
+#define VOLUME_IO_VERSION_CHECK(volIo__) \
+    do { \
+        if (getVersion() != volIo__->getVersion()) { \
+            GLOGWARN << volIo__->logString() \
+                    << "Version check failed.  Current version: " << getVersion(); \
+            volIo__->respStatus = ERR_INVALID_VOLUME_VERSION; \
+            return; \
+        } \
+    } while (false)
+
 #define ENSURE_IO_ORDER(io) \
 do { \
     auto opId = getVolumeIoHdrRef(*(io->reqMsg)).opId; \
@@ -48,6 +68,7 @@ do { \
     } while (false)
 
 const std::string Volume::OPINFOKEY = "OPINFO";
+const std::string Volume::VERSIONKEY = "VERSION";
 
 std::ostream& operator<<(std::ostream &out, const PullCommitLogEntriesIo& io)
 {
@@ -69,6 +90,15 @@ std::ostream& operator<< (std::ostream& os, const Volume::OpInfo &info)
 {
     os << "applidOpId: " << info.appliedOpId << " commmitId: "  << info.appliedCommitId;
     return os;
+}
+
+std::string VolumeIoBase::logString() const
+{
+    std::stringstream ss;
+    ss << "VolumeIoBase volId: " << io_vol_id
+        << " version: " << version
+        << " msgType:  " << fpi::_FDSPMsgTypeId_VALUES_TO_NAMES.at(msgType);
+    return ss.str();
 }
 
 Volume::Volume(CommonModuleProviderIf *provider,
@@ -100,16 +130,19 @@ void Volume::initBehaviors()
     functional_ += {
         on(fpi::StartTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(StartTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             ENSURE_IO_ORDER(io);
             handleStartTx_(io);
         },
         on(fpi::UpdateTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(UpdateTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             ENSURE_IO_ORDER(io);
             handleUpdateTxCommon_(io, true);
         },
         on(fpi::CommitTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(CommitTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             ENSURE_IO_ORDER(io);
             handleCommitTxCommon_(io, true, nullptr);
         },
@@ -127,12 +160,14 @@ void Volume::initBehaviors()
     syncing_ += {
         on(fpi::StartTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(StartTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
             handleStartTx_(io);
         },
         on(fpi::UpdateTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(UpdateTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
             bool txMustExist = txTable_.size() > 0;
@@ -140,6 +175,7 @@ void Volume::initBehaviors()
         },
         on(fpi::CommitTxMsg) >> [this](const SHPTR<VolumeIoBase>& io_) {
             auto io = SHPTR_CAST(CommitTxIo, io_);
+            VOLUME_IO_VERSION_CHECK(io);
             QUICKSYNC_BUFFERIO_CHECK(io);
             ENSURE_IO_ORDER(io);
             /* All commits are sent bufferCommitLog */
@@ -169,6 +205,17 @@ void Volume::init()
     fds_verify(status.ok());
     db_.reset(tempDb);
 #endif
+    /* Read the version info */
+    std::string versionStr;
+    status = db_->Get(leveldb::ReadOptions(), VERSIONKEY, &versionStr);
+    if (status.ok()) {
+        version_ = atoi(versionStr.c_str());
+    } else {
+        version_ = VolumeGroupConstants::VERSION_START;
+    }
+    LOGNOTIFY << logString() << " Loaded version: " << version_;
+
+    /* Read the opinfo */
     status = db_->Get(leveldb::ReadOptions(), OPINFOKEY, &opinfoStr);
     if (status.ok()) {
         opInfo_.fromString(opinfoStr);
@@ -374,18 +421,27 @@ void Volume::startSyncCheck_()
 {
     LOGNOTIFY << "Starting sync check";
 
+    /* Do a version change */
+    version_++;
+    std::string versionStr = util::strformat("%d", version_);
+    auto status = db_->Put(leveldb::WriteOptions(), VERSIONKEY, versionStr);
+    fds_verify(status.ok());
+    LOGNOTIFY << logString() << " Version change: " << version_;
+
     /* Reset quick sync context.  Turn on IO buffering here itself.  Note, it's possible
      * to postpone buffering we send a message to pull active transactions.  Starting to
      * buffer here itself won't hurt either.  When replaying buffered IO we will ignore
      * IO already covered in by active transactions
      */
     fds_verify(txTable_.size() == 0);
+
     quicksyncCtx_.reset(new QuickSyncCtx);
     quicksyncCtx_->bufferIo = true;
 
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
     msg->targetState = fpi::VolumeState::VOLUME_QUICKSYNC_CHECK;
     msg->groupId = volId_.get();
+    msg->replicaVersion = version_;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     msg->lastOpId = opInfo_.appliedOpId;
     msg->lastCommitId = opInfo_.appliedCommitId;
@@ -394,8 +450,9 @@ void Volume::startSyncCheck_()
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
-        SYNC_STATE_CHECK();
+    auto prevVersion = getVersion();
+    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
+        VERSION_CHECK(prevVersion, getVersion());
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
         if (err != ERR_OK) {
@@ -425,8 +482,9 @@ void Volume::sendPullActiveTxsMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &sy
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(quicksyncCtx_->syncPeer);
     req->setPayload(FDSP_MSG_TYPEID(fpi::PullActiveTxsMsg), pullTxsMsg);
-    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
-        SYNC_STATE_CHECK();
+    auto prevVersion = getVersion();
+    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
+        VERSION_CHECK(prevVersion, getVersion());
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::PullActiveTxsRespMsg>(err, payload);
         if (err != ERR_OK) {
@@ -496,8 +554,9 @@ void Volume::sendPullCommitLogEntriesMsg_(const int64_t &syncCommitId)
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeerUuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::PullCommitLogEntriesMsg), pullEntriesMsg);
-    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
-        SYNC_STATE_CHECK();
+    auto prevVersion = getVersion();
+    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
+        VERSION_CHECK(prevVersion, getVersion());
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::PullCommitLogEntriesRespMsg>(err, payload);
         if (err != ERR_OK) {
@@ -524,6 +583,7 @@ void Volume::concludeQuickSync_(const fpi::PullCommitLogEntriesRespMsgPtr &pulle
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
     msg->targetState = fpi::VolumeState::VOLUME_FUNCTIONAL;
     msg->groupId = volId_.get();
+    msg->replicaVersion = version_;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     msg->lastOpId = opInfo_.appliedOpId;
     msg->lastCommitId = opInfo_.appliedCommitId;
@@ -531,8 +591,9 @@ void Volume::concludeQuickSync_(const fpi::PullCommitLogEntriesRespMsgPtr &pulle
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    req->onResponseCb(synchronizedResponseCb([this](const Error &e_, StringPtr payload) {
-        FUNCTIONAL_STATE_CHECK();
+    auto prevVersion = getVersion();
+    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
+        VERSION_CHECK(prevVersion, getVersion());
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
         if (err != ERR_OK) {

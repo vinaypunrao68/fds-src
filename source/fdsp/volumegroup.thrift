@@ -59,9 +59,10 @@ struct VolumeGroupInfoUpdateCtrlMsg {
 struct AddToVolumeGroupCtrlMsg {
     1: VolumeState			targetState;
     2: required VolumeGroupId		groupId;
-    3: required svc_types.SvcUuid	svcUuid;
-    4: required i64			lastOpId;
-    5: required i64			lastCommitId;
+    3: required i32			replicaVersion;
+    4: required svc_types.SvcUuid	svcUuid;
+    5: required i64			lastOpId;
+    6: required i64			lastCommitId;
 }
 
 /* Response message from Volumegroup coordinator to replica */

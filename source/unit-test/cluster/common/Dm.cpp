@@ -85,7 +85,10 @@ Error DmProcess::processIO(FDS_IOType* io) {
     fds_verify(itr != volumeTbl.end());
     auto &volume = itr->second;
     qosCtrl->threadPool->scheduleWithAffinity(volId.get(), [volume, volIo]() {
-        volume->getCurrentBehavior()->handle(volIo->msgType, SHPTR<VolumeIoBase>(volIo));
+        /* Make volIo shared_ptr from this point */
+        auto volIoPtr = SHPTR<VolumeIoBase>(volIo);
+        /* Handle */
+        volume->getCurrentBehavior()->handle(volIo->msgType, volIoPtr);
     });
 #if 0
     switch (volIo->msgType){

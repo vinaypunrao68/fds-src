@@ -84,8 +84,11 @@ struct DmHandler: PlatNetSvcHandler {
                                         this,
                                         asyncHdr,
                                         std::placeholders::_1);
+                // TODO(Rao): We should be able to use asyncHdr->replicaId here.
+                // We don't need to use volidFunc
                 fds_volid_t volId(volidFunc(*payload));
                 auto qosMsg = new QosVolumeIoT(volId,
+                                               asyncHdr->replicaVersion,
                                                dm->qosCtrl.get(),
                                                payload,
                                                cbfunc);

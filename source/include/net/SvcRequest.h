@@ -355,6 +355,11 @@ struct EPSvcRequest : SvcRequestIf {
     virtual void invokeWork_() override;
     void sendPayload_();
 
+    /**
+     * TODO(Rao): Consider refactoring so that we keep relevant memebers in async request
+     * header instead of individual members here, so that we can use the same request header
+     * when sending across the wire
+     */
     fpi::SvcUuid                    peerEpId_;
     fpi::ReplicaId                  replicaId_;
     int32_t                         replicaVersion_;
@@ -379,7 +384,10 @@ struct MultiEpSvcRequest : SvcRequestIf {
                       fds_uint64_t const dlt_version,
                       const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    void addEndpoint(const fpi::SvcUuid& peerEpId, fds_uint64_t const dlt_version);
+    void addEndpoint(const fpi::SvcUuid& peerEpId,
+                     fds_uint64_t const dlt_version,
+                     const fpi::ReplicaId &replicaId,
+                     const int32_t &replicaVersion);
     void addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds, fds_uint64_t const dlt_version);
 
     void onEPAppStatusCb(EPAppStatusCb cb);

@@ -52,13 +52,21 @@ struct VolumeReplicaHandle {
     {
         this->lastError = e;
     }
-    inline void setInfo(const fpi::VolumeState &state, int64_t opId, int64_t commitId)
+    inline void setVersion(const int32_t &version)
+    {
+        this->version = version;
+    }
+    inline void setInfo(const int32_t &version,
+                        const fpi::VolumeState &state,
+                        int64_t opId, int64_t commitId)
     {
         setState(state);
+        this->version = version;
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
 
+    int32_t                 version;
     fpi::SvcUuid            svcUuid;
     fpi::VolumeState        state;
     Error                   lastError;
@@ -138,11 +146,14 @@ struct VolumeGroupHandle : HasModuleProvider {
         const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
 
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
+                                      const int32_t &replicaVersion,
                                       const fpi::VolumeIoHdr &hdr,
                                       const Error &inStatus,
                                       Error &outStatus,
                                       uint8_t &successAcks);
-    std::vector<fpi::SvcUuid> getIoReadySvcUuids() const;
+    std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
+
+    inline int64_t getGroupId() const { return groupId_; }
 
  protected:
     template<class MsgT, class ReqT>
@@ -161,6 +172,7 @@ struct VolumeGroupHandle : HasModuleProvider {
         req->invoke();
     }
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
+                                    const int32_t &replicaVersion,
                                     const fpi::VolumeState &targetState,
                                     const Error &e);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);

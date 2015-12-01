@@ -100,7 +100,7 @@ TEST(ProcHandle, DISABLED_test1) {
     dm1.stop();
 }
 
-TEST_F(ClusterFixture, DISABLED_test_quicksync)
+TEST_F(ClusterFixture, test_quicksync)
 {
     // Temporary hack
     // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
@@ -161,7 +161,7 @@ TEST_F(ClusterFixture, DISABLED_test_quicksync)
     GLOGNOTIFY << "Exiting from test";
 }
 
-TEST_F(ClusterFixture, test_quicksync_activeio)
+TEST_F(ClusterFixture, DISABLED_test_quicksync_activeio)
 {
     // Temporary hack
     // TODO(Rao): Get rid of this by putting perftraceing under PERF macro

@@ -33,22 +33,31 @@ struct EPSvcRequest;
 struct VolumeIoBase : public FDS_IOType {
     VolumeIoBase(const fpi::FDSPMsgTypeId &msgType,
              const fds_volid_t &volId,
+             const int32_t &version,
              FDS_QoSControl *qosCtrl)
     {
         this->msgType = msgType;
         this->io_type = FDS_DM_VOLUME_IO;
         this->io_vol_id = volId;
+        this->version = version;
         this->qosCtrl = qosCtrl;
+        this->respStatus = ERR_OK;
     }
     virtual ~VolumeIoBase() {
         qosCtrl->markIODone(this);
     }
-    fds_volid_t getVolumeId() const {
+    inline fds_volid_t getVolumeId() const {
         return fds_volid_t(io_vol_id);
     }
+    inline int32_t getVersion() const {
+        return version;
+    }
+    virtual std::string logString() const;
  
     fpi::FDSPMsgTypeId      msgType;
+    int32_t                 version;
     FDS_QoSControl          *qosCtrl;
+    Error                   respStatus;
 };
 using VolumeIoBasePtr = SHPTR<VolumeIoBase>;
 
@@ -63,17 +72,16 @@ struct QosVolumeIo : public VolumeIoBase {
     const static fpi::FDSPMsgTypeId respMsgTypeId = RespTypeId;
 
     using ThisType = QosVolumeIo<ReqMsgT, ReqTypeId, RespMsgT, RespTypeId>;
-    // TODO(Rao): Consider making this const ref
     using CbType = std::function<void (const ThisType&)>;
 
     QosVolumeIo(const fds_volid_t &volId,
+                const int32_t &version,
                 FDS_QoSControl *qosCtrl,
                 const SHPTR<ReqMsgT> &reqMsg,
                 const CbType &cb)
-    : VolumeIoBase(ReqTypeId, volId, qosCtrl)
+    : VolumeIoBase(ReqTypeId, volId, version, qosCtrl)
     {
         this->reqMsg = reqMsg;
-        this->respStatus = ERR_OK;
         this->cb = cb;
     }
     void respondBack() {
@@ -87,9 +95,14 @@ struct QosVolumeIo : public VolumeIoBase {
     {
         respondBack();
     }
+    virtual std::string logString() const
+    {
+        std::stringstream ss;
+        ss << VolumeIoBase::logString() << fds::logString(*reqMsg);
+        return ss.str();
+    }
 
     SHPTR<ReqMsgT>          reqMsg;
-    Error                   respStatus;
     SHPTR<RespMsgT>         respMsg;
     CbType                  cb;
 };
@@ -142,7 +155,10 @@ std::ostream& operator<<(std::ostream &out, const PullCommitLogEntriesIo& io);
 struct QosFunctionIo : VolumeIoBase {
     using Func = std::function<void()>;
     QosFunctionIo(const fds_volid_t &volId, FDS_QoSControl *qosCtrl)
-        : VolumeIoBase(FDSP_MSG_TYPEID(fpi::QosFunction), volId, qosCtrl)
+        : VolumeIoBase(FDSP_MSG_TYPEID(fpi::QosFunction),
+                       volId,
+                       VolumeGroupConstants::VERSION_SKIPCHECK,
+                       qosCtrl)
     {}
     Func                                            func;
 };
@@ -200,6 +216,7 @@ struct Volume : HasModuleProvider {
     inline VolumeBehavior* getCurrentBehavior() { return currentBehavior_; }
 
     const std::string& logString() const { return logStr_; }
+    inline int32_t getVersion() const { return version_; }
 
     struct OpInfo {
         int64_t                             appliedOpId;
@@ -237,6 +254,7 @@ struct Volume : HasModuleProvider {
     std::string                             logStr_;
     FDS_QoSControl                          *qosCtrl_;
     fds_volid_t                             volId_;
+    int32_t                                 version_;
     std::unique_ptr<FDS_VolumeQueue>        volQueue_;;
     VolumeBehavior                          functional_;
     VolumeBehavior                          syncing_;
@@ -255,6 +273,7 @@ struct Volume : HasModuleProvider {
     QuickSyncCtxPtr                         quicksyncCtx_;
 
     static const std::string                OPINFOKEY;
+    static const std::string                VERSIONKEY;
     static const uint32_t                   MAX_SYNCENTRIES_BYTES = 1 * MB;
     static const uint32_t                   MAX_COMMITLOG_ENTRIES = 1000;
 };

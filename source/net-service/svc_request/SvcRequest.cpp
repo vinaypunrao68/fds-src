@@ -438,7 +438,7 @@ MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
     : SvcRequestIf(provider, id, myEpId)
 {
     for (const auto &uuid : peerEpIds) {
-        addEndpoint(uuid, dlt_version);
+        addEndpoint(uuid, dlt_version, 0, 0);
     }
     dlt_version_ = dlt_version;
 }
@@ -450,12 +450,16 @@ MultiEpSvcRequest::MultiEpSvcRequest(CommonModuleProviderIf* provider,
  * @param uuid
  */
 void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId,
-                                    fds_uint64_t const dlt_version)
+                                    fds_uint64_t const dlt_version,
+                                    const fpi::ReplicaId &replicaId,
+                                    const int32_t &replicaVersion)
 {
     epReqs_.push_back(EPSvcRequestPtr(
             new EPSvcRequest(MODULEPROVIDER(), id_, myEpId_, peerEpId)));
     // Tag this against a specific DLT
     epReqs_.back()->dlt_version_ = dlt_version;
+    epReqs_.back()->setReplicaId(replicaId);
+    epReqs_.back()->setReplicaVersion(replicaVersion);
 }
 
 /**
@@ -468,7 +472,7 @@ void MultiEpSvcRequest::addEndpoints(const std::vector<fpi::SvcUuid> &peerEpIds,
                                      fds_uint64_t const dlt_version)
 {
     for (const auto &uuid : peerEpIds) {
-        addEndpoint(uuid, dlt_version);
+        addEndpoint(uuid, dlt_version, 0, 0);
     }
 }
 
