@@ -71,6 +71,15 @@ enum SMCheckStatusType {
     SMCHECK_STATUS_ACTIVE;
 }
 
+/**
+ * Object store states
+ */
+enum FDSP_ObjectStoreState {
+  OBJECTSTORE_NORMAL;
+  OBJECTSTORE_READ_ONLY;
+  OBJECTSTORE_UNAVAILABLE;
+}
+
 /* ------------------------------------------------------------
    StorMgr Types
    ------------------------------------------------------------*/

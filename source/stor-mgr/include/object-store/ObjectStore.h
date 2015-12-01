@@ -70,12 +70,20 @@ class ObjectStore : public Module, public boost::noncopyable {
          * of token migration
          */
         OBJECT_STORE_READY       = 1,
-        /**
-         * Something bad happend (e.g., minimal data integrity check failed)
-         * so the object store is currently un-usable
-         */
+
+      /**
+       * Something bad happend (e.g., minimal data integrity check failed)
+       * so the object store is currently un-usable
+       */
         OBJECT_STORE_UNAVAILABLE = 2,
-        OBJECT_STORE_STATE_MAX
+
+      /**
+       * The object store is in a READ ONLY state. This is useful when the
+       * disks on a node have become full but otherwise nothing bad has happened.
+       */
+        OBJECT_STORE_READ_ONLY   = 3,
+
+      OBJECT_STORE_STATE_MAX
     };
 
     /// Current state of the object store
@@ -315,6 +323,12 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_READY);
     }
     /**
+     * Check if object store is in READ_ONLY mode or not
+     */
+    inline fds_bool_t isReadOnly() const {
+        return (currentState.load() == OBJECT_STORE_READ_ONLY);
+  }
+    /**
      * Returns false if object store initialization failed and it is unavailable
      */
     inline fds_bool_t isUnavailable() const {
@@ -347,6 +361,11 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Sets this ObjectStore to the UNAVAILABLE state
      */
     void setUnavailable();
+
+    /**
+     * Set this ObjectStore to the READ_ONLY state
+     */
+    void setReadOnly();
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

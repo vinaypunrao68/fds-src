@@ -10,6 +10,15 @@ include "svc_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm
 
+
+/*--------------------------------------------------
+    Object Store Control
+----------------------------------------------------*/
+
+struct FDSP_ObjectStoreCtrl {
+  1: sm_types.FDSP_ObjectStoreState state;
+}
+
 /*------------------------------------------------------------
   Object Set Messages
 ------------------------------------------------------------*/

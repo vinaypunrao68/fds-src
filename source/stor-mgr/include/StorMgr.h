@@ -329,6 +329,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
+     /*
+      * Check disk capacities and take appropriate action if beyond thresholds
+      */
+     void checkDiskCapacities();
 
      virtual std::string log_string() {
          std::stringstream ret;

@@ -530,59 +530,66 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     // Piggyback on the timer that runs this to check disk capacity
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
-        float_t pct_used = objectStore->getUsedCapacityAsPct();
-
-        // We want to log which disk is too full here
-        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
-            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
-
-            objectStore->setUnavailable();
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
-            LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
-            lastCapacityMessageSentAt = pct_used;
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                   "SM is reaching dangerous capacity levels!");
-        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
-            LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
-
-            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
-                                 fpi::EVENT_SEVERITY_WARNING,
-                                 fpi::EVENT_STATE_SOFT,
-                                 "sm.capacity.warn",
-                                 std::vector<fpi::MessageArgs>(), "");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else {
-            // If the used pct drops below alert levels reset so we resend the message when
-            // we re-hit this condition
-
-            if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
-                if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
-                    sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                           "SM utilization no longer at dangerous levels.");
-                }
-                lastCapacityMessageSentAt = 0;
-            } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                       "SM utilization no longer at dangerous levels.");
-            } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                       "SM is reaching dangerous capacity levels!");
-            }
-        }
+        checkDiskCapacities();
         sampleCounter = 0;
     }
     sampleCounter++;
+}
+
+/**
+ * Checks available disk capacities and takes appropriate action based on thresholds.
+ */
+void ObjectStorMgr::checkDiskCapacities() {
+    float_t pct_used = objectStore->getUsedCapacityAsPct();
+
+    if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+        LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+        objectStore->setReadOnly();
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
+        // TODO(brian): Send thrift message letting other SMs know that we're in READ ONLY mode
+        // TODO(brian): sendReadOnlyModeMsg();
+
+        lastCapacityMessageSentAt = pct_used;
+    } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+        LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+        lastCapacityMessageSentAt = pct_used;
+
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                               "SM is reaching dangerous capacity levels!");
+    } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+        sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                             fpi::EVENT_SEVERITY_WARNING,
+                             fpi::EVENT_STATE_SOFT,
+                             "sm.capacity.warn",
+                             std::vector<fpi::MessageArgs>(), "");
+
+        lastCapacityMessageSentAt = pct_used;
+    } else {
+        // If the used pct drops below alert levels reset so we resend the message when
+        // we re-hit this condition
+
+        if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
+            if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "SM utilization no longer at dangerous levels.");
+            }
+            lastCapacityMessageSentAt = 0;
+        } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                   "SM utilization no longer at dangerous levels.");
+        } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
+        }
+    }
 }
 
 /**

@@ -76,7 +76,7 @@ ObjectStore::ObjectStore(const std::string &modName,
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
-   liveObjectsTable->createLiveObjectsTblAndIdx();
+    liveObjectsTable->createLiveObjectsTblAndIdx();
 }
 
 ObjectStore::~ObjectStore() {
@@ -88,6 +88,11 @@ ObjectStore::~ObjectStore() {
 void ObjectStore::setUnavailable() {
     GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
     currentState = OBJECT_STORE_UNAVAILABLE;
+}
+
+void ObjectStore::setReadOnly() {
+    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_READ_ONLY. This should block write IOs but allow reads.";
+    currentState = OBJECT_STORE_READ_ONLY;
 }
 
 float_t ObjectStore::getUsedCapacityAsPct() {
@@ -1784,6 +1789,10 @@ ObjectStore::mod_init(SysParams const *const p) {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
     }
+
+    // TODO(brian): Check disk capacity, if above threshold set READ ONLY
+    getUsedCapacityAsPct()
+
 
     return 0;
 }
