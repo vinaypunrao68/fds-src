@@ -455,9 +455,6 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
              << " SM token " << smTokenId
              << " " << error;
 
-    // Completed this IO request.  Stop tracking this IO.
-    trackIOReqs.finishTrackIOReqs();
-
     /**
      * If abort is pending for this Executor. Exit.
      */
@@ -467,9 +464,11 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
 
+    trackIOReqs.finishTrackIOReqs();
     if (inErrorState() || filterRespAndStateMismatch()) {
         LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
                  << std::hex << executorId << std::dec << " DLT token " << dltToken
@@ -686,14 +685,12 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     MigrationExecutorState curState = atomic_load(&state);
     if (inErrorState() || isAbortPending()) {
         LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
-
-        // Stop tracking this IO.
+        abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
         seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
                                        req->lastSet,
                                        req->qosSeqNum,
                                        req->qosLastSet);
-        abortMigrationCb(executorId, smTokenId);
         return;
     }
 
@@ -819,9 +816,6 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
              << std::hex << executorId << std::dec
              << " SM token " << smTokenId << " " << error;
 
-    // Stop tracking request.
-    trackIOReqs.finishTrackIOReqs();
-
     /**
      * If abort is pending for this Executor. Exit.
      */
@@ -831,8 +825,10 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
+    trackIOReqs.finishTrackIOReqs();
 
     if (inErrorState()) {
         LOGDEBUG << "Ignoring CtrlGetSecondRebalanceDeltaSet response for executor "
