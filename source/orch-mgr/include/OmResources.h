@@ -190,6 +190,8 @@ class OM_NodeAgent : public NodeAgent
     fpi::FDSP_MgrIdType     ndMyServId;
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
+    uint32_t                dm_migration_abort_timeout;
+
     virtual int node_calc_stor_weight();
 };
 
