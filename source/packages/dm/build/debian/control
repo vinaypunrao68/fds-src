@@ -1,0 +1,15 @@
+Source: fds-data-manager0.test-1
+Section: java
+Priority: optional
+Maintainer: pairing
+Uploaders: 
+Version: 0.test-1
+Standards-Version: 3.8.3
+Package: fds-data-manager0.test-1
+Provides: fds-data-manager0.test-1
+Homepage: 
+Architecture: amd64
+Distribution: 
+Depends: 
+Description: fds-data-manager0.test-1
+ 
