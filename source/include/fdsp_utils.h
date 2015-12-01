@@ -87,14 +87,20 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
          * builds.  We then rethrow the exception
          */
         GLOGDEBUG << "Excpetion in serializing: " << e.what();
-        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     }
     payloadBuf = bo::make_shared<std::string>();
@@ -128,14 +134,20 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
          */
         GLOGDEBUG << "Excpetion in deserializing: " << e.what();
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     }
 }
