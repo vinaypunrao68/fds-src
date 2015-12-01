@@ -106,17 +106,17 @@ void VolumeStats::processStats() {
     if (slots.size() > 0) {
         coarsegrain_hist_->mergeSlots(slots,
                                       finegrain_hist_->getStartTime());
-        LOGDEBUG << "Updated coarse-grain stats: " << *coarsegrain_hist_;
+        LOGTRACE << "Updated coarse-grain stats: " << *coarsegrain_hist_;
         longterm_hist_->mergeSlots(slots,
                                    finegrain_hist_->getStartTime());
-        LOGDEBUG << "Updated long-term stats: " << *longterm_hist_;
+        LOGTRACE << "Updated long-term stats: " << *longterm_hist_;
     }
 
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
          ++cit) {
         // debugging for now, remove at some point
-        LOGNORMAL << "[" << finegrain_hist_->getTimestamp((*cit).getTimestamp()) << "], "
+        LOGTRACE << "[" << finegrain_hist_->getTimestamp((*cit).getTimestamp()) << "], "
                   << "Volume " << std::hex << volid_ << std::dec << ", "
                   << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
                   << "Gets " << StatHelper::getTotalGets(*cit) << ", "
@@ -182,7 +182,7 @@ void VolumeStats::updateFirebreakMetrics() {
     if (min_slots > (coarsegrain_hist_->numberOfSlots() - 1)) {
         min_slots = (coarsegrain_hist_->numberOfSlots() - 1);
     }
-    LOGDEBUG << "min_slots" << min_slots << " sec, slots size "
+    LOGTRACE << "min_slots" << min_slots << " sec, slots size "
              << slots.size();
     if (slots.size() < min_slots) {
         // we must have some history to start recording stdev
@@ -190,7 +190,7 @@ void VolumeStats::updateFirebreakMetrics() {
     }
     updateStdev(slots, 1, &cap_recent_stdev_, &perf_recent_stdev_,
                 &cap_recent_wma_, &perf_recent_wma_);
-    LOGDEBUG << "Short term history size " << slots.size()
+    LOGTRACE << "Short term history size " << slots.size()
              << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
              << " capacity wma " << cap_recent_wma_
              << " perf wma " << perf_recent_wma_
@@ -211,7 +211,7 @@ void VolumeStats::updateFirebreakMetrics() {
     }
     double units = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
     updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_, NULL, NULL);
-    LOGDEBUG << "Long term history size " << slots.size()
+    LOGTRACE << "Long term history size " << slots.size()
              << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
              << " short slot units " << units
              << " capacity stdev " << cap_long_stdev_
@@ -231,7 +231,7 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
          cit != slots.cend();
          cit++) {
         double bytes = StatHelper::getTotalPhysicalBytes(*cit);
-        LOGDEBUG << "1 - Volume " << std::hex << volid_ << std::dec << " rel ts "
+        LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel ts "
                  << (*cit).getTimestamp() << " bytes " << static_cast<fds_int64_t>(bytes);
 
         if (cit == slots.cbegin()) {
@@ -242,7 +242,7 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
         double ops = StatHelper::getTotalPuts(*cit) + StatHelper::getTotalGets(*cit);
         double ops_per_unit = ops / units_in_slot;
 
-        LOGDEBUG << "Volume " << std::hex << volid_ << std::dec << " rel ts "
+        LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel ts "
                  << (*cit).getTimestamp() << " bytes " << static_cast<fds_int64_t>(bytes)
                  << " prev bytes " << static_cast<fds_int64_t>(prev_bytes)
                  << " add_bytes_per_unit " << static_cast<fds_int64_t>(add_bytes_per_unit)
@@ -328,7 +328,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     if (hist_config.coarsestat_slotsec_ < tmperiod_sec_) {
         tmperiod_sec_ = 2*60;  // hist_config.coarsestat_slotsec_;
     }
-    LOGDEBUG << "Finegrain slot length " << hist_config.finestat_slotsec_ << " sec, "
+    LOGTRACE << "Finegrain slot length " << hist_config.finestat_slotsec_ << " sec, "
              << "slots " << hist_config.finestat_slots_ << "; coarsegrain slot length "
              << hist_config.coarsestat_slotsec_ << " sec, slots " << hist_config.coarsestat_slots_
              << " Will update coarse grain stats every " << tmperiod_sec_ << " sec";
@@ -337,12 +337,12 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     fds_bool_t ret = process_tm_->scheduleRepeated(process_tm_task_,
                                                    std::chrono::seconds(tmperiod_sec_));
     if (!ret) {
-        LOGERROR << "Failed to schedule timer for logging volume stats!";
+        LOGTRACE << "Failed to schedule timer for logging volume stats!";
     }
 }
 
 StatStreamAggregator::~StatStreamAggregator() {
-    
+
 }
 
 int StatStreamAggregator::mod_init(SysParams const *const param)
@@ -361,7 +361,7 @@ void StatStreamAggregator::mod_shutdown()
 
 Error StatStreamAggregator::attachVolume(fds_volid_t volume_id) {
     Error err(ERR_OK);
-    LOGDEBUG << "Will monitor stats for vol " << std::hex
+    LOGTRACE << "Will monitor stats for vol " << std::hex
              << volume_id << std::dec;
 
     // create Volume Stats struct and add it to the map
@@ -401,7 +401,7 @@ VolumeStats::ptr StatStreamAggregator::getVolumeStats(fds_volid_t volid) {
 
 Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
     Error err(ERR_OK);
-    LOGDEBUG << "Will stop monitoring stats for vol " << std::hex
+    LOGTRACE << "Will stop monitoring stats for vol " << std::hex
              << volume_id << std::dec;
 
     // remove volstats struct from the map, the destructor should
@@ -424,7 +424,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
         return ERR_INVALID_ARG;
     }
 
-    LOGDEBUG << "Adding streaming registration with id " << registration->id;
+    LOGTRACE << "Adding streaming registration with id " << registration->id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
@@ -436,7 +436,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
 
 Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     Error err(ERR_OK);
-    LOGDEBUG << "Removing streaming registration with id " << reg_id;
+    LOGTRACE << "Removing streaming registration with id " << reg_id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     timer_.cancel(statStreamTaskMap_[reg_id]);
@@ -451,17 +451,17 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
     fds_uint64_t remote_start_ts = stream_msg->start_timestamp;
     for (fds_uint32_t i = 0; i < (stream_msg->volstats).size(); ++i) {
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
-        LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
+        LOGTRACE << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
         VolumeStats::ptr volstats = getVolumeStats(fds_volid_t(vstats.volume_id));
         if (!volstats) {
-          LOGWARN << "Volume " << fds_volid_t(vstats.volume_id)
+          LOGTRACE << "Volume " << fds_volid_t(vstats.volume_id)
                << " is not attached to the aggregator! Ignoring stats";
           continue;
         }
         err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
         fds_verify(err.ok());  // if err, prob de-serialize issue
-        LOGDEBUG << *(volstats->finegrain_hist_);
+        LOGTRACE << *(volstats->finegrain_hist_);
     }
     return err;
 }
@@ -479,7 +479,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
     FILE   *pFile = fopen((const char *)fileName.c_str(), "a+");
     if (!pFile) {
-        GLOGWARN << "Error opening stat log file '" << fileName << "'";
+        GLOGTRACE << "Error opening stat log file '" << fileName << "'";
         return ERR_NOT_FOUND;
     }
 
@@ -507,7 +507,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
-            LOGDEBUG << " rsync node id: " << (nodes->get(i)).uuid_get_val()
+            LOGTRACE << " rsync node id: " << (nodes->get(i)).uuid_get_val()
                                << "myuuid: " << selfSvcUuid.svc_uuid;
            if (selfSvcUuid != nodes->get(i).toSvcUuid()) {
                /* Disable volStatSync because we shouldn't be using rsync to sync stats
@@ -535,7 +535,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
 
     fpi::SvcInfo dmSvcInfo;
     if (!svcmgr->getSvcInfo(dmSvcUuid, dmSvcInfo)) {
-        LOGERROR << "Failed to sync vol stat: Failed to get IP address for destination DM "
+        LOGTRACE << "Failed to sync vol stat: Failed to get IP address for destination DM "
                 << std::hex << dmSvcUuid.svc_uuid << std::dec;
         return ERR_NOT_FOUND;
     }
@@ -549,7 +549,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";
 
-    LOGDEBUG << "system rsync: " <<  rsync_cmd;
+    LOGTRACE << "system rsync: " <<  rsync_cmd;
 
     int retcode = std::system((const char *)rsync_cmd.c_str());
     return err;
@@ -582,17 +582,17 @@ StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
                                              const std::vector<StatSlot>& slots) {
     fds_uint64_t remote_start_ts = start_timestamp;
 
-    LOGDEBUG << "Received stats for volume " << std::hex << volume_id
+    LOGTRACE << "Received stats for volume " << std::hex << volume_id
              << std::dec << " timestamp " << remote_start_ts;
 
     VolumeStats::ptr volstats = getVolumeStats(volume_id);
     if (!volstats) {
-        LOGWARN << "Volume " << std::hex << volume_id << std::dec
+        LOGTRACE << "Volume " << std::hex << volume_id << std::dec
            << " is not attached to the aggregator! Ignoring stats";
         return;
     }
     (volstats->finegrain_hist_)->mergeSlots(slots, remote_start_ts);
-    LOGDEBUG << *(volstats->finegrain_hist_);
+    LOGTRACE << *(volstats->finegrain_hist_);
 }
 
 //
@@ -629,7 +629,7 @@ fds_uint64_t StatHelper::getTotalPhysicalBytes(const StatSlot& slot) {
     fds_uint64_t deduped_bytes =  slot.getTotal(STAT_SM_CUR_DEDUP_BYTES);
     if (logical_bytes < deduped_bytes) {
         // we did not measure something properly, for now ignoring
-        LOGWARN << "logical bytes " << logical_bytes << " < deduped bytes "
+        LOGTRACE << "logical bytes " << logical_bytes << " < deduped bytes "
                 << deduped_bytes;
         return 0;
     }
@@ -685,7 +685,7 @@ void VolStatsTimerTask::runTimerTask() {
 }
 
 void StatStreamTimerTask::runTimerTask() {
-    LOGDEBUG << "Streaming stats for registration '" << reg_->id << "'";
+    LOGTRACE << "Streaming stats for registration '" << reg_->id << "'";
 
     std::vector<fpi::volumeDataPoints> dataPoints;
 
@@ -707,7 +707,7 @@ void StatStreamTimerTask::runTimerTask() {
         std::map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;  // NOLINT
         VolumeStats::ptr volStat = statStreamAggr_.getVolumeStats(volId);
         if (!volStat) {
-            GLOGWARN << "Cannot get stat volume history for id '" << volId << "'";
+            GLOGTRACE << "Cannot get stat volume history for id '" << volId << "'";
             continue;
         }
         const std::string & volName = dataManager_.volumeName(volId);
@@ -834,7 +834,7 @@ void StatStreamTimerTask::runTimerTask() {
     if (!logLocal) {
         fpi::SvcInfo info;
         if (!MODULEPROVIDER()->getSvcMgr()->getSvcInfo(reg_->dest, info)) {
-            GLOGERROR << "Failed to get svc info for uuid: '" << std::hex
+            GLOGTRACE << "Failed to get svc info for uuid: '" << std::hex
                     << reg_->dest.svc_uuid << std::dec << "'";
         } else {
             // XXX: hard-coded to bind to java endpoint in AM
