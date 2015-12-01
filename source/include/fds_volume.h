@@ -212,6 +212,12 @@ class FDS_Volume {
 
     FDS_Volume();
     explicit FDS_Volume(const VolumeDesc& vol_desc);
+    inline bool isSystemVolume() {
+        if (voldesc)
+            return voldesc->isSystemVolume();
+        else
+            return false;
+    }
     ~FDS_Volume();
 };
 

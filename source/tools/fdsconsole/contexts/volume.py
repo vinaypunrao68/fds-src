@@ -54,7 +54,7 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
         return 'create clone failed: {}'.format(vol_name)
-    
+
     #--------------------------------------------------------------------------------------
     @cliadmincmd
     @arg('vol-name', help= "-volume name  of the clone")
@@ -86,7 +86,7 @@ class VolumeContext(Context):
     @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd', 'hybrid'])
     def create(self, vol_name, domain='abc', priority=10, minimum=0, maximum=0, max_obj_size=0,
                vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400, media_policy='hdd'):
-        
+
         try:
             res = self.volEp.createVolume(vol_name,
                                             priority,
@@ -206,7 +206,7 @@ class VolumeContext(Context):
     @clidebugcmd
     @arg('value', help='value' , nargs='?')
     def put(self, vol_name, key, value):
-        ''' 
+        '''
         put an object into the volume
         to put a file : start key/value with @
         put <volname> @filename  --> key will be name of the file
@@ -223,7 +223,7 @@ class VolumeContext(Context):
             b = self.s3Api().get_bucket(vol_name)
             k = b.new_key(key)
             num = k.set_contents_from_string(value)
-            
+
             if num >= 0:
                 data = []
                 data += [('key' , key)]
@@ -279,33 +279,46 @@ class VolumeContext(Context):
         'get an object from the volume'
         try:
             b = self.s3Api().get_bucket(vol_name)
-            k = b.new_key(key)
-            value = k.get_contents_as_string()
-
-            if value:
-                data = []
-                data += [('key' , key)]
-                data += [('md5sum' , md5.md5(value).hexdigest())]
-                data += [('length' , str(len(value)))]
-                data += [('begin' , str(value[:30]))]
-                data += [('end' , str(value[-30:]))]
-                return tabulate(data, tablefmt=self.config.getTableFormat())
+            keys = []
+            if key.endswith('*'):
+                keys = b.list(prefix=key[0:-1])
             else:
-                print "no data"
+                keys = [b.new_key(key)]
+            returndata=[]
+
+            for k in keys:
+                value = k.get_contents_as_string()
+                if value:
+                    data = []
+                    data += [('key' , k.name)]
+                    data += [('md5sum' , md5.md5(value).hexdigest())]
+                    data += [('length' , str(len(value)))]
+                    data += [('begin' , str(value[:30]))]
+                    data += [('end' , str(value[-30:]))]
+                    returndata.append(tabulate(data, tablefmt=self.config.getTableFormat()))
+                else:
+                    returndata.append("--\nno data for key:{}\n".format(k.name))
+            if len(returndata) == 0:
+                returndata.append("--\nno data for key:{}\n".format(key))
+
+            return '\n'.join(returndata)
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    def keys(self, vol_name):
+    @arg('prefix', help= "key prefix match", default='', nargs='?')
+    def keys(self, vol_name, prefix):
         'get an object from the volume'
         try:
+            if prefix.endswith('*'):
+                prefix = prefix[0:-1]
             b = self.s3Api().get_bucket(vol_name)
-            data = [[key.name.encode('ascii','ignore')] for key in b.list()]
+            data = [[key.name.encode('ascii','ignore')] for key in b.list(prefix=prefix)]
             data.sort()
             return tabulate(data, tablefmt=self.config.getTableFormat(), headers=['name'])
-            
+
         except Exception, e:
             log.exception(e)
             return 'get objects failed on volume: {}'.format(vol_name)
@@ -317,9 +330,14 @@ class VolumeContext(Context):
         'delete an object from the volume'
         try:
             b = self.s3Api().get_bucket(vol_name)
-            k = b.new_key(key)
-            k.delete()            
+            keys = []
+            if key.endswith('*'):
+                keys = b.list(prefix=key[0:-1])
+            else:
+                keys = [b.new_key(key)]
+            for k in keys:
+                k.delete()
+
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
-

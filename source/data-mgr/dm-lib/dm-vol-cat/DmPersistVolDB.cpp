@@ -61,6 +61,10 @@ DmPersistVolDB::~DmPersistVolDB() {
     }
 }
 
+uint64_t DmPersistVolDB::getNumInMemorySnapshots() {
+    return snapshotCount.load(std::memory_order_relaxed);
+}
+
 Error DmPersistVolDB::activate() {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
@@ -655,13 +659,15 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
-Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap &snap) {
+Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap& snap) {
     catalog_->GetSnapshot(snap);
+    snapshotCount.fetch_add(1, std::memory_order_relaxed);
     return ERR_OK;
 }
 
-Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap snap)  {
+Error DmPersistVolDB::freeInMemorySnapshot(Catalog::MemSnap& snap)  {
     catalog_->ReleaseSnapshot(snap);
+    snapshotCount.fetch_sub(1, std::memory_order_relaxed);
     return ERR_OK;
 }
 

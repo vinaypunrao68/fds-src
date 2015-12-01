@@ -183,14 +183,17 @@ void LockfreeWorker::workLoop() {
             // If something is dequeued, then call the function.
             if (dequeued) {
                 fds_verify(NULL != task);
+                fds_verify(task);
                 try {
                     task->operator()();
                 } catch (std::bad_alloc const& e) {
-                    fds_panic("Failed allocation of memory: %s\n", e.what());
+                    fds_panic("Failed allocation of memory: %s : calling %s\n", e.what(), task->target_type().name());
+                } catch (std::invalid_argument const& e) {
+                    fds_panic("invalid_argument exception : %s : calling %s\n", e.what(), task->target_type().name());
                 } catch (std::exception const& e) {
-                    fds_panic("std::exception : %s\n", e.what());
+                    fds_panic("std::exception : %s : calling %s\n", e.what(), task->target_type().name());
                 } catch (...) {
-                    fds_panic("unknown exception!");
+                    fds_panic("unknown exception : calling %s !\n", task->target_type().name());
                 }
                 delete task;
             } else {
