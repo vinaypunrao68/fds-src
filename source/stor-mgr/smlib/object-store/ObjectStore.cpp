@@ -478,7 +478,7 @@ ObjectStore::putObject(fds_volid_t volId,
     //
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err, &useTier);
     if (err == ERR_OK) {
         bool isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
@@ -499,7 +499,7 @@ ObjectStore::putObject(fds_volid_t volId,
         if (isDataPhysicallyExist && (conf_verify_data == true)) {
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
-                    = dataStore->getObjectData(volId, objId, objMeta, err);
+                    = dataStore->getObjectData(volId, objId, objMeta, err, &useTier);
             if (!err.ok()) {
                 return err;
             }
@@ -625,8 +625,8 @@ ObjectStore::putObject(fds_volid_t volId,
     updatedMeta->updateTimestamp();
     updatedMeta->resetDeleteCount();
     // write metadata to metadata store
-    err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
-
+    err = metaStore->putObjectMetadata(volId, objId, updatedMeta, &useTier);
+    useTier = metaStore->getMetadataTier();
     return err;
 }
 
@@ -665,7 +665,7 @@ ObjectStore::getObject(fds_volid_t volId,
     // 3) If DISK(RECONCILE) flag is set, then return an error.
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err, &usedTier);
 
     /**
      * Additional handling for error type: not found.
@@ -725,17 +725,11 @@ ObjectStore::getObject(fds_volid_t volId,
 
     // get object data
     boost::shared_ptr<const std::string> objData
-            = dataStore->getObjectData(volId, objId, objMeta, err);
+            = dataStore->getObjectData(volId, objId, objMeta, err, &usedTier);
     if (!err.ok()) {
         LOGERROR << "Failed to get object data " << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return objData;
-    }
-
-    // return tier we read from
-    usedTier = diskio::diskTier;
-    if (objMeta->onFlashTier()) {
-        usedTier = diskio::flashTier;
     }
 
     // verify data

@@ -32,14 +32,6 @@ struct AmDataProvider {
     virtual void stop()
     { forward_request(&AmDataProvider::stop); }
 
-    virtual Error retrieveVolDesc(std::string const& volume_name)
-    {
-        if (_next_in_chain) {
-            return _next_in_chain->retrieveVolDesc(volume_name);
-        }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
-    }
-
     virtual void registerVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
@@ -62,6 +54,9 @@ struct AmDataProvider {
         }
         return ERR_OK;
     }
+
+    virtual void lookupVolume(std::string const volume_name)
+    { return forward_request(&AmDataProvider::lookupVolume, volume_name); }
 
     virtual Error updateQoS(int64_t const* rate, float const* throttle)
     { return forward_request(&AmDataProvider::updateQoS, rate, throttle); }
@@ -141,6 +136,9 @@ struct AmDataProvider {
     { return forward_request(&AmDataProvider::getDLT); }
 
  protected:
+    virtual void lookupVolumeCb(VolumeDesc const vol_desc, Error const error)
+    { return forward_response(&AmDataProvider::lookupVolumeCb, vol_desc, error); }
+
     virtual void openVolumeCb(AmRequest * amReq, Error const error)
     { return forward_response(&AmDataProvider::openVolumeCb, amReq, error); }
 

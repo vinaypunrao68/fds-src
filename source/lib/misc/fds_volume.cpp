@@ -58,7 +58,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     }
 }
 
-// NOTE: counterpart of outputting to FDSP : VolumeInfo::vol_populate_fdsp_descriptor
+// NOTE: counterpart of outputting toFdspDesc
 VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     name = voldesc.vol_name;
     tennantId = voldesc.tennantId;
@@ -181,6 +181,29 @@ std::string VolumeDesc::ToString() {
             std::string(">"));
 }
 
+void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
+    voldesc.vol_name = name;
+    voldesc.tennantId = tennantId;
+    voldesc.localDomainId = localDomainId;
+    voldesc.volUUID = volUUID.v;
+    voldesc.volType = volType;
+    voldesc.maxObjSizeInBytes = maxObjSizeInBytes;
+    voldesc.capacity = capacity;
+    voldesc.volPolicyId = volPolicyId;
+    voldesc.placementPolicy = placementPolicy;
+    voldesc.mediaPolicy = mediaPolicy;
+    voldesc.iops_assured = iops_assured;
+    voldesc.iops_throttle = iops_throttle;
+    voldesc.rel_prio = relativePrio;
+    voldesc.fSnapshot = fSnapshot;
+    voldesc.state = state;
+    voldesc.contCommitlogRetention = contCommitlogRetention;
+    voldesc.srcVolumeId = srcVolumeId.v;
+    voldesc.timelineTime = timelineTime;
+    voldesc.createTime = createTime;
+    voldesc.state = state;
+}
+
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
     return (this->volUUID == rhs.volUUID);
 }
@@ -190,22 +213,26 @@ bool VolumeDesc::operator!=(const VolumeDesc &rhs) const {
 }
 
 VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
-    this->name = volinfo.name;
-    this->tennantId = volinfo.tennantId;
-    this->localDomainId = volinfo.localDomainId;
-    this->volUUID = volinfo.volUUID;
-    this->volType = volinfo.volType;
-    this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
-    this->capacity = volinfo.capacity;
-
-    this->volPolicyId = volinfo.volPolicyId;
-    this->placementPolicy = volinfo.placementPolicy;
-    this->mediaPolicy = volinfo.mediaPolicy;
-    this->fSnapshot = volinfo.fSnapshot;
-    this->srcVolumeId = volinfo.srcVolumeId;
-    this->contCommitlogRetention = volinfo.contCommitlogRetention;
-    this->timelineTime = volinfo.timelineTime;
-    this->createTime = volinfo.createTime;
+    if (this != &volinfo) {
+        this->name = volinfo.name;
+        this->tennantId = volinfo.tennantId;
+        this->localDomainId = volinfo.localDomainId;
+        this->volUUID = volinfo.volUUID;
+        this->volType = volinfo.volType;
+        this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
+        this->capacity = volinfo.capacity;
+        this->volPolicyId = volinfo.volPolicyId;
+        this->placementPolicy = volinfo.placementPolicy;
+        this->mediaPolicy = volinfo.mediaPolicy;
+        this->iops_assured = volinfo.iops_assured;
+        this->iops_throttle = volinfo.iops_throttle;
+        this->relativePrio = volinfo.relativePrio;
+        this->fSnapshot = volinfo.fSnapshot;
+        this->srcVolumeId = volinfo.srcVolumeId;
+        this->contCommitlogRetention = volinfo.contCommitlogRetention;
+        this->timelineTime = volinfo.timelineTime;
+        this->state = volinfo.state;
+    }
     return *this;
 }
 

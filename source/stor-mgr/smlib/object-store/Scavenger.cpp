@@ -649,7 +649,12 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
     }
 
     err = getDiskStats(&disk_stat);
-    fds_verify(err.ok());
+    if (!err.ok()) {
+        LOGCRITICAL << "Getting disk stats failed for disk id : "
+                    << disk_id;
+        return false;
+    }
+
     tot_size = disk_stat.dsk_tot_size;
     avail_percent = (disk_stat.dsk_avail_size / tot_size) * 100;
     LOGDEBUG << "Tier " << tier << " disk " << disk_id

@@ -14,10 +14,10 @@ import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.SimpleIdMap;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.*;
+import org.joda.time.Duration;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,8 +41,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
+    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
+        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();

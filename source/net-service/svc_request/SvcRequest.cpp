@@ -1038,6 +1038,9 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     /* Update who failed primary or optionals */
     if (!bSuccess) {
         if (isPrimary) {
+            if (ERR_OK == response_) {
+                response_ = header->msg_code;
+            }
             failedPrimaries_.push_back(epReq);
             GLOGWARN << fds::logString(*header) << " response from primary failed - "
                      << "[rcvd acks: " << (int)primaryAckdCnt_ << " of " << (int)primariesCnt_
@@ -1059,10 +1062,7 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
     /* Invoke response cb once all primaries responded */
     if (primaryAckdCnt_ == primariesCnt_ && respCb_) {
         GLOGDEBUG << "primacks rcvd for reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
-        // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
-        // Shouldn't be using the last error we get...something else more intelligent?
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
-        respCb_(this, reqErr, responsePayload(0));
+        respCb_(this, response_, responsePayload(0));
         respCb_ = 0;
     }
 
@@ -1073,12 +1073,11 @@ void MultiPrimarySvcRequest::handleResponseImpl(boost::shared_ptr<fpi::AsyncHdr>
         GLOGDEBUG << "allacks rcvd reqid:" << static_cast<SvcRequestId>(header->msg_src_id);
         // FIXME(szmyd): Wed 01 Jul 2015 12:45:06 PM PDT
         // Shouldn't be using the last error we get...something else more intelligent?
-        auto reqErr = (failedPrimaries_.size() == 0) ? ERR_OK : header->msg_code;
-        complete(reqErr);
+        complete(response_);
         if (allRespondedCb_) {
-            allRespondedCb_(this, reqErr, responsePayload(0));
+            allRespondedCb_(this, response_, responsePayload(0));
         }
-        if (reqErr == ERR_OK) {
+        if (response_ == ERR_OK) {
             MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();
         } else {
             MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->apperrors.incr();

@@ -89,9 +89,13 @@ DataPlacement::computeDlt() {
 
     fds_uint64_t version;
     Error err(ERR_OK);
-    
-    fds_verify( newDlt == NULL );
-    
+
+    /**
+     * as of 11/24/2015, this should be a no harm fds_verify, so removing it, because we are now setting the
+     * newDlt on all restart use cases.
+     */
+//    fds_verify( newDlt == NULL );
+
     if (commitedDlt == NULL) 
     {
         version = DLT_VER_INVALID + 1;

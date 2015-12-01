@@ -190,6 +190,8 @@ class OM_NodeAgent : public NodeAgent
     fpi::FDSP_MgrIdType     ndMyServId;
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
+    uint32_t                dm_migration_abort_timeout;
+
     virtual int node_calc_stor_weight();
 };
 
@@ -612,9 +614,10 @@ class OM_NodeContainer : public DomainContainer
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                                         const std::string& vol_name) {
-        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
+    inline Error om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                          const std::string& vol_name,
+                                          VolumeDesc& desc) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name, desc);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {

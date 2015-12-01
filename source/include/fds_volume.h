@@ -46,11 +46,11 @@ static constexpr fds_int64_t invalid_vol_token = -1;
  */
 class VolumeDesc : public HasState {
   public:
-	/**
-	 * NOTE: prior to adding new fields here,
-	 * any of these that are needed for thrift interface should be updated
-	 * in VolumeInfo::vol_populate_fdsp_descriptor
-	 */
+   /**
+    * NOTE: prior to adding new fields here,
+    * any of these that are needed for thrift interface should be updated
+    * in toFdspDesc as well as the constructor that takes the thrift type
+    */
     // Basic ID information.
     std::string            name;
     int                    tennantId;  // Tennant id that owns the volume
@@ -133,6 +133,7 @@ class VolumeDesc : public HasState {
     int getPriority() const;
 
     std::string ToString();
+    void toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc);
 
     bool operator==(const VolumeDesc &rhs) const;
 
