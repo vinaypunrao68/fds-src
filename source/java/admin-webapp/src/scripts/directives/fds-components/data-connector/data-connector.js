@@ -51,7 +51,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                     
                     $scope.volumeType.filters = [];
                     
-                    for ( var fI = 0; fI < $scope._ip_filters; fI++ ){
+                    for ( var fI = 0; fI < $scope._ip_filters.length; fI++ ){
                         $scope.volumeType.filters.push( { 'pattern': { 'value': $scope._ip_filters[fI] }, 'mode': 'ALLOW' } );
                     }
                 }
@@ -62,24 +62,24 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                     $scope.volumeType.options = [];
                     
                     if ( $scope._acls === false ){
-                        $scope.volumeType.options = $scope.get_option( 'no_acls' );
+                        $scope.volumeType.options.push( $scope.get_option( 'no_acls' ) );
                     }
                     else {
-                        $scope.volumeType.options = $scope.get_option( 'acls' );
+                        $scope.volumeType.options.push( $scope.get_option( 'acls' ) );
                     }
                     
                     if ( $scope._async === false ){
-                        $scope.volumeType.options = $scope.get_option( 'sync' );
+                        $scope.volumeType.options.push( $scope.get_option( 'sync' ) );
                     }
                     else {
-                        $scope.volumeType.options = $scope.get_option( 'async' );
+                        $scope.volumeType.options.push( $scope.get_option( 'async' ) );
                     }
                     
                     if ( $scope._root_squash === false ){
-                        $scope.volumeType.options = $scope.get_option( 'squash' );
+                        $scope.volumeType.options.push( $scope.get_option( 'squash' ) );
                     }
                     else {
-                        $scope.volumeType.options = $scope.get_option( 'squash_all' );
+                        $scope.volumeType.options.push( $scope.get_option( 'squash_all' ) );
                     }
                 }
             };
@@ -120,7 +120,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
                 
                 // this means it's NFS
-                if ( angular.isDefned( $scope.volumeType.filters ) && 
+                if ( angular.isDefined( $scope.volumeType.filters ) && 
                     $scope.volumeType.filters.length > 0 ){
                     
                     for ( var i = 0; i < $scope.volumeType.filters.length; i++ ){
