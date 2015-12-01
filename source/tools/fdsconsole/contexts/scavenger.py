@@ -14,9 +14,10 @@ class ScavengerContext(Context):
         return self.config.getPlatform()
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def enable(self, sm):
+        'enable garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
                 print 'enabling scavenger on sm:{}'.format(uuid)
@@ -29,9 +30,10 @@ class ScavengerContext(Context):
             return 'Enable failed'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def disable(self, sm):
+        'disable garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
                 print 'disabling scavenger on sm:{}'.format(uuid)
@@ -43,9 +45,10 @@ class ScavengerContext(Context):
             return 'disable failed'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def start(self, sm):
+        'start garbage collection on sm'
         try:
             for uuid in self.config.getServiceId(sm, False):
                 print 'starting scavenger on sm:{}'.format(uuid)
@@ -57,9 +60,10 @@ class ScavengerContext(Context):
             return 'start failed'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('dm', help= "-Uuid of the DM to send the command to", type=str, default='dm', nargs='?')
     def refscan(self, dm):
+        'start object refscanner on dm'
         try:
             for uuid in self.config.getServiceId(dm, False):
                 print 'starting refscan on dm:{}'.format(uuid)
@@ -71,9 +75,10 @@ class ScavengerContext(Context):
             return 'start refscan failed'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def stop(self, sm):
+        'stop garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
                 print 'stopping scavenger on sm:{}'.format(uuid)
@@ -87,9 +92,10 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
 
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def info(self, sm):
+        'show information about garbage collection'
         try:
             gcdata =[]
             cluster_totalobjects = 0
@@ -163,7 +169,6 @@ class ScavengerContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def progress(self, sm):
         try:
@@ -187,9 +192,10 @@ class ScrubberContext(Context):
     def smClient(self):
         return self.config.getPlatform()
 
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
+        'enable scrubber'
         try:
             scrubEnableMsg = FdspUtils.newEnableScrubberMsg()
             scrubCB = WaitedCallback()
@@ -198,9 +204,10 @@ class ScrubberContext(Context):
             log.exception(e)
             return 'enable scrubber failed'
 
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
+        'disable scrubber'
         try:
             scrubDisableMsg = FdspUtils.newDisableScrubberMsg()
             scrubCB = WaitedCallback()
@@ -209,9 +216,10 @@ class ScrubberContext(Context):
             log.exception(e)
             return 'disable scrubber failed'
 
-    @cliadmincmd
+    @clicmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
-    def status(self, sm):
+    def info(self, sm):
+        'show info about scrubber status'
         try:
             scrubStatusMsg = FdspUtils.newQueryScrubberStatusMsg()
             scrubCB = WaitedCallback()

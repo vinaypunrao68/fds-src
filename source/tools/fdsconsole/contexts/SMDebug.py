@@ -3,7 +3,7 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
-import pdb
+import argparse
 
 
 class SMDebugContext(Context):
@@ -13,10 +13,11 @@ class SMDebugContext(Context):
     def smClient(self):
         return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('svcid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
     @arg('svcname', help= "service name",  choices=['sm','dm','am'])
     def shutdown(self, svcid, svcname):
+        'shutdown a service'
         try:
             shutdownMsg = FdspUtils.newShutdownMODMsg()
             self.smClient().sendAsyncSvcReq(svcid, shutdownMsg, None)
@@ -43,17 +44,15 @@ class SMDebugContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help="-Uuid of the SM to send the command to", type=long)
-    @arg('--targetTokens', help="-List of tokens to check", type=str)
-    def startSmchk(self, sm, targetTokens=None):
+    @arg('tokens', help="-List of tokens to check", nargs=argparse.REMAINDER)
+    def startSmchk(self, sm, tokens):
         """
         Start the online smchk for the specified sm node
         """
         try:
-            if targetTokens is not None:
-                targetTokens = targetTokens.split(',')
-                targetTokens = map(int, targetTokens)
-
-            startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
+            if len(tokens) :
+                tokens = map(int, tokens)
+            startSmchk = FdspUtils.newStartSmchkMsg(tokens)
             self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
         except Exception as e:
             log.exception(e)
@@ -62,9 +61,10 @@ class SMDebugContext(Context):
             return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', help= "Service Uuid",  type=long)
-    def listtierstats(self, svcid):
+    def showtierstats(self, svcid):
+        'display tiering stats'
         try:
             cntrs = ServiceMap.client(svcid).getCounters('*')
             data = [('hdd-reads', cntrs['hdd_reads:volume=0']),

@@ -19,7 +19,7 @@ if __name__ == '__main__':
     logging.captureWarnings(True)
     args=sys.argv[1:]
     fInit = not (len(args) > 0 and args[0] == 'set')
-    cli = fdsconsole.console.FDSConsole(fInit)
+    cli = fdsconsole.console.FDSConsole(fInit, False)
     if fInit:
         cli.init()
     cli.run(args)

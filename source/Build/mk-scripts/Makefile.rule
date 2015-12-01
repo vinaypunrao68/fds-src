@@ -65,7 +65,7 @@ all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
-     $(user_preinstall) base_install $(user_postinstall)
+     $(user_preinstall) base_install $(user_postinstall) debugtool
 
 # -----------------------------------------------------------------------------
 # Tasks to do before the depend rule.
@@ -441,7 +441,6 @@ pkg: $(omnibus_dir)
 	cd $(omnibus_dir)/omnibus-$(project) && rm -f pkg/*
 	cd $(omnibus_dir)/omnibus-$(project) && bundle install --without development --binstubs
 	cd $(omnibus_dir)/omnibus-$(project) && FDS_SRC_DIR=$(shell cd $(incl_scripts)/../../.. && pwd -P) bundle exec bin/omnibus build $(project)
-	
 else
 pkg:
 	@echo "You must pass an argument to the 'package' target (ex: make package fds-platform)"
@@ -450,6 +449,18 @@ endif
 .PHONY: package
 package : pkg
 
+.PHONY: debugtool
+debugtool: $(fds_tool_bin)/debugtool
+$(fds_tool_bin)/debugtool: $(topdir)/fdsp/*.thrift $(topdir)/tools/debugtool.spec $(shell find $(topdir)/tools/fdsconsole/ -type f -name '*.py')
+	@echo "making debugtool @ $(fds_tool_bin)/debugtool"
+	@cd $(topdir)/tools && pyinstaller  \
+	--noconfirm \
+	--onefile \
+        --key=FD5BADA55BABE \
+        --log-level=WARN \
+        --distpath=$(fds_tool_bin) \
+        --workpath=$(osdep_user_build)/debugtool \
+        --name=debugtool debugtool.spec
 
 # -----------------------------------------------------------------------------
 # List Targets

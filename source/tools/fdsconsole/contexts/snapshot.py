@@ -7,10 +7,11 @@ class SnapshotContext(Context):
         Context.__init__(self, *args)
 
     #--------------------------------------------------------------------------------------
-    @clicmd    
+    @clidebugcmd
     @arg('vol-name', help= "-list snapshot for Volume name")
     @arg('--sortby', help='sort by name*/time', type=str)
     def list(self, vol_name,sortby='name'):
+        'list snapshots for given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)

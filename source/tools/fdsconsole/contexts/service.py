@@ -20,7 +20,7 @@ class ServiceContext(Context):
         return self.__restApi
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('nodeid', help= "node id",  type=long)
     @arg('svcname', help= "service name. Must be some combination of sm, dm, or am, separated by commas.")
     def addService(self, nodeid, svcname):
@@ -46,7 +46,7 @@ class ServiceContext(Context):
             return 'unable to start service'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('nodeid', help= "node id",  type=long)
     @arg('svcname', help= "service name",  choices=['sm','dm','am'])
     def removeService(self, nodeid, svcname):
@@ -135,6 +135,7 @@ class ServiceContext(Context):
     @arg('match', help= "regex pattern", type=str, default=None, nargs='?')
     @arg('-z','--zero', help= "show zeros", action='store_true', default=False)
     def listcounter(self, svcid, match, zero=False):
+        'list debug counters'
         try:
             for uuid in self.getServiceId(svcid, False):
                 p=helpers.get_simple_re(match)
@@ -163,10 +164,11 @@ class ServiceContext(Context):
             return 'unable to get counter'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', help= "service Uuid",  type=str)
     @arg('match', help= "regex pattern",  type=str, default=None, nargs='?')
     def listconfig(self, svcid, match):
+        'list the config values of a service'
         try:
             for uuid in self.getServiceId(svcid, False):
                 p=helpers.get_simple_re(match)
@@ -187,6 +189,7 @@ class ServiceContext(Context):
     @arg('key'  , help= "config key"  ,  type=str)
     @arg('value', help= "config value",  type=str)
     def setconfig(self, svcid, key, value):
+        'set a config value'
         try:
             for uuid in self.getServiceId(svcid, False):
                 configmap = ServiceMap.client(uuid).getConfig(0)
@@ -200,8 +203,9 @@ class ServiceContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('svcid', help= "service Uuid",  type=str)
-    @arg('value', help= "config value",  type=str)
+    @arg('value', help= "config value",  type=str, choices=['error','warn','normal','debug','trace','critical'])
     def setloglevel(self, svcid, value):
+        'set the logging level - error/warn/normal/debug/trace/critical'
         try:
             for uuid in self.getServiceId(svcid, False):
                 name=self.getServiceName(uuid)
@@ -211,11 +215,11 @@ class ServiceContext(Context):
             log.exception(e)
             return 'unable to get config list'
 
-
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('svcid', help= "Service Uuid",  type=str)
     def showsvcmap(self, svcid):
+        'display the service map'
         try:
             svcid=self.getServiceId(svcid)
             svcMap = ServiceMap.client(svcid).getSvcMap(None)
@@ -228,9 +232,10 @@ class ServiceContext(Context):
             return 'unable to get svcmap'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', help= "Service Uuid",  type=str)
     def listflag(self, svcid, name=None):
+        'show flags for the service'
         try:
             svcid=self.getServiceId(svcid)
             if name is None:
@@ -245,23 +250,24 @@ class ServiceContext(Context):
             return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', type=str)
     @arg('flag', type=str)
     @arg('value', type=long)
     def setflag(self, svcid, flag, value):
+        'set the flag for a service'
         svcid=self.getServiceId(svcid)
         try:
             ServiceMap.client(svcid).setFlag(flag, value)
-            return 'Ok'
         except Exception, e:
             log.exception(e)
             return 'Unable to set flag: {}'.format(flag)
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', type=str)
     @arg('cmd', type=str)
     def setfault(self, svcid, cmd):
+        'set the specified fault'
         svcid=self.getServiceId(svcid)
         try:
             success = ServiceMap.client(svcid).setFault(cmd)
@@ -274,12 +280,12 @@ class ServiceContext(Context):
             return 'Unable to set fault'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('volname', help='-volume name')
-    def listblobstat(self, volname):
+    def showvolumestats(self, volname):
+        'display info about no. of objects/blobs'
         try:
-            #process.setup_logger()
-            #import pdb; pdb.set_trace()
+            data = []
             dmClient = self.config.getPlatform();
 
             dmUuids = dmClient.svcMap.svcUuids('dm')
@@ -291,43 +297,25 @@ class ServiceContext(Context):
 
             if not cb.wait():
                 print 'async volume meta request failed'
+            else:
+                data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+                data += [("size",cb.payload.volume_meta_data.size)]
+                data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
 
-            data = []
-            data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
-            data += [("size",cb.payload.volume_meta_data.size)]
-            data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
-            return tabulate(data, tablefmt=self.config.getTableFormat())
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get volume meta list'
 
-    #--------------------------------------------------------------------------------------
-    @clicmd
-    @arg('volname', help='-volume name')
-    def listdmstats(self, volname):
-        try:
-            
-            #process.setup_logger()
-	    # import pdb; pdb.set_trace()
-            dmClient = self.config.getPlatform();
-            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
-
-            dmUuids = dmClient.svcMap.svcUuids('dm')
             getstatsmsg = FdspUtils.newGetDmStatsMsg(volId);
             statscb = WaitedCallback();
             dmClient.sendAsyncSvcReq(dmUuids[0], getstatsmsg, statscb)
 
             if not statscb.wait():
 		print 'async get dm stats request failed'
+            else:            
+                data += [("commitlogsize",statscb.payload.commitlog_size)]
+                data += [("extent0size",statscb.payload.extent0_size)]
+                data += [("extentsize",statscb.payload.extent_size)]
+                data += [("metadatasize",statscb.payload.metadata_size)]
 
-    	    data = []
-	    data += [("commitlogsize",statscb.payload.commitlog_size)]
-	    data += [("extent0size",statscb.payload.extent0_size)]
-	    data += [("extentsize",statscb.payload.extent_size)]
-	    data += [("metadatasize",statscb.payload.metadata_size)]
-	    return  tabulate(data, tablefmt=self.config.getTableFormat())
-
+            print tabulate(data, tablefmt=self.config.getTableFormat())
         except Exception, e:
-            print e
             log.exception(e)
-            return 'unable to get dm stats '
+            return 'unable to get volume meta'

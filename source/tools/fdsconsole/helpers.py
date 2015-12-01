@@ -32,29 +32,26 @@ class AccessLevel:
     '''
     Defines different access levels for users
     '''
-    USER  = 1
-    ADMIN = 2
-    DEBUG = 3
+    DEBUG = 1
+    ADMIN = 2    
 
     @staticmethod
     def getName(level):
         level = int(level)
-        if 1 == level: return 'USER'
+        if 1 == level: return 'DEBUG'
         if 2 == level: return 'ADMIN'
-        if 3 == level: return 'DEBUG'
-        return None
+        return 'ADMIN'
 
     @staticmethod
     def getLevel(name):
         name = name.upper()
-        if name == 'USER': return 1
+        if name == 'DEBUG' : return 1
         if name == 'ADMIN' : return 2
-        if name == 'DEBUG' : return 3
         return 0
 
     @staticmethod
     def getLevels():
-        return ['ADMIN', 'DEBUG', 'USER']
+        return ['ADMIN', 'DEBUG']
 
 class ConfigData:
     '''
@@ -72,7 +69,6 @@ class ConfigData:
 
     def checkDefaults(self):
         defaults = {
-            KEY_ACCESSLEVEL: AccessLevel.USER,
             KEY_HOST : '127.0.0.1',
             KEY_PORT : 7020,
             KEY_USER : 'admin',
@@ -178,7 +174,10 @@ def setupHistoryFile():
     stores and retrieves the command history specific to the user
     '''
     import os
-    import readline
+    try:
+        import readline
+    except ImportError:
+        return
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
