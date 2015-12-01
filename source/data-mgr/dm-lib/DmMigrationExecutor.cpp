@@ -497,6 +497,9 @@ DmMigrationExecutor::finishActiveMigration()
     LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
+	dataMgr.counters->totalVolumesReceivedMigration.incr(1);
+	dataMgr.counters->numberOfActiveMigrExecutors.decr(1);
+
 	return ERR_OK;
 }
 

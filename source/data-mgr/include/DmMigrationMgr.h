@@ -408,6 +408,12 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     std::thread *abort_thread;
 
+    // Clear clientmap and other related stats
+    void clearClients();
+
+    // Clear executorMap and other related stats
+    void clearExecutors();
+
 };  // DmMigrationMgr
 }  // namespace fds
 
