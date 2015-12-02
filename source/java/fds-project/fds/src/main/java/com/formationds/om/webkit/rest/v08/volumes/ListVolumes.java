@@ -100,7 +100,7 @@ public class ListVolumes implements RequestHandler {
         return token;
     }
 
-    private ConfigurationApi getConfigApi() {
+    protected ConfigurationApi getConfigApi() {
 
         if ( configApi == null ) {
             configApi = SingletonConfigAPI.instance().api();

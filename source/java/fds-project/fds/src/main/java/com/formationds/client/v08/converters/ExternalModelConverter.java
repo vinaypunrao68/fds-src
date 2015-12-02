@@ -481,31 +481,43 @@ public class ExternalModelConverter {
 
             if( internalVolume.getPolicy().getIscsiTarget() == null )
             {
-                throw new IllegalArgumentException( "iSCSI target must be provided for converting to external model." );
+//                throw new IllegalArgumentException( "iSCSI target must be provided for converting to external model." );
+                extSettings = new VolumeSettingsISCSI.Builder( )
+                    .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
+                    .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
+                    .withUnit( SizeUnit.B )
+                    .withTarget( new Target.Builder().withLun( new LUN.Builder().withLun( internalVolume.getName() )
+                                                                                .build() )
+                                                     .build() )
+                    .build();
             }
+            else
+            {
 
-            extSettings = new VolumeSettingsISCSI.Builder( )
-                .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
-                .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
-                .withUnit( SizeUnit.B )
-                .withTarget(
-                    new Target.Builder( )
-                        .withLuns( convertToExternalLUN( internalVolume.getPolicy()
-                                                                       .getIscsiTarget( )
-                                                                       .getLuns( ) ) )
-                        .withInitiators( convertToExternalInitiators(internalVolume.getPolicy()
-                                                                                   .getIscsiTarget( )
-                                                                                   .getInitiators( ) ) )
-                        .withIncomingUsers( convertToExternalIncomingUser(
-                            internalVolume.getPolicy()
-                                          .getIscsiTarget( )
-                                          .getIncomingUsers( ) ) )
-                        .withOutgoingUsers( convertToExternalOutgoingUser(
-                            internalVolume.getPolicy()
-                                          .getIscsiTarget( )
-                                          .getOutgoingUsers( ) ) )
-                        .build( ) )
-                .build( );
+                extSettings = new VolumeSettingsISCSI.Builder( )
+                    .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
+                    .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
+                    .withUnit( SizeUnit.B )
+                    .withTarget(
+                        new Target.Builder( )
+                            .withLuns( convertToExternalLUN( internalVolume.getPolicy( )
+                                                                           .getIscsiTarget( )
+                                                                           .getLuns( ) ) )
+                            .withInitiators(
+                                convertToExternalInitiators( internalVolume.getPolicy( )
+                                                                           .getIscsiTarget( )
+                                                                           .getInitiators( ) ) )
+                            .withIncomingUsers( convertToExternalIncomingUser(
+                                internalVolume.getPolicy( )
+                                              .getIscsiTarget( )
+                                              .getIncomingUsers( ) ) )
+                            .withOutgoingUsers( convertToExternalOutgoingUser(
+                                internalVolume.getPolicy( )
+                                              .getIscsiTarget( )
+                                              .getOutgoingUsers( ) ) )
+                            .build( ) )
+                    .build( );
+            }
         } else if ( settings.getVolumeType().equals( VolumeType.NFS ) ) {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );

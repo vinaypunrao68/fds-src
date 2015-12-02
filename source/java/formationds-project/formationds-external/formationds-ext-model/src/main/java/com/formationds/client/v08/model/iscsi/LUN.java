@@ -14,7 +14,7 @@ public class LUN
     public enum AccessType { RW, RO }
 
     public static class Builder {
-        private AccessType accessType;
+        private AccessType accessType = AccessType.RW;
         private String lunName;
 
         protected AccessType getAccessType( ) { return accessType; }
