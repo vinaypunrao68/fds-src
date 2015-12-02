@@ -233,7 +233,7 @@ void SmDiskMap::getDiskMap() {
     std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
     
     if (map.fail() == true) {
-        std::cout << "DiskMap read failed. Check " << dir->dir_dev() 
+        LOGERROR << "DiskMap read failed. Check " << dir->dir_dev() 
                   << " for a valid disk map\n";
         return;
     }
