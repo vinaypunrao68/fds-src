@@ -10,6 +10,7 @@
 #include <DmMigrationClient.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
+#include <counters.h>
 
 namespace fds {
 
