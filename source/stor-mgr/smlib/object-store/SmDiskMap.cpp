@@ -234,7 +234,7 @@ void SmDiskMap::getDiskMap() {
     
     if (map.fail() == true) {
         LOGERROR << "DiskMap read failed. Check " << dir->dir_dev() 
-                  << " for a valid disk map\n";
+                  << " for a valid disk map";
         return;
     }
 
