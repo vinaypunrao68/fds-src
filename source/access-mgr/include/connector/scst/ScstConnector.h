@@ -46,6 +46,8 @@ struct ScstConnector
 
     static unique<ScstConnector> instance_;
 
+    size_t threads {1};
+
     ScstConnector(std::string const& prefix,
                   std::weak_ptr<AmProcessor> processor);
 

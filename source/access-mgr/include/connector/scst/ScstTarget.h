@@ -49,7 +49,7 @@ struct ScstTarget
     ScstTarget(ScstTarget const& rhs) = delete;
     ScstTarget& operator=(ScstTarget const& rhs) = delete;
 
-    ~ScstTarget() = default;
+    ~ScstTarget() override;
 
     bool enabled() const;
     void disable() { toggle_state(false); }

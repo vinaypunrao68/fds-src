@@ -87,6 +87,8 @@ ScstTarget::ScstTarget(std::string const& name,
     t.detach();
 }
 
+ScstTarget::~ScstTarget() = default;
+
 void
 ScstTarget::addDevice(std::string const& volume_name) {
     std::unique_lock<std::mutex> l(deviceLock);
