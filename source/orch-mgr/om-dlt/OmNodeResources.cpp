@@ -667,7 +667,7 @@ OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMStartMigrationMsg), meta_msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pullmeta_resp, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(1*60*60*1000); // set an hour for now, with a new polling mechanism incoming
+    om_req->setTimeoutMs(10*60*60*1000); // set an hour for now, with a new polling mechanism incoming
     om_req->invoke();
 
     LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
