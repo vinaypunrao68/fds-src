@@ -44,7 +44,7 @@ user_no_style    := \
 # TODO: should change this directory and this lib to something more
 # specific.
 #
-user_ar_libs     := fds-lib
+user_so_libs     := fds-lib
 fds-lib          := $(user_cpp)
 
 include $(topdir)/Makefile.incl

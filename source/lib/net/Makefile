@@ -5,7 +5,7 @@ user_cpp         := $(wildcard *.cpp)
 
 user_cpp_flags   := -Wall -Werror -Wno-reorder
 user_incl_dir    := $(topdir)
-user_ar_libs     := fds-lib
+user_so_libs     := fds-lib
 fds-lib          := $(user_cpp)
 
 
