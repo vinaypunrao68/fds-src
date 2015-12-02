@@ -17,6 +17,12 @@ struct Behavior {
         this->name_ = name;
         this->operator=(items);
     }
+    Behavior& operator=(const Behavior &lhs) {
+        if (this != &lhs) {
+            handlers_ = lhs.handlers_;
+        }
+        return *this;
+    }
     void operator = (const std::vector<BehaviorItem>& items)
     {
         handlers_.clear();

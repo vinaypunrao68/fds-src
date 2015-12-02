@@ -64,6 +64,12 @@ struct TxLog {
     int64_t startCommitId() const {
         return lastCommitId_ - entries_.size() + 1; 
     }
+    std::string logString() const
+    {
+        std::stringstream ss;
+        ss << " startCommitId: " << startCommitId() << " endCommitId: " << lastCommitId_;
+        return ss.str();
+    }
  protected:
     uint32_t                                maxEntries_;
     std::list<SHPTR<EntryT>>                entries_;

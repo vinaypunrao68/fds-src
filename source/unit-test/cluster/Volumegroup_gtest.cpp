@@ -100,7 +100,7 @@ TEST(ProcHandle, DISABLED_test1) {
     dm1.stop();
 }
 
-TEST_F(ClusterFixture, test_quicksync)
+TEST_F(ClusterFixture, DISABLED_test_quicksync)
 {
     // Temporary hack
     // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
@@ -161,7 +161,7 @@ TEST_F(ClusterFixture, test_quicksync)
     GLOGNOTIFY << "Exiting from test";
 }
 
-TEST_F(ClusterFixture, DISABLED_test_quicksync_activeio)
+TEST_F(ClusterFixture, testquicksync_activeio)
 {
     // Temporary hack
     // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
@@ -187,27 +187,27 @@ TEST_F(ClusterFixture, DISABLED_test_quicksync_activeio)
     ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
     am.proc->attachVolume(volumeGroup);
     
-    int nPuts = 80;
+    int nPuts = 1000;
+    int stopCnt = 10;
+    int startCnt = 600;
     for (int i = 0; i < nPuts; i++) {
         concurrency::TaskStatus s(3);
         am.proc->putBlob(v,
                         [&s](const Error& e, StringPtr resp) {
-                        GLOGNOTIFY << "Received response: " << e;
                         s.done();
                         });
         s.await();
-        if (i==10) {
+        if (i==stopCnt) {
             dm2.stop();
-            sleep(6);
-            GLOGNOTIFY << "Stopped dm2";
+            GLOGNOTIFY << "Completed " << i << " reqs. Stopped dm2";
         }
-        if (i==20) {
-            GLOGNOTIFY << "Starting dm2";
+        if (i==startCnt) {
+            GLOGNOTIFY << "Completed " << i << " reqs. Started dm2";
             dm2.start();
             ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
             dm2.proc->getVolume(v)->forceQuickSync(am.proc->getSvcMgr()->getSelfSvcUuid());
         }
-        if (i > 20 && i % 10 == 0) {
+        if (i > startCnt && i % 10 == 0) {
            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }

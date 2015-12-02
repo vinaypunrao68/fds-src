@@ -25,9 +25,8 @@ namespace fds {
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
-    out << " version: " << h.version
-        << " groupId: " << h.groupId 
-        << " svcUuid: " << h.svcUuid.svc_uuid
+    out << " groupId: " << h.groupId 
+        << " svcUuid: " << SvcMgr::mapToSvcUuidAndName(h.svcUuid)
         << " opId: " << h.opId
         << " commitId: " << h.commitId;
     return out;
@@ -36,7 +35,7 @@ std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
 {
     out << "VolumeReplicaHandle" 
-        << " svcUuid: " << h.svcUuid.svc_uuid
+        << " svcUuid: " << SvcMgr::mapToSvcUuidAndName(h.svcUuid)
         << " version: " << h.version
         << " state: " << fpi::_VolumeState_VALUES_TO_NAMES.at(static_cast<int>(h.state))
         << " lasterr: " << h.lastError
@@ -105,10 +104,11 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
     if (replicaVersion != volumeHandle->version) {
-        LOGWARN << "Version check failed svcuuid: "
+        LOGWARN << "Ignoring response.  Version check failed. svcuuid: "
             << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
             << *volumeHandle
-            << " incoming replica version:  " << replicaVersion;
+            << " incoming replica version:  " << replicaVersion
+            << fds::logString(hdr) << inStatus;
         return;
     }
     if (volumeHandle->isFunctional() ||

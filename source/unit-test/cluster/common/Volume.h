@@ -169,7 +169,8 @@ using VolumeCommitLog       = TxLog<CatWriteBatch> ;
 
 struct QuickSyncCtx {
     QuickSyncCtx()
-    : bufferIo(false)
+    : bufferIo(false),
+    startingBufferOpId(0)
     {
     }
     fpi::SvcUuid                            syncPeer;
@@ -217,6 +218,7 @@ struct Volume : HasModuleProvider {
 
     const std::string& logString() const { return logStr_; }
     inline int32_t getVersion() const { return version_; }
+    std::string quicksyncLogStr() const;
 
     struct OpInfo {
         int64_t                             appliedOpId;
@@ -275,7 +277,7 @@ struct Volume : HasModuleProvider {
     static const std::string                OPINFOKEY;
     static const std::string                VERSIONKEY;
     static const uint32_t                   MAX_SYNCENTRIES_BYTES = 1 * MB;
-    static const uint32_t                   MAX_COMMITLOG_ENTRIES = 1000;
+    static const uint32_t                   MAX_COMMITLOG_ENTRIES = 5000;
 };
 using VolumePtr = SHPTR<Volume>;
 

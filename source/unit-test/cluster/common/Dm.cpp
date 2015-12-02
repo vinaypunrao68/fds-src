@@ -137,7 +137,7 @@ void DmProcess::shutdown_modules()
 }
 
 int DmProcess::run() {
-    LOGNOTIFY << "Doing work";
+    LOGNORMAL << "Doing work";
     readyWaiter.done();
     shutdownGate_.waitUntilOpened();
     return 0;

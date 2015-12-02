@@ -88,7 +88,7 @@ std::ostream& operator<<(std::ostream &out, const PullActiveTxsIo& io)
 
 std::ostream& operator<< (std::ostream& os, const Volume::OpInfo &info)
 {
-    os << "applidOpId: " << info.appliedOpId << " commmitId: "  << info.appliedCommitId;
+    os << " applidOpId: " << info.appliedOpId << " appliedCommmitId: "  << info.appliedCommitId;
     return os;
 }
 
@@ -213,7 +213,7 @@ void Volume::init()
     } else {
         version_ = VolumeGroupConstants::VERSION_START;
     }
-    LOGNOTIFY << logString() << " Loaded version: " << version_;
+    LOGNORMAL << logString() << " Loaded version: " << version_;
 
     /* Read the opinfo */
     status = db_->Get(leveldb::ReadOptions(), OPINFOKEY, &opinfoStr);
@@ -223,7 +223,7 @@ void Volume::init()
         opInfo_.appliedOpId = VolumeGroupConstants::OPSTARTID;
         opInfo_.appliedCommitId = VolumeGroupConstants::COMMITSTARTID;
     }
-    LOGNOTIFY << "Current loaded opinfo state " << opInfo_;
+    LOGNORMAL << logString() << " Current loaded opinfo state " << opInfo_;
     // TODO(Rao):
     // 1. Make sure existing volume on disk isn't destroyed
 
@@ -234,7 +234,7 @@ void Volume::init()
     // TODO(Rao): Set right qos params
     // TODO(Rao): This shouldn't be here
 #define FdsDmSysTaskPrio    5
-    volQueue_.reset(new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio));
+    volQueue_.reset(new FDS_VolumeQueue(10024, 10000, 20, FdsDmSysTaskPrio));
     volQueue_->activate();
     auto err = qosCtrl_->registerVolume(volId_, volQueue_.get());
     fds_verify(err == ERR_OK);
@@ -300,7 +300,7 @@ void Volume::handleCommitTxCommon_(const CommitTxIoPtr &io,
             fds_panic("tx not found");
         } else {
             /* Ignore and consider it a success*/
-            LOGNOTIFY << "Skipping commit " << *io;
+            LOGNORMAL << "Skipping commit " << *io;
         }
         io->respMsg.reset(new fpi::EmptyMsg());
         opInfo_.appliedOpId++;
@@ -342,7 +342,7 @@ void Volume::commitBatch_(int64_t commitId, const CatWriteBatchPtr& batchPtr)
 
 void Volume::handlePullActiveTxs_(const PullActiveTxsIoPtr &io)
 {
-    LOGNOTIFY << *io;
+    LOGNORMAL << *io;
     auto &reqMsg = *(io->reqMsg);
     auto &respMsg = io->respMsg;
 
@@ -354,12 +354,12 @@ void Volume::handlePullActiveTxs_(const PullActiveTxsIoPtr &io)
         leveldb::Slice s = leveldb::WriteBatchInternal::Contents(itr.second.get());
         respMsg->txData.push_back(s.ToString());
     }
-    LOGNOTIFY << "Sending tx count: " << respMsg->txIds.size() << " active txs: " << opInfo_;
+    LOGNORMAL << "Sending tx count: " << respMsg->txIds.size() << " active txs info: " << opInfo_;
 }
 
 void Volume::handlePullCommitLogEntries_(const PullCommitLogEntriesIoPtr &io)
 {
-    LOGNOTIFY << *io;
+    LOGNORMAL << *io;
 
     ASSERT_SYNCHRONIZED();
     FUNCTIONAL_STATE_CHECK();
@@ -395,7 +395,7 @@ void Volume::handleQosFunctionIo(QosFunctionIoPtr io)
 
 void Volume::changeBehavior_(Volume::VolumeBehavior *target)
 {
-    LOGNOTIFY << "Behavior change from: " << currentBehavior_->logString()
+    LOGNORMAL << logString() << " Behavior change from: " << currentBehavior_->logString()
         << " to: " << target->logString();
     currentBehavior_ = target;
 }
@@ -419,14 +419,12 @@ void Volume::forceQuickSync(const fpi::SvcUuid &coordinator) {
 
 void Volume::startSyncCheck_()
 {
-    LOGNOTIFY << "Starting sync check";
-
     /* Do a version change */
     version_++;
     std::string versionStr = util::strformat("%d", version_);
     auto status = db_->Put(leveldb::WriteOptions(), VERSIONKEY, versionStr);
     fds_verify(status.ok());
-    LOGNOTIFY << logString() << " Version change: " << version_;
+    LOGNORMAL << logString() << " Starting sync check.  Version change: " << version_;
 
     /* Reset quick sync context.  Turn on IO buffering here itself.  Note, it's possible
      * to postpone buffering we send a message to pull active transactions.  Starting to
@@ -457,12 +455,14 @@ void Volume::startSyncCheck_()
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
         if (err != ERR_OK) {
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err; 
+            LOGERROR << "Failed to receive sync info from coordinator: " << err
+                    << quicksyncLogStr();
             setError_(err);
             return;
         }
         // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
-        LOGNOTIFY << "Sync check coordinator response:  " << fds::logString(*responseMsg);
+        LOGNORMAL << logString()
+                  << " Sync check coordinator response:  " << fds::logString(*responseMsg);
 
         sendPullActiveTxsMsg_(responseMsg);
     }));
@@ -475,6 +475,8 @@ void Volume::sendPullActiveTxsMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &sy
     fds_verify(syncInfo->group.functionalReplicas.size() > 0);
 
     quicksyncCtx_->syncPeer = syncInfo->group.functionalReplicas[0];
+
+    LOGNORMAL << "Sending PullActiveTxsMsg " << quicksyncLogStr();
 
     auto pullTxsMsg = fpi::PullActiveTxsMsgPtr(new fpi::PullActiveTxsMsg); 
     pullTxsMsg->groupId = volId_.get();
@@ -489,7 +491,8 @@ void Volume::sendPullActiveTxsMsg_(const fpi::AddToVolumeGroupRespCtrlMsgPtr &sy
         auto responseMsg = fds::deserializeFdspMsg<fpi::PullActiveTxsRespMsg>(err, payload);
         if (err != ERR_OK) {
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync entries: " << err;
+            LOGERROR << "Failed to receive sync entries: " << err
+                    << quicksyncLogStr();
             setError_(err);
             return;
         }
@@ -516,11 +519,10 @@ void Volume::applyPulledActiveTxs_(const fpi::PullActiveTxsRespMsgPtr &activeTxs
     opInfo_.appliedOpId = activeTxsMsg->lastOpId;
     quicksyncCtx_->bufferCommitLog.init(MAX_COMMITLOG_ENTRIES, activeTxsMsg->lastCommitId);
 
-    LOGNOTIFY << "Applied pulled active transactions.  opinfo: " << opInfo_;
+    LOGNORMAL << "Applied pulled active transactions.  opinfo: " << quicksyncLogStr();
 
     /* Apply buffered ops on top of active transactions */
     applyBufferedIo_();
-    LOGNOTIFY << "Applied buffered io.  opinfo: " << opInfo_;
 
     /* Now sync the commit log */
     sendPullCommitLogEntriesMsg_(activeTxsMsg->lastCommitId);
@@ -541,6 +543,7 @@ void Volume::applyBufferedIo_()
         getCurrentBehavior()->handle(io->msgType, io);
         // TODO(Rao): Handle errors here
     }
+    LOGNORMAL << "Applied buffered io.  opinfo: " << quicksyncLogStr();
 }
 
 void Volume::sendPullCommitLogEntriesMsg_(const int64_t &syncCommitId)
@@ -561,13 +564,14 @@ void Volume::sendPullCommitLogEntriesMsg_(const int64_t &syncCommitId)
         auto responseMsg = fds::deserializeFdspMsg<fpi::PullCommitLogEntriesRespMsg>(err, payload);
         if (err != ERR_OK) {
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync entries: " << err;
+            LOGERROR << logString() << " Failed to receive sync entries: " << err;
             setError_(err);
             return;
         }
         concludeQuickSync_(responseMsg);
     }));
-    LOGNOTIFY << "Sending: " << fds::logString(*pullEntriesMsg);
+    LOGNORMAL << logString() << "Sending PullCommitLogEntriesMsg: "
+        << fds::logString(*pullEntriesMsg);
     req->invoke();
 }
 
@@ -598,11 +602,11 @@ void Volume::concludeQuickSync_(const fpi::PullCommitLogEntriesRespMsgPtr &pulle
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
         if (err != ERR_OK) {
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err; 
+            LOGERROR << logString() << " Failed to receive sync info from coordinator: " << err; 
             setError_(err);
             return;
         }
-        LOGNOTIFY << logString() << " is Functional from perspective of coordinator";
+        LOGNORMAL << logString() << " is Functional from perspective of coordinator";
     }));
     req->invoke();
 }
@@ -618,8 +622,7 @@ void Volume::applyPulledCommitLogEntries_(const fpi::PullCommitLogEntriesRespMsg
         commitBatch_(commitId, batchPtr);
         commitId++;
     }
-    LOGNOTIFY << "Applied commit log entries. From: " << entriesMsg->startCommitId
-        << " size: " << entriesMsg->entries.size();
+    LOGNORMAL " Applied commit log entries. " << quicksyncLogStr();
 }
 
 void Volume::applyBufferedCommits_()
@@ -631,9 +634,21 @@ void Volume::applyBufferedCommits_()
         itr++;
         commitId++;
     }
-    LOGNOTIFY << logString() << "Applied buffered commits: "
-        << quicksyncCtx_->bufferCommitLog.startCommitId()
-        << " to: " << commitId - 1;
+    LOGNORMAL << " Applied buffered commits: " << quicksyncLogStr();
 }
 
+std::string Volume::quicksyncLogStr() const
+{
+    std::stringstream ss;
+    ss << logString() << opInfo_;
+    ss << " syncPeer: " << SvcMgr::mapToSvcUuidAndName(quicksyncCtx_->syncPeer);
+    if (quicksyncCtx_->bufferIo) {
+        ss << " bufferIo: true "
+            << " startingBufferOpId: "  << quicksyncCtx_->startingBufferOpId
+            << " endBufferOpId: "
+            << quicksyncCtx_->startingBufferOpId + quicksyncCtx_->bufferedIo.size()-1;
+    }
+    ss << " bufferCommitLog: " << quicksyncCtx_->bufferCommitLog.logString();
+    return ss.str();
+}
 }  // namespace fds
