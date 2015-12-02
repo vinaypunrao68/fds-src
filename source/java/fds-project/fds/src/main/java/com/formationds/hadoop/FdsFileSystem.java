@@ -3,10 +3,10 @@ package com.formationds.hadoop;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.protocol.*;
 import com.formationds.util.HostAndPort;
 import com.formationds.util.ServerPortFinder;
-import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.util.blob.Mode;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -16,6 +16,7 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 import org.apache.log4j.Logger;
+import org.joda.time.Duration;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -24,7 +25,6 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Copyright (c) 2014 Formation Data Systems, Inc.
@@ -81,8 +81,7 @@ public class FdsFileSystem extends FileSystem {
                     amConnectionData.getHost(),
                     amConnectionData.getPort(),
                     amResponsePort,
-                    10,
-                    TimeUnit.SECONDS);
+                    Duration.standardSeconds(30));
 
             asyncAm.start();
         } catch (Exception e) {

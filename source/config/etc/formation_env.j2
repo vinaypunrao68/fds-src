@@ -25,12 +25,12 @@ LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
 export LD_LIBRARY_PATH
 
 PATH=/usr/local/sbin
+PATH=${PATH}:${FDS_DEPS}/bin
 PATH=${PATH}:/usr/local/bin
 PATH=${PATH}:/usr/sbin
 PATH=${PATH}:/usr/bin
 PATH=${PATH}:/sbin
 PATH=${PATH}:/bin
-PATH=${PATH}:${FDS_DEPS}/bin
 # add default java bin directory to path.  Scripts and platform
 # use OM|XDI_JAVA_HOME vars in preference to relying on the path.
 PATH=${PATH}:${FDS_JAVA_HOME}/bin

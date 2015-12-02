@@ -47,7 +47,6 @@
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set dm_req_serialization = fds_dm_req_serialization if fds_dm_req_serialization is defined else 'true' %}
-{% set dm_enable_expunge = fds_dm_enable_expunge if fds_dm_enable_expunge is defined else 'false' %}
 {% set dm_enable_timeline = fds_dm_enable_timeline if fds_dm_enable_timeline is defined else 'true' %}
 {% set dm_enable_migration = fds_dm_enable_migration if fds_dm_enable_migration is defined else 'true' %}
 {% set dm_enable_resync = fds_dm_enable_resync if fds_dm_enable_resync is defined else 'false' %}
@@ -69,6 +68,7 @@
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
 {% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
+{% set sm_scavenger_expunge_threshold = sm_scavenger_expunge_threshold if sm_scavenger_expunge_threshold is defined else '3' %}
 {% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
 {% set sm_max_delta_set_size = fds_sm_max_delta_set_size if fds_sm_max_delta_set_size is defined else '16' %}
 {% set sm_verify_migration_data = fds_sm_verify_migration_data if fds_sm_verify_migration_data is defined else 'false' %}
@@ -102,14 +102,13 @@
 {#
    fds.xdi. specific entries
 #}
-
 {% set am_host = am_host if am_host is defined else 'localhost' %}
 {% set nfs_thread_pool_size = nfs_thread_pool_size if nfs_thread_pool_size is defined else 64 %}
-{% set nfs_thread_pool_queue_size = nfs_thread_pool_queue_size if nfs_thread_pool_queue_size is defined else 2000 %}
-{% set nfs_incoming_request_timeout_seconds = nfs_incoming_request_timeout_seconds if nfs_incoming_request_timeout_seconds is defined else 600 %}
 {% set nfs_defer_metadata_updates = nfs_defer_metadata_updates if nfs_defer_metadata_updates is defined else 'true' %}
 {% set nfs_max_live_nfs_cookies = nfs_max_live_nfs_cookies if nfs_max_live_nfs_cookies is defined else 1000000 %}
-
+{% set xdi_am_retry_attempts = xdi_am_retry_attempts if xdi_am_retry_attempts is defined else 100 %}
+{% set xdi_am_timeout_seconds = xdi_am_timeout_seconds if xdi_am_timeout_seconds is defined else 30 %}
+{% set xdi_am_retry_interval_seconds = xdi_am_retry_interval_seconds if xdi_am_retry_interval_seconds is defined else 5 %}
 {#
    fds.checker. specific entries
 #}
@@ -128,6 +127,7 @@
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
+{% set ft_common_enable_valgrind      		  = fds_ft_common_enable_valgrind 	           if fds_ft_common_enable_valgrind                  is defined else 'false'  %}
 {% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'false' %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_am_nbd_enabled                          = fds_ft_am_nbd_enabled                          if fds_ft_am_nbd_enabled                          is defined else 'true'  %}
@@ -149,6 +149,4 @@
 {% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log' %}
 {% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_xdi_java_opts is defined else '' %}
-{#
-#}
 {% block content %}{% endblock %}

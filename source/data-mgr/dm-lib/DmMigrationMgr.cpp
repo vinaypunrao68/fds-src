@@ -10,7 +10,7 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(nullptr),
-    maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID)
+      maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID), migrationAborted(false)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                       get<int>("fds.dm.migration.migration_max_concurrency"));
@@ -39,8 +39,21 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
 DmMigrationMgr::~DmMigrationMgr()
 {
 
-    if (atomic_load(&executorState) != MIGR_IDLE || atomic_load(&clientState) != MIGR_IDLE) {
-        abortMigration();
+}
+
+void
+DmMigrationMgr::mod_shutdown()
+{
+    {
+        SCOPEDREAD(migrClientLock);
+        {
+            SCOPEDREAD(migrExecutorLock);
+
+            if (!executorMap.empty() || !clientMap.empty()) {
+                LOGNOTIFY << "Aborting migration in preperation for shutdown.";
+                abortMigration();
+            }
+        }
     }
 
     if (abort_thread) {
@@ -48,7 +61,6 @@ DmMigrationMgr::~DmMigrationMgr()
         abort_thread = nullptr;
     }
 }
-
 
 Error
 DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
@@ -93,7 +105,6 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
 DmMigrationExecutor::shared_ptr
 DmMigrationMgr::getMigrationExecutor(std::pair<NodeUuid, fds_volid_t> uniqueId)
 {
-    SCOPEDREAD(migrExecutorLock);
     auto search = executorMap.find(uniqueId);
     if (search == executorMap.end()) {
         return nullptr;
@@ -144,10 +155,10 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 
     // Test error return code
     fiu_do_on("abort.dm.migration",\
-              LOGDEBUG << "abort.dm.migration fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish(MIGR_EXECUTOR);
 
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
@@ -254,7 +265,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     	// This means that the blobs have not been applied yet. Override this to ERR_OK.
     	err = ERR_OK;
     } else if (!err.ok()) {
-    	LOGERROR << "Error applying blob descriptor";
+    	LOGERROR << "Error applying blob descriptor " << err;
     	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
     	abortMigration();
     }
@@ -287,7 +298,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     err = executor->processDeltaBlobs(deltaBlobsMsg);
 
     if (!err.ok()) {
-    	LOGERROR << "Processing deltaBlobs failed";
+    	LOGERROR << "Processing deltaBlobs failed " << err;
     	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
     	abortMigration();
     }
@@ -340,16 +351,11 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
 
-    waitForAbortToFinish();
+    waitForMigrationBatchToFinish(MIGR_CLIENT);
 
     LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
-
-    if (err != ERR_OK) {
-    	abortMigration();
-        return err;
-    }
 
     err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
 
@@ -375,7 +381,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
     auto search = clientMap.find(std::make_pair(destDmUuid, fds_volid));
     DmMigrationClient::shared_ptr client = nullptr;
     if (search != clientMap.end()) {
-        LOGMIGRATE << "Client received request for destination node: " << destDmUuid
+        LOGERROR << "Client received request for destination node: " << destDmUuid
         		<< " volume " << filterSet->volumeId << " but it already exists";
         err = ERR_DUPLICATE;
         abortMigration();
@@ -404,8 +410,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
 			err = client->processBlobFilterSet(trackerBind);
 			if (ERR_OK != err) {
+                LOGERROR << "Processing filter set failed: " << err;
 				abortMigration();
-				LOGERROR << "Processing filter set failed.";
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
 				return err;
 			}
@@ -413,8 +419,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 			err = client->processBlobFilterSet2();
 			if (ERR_OK != err) {
 				// This one doesn't have an async callback to decrement so we fail it manually
+                LOGERROR << "Processing blob diff failed: " << err;
 				abortMigration();
-				LOGERROR << "Processing blob diff failed";
 				// Shared the same error code, so look for above's msg
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
 				return err;
@@ -461,7 +467,6 @@ DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, con
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, const Error &result)
 {
-    SCOPEDREAD(migrClientLock);
     if (!result.OK()) {
         LOGERROR << "Volume=" << uniqueId << " failed migration client with error: " << result;
         abortMigration();
@@ -573,22 +578,25 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * Just nuke all the clientMap because DMT Close can only happen once all the executors
 			 * have Cb'ed to the OM.
 			 */
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			clientMap.clear();
-			LOGMIGRATE << "Migration clients cleared and state reset";
+			LOGNORMAL << "Migration clients cleared and state reset";
 		}
 	} else if (role == MIGR_EXECUTOR) {
 		{
 			SCOPEDWRITE(migrExecutorLock);
 			LOGMIGRATE << "Waiting for all outstanding executor async messages to be finished";
 			trackIOReqs.waitForTrackIOReqs();
-			LOGMIGRATE << "Migration executors state reset";
+			LOGNORMAL << "Migration executors state reset";
 			/**
 			 * The key point is that the executor's finishActiveMigration() resumes I/O.
 			 * This gets called once every node's executor's all done.
 			 */
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			executorMap.clear();
 		}
 	}
+	migrationCV.notify_one();
 	return err;
 }
 
@@ -655,12 +663,16 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     err = executor->processTxState(txStateMsg);
 
     if (!err.ok()) {
+        LOGERROR << "Error applying migrated commit log: " << err;
     	abortMigration();
     }
 
     return (err);
 }
 
+/**
+ * This thread should always be safe to call while holding locks, so don't add any locking
+ */
 void
 DmMigrationMgr::abortMigration()
 {
@@ -695,6 +707,8 @@ DmMigrationMgr::abortMigrationReal()
 				eiter->second->abortMigration();
 				++eiter;
 			}
+			std::lock_guard<std::mutex> lk(migrationBatchMutex);
+			fds_verify(migrationAborted);
 			clientMap.clear();
 			executorMap.clear();
 		}
@@ -710,12 +724,7 @@ DmMigrationMgr::abortMigrationReal()
      * another migration was initiated from the OM and are waiting,
      * we need to wake them up now.
      */
-    {
-    	std::lock_guard<std::mutex> lk(migrationAbortMutex);
-    	fds_verify(migrationAborted && !migrationAbortFinished);
-    	migrationAbortFinished = true;
-    }
-    migrationAbortCV.notify_one();
+    migrationCV.notify_one();
 
 }
 
@@ -731,6 +740,7 @@ DmMigrationMgr::asyncMsgFailed()
 {
 	trackIOReqs.finishTrackIOReqs();
 	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+    LOGERROR << "Async migration message failed, aborting";
 	abortMigration();
 }
 
@@ -790,27 +800,29 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 }
 
 void
-DmMigrationMgr::waitForAbortToFinish()
+DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 {
-	LOGMIGRATE << "Waiting for previous migration abort to finish";
-	std::unique_lock<std::mutex> lk(migrationAbortMutex);
-	migrationAbortCV.wait(lk,
-			[this]{return ((std::atomic_load(&migrationAborted) && migrationAbortFinished) ||
-					(!std::atomic_load(&migrationAborted)));});
-	if (std::atomic_load(&migrationAborted) && migrationAbortFinished) {
-		// reset state
-		std::atomic_store(&migrationAborted, false);
-		migrationAbortFinished = false;
+    // If executor - wait for the maps to be empty.
+    // If client - only wait for the abort to be done
+	LOGMIGRATE << "Waiting for previous migrations to finish, if there is any.";
+	bool expected = true;
+	if (role == MIGR_EXECUTOR) {
+	    std::unique_lock<std::mutex> lk(migrationBatchMutex);
+	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
 	}
 
     // TODO: can we just use the join in place of the CV?
     if (abort_thread) {
         abort_thread->join();
         abort_thread = nullptr;
-    }
-	lk.unlock();
 
-    LOGMIGRATE << "Done waiting for previous migration abort to finish";
+        LOGMIGRATE << "Done waiting for previous migration abort to finish";
+    }
+
+	// If migrationAborted was set true, set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
+	LOGMIGRATE << "Done waiting for previous migrations to finish";
 }
 
 bool

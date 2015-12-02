@@ -37,37 +37,42 @@ public class NfsServer {
         String omHost = args[0];
         String amHost = args[1];
         Configuration platformConfig = new Configuration("NFS", new String[]{"--console"});
-        NfsConfiguration nfsConfiguration = platformConfig.getNfsConfig();
+        XdiStaticConfiguration xdiStaticConfiguration = platformConfig.getXdiStaticConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, 9090));
         config.startCacheUpdaterThread(1000);
 
-        AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000));
+        AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000), xdiStaticConfiguration.getAmTimeout());
         asyncAm.start();
-        new NfsServer().start(nfsConfiguration, config, asyncAm, 2049);
+        new NfsServer().start(xdiStaticConfiguration, config, asyncAm, 2049);
         System.in.read();
     }
 
-    public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
+    public void start(XdiStaticConfiguration xdiStaticConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         Counters counters = new Counters();
-        if (nfsConfiguration.activateStats()) {
+        if (xdiStaticConfiguration.activateStats()) {
             Thread t = new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters));
             t.setName("NFS statistics webapp");
             t.start();
         }
-        LOG.info("Starting NFS server - " + nfsConfiguration.toString());
+        LOG.info("Starting NFS server - " + xdiStaticConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-//        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
-        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters, nfsConfiguration.deferMetadataUpdates());
+        VirtualFileSystem vfs = new BlockyVfs(
+                asyncAm,
+                dynamicExports,
+                counters,
+                xdiStaticConfiguration.deferMetadataUpdates(),
+                xdiStaticConfiguration.getAmRetryAttempts(),
+                xdiStaticConfiguration.getAmRetryInterval());
 
         // create the RPC service which will handle NFS requests
         ThreadFactory factory = ThreadFactories.newThreadFactory("nfs-rpcsvc", true);
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
-                nfsConfiguration.getThreadPoolSize(),
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(xdiStaticConfiguration.getThreadPoolSize(),
+                xdiStaticConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,
                 //new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()),
                 new SynchronousQueue<>(),
@@ -90,7 +95,7 @@ public class NfsServer {
                 exportFile);
 
         // create NFS v3 and mountd servers
-        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, nfsConfiguration.getMaxLiveNfsCookies());
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, xdiStaticConfiguration.getMaxLiveNfsCookies());
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

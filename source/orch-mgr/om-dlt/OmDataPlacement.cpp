@@ -31,7 +31,8 @@ DataPlacement::DataPlacement()
           placementMutex("Data Placement mutex"),
           prevDlt(NULL),
           commitedDlt(NULL),
-          newDlt(NULL) {
+          newDlt(NULL),
+          sendMigAbortAfterRestart(false){
     curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
@@ -88,9 +89,13 @@ DataPlacement::computeDlt() {
 
     fds_uint64_t version;
     Error err(ERR_OK);
-    
-    fds_verify( newDlt == NULL );
-    
+
+    /**
+     * as of 11/24/2015, this should be a no harm fds_verify, so removing it, because we are now setting the
+     * newDlt on all restart use cases.
+     */
+//    fds_verify( newDlt == NULL );
+
     if (commitedDlt == NULL) 
     {
         version = DLT_VER_INVALID + 1;
@@ -543,7 +548,7 @@ DataPlacement::mod_init(SysParams const *const param) {
         type = PlacementAlgorithm::AlgorithmTypes::RoundRobin;
     } else {
         LOGWARN << "DataPlacement: unknown placement algorithm type in "
-                << "config file, will use Consistent Hashing algorith";
+                << "config file, will use Consistent Hashing algorithm";
     }
 
     setAlgorithm(type);
@@ -650,12 +655,15 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
     // but this is an optimization, may do later
     fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
     if (nextVersion > 0 && nextVersion != currentVersion) {
-        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+        LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DLT and re-compute it again if discovered "
                   << "SMs re-register";
         if (!configDB->setDltType(0, "next")) {
-            LOGWARN << "unable to reset DMT target version in configDB";
+            LOGWARN << "unable to reset DLT target version in configDB";
         }
+
+        setAbortParams(true, nextVersion);
+
     } else {
         if (0 == nextVersion) {
             LOGDEBUG << "There is only commited DLT in configDB (OK)";
@@ -668,8 +676,40 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
     return err;
 }
 
-void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
+void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB)
+{
     this->configDB = configDB;
+}
+
+
+void DataPlacement::setAbortParams(bool abort, fds_int64_t version)
+{
+    sendMigAbortAfterRestart = abort;
+    targetVersionForAbort    = version;
+
+}
+
+void DataPlacement::clearAbortParams()
+{
+    sendMigAbortAfterRestart = false;
+    targetVersionForAbort    = 0;
+
+    // We prevented this from being cleared out during om_load_state
+    // so do it now
+    if (!configDB->setDltType(0, "next")) {
+        LOGWARN << "Failed to unset target DLT in config db";
+    }
+    newDlt = NULL;
+}
+
+bool DataPlacement::isAbortAfterRestartTrue()
+{
+    return sendMigAbortAfterRestart;
+}
+
+fds_uint64_t DataPlacement::getTargetVersionForAbort()
+{
+    return targetVersionForAbort;
 }
 
 }  // namespace fds

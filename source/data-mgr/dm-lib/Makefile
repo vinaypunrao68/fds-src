@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    := timeline dm-tvc dm-vol-cat handlers archive checker
+user_build_dir    := refcount timeline dm-tvc dm-vol-cat handlers archive checker
 
 user_fds_ar_libs := fds-lib
 

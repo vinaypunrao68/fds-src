@@ -88,8 +88,6 @@ struct NbdConnection : public BlockOperations::ResponseIFace {
     NbdConnector* nbd_server;
     BlockOperations::shared_ptr nbdOps;
 
-    size_t resp_needed;
-
     message<attach_header, std::array<char, 1024>> attach;
     message<handshake_header, std::nullptr_t> handshake;
     message<request_header, boost::shared_ptr<std::string>> request;

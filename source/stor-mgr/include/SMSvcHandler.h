@@ -46,139 +46,59 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void getObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                   boost::shared_ptr <fpi::GetObjectMsg> &getObjMsg);
+    DECL_ASYNC_HANDLER(getObject              , GetObjectMsg);
+    DECL_ASYNC_HANDLER(putObject              , PutObjectMsg);
+    DECL_ASYNC_HANDLER(deleteObject           , DeleteObjectMsg);
+    DECL_ASYNC_HANDLER(notifySvcChange        , NodeSvcInfo);
+    DECL_ASYNC_HANDLER(NotifyAddVol           , CtrlNotifyVolAdd);
+    DECL_ASYNC_HANDLER(NotifyRmVol            , CtrlNotifyVolRemove);
+    DECL_ASYNC_HANDLER(NotifyModVol           , CtrlNotifyVolMod);
+    DECL_ASYNC_HANDLER(NotifyScavenger        , CtrlNotifyScavenger);
+    DECL_ASYNC_HANDLER(queryScavengerStatus   , CtrlQueryScavengerStatus);
+    DECL_ASYNC_HANDLER(queryScavengerProgress , CtrlQueryScavengerProgress);
+    DECL_ASYNC_HANDLER(setScavengerPolicy     , CtrlSetScavengerPolicy);
+    DECL_ASYNC_HANDLER(queryScavengerPolicy   , CtrlQueryScavengerPolicy);
+    DECL_ASYNC_HANDLER(queryScrubberStatus    , CtrlQueryScrubberStatus);
+    DECL_ASYNC_HANDLER(setScrubberStatus      , CtrlSetScrubberStatus);
+    DECL_ASYNC_HANDLER(NotifyDLTUpdate        , CtrlNotifyDLTUpdate);
+    DECL_ASYNC_HANDLER(NotifyDLTClose         , CtrlNotifyDLTClose);
+    DECL_ASYNC_HANDLER(NotifyDMTUpdate        , CtrlNotifyDMTUpdate);
+    DECL_ASYNC_HANDLER(startHybridTierCtrlr   , CtrlStartHybridTierCtrlrMsg);
+    DECL_ASYNC_HANDLER(addObjectRef           , AddObjectRefMsg);
+    DECL_ASYNC_HANDLER(shutdownSM             , PrepareForShutdownMsg);
+    DECL_ASYNC_HANDLER(migrationInit          , CtrlNotifySMStartMigration);
+    DECL_ASYNC_HANDLER(migrationAbort         , CtrlNotifySMAbortMigration);    
+    DECL_ASYNC_HANDLER(initiateObjectSync     , CtrlObjectRebalanceFilterSet);
+    DECL_ASYNC_HANDLER(syncObjectSet          , CtrlObjectRebalanceDeltaSet);
+    DECL_ASYNC_HANDLER(getMoreDelta           , CtrlGetSecondRebalanceDeltaSet);
+    DECL_ASYNC_HANDLER(finishClientTokenResync, CtrlFinishClientTokenResyncMsg);
+    DECL_ASYNC_HANDLER(NotifySMCheck          , CtrlNotifySMCheck);
+    DECL_ASYNC_HANDLER(querySMCheckStatus     , CtrlNotifySMCheckStatus);
+    DECL_ASYNC_HANDLER(activeObjects          , ActiveObjectsMsg);
 
     void getObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                      const Error &err,
                      SmIoGetObjectReq *read_data);
-
     void mockGetCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr);
-
-    void putObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                   boost::shared_ptr <fpi::PutObjectMsg> &putObjMsg);
-
     void putObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                      const Error &err,
                      SmIoPutObjectReq *put_req);
-
     void mockPutCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr);
-
-    void deleteObject(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                      boost::shared_ptr <fpi::DeleteObjectMsg> &deleteObjMsg);
-
     void deleteObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                         const Error &err,
                         SmIoDeleteObjectReq *del_req);
-
-    virtual void
-    notifySvcChange(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                    boost::shared_ptr <fpi::NodeSvcInfo> &msg);
-
-    virtual void
-    NotifyAddVol(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr <fpi::CtrlNotifyVolAdd> &vol_msg);
-
-    virtual void
-    NotifyRmVol(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                boost::shared_ptr <fpi::CtrlNotifyVolRemove> &vol_msg);
-
-    virtual void
-    NotifyModVol(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                 boost::shared_ptr <fpi::CtrlNotifyVolMod> &vol_msg);
-
-    virtual void
-    NotifyScavenger(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                    boost::shared_ptr <fpi::CtrlNotifyScavenger> &vol_msg);
-
-    void queryScavengerStatus(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                              boost::shared_ptr <fpi::CtrlQueryScavengerStatus> &query_msg);
-
-    void queryScavengerProgress(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                                boost::shared_ptr <fpi::CtrlQueryScavengerProgress> &query_msg);
-
-    void setScavengerPolicy(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                            boost::shared_ptr <fpi::CtrlSetScavengerPolicy> &policy_msg);
-
-    void queryScavengerPolicy(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                              boost::shared_ptr <fpi::CtrlQueryScavengerPolicy> &policy_msg);
-
-    void queryScrubberStatus(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                             boost::shared_ptr <fpi::CtrlQueryScrubberStatus> &scrub_msg);
-
-    void setScrubberStatus(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                           boost::shared_ptr <fpi::CtrlSetScrubberStatus> &scrub_msg);
-
-    virtual void
-    NotifyDLTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                    boost::shared_ptr <fpi::CtrlNotifyDLTUpdate> &dlt);
-
-
-    void NotifyDLTClose(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                        boost::shared_ptr <fpi::CtrlNotifyDLTClose> &dlt);
-
-    void NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          const Error &err,
-                          SmIoNotifyDLTClose *DLTCloseReq);
-
-    /**
-    * Handler for the new DMT messages
-    */
-    void NotifyDMTUpdate(boost::shared_ptr <fpi::AsyncHdr> &hdr,
-                         boost::shared_ptr <fpi::CtrlNotifyDMTUpdate> &dmt);
-
-    void startHybridTierCtrlr(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                              boost::shared_ptr<fpi::CtrlStartHybridTierCtrlrMsg> &hbtMsg);
-
-    void addObjectRef(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                      boost::shared_ptr <fpi::AddObjectRefMsg> &addObjRefMsg);
-
-    void addObjectRefCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                        const Error &err,
-                        SmIoAddObjRefReq *addObjRefReq);
-
-    void shutdownSM(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                    boost::shared_ptr <fpi::PrepareForShutdownMsg> &shutdownMsg);
-
-    /**
-    * Handler for the new SM token migration messages
-    * This is a message handler that receives a new DLT message from OM
-    */
-    void migrationInit(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                       boost::shared_ptr <fpi::CtrlNotifySMStartMigration> &migrationMsg);
-
-    void startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                          fds_uint64_t dltVersion,
-                          const Error &err);
-
-    void migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifySMAbortMigration>& abortMsg);
-
     void migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           const Error &err,
                           SmIoAbortMigration *abortMigrationReq);
-
-
-    void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                            boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
-
-    void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                       boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
-
-    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
-
-    void finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 boost::shared_ptr<fpi::CtrlFinishClientTokenResyncMsg>& finishClientResyncMsg);
-
-
-    /**
-     * Handlers for smcheck
-     */
-    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
-    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
+    void startMigrationCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          fds_uint64_t dltVersion,
+                          const Error &err);
+    void addObjectRefCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
+                        const Error &err,
+                        SmIoAddObjRefReq *addObjRefReq);
+    void NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          const Error &err,
+                          SmIoNotifyDLTClose *DLTCloseReq);
 };
 
 }  // namespace fds

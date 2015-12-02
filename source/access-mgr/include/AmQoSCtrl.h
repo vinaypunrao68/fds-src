@@ -52,6 +52,8 @@ class AmQoSCtrl :
 
  protected:
 
+    void lookupVolumeCb(VolumeDesc const vol_desc, Error const error) override;
+
     /**
      * These are here cause AmProcessor is not a DataProvider yet.
      */
