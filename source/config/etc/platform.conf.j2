@@ -427,22 +427,22 @@ fds: {
         /* Migration related info */
         migration: {
             /* size of the delta set from source SM to destination SM */
-            max_delta_set_size=16
+            max_delta_set_size = {{ sm_max_delta_set_size }}
 
             /* verify the integrity of the metadata and data  on destination SM */
-            verify_migration_data=false
+            verify_migration_data = {{ sm_verify_migration_data }}
 
             /* boolean to enable/disable SM token migration feature */
-            enable_feature = true
+            enable_feature = {{ sm_enable_feature }}
 
             /* boolean to enable/disable SM resync feature */
-            enable_resync = true
+            enable_resync = {{ sm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout = {{ sm_migration_timeout }}
 
             /* number of parallel sm migrations at a time */
-            parallel_migration=8
+            parallel_migration = {{ sm_parallel_migration }}
         }
         tiering: {
             hybrid: {

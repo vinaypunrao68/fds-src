@@ -70,6 +70,12 @@
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
 {% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
 {% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
+{% set sm_max_delta_set_size = fds_sm_max_delta_set_size if fds_sm_max_delta_set_size is defined else '16' %}
+{% set sm_verify_migration_data = fds_sm_verify_migration_data if fds_sm_verify_migration_data is defined else 'false' %}
+{% set sm_enable_feature = fds_sm_enable_feature if fds_sm_enable_feature is defined else 'true' %}
+{% set sm_enable_resync = fds_sm_enable_resync if fds_sm_enable_resync is defined else 'true' %}
+{% set sm_migration_timeout = fds_sm_migration_timeout if fds_sm_migration_timeout is defined else '300000' %}
+{% set sm_parallel_migration = fds_sm_parallel_migration if fds_sm_parallel_migration is defined else '8' %}
 {#
    fds.am. specific entries
 #}
