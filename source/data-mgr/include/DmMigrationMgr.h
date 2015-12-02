@@ -232,6 +232,18 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void dumpStats();
 
+    /*
+     * Check if any of the migrations have been idle and abort migration if any migration
+     * has been idle.
+     */
+    void migrationIdleTimeoutCheck();
+
+    /**
+     * Get the timeout in seconds between msgs
+     */
+    inline uint32_t getIdleTimeout() {
+        return idleTimeoutSecs;
+    }
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
@@ -285,6 +297,11 @@ class DmMigrationMgr : public DmMigrationBase {
      * timeout for delta blob set
      */
     uint32_t deltaBlobTimeout;
+
+    /**
+    * If migration executor is idle for longer than this value migration is aborted.
+    */
+    uint32_t idleTimeoutSecs;
 
     /**
      * DMT version undergoing migration

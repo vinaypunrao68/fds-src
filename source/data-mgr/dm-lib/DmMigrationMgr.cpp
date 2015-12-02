@@ -9,32 +9,49 @@
 namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
-    : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(nullptr),
-      maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID), migrationAborted(false),
-      timerStarted(false)
-    {
-        maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                      get<int>("fds.dm.migration.migration_max_concurrency"));
+: DmReqHandler(DmReqHandle),
+    dataManager(_dataMgr),
+    OmStartMigrCb(nullptr),
+    maxConcurrency(1),
+    firedMigrations(0),
+    mit(NULL),
+    DMT_version(DMT_VER_INVALID),
+    migrationAborted(false),
+    timerStarted(false)
+{
+    maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                  get<int>("fds.dm.migration.migration_max_concurrency"));
 
-        enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->
-                                      get<bool>("fds.dm.migration.enable_feature"));
+    enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->
+                                  get<bool>("fds.dm.migration.enable_feature"));
 
-        enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
-                                   get<bool>("fds.dm.migration.enable_resync"));
+    enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
+                               get<bool>("fds.dm.migration.enable_resync"));
 
-        maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
-                               get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
+    maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                           get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
 
-        maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
-                                  get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+    maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                              get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 
-        deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                    get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
+    deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
 
-        delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
-        							get<int32_t>("fds.dm.testing.test_delay_start"));
+    delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                          get<int32_t>("fds.dm.testing.test_delay_start"));
 
-    }
+    /* 5 miutes for idle timeout */
+    idleTimeoutSecs = 300;
+    auto timer = MODULEPROVIDER()->getTimer();
+    auto task = [this] () {
+        /* Immediately post to threadpool so we don't hold up timer thread */
+        MODULEPROVIDER()->proc_thrpool()->schedule(
+            &DmMigrationMgr::migrationIdleTimeoutCheck, this);
+            
+    };
+    auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(*timer, task));
+    timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
+}
 
 
 DmMigrationMgr::~DmMigrationMgr()
@@ -380,8 +397,12 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
      * The real fix is to break the incoming msg into chunks, service them,
      * and then return.
      */
-    std::thread t1([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
-	t1.detach();
+    std::thread *ptr = new std::thread([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
+    ptr->detach();
+    // std::thread t1([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
+    // This is bad but there's no control for now. Once we have a better abort, we
+    // will revisit this
+    // t1.detach();
 
 	/**
 	 * When we return below, the ack will be sent back to the Executor.
@@ -908,5 +929,29 @@ DmMigrationMgr::dumpStats() {
     LOGNORMAL << "Seconds spent for current migration: " << c->timeSpentForCurrentMigration.value();
     LOGNORMAL << "Seconds spent for all migrations: " << c->timeSpentForAllMigrations.value();
     LOGNORMAL << "========================================================";
+}
+
+void
+DmMigrationMgr::migrationIdleTimeoutCheck()
+{
+    bool abort = false;
+    auto curTsSec = util::getTimeStampSeconds();
+    {
+        SCOPEDREAD(migrExecutorLock);
+        for (const auto &e : executorMap) {
+            if (e.second->isMigrationIdle(curTsSec)) {
+                abort = true;
+                LOGWARN << "Aborting migration. "
+                    << " Migration for node " << e.first.first << " volume: "
+                    << e.first.second << " has been idle."
+                    << " currentTsSec: " << curTsSec
+                    << " lastUpdateTsSec: " << e.second->getLastUpdateFromClientTsSec();
+                break;
+            }
+        }
+    }
+    if (abort) {
+        abortMigration();
+    }
 }
 }  // namespace fds
