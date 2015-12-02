@@ -345,7 +345,12 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
 
     env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);
-
+    if (!env) {
+        GLOGCRITICAL << "Take persistent snapshot failed " << fileName;
+        err = ERR_INVALID_ARG;
+        return err;
+    }
+    env->DeleteDir(fileName);
     leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
         GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;
