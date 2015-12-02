@@ -50,6 +50,7 @@ DmMigrationMgr::mod_shutdown()
             SCOPEDREAD(migrExecutorLock);
 
             if (!executorMap.empty() || !clientMap.empty()) {
+                LOGNOTIFY << "Aborting migration in preperation for shutdown.";
                 abortMigration();
             }
         }
@@ -154,7 +155,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 
     // Test error return code
     fiu_do_on("abort.dm.migration",\
-              LOGDEBUG << "abort.dm.migration fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration fault point enabled";\
               abortMigration(); return (ERR_NOT_READY););
 
     waitForMigrationBatchToFinish(MIGR_EXECUTOR);
@@ -264,7 +265,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     	// This means that the blobs have not been applied yet. Override this to ERR_OK.
     	err = ERR_OK;
     } else if (!err.ok()) {
-    	LOGERROR << "Error applying blob descriptor";
+    	LOGERROR << "Error applying blob descriptor " << err;
     	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
     	abortMigration();
     }
@@ -297,7 +298,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     err = executor->processDeltaBlobs(deltaBlobsMsg);
 
     if (!err.ok()) {
-    	LOGERROR << "Processing deltaBlobs failed";
+    	LOGERROR << "Processing deltaBlobs failed " << err;
     	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
     	abortMigration();
     }
@@ -356,11 +357,6 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
-    if (err != ERR_OK) {
-    	abortMigration();
-        return err;
-    }
-
     err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
 
     if (err != ERR_OK) {
@@ -385,7 +381,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
     auto search = clientMap.find(std::make_pair(destDmUuid, fds_volid));
     DmMigrationClient::shared_ptr client = nullptr;
     if (search != clientMap.end()) {
-        LOGMIGRATE << "Client received request for destination node: " << destDmUuid
+        LOGERROR << "Client received request for destination node: " << destDmUuid
         		<< " volume " << filterSet->volumeId << " but it already exists";
         err = ERR_DUPLICATE;
         abortMigration();
@@ -414,8 +410,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
 			err = client->processBlobFilterSet(trackerBind);
 			if (ERR_OK != err) {
+                LOGERROR << "Processing filter set failed: " << err;
 				abortMigration();
-				LOGERROR << "Processing filter set failed.";
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
 				return err;
 			}
@@ -423,8 +419,8 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 			err = client->processBlobFilterSet2();
 			if (ERR_OK != err) {
 				// This one doesn't have an async callback to decrement so we fail it manually
+                LOGERROR << "Processing blob diff failed: " << err;
 				abortMigration();
-				LOGERROR << "Processing blob diff failed";
 				// Shared the same error code, so look for above's msg
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
 				return err;
@@ -667,6 +663,7 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     err = executor->processTxState(txStateMsg);
 
     if (!err.ok()) {
+        LOGERROR << "Error applying migrated commit log: " << err;
     	abortMigration();
     }
 
@@ -743,6 +740,7 @@ DmMigrationMgr::asyncMsgFailed()
 {
 	trackIOReqs.finishTrackIOReqs();
 	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
+    LOGERROR << "Async migration message failed, aborting";
 	abortMigration();
 }
 

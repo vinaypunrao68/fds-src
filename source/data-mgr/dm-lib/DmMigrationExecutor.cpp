@@ -168,7 +168,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
 										   migrationCb cb)
 {
 	fiu_do_on("abort.dm.migration.processDeltaBlobDescs",\
-        LOGDEBUG << "abort.dm.migration processDeltaBlobDescs.fault point enabled";\
+        LOGNOTIFY << "abort.dm.migration processDeltaBlobDescs.fault point enabled";\
         return ERR_DM_MIGRATION_ABORTED;);
 
     Error err(ERR_OK);
@@ -226,7 +226,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 	Error err(ERR_OK);
 
 	fiu_do_on("abort.dm.migration.processDeltaBlobs",\
-        LOGDEBUG << "abort.dm.migration processDeltaBlobs.fault point enabled";\
+        LOGNOTIFY << "abort.dm.migration processDeltaBlobs.fault point enabled";\
         return ERR_NOT_READY;);
 
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
@@ -405,7 +405,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
-	LOGMIGRATE << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
+	LOGERROR << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
     dataMgr.dmMigrationMgr->abortMigration();
 }
 
@@ -442,6 +442,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
+            LOGERROR << "error processing forwarded commit " << e;
         	dataMgr.dmMigrationMgr->abortMigration();
             delete dmReq;
             return;
