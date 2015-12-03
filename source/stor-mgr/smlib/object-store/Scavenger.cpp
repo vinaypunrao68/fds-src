@@ -637,17 +637,6 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
     fds_uint32_t token_reclaim_threshold = 0;
     verifyData = verify_data;
 
-    // we are not persisting deleted bytes, so we if this is the
-    // first time we are checking if we should do GC after SM
-    // restart, we cannot check deleted bytes (except for reading
-    // the whole objectDB and recalculating them; should we do that?)
-    // In this case, we are going to start compaction process for this
-    // disk without checking stats
-    if (noPersistScavStats) {
-        err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);
-        return err.ok();
-    }
-
     err = getDiskStats(&disk_stat);
     if (!err.ok()) {
         LOGCRITICAL << "Getting disk stats failed for disk id : "
@@ -761,10 +750,13 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                  << ", deleted bytes " << stat.tkn_reclaim_size
                  << " (" << reclaim_percent << "%)";
 
-        if ((stat.tkn_reclaim_size > 0) || (noPersistScavStats)) {
-            if (reclaim_percent >= token_reclaim_threshold) {
+        if (stat.tkn_reclaim_size > 0 &&
+            reclaim_percent >= token_reclaim_threshold) {
                 tokenDb.insert(stat.tkn_id);
-            }
+                LOGNOTIFY << "Disk " << disk_id << " token " << stat.tkn_id
+                          << " total bytes " << stat.tkn_tot_size
+                          << ", deleted bytes " << stat.tkn_reclaim_size
+                          << " (" << reclaim_percent << "%)";
         }
     }
 }
