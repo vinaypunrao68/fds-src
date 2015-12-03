@@ -87,6 +87,8 @@ ScstTarget::ScstTarget(std::string const& name,
     t.detach();
 }
 
+ScstTarget::~ScstTarget() = default;
+
 void
 ScstTarget::addDevice(std::string const& volume_name) {
     std::unique_lock<std::mutex> l(deviceLock);
@@ -129,6 +131,23 @@ ScstTarget::addDevice(std::string const& volume_name) {
     asyncWatcher->send();
     // Wait for devices to start before continuing
     deviceStartCv.wait(l, [this] () -> bool { return devicesToStart.empty(); });
+}
+
+void
+ScstTarget::deviceDone(std::string const& volume_name) {
+    std::lock_guard<std::mutex> g(deviceLock);
+    auto it = device_map.find(volume_name);
+    if (device_map.end() == it) return;
+
+    it->second->reset();
+    device_map.erase(it);
+}
+
+void ScstTarget::removeDevice(std::string const& volume_name) {
+    std::lock_guard<std::mutex> g(deviceLock);
+    auto it = device_map.find(volume_name);
+    if (device_map.end() == it) return;
+    (*it->second)->shutdown();
 }
 
 void ScstTarget::mapDevices() {
