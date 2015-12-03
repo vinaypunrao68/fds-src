@@ -20,9 +20,13 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
 
+#include <map>
 #include <memory>
+#include <mutex>
+#include <string>
 
 #include "connector/scst/ScstCommon.h"
+#include "fds_volume.h"
 
 namespace fds {
 
@@ -37,6 +41,8 @@ struct ScstConnector
 
     static void start(std::weak_ptr<AmProcessor> processor);
     static void stop();
+    static void volumeAdded(VolumeDesc const& volDesc);
+    static void volumeRemoved(VolumeDesc const& volDesc);
 
     std::string targetPrefix() const { return target_prefix; }
 
@@ -48,12 +54,19 @@ struct ScstConnector
 
     size_t threads {1};
 
+    std::mutex target_lock_;
+    std::map<std::string, std::unique_ptr<ScstTarget>> targets_;
+
     ScstConnector(std::string const& prefix,
                   std::weak_ptr<AmProcessor> processor);
 
     std::weak_ptr<AmProcessor> amProcessor;
 
     std::string target_prefix;
+
+    void addTarget(VolumeDesc const& volDesc);
+    void discoverTargets();
+    void removeTarget(VolumeDesc const& volDesc);
 };
 
 }  // namespace fds

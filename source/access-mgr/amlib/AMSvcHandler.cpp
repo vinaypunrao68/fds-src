@@ -122,7 +122,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         // If this channel has threadpool on this we do not block though.
         // A real nonblocking could install callback upon read-lock acquiring...
         // and continue on next step...
-        err = amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
+        err = amProcessor->modifyVolumePolicy(vdesc);
     }
 
     hdr->msg_code = err.GetErrno();

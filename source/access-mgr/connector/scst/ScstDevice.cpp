@@ -141,12 +141,22 @@ ScstDevice::start(std::shared_ptr<ev::dynamic_loop> loop) {
 }
 
 ScstDevice::~ScstDevice() {
-    GLOGNORMAL << "SCST client disconnected for " << scstDev;
+    if (0 <= scstDev) {
+        close(scstDev);
+        scstDev = -1;
+    }
+    GLOGNORMAL << "SCSI device " << volumeName << " stopped.";
+}
+
+void
+ScstDevice::shutdown() {
+    state_ = ConnectionState::STOPPING;
+    asyncWatcher->send();
 }
 
 void
 ScstDevice::terminate() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
 }
 
@@ -168,6 +178,7 @@ ScstDevice::wakeupCb(ev::async &watcher, int revents) {
             asyncWatcher->stop();
             ioWatcher->stop();
             scstOps.reset();
+            scst_target->deviceDone(volumeName);
             return;
         }
     }

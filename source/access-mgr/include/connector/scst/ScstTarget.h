@@ -58,6 +58,8 @@ struct ScstTarget
     std::string targetName() const { return target_name; }
 
     void addDevice(std::string const& volume_name);
+    void deviceDone(std::string const& volume_name);
+    void removeDevice(std::string const& volume_name);
     void setInitiatorMasking(std::vector<std::string> const& ini_members);
 
     void mapDevices();

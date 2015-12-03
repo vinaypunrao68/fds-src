@@ -9,6 +9,8 @@
 #include "connector/nbd/common.h"
 #include "concurrency/LeaderFollower.h"
 
+#include "fds_volume.h"
+
 namespace fds {
 
 struct AmProcessor;
@@ -20,6 +22,8 @@ struct NbdConnector
 
     static void start(std::weak_ptr<AmProcessor> processor);
     static void stop();
+    static void volumeAdded(VolumeDesc const& volDesc) {}
+    static void volumeRemoved(VolumeDesc const& volDesc) {}
  protected:
 
     void lead() override;

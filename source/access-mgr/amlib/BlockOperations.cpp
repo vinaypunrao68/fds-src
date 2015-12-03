@@ -125,6 +125,7 @@ BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "Volume detach response: " << error;
+    blockResp->terminate();
     amAsyncDataApi.reset();
 }
 

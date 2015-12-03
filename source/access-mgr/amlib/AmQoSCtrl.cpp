@@ -142,8 +142,8 @@ AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
 }
 
 Error
-AmQoSCtrl::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
-    return htb_dispatcher->modifyQueueQosParams(vol_uuid.get(),
+AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    return htb_dispatcher->modifyQueueQosParams(vdesc.volUUID.get(),
                                                 vdesc.iops_assured,
                                                 vdesc.iops_throttle,
                                                 vdesc.relativePrio);
