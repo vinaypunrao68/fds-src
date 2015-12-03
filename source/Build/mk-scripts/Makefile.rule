@@ -65,7 +65,7 @@ all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
-     $(user_preinstall) base_install $(user_postinstall) debugtool
+     $(user_preinstall) base_install $(user_postinstall)
 
 # -----------------------------------------------------------------------------
 # Tasks to do before the depend rule.
@@ -448,19 +448,6 @@ endif
 
 .PHONY: package
 package : pkg
-
-.PHONY: debugtool
-debugtool: $(fds_tool_bin)/debugtool
-$(fds_tool_bin)/debugtool: $(topdir)/fdsp/*.thrift $(topdir)/tools/debugtool.spec $(shell find $(topdir)/tools/fdsconsole/ -type f -name '*.py')
-	@echo "making debugtool @ $(fds_tool_bin)/debugtool"
-	@cd $(topdir)/tools && pyinstaller  \
-	--noconfirm \
-	--onefile \
-        --key=FD5BADA55BABE \
-        --log-level=WARN \
-        --distpath=$(fds_tool_bin) \
-        --workpath=$(osdep_user_build)/debugtool \
-        --name=debugtool debugtool.spec
 
 # -----------------------------------------------------------------------------
 # List Targets

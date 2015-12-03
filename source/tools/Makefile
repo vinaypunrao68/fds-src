@@ -35,3 +35,16 @@ ldb-tool          := ldb-tool.cpp
 fdsio             := fdsio.cpp
 
 include $(topdir)/Makefile.incl
+
+.PHONY: debugtool
+debugtool: $(fds_tool_bin)/debugtool
+$(fds_tool_bin)/debugtool: $(topdir)/fdsp/*.thrift $(topdir)/tools/debugtool.spec $(shell find $(topdir)/tools/fdsconsole/ -type f -name '*.py')
+	@echo "making debugtool @ $(fds_tool_bin)/debugtool"
+	@cd $(topdir)/tools && pyinstaller  \
+	--noconfirm \
+	--onefile \
+        --key=FD5BADA55BABE \
+        --log-level=WARN \
+        --distpath=$(fds_tool_bin) \
+        --workpath=$(osdep_user_build)/debugtool \
+        --name=debugtool debugtool.spec
