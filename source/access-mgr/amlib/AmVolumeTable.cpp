@@ -338,15 +338,6 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
 }
 
 void
-AmVolumeTable::getVolumes(std::vector<VolumeDesc>& volumes) {
-    ReadGuard rg(map_rwlock);
-    volumes.clear();
-    for (auto const& it: volume_map) {
-        volumes.emplace_back(*it.second->voldesc);
-    }
-}
-
-void
 AmVolumeTable::openVolume(AmRequest *amReq) {
     auto vol = ensureReadable(amReq);
     if (!vol) {

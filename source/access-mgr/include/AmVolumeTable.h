@@ -46,7 +46,6 @@ struct AmVolumeTable :
     void stop() override;
     Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void lookupVolume(std::string const volume_name) override;
-    void getVolumes(std::vector<VolumeDesc>& volumes) override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest *amReq) override;
