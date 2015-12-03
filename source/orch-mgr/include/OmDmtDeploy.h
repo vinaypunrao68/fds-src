@@ -34,6 +34,21 @@ class DmtDeployEvt
     fds_bool_t dmResync;  // if true, DMT computation will be for DM Resync
 };
 
+/**
+ * Event deployed to check to see if there's ongoing migrations, to see if we need
+ * to error out
+ */
+class DmtRegChkEvt
+{
+    public:
+        explicit DmtRegChkEvt(const NodeUuid& _uuid) : uuid(_uuid) {}
+        std::string logString() const {
+            return "DmtRegChkEvt with node: " + std::to_string(uuid.uuid_get_val());
+        }
+
+        NodeUuid uuid;
+};
+
 class DmtRecoveryEvt
 {
   public:
@@ -167,6 +182,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
     void dmt_deploy_event(DmtErrorFoundEvt const &evt);
     void dmt_deploy_event(DmtRecoveryEvt const &evt);
+    void dmt_deploy_event(DmtRegChkEvt const &evt);
 
     /**
      * Module methods
