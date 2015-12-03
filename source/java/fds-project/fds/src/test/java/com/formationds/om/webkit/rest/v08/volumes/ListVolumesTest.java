@@ -12,7 +12,6 @@ import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.VolumeState;
 import com.formationds.client.v08.model.VolumeStatus;
-import com.formationds.commons.togglz.FdsTogglzConfig;
 import com.formationds.commons.togglz.feature.FdsFeatureManagerProvider;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.OmConfigurationApi;
@@ -25,17 +24,11 @@ import com.formationds.util.thrift.ConfigurationApi;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
-import org.togglz.core.Feature;
-import org.togglz.core.context.FeatureContext;
-import org.togglz.core.manager.EnumBasedFeatureProvider;
-import org.togglz.core.manager.FeatureManager;
-import org.togglz.core.manager.FeatureManagerBuilder;
-import org.togglz.core.repository.mem.InMemoryStateRepository;
-import org.togglz.core.user.NoOpUserProvider;
-import org.togglz.junit.TogglzRule;
+import org.togglz.core.spi.FeatureManagerProvider;
 import org.togglz.junit.WithFeature;
+import org.togglz.testing.TestFeatureManager;
+import org.togglz.testing.TestFeatureManagerProvider;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,9 +37,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.mockStatic;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 /**
  * @author ptinius
@@ -139,10 +134,21 @@ public class ListVolumesTest
         throws Exception
     {
         /*
-         * TODO revisit why the convert is using static methods! makes mocking very difficult
+         * current fails because of:
+         *
+         * java.lang.IllegalArgumentException: No state repository specified
+         * at org.togglz.core.util.Validate.notNull(Validate.java:20)
+         * at org.togglz.core.manager.FeatureManagerBuilder.build(FeatureManagerBuilder.java:133)
+         * at com.formationds.commons.togglz.feature.FdsFeatureManagerProvider.getFeatureManager(FdsFeatureManagerProvider.java:33)
+         * at com.formationds.commons.togglz.feature.flag.FdsFeatureToggles.isActive(FdsFeatureToggles.java:36)
+         * at com.formationds.client.v08.converters.ExternalModelConverter.loadExternalVolumeStatus(ExternalModelConverter.java:208)
+         * at com.formationds.om.webkit.rest.v08.volumes.ListVolumesTest.setUp(ListVolumesTest.java:140)
          */
-        when( ExternalModelConverter.loadExternalVolumeStatus( volumes ) )
-            .thenReturn( volumeStats );
+
+        mockStatic( ExternalModelConverter.class );
+        given( ExternalModelConverter.loadExternalVolumeStatus( volumes ) )
+            .willReturn( volumeStats );
+
         when( singletonConfigApi.api() ).thenReturn( configApi );
         when( configApi.listVolumes( anyString() ) ).thenReturn( volumes );
     }

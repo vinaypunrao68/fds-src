@@ -503,11 +503,7 @@ public class ExternalModelConverter {
                             .withLuns( convertToExternalLUN( internalVolume.getPolicy( )
                                                                            .getIscsiTarget( )
                                                                            .getLuns( ) ) )
-                            .withInitiators(
-                                convertToExternalInitiators( internalVolume.getPolicy( )
-                                                                           .getIscsiTarget( )
-                                                                           .getInitiators( ) ) )
-                            .withIncomingUsers( convertToExternalIncomingUser(
+                                .withIncomingUsers( convertToExternalIncomingUser(
                                 internalVolume.getPolicy( )
                                               .getIscsiTarget( )
                                               .getIncomingUsers( ) ) )
@@ -658,7 +654,7 @@ public class ExternalModelConverter {
         }
 
         return initiators.stream( )
-                         .map( initiator -> new com.formationds.protocol.Initiator( initiator.getWWN( ) ) )
+                         .map( initiator -> new com.formationds.protocol.Initiator( initiator.getWWNMask( ) ) )
                          .collect( Collectors.toList( ) );
     }
 
@@ -670,7 +666,7 @@ public class ExternalModelConverter {
         }
 
         return initiators.stream( )
-                                 .map( initiator -> new Initiator( initiator.getWwn() ) )
+                                 .map( initiator -> new Initiator( initiator.getWwn_mask() ) )
                                  .collect( Collectors.toList( ) );
     }
 
@@ -780,19 +776,33 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.ISCSI );
-            logger.debug( "INTERNAL iSCSI::" + iscsiSettings.getTarget().toString() );
             if( iscsiSettings.getTarget() == null )
             {
-                throw new IllegalArgumentException( "iSCSI target must be provided for converting to internal model." );
+//                throw new IllegalArgumentException( "iSCSI target must be provided for converting to internal model." );
+                final IScsiTarget iscsiTarget =
+                    new IScsiTarget( ).setLuns(
+                        Collections.singletonList(
+                            new LogicalUnitNumber( externalVolume.getName( ),
+                                                   "rw" ) ) );
             }
+            else
+            {
+                final IScsiTarget iscsiTarget =
+                    new IScsiTarget( ).setLuns(
+                        convertToInternalLogicalUnitNumber(
+                            iscsiSettings.getTarget( )
+                                         .getLuns( ) ) )
+                                      .setIncomingUsers(
+                                          convertToInternalIncomingUsers(
+                                              iscsiSettings.getTarget( )
+                                                           .getIncomingUsers( ) ) )
+                                      .setOutgoingUsers(
+                                          convertToInternalOutgoingUsers(
+                                              iscsiSettings.getTarget( )
+                                                           .getOutgoingUsers( ) ) );
 
-            final IScsiTarget iscsiTarget =
-                new IScsiTarget( ).setLuns( convertToInternalLogicalUnitNumber( iscsiSettings.getTarget().getLuns() ) )
-                                  .setInitiators( convertToInternalInitiators( iscsiSettings.getTarget().getInitiators() ) )
-                                  .setIncomingUsers( convertToInternalIncomingUsers( iscsiSettings.getTarget().getIncomingUsers() ) )
-                                  .setOutgoingUsers( convertToInternalOutgoingUsers( iscsiSettings.getTarget().getOutgoingUsers() ) );
-
-            internalSettings.setIscsiTarget( iscsiTarget );
+                internalSettings.setIscsiTarget( iscsiTarget );
+            }
         }
         else if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {        // block volume
 
@@ -927,7 +937,6 @@ public class ExternalModelConverter {
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
             // TODO finish implementation iSCSI
-//            volumeType.setNfs(  );
 
         } else if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
