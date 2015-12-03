@@ -86,7 +86,9 @@ ObjectMetadataStore::deleteMetadataDb(const std::string& diskPath,
 ObjMetaData::const_ptr
 ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
-                                       Error &err) {
+                                       Error &err,
+                                       diskio::DataTier *tierUsed) {
+    if (tierUsed) { *tierUsed = getMetadataTier(); }
     // Check cache for metadata
     ObjMetaData::const_ptr objMeta
             = metaCache->getObjectMetadata(volId, objId, err);
@@ -117,7 +119,9 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
 Error
 ObjectMetadataStore::putObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
-                                       ObjMetaData::const_ptr objMeta) {
+                                       ObjMetaData::const_ptr objMeta,
+                                       diskio::DataTier *tierUsed) {
+    if (tierUsed) { *tierUsed = getMetadataTier(); }
     Error err = metaDb_->put(volId, objId, objMeta);
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " metadata to db " << *objMeta;
@@ -154,9 +158,10 @@ ObjectMetadataStore::getMetadataTier() const {
     return metaDb_->getMetaTierInfo();
 }
 
-std::vector<ObjectID>
-ObjectMetadataStore::getMetaDbKeys(const fds_token_id &smToken) {
-   return metaDb_->getKeys(smToken); 
+void
+ObjectMetadataStore::forEachObject(const fds_token_id& smToken,
+                                   std::function<void (const ObjectID&)> &func) {
+   metaDb_->forEachObject(smToken, func);
 }
 
 void

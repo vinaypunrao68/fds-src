@@ -68,7 +68,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     ObjMetaData::const_ptr getObjectMetadata(fds_volid_t volId,
                                              const ObjectID& objId,
-                                             Error &err);
+                                             Error &err,
+                                             diskio::DataTier *tierUsed=nullptr);
 
     /**
      * Persistently stores metadata of object with id 'objId'
@@ -80,7 +81,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
      */
     Error putObjectMetadata(fds_volid_t volId,
                             const ObjectID& objId,
-                            ObjMetaData::const_ptr objMeta);
+                            ObjMetaData::const_ptr objMeta,
+                            diskio::DataTier *tierUsed=nullptr);
 
 
     /**
@@ -94,7 +96,8 @@ class ObjectMetadataStore : public Module, public boost::noncopyable {
     /**
      * Gets all keys of object db for a given SM token.
      */
-    std::vector<ObjectID> getMetaDbKeys(const fds_token_id &smToken);
+    void forEachObject(const fds_token_id& smToken,
+                       std::function<void (const ObjectID&)> &func);
 
     /**
      * Make a snapshot of metadata of given SM token and

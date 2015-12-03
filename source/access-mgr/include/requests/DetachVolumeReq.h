@@ -20,6 +20,8 @@ namespace fds
  * detach is complete.
  */
 struct DetachVolumeReq : public AmRequest {
+    fds_int64_t token {invalid_vol_token};
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

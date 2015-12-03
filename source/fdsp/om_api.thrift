@@ -19,12 +19,14 @@ namespace java com.formationds.protocol.om
 
 /**
  * Request a Volume's Descriptor
- * FIXME: Right now this response comes back as a NotifyVolAdd
- * message. In the future, this should get it's own response.
  */
 struct GetVolumeDescriptor {
   /** Volume name */
   1: string volume_name;
+}
+
+struct GetVolumeDescriptorResp {
+  1: svc_types.FDSP_VolumeDescType vol_desc;
 }
 
 /* ------------------------------------------------------------

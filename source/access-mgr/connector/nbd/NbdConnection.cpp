@@ -89,7 +89,6 @@ NbdConnection::NbdConnection(NbdConnector* server,
           volume_size{0},
           object_size{0},
           nbd_state(NbdProtoState::PREINIT),
-          resp_needed(0u),
           handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
           response(nullptr),
           total_blocks(0ull),
@@ -317,8 +316,7 @@ bool NbdConnection::io_request(ev::io &watcher) {
     LOGIO << " op " << io_to_string[request.header.opType]
           << " handle 0x" << std::hex << request.header.handle
           << " offset 0x" << request.header.offset
-          << " length 0x" << request.header.length << std::dec
-          << " ahead of you: " <<  resp_needed++;
+          << " length 0x" << request.header.length << std::dec;
 
     Error err = dispatchOp();
     request.data.reset();
@@ -381,10 +379,6 @@ NbdConnection::io_reply(ev::io &watcher) {
     if (!write_response()) {
         return false;
     }
-    LOGIO << " handle 0x" << std::hex << current_response->handle << std::dec
-          << " done (" << err << ") "
-          << --resp_needed << " requests behind you";
-
     response[2].iov_base = nullptr;
     current_response.reset();
 
@@ -519,9 +513,6 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 
 void
 NbdConnection::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
-
     // add to quueue
     if (response->isRead() || response->isWrite()) {
         readyResponses.push(response);

@@ -114,7 +114,7 @@ public class StorageClientTest {
         long tenantId = configServiceClient.createTenant("skoopy");
         configServiceClient.createVolume(DOMAIN_PLACEHOLDER, volumeName, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, -1, 0, MediaPolicy.HDD_ONLY), tenantId);
 
-        RealAsyncAm am = new RealAsyncAm(asyncAmAddress.getHostText(), asyncAmAddress.getPort(), 12930);
+        RealAsyncAm am = new RealAsyncAm(asyncAmAddress.getHostText(), asyncAmAddress.getPort(), 12930, org.joda.time.Duration.millis(30000));
         am.start();
         byte[] content = new byte[] { 1, 2, 3, 4 };
         am.updateBlobOnce(DOMAIN_PLACEHOLDER, volumeName, "blob0", Mode.TRUNCATE.getValue(), ByteBuffer.wrap(content), content.length, new ObjectOffset(0), Collections.emptyMap()).join();

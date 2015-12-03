@@ -10,6 +10,7 @@
 #include <DmMigrationClient.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
+#include <counters.h>
 
 namespace fds {
 
@@ -23,6 +24,8 @@ class DmMigrationMgr : public DmMigrationBase {
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
+
+    void mod_shutdown();
 
     inline bool isMigrationEnabled() {
     	return enableMigrationFeature;
@@ -405,6 +408,12 @@ class DmMigrationMgr : public DmMigrationBase {
      * the thread used to manage waiting for all piece of migration to complete before cleaning up when we abort
      */
     std::thread *abort_thread;
+
+    // Clear clientmap and other related stats
+    void clearClients();
+
+    // Clear executorMap and other related stats
+    void clearExecutors();
 
 };  // DmMigrationMgr
 }  // namespace fds

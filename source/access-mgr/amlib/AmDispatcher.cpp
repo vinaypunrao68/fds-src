@@ -3,8 +3,6 @@
  */
 
 #include <algorithm>
-#include <future>
-#include <string>
 #include <vector>
 
 #include "fds_process.h"
@@ -137,6 +135,15 @@ AmDispatcher::start() {
     LOGNOTIFY << "AM request serialization set to: " << SerialNames[serialSelection]  << ".";
 }
 
+bool
+AmDispatcher::done() {
+    std::lock_guard<std::mutex> g(tx_map_lock);
+    if (!tx_map_barrier.empty()) {
+        return false;
+    }
+    return AmDataProvider::done();
+}
+
 void
 AmDispatcher::stop() {
     if (StatsCollector::singleton()->isStreaming()) {
@@ -184,29 +191,46 @@ AmDispatcher::getDLT() {
 	}
 }
 
-Error
-AmDispatcher::retrieveVolDesc(std::string const& volume_name) {
+void
+AmDispatcher::lookupVolume(std::string const volume_name) {
     if (!noNetwork) {
         // We need valid DLT and DMTs before we can start issuing IO,
         // block attachments here until this is true.
         if (DMT_VER_INVALID == dmtMgr->getCommittedVersion() ||
             nullptr == dltMgr->getDLT()) {
             LOGWARN << "Could not attach to volume before receiving domain tables.";
-            return ERR_NOT_READY;
+            VolumeDesc dummy(volume_name, invalid_vol_id);
+            return AmDataProvider::lookupVolumeCb(dummy, ERR_NOT_READY);
         }
         try {
             auto req =  gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
             fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
             msg->volume_name = volume_name;
             req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
+            req->onResponseCb(RESPONSE_MSG_HANDLER(AmDispatcher::lookupVolumeCb, volume_name));
             req->invoke();
             LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
         } catch(...) {
             LOGERROR << "OMClient unable to request volume descriptor from OM. Check if OM is up and restart.";
-            return ERR_NOT_READY;
+            VolumeDesc dummy(volume_name, invalid_vol_id);
+            return AmDataProvider::lookupVolumeCb(dummy, ERR_NOT_READY);
         }
     }
-    return ERR_OK;
+}
+
+void
+AmDispatcher::lookupVolumeCb(std::string const& volume_name,
+                             EPSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload) {
+    // Deserialize if all OK
+    VolumeDesc desc(volume_name, invalid_vol_id);
+    if (ERR_OK == error) {
+        // using the same structure for input and output
+        auto response = MSG_DESERIALIZE(GetVolumeDescriptorResp, error, payload);
+        desc = VolumeDesc(response->vol_desc);
+    }
+    AmDataProvider::lookupVolumeCb(desc, error);
 }
 
 /**
@@ -390,7 +414,7 @@ AmDispatcher::openVolumeCb(AmRequest* amReq,
     AmDataProvider::openVolumeCb(amReq, e);
 }
 
-Error
+void
 AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
     // We need to remove any barriers for this volume as we don't expect to
     // see any aborts/commits for them now
@@ -407,37 +431,40 @@ AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
             ++it;
         }
     }
-    return ERR_OK;
 }
 
 /**
  * Dispatch a request to DM asking for permission to access this volume.
  */
 void
-AmDispatcher::closeVolume(fds_volid_t vol_id, fds_int64_t token) {
-    fiu_do_on("am.uturn.dispatcher", return;);
+AmDispatcher::closeVolume(AmRequest * amReq) {
+    fiu_do_on("am.uturn.dispatcher", return AmDataProvider::closeVolumeCb(amReq, ERR_OK););
+    auto volReq = static_cast<DetachVolumeReq*>(amReq);
 
-    LOGDEBUG << "Attempting to close volume: " << vol_id;
+    LOGDEBUG << "Attempting to close volume: " << amReq->io_vol_id;
     auto volMDMsg = boost::make_shared<fpi::CloseVolumeMsg>();
-    volMDMsg->volume_id = vol_id.get();
-    volMDMsg->token = token;
+    volMDMsg->volume_id = amReq->io_vol_id.get();
+    volMDMsg->token = volReq->token;
 
-    /**
-     * Need an AmRequest to call the serialization setter.
-     */
-    AmRequest amReq(fds::fds_io_op_t(0), vol_id, "", "", nullptr);
-    auto dmt_version = dmtMgr->getAndLockCurrentVersion();
-    auto respCb = [this, ver = dmt_version] (MultiPrimarySvcRequest* svcReq,
-                                             const Error& error,
-                                             boost::shared_ptr<std::string> payload) mutable -> void {
-        dmtMgr->releaseVersion(ver);
-    };
-    auto asyncCloseVolReq = createMultiPrimaryRequest(vol_id, dmt_version, volMDMsg, respCb);
+    amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
+    auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::closeVolumeCb, amReq));
+    auto asyncCloseVolReq = createMultiPrimaryRequest(amReq->io_vol_id, amReq->dmt_version, volMDMsg, respCb);
 
-    setSerialization(&amReq, asyncCloseVolReq);
-
+    setSerialization(amReq, asyncCloseVolReq);
     asyncCloseVolReq->invoke();
 }
+
+void
+AmDispatcher::closeVolumeCb(AmRequest * amReq,
+                           MultiPrimarySvcRequest* svcReq,
+                           const Error& error,
+                           boost::shared_ptr<std::string> payload) {
+    if (!amReq->isCompleted()) { return; }
+    dmtMgr->releaseVersion(amReq->dmt_version);
+
+    AmDataProvider::closeVolumeCb(amReq, error);
+}
+
 
 void
 AmDispatcher::statVolume(AmRequest* amReq) {

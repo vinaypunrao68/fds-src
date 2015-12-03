@@ -678,6 +678,9 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }
 
+struct StartRefScanMsg {
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

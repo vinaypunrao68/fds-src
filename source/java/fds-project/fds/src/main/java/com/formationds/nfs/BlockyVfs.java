@@ -14,10 +14,10 @@ import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.SimpleIdMap;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.*;
+import org.joda.time.Duration;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -41,8 +41,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites) {
-        IoOps ops = RecoveryHandler.buildProxy(new AmOps(asyncAm, counters), 5, Duration.ofSeconds(1));
+    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
+        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
@@ -86,7 +86,9 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         String volume = exportResolver.volumeName(parent.exportIndex());
-        InodeMetadata metadata = new InodeMetadata(type, subject, mode, allocator.increment(volume))
+        long fileId = allocator.increment(volume);
+        LOG.debug("Allocating fileID " + fileId);
+        InodeMetadata metadata = new InodeMetadata(type, subject, mode, fileId)
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
@@ -329,11 +331,22 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
-        InodeMetadata updated = inodeMap.write(inode, data, offset, count);
-        inodeIndex.index(inode.exportIndex(), true, updated);
-        counters.increment(Counters.Key.write);
-        counters.increment(Counters.Key.bytesWritten, count);
-        return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        InodeMetadata updated = null;
+        try {
+            updated = inodeMap.write(inode, data, offset, count);
+            inodeIndex.index(inode.exportIndex(), true, updated);
+            counters.increment(Counters.Key.write);
+            counters.increment(Counters.Key.bytesWritten, count);
+            return new WriteResult(stabilityLevel, Math.max(data.length, count));
+        } catch (IOException e) {
+            if (updated != null) {
+                LOG.error("Error writing inode " + updated.getFileId(), e);
+            } else {
+                LOG.error("Error writing inode", e);
+            }
+
+            throw e;
+        }
     }
 
     @Override

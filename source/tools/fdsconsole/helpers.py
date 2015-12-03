@@ -15,6 +15,18 @@ import random
 import boto
 from boto.s3 import connection
 from fdslib import platformservice
+import re
+import humanize
+
+def get_simple_re(pattern, flags=re.IGNORECASE):
+    if pattern == None:
+        return None
+    pattern=pattern.replace('.','\.')
+    pattern=pattern.replace('*','.*')
+    if '*' not in pattern and '?' not in pattern:
+        pattern = '.*(' + pattern + ').*'
+    pattern= '^' + pattern + '$'
+    return re.compile(pattern, flags)
 
 class AccessLevel:
     '''
@@ -55,6 +67,7 @@ class ConfigData:
         self.__s3rest = None
         self.__platform = None
         self.__token = None
+        self.__services = None
         self.checkDefaults()
 
     def checkDefaults(self):
@@ -91,6 +104,14 @@ class ConfigData:
                                                 port=8443,
                                                 calling_format=boto.s3.connection.OrdinaryCallingFormat())
         return self.__s3rest
+
+    def setServiceApi(self, api):
+        self.__services = api
+
+    def getServiceId(self, pattern, onlyone = True):
+        if self.__services == None:
+            return None
+        return self.__services.getServiceId(pattern, onlyone)
 
     def getPlatform(self):
         if self.__platform == None:
@@ -158,7 +179,7 @@ def setupHistoryFile():
     '''
     import os
     import readline
-    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
+    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
     except IOError:

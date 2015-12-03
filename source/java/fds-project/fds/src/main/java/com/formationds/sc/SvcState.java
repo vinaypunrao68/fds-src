@@ -271,11 +271,6 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     }
 
     @Override
-    public void setConfigVal(String id, long value) throws TException {
-
-    }
-
-    @Override
     public void setFlag(String id, long value) throws TException {
 
     }
@@ -293,5 +288,25 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     @Override
     public boolean setFault(String cmdline) throws TException {
         return false;
+    }
+
+    @Override
+    public void setConfigVal(String key, String value) throws TException {
+
+    }
+
+    @Override
+    public Map<String, String> getConfig(int nullarg) throws TException {
+        return null;
+    }
+
+    @Override
+    public Map<String, String> getProperties(int nullarg) throws TException {
+        return null;
+    }
+
+    @Override
+    public String getProperty(String name) throws TException {
+        return null;
     }
 }
