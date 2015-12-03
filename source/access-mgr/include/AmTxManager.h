@@ -4,7 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMTXMANAGER_H_
 
-#include <deque>
 #include <string>
 #include <unordered_map>
 
@@ -49,7 +48,7 @@ struct AmTxManager :
     AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
-    ~AmTxManager();
+    ~AmTxManager() override;
 
     /**
      * These are the Transaction specific DataProvider routines.
