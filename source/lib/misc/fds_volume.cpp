@@ -216,6 +216,8 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.timelineTime = timelineTime;
     voldesc.createTime = createTime;
     voldesc.state = state;
+    voldesc.iscsi = iscsiSettings;
+    voldesc.nfs = nfsSettings;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -246,6 +248,8 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->contCommitlogRetention = volinfo.contCommitlogRetention;
         this->timelineTime = volinfo.timelineTime;
         this->state = volinfo.state;
+        this->iscsiSettings = volinfo.iscsiSettings;
+        this->nfsSettings = volinfo.nfsSettings;
     }
     return *this;
 }
