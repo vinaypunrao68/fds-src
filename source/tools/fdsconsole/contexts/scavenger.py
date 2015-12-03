@@ -20,7 +20,7 @@ class ScavengerContext(Context):
         'enable garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'enabling scavenger on sm:{}'.format(uuid)
+                print 'enabling scavenger on {}'.format(self.config.getServiceName(uuid))
                 getScavMsg = FdspUtils.newEnableScavengerMsg()
                 scavCB = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
@@ -36,7 +36,7 @@ class ScavengerContext(Context):
         'disable garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'disabling scavenger on sm:{}'.format(uuid)
+                print 'disabling scavenger on {}'.format(self.config.getServiceName(uuid))
                 getScavMsg = FdspUtils.newDisableScavengerMsg()
                 scavCB = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
@@ -51,7 +51,7 @@ class ScavengerContext(Context):
         'start garbage collection on sm'
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'starting scavenger on sm:{}'.format(uuid)
+                print 'starting scavenger on {}'.format(self.config.getServiceName(uuid))
                 getScavMsg = FdspUtils.newStartScavengerMsg()
                 scavCB = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
@@ -66,7 +66,7 @@ class ScavengerContext(Context):
         'start object refscanner on dm'
         try:
             for uuid in self.config.getServiceId(dm, False):
-                print 'starting refscan on dm:{}'.format(uuid)
+                print 'starting refscan on {}'.format(self.config.getServiceName(uuid))
                 msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
                 cb = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, msg, cb)
@@ -81,7 +81,7 @@ class ScavengerContext(Context):
         'stop garbage collection'
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'stopping scavenger on sm:{}'.format(uuid)
+                print 'stopping scavenger on {}'.format(self.config.getServiceName(uuid))
                 getScavMsg = FdspUtils.newStopScavengerMsg()
                 scavCB = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, getScavMsg, scavCB)
@@ -93,15 +93,22 @@ class ScavengerContext(Context):
     #--------------------------------------------------------------------------------------
 
     @clicmd
-    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='*', nargs='?')
     def info(self, sm):
         'show information about garbage collection'
         try:
             gcdata =[]
             cluster_totalobjects = 0
             cluster_deletedobjects = 0
+            cluster_num_gc_running = 0
+            cluster_num_compactor_running = 0
+            cluster_num_refscan_running = 0
             numsvcs=0
-            dm = True if sm == 'sm' else False
+            dm=False
+            if sm == '*' :
+                sm='sm'
+                dm=True
+
             for uuid in self.config.getServiceId(sm, False):
                 numsvcs += 1
                 cntrs = ServiceMap.client(uuid).getCounters('*')
@@ -125,16 +132,22 @@ class ScavengerContext(Context):
                 cluster_totalobjects += totalobjects
                 cluster_deletedobjects += deletedobjects
                 data.append(('gc.start',gcstart))
+
+                if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running +=1
+                if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running +=1
+
                 data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
                 data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
                 data.append(('objects.total',totalobjects))
                 data.append(('objects.deleted',deletedobjects))
                 data.append(('tokens.total',totaltokens))
-                print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'sm', uuid, '-'*40))
+                print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceName(uuid), '-'*40))
                 print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
 
             gcdata.append(('sm.objects.total',cluster_totalobjects))
             gcdata.append(('sm.objects.deleted',cluster_deletedobjects))
+            gcdata.append(('sm.doing.gc',cluster_num_gc_running))
+            gcdata.append(('sm.doing.compaction',cluster_num_compactor_running))
 
             if dm:
                 totalobjects =0
@@ -150,13 +163,16 @@ class ScavengerContext(Context):
                         data.append(('dm.refscan.lastrun', 'not yet'))
                     data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
                     data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
+                    data.append(('dm.refscan.running', cntrs.get('dm.refscan.running',0)))
+                    if cntrs.get('dm.refscan.running',0) > 0 :  cluster_num_refscan_running += 1
                     totalobjects += cntrs.get('dm.refscan.num_objects',0)
                     totalvolumes += cntrs.get('dm.refscan.num_volumes',0)
-                    print ('{}\ngc info for {}:{}\n{}'.format('-'*40, 'dm', uuid, '-'*40))
+                    print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceName(uuid), '-'*40))
                     print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
 
                 gcdata.append(('dm.objects.total',totalobjects))
                 gcdata.append(('dm.volumes.total',totalvolumes))
+                gcdata.append(('dm.doing.refscan',cluster_num_refscan_running))
 
 
             print ('\n{}\ncombined gc info\n{}'.format('='*40,'='*40))
@@ -173,7 +189,7 @@ class ScavengerContext(Context):
     def progress(self, sm):
         try:
             for uuid in self.config.getServiceId(sm, False):
-                print 'progress of scavenger on sm:{}'.format(uuid)
+                print 'progress of scavenger on {}'.format(self.config.getServiceName(uuid))
                 getStatusMsg = FdspUtils.newScavengerProgressMsg()
                 scavCB = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, getStatusMsg, scavCB)

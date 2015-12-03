@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 try:
     import readline
-    readline.uses_libedit = True
 except ImportError:
     pass;
 
@@ -16,7 +15,7 @@ import pipes
 import time
 from helpers import *
 from tabulate import tabulate
-
+import sys
 from contexts.svchelper import ServiceMap
 # import needed contexts
 from contexts import domain
@@ -33,7 +32,7 @@ from contexts import SMDebug
 from contexts import DMDebug
 
 """
-Console exit exception. This is needed to exit cleanly as 
+Console exit exception. This is needed to exit cleanly as
 external libraries (argh) are throwing SystemExit Exception on errors.
 """
 class ConsoleExit(Exception):
@@ -95,7 +94,7 @@ class FDSConsole(cmd.Cmd):
         while ctx != None:
             promptlist.append(ctx.context.get_context_name())
             ctx = ctx.parent
-        
+
         promptlist.reverse()
         self.setprompt(':'.join(promptlist))
 
@@ -113,12 +112,12 @@ class FDSConsole(cmd.Cmd):
     def precmd(self, line):
         '''
         before a line is processed, , cleanup the line...
-        eg : 
+        eg :
           ?cmd -> ? cmd
           cmd? -> cmd ?
           cmd -h -> help cmd
           ..  -> cc ..
-          -   -> cc -        
+          -   -> cc -
         '''
 
         if self.recordFile:
@@ -155,9 +154,9 @@ class FDSConsole(cmd.Cmd):
             if argv[-1] in ['?','-h','--help']:
                 del argv[-1]
                 argv.insert(0,'help')
-        
+
         ctx, pos, isctx = self.get_context_for_command(argv)
-        if pos == len(argv)-1 and isctx:
+        if pos == len(argv)-1 and isctx and len(argv) > 0:
             argv.insert(0,'help')
 
         #print ' '.join (map(pipes.quote, argv))
@@ -185,7 +184,7 @@ class FDSConsole(cmd.Cmd):
         #print self.get_access_level()
         #print AccessLevel.getName(self.get_access_level())
         if len(argv) == 0 or argv[0] in ['help']:
-            
+
             helplist=sorted(ctx.get_help(self.get_access_level()), key=lambda h: '{}{}'.format(h[0],h[1]))
             print tabulate(helplist,headers= ['command', 'description'],
                             tablefmt=self.config.getTableFormat())
@@ -206,7 +205,7 @@ class FDSConsole(cmd.Cmd):
         argv = shlex.split(line)
         if len(argv) > 0 and argv[0] in ['?', 'help']:
             del argv[0]
-        
+
         if len(argv) == 0 or len(argv) == 1 and argv[0] == text:
             return self.completenames(text, line, *args)
         else:
@@ -218,7 +217,7 @@ class FDSConsole(cmd.Cmd):
         if len(argv) != 1:
             print 'filename needed..'
             return
-          
+
         filename = os.path.expandvars(os.path.expanduser(argv[0]))
         if not os.path.isfile(filename):
             print 'unable to locate file :', filename
@@ -282,10 +281,10 @@ class FDSConsole(cmd.Cmd):
         ctxName = line
         if len(ctxName) == 0:
             return self.help_cc()
-        
+
         if ctxName == "..":
             if self.context.parent:
-                self.set_context(self.context.parent)                
+                self.set_context(self.context.parent)
                 return
             else:
                 print 'no higher context'
@@ -320,7 +319,7 @@ class FDSConsole(cmd.Cmd):
             print tabulate(data, headers=['name', 'value'], tablefmt=self.config.getTableFormat())
 
             return
-        
+
         argv[0] = argv[0].lower()
         if len(argv) == 1:
             # print the value of this key
@@ -332,13 +331,13 @@ class FDSConsole(cmd.Cmd):
             return
 
         self.config.setSystem(argv[0], argv[1])
-        
+
     def help_set(self,*args) :
         print 'usage: set [key] [value]'
         print '-- sets a value to a key'
         print '-- to see current values, just type set'
         print '-- to see current value of key, type set <key>'
-        
+
     def complete_set(self, text, line, *args):
         argv = shlex.split(line)
         cmd = ''
@@ -350,7 +349,7 @@ class FDSConsole(cmd.Cmd):
                 returnList.append(key)
 
         return returnList
-        
+
     def do_exit(self, *args):
         raise ConsoleExit()
 
@@ -359,7 +358,7 @@ class FDSConsole(cmd.Cmd):
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.get_access_level()]
-        names.extend(self.context.subcontexts.keys()) 
+        names.extend(self.context.subcontexts.keys())
         return names
 
     def completenames(self, text, *ignored):
@@ -371,32 +370,32 @@ class FDSConsole(cmd.Cmd):
             argv = line
         else:
             argv=shlex.split(line)
-        
+
         ctx = self.context
         #print "[%s] -- %s : %s : %d, %d" %(inspect.stack()[0][3], text, line, begidx, endidx)
         for name in argv:
-            if name in ctx.subcontexts:                
+            if name in ctx.subcontexts:
                 ctx = ctx.subcontexts[name]
             elif name in ctx.methods:
                 return []
                 #return [item for item, level in ctx.methods.items() if level <= self.config.getSystem(KEY_ACCESSLEVEL) and item.startswith(name)]
             else:
                 break
-         
-        # hack 
+
+        # hack
         #if len(argv)>0 and argv[-1].find('-') != -1 and not line.endswith(' '):
         #    text = argv[-1]
 
         #print 'search text is %s' %(text)
-        
-        l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)] 
+
+        l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)]
         l.extend([item for item, level in ctx.methods.items() if level <= self.get_access_level() and item.startswith(text)])
         return l
 
 
     def get_global_commands(self):
         return [a[3:] for a in cmd.Cmd.get_names(self) if a.startswith('do_')]
-        
+
     def get_context_for_command(self, argv):
         'returns the correct ctx & the pos of match & the type of match'
         ctx = self.context
@@ -429,7 +428,7 @@ class FDSConsole(cmd.Cmd):
     def default(self, line):
         try:
             argv=shlex.split(line)
-            
+
             if len(argv) == 1:
                 # ^-D : Ctrl-D
                 if line == 'EOF':
@@ -454,7 +453,8 @@ class FDSConsole(cmd.Cmd):
             pass
         except:
             #traceback.print_exc()
-            print 'cmd: {} exception: {}'.format(line, sys.exc_info()[0])
+            #print sys.exc_info()
+            print 'cmd: {} exception: {}'.format(line, sys.exc_info()[1])
         return None
 
     def emptyline(self):
@@ -484,7 +484,7 @@ class FDSConsole(cmd.Cmd):
         l += ['============================================']
         l += ['']
         try:
-            if argv == None or len(argv) == 0 : 
+            if argv == None or len(argv) == 0 :
                 #l += ['---- interactive mode ----\n']
                 self.cmdloop('\n'.join(l))
             else:
@@ -492,6 +492,9 @@ class FDSConsole(cmd.Cmd):
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):
             print ''
+
+        if self.config.hasPlatformClient():
+            self.config.getPlatform().stop_server()
 
         if self.recordFile:
             self.recordFile.close()
@@ -505,5 +508,3 @@ if __name__ == '__main__':
     if fInit:
         fdsconsole.init()
     fdsconsole.run(cmdargs)
-    
-    

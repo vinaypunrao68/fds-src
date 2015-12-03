@@ -7,17 +7,28 @@ import re
 import types
 import humanize
 import time
+import socket
 
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
         self.__restApi = None
         self.config.setServiceApi(self)
+        self.serviceList = []
+        self.serviceFetchTime = 0
 
     def restApi(self):
         if self.__restApi == None:
             self.__restApi = restendpoint.ServiceEndpoint(self.config.getRestApi())
         return self.__restApi
+
+    def getServiceList(self, forceFetch=False):
+        curTime = int(time.time())
+        if (curTime - self.serviceFetchTime) < 10 and len(self.serviceList) > 0 and not forceFetch:
+            return self.serviceList
+        self.serviceList = self.restApi().listServices()
+        self.serviceFetchTime = int(time.time())
+        return self.serviceList
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -58,15 +69,15 @@ class ServiceContext(Context):
             return 'unable to remove node'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
-    def list(self):
-        'show the list of services in the system'
+    @clidebugcmd
+    @arg('svcid', help= "service id",  type=str, default='*', nargs='?')
+    def list(self, svcid):
+        'list of services in the system'
         try:
-            """
-            services = ServiceMap.list()
-            return tabulate(services, headers=['service id','service', 'incarnation no', 'ip','port', 'status'],
-            """
-            services = self.restApi().listServices()            
+            services = self.getServiceList()
+            matchingServices = self.getServiceIds(svcid)
+            if matchingServices!= None and len(matchingServices) > 0:
+                services = [s for s in services if int(s['uuid']) in matchingServices]
             return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], services),
                             headers=['UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
                             tablefmt=self.config.getTableFormat())
@@ -78,39 +89,78 @@ class ServiceContext(Context):
     # will get service name from uuid
     def getServiceName(self, uuid):
         uuid = str(uuid)
-        services = self.restApi().listServices()
+        services = self.getServiceList()
+        for s in services:
+            if uuid == s['uuid']:
+                return '{}:{}'.format(s['service'].lower(), s['ip'])
+        raise Exception('unknown service : {}'.format(uuid))
+
+    #--------------------------------------------------------------------------------------
+    # will get service type from uuid
+    def getServiceType(self, uuid):
+        uuid = str(uuid)
+        services = self.getServiceList()
         for s in services:
             if uuid == s['uuid']:
                 return s['service'].lower()
         raise Exception('unknown service : {}'.format(uuid))
+
     #--------------------------------------------------------------------------------------
     # will get service id for sm,am on a single node cluster by name
-    # or sm:ip or sm:port
+    # match : uuid, app, app:port, app:ip, app:hostname
+    #       : hostname, ip
+    #       : hostname:port , ip:port
+
+    def getServiceIds(self, pattern):
+        return self.getServiceId(pattern , False)
     def getServiceId(self, pattern, onlyone=True):
         if type(pattern) == types.IntType:
             return pattern if onlyone else [pattern]
         if pattern.isdigit():
             return int(pattern) if onlyone else [int(pattern)]
 
+        ipPattern = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
         try:
             name=None
-            ip=None
+            ip=[]
             port=None
             if ':' in pattern:
-                name,ip = pattern.split(':')
-                if ip.isdigit():
-                    port=int(ip)
-                    ip=None
+                name,ipdata = pattern.split(':')
+                if ipdata.isdigit():
+                    port=int(ipdata)
+                    ipdata=None
+                elif not ipPattern.match(ipdata):
+                    # maybe a hostname
+                    try:
+                        ip = socket.gethostbyname_ex(ipdata)[2]
+                    except:
+                        pass
+                if len(ip) == 0 and ipdata:
+                    ip = [ipdata]
             else:
                 name=pattern.lower()
-                
-            if name not in ['om','am','pm','sm','dm', '*']:
-                print 'unknown service : {}'.format(name)
-                return None
-            services = self.restApi().listServices()            
-            finallist = [s for s in services 
-                         if (name== '*' or name == s['service'].lower()) and 
-                         (ip == None or s['ip'] == ip) and 
+
+            # check for ip match
+            if name and ipPattern.match(name):
+                ip = [name]
+                name = None
+
+            if name not in ['om','am','pm','sm','dm', '*', 'all', None]:
+                # check for hostname
+                try:
+                    iplist = socket.gethostbyname_ex(name)[2]
+                    ip = iplist
+                    name = None
+                except:
+                    pass
+                if name != None:
+                    print 'unknown service : {}'.format(name)
+                    return []
+
+            services = self.getServiceList()
+            finallist = [s for s in services
+                         if (name == None or name == 'all' or name == '*' or name == s['service'].lower()) and
+                         (len(ip) == 0 or s['ip'] in ip) and
                          (port == None or s['port'] == port)]
             if onlyone:
                 if len(finallist) == 1:
@@ -137,7 +187,7 @@ class ServiceContext(Context):
     def listcounter(self, svcid, match, zero=False):
         'list debug counters'
         try:
-            for uuid in self.getServiceId(svcid, False):
+            for uuid in self.getServiceIds(svcid):
                 p=helpers.get_simple_re(match)
                 cntrs = ServiceMap.client(uuid).getCounters('*')
                 addeditems={}
@@ -156,9 +206,9 @@ class ServiceContext(Context):
                 data = [(v,k) for k,v in cntrs.iteritems() if (not p or p.match(k)) and (zero or v != 0)]
                 data.sort(key=itemgetter(1))
                 if len(data) > 0:
-                    print ('{}\ncounters for {}:{}\n{}'.format('-'*40, self.getServiceName(uuid), uuid, '-'*40))
+                    print ('{}\ncounters for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
                     print tabulate(data,headers=['value', 'counter'], tablefmt=self.config.getTableFormat())
-            
+
         except Exception, e:
             log.exception(e)
             return 'unable to get counter'
@@ -170,13 +220,13 @@ class ServiceContext(Context):
     def listconfig(self, svcid, match):
         'list the config values of a service'
         try:
-            for uuid in self.getServiceId(svcid, False):
+            for uuid in self.getServiceIds(svcid):
                 p=helpers.get_simple_re(match)
                 cntrs = ServiceMap.client(uuid).getConfig(0)
                 data = [(k.lower(),v) for k,v in cntrs.iteritems() if not p or p.match(k)]
                 data.sort(key=itemgetter(0))
                 if len(data) > 0:
-                    print ('{}\nconfig set for {}:{}\n{}'.format('-'*40, self.getServiceName(uuid), uuid, '-'*40))
+                    print ('{}\nconfig set for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
                     print (tabulate(data,headers=['config', 'value'], tablefmt=self.config.getTableFormat()))
         except Exception, e:
             log.exception(e)
@@ -191,11 +241,11 @@ class ServiceContext(Context):
     def setconfig(self, svcid, key, value):
         'set a config value'
         try:
-            for uuid in self.getServiceId(svcid, False):
+            for uuid in self.getServiceIds(svcid):
                 configmap = ServiceMap.client(uuid).getConfig(0)
-                oldvalue = configmap.get(key, '')                
+                oldvalue = configmap.get(key, '')
                 ServiceMap.client(uuid).setConfigVal(key, value)
-                print 'set config [{}] from [{}] to [{}] for [{}:{}]'.format(key, oldvalue, value, self.getServiceName(uuid), uuid)
+                print 'set config [{}] from [{}] to [{}] for [{}]'.format(key, oldvalue, value, self.getServiceName(uuid))
         except Exception, e:
             log.exception(e)
             return 'unable to set config'
@@ -207,13 +257,13 @@ class ServiceContext(Context):
     def setloglevel(self, svcid, value):
         'set the logging level - error/warn/normal/debug/trace/critical'
         try:
-            for uuid in self.getServiceId(svcid, False):
-                name=self.getServiceName(uuid)
+            for uuid in self.getServiceIds(svcid):
+                name=self.getServiceType(uuid)
                 key='fds.{}.log_severity'.format(name)
                 self.setconfig(uuid, key, value)
         except Exception, e:
             log.exception(e)
-            return 'unable to get config list'
+            return 'unable to set log level'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
@@ -226,7 +276,7 @@ class ServiceContext(Context):
             data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
             data.sort(key=itemgetter(0))
             return tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
-            
+
         except Exception, e:
             log.exception(e)
             return 'unable to get svcmap'
@@ -308,8 +358,8 @@ class ServiceContext(Context):
             dmClient.sendAsyncSvcReq(dmUuids[0], getstatsmsg, statscb)
 
             if not statscb.wait():
-		print 'async get dm stats request failed'
-            else:            
+                print 'async get dm stats request failed'
+            else:
                 data += [("commitlogsize",statscb.payload.commitlog_size)]
                 data += [("extent0size",statscb.payload.extent0_size)]
                 data += [("extentsize",statscb.payload.extent_size)]

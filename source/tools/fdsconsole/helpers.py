@@ -104,14 +104,20 @@ class ConfigData:
     def setServiceApi(self, api):
         self.__services = api
 
+    def getServiceApi(self):
+        return self.__services
+
     def getServiceId(self, pattern, onlyone = True):
         if self.__services == None:
             return None
         return self.__services.getServiceId(pattern, onlyone)
 
+    def hasPlatformClient(self):
+        return self.__platform != None
+
     def getPlatform(self):
         if self.__platform == None:
-            self.__platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
+            self.__platform = platformservice.PlatSvc(1690, self.getHost(), 7004)
         return self.__platform
 
     def init(self):

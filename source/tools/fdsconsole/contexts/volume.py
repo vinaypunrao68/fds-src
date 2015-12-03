@@ -15,11 +15,16 @@ class VolumeContext(Context):
 
     def restApi(self):
         if self.__restApi == None:
-            self.__restApi = restendpoint.VolumeEndpoint(self.config.getRestApi())
+            self.__restApi = VolumeEndpoint(self.config.getRestApi())
         return self.__restApi
 
     def s3Api(self):
         return self.config.getS3Api()
+
+    def getVolumeId(self, volume):
+        client = self.config.getPlatform();
+        volId = client.svcMap.omConfig().getVolumeId(volume)
+        return int(volId)
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -340,3 +345,26 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volname', help='-volume name')
+    def stats(self, volname):
+        'display info about no. of objects/blobs'
+        data = []
+        svc = self.config.getPlatform();
+        for uuid in self.config.getServiceApi().getServiceIds('dm'):
+            volId = self.getVolumeId(volname)
+            print volId
+            getblobmeta = FdspUtils.newGetVolumeMetaDataMsg(volId);
+            cb = WaitedCallback();
+            svc.sendAsyncSvcReq(uuid, getblobmeta, cb)
+
+            if not cb.wait(10):
+                print 'async volume meta request failed : {}'.format(cb.header)
+            else:
+                print cb.payload
+                data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+                data += [("size",cb.payload.volume_meta_data.size)]
+                data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
+                print data
