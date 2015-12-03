@@ -4,7 +4,7 @@ from common.ttypes import *
 from platformservice import *
 import FdspUtils
 import argparse
-
+import itertools
 
 class SMDebugContext(Context):
     def __init__(self, *args):
@@ -51,13 +51,13 @@ class SMDebugContext(Context):
         """
         try:
             if len(tokens) :
-                tokens = map(int, tokens)
-            startSmchk = FdspUtils.newStartSmchkMsg(tokens)
-            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
+                l=[n for n in map(helpers.expandIntRange,tokens)]
+                tokens = list(itertools.chain.from_iterable(l))
+            checkMsg = FdspUtils.newStartSmchkMsg(tokens)
+            self.smClient().sendAsyncSvcReq(sm, checkMsg, None)
         except Exception as e:
             log.exception(e)
             print e.message
-            print "msg = {}".format(startSmchk)
             return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------

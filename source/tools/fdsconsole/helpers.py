@@ -17,6 +17,7 @@ from boto.s3 import connection
 from fdslib import platformservice
 import re
 import humanize
+import itertools
 
 def get_simple_re(pattern, flags=re.IGNORECASE):
     if pattern == None:
@@ -27,6 +28,23 @@ def get_simple_re(pattern, flags=re.IGNORECASE):
         pattern = '.*(' + pattern + ').*'
     pattern= '^' + pattern + '$'
     return re.compile(pattern, flags)
+
+'''
+expands integer range and returns a list or generator
+    : '1-3' -> [1,2,3]
+    : '1,4,5' -> [1,4,5]
+    : '1-3,5' -> [1,2,3,5]
+'''
+def expandIntRange(data, generator=False):
+    try:
+        parts = (piece.partition('-')[::2] for piece in data.split(','))
+        ranges = (xrange(int(s), int(e) + 1 if e else int(s) + 1) for s, e in parts)
+        if generator:
+            return itertools.chain.from_iterable(ranges)
+        else:
+            return [n for n in itertools.chain.from_iterable(ranges)]
+    except Exception as e:
+        raise Exception('unable to expand range [{}] - {}'.format(data,e))
 
 class AccessLevel:
     '''
