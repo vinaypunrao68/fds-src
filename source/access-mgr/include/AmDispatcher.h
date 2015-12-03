@@ -84,18 +84,19 @@ struct AmDispatcher :
     AmDispatcher& operator=(AmDispatcher const&)    = delete;
     AmDispatcher(AmDispatcher &&)                   = delete;
     AmDispatcher& operator=(AmDispatcher &&)        = delete;
-    ~AmDispatcher();
+    ~AmDispatcher() override;
 
     /**
      * These are the Volume specific DataProvider routines.
      * Everything else is pass-thru.
      */
-    Error removeVolume(VolumeDesc const& volDesc) override;
-    void stop() override;
     void start() override;
+    bool done() override;
+    void stop() override;
+    void removeVolume(VolumeDesc const& volDesc) override;
     void lookupVolume(std::string const volume_name) override;
     void openVolume(AmRequest * amReq) override;
-    void closeVolume(fds_volid_t vol_id, int64_t token) override;
+    void closeVolume(AmRequest * amReq) override;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
     Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) override;
     Error getDMT() override;
@@ -182,6 +183,10 @@ struct AmDispatcher :
                       const Error& error,
                       boost::shared_ptr<std::string> payload);
 
+    void closeVolumeCb(AmRequest* amReq,
+                       MultiPrimarySvcRequest* svcReq,
+                       const Error& error,
+                       boost::shared_ptr<std::string> payload);
 
     /**
      * Callback for set volume metadata responses.

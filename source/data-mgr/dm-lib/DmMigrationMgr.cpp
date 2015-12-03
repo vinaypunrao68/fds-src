@@ -169,7 +169,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 
     // Store DMT version for debugging
     DMT_version = migrationMsg->DMT_version;
-    LOGMIGRATE << "Starting Migration executors with DMT version = " << DMT_version;
+    LOGNOTIFY << "Starting Migration executors with DMT version = " << DMT_version;
 
     firedMigrations = 0;
     for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
@@ -191,7 +191,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
             }
             srcDmSvcUuid.uuid_set_val(vmg->source.svc_uuid);
 
-            LOGMIGRATE << "Pull Volume ID: " << vdt->volUUID
+            LOGNOTIFY << "Pull Volume ID: " << vdt->volUUID
                 << " Name: " << vdt->vol_name
                 << " from SrcDmSvcUuid: " << vmg->source.svc_uuid;
 
@@ -337,7 +337,7 @@ DmMigrationMgr::ackStaticMigrationComplete(const Error &status)
 
     DMT_version = DMT_VER_INVALID;
 
-    LOGMIGRATE << "Telling OM that DM Migrations have all been fired";
+    LOGNOTIFY << "Telling OM that all static migrations have completed";
     OmStartMigrCb(status);
 }
 
@@ -353,7 +353,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     waitForMigrationBatchToFinish(MIGR_CLIENT);
 
-    LOGMIGRATE << "received msg for volume " << migReqMsg->volumeId;
+    LOGNOTIFY << "received msg for volume " << migReqMsg->volumeId;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -579,7 +579,9 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * have Cb'ed to the OM.
 			 */
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
-			clientMap.clear();
+
+			dataManager.counters->totalVolumesSentMigration.incr(clientMap.size());
+			clearClients();
 			LOGNORMAL << "Migration clients cleared and state reset";
 		}
 	} else if (role == MIGR_EXECUTOR) {
@@ -593,7 +595,7 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role)
 			 * This gets called once every node's executor's all done.
 			 */
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
-			executorMap.clear();
+			clearExecutors();
 		}
 	}
 	migrationCV.notify_one();
@@ -709,8 +711,8 @@ DmMigrationMgr::abortMigrationReal()
 			}
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			fds_verify(migrationAborted);
-			clientMap.clear();
-			executorMap.clear();
+			clearClients();
+			clearExecutors();
 		}
 	}
 
@@ -726,12 +728,14 @@ DmMigrationMgr::abortMigrationReal()
      */
     migrationCV.notify_one();
 
+    dataManager.counters->totalMigrationsAborted.incr(1);
 }
 
 void
 DmMigrationMgr::asyncMsgPassed()
 {
 	trackIOReqs.finishTrackIOReqs();
+	dataManager.counters->numberOfOutstandingIOs.decr(1);
 	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
 }
 
@@ -739,6 +743,7 @@ void
 DmMigrationMgr::asyncMsgFailed()
 {
 	trackIOReqs.finishTrackIOReqs();
+	dataManager.counters->numberOfOutstandingIOs.decr(1);
 	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
     LOGERROR << "Async migration message failed, aborting";
 	abortMigration();
@@ -749,6 +754,7 @@ DmMigrationMgr::asyncMsgIssued()
 {
 	trackIOReqs.startTrackIOReqs();
 	LOGDEBUG << "trackIO count++ is now: " << trackIOReqs.debugCount();
+	dataManager.counters->numberOfOutstandingIOs.incr(1);
 }
 
 void
@@ -833,5 +839,17 @@ DmMigrationMgr::shouldFilterDmt(fds_volid_t volId, fds_uint64_t dmt_version) {
 void
 DmMigrationMgr::setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version) {
     dmt_watermark[volId] = dmt_version;
+}
+
+void
+DmMigrationMgr::clearClients() {
+    clientMap.clear();
+	dataManager.counters->numberOfActiveMigrClients.set(0);
+}
+
+void
+DmMigrationMgr::clearExecutors() {
+	executorMap.clear();
+	dataManager.counters->numberOfActiveMigrExecutors.set(0);
 }
 }  // namespace fds

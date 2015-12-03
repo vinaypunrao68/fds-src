@@ -188,7 +188,7 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = amProcessor->removeVolume(vol_msg->vol_desc);
+        amProcessor->removeVolume(vol_msg->vol_desc);
     }
 
     hdr->msg_code = err.GetErrno();
