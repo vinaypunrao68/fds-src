@@ -190,9 +190,9 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
     }
 
     @Override
-    public void setConfigVal( String id, long value ) throws TException {
-        logger.trace( "setConfigVal: {} = {}", id, value );
-        omNativePlatformClientFactory.getClient().setConfigVal( id, value );
+    public void setConfigVal( String name, String value ) throws TException {
+        logger.trace( "setConfigVal: {} = {}", name, value );
+        omNativePlatformClientFactory.getClient().setConfigVal( name, value );
     }
 
     @Override
@@ -211,6 +211,24 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
     public Map<String, Long> getFlags( int nullarg ) throws TException {
         logger.trace( "getFlags" );
         return omNativePlatformClientFactory.getClient().getFlags( nullarg );
+    }
+
+    @Override
+    public Map<String,String> getConfig(int nullarg) throws TException {
+        logger.trace( "getConfig" );
+        return omNativePlatformClientFactory.getClient().getConfig( nullarg );
+    }
+
+    @Override
+    public Map<String,String> getProperties(int nullarg) throws TException {
+        logger.trace( "getProperties" );
+        return omNativePlatformClientFactory.getClient().getProperties( nullarg );
+    }
+
+    @Override
+    public String getProperty(String name) throws TException {
+        logger.trace( "getProperty" );
+        return omNativePlatformClientFactory.getClient().getProperty( name );
     }
 
     @Override

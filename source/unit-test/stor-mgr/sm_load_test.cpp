@@ -27,7 +27,7 @@
 
 namespace fds {
 
-static ObjectStorMgr* sm;
+static ObjectStorMgr* storMgr;
 
 
 /**
@@ -42,7 +42,7 @@ class SmLoadProc : public FdsProcess {
     SmLoadProc(int argc, char * argv[], const std::string & config,
                const std::string & basePath, Module * vec[]);
     virtual ~SmLoadProc() {
-        delete sm;
+        delete storMgr;
     }
 
     virtual int run() override;
@@ -102,7 +102,7 @@ class SmLoadProc : public FdsProcess {
 SmLoadProc::SmLoadProc(int argc, char * argv[], const std::string & config,
                        const std::string & basePath, Module * vec[])
         : FdsProcess(argc, argv, config, basePath, vec){
-    sm->setModProvider(this);
+    storMgr->setModProvider(this);
 
     std::string utconfname = proc_fdsroot()->dir_fds_etc() + "sm_ut.conf";
     boost::shared_ptr<FdsConfig> fdsconf(new FdsConfig(utconfname, argc, argv));
@@ -243,7 +243,7 @@ int SmLoadProc::run() {
     fds_uint32_t cols = (sm_count < 4) ? sm_count : 4;
     DLT* dlt = new DLT(16, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
-    sm->objectStore->handleNewDlt(dlt);
+    storMgr->objectStore->handleNewDlt(dlt);
 
     // register and populate volumes
     for (TestVolMap::iterator it = volumes_.volmap.begin();
@@ -453,7 +453,7 @@ SmLoadProc::putSm(fds_volid_t volId,
         &SmLoadProc::putSmCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = sm->enqueueMsg(putReq->getVolId(), putReq);
+    err = storMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
@@ -513,7 +513,7 @@ SmLoadProc::getSm(fds_volid_t volId,
         &SmLoadProc::getSmCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = sm->enqueueMsg(getReq->getVolId(), getReq);
+    err = storMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
@@ -580,7 +580,7 @@ SmLoadProc::removeSm(fds_volid_t volId,
         &SmLoadProc::removeSmCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = sm->enqueueMsg(delReq->getVolId(), delReq);
+    err = storMgr->enqueueMsg(delReq->getVolId(), delReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoDeleteObjectReq to StorMgr.  Error: "
@@ -613,19 +613,19 @@ Error
 SmLoadProc::regVolume(TestVolume::ptr& volume) {
     FDSP_NotifyVolFlag vol_flag = FDSP_NOTIFY_VOL_NO_FLAG;
     fds_volid_t volumeId = volume->voldesc_.volUUID;
-    Error err = sm->regVol(volume->voldesc_);
+    Error err = storMgr->regVol(volume->voldesc_);
     if (err.ok()) {
-        StorMgrVolume * vol = sm->getVol(volumeId);
+        StorMgrVolume * vol = storMgr->getVol(volumeId);
         fds_assert(vol != NULL);
 
         fds_volid_t queueId = vol->getQueue()->getVolUuid();
-        if (!sm->getQueue(queueId)) {
-            err = sm->regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
+        if (!storMgr->getQueue(queueId)) {
+            err = storMgr->regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
                 vol->getQueue().get()));
         }
 
         if (!err.ok()) {
-            sm->deregVol(volumeId);
+            storMgr->deregVol(volumeId);
         }
     }
     if (!err.ok()) {
@@ -640,12 +640,12 @@ SmLoadProc::regVolume(TestVolume::ptr& volume) {
 int
 main(int argc, char * argv[])
 {
-    sm = new fds::ObjectStorMgr(g_fdsprocess);
-    objStorMgr  = sm;
+    storMgr = new fds::ObjectStorMgr(g_fdsprocess);
+    objStorMgr  = storMgr;
     std::cout << "Will test SM" << std::endl;
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,
-        sm,
+        storMgr,
         nullptr
     };
     fds::SmLoadProc p(argc, argv, "platform.conf", "fds.sm.", smVec);
@@ -653,8 +653,8 @@ main(int argc, char * argv[])
     std::cout << "unit test " << __FILE__ << " started." << std::endl;
     p.main();
 
-    delete sm;
-    sm = NULL;
+    delete storMgr;
+    storMgr = NULL;
     std::cout << "unit test " << __FILE__ << " finished." << std::endl;
     return 0;
 }

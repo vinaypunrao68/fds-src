@@ -38,7 +38,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     /**
      * Asynchronous shutdown initiation.
      */
-    bool stop();
+    void stop();
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
 
@@ -47,7 +47,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     /**
      * Enqueue a connector request
      */
-    Error enqueueRequest(AmRequest* amReq);
+    void enqueueRequest(AmRequest* amReq);
 
     bool isShuttingDown() const;
 
@@ -65,7 +65,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     /**
      * Remove object/metadata/offset caches for the given volume
      */
-    Error removeVolume(const VolumeDesc& volDesc);
+    void removeVolume(const VolumeDesc& volDesc);
 
     /**
      * DMT/DLT table updates

@@ -35,6 +35,15 @@ OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid, fpi::FDSP_MgrIdType type)
     : NodeAgent(uuid)
 {
     node_svc_type = type;
+
+    // unit tests don't always have g_fdsprocess initialized
+    if (MODULEPROVIDER() == NULL) {
+        dm_migration_abort_timeout = 310000;
+    } else {
+        // DM abort migration may wait out this timeout, tack on another 10 seconds for processing time
+        dm_migration_abort_timeout = 10000 + uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                                      get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 300000));
+    }
 }
 
 int
@@ -317,7 +326,7 @@ OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_send_abort_dm_migration_resp, this, msg,
             std::placeholders::_1, std::placeholders::_2,
             std::placeholders::_3));
-    om_req->setTimeoutMs(2000);  // huge, but need to handle timeouts in resp
+    om_req->setTimeoutMs(dm_migration_abort_timeout);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
     LOGNORMAL << "OM: Send abort DM migration (DMT version " << dmtVersion
@@ -653,14 +662,12 @@ Error
 OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
 {
     Error err(ERR_OK);
-    fds_uint32_t dmMigrationTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                   get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMStartMigrationMsg), meta_msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pullmeta_resp, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(dmMigrationTimeout);
+    om_req->setTimeoutMs(10*60*60*1000); // set an hour for now, with a new polling mechanism incoming
     om_req->invoke();
 
     LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
@@ -1411,7 +1418,7 @@ OM_PmAgent::send_start_service
 
     if ( serviceStatus == fpi::SVC_STATUS_INACTIVE ) {
         // If the state is inactive, this can only mean that a previously
-        // shutdown node is now being started. If valid services exist, 
+        // shutdown node is now being started. If valid services exist,
         //change PM state and node state to RUNNING/ACTIVE otherwise
         // transition to STANDBY/STANDBY
         NodeServices services;
@@ -1445,7 +1452,7 @@ OM_PmAgent::send_start_service
     set_node_state(fpi::FDS_Node_Up);
 
     if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
-        LOGDEBUG << "Node UUID(" 
+        LOGDEBUG << "Node UUID("
                  << std::hex << svc_uuid.svc_uuid << std::dec
                  << ") state is discovered, changing to up.";
         set_node_state(fpi::FDS_Node_Up);
@@ -1532,7 +1539,7 @@ void OM_PmAgent::send_start_service_resp
     fpi::SvcChangeInfoList changeList)
 {
     // If the PM took no action, then it means the service is already active;
-    // transition the state to active since we don't expect registration 
+    // transition the state to active since we don't expect registration
     // to happen
     for (auto item : changeList) {
 

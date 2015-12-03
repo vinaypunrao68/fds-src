@@ -13,6 +13,7 @@
 #include <net/SvcRequestPool.h>
 #include <fds_module_provider.h>
 #include <util/fiu_util.h>
+#include <util/timeutils.h>
 #include <thrift/transport/TTransportUtils.h>  // For TException.
 #include "fdsp/om_api_types.h"
 
@@ -36,6 +37,7 @@ SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mg
     sendLat("sendLat", this),
     reqLat("reqLat", this)
 {
+    (new SimpleNumericCounter("service.start.timestamp",this))->set(util::getTimeStampSeconds());
 }
 
 SvcRequestCounters::~SvcRequestCounters()
