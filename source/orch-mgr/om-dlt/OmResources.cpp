@@ -130,6 +130,8 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         NodeUuidSet dm_services;  // dm services we are waiting to come up
         NodeUuidSet dm_up;  // dm services that are already up
 
+        typedef mpl::vector1<LocalDomainDown> flag_list;
+
         /**
          * timer to come out of this state if we don't get all SMs up
          */
@@ -1441,57 +1443,70 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         std::vector<fpi::SvcInfo> amSvcs;
         std::vector<fpi::SvcInfo> smSvcs;
         std::vector<fpi::SvcInfo> dmSvcs;
-        
-        if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) )
-        {
-            LOGDEBUG << "OM Restart, Found ( returned ) " 
+
+        OM_Module *om = OM_Module::om_singleton();
+        DataPlacement *dp = om->om_dataplace_mod();
+        VolumePlacement* vp = om->om_volplace_mod();
+
+        // If OM was in the middle of DLT computation with startMigration
+        // messages sent to the SMs, then OM needs to send out an abort
+        // In the state machine, the DACT_Error does a hasNoTargetDlt()
+        // which checks for a NULL value of newDlt, and returns without action
+        // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
+        // At the end of error handling we will explicitly clear "next" version
+        // and newDlt out as a part of clearAbortParams()
+        bool unset = !(dp->isAbortAfterRestartTrue());
+        dp->commitDlt( unset );
+
+        LOGNOTIFY << "OM deployed DLT with "
+                  << deployed_sm_services.size() << " nodes";
+
+        vp->commitDMT( true );
+
+        if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
+            LOGDEBUG << "OM Restart, Found ( returned ) "
                      << pmSvcs.size() << " PMs. "
                      << amSvcs.size() << " AMs. "
                      << dmSvcs.size() << " DMs. "
                      << smSvcs.size() << " SMs.";
-    
-            /*
-             * TODO need to determine if any persisted services are already
-             * running. It would be nice if we could "ping" the PMs to
-             * get its state and any services that its currently
-             * monitoring.
-             */
-            
-            LOGNOTIFY << "OM Restarted, while domains still active.";
-            
-            OM_Module *om = OM_Module::om_singleton();
-            DataPlacement *dp = om->om_dataplace_mod();
-            VolumePlacement* vp = om->om_volplace_mod();
 
-            // If OM was in the middle of DLT computation with startMigration
-            // messages sent to the SMs, then OM needs to send out an abort
-            // In the state machine, the DACT_Error does a hasNoTargetDlt()
-            // which checks for a NULL value of newDlt, and returns without action
-            // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
-            // At the end of error handling we will explicitly clear "next" version
-            // and newDlt out as a part of clearAbortParams()
-            bool unset = !(dp->isAbortAfterRestartTrue());
-            dp->commitDlt( unset );
+            spoofRegisterSvcs(pmSvcs);
 
-            LOGNOTIFY << "OM deployed DLT with "
-                      << deployed_sm_services.size() << " nodes";
+            if (smSvcs.size() > 0 || dmSvcs.size() > 0 || amSvcs.size() > 0)
+            {
+                /*
+                 * TODO need to determine if any persisted services are already
+                 * running. It would be nice if we could "ping" the PMs to
+                 * get its state and any services that its currently
+                 * monitoring.
+                 */
 
-            vp->commitDMT( true );
-                        
-            spoofRegisterSvcs( pmSvcs );
-            spoofRegisterSvcs( smSvcs );
-            spoofRegisterSvcs( dmSvcs );
-            spoofRegisterSvcs( amSvcs );
-            
-            om_load_volumes();
-            local_domain_event( NoPersistEvt( ) );
+                LOGNOTIFY << "OM Restarted, while domains still active.";
+
+                spoofRegisterSvcs(smSvcs);
+                spoofRegisterSvcs(dmSvcs);
+                spoofRegisterSvcs(amSvcs);
+
+                om_load_volumes();
+                local_domain_event(NoPersistEvt());
+            }
+            else
+            {
+                LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
+                          << " SMs and " << deployed_dm_services.size()
+                          << " DMs to come up within next few minutes";
+
+                local_domain_event( WaitNdsEvt( deployed_sm_services,
+                                                deployed_dm_services ) );
+            }
         }
         else
-        { 
+        {
             LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
                       << " SMs and " << deployed_dm_services.size()
                       << " DMs to come up within next few minutes";
-            local_domain_event( WaitNdsEvt( deployed_sm_services, 
+
+            local_domain_event( WaitNdsEvt( deployed_sm_services,
                                             deployed_dm_services ) );
         }
     } 
@@ -1516,6 +1531,7 @@ OM_NodeDomainMod::om_startup_domain()
     NodeUuidSet sm_services;
     NodeUuidSet dm_services;
 
+    LOGDEBUG << "DOMAIN UP FLAG: " << om_local_domain_up() << " DOMAIN DOWN FLAG: " << om_local_domain_down();
     // if domain is already UP, nothing to do
     if (om_local_domain_up()) {
         LOGWARN << "Domain is already active, not going to activate";
@@ -1526,10 +1542,72 @@ OM_NodeDomainMod::om_startup_domain()
         return ERR_NOT_READY;
     }
 
-    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
-              << " and other commands for the domain";
+    std::vector<fpi::SvcInfo> svcinfos;
+    /*
+     * Update Service Map, then broadcast it!
+     */
+    if ( configDB->getSvcMap( svcinfos ) )
+    {
+        NodeUuidSet nodes;  // actual nodes (platform)
+        configDB->getNodeIds(nodes);
 
-    clearShutdownList();
+        // get set of SMs and DMs that were running on those nodes
+        NodeUuidSet::const_iterator cit;
+        for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
+            NodeServices services;
+            if (configDB->getNodeServices(*cit, services)) {
+                if (services.sm.uuid_get_val() != 0) {
+                    sm_services.insert(services.sm);
+                    LOGDEBUG << "Found SM on node "
+                             << std::hex << (*cit).uuid_get_val() << " (SM "
+                             << services.sm.uuid_get_val() << std::dec << ")";
+                }
+                if (services.dm.uuid_get_val() != 0) {
+                    dm_services.insert(services.dm);
+                    LOGDEBUG << "Found DM on node "
+                             << std::hex << (*cit).uuid_get_val() << " (DM "
+                             << services.dm.uuid_get_val() << std::dec << ")";
+                }
+            }
+        }
+
+        /*
+         * leaving in for now, will remove later 11/24/2015
+         */
+#if 0
+        NodeUuidSet deployed_sm_services;
+        NodeUuidSet deployed_dm_services;
+
+        // build the list of sm and dm services that we found that
+        // are not in 'discovered' state
+        for (const auto svc : svcinfos) {
+            if (svc.svc_status != fpi::SVC_STATUS_DISCOVERED) {
+                NodeUuid svcUuid;
+                if (isStorageMgrSvc(svc)) {
+                    // SM in not 'discovered' state
+                    svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
+                                          fpi::FDSP_STOR_MGR);
+                    if (sm_services.count(svcUuid)) {
+                        deployed_sm_services.insert(svcUuid);
+                        LOGDEBUG << "SM service "
+                                 << std::hex << svcUuid.uuid_get_val() << std::dec
+                                 << " was deployed";
+                    }
+                } else if (isDataMgrSvc(svc)) {
+                    // DM in not 'discovered' state
+                    svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
+                                          fpi::FDSP_DATA_MGR);
+                    if (dm_services.count(svcUuid)) {
+                        deployed_dm_services.insert(svcUuid);
+                        LOGDEBUG << "DM service "
+                                 << std::hex << svcUuid.uuid_get_val() << std::dec
+                                 << " was deployed";
+                    }
+                }
+            }
+        }
+#endif
+
     // get SMs and DMs from cluster map
     for (ClusterMap::const_sm_iterator sm_cit = cm->cbegin_sm();
          sm_cit != cm->cend_sm();
@@ -1547,7 +1625,7 @@ OM_NodeDomainMod::om_startup_domain()
     }
 
     // check that committed DLT matches the SM services in cluster map
-    err = dp->validateDltOnDomainActivate(sm_services);
+    err = dp->validateDltOnDomainActivate( sm_services );
     if (!err.ok()) {
         LOGERROR << "Mismatch between cluster map and DLT " << err
                  << " local domain will remain in down state."
@@ -1556,7 +1634,7 @@ OM_NodeDomainMod::om_startup_domain()
     }
 
     // check that committed DMT matches the DM services in cluster map
-    err = vp->validateDmtOnDomainActivate(dm_services);
+    err = vp->validateDmtOnDomainActivate( dm_services );
     if (!err.ok()) {
         LOGERROR << "Mismatch between cluster map and DMT " << err
                  << " local domain will remain in down state."
@@ -1564,8 +1642,8 @@ OM_NodeDomainMod::om_startup_domain()
         return err;
     }
 
-    if ((sm_services.size() > 0) ||
-        (dm_services.size() > 0)){
+    if ( ( sm_services.size() > 0 ) || ( dm_services.size() > 0 ) )
+    {
         LOGNOTIFY << "Will wait for " << sm_services.size()
                   << " SMs and " << dm_services.size()
                   << " DMs to come up within next few minutes";
@@ -1576,6 +1654,10 @@ OM_NodeDomainMod::om_startup_domain()
         local_domain_event(NoPersistEvt());
     }
 
+    LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
+              << " and other commands for the domain";
+
+    clearShutdownList();
     // once domain state machine is in correct waiting state,
     // activate all known services on all known nodes (platforms)
     RsArray pmNodes;
@@ -2055,7 +2137,7 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     {
         for ( const auto svc : svcs )
         {
-            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE )
+            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE || isPlatformSvc( svc) )
             {
                 if ( isPlatformSvc( svc ) )
                 {
@@ -2080,7 +2162,8 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     /**
      * ignore any PMs that are running. They are expected.
      */
-    return ( ( amSvcs->size() > 0 ) ||
+    return ( ( pmSvcs->size() > 0 ) ||
+             ( amSvcs->size() > 0 ) ||
              ( smSvcs->size() > 0 ) ||
              ( dmSvcs->size() > 0 ) )
             ? true

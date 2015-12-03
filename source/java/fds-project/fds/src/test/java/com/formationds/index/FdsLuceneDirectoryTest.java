@@ -20,6 +20,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.joda.time.DateTime;
+import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -29,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Ignore
 public class FdsLuceneDirectoryTest {
@@ -155,7 +155,7 @@ public class FdsLuceneDirectoryTest {
         XdiClientFactory xdiCf = new XdiClientFactory();
         config = new XdiConfigurationApi(xdiCf.remoteOmService(Fds.getFdsHost(), 9090));
         int serverPort = new ServerPortFinder().findPort("LuceneTest", 10000);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, Duration.standardSeconds(30));
         asyncAm.start();
     }
 }
