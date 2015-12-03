@@ -1608,20 +1608,6 @@ OM_NodeDomainMod::om_startup_domain()
         }
 #endif
 
-    // get SMs and DMs from cluster map
-    for (ClusterMap::const_sm_iterator sm_cit = cm->cbegin_sm();
-         sm_cit != cm->cend_sm();
-         ++sm_cit) {
-        sm_services.insert(sm_cit->first);
-        LOGDEBUG << "Found SM with UUID "
-                 << std::hex << (sm_cit->first).uuid_get_val() << std::dec;
-    }
-    for (ClusterMap::const_dm_iterator dm_cit = cm->cbegin_dm();
-         dm_cit != cm->cend_dm();
-         ++dm_cit) {
-        dm_services.insert(dm_cit->first);
-        LOGDEBUG << "Found DM with UUID "
-                 << std::hex << (dm_cit->first).uuid_get_val() << std::dec;
     }
 
     // check that committed DLT matches the SM services in cluster map
