@@ -373,7 +373,7 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
     LOGMIGRATE << "Taking snapshot for volume: " << volId;
 
     fiu_do_on("abort.dm.migration.processBlobFilter",\
-              LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration processBlobFilter.fault point enabled";\
               return ERR_NOT_READY;);
 
     trackerFunc = inTracker;
@@ -413,7 +413,7 @@ DmMigrationClient::processBlobFilterSet2()
 	Error err(ERR_OK);
 
     fiu_do_on("abort.dm.migration.processBlobFilter2",\
-              LOGDEBUG << "abort.dm.migration processBlobFilter2.fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration processBlobFilter2.fault point enabled";\
               return ERR_NOT_READY;);
 
 	/**
@@ -517,7 +517,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // fwdMsg->txId = commitBlobReq->ioBlobTxDesc->getValue();
     fwdMsg->txId = 0;
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
-    meta_list->copyToFdspPayload(fwdMsg->meta_list);
+    meta_list->toFdspPayload(fwdMsg->meta_list);
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
@@ -550,7 +550,7 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
-    	LOGERROR << "Forwarding failed. Aborting DM Migration.";
+    	LOGERROR << "Forwarding failed: " << error << ". Aborting DM Migration";
         dataMgr.dmMigrationMgr->asyncMsgFailed();
     }else{
         dataMgr.dmMigrationMgr->asyncMsgPassed();

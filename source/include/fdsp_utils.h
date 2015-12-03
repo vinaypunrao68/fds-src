@@ -19,6 +19,7 @@
 #include <boost/make_shared.hpp>
 #include <util/fiu_util.h>
 
+namespace fpi = FDS_ProtocolInterface;
 /**
  * Maps FDSPMsg type to FDSPMsgTypeId enum
  */
@@ -27,6 +28,13 @@
 #define MSG_DESERIALIZE(msgtype, error, payload) \
     fds::deserializeFdspMsg<fpi::msgtype>(const_cast<Error&>(error), payload)
 
+#define DECL_EXTERN_OUTPUT_FUNCS(MSGTYPE)                               \
+    namespace fds {                                                     \
+    extern boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE* msg); \
+    extern boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE& msg); \
+    extern boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const SHPTR<fpi::MSGTYPE>& msg); \
+    extern std::string logString(const fpi::MSGTYPE& msg);              \
+    }
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -39,7 +47,7 @@ namespace FDS_ProtocolInterface {
     class SvcUuid;
 }  // namespace FDS_ProtocolInterface
 
-namespace fpi = FDS_ProtocolInterface;
+DECL_EXTERN_OUTPUT_FUNCS(AsyncHdr);
 
 namespace fds {
 /* Forward declarations */
@@ -48,24 +56,13 @@ namespace tt  = apache::thrift::transport;
 namespace tp  = apache::thrift::protocol;
 class ResourceUUID;
 
-FDS_ProtocolInterface::FDS_ObjectIdType&
-assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const ObjectID& rhs);
+fpi::FDS_ObjectIdType& assign(fpi::FDS_ObjectIdType& lhs, const ObjectID& rhs);
+fpi::FDS_ObjectIdType& assign(fpi::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs);
+fpi::FDS_ObjectIdType strToObjectIdType(const std::string & rhs);
 
-FDS_ProtocolInterface::FDS_ObjectIdType&
-assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs);
-
-FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rhs);
-
-FDS_ProtocolInterface::SvcUuid&
-assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
-
-FDS_ProtocolInterface::FDSP_Uuid&
-assign(FDS_ProtocolInterface::FDSP_Uuid& lhs, const fpi::SvcID& rhs);
-
+fpi::SvcUuid& assign(fpi::SvcUuid& lhs, const ResourceUUID& rhs);
+fpi::FDSP_Uuid& assign(fpi::FDSP_Uuid& lhs, const fpi::SvcID& rhs);
 void swapAsyncHdr(boost::shared_ptr<fpi::AsyncHdr> &header);
-
-std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
-
 std::string quoteString(std::string const& text,
                         std::string const& delimiter = "\"",
                         std::string const& escape = "\\");
@@ -91,14 +88,20 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
          * builds.  We then rethrow the exception
          */
         GLOGDEBUG << "Excpetion in serializing: " << e.what();
-        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     }
     payloadBuf = bo::make_shared<std::string>();
@@ -140,14 +143,20 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
          */
         GLOGDEBUG << "Excpetion in deserializing: " << e.what();
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
-        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+/*
+ * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
+ * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
+ */
         throw;
     }
 }

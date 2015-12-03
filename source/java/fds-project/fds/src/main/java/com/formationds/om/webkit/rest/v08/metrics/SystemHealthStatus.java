@@ -320,8 +320,12 @@ public class SystemHealthStatus implements RequestHandler {
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();
 
-        // TODO:  Replace this with the correct call to get real capacity (FS-2774)
-        final Double systemCapacity = Size.of( 1, SizeUnit.TB ).getValue( SizeUnit.B ).doubleValue();
+        Double systemCapacity = 0D;
+        try {
+        	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
+        } catch (TException te) {
+        	throw new IllegalStateException("Failed to retrieve system capacity", te);
+        }
 
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal( metricsRepository

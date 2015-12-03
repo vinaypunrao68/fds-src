@@ -17,47 +17,50 @@
 
 namespace fds {
 
-struct AmVolumeTable;
 struct CommonModuleProviderIf;
-struct WaitQueue;
 
 class AmQoSCtrl :
     public FDS_QoSControl,
     public AmDataProvider
 {
-    using processor_cb_type = std::function<void(AmRequest*, Error const&)>;
-    processor_cb_type processor_cb;
-
     QoSHTBDispatcher *htb_dispatcher;
 
  public:
-    AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, CommonModuleProviderIf* provider, fds_log *log);
-    virtual ~AmQoSCtrl();
+    AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, CommonModuleProviderIf* provider, fds_log *log);
+    ~AmQoSCtrl() override;
 
-    Error updateQoS(long int const* rate, float const* throttle);
 
     Error processIO(FDS_IOType *io) override;
-    void init(processor_cb_type const& cb);
     fds_uint32_t waitForWorkers() { return 1; }
-    Error enqueueRequest(AmRequest *amReq);
-    bool shutdown();
 
     /**
      * These are the QoS specific DataProvider routines.
      * Everything else is pass-thru.
      */
+    bool done() override;
+    void start() override;
+    void stop() override;
     Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
     void registerVolume(VolumeDesc const& volDesc) override;
-    Error removeVolume(VolumeDesc const& volDesc) override;
+    void removeVolume(VolumeDesc const& volDesc) override;
+    Error updateQoS(int64_t const* rate, float const* throttle) override;
+    void setVolumeMetadata(AmRequest *amReq) override   { enqueueRequest(amReq); }
+    void volumeContents(AmRequest *amReq) override      { enqueueRequest(amReq); }
+    void startBlobTx(AmRequest *amReq) override         { enqueueRequest(amReq); }
+    void commitBlobTx(AmRequest *amReq) override        { enqueueRequest(amReq); }
+    void statBlob(AmRequest *amReq) override            { enqueueRequest(amReq); }
+    void setBlobMetadata(AmRequest *amReq) override     { enqueueRequest(amReq); }
+    void deleteBlob(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void renameBlob(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void getBlob(AmRequest *amReq) override             { enqueueRequest(amReq); }
+    void putBlob(AmRequest *amReq) override             { enqueueRequest(amReq); }
+    void putBlobOnce(AmRequest *amReq) override         { enqueueRequest(amReq); }
 
  protected:
 
     /**
-     * These are here cause AmProcessor is not a DataProvider yet.
+     * These are the response we are interested in
      */
-    void openVolumeCb(AmRequest * amReq, Error const error) override
-    { completeRequest(amReq, error); }
-
     void statVolumeCb(AmRequest * amReq, Error const error) override
     { completeRequest(amReq, error); }
 
@@ -107,15 +110,8 @@ class AmQoSCtrl :
     { completeRequest(amReq, error); }
 
  private:
-    /// Unique ptr to the volume table
-    AmVolumeTable* volTable;
-
-    std::unique_ptr<WaitQueue> wait_queue;
-
-    void detachVolume(AmRequest *amReq);
-    void execRequest(FDS_IOType* io);
+    void enqueueRequest(AmRequest *amReq);
     void completeRequest(AmRequest* amReq, Error const error);
-    Error markIODone(AmRequest *io);
 };
 
 }  // namespace fds

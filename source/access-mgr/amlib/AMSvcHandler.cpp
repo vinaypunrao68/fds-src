@@ -160,14 +160,6 @@ AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                 err = e.getError();
                 GLOGWARN << err;
             }
-        } else {
-            err = ERR_VOL_NOT_FOUND;
-        }
-
-        if (!err.ok()) {
-            /* complete all requests that are waiting on bucket to attach with error */
-            GLOGNOTIFY << "Unable to register volume: " << vdesc.name << ":" << err;
-            amProcessor->removeVolume(vdesc);
         }
     }
 
@@ -196,7 +188,7 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = amProcessor->removeVolume(vol_msg->vol_desc);
+        amProcessor->removeVolume(vol_msg->vol_desc);
     }
 
     hdr->msg_code = err.GetErrno();

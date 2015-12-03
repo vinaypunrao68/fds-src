@@ -83,6 +83,9 @@ namespace fds {
 
     }
 
+    unsigned getNextQueueCount() {
+        return queue_desc_map.size();
+    }
     fds_qid_t getNextQueueInPriorityWFQList(fds_qid_t queue_id) {
       if (queue_desc_map.empty()) {
 	return 0;

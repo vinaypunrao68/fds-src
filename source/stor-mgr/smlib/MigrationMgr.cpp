@@ -76,7 +76,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                              bool onePhaseMigration)
 {
     Error err(ERR_OK);
-    LOGMIGRATE << "Going to start SM token migration for DLT version "
+    LOGNOTIFY << "Starting SM migration for DLT version "
                << migrationMsg->DLT_version << "."
                << " It is a resync? " << (migrationType == SMMigrType::MIGR_SM_RESYNC);
 
@@ -670,9 +670,6 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         return ERR_NOT_FOUND;
     }
 
-    // we must only receive this message when are resyncing on restart
-    fds_verify(resyncOnRestart);
-
     {  // scope for client lock
         SCOPEDWRITE(clientLock);
         // ok if migration client does not exist
@@ -811,6 +808,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // if we already synced some DLT tokens, they will be set to unavail
             // when DLT commit comes for the previousle committed DLT (to which OM
             // will revert to).
+            return;
         }
     }
 
@@ -932,6 +930,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
         } else {
             // done with second round -- all done
             if (omStartMigrCb) {
+                LOGNOTIFY << "SM data migration completed. Notifying OM";
                 omStartMigrCb(ERR_OK);
                 omStartMigrCb = NULL;  // we replied, so reset
             }
@@ -939,7 +938,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 // done with executors.  First check if there is any pending migration
                 // requests before clearing executors.  At this point, there shouldn't
                 // be any.
-                LOGNORMAL << "SM Resync data migration completed. Cleaninup up clients and executors";
+                LOGNOTIFY << "SM Resync data migration completed. Cleaninup up clients and executors";
                 LOGMIGRATE << "ResyncOnRestart: done with executors; wait for clients to complete";
                 coalesceExecutorsNoLock();
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
@@ -1220,15 +1219,13 @@ MigrationMgr::notifyDltUpdate(const DLT *dlt,
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
         numBitsPerDltToken = bitsPerDltToken;
-        if (dltTokenStatesEmpty() &&
-            dlt->getVersion() == 1) {
-            // The case where SM starts up and there was no DLT before,
-            // so this SM is up and does not resync or migration
-            // Initialize DLT tokens that this SM owns to ready
-            resetDltTokensStates(bitsPerDltToken);
-            const TokenList& tokens = dlt->getTokens(mySvcUuid);
-            changeDltTokensAvailability(tokens, true);
-        }
+
+        // The case where SM starts up and there was no DLT before,
+        // so this SM is up and does not resync or migration
+        // Initialize DLT tokens that this SM owns to ready
+        resetDltTokensStates(bitsPerDltToken);
+        const TokenList& tokens = dlt->getTokens(mySvcUuid);
+        changeDltTokensAvailability(tokens, true);
     }
 }
 
@@ -1291,11 +1288,6 @@ MigrationMgr::resetDltTokensStates(fds_uint32_t& bitsPerDltToken) {
         fds_uint32_t numTokens = pow(2, bitsPerDltToken);
         dltTokenStates.clear();
         dltTokenStates.assign(numTokens, false);
-    } else {
-    // resync on restart should happen only once during on SM run between restarts
-    //fds_verify(!resyncOnRestart);
-    // if this is not a first migration msgs (= SM is gaining additional DLT tokens),
-    // nothing to do here, because these DLT tokens are alrady marked not ready
     }
 }
 

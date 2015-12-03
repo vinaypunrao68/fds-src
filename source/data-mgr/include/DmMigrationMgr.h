@@ -10,6 +10,7 @@
 #include <DmMigrationClient.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
+#include <counters.h>
 
 namespace fds {
 
@@ -23,6 +24,8 @@ class DmMigrationMgr : public DmMigrationBase {
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
     ~DmMigrationMgr();
+
+    void mod_shutdown();
 
     inline bool isMigrationEnabled() {
     	return enableMigrationFeature;
@@ -244,14 +247,14 @@ class DmMigrationMgr : public DmMigrationBase {
     std::atomic<bool> migrationAborted;
 
     /**
-     * If OM issues a re-sync or start migration and the migration is aborted,
-     * then the following is used to ensure that migration is fully aborted
+     * If OM issues a re-sync or start migration and there is ongoing migrations,
+     * then the following is used to ensure that migration is fully finished/aborted
      * before restarting a new one.
      */
-    fds_bool_t migrationAbortFinished;
-    std::mutex migrationAbortMutex;
-    std::condition_variable migrationAbortCV;
+    std::mutex migrationBatchMutex;
 
+    // This cv is used for both abort and success
+    std::condition_variable migrationCV;
 
     /**
      * Seconds to sleep prior to starting migration
@@ -392,10 +395,9 @@ class DmMigrationMgr : public DmMigrationBase {
 
     /**
      * Both DMs
-     * If migration is undergoing error, this method waits for that abort to finish
+     * If a migration batch is ongoing, this method waits for that batch to finish
      */
-    void waitForAbortToFinish();
-
+    void waitForMigrationBatchToFinish(MigrationRole role);
 
     /**
      * DMT watermark map - for rejecting messages from AM during resync that duplicate forwarded commits
@@ -406,6 +408,12 @@ class DmMigrationMgr : public DmMigrationBase {
      * the thread used to manage waiting for all piece of migration to complete before cleaning up when we abort
      */
     std::thread *abort_thread;
+
+    // Clear clientmap and other related stats
+    void clearClients();
+
+    // Clear executorMap and other related stats
+    void clearExecutors();
 
 };  // DmMigrationMgr
 }  // namespace fds

@@ -976,33 +976,6 @@ fds_bool_t VolumeInfo::isDeletePending() {
     return volume_fsm->is_flag_active<VolumeDelPending>();
 }
 
-void VolumeInfo::vol_populate_fdsp_descriptor(fpi::CtrlNotifyVolAdd &fdsp_voladd) {
-	VolumeDesc *desc = vol_get_properties();
-	fds_assert(desc);
-
-	// Counterpart found in VolumeDesc::VolumeDesc(fpi::FDSP_VolumeDescType)
-	fdsp_voladd.vol_desc.vol_name = desc->name;
-	fdsp_voladd.vol_desc.tennantId = desc->tennantId;
-	fdsp_voladd.vol_desc.localDomainId = desc->localDomainId;
-	fdsp_voladd.vol_desc.volUUID = desc->volUUID.v;
-	fdsp_voladd.vol_desc.volType = desc->volType;
-	fdsp_voladd.vol_desc.maxObjSizeInBytes = desc->maxObjSizeInBytes;
-	fdsp_voladd.vol_desc.capacity = desc->capacity;
-	fdsp_voladd.vol_desc.volPolicyId = desc->volPolicyId;
-	fdsp_voladd.vol_desc.placementPolicy = desc->placementPolicy;
-	fdsp_voladd.vol_desc.mediaPolicy = desc->mediaPolicy;
-	fdsp_voladd.vol_desc.iops_assured = desc->iops_assured;
-	fdsp_voladd.vol_desc.iops_throttle = desc->iops_throttle;
-	fdsp_voladd.vol_desc.rel_prio = desc->relativePrio;
-	fdsp_voladd.vol_desc.fSnapshot = desc->fSnapshot;
-	fdsp_voladd.vol_desc.state = desc->state;
-	fdsp_voladd.vol_desc.contCommitlogRetention = desc->contCommitlogRetention;
-	fdsp_voladd.vol_desc.srcVolumeId = desc->srcVolumeId.v;
-	fdsp_voladd.vol_desc.timelineTime = desc->timelineTime;
-	fdsp_voladd.vol_desc.createTime = desc->createTime;
-	fdsp_voladd.vol_desc.state = desc->state;
-}
-
 // --------------------------------------------------------------------------------------
 // Volume Container
 // --------------------------------------------------------------------------------------
@@ -1312,9 +1285,10 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 // om_get_volume_descriptor
 // --------------
 //
-void
+Error
 VolumeContainer::om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                          const std::string& vol_name)
+                                          const std::string& vol_name,
+                                          VolumeDesc& desc)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         vname = vol_name;
@@ -1336,17 +1310,10 @@ VolumeContainer::om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>
         } else {
             LOGNOTIFY << "invalid bucket " << vname;
         }
-        if (am != NULL) {
-            am->om_send_vol_cmd(NULL, &vname, fpi::CtrlNotifyVolAddTypeId);
-        }
-    } else {
-        // TODO(bszmyd): Thu 14 May 2015 06:49:26 AM MDT
-        // Should make this a response a la SvcLayer and not an RPC message
-        // Respond
-        if (am != NULL) {
-            am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
-        }
+        return ERR_VOL_NOT_FOUND;
     }
+    desc = *vol->vol_get_properties();
+    return ERR_OK;
 }
 
 void

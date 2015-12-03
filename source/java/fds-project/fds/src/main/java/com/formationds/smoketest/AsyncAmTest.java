@@ -10,10 +10,12 @@ import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
+import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -24,7 +26,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -101,6 +102,11 @@ public class AsyncAmTest extends BaseAmTest {
     }
 
     private class MyExportResolver implements ExportResolver {
+        @Override
+        public Collection<String> exportNames() {
+            return Lists.newArrayList(volumeName);
+        }
+
         @Override
         public int exportId(String volumeName) {
             return NFS_EXPORT_ID;
@@ -519,7 +525,7 @@ public class AsyncAmTest extends BaseAmTest {
     public static void setUpOnce() throws Exception {
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, Duration.standardSeconds(30));
         asyncAm.start();
     }
 

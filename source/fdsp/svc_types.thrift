@@ -312,6 +312,7 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
+  GetVolumeDescriptorRespTypeId             = 3002;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
@@ -394,6 +395,7 @@ enum  FDSPMsgTypeId {
   RenameBlobRespMsgTypeId;
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
+  StartRefScanMsgTypeId;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;

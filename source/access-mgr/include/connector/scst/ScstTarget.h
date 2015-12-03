@@ -27,6 +27,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "connector/scst/ScstCommon.h"
 #include "concurrency/LeaderFollower.h"
@@ -56,7 +57,10 @@ struct ScstTarget
 
     std::string targetName() const { return target_name; }
 
-    int32_t addDevice(std::string const& volume_name);
+    void addDevice(std::string const& volume_name);
+    void setInitiatorMasking(std::vector<std::string> const& ini_members);
+
+    void mapDevices();
 
  protected:
     void lead() override;
@@ -76,10 +80,12 @@ struct ScstTarget
     device_map_type device_map;
     lun_table_type lun_table;
 
-    std::condition_variable lunsMappedCv;
-    std::mutex lunMapLock;
-    std::deque<int32_t> lunsToMap;
-    void _mapReadyLUNs();
+    std::condition_variable deviceStartCv;
+    std::mutex deviceLock;
+    std::deque<int32_t> devicesToStart;
+
+    /// Initiator masking
+    std::vector<std::string> ini_members;
 
     // Async event to add/remove/modify luns
     unique<ev::async> asyncWatcher;
@@ -90,6 +96,10 @@ struct ScstTarget
     std::weak_ptr<AmProcessor> amProcessor;
 
     std::string const target_name;
+
+    void clearMasking();
+
+    void startNewDevices();
 
     void toggle_state(bool const enable);
 
