@@ -28,6 +28,15 @@
     tags:
         - post-install
 
+-   name: ensure fds/var/log directory exists
+    when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
+    file:
+        state=directory
+        path=/fds/var/log
+        owner=root
+        group=root
+        mode=0755
+
 -   name: create symlink for /fds/dev/logs
     when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
     file:
@@ -65,7 +74,8 @@
 
 # NEW Super Block Location, manual verification
 -   name: manual disk identification
-    pause: prompt="Please examine /fds/dev/disk-config.conf on each node in your cluster, verify correctness for your environment, then return here and press enter to continue the deployment process..."
+    pause: prompt="Please examine /fds/dev/disk-config.conf on each node in your cluster, verify correctness and update as necessary for this deployment............  When you have completed the inspection, please return here and press enter to finish the deployment"
+
     when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (auto_disk_id is not defined or auto_disk_id == "false")
     tags:
         - post-install
