@@ -513,9 +513,6 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 
 void
 NbdConnection::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
-
     // add to quueue
     if (response->isRead() || response->isWrite()) {
         readyResponses.push(response);

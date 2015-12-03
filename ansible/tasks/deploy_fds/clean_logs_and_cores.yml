@@ -1,0 +1,12 @@
+---
+-   name: clean_logs_and_cores
+    shell: rm -rf {{item}}
+    with_items:
+        - /fds/bin/*.core
+        - /fds/bin/core.*
+        - /fds/bin/core
+        - /fds/var/logs
+        - /corefiles/*
+        - /fds/var/core/*.core
+    tags:
+        - clean
