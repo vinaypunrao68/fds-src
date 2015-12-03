@@ -203,6 +203,7 @@ class FdsRootDir
     inline const std::string &dir_fds_var_tests() const { return d_var_tests; }
     inline const std::string &dir_fds_var_tools() const { return d_var_tools; }
     inline const std::string &dir_dev() const { return d_dev; }
+    inline const std::string &dir_filetransfer() const { return d_filetransfer; }
     inline const std::string &dir_user_repo() const { return d_user_repo; }
     inline const std::string &dir_user_repo_objs() const { return d_user_repo_objs; }
     inline const std::string &dir_user_repo_dm() const { return d_user_repo_dm; }
@@ -245,6 +246,7 @@ class FdsRootDir
     std::string              d_timeline_dm;
     std::string              d_sys_repo_stats;
     std::string              d_fds_repo;
+    std::string              d_filetransfer;
 };
 
 }  // namespace fds

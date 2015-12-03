@@ -201,8 +201,11 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             self.log.info("Detach volume %s on node %s." % (volName, am_node))
             cmd = ('detach %s' % (volName))
 
+            if check_localhost(ip):
+                cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+            else:
+                cinder_dir= os.path.join('/fds/sbin')
 
-            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
             status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s >> %s/nbdadm.out 2>&1 &) \"' %
                                                 (cinder_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
                                                 fds_tools=True)

@@ -24,7 +24,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     iops_throttle = 0;
     relativePrio = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
@@ -54,7 +54,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     contCommitlogRetention = vdesc.contCommitlogRetention;
     timelineTime = vdesc.timelineTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 }
 
@@ -80,7 +80,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 }
 
@@ -91,7 +91,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
         : name(_name),
           volUUID(_uuid) {
     if (_uuid == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -110,7 +110,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     contCommitlogRetention = 0;
     timelineTime = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 }
 
@@ -125,7 +125,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
           iops_throttle(_iops_throttle),
           relativePrio(_priority) {
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -251,7 +251,7 @@ fds_volid_t VolumeDesc::getLookupVolumeId() const {
 }
 
 bool VolumeDesc::isSystemVolume() const {
-    return 0 == name.compare(0,13,"SYSTEM_VOLUME",0,13);
+    return 0 == name.compare(0,7,"SYSTEM_",0,7);
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {

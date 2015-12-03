@@ -8,7 +8,7 @@ end
 dependency "zlib"
 
 # source url: "http://prdownloads.sourceforge.net/tcl/tcl#{version}-src.tar.gz"
-source url: "ftp://ftp.tcl.tk/pub/tcl/tcl8_6/tcl#{version}-src.tar.gz"
+source url: "https://s3-us-west-2.amazonaws.com/fds-tcl/tcl#{version}-src.tar.gz"
 
 relative_path "tcl#{version}"
 

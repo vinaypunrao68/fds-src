@@ -273,7 +273,6 @@ if __name__ == "__main__":
     if args.om:
         f.addPort("om")
         f.addPort("om.config.api")
-        f.addPort("om.ctrl.path")
         f.addPort("om.ui")
         if args.ssl:
             f.addPort("om.ui.ssl")

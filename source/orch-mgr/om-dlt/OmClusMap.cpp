@@ -261,6 +261,7 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
             fds_verify(curDmMap.count(svc_uuid) != 0);
             addedDMs.erase(svc_uuid);
             curDmMap.erase(svc_uuid);
+            resyncDMs.erase(svc_uuid);
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);

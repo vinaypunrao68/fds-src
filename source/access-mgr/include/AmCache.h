@@ -4,6 +4,8 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMCACHE_H_
 
+#include <string>
+
 #include "AmAsyncDataApi.h"
 #include "AmDataProvider.h"
 #include <blob/BlobTypes.h>
@@ -35,7 +37,7 @@ class AmCache :
     AmCache(AmDataProvider* prev, CommonModuleProviderIf* modProvider);
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
-    ~AmCache();
+    ~AmCache() override;
 
     /**
      * Updates the cache with the contents from a commited
@@ -48,9 +50,9 @@ class AmCache :
      * These are the Cache specific DataProvider routines.
      * Everything else is pass-thru.
      */
-    void start();
+    bool done() override;
     void registerVolume(const VolumeDesc& volDesc) override;
-    Error removeVolume(const VolumeDesc& volDesc) override;
+    void removeVolume(const VolumeDesc& volDesc) override;
     void statBlob(AmRequest * amReq) override;
     void getBlob(AmRequest * amReq) override;
 
