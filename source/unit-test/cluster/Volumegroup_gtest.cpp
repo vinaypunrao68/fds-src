@@ -157,7 +157,6 @@ TEST_F(ClusterFixture, DISABLED_test_quicksync)
         s.await();
     }
     sleep(5);
-
     GLOGNOTIFY << "Exiting from test";
 }
 
@@ -174,6 +173,8 @@ TEST_F(ClusterFixture, testquicksync_activeio)
     ProcessHandle<fds::DmProcess>   dm2("DmProcess", "/fds/node1", 2048, 9850);
     ProcessHandle<fds::DmProcess>   dm3("DmProcess", "/fds/node2", 4096, 10850);
 
+    // g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
     fds_volid_t v(10);
     fpi::VolumeGroupInfo volumeGroup;
     volumeGroup.groupId = v.get();
@@ -187,9 +188,9 @@ TEST_F(ClusterFixture, testquicksync_activeio)
     ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
     am.proc->attachVolume(volumeGroup);
     
-    int nPuts = 1000;
+    int nPuts = 10000;
     int stopCnt = 10;
-    int startCnt = 600;
+    int startCnt = 1000;
     for (int i = 0; i < nPuts; i++) {
         concurrency::TaskStatus s(3);
         am.proc->putBlob(v,
@@ -214,6 +215,13 @@ TEST_F(ClusterFixture, testquicksync_activeio)
     GLOGNOTIFY << "Received all responses";
 
     sleep(5);
+    dm1.stop();
+    dm3.stop();
+    am.stop();
+    om.stop();
+    dm2.stop();
+
+
 
     GLOGNOTIFY << "Exiting from test";
 }

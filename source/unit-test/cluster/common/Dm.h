@@ -28,6 +28,8 @@ struct dmQosCtrl : FDS_QoSControl {
     Error markIODone(FDS_IOType* io) override;
 
     DmProcess *parentDm;
+    int64_t                 issuedCntr {0};
+    int64_t                 completedCntr {0};
 };
 
 struct DmProcess : SvcProcess {

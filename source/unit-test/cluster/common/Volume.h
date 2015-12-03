@@ -29,6 +29,7 @@ namespace fds {
     QosVolumeIo<ReqT, FDSP_MSG_TYPEID(ReqT), RespT, FDSP_MSG_TYPEID(RespT)>
 
 struct EPSvcRequest;
+struct Volume;
 
 struct VolumeIoBase : public FDS_IOType {
     VolumeIoBase(const fpi::FDSPMsgTypeId &msgType,
@@ -194,6 +195,13 @@ struct Volume : HasModuleProvider {
 
     void init();
     void initBehaviors();
+
+    inline void handle(VolumeIoBase *volIo) {
+        /* Make volIo shared_ptr from this point */
+        auto volIoPtr = SHPTR<VolumeIoBase>(volIo);
+        /* Handle */
+        getCurrentBehavior()->handle(volIo->msgType, volIoPtr);
+    }
 
     /* For testing */
     void forceQuickSync(const fpi::SvcUuid &coordinator);

@@ -234,7 +234,7 @@ void Volume::init()
     // TODO(Rao): Set right qos params
     // TODO(Rao): This shouldn't be here
 #define FdsDmSysTaskPrio    5
-    volQueue_.reset(new FDS_VolumeQueue(10024, 10000, 20, FdsDmSysTaskPrio));
+    volQueue_.reset(new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio));
     volQueue_->activate();
     auto err = qosCtrl_->registerVolume(volId_, volQueue_.get());
     fds_verify(err == ERR_OK);
@@ -419,6 +419,25 @@ void Volume::forceQuickSync(const fpi::SvcUuid &coordinator) {
 
 void Volume::startSyncCheck_()
 {
+    /**
+     * Quicks sync protocol description
+     * 1. Send a message to coordinator requsting to be added to io group
+     * 2. Cooridantor adds the volume to io group, from this point volume will receive any
+     *    active io
+     * 3. Turn on buffer io flag so that active io is buffered in memory.  This should be ok because
+     *    we only need to buffer a short while.
+     * 4. Send request to peer volume to fetch all active transactions
+     * 5. Turn off io buffering.  Apply buffered io on top of received transactions.
+     *    From this point any active io can directly be applied against active transactions.
+     *    We also know up what commit # we need to sync.  After this point any active commit
+     *    requests will be logged to different commit log until our commit log is hole free.
+     * 6. Send a request to the peer volume requesting for missing commit range in our commit log
+     *    history.
+     * 7. Apply the received commits followed by buffered commits from active io.  At this point
+     *    commit log history is hole free.
+     * 8. Notify coordinator we are functional again.
+     */
+
     /* Do a version change */
     version_++;
     std::string versionStr = util::strformat("%d", version_);
@@ -533,12 +552,18 @@ void Volume::applyBufferedIo_()
     /* Unset bufferIo, so that buffered io can be applied and not buffered again */
     quicksyncCtx_->bufferIo = false;
 
+    /* Typically startingBufferOpId should be less than that of appliedOpId.  If it's a greater
+     * we will need to go through quinck sync process again.  For now assert
+     */
+    fds_assert(quicksyncCtx_->startingBufferOpId <= opInfo_.appliedOpId);
+
     /* Prune out buffered io whose opid is < than our current opid */
     if (quicksyncCtx_->startingBufferOpId <= opInfo_.appliedOpId) {
         int32_t diff = (opInfo_.appliedOpId - quicksyncCtx_->startingBufferOpId) + 1;
         quicksyncCtx_->bufferedIo.erase(quicksyncCtx_->bufferedIo.begin(),
                                         std::next(quicksyncCtx_->bufferedIo.begin(), diff));
     }
+    /* NOTE: At this point io->cb isn't set.  Cb has already been called when we buffered */
     for (auto &io : quicksyncCtx_->bufferedIo) {
         getCurrentBehavior()->handle(io->msgType, io);
         // TODO(Rao): Handle errors here

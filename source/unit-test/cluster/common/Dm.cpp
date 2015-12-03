@@ -41,10 +41,12 @@ dmQosCtrl::dmQosCtrl(DmProcess *parent,
 }
 
 Error dmQosCtrl::processIO(FDS_IOType* io) {
+    issuedCntr++;
     return parentDm->processIO(io);
 }
 
 Error dmQosCtrl::markIODone(FDS_IOType* io) {
+    completedCntr++;
     return dispatcher->markIODone(io);
 }
 
@@ -85,10 +87,7 @@ Error DmProcess::processIO(FDS_IOType* io) {
     fds_verify(itr != volumeTbl.end());
     auto &volume = itr->second;
     qosCtrl->threadPool->scheduleWithAffinity(volId.get(), [volume, volIo]() {
-        /* Make volIo shared_ptr from this point */
-        auto volIoPtr = SHPTR<VolumeIoBase>(volIo);
-        /* Handle */
-        volume->getCurrentBehavior()->handle(volIo->msgType, volIoPtr);
+        volume->handle(volIo);
     });
 #if 0
     switch (volIo->msgType){
