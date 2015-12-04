@@ -38,7 +38,7 @@ import static org.junit.Assert.*;
 
 //@Ignore
 public class AsyncAmTest extends BaseAmTest {
-    private static final boolean USE_SVC_IMPL = true;
+    private static final boolean USE_SVC_IMPL = false;
     public static final int NFS_EXPORT_ID = 42;
     private static SvcState svc;
     private Counters counters;
@@ -531,16 +531,16 @@ public class AsyncAmTest extends BaseAmTest {
     public static void setUpOnce() throws Exception {
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, Duration.standardSeconds(30));
-        asyncAm.start();
 
         if(USE_SVC_IMPL) {
             HostAndPort self = HostAndPort.fromParts(Fds.getFdsHost(), 10293);
             HostAndPort om = HostAndPort.fromParts(Fds.getFdsHost(), 7004);
             svc = new SvcState(self, om, 18923L);
             svc.openAndRegister();
-
-            asyncAm = new SvcAsyncAm(asyncAm, svc);
+            asyncAm = new SvcAsyncAm(svc);
+        } else {
+            asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, Duration.standardSeconds(30));
+            asyncAm.start();
         }
 
     }

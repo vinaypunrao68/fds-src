@@ -3,6 +3,7 @@ package com.formationds.sc;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.*;
 import com.formationds.protocol.svc.types.*;
+import com.formationds.sc.api.FdsChannels;
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.TException;
 
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
+    private final VolumeStateSequencer volumeStateSequencer;
     private int incarnationNo = 0;
     private HostAndPort listenerAddress;
 
@@ -26,6 +28,7 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     private Object volumeMapLock = new Object();
     private long defaultChannelTimeout;
     private TimeUnit defaultChannelTimeoutUnit;
+    private AtomicLong txIds;
 
     public AwaitableResponseHandler getHandler() {
         return handler;
@@ -60,6 +63,9 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
 
         defaultChannelTimeout = 30;
         defaultChannelTimeoutUnit = TimeUnit.SECONDS;
+
+        volumeStateSequencer = new VolumeStateSequencer(new FdsChannels(this));
+        txIds = new AtomicLong(1L);
     }
 
     private SvcInfo getSvcInfo() {
@@ -180,6 +186,14 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
             descriptorMap.put(vd.getVol_desc().getVol_name(), vd.getVol_desc());
 
         return descriptorMap;
+    }
+
+    public VolumeStateSequencer getVolumeStateSequencer() {
+        return volumeStateSequencer;
+    }
+
+    public long allocateNewTxId() {
+        return txIds.getAndIncrement();
     }
 
     @Override

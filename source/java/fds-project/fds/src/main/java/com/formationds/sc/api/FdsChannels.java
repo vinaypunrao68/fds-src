@@ -96,6 +96,6 @@ public class FdsChannels {
 
     private Supplier<CompletableFuture<Boolean>> defaultTimeout() {
         CompletableFuture<Void> timeout = clock.delay(30, TimeUnit.SECONDS);
-        return () -> CompletableFuture.completedFuture(!timeout.isDone());
+        return () -> clock.delay(5, TimeUnit.SECONDS).thenApply(_null -> !timeout.isDone());
     }
 }

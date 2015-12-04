@@ -1,6 +1,7 @@
 package com.formationds.sc;
 
 import com.formationds.protocol.dm.*;
+import com.formationds.protocol.svc.EmptyMsg;
 import com.formationds.protocol.svc.types.FDSPMsgTypeId;
 
 import java.util.Map;
@@ -84,8 +85,13 @@ public class DmChannel {
     }
 
     public CompletableFuture<UpdateCatalogOnceRspMsg> updateCatalogOnce(UpdateCatalogOnceMsg msg) {
-        return channel.call(FDSPMsgTypeId.UpdateCatalogOnceMsgTypeId,  msg, dmtVersion)
+        return channel.call(FDSPMsgTypeId.UpdateCatalogOnceMsgTypeId, msg, dmtVersion)
                 .deserializeInto(FDSPMsgTypeId.UpdateCatalogOnceRspMsgTypeId, new UpdateCatalogOnceRspMsg());
+    }
+
+    public CompletableFuture<SetBlobMetaDataRspMsg> setBlobMetaData(SetBlobMetaDataMsg msg) {
+        return channel.call(FDSPMsgTypeId.SetBlobMetaDataMsgTypeId, msg, dmtVersion)
+                .deserializeInto(FDSPMsgTypeId.SetBlobMetaDataRspMsgTypeId, new SetBlobMetaDataRspMsg());
     }
 
     public CompletableFuture<StartBlobTxRspMsg> startBlobTx(StartBlobTxMsg msg) {
@@ -108,8 +114,17 @@ public class DmChannel {
                 .deserializeInto(FDSPMsgTypeId.RenameBlobRespMsgTypeId, new RenameBlobRespMsg());
     }
 
-    public CompletableFuture<DeleteBlobRspMsg> deleteBlob(DeleteBlobMsg msg) {
+//    public CompletableFuture<DeleteBlobRspMsg> deleteBlob(DeleteBlobMsg msg) {
+//        return channel.call(FDSPMsgTypeId.DeleteBlobMsgTypeId, msg, dmtVersion)
+//                .deserializeInto(FDSPMsgTypeId.DeleteBlobRspMsgTypeId, new DeleteBlobRspMsg());
+//    }
+
+    public CompletableFuture<EmptyMsg> deleteBlob(DeleteBlobMsg msg) {
         return channel.call(FDSPMsgTypeId.DeleteBlobMsgTypeId, msg, dmtVersion)
-                .deserializeInto(FDSPMsgTypeId.DeleteBlobRspMsgTypeId, new DeleteBlobRspMsg());
+                .deserializeInto(FDSPMsgTypeId.EmptyMsgTypeId, new EmptyMsg());
+    }
+
+    public long getDmtVersion() {
+        return dmtVersion;
     }
 }
