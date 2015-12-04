@@ -357,6 +357,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                std::vector<fpi::MessageArgs> messageArgs,
                                const std::string& messageFormat);
 
+     void sendObjectStoreCtrlMsg(fpi::ObjectStoreState type);
+     void sendReadOnlyModeCmd();
+     void sendReadWriteModeCmd();
+
 
      static Error registerVolume(fds::fds_volid_t volume_id,
                                  fds::VolumeDesc *vdb,

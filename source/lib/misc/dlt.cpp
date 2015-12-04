@@ -1030,4 +1030,15 @@ void DLTManager::dump() const {
     }
 }
 
+/**
+ * Returns a vector of all NodeUuids for all nodes in this DLT.
+ */
+std::vector<NodeUuid> DLT::getAllNodes() const {
+    std::vector<NodeUuid> result {};
+
+    for (auto node = mapNodeTokens->begin(); node != mapNodeTokens->end(); node++) {
+        result.push_back(node->first);
+    }
+    return result;
+}
 }  // namespace fds

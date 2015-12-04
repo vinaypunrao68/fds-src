@@ -340,6 +340,11 @@ void ObjectStorMgr::mod_enable_service()
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
+    // If the object store is in the READ ONLY state we need to send the read only command to other SMs
+    if (objectStore->isReadOnly()) {
+        sendReadOnlyModeCmd();
+    }
+
     Module::mod_enable_service();
 }
 
@@ -548,10 +553,10 @@ void ObjectStorMgr::checkDiskCapacities() {
 
         objectStore->setReadOnly();
         sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-        // TODO(brian): Send thrift message letting other SMs know that we're in READ ONLY mode
-        // TODO(brian): sendReadOnlyModeMsg();
-
+        // Send the read only mode command to the other SMs
+        sendReadOnlyModeCmd();
         lastCapacityMessageSentAt = pct_used;
+
     } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
         lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
         LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
@@ -585,11 +590,46 @@ void ObjectStorMgr::checkDiskCapacities() {
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                    "SM utilization no longer at dangerous levels.");
         } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+            sendReadWriteModeCmd();
             lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
                                    "SM is reaching dangerous capacity levels!");
         }
     }
+}
+
+/**
+ * Sends an object store control message
+ */
+void ObjectStorMgr::sendObjectStoreCtrlMsg(fpi::ObjectStoreState type) {
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::ObjectStoreCtrlMsgPtr msg(new fpi::ObjectStoreCtrlMsg());
+    msg->state = type;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each SM in the DLT we send the read-only message. Right now this has to be a domain wide thing. Perhaps
+    // in the future we can make it volume specific?
+    const DLT *curDlt = getDLT();
+    for (auto node: curDlt->getAllNodes()) {
+        auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
+        request->setPayload(FDSP_MSG_TYPEID(fpi::ObjectStoreCtrlMsg), msg);
+        request->invoke();
+    }
+}
+
+/**
+ * Send the read only message to other SMs to put them in read only mode as well.
+ */
+void ObjectStorMgr::sendReadOnlyModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_READ_ONLY);
+}
+/**
+ * Send the command to re-enable writes if we were previously in read only mode
+ */
+void ObjectStorMgr::sendReadWriteModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_NORMAL);
 }
 
 /**
@@ -1536,6 +1576,4 @@ ObjectStorMgr::getAllVolumeDescriptors()
 
 	return err;
 }
-
-
 }  // namespace fds

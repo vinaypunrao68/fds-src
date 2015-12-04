@@ -69,6 +69,9 @@ namespace fds {
         // Deep copy . Safe modifiable copy.
         DLT* clone() const;
 
+        /** get all the nodes in this DLT */
+        std::vector<NodeUuid> getAllNodes() const;
+
         /** get all the Nodes for a token/objid */
         DltTokenGroupPtr getNodes(fds_token_id token) const;
         DltTokenGroupPtr getNodes(const ObjectID& objId) const;

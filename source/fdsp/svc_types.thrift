@@ -331,6 +331,7 @@ enum  FDSPMsgTypeId {
   PrepareForShutdownMsgTypeId               = 10008;
   ActiveObjectsMsgTypeId;
   ActiveObjectsRspMsgTypeId;
+  ObjectStoreCtrlMsgTypeId;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;

@@ -15,8 +15,8 @@ namespace java com.formationds.protocol.sm
     Object Store Control
 ----------------------------------------------------*/
 
-struct FDSP_ObjectStoreCtrl {
-  1: sm_types.FDSP_ObjectStoreState state;
+struct ObjectStoreCtrlMsg {
+  1: sm_types.ObjectStoreState state;
 }
 
 /*------------------------------------------------------------

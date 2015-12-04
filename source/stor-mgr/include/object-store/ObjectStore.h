@@ -367,6 +367,11 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     void setReadOnly();
 
+    /**
+     * Sets this ObjectStore to the AVAILABLE state (if we were READ ONLY and the capacity issues have been fixed)
+     */
+    void setAvailable();
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

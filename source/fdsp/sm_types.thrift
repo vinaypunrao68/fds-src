@@ -74,7 +74,7 @@ enum SMCheckStatusType {
 /**
  * Object store states
  */
-enum FDSP_ObjectStoreState {
+enum ObjectStoreState {
   OBJECTSTORE_NORMAL;
   OBJECTSTORE_READ_ONLY;
   OBJECTSTORE_UNAVAILABLE;

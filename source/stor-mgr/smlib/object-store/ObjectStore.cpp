@@ -95,6 +95,11 @@ void ObjectStore::setReadOnly() {
     currentState = OBJECT_STORE_READ_ONLY;
 }
 
+void ObjectStore::setAvailable() {
+    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_READY. This should allow reads and writes again.";
+    currentState = OBJECT_STORE_READY;
+}
+
 float_t ObjectStore::getUsedCapacityAsPct() {
 
     // Error injection points
@@ -413,6 +418,9 @@ ObjectStore::checkAvailability() const {
     } else if (curState == OBJECT_STORE_INIT) {
         LOGERROR << "Object Store is coming up, but not ready to accept IO";
         return ERR_NOT_READY;
+    } else if (curState == OBJECT_STORE_READ_ONLY) {
+        LOGERROR << "Object store is in read only mode.";
+        return ERR_SM_READ_ONLY;
     }
     return ERR_OK;
 }
@@ -1780,19 +1788,20 @@ ObjectStore::mod_init(SysParams const *const p) {
         }
         LOGDEBUG << "First phase of object store init done";
 
-        // if object store comes up in pristine state, then we are done
-        // initializing it -- set state to ready
-        if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+        // If we're above the error threshold we need to go into read only mode instead.
+        if (getUsedCapacityAsPct() >= DISK_CAPACITY_ERROR_THRESHOLD) {
+            currentState = OBJECT_STORE_READ_ONLY;
+
+        } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+            // If we hit this then the object store came up in pristine state and we're done initializing
+            // set the ready state
             currentState = OBJECT_STORE_READY;
         }
+
     } else {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
     }
-
-    // TODO(brian): Check disk capacity, if above threshold set READ ONLY
-    getUsedCapacityAsPct()
-
 
     return 0;
 }
@@ -1812,5 +1821,4 @@ void
 ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
 }
-
 }  // namespace fds
