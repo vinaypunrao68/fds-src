@@ -59,6 +59,7 @@ fds_plat_lib_cpp :=                              \
 
 user_cpp := $(platfrom_cpp) $(fds_plat_lib_cpp)
 user_ar_libs := fds-pm-lib fds-plat-lib fds-disk-lib
+user_so_libs := fds-pm-lib fds-disk-lib
 fds-pm-lib   := $(platform_cpp)
 fds-plat-lib := $(fds_plat_lib_cpp)
 fds-disk-lib := $(disk_cpp)

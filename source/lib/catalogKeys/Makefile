@@ -13,7 +13,9 @@ user_cpp := BlobMetadataKey.cpp \
 
 user_incl_dir := ../../include/catalogKeys .. $(topdir)
 
-user_so_libs := fds-lib
+user_ar_libs := fds-lib
+user_so_libs := fds-catalogKeys
 fds-lib := $(user_cpp)
+fds-catalogKeys := $(user_cpp)
 
 include $(topdir)/Makefile.incl

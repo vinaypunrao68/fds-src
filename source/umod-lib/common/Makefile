@@ -24,6 +24,7 @@ user_no_style    := \
     PerfTrace.cpp
 
 user_ar_libs     := fds-umod
+user_so_libs     := fds-umod
 fds-umod         := $(user_cpp)
 
 include $(topdir)/Makefile.incl
