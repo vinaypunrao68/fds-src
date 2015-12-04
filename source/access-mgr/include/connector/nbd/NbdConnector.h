@@ -14,6 +14,7 @@
 namespace fds {
 
 struct AmProcessor;
+struct NbdConnection;
 
 struct NbdConnector
     : public LeaderFollower
@@ -24,8 +25,10 @@ struct NbdConnector
     static void stop();
     static void volumeAdded(VolumeDesc const& volDesc) {}
     static void volumeRemoved(VolumeDesc const& volDesc) {}
- protected:
 
+    void deviceDone(int const socket);
+
+ protected:
     void lead() override;
 
  private:
@@ -33,6 +36,15 @@ struct NbdConnector
     int32_t nbdSocket {-1};
     bool cfg_no_delay {true};
     uint32_t cfg_keep_alive {0};
+
+    template<typename T>
+    using unique = std::unique_ptr<T>;
+    using connection_ptr = unique<NbdConnection>;
+
+    using map_type = std::map<int, connection_ptr>;
+
+    std::mutex connection_lock;
+    map_type connection_map;
 
     std::shared_ptr<ev::dynamic_loop> evLoop;
     std::unique_ptr<ev::io> evIoWatcher;

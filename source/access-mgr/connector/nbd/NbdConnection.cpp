@@ -123,7 +123,7 @@ NbdConnection::~NbdConnection() {
 
 void
 NbdConnection::terminate() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
 }
 
@@ -427,6 +427,7 @@ NbdConnection::wakeupCb(ev::async &watcher, int revents) {
             asyncWatcher->stop();
             ioWatcher->stop();
             nbdOps.reset();
+            nbd_server->deviceDone(clientSocket);
             return;
         }
     }
