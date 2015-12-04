@@ -8,8 +8,6 @@
 #include <memory>
 #include <string>
 
-#include "fds_module.h"
-#include "fds_module_provider.h"
 #include "fds_volume.h"
 
 namespace fds {
@@ -19,12 +17,14 @@ namespace fds {
  */
 struct AmProcessor_impl;
 struct AmRequest;
+struct AccessMgr;
+struct CommonModuleProviderIf;
 
 class AmProcessor : public std::enable_shared_from_this<AmProcessor>
 {
     using shutdown_cb_type = std::function<void(void)>;
   public:
-    AmProcessor(Module* parent, CommonModuleProviderIf *modProvider);
+    AmProcessor(AccessMgr* parent, CommonModuleProviderIf *modProvider);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
@@ -49,12 +49,14 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     void enqueueRequest(AmRequest* amReq);
 
+    void getVolumes(std::vector<VolumeDesc>& volumes);
+
     bool isShuttingDown() const;
 
     /**
      * Update volume description
      */
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
+    Error modifyVolumePolicy(const VolumeDesc& vdesc);
 
 
     /**

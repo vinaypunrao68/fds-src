@@ -116,7 +116,7 @@ class BlockOperations
     uint32_t maxObjectSizeInBytes;
 
     // interface to respond to block passed down in constructor
-    std::unique_ptr<ResponseIFace> blockResp;
+    ResponseIFace* blockResp;
     bool shutting_down {false};
 
     // for all reads/writes to AM

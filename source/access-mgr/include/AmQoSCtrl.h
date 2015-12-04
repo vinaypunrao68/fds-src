@@ -40,7 +40,7 @@ class AmQoSCtrl :
     bool done() override;
     void start() override;
     void stop() override;
-    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     Error updateQoS(int64_t const* rate, float const* throttle) override;
