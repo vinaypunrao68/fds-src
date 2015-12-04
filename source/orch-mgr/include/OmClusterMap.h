@@ -199,7 +199,7 @@ class ClusterMap : public Module {
      * Ongoing DM Migration set so we GRD_ReRegister will know if
      * it should fire.
      */
-    std::list<NodeUuid> ongoingMigrationDMs;
+    std::set<NodeUuid> ongoingMigrationDMs;
 
 
 

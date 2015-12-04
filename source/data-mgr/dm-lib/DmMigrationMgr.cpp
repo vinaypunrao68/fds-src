@@ -106,13 +106,8 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
             << " name=" << vol.vol_name;
 
 
-        bool notYetStarted = false;
-        if (!std::atomic_compare_exchange_strong(&timerStarted, &notYetStarted, true)) {
-            // First executor. start timer
-            migrationTimer.reset();
-            dataManager.counters->timeSpentForCurrentMigration.set(0);
-            migrationTimer.start();
-        }
+        startMigrationStopWatch();
+
         executorMap.emplace(uniqueId,
                             DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
                                                                                     srcDmUuid,
@@ -397,8 +392,10 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
      * The real fix is to break the incoming msg into chunks, service them,
      * and then return.
      */
-    std::thread *ptr = new std::thread([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
-    ptr->detach();
+    std::thread t1([this, destDmUuid, mySvcUuid, migReqMsg, cleanupCb] () mutable {
+        this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    });
+    t1.detach();
     // std::thread t1([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
     // This is bad but there's no control for now. Once we have a better abort, we
     // will revisit this
@@ -432,6 +429,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         err = ERR_DUPLICATE;
         abortMigration();
     } else {
+        startMigrationStopWatch();
         /**
          * Create a new instance of client and start it.
          */
@@ -896,6 +894,9 @@ void
 DmMigrationMgr::clearClients() {
     clientMap.clear();
 	dataManager.counters->numberOfActiveMigrClients.set(0);
+
+	stopMigrationStopWatch();
+	dumpStats();
 }
 
 void
@@ -903,15 +904,7 @@ DmMigrationMgr::clearExecutors() {
 	executorMap.clear();
 	dataManager.counters->numberOfActiveMigrExecutors.set(0);
 
-	bool expected = true;
-
-	if (std::atomic_compare_exchange_strong(&timerStarted, &expected, false)) {
-	    // Time in seconds
-	    dataManager.counters->timeSpentForCurrentMigration.set(migrationTimer.getElapsedNanos()/(1000.0*100*100));
-	    dataManager.counters->timeSpentForAllMigrations.incr(dataManager.counters->timeSpentForCurrentMigration.value());
-	    migrationTimer.reset();
-	}
-
+	stopMigrationStopWatch();
 	dumpStats();
 }
 
@@ -953,5 +946,30 @@ DmMigrationMgr::migrationIdleTimeoutCheck()
     if (abort) {
         abortMigration();
     }
+}
+
+void
+DmMigrationMgr::startMigrationStopWatch()
+{
+    bool notYetStarted = false;
+    if (!std::atomic_compare_exchange_strong(&timerStarted, &notYetStarted, true)) {
+        // First guy. start timer
+        migrationStopWatch.reset();
+        dataManager.counters->timeSpentForCurrentMigration.set(0);
+        migrationStopWatch.start();
+    }
+}
+
+void
+DmMigrationMgr::stopMigrationStopWatch()
+{
+	bool expected = true;
+
+ 	if (std::atomic_compare_exchange_strong(&timerStarted, &expected, false)) {
+	    // Time in seconds
+	    dataManager.counters->timeSpentForCurrentMigration.set(migrationStopWatch.getElapsedNanos()/(1000.0*100*100*100));
+	    dataManager.counters->timeSpentForAllMigrations.incr(dataManager.counters->timeSpentForCurrentMigration.value());
+	    migrationStopWatch.reset();
+	}
 }
 }  // namespace fds

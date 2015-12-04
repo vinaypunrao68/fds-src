@@ -230,6 +230,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             /**
              * send the blob desc to thd destination dm.
              */
+            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobDescMsg));
             err = sendDeltaBlobDescs(deltaBlobDescMsg);
             fds_verify(ERR_OK == err);
             /**
@@ -246,6 +247,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             /**
              * send the blob desc to thd destination dm.
              */
+            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobsMsg));
             err = sendDeltaBlobs(deltaBlobsMsg);
             fds_verify(ERR_OK == err);
             /**

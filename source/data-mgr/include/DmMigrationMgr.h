@@ -438,11 +438,13 @@ class DmMigrationMgr : public DmMigrationBase {
     // Clear executorMap and other related stats
     void clearExecutors();
 
+    void startMigrationStopWatch();
+    void stopMigrationStopWatch();
     /**
      * Used for keeping time stats
      */
     std::atomic<bool> timerStarted;
-    util::StopWatch migrationTimer;
+    util::StopWatch migrationStopWatch;
 
 };  // DmMigrationMgr
 }  // namespace fds

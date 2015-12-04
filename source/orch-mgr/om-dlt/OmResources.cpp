@@ -2641,7 +2641,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Check if this is a re-registration of an existing DM executor
             LOGDEBUG << "Firing reregister event for DM node " << uuid;
-            dmtMod->dmt_deploy_event(DmtRegChkEvt(uuid));
+            dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
 
             // Send the DMT to DMs.
             om_dmt_update_cluster(fPrevRegistered);

@@ -31,6 +31,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       msgHandler(_dataMgr),
       migrationProgress(INIT),
       txStateIsMigrated(true),
+      lastUpdateFromClientTsSec_(util::getTimeStampSeconds()),
       deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
       deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
@@ -179,7 +180,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                << " lastmsgseqid=" << msg->last_msg_seq_id
                << " numofblobdesc=" << msg->blob_desc_list.size();
 
-    dataMgr.counters->totalSizeOfDataMigrated.incr(sizeof(msg->blob_desc_list));
+    dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
     lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
     /**
      * Check if all blob offset is applied.  if applyBlobDescList is still
@@ -253,15 +254,16 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         /**
          * For each blob in the blob_obj_list, apply blob offset.
          */
+
+    	// keep stats
+        dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
+
         for (auto & blobObj : msg->blob_obj_list) {
             /**
              * TODO(Sean):
              * This can potentially be big, so might have move off stack and allocate.
              */
             BlobObjList blobList(blobObj.blob_diff_list);
-
-            // Log the size of this blob offset list
-            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeof(blobList));
 
             LOGMIGRATE << "put object on volume="
                          << std::hex << volumeUuid << std::dec

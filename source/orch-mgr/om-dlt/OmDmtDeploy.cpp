@@ -378,7 +378,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Done    , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_AllOk   ,DmtErrorFoundEvt, DST_Error   , DACT_Error    , msf::none    >,
-    msf::Row< DST_AllOk   , DmtRegChkEvt   , DST_Error   , DACT_Error    , GRD_ReRegister>,
+    msf::Row< DST_AllOk   , DmtUpEvt   , DST_Error   , DACT_Error    , GRD_ReRegister>,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Error   , DmtEndErrorEvt , DST_AllOk   , DACT_EndError , msf::none    >,
     msf::Row< DST_Error   , DmtRecoveryEvt , DST_Error   , DACT_ChkEndErr, msf::none    >
@@ -444,7 +444,7 @@ OM_DMTMod::dmt_deploy_event(DmtDeployEvt const &evt)
 }
 
 void
-OM_DMTMod::dmt_deploy_event(DmtRegChkEvt const &evt)
+OM_DMTMod::dmt_deploy_event(DmtUpEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dmt_dply_fsm->process_event(evt);
@@ -657,14 +657,13 @@ DmtDplyFSM::GRD_ReRegister::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     VolumePlacement* vp = om->om_volplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
-    if (std::find(cm->ongoingMigrationDMs.begin(),
-                  cm->ongoingMigrationDMs.end(),
-                  nodeChk) != cm->ongoingMigrationDMs.end()) {
+    if (cm->ongoingMigrationDMs.find(nodeChk) != cm->ongoingMigrationDMs.end()) {
         /**
          * The nodeChk UUID is found in a list of ongoing migrations
          * so it means that the node (executor) has crashed and reregistered.
          * We will fire the DACT_Error in this case
          */
+        LOGNOTIFY << "Node " << nodeChk << " found to be already in syncing";
         bret = true;
     }
 
@@ -778,7 +777,8 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     // Store a list of ongoing migrations so we can check if it's
     // a duplicate.
     for (auto cit : dst.pull_meta_dms) {
-        cm->ongoingMigrationDMs.push_back(cit);
+        auto pair = cm->ongoingMigrationDMs.insert(cit);
+        fds_assert(pair.second); // we shouldn't have existing node in the set
     }
 
     if ( !err.ok() )
@@ -1161,8 +1161,12 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     LOGNOTIFY << "DACT_EndError";
     // End of error handling for FSM. Not balancing volume anymore so turn it off.
     OM_Module* om = OM_Module::om_singleton();
+
     VolumePlacement* vp = om->om_volplace_mod();
     vp->notifyEndOfRebalancing();
+
+    ClusterMap* cm = om->om_clusmap_mod();
+    cm->ongoingMigrationDMs.clear();
 }
 
 // DACT_ChkEndErr
