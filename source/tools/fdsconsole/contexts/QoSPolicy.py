@@ -12,7 +12,7 @@ class QoSPolicyContext(Context):
         return self.__restApi
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('policy_name', help="Name of the new QoS Policy. Must be unique within the Global Domain.")
     @arg('iops_min', help="Minimum IOPS guarantee.")
     @arg('iops_max', help="Maximum IOPS guarantee.")
@@ -29,7 +29,7 @@ class QoSPolicyContext(Context):
             return 'Unable to create QoS Policy: {}'.format(policy_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     def list(self):
         """
         List currently defined QoS Policies.
@@ -42,7 +42,7 @@ class QoSPolicyContext(Context):
             return 'Unable to list QoS Policies.'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('current_policy_name', help="Current name of the QoS Policy.")
     @arg('new_policy_name', help="New name for the QoS Policy. Same as current name if name is not changing.")
     @arg('iops_min', help="New minimum IOPS guarantee.")
@@ -59,7 +59,7 @@ class QoSPolicyContext(Context):
             return 'Unable to change the QoS Policy {}'.format(current_policy_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('policy_name', help="Name of the QoS Policy to be deleted.")
     def delete(self, policy_name):
         """

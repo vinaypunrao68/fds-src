@@ -179,7 +179,7 @@ def newGetObjectMsg(volId, objectId):
 #
 # @return 
 def newGetVolumeMetaDataMsg(volId):
-    msg = GetVolumeMetaDataMsg()
+    msg = GetVolumeMetadataMsg()
     msg.volume_id = volId
     return msg
 
