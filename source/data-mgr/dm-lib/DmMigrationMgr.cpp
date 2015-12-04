@@ -362,6 +362,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
+    migrationCb cleanupCb = typedRequest->localCb;
 
     waitForMigrationBatchToFinish(MIGR_CLIENT);
 
@@ -369,20 +370,32 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
-    err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg);
+    /**
+     * TODO(Neil)
+     * This is currently a bad design because DmIOResyncInitialBlob message
+     * can be super big. The createMigrationClient will not be finished with
+     * the big message and return in time to not block QoS thread so we're doing
+     * a quick fix to just spawn off another thread. This will avoid any future
+     * mysterious I/O timeout because we're holding on to the QoS thread.
+     * The real fix is to break the incoming msg into chunks, service them,
+     * and then return.
+     */
+    std::thread t1([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
+	t1.detach();
 
-    if (err != ERR_OK) {
-    	fds_assert(isMigrationAborted());
-        return err;
-    }
-
+	/**
+	 * When we return below, the ack will be sent back to the Executor.
+	 * The dmReq still exists, and will depend on cleanupCb above to be called by the
+	 * client to delete and ensure no memory leaks.
+	 */
     return err;
 }
 
 Error
 DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
                                       const NodeUuid& mySvcUuid,
-                                      fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& filterSet)
+                                      fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& filterSet,
+                                      migrationCb cleanUp)
 {
     Error err(ERR_OK);
     /**
@@ -425,7 +438,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
                 LOGERROR << "Processing filter set failed: " << err;
 				abortMigration();
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
-				return err;
+				goto out;
 			}
 
 			err = client->processBlobFilterSet2();
@@ -435,11 +448,15 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 				abortMigration();
 				// Shared the same error code, so look for above's msg
 				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
-				return err;
+				goto out;
 			}
         }
     }
 
+out:
+    if (cleanUp) {
+        cleanUp(ERR_OK);
+    }
     return err;
 }
 

@@ -358,7 +358,8 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp);
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
+									migrationCb cleanUp);
 
     /**
      * Source side DM:

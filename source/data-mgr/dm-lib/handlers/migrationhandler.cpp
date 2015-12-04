@@ -107,6 +107,10 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoResyncInitialBlob(FdsDmSysTaskId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
+    dmReq->localCb = std::bind(&DmMigrationBlobFilterHandler::handleResponseCleanUp,
+                                this,
+                                std::placeholders::_1,
+                                dmReq);
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
@@ -131,7 +135,9 @@ void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHd
 
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetRspMsg),
                        fpi::CtrlNotifyInitialBlobFilterSetRspMsg());
+}
 
+void DmMigrationBlobFilterHandler::handleResponseCleanUp(Error const& e, DmRequest* dmRequest) {
     delete dmRequest;
 }
 
