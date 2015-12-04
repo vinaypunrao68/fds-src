@@ -600,6 +600,14 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     	LOGDEBUG << cit.uuid_get_val();
     }
 
+    // For now, we're not supporting more than 1 resync nodes
+    if (cm->getDmResyncServices().size() > 1) {
+        LOGERROR << "We are not supporting more than one node down at a time";
+        bret = false;
+        fds_assert(!"ERROR: 2 nodes gone down and trying to resync");  // panic in lab mode
+        return bret;
+    }
+
     // this method computes new DMT and sets as target if
     // 1. newly computed DMT is different from the current commited DMT
     // or
