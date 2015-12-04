@@ -769,9 +769,10 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
+    // This should be a clear set
+    fds_assert(cm->ongoingMigrationDMs.size() == 0);
     cm->ongoingMigrationDMs.clear();
 
-    // TODO(Neil) - hack rebalance to have a list of resync nodes
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
 
     // Store a list of ongoing migrations so we can check if it's
