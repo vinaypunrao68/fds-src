@@ -17,6 +17,7 @@ Build/*
 *.slo
 *.so
 *.sw?
+*.chk
 *~
 .DS_Store
 .classpath

@@ -11,6 +11,7 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <StorMgr.h>
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 #include <sys/statvfs.h>
@@ -21,6 +22,7 @@
 
 namespace fds {
 using util::BloomFilter;
+fds_uint32_t objDelCountThresh = 3;
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<fds_uint16_t>>
@@ -72,11 +74,23 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
-          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "bftable.db")),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
     liveObjectsTable->createLiveObjectsTblAndIdx();
+    nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
+    if (data_store) {
+        tokenLockFn = std::bind(Lock,
+                                dynamic_cast<ObjectStorMgr*>(data_store),
+                                std::placeholders::_1,
+                                std::placeholders::_2);
+    } else {
+        LOGWARN << "setting a dummy token func";
+        tokenLockFn = [](ObjectID const&, bool) {
+            return nullary_always([]{});
+        };
+    }
 }
 
 ObjectStore::~ObjectStore() {
@@ -1596,27 +1610,80 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
 }
 
 /**
+ * Check if SM has object sets for all the volumes in the domain.
+ * (Including all system volumes).
+ */
+bool
+ObjectStore::haveAllObjectSets() const {
+    bool have = true;
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAllVols(volumes);
+    std::list<fds_volid_t> volList = volumeTbl->getVolList();
+
+    for (auto volId : volList) {
+        if (volumes.find(volId) == volumes.end()) {
+            LOGWARN << "Object set not found for volume: " << volId;
+            have = false;
+        }
+    }
+    return have;
+}
+
+/**
  * Add a new object set(bloom filter) received from a DM
  * to the liveObjects Table
  */
 void
 ObjectStore::addObjectSet(const fds_token_id &smToken,
                           const fds_volid_t &volId,
-                          const fds_uint64_t &dmUUID,
                           const util::TimeStamp &timeStamp,
-                          const std::string &objectSetFilePath) {
-    liveObjectsTable->addObjectSet(smToken, volId,
-                                   dmUUID, timeStamp,
-                                   objectSetFilePath);
+                          const std::string &objectSetFilePath,
+                          const fds_uint64_t &dmUUID) {
+    liveObjectsTable->addObjectSet(smToken, volId, timeStamp,
+                                   objectSetFilePath, dmUUID);
+}
+
+/**
+ * Clean existing entries based on smtoken and dm src uuid
+ * and insert new entries to the liveObjects Table
+ */
+void
+ObjectStore::cleansertObjectSet(const fds_token_id &smToken,
+                                const fds_volid_t &volId,
+                                const util::TimeStamp &timeStamp,
+                                const std::string &objectSetFilePath,
+                                const fds_uint64_t &dmUUID) {
+    liveObjectsTable->cleansertObjectSet(smToken, volId, timeStamp,
+                                         objectSetFilePath, dmUUID);
 }
 
 /**
  * Remove an existing object set from live object table
+ * based on sm token and volume id.
  */
 void
 ObjectStore::removeObjectSet(const fds_token_id &smToken,
                              const fds_volid_t &volId) {
     liveObjectsTable->removeObjectSet(smToken, volId);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on sm token and dm svc uuid.
+ */
+void
+ObjectStore::removeObjectSet(const fds_token_id &smToken,
+                             const fds_uint64_t &dmUUID) {
+    liveObjectsTable->removeObjectSet(smToken, dmUUID);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on volume id.
+ */
+void
+ObjectStore::removeObjectSet(const fds_volid_t &volId) {
+    liveObjectsTable->removeObjectSet(volId);
 }
 
 /**
@@ -1642,93 +1709,63 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
         BloomFilter bf;
         bf.read(d);
         objectSets.push_back(bf);
+        delete d;
     }
-
-    std::set<fds_volid_t> volumes;
-    liveObjectsTable->findAssociatedVols(smToken, volumes);
 
     TimeStamp ts;
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
-    std::vector<ObjectID> allKeys = metaStore->getMetaDbKeys(smToken);
-    fds_uint64_t totalNumObjs = allKeys.size();
-    fds_uint64_t objsToDelete = 0;
-
-    for (auto oid : allKeys) {
+    std::function<void (const ObjectID&)> checkAndModifyMeta =
+            [this, &objectSets, &ts, &tokStats, &smToken] (const ObjectID& oid) {
+        ++tokStats.tkn_tot_size;
         ObjSetIter iter = objectSets.begin();
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " found in object set(s) ";
                 break;
             }
         }
-
         if (iter == objectSets.end()) {
-            /**
-             * This means that object was not found in any of the object sets
-             * associated with this SM token. This means that object could have
-             * got deleted from the domain.
-             */
-            Error err(ERR_OK);
-            bool shouldUpdateMeta = true;
-            ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(*(volumes.begin()), oid, err);
-
-            std::vector<fds_volid_t> volAssocs;
-            objMeta->getAssociatedVolumes(volAssocs);
-
-            /**
-             * Check if the object got updated recently(via a PUT).
-             * If so, then these object sets will have stale information
-             * regarding the state of the object. Ignore processing this
-             * object and leave it's metadata as it is.
-             */
-            if (objMeta->getTimeStamp() > ts) {
-                LOGDEBUG << "shouldUpdateMeta = false";
-                shouldUpdateMeta = false;
-            }
-
-            /**
-             * Check for the volumes to which this object is associated to.
-             * If the aggregated volume list from all the object sets of this
-             * SM token doesn't have all the volumes to which the object is
-             * associated to, then leave the object as it is because during
-             * this gc run we are missing information from some volumes who
-             * has interest in this object.
-             */
-            for (auto associatedVol : volAssocs) {
-                if (volumes.find(associatedVol) == volumes.end()) {
-                    shouldUpdateMeta = false;
-                    break;
-                }
-            }
-
-            /**
-             * Indeed update the timestamp and delete count for the object.
-             */
-            if (shouldUpdateMeta) {
-                ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-                updatedMeta->updateTimestamp();
+            if (this->tokenLockFn) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " not found in object set(s) ";
+                auto tokenLock = this->tokenLockFn(oid, true);
+                Error err(ERR_OK);
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
                 /**
-                 * If the delete count for this object has reached the threshold
-                 * then let the Scavenger know about it.
+                 * Check if the object got updated recently(via a PUT).
+                 * If so, then these object sets will have stale information
+                 * regarding the state of the object. Ignore processing this
+                 * object and leave it's metadata as it is. Otherwise update
+                 * metadata information.
                  */
-                fds_uint32_t delCount = updatedMeta->incrementDeleteCount();
-                LOGDEBUG << "delCount = " << delCount;
-                if (delCount >= OBJ_DELETE_COUNT_THRESHOLD) {
-           //     if (updatedMeta->incrementDeleteCount() >= OBJ_DELETE_COUNT_THRESHOLD) {
-                    ++objsToDelete;
+                auto objDelCnt = objMeta->getDeleteCount();
+                auto objTS = objMeta->getTimeStamp();
+                if (!ts || (objTS < ts)) {
+                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                    updatedMeta->updateTimestamp();
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << updatedMeta->getTimeStamp()
+                             << " current delCount " << std::dec << (fds_uint16_t)updatedMeta->getDeleteCount();
+                    /**
+                     * If the delete count for this object has reached the threshold
+                     * then let the Scavenger know about it.
+                     */
+                    if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
+                        ++tokStats.tkn_reclaim_size;
+                    }
+                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                } else if (objDelCnt >= fds::objDelCountThresh && objTS > ts) {
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << objTS
+                             << " current delCount " << std::dec << (fds_uint16_t)objDelCnt;
+                    ++tokStats.tkn_reclaim_size;
                 }
-                metaStore->putObjectMetadata(*(volumes.begin()), oid, updatedMeta);
             }
         }
-    }
+    };
 
-    /**
-     * Update token stats so that Scavenger can take a
-     * decision to run Token Compactor on this SM token.
-     */
+    metaStore->forEachObject(smToken, checkAndModifyMeta);
     tokStats.tkn_id = smToken;
-    tokStats.tkn_tot_size = totalNumObjs;
-    tokStats.tkn_reclaim_size = objsToDelete;
 }
 
 void
@@ -1752,6 +1789,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
 
     initObjectStoreMediaErrorHandlers();
+    setObjectDelCnt(g_fdsprocess->get_fds_config()->get<fds_uint32_t>("fds.sm.scavenger.expunge_threshold",3));
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {

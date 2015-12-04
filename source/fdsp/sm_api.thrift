@@ -27,6 +27,7 @@ struct ActiveObjectsMsg {
   2: string    checksum;
   3: list<i64> volumeIds;
   4: i32       token;
+  5: i64       scantimestamp;
 }
 
 struct ActiveObjectsRespMsg {

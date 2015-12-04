@@ -286,7 +286,6 @@ fds: {
 
         /* Timeline feature toggle */
         enable_timeline = {{ dm_enable_timeline }}
-        enable_expunge = {{ dm_enable_expunge }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -428,22 +427,22 @@ fds: {
         /* Migration related info */
         migration: {
             /* size of the delta set from source SM to destination SM */
-            max_delta_set_size=16
+            max_delta_set_size = {{ sm_max_delta_set_size }}
 
             /* verify the integrity of the metadata and data  on destination SM */
-            verify_migration_data=false
+            verify_migration_data = {{ sm_verify_migration_data }}
 
             /* boolean to enable/disable SM token migration feature */
-            enable_feature = true
+            enable_feature = {{ sm_enable_feature }}
 
             /* boolean to enable/disable SM resync feature */
-            enable_resync = true
+            enable_resync = {{ sm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout = {{ sm_migration_timeout }}
 
             /* number of parallel sm migrations at a time */
-            parallel_migration=8
+            parallel_migration = {{ sm_parallel_migration }}
         }
         tiering: {
             hybrid: {
@@ -460,6 +459,7 @@ fds: {
              max_disks_compact = {{ sm_scavenger_max_disks_compact }}
              /* Time interval where GC periodically checks whether to GC or not */
              interval_seconds = {{ sm_scavenger_interval_seconds }}
+             expunge_threshold = {{ sm_scavenger_expunge_threshold }}
         }
 
         /* Graphite is enabled or not */
@@ -534,9 +534,6 @@ fds: {
                 }
             }
             scst: {
-		/* Volumes in this CSV list will be automatically presented on load */
-		auto_volumes="{{ am_scst_auto_volumes }}"
-
 		/* Smallest IO transfer size allowed */
                 default_block_size={{ am_scst_default_block_size }}
 

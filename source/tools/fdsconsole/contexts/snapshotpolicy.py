@@ -7,11 +7,12 @@ class SnapshotPolicyContext(Context):
         Context.__init__(self, *args)
     
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('policy-name', help= "-snapshot policy name ")
     @arg('recurrence-rule', help= "- ical Rule format: FREQ=MONTHLY;BYDAY=FR;BYHOUR=23;BYMINUTE=30 ")
     @arg('retention-time', type=long, help= "-retension time for the snapshot")
     def create(self, policy_name, recurrence_rule, retention_time):
+        'create a new snaphot policy'
         try:
             snap_policy = pyfdsp.config_types.ttypes.SnapshotPolicy(
                 id                    =   0,
@@ -28,9 +29,10 @@ class SnapshotPolicyContext(Context):
             return 'creating snapshot policy failed: {}'.format(policy_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('policy-id', type=long, help= "-snapshot policy Identifier")
     def delete(self, policy_id):
+        'delete a snapshot policy'
         try:
             ServiceMap.omConfig().deleteSnapshotPolicy(policy_id)
             return 'Success'
@@ -42,6 +44,7 @@ class SnapshotPolicyContext(Context):
     @clicmd
     @arg('vol-name', help= "volume name", nargs="?")
     def list(self, vol_name):
+        'list all snapshot policies for a volume'
         try:
             if vol_name == None:
                 policy_list = ServiceMap.omConfig().listSnapshotPolicies(0)
@@ -60,6 +63,7 @@ class SnapshotPolicyContext(Context):
     @arg('vol-name', help= "-Volume name for attaching snap policy")
     @arg('policy-id', type=long,  help= "-snap shot policy id")
     def attach(self, vol_name, policy_id):
+        'attach a snapshot policy to a volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             ServiceMap.omConfig().attachSnapshotPolicy(volume_id, policy_id)
@@ -69,10 +73,11 @@ class SnapshotPolicyContext(Context):
             return 'attach snap policy  failed: {}'.format(vol_name)
     
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('vol-name', help= "-Volume name for detaching snap policy")
     @arg('policy-id', type=long,  help= "-snap shot policy name")
     def detach(self, vol_name, policy_id):
+        'detach a snapshot policy from a volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             ServiceMap.omConfig().detachSnapshotPolicy(volume_id, policy_id)
@@ -82,9 +87,10 @@ class SnapshotPolicyContext(Context):
             return 'detach snap policy failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('policy-id', type=long, help= "-snap shot policy id")
     def volumes(self, policy_id):
+        'show volumes with a specific snapshot policy'
         try:
             volume_list =  ServiceMap.omConfig().listVolumesForSnapshotPolicy(policy_id)
             return tabulate([(policy_id, item) for item in volume_list],

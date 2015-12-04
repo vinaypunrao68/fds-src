@@ -9,27 +9,22 @@
 
 #include "fdsp/common_types.h"
 #include "shared/fds_types.h"
-#include "fds_timer.h"
 
 namespace fds
 {
 
-struct AmVolumeAccessToken :
-    public FdsTimerTask
+struct AmVolumeAccessToken
 {
     using mode_type = FDS_ProtocolInterface::VolumeAccessMode;
     using token_type = fds_int64_t;
-    using callback_type = std::function<void()>;
 
-    AmVolumeAccessToken(FdsTimer& _timer,
-                        mode_type const& _mode,
-                        token_type const _token,
-                        callback_type&& _cb);
+    AmVolumeAccessToken(mode_type const& _mode, token_type const _token) :
+        mode(_mode), token(_token)
+    { }
+
     AmVolumeAccessToken(AmVolumeAccessToken const&) = delete;
     AmVolumeAccessToken& operator=(AmVolumeAccessToken const&) = delete;
-    ~AmVolumeAccessToken();
-
-    void runTimerTask() override;
+    ~AmVolumeAccessToken() = default;
 
     bool cacheAllowed()
     { return mode.can_cache; }
@@ -52,7 +47,6 @@ struct AmVolumeAccessToken :
   private:
     mode_type mode;
     token_type token;
-    callback_type cb;
 };
 
 }  // namespace fds

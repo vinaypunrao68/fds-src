@@ -20,11 +20,13 @@
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
 #include <util/bloomfilter.h>
+#include <util/always_call.h>
 
 namespace fds {
 
 typedef std::function <void(fds_bool_t, fds_bool_t)> StartResyncFnObj;
 typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
+typedef std::function <nullary_always(ObjectID const&, bool)> TokenLockFn;
 
 typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
@@ -52,6 +54,8 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    TokenLockFn tokenLockFn = { TokenLockFn() };
 
     LiveObjectsDB::unique_ptr liveObjectsTable;
 
@@ -335,20 +339,37 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
+    bool haveAllObjectSets() const;
+
     void evaluateObjectSets(const fds_token_id& smToken,
                             const diskio::DataTier& tier,
                             diskio::TokenStat &tokStats);
 
     void addObjectSet(const fds_token_id &smToken,
                       const fds_volid_t &volId,
-                      const fds_uint64_t &dmUUID,
                       const util::TimeStamp &ts,
-                      const std::string &objectSetFilePath);
+                      const std::string &objectSetFilePath,
+                      const fds_uint64_t &dmUUID = 0);
+
+    void cleansertObjectSet(const fds_token_id &smToken,
+                            const fds_volid_t &volId,
+                            const util::TimeStamp &ts,
+                            const std::string &objectSetFilePath,
+                            const fds_uint64_t &dmUUID = 0);
 
     void removeObjectSet(const fds_token_id &smToken,
                          const fds_volid_t &volId);
 
+    void removeObjectSet(const fds_token_id &smToken,
+                         const fds_uint64_t &dmUUID);
+
+    void removeObjectSet(const fds_volid_t &volId);
+
     void dropLiveObjectDB();
+
+    inline void setObjectDelCnt(fds_uint32_t newCount) {
+        fds::objDelCountThresh = newCount;
+    }
 
     // control methods
     Error scavengerControlCmd(SmScavengerCmd* scavCmd);
