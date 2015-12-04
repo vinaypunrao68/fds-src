@@ -89,8 +89,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
         GLOGTRACE << "volume id is invalid";
     }
 
-    iscsiSettings = {};
-    nfsSettings = {};
+    iscsiSettings = voldesc.iscsi;
+    nfsSettings = voldesc.nfs;
 }
 
 /*
