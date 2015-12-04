@@ -150,7 +150,7 @@ ScstDevice::~ScstDevice() {
 
 void
 ScstDevice::shutdown() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::DRAINING;
     asyncWatcher->send();
 }
 
@@ -172,14 +172,17 @@ ScstDevice::openScst() {
 void
 ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
-        scstOps->shutdown();
-        if (ConnectionState::STOPPED == state_) {
-            asyncWatcher->stop();
+    if (ConnectionState::RUNNING != state_) {
+        scstOps->shutdown();                        // We are shutting down
+        if (ConnectionState::STOPPED == state_ ||
+            ConnectionState::DRAINED == state_) {
+            asyncWatcher->stop();                   // We are not responding
             ioWatcher->stop();
-            scstOps.reset();
-            scst_target->deviceDone(volumeName);
-            return;
+            if (ConnectionState::STOPPED == state_) {
+                scstOps.reset();
+                scst_target->deviceDone(volumeName);    // We are FIN!
+                return;
+            }
         }
     }
 
@@ -228,8 +231,9 @@ void ScstDevice::execParseCmd() {
 }
 
 void ScstDevice::execTaskMgmtCmd() {
-    LOGDEBUG << "Task Management request.";
     auto& tmf_cmd = cmd.tm_cmd;
+    LOGIO << "Task Management request: [0x" << std::hex << tmf_cmd.fn
+          << "] on [" << volumeName << "]";
 
     if (SCST_TARGET_RESET == tmf_cmd.fn) {
         // Reset the reservation if we get a target reset
@@ -893,10 +897,10 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
         // Get the next command, and/or reply to any existing finished commands
         getAndRespond();
     } catch(BlockError const& e) {
-        state_ = ConnectionState::STOPPING;
+        state_ = ConnectionState::DRAINING;
         if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
-            state_ = ConnectionState::STOPPED;
+            state_ = ConnectionState::DRAINED;
         }
     }
     // Unblocks the ev loop to handle events again on this connection

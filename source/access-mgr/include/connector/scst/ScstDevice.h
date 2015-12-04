@@ -74,7 +74,8 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
-                                 STOPPING,
+                                 DRAINING,
+                                 DRAINED,
                                  STOPPED };
 
     ConnectionState state_ { ConnectionState::RUNNING };
