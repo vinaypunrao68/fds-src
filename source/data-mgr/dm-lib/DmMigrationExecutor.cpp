@@ -179,6 +179,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                << " lastmsgseqid=" << msg->last_msg_seq_id
                << " numofblobdesc=" << msg->blob_desc_list.size();
 
+    dataMgr.counters->totalSizeOfDataMigrated.incr(sizeof(msg->blob_desc_list));
     /**
      * Check if all blob offset is applied.  if applyBlobDescList is still
      * false, them queue them up to be applied later.
@@ -255,6 +256,9 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
              * This can potentially be big, so might have move off stack and allocate.
              */
             BlobObjList blobList(blobObj.blob_diff_list);
+
+            // Log the size of this blob offset list
+            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeof(blobList));
 
             LOGMIGRATE << "put object on volume="
                          << std::hex << volumeUuid << std::dec

@@ -10,7 +10,8 @@ namespace fds {
 
 DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     : DmReqHandler(DmReqHandle), dataManager(_dataMgr), OmStartMigrCb(nullptr),
-      maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID), migrationAborted(false)
+      maxConcurrency(1), firedMigrations(0), mit(NULL), DMT_version(DMT_VER_INVALID), migrationAborted(false),
+      timerStarted(false)
     {
         maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                       get<int>("fds.dm.migration.migration_max_concurrency"));
@@ -87,6 +88,14 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
         LOGMIGRATE << "Creating migration instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
             << " name=" << vol.vol_name;
 
+
+        bool notYetStarted = false;
+        if (!std::atomic_compare_exchange_strong(&timerStarted, &notYetStarted, true)) {
+            // First executor. start timer
+            migrationTimer.reset();
+            dataManager.counters->timeSpentForCurrentMigration.set(0);
+            migrationTimer.start();
+        }
         executorMap.emplace(uniqueId,
                             DmMigrationExecutor::unique_ptr(new DmMigrationExecutor(dataManager,
                                                                                     srcDmUuid,
@@ -260,6 +269,8 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     }
 
     err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
+    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+
     if (err == ERR_NOT_READY) {
     	LOGDEBUG << "Blobs descriptor not applied yet.";
     	// This means that the blobs have not been applied yet. Override this to ERR_OK.
@@ -296,6 +307,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
         return ERR_NOT_FOUND;
     }
     err = executor->processDeltaBlobs(deltaBlobsMsg);
+    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
     if (!err.ok()) {
     	LOGERROR << "Processing deltaBlobs failed " << err;
@@ -711,6 +723,7 @@ DmMigrationMgr::abortMigrationReal()
 			}
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			fds_verify(migrationAborted);
+			dataManager.counters->totalMigrationsAborted.incr(1);
 			clearClients();
 			clearExecutors();
 		}
@@ -851,5 +864,32 @@ void
 DmMigrationMgr::clearExecutors() {
 	executorMap.clear();
 	dataManager.counters->numberOfActiveMigrExecutors.set(0);
+
+	bool expected = true;
+
+	if (std::atomic_compare_exchange_strong(&timerStarted, &expected, false)) {
+	    // Time in seconds
+	    dataManager.counters->timeSpentForCurrentMigration.set(migrationTimer.getElapsedNanos()/(1000.0*100*100));
+	    dataManager.counters->timeSpentForAllMigrations.incr(dataManager.counters->timeSpentForCurrentMigration.value());
+	    migrationTimer.reset();
+	}
+
+	dumpStats();
+}
+
+void
+DmMigrationMgr::dumpStats() {
+    dm::Counters* c = dataManager.counters;
+
+    LOGNORMAL << "========================================================";
+    LOGNORMAL << "Migration Statistics:";
+    LOGNORMAL << "--------------------------------------------------------";
+    LOGNORMAL << "Total Volumes Pulled: " << c->totalVolumesReceivedMigration.value();
+    LOGNORMAL << "Total Volumes Sent: " << c->totalVolumesSentMigration.value();
+    LOGNORMAL << "Total Migrations Aborted: " << c->totalMigrationsAborted.value();
+    LOGNORMAL << "Total Bytes Migrated: " << c->totalSizeOfDataMigrated.value();
+    LOGNORMAL << "Seconds spent for current migration: " << c->timeSpentForCurrentMigration.value();
+    LOGNORMAL << "Seconds spent for all migrations: " << c->timeSpentForAllMigrations.value();
+    LOGNORMAL << "========================================================";
 }
 }  // namespace fds

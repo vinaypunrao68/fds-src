@@ -227,6 +227,11 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version);
 
+    /**
+     * Dumps all migration counters to the log NORMAL
+     */
+    void dumpStats();
+
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
@@ -414,6 +419,12 @@ class DmMigrationMgr : public DmMigrationBase {
 
     // Clear executorMap and other related stats
     void clearExecutors();
+
+    /**
+     * Used for keeping time stats
+     */
+    std::atomic<bool> timerStarted;
+    util::StopWatch migrationTimer;
 
 };  // DmMigrationMgr
 }  // namespace fds
