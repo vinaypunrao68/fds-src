@@ -23,8 +23,8 @@ public class ProcessExecutorSource implements Executor {
     }
 
     // get an executor that is bounded, but uses threads from this unbounded executor
-    public Executor boundedSubExecutor(int concurrentThreads) {
-        return new SubExecutor(this, concurrentThreads);
+    public Executor boundedSubExecutor(String threadBaseName, int concurrentThreads) {
+        return new SubExecutor(this, concurrentThreads, threadBaseName);
     }
 
     public <T> void completeAsync(CompletableFuture<T> completionHandle, T result) {
