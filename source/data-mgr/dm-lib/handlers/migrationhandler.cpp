@@ -226,17 +226,19 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
 }
 
-void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message,
+void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr_,
+                        boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message_,
                         Error const& e, DmRequest* dmRequest) {
+    auto asyncHdr = asyncHdr_;
+    auto message = message_;
+	delete dmRequest;
 	asyncHdr->msg_code = e.GetErrno();
 
 	LOGMIGRATE << logString(*asyncHdr) << " sending async resp";
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
                        fpi::CtrlNotifyDeltaBlobsRspMsg());
 
-	LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
-	delete dmRequest;
+	// LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
 }
 
 DmMigrationTxStateHandler::DmMigrationTxStateHandler(DataMgr& dataManager)

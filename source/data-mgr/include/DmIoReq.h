@@ -790,6 +790,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 
     boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> deltaBlobsMsg;
     CbType dmio_fwdcat_resp_cb;
+    inline ~DmIoMigrationDeltaBlobs() { LOGDEBUG << "Calling destructor for DmIoMigrationDeltaBlobs"; }
 };
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {

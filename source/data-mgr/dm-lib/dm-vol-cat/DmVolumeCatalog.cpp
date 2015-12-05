@@ -903,10 +903,14 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
     if (blobName.size() == 0) {
         fpi::FDSP_MetaDataList metadataList;
         VolumeMetaDesc newDesc(metadataList, 0);
+        LOGDEBUG << "NEIL DEBUG Loading serialized";
         err = newDesc.loadSerialized(blobData);
+        LOGDEBUG << "NEIL DEBUG Done Loading serialized";
 
         if (err.ok()) {
+            LOGDEBUG << "NEIL DEBUG Putting vol meta desc";
             err = vol->putVolumeMetaDesc(newDesc);
+            LOGDEBUG << "DONE NEIL DEBUG Putting vol meta desc";
 
             if (!err.ok()) {
                 LOGERROR << "Failed to insert migrated Volume Descriptor into catalog for volume: "
@@ -923,7 +927,9 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
     // This is actually a delete (empty blob data)
     if (blobData.size() == 0) {
         // version is ignored, so set to zero
+        LOGDEBUG << "NEIL DEBUG delteBlob start " << blobName;
         err = deleteBlob(volId, blobName, 0);
+        LOGDEBUG << "NEIL DEBUG delteBlob end " << blobName;
 
         if (!err.ok()) {
             LOGERROR << "During migration, failed to delete blob: " << blobName
@@ -936,7 +942,9 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
     // This is really a blob descriptor update. we may need to trunctate the offsets.
     BlobMetaDesc oldBlob;
+    LOGDEBUG << "NEIL DEBUG getBlobMetaDesc start " << blobName;
     err = vol->getBlobMetaDesc(blobName, oldBlob);
+    LOGDEBUG << "NEIL DEBUG getBlobMetaDesc end " << blobName;
 
     if (ERR_CAT_ENTRY_NOT_FOUND == err) {
         fTruncate = false;
@@ -948,7 +956,9 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
     }
 
     BlobMetaDesc newBlob;
+    LOGDEBUG << "NEIL DEBUG loadSerialized start";
     err = newBlob.loadSerialized(blobData);
+    LOGDEBUG << "NEIL DEBUG loadSerialized start";
 
     if (!err.ok()) {
         LOGERROR << "Failed to deserialize migrated blob: " << blobName
@@ -972,7 +982,9 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
         if ((newLastOffset+1) < oldLastOffset) {
             // delete starting at the ofset after the new last offset
+            LOGDEBUG << "NEIL DEBUG deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
             err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+            LOGDEBUG << "NEIL DEBUG deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
                 LOGERROR << "During migration, failed to truncate blob: "
@@ -983,7 +995,9 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         }
     }
 
+    LOGDEBUG << "NEIL DEBUG putBlobMetaDesc start" << blobName;
     err = vol->putBlobMetaDesc(blobName, newBlob);
+    LOGDEBUG << "NEIL DEBUG putBlobMetaDesc end" << blobName;
 
     if (!err.ok()) {
         LOGERROR << "Failed to insert migrated blob: " << blobName
