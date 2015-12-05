@@ -75,6 +75,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     DECL_ASYNC_HANDLER(NotifySMCheck          , CtrlNotifySMCheck);
     DECL_ASYNC_HANDLER(querySMCheckStatus     , CtrlNotifySMCheckStatus);
     DECL_ASYNC_HANDLER(activeObjects          , ActiveObjectsMsg);
+    DECL_ASYNC_HANDLER(objectStoreCtrl         , ObjectStoreCtrlMsg);
 
     void getObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                      const Error &err,
@@ -96,35 +97,10 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void addObjectRefCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                         const Error &err,
                         SmIoAddObjRefReq *addObjRefReq);
+
     void NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           const Error &err,
-                          SmIoAbortMigration *abortMigrationReq);
-
-    void initiateObjectSync(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                            boost::shared_ptr <fpi::CtrlObjectRebalanceFilterSet> &filterObjSet);
-
-    void syncObjectSet(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
-                       boost::shared_ptr <fpi::CtrlObjectRebalanceDeltaSet> &deltaObjSet);
-
-    void getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                      boost::shared_ptr<fpi::CtrlGetSecondRebalanceDeltaSet>& getDeltaSetMsg);
-
-    void finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                 boost::shared_ptr<fpi::CtrlFinishClientTokenResyncMsg>& finishClientResyncMsg);
-
-    /**
-     * Handlers for smcheck
-     */
-    void NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-                       boost::shared_ptr<fpi::CtrlNotifySMCheck>& msg);
-    void querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-                            boost::shared_ptr<fpi::CtrlNotifySMCheckStatus>& msg);
-
-    /**
-     * Handlers for ObjectStore control
-     */
-    void objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                        boost::shared_ptr<fpi::ObjectStoreCtrlMsg>& msg);
+                          SmIoNotifyDLTClose *DLTCloseReq);
 };
 
 }  // namespace fds

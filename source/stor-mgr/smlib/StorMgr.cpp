@@ -541,7 +541,6 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     sampleCounter++;
 }
 
-<<<<<<< HEAD
 /**
  * Checks available disk capacities and takes appropriate action based on thresholds.
  */

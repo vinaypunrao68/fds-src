@@ -1237,11 +1237,11 @@ void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     } else if (msg->state == OBJECTSTORE_NORMAL) {
         objStorMgr->objectStore->setAvailable();
     }
+}
 
 void
 SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                            boost::shared_ptr<fpi::ActiveObjectsMsg>& msg)
-{
+                            boost::shared_ptr<fpi::ActiveObjectsMsg> &msg) {
     Error err(ERR_OK);
 
     LOGDEBUG << hdr;
@@ -1256,20 +1256,20 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // verify the file checksum
     if (msg->filename.empty() && msg->checksum.empty()) {
         LOGDEBUG << "no active objects for token:" << msg->token
-                 << " for [" << msg->volumeIds.size() <<"]";
+                    << " for [" << msg->volumeIds.size() << "]";
     } else {
         filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
         if (!util::fileExists(filename)) {
             err = ERR_FILE_DOES_NOT_EXIST;
             LOGERROR << "active object file ["
-                     << filename
-                     << "] does not exist";
+                        << filename
+                        << "] does not exist";
         } else {
             std::string chksum = util::getFileChecksum(filename);
             if (chksum != msg->checksum) {
                 LOGERROR << "file checksum mismatch [orig:" << msg->checksum
-                         << " new:" << chksum << "]"
-                         << " file:" << filename;
+                            << " new:" << chksum << "]"
+                            << " file:" << filename;
                 err = ERR_CHECKSUM_MISMATCH;
             }
         }
@@ -1285,5 +1285,4 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
 }
-
 }  // namespace fds
