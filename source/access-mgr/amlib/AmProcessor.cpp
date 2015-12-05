@@ -13,6 +13,7 @@
 #include "fds_table.h"
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include "AccessMgr.h"
 #include "AmDataProvider.h"
 #include "AmRequest.h"
 #include "AmVolumeTable.h"
@@ -29,7 +30,7 @@ class AmProcessor_impl : public AmDataProvider
     CommonModuleProviderIf* provider;
 
   public:
-    AmProcessor_impl(Module* parent, CommonModuleProviderIf *modProvider)
+    AmProcessor_impl(AccessMgr* parent, CommonModuleProviderIf *modProvider)
         : AmDataProvider(nullptr, nullptr),
           provider(modProvider),
           parent_mod(parent),
@@ -60,6 +61,8 @@ class AmProcessor_impl : public AmDataProvider
      */
     void start() override;
     void stop() override;
+    void registerVolume(VolumeDesc const& volDesc) override;
+    void removeVolume(VolumeDesc const& volDesc) override;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
     Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) override;
 
@@ -116,7 +119,7 @@ class AmProcessor_impl : public AmDataProvider
     { respond(amReq, error); }
 
   private:
-    Module* parent_mod {nullptr};
+    AccessMgr* parent_mod {nullptr};
 
     std::pair<bool, bool> have_tables;
 
@@ -218,6 +221,18 @@ void AmProcessor_impl::stop() {
     }
 }
 
+void AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
+    AmDataProvider::registerVolume(volDesc);
+    // Alert connectors to the new volume
+    parent_mod->volumeAdded(volDesc);
+}
+
+void AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
+    // Alert connectors to the removed volume
+    parent_mod->volumeRemoved(volDesc);
+    AmDataProvider::removeVolume(volDesc);
+}
+
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     // If we successfully update the dlt, have the parent do it's init check
@@ -254,7 +269,7 @@ AmProcessor_impl::haveTables() {
 /**
  * Pimpl forwarding methods. Should just call the underlying implementaion
  */
-AmProcessor::AmProcessor(Module* parent, CommonModuleProviderIf *modProvider)
+AmProcessor::AmProcessor(AccessMgr* parent, CommonModuleProviderIf *modProvider)
         : enable_shared_from_this<AmProcessor>(),
           _impl(new AmProcessor_impl(parent, modProvider))
 { }
@@ -280,14 +295,23 @@ void AmProcessor::stop()
 void AmProcessor::enqueueRequest(AmRequest* amReq)
 { return _impl->enqueueRequest(amReq); }
 
+void AmProcessor::getVolumes(std::vector<VolumeDesc>& volumes)
+{ return _impl->getVolumes(volumes); }
+
 bool AmProcessor::haveTables()
 { return _impl->haveTables(); }
 
 bool AmProcessor::isShuttingDown() const
 { return _impl->isShuttingDown(); }
 
-Error AmProcessor::modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc)
-{ return _impl->modifyVolumePolicy(vol_uuid, vdesc); }
+Error AmProcessor::modifyVolumePolicy(const VolumeDesc& vdesc)
+{
+    auto err = _impl->modifyVolumePolicy(vdesc);
+    if (ERR_VOL_NOT_FOUND == err) {
+        _impl->registerVolume(vdesc);
+    }
+    return err;
+}
 
 void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 { return _impl->registerVolume(volDesc); }

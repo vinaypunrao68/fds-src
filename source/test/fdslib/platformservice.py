@@ -78,8 +78,11 @@ class PlatSvc(object):
             serv.stop_serv()
 
     def stop(self):
-        if self.serverSock:
-            self.serverSock.close()
+        try:
+            if self.serverSock:
+                self.serverSock.close()
+        except:
+            pass
         
     def registerService(self, basePort, omPlatIp, omPlatPort):
         """
@@ -100,26 +103,23 @@ class PlatSvc(object):
         self.svcMap.omSvc().registerService(svcinfo);
 
     def startServer(self):
-        #handler = PlatNetSvcHandler()
-        handler = self
-        processor = PlatNetSvc.Processor(handler)
+        processor = PlatNetSvc.Processor(self)
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
-        #tfactory = TTransport.TBufferedTransportFactory()
-        #pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock)
+        tfactory = TTransport.TFramedTransportFactory()
+        pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+        self.server = TServer.TSimpleServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        # self.serverThread.setDaemon(True)
+        self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
-        # self.serverThread.start()
+        self.serverThread.start()
 
     def serve(self):
         self.server.serve()
         log.info("Exiting server")
 
-    def stop_serv(self):
-        self.server.stop()
-        self.server.close()
+    def stop_server(self):
+        self.stop()
 
     def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
         targetUuid = self.svcMap.svc_uuid(node, svc)
