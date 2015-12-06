@@ -781,6 +781,7 @@ DmMigrationMgr::abortMigrationReal()
     dataManager.counters->totalMigrationsAborted.incr(1);
 
 	// set it to false to clean things up
+	bool expected = true;
 	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
 
 }
@@ -865,7 +866,6 @@ DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
     // If executor - wait for the maps to be empty.
     // If client - only wait for the abort to be done
 	LOGMIGRATE << "Waiting for previous migrations to finish, if there is any.";
-	bool expected = true;
 	if (role == MIGR_EXECUTOR) {
 	    std::unique_lock<std::mutex> lk(migrationBatchMutex);
 	    migrationCV.wait(lk, [this]{return (executorMap.empty() && clientMap.empty());});
