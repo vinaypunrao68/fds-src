@@ -602,10 +602,11 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     // For now, we're not supporting more than 1 resync nodes
     if (cm->getDmResyncServices().size() > 1) {
-        LOGERROR << "We are not supporting more than one node down at a time";
-        bret = false;
-        fds_assert(!"ERROR: 2 nodes gone down and trying to resync");  // panic in lab mode
-        return bret;
+        // TODO - address it later
+        LOGNORMAL << "We are not supporting more than one node down at a time";
+        // bret = false;
+        // fds_assert(!"ERROR: 2 nodes gone down and trying to resync");  // panic in lab mode
+        // return bret;
     }
 
     // this method computes new DMT and sets as target if
@@ -778,7 +779,7 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
     // This should be a clear set
-    fds_assert(cm->ongoingMigrationDMs.size() == 0);
+    // fds_assert(cm->ongoingMigrationDMs.size() == 0);
     cm->ongoingMigrationDMs.clear();
 
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
