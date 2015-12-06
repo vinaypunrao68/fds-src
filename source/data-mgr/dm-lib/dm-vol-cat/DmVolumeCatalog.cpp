@@ -974,14 +974,7 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
             // delete starting at the ofset after the new last offset
             LOGDEBUG << "deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
-            /**
-             * WARNING: TODO - for now the delete Obj could go berserk and core dump
-             * We print this debug log to see how big the offsets are.
-             * The actual truncate of the blob may not matter as much, since
-             * we actually do write out the new blob meta descriptor out.
-             */
-
-            // err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+            err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
             LOGDEBUG << "deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
