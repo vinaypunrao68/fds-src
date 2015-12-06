@@ -326,7 +326,6 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
         err = dataMgr.timeVolCat_->migrateDescriptor(fds_volid_t(volumeUuid),
                                                      desc.vol_blob_name,
                                                      desc.vol_blob_desc);
-        LOGMIGRATE << "NEIL DEBUG done migrating descriptor";
         if (!err.ok()) {
             LOGERROR << "Failed to apply blob descriptor for volume="
                        << std::hex << volumeUuid << std::dec
@@ -372,7 +371,6 @@ DmMigrationExecutor::applyQueuedBlobDescs()
                    << ", sequencId=" << blobDescMsg->msg_seq_id
                    << ", lastMsg=" << blobDescMsg->last_msg_seq_id;
         err = applyBlobDesc(blobDescMsg);
-        LOGMIGRATE << "NEIL DEBUG done applyBlobDesc";
         ackDescriptor(err);
         if (!err.ok()) {
             LOGERROR << "Failed applying queued blob descriptor for vlume="
@@ -391,18 +389,14 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     Error err;
 
     DmCommitLog::ptr commitLog;
-    LOGDEBUG << "NEIL DEBUG tvc->getCommitlog start for volume " << volumeUuid;
     err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
-    LOGDEBUG << "NEIL DEBUG tvc->getCommitlog end for volume " << volumeUuid;
 
     if (!err.ok()) {
         LOGERROR << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
         return err;
     }
 
-    LOGDEBUG << "NEIL DEBUG applySerializedTxs start for volume " << volumeUuid;
     err = commitLog->applySerializedTxs(txStateMsg->transactions);
-    LOGDEBUG << "NEIL DEBUG applySerializedTxs end for volume " << volumeUuid;
 
     if (err.ok()) {
         {

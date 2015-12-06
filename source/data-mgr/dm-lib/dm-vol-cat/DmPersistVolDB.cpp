@@ -630,20 +630,15 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
     CatWriteBatch batch;
     unsigned counter = 0;
     TIMESTAMP_OP(batch);
-    LOGDEBUG << "NEIL DEBUG creating batch";
     for (fds_uint64_t i = startOffset; i <= endOffset; i += objSize_) {
         auto objectIndex = i / objSize_;
         fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
-        LOGDEBUG << "NEIL DEBUG deletebatch count = " << counter;
     }
-    LOGDEBUG << "NEIL DEBUG done creating batch";
 
-    LOGDEBUG << "NEIL DEBUG updating catalog with batch";
     Error rc = catalog_->Update(&batch);
-    LOGDEBUG << "NEIL DEBUG done updating catalog with batch";
     if (!rc.ok()) {
         LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
                 << std::hex << volId_ << std::dec << "'";
