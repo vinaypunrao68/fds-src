@@ -779,6 +779,10 @@ DmMigrationMgr::abortMigrationReal()
     migrationCV.notify_one();
 
     dataManager.counters->totalMigrationsAborted.incr(1);
+
+	// set it to false to clean things up
+	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
+
 }
 
 void
@@ -874,9 +878,6 @@ DmMigrationMgr::waitForMigrationBatchToFinish(MigrationRole role)
 
         LOGMIGRATE << "Done waiting for previous migration abort to finish";
     }
-
-	// If migrationAborted was set true, set it to false to clean things up
-	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
 
 	LOGMIGRATE << "Done waiting for previous migrations to finish";
 }
