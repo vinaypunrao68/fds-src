@@ -527,6 +527,8 @@ namespace fds
 
                 args.push_back ("-classpath");
                 args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
+                args.push_back ("-Dfds.service.name=xdi");
+                args.push_back ("-Dlog4j.configurationFile=" + rootDir + "etc/log4j2.xml");
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
