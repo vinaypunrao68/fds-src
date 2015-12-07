@@ -123,7 +123,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
     }
 
     fds_assert(state == ACCEPT_REQUESTS);
-    LOGDEBUG << logString(*header);
+    // LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
