@@ -340,24 +340,24 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 {
     Error err(ERR_OK);
 
-    tcStateType expect = TCSTATE_IN_PROGRESS;
-    tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
-    if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
-        // must not happen
-        fds_verify(false);
-    }
-
-    LOGNORMAL << "finished compaction for token:" << token_id
+    LOGERROR  << "finished compaction for token:" << token_id
               << " disk:" << cur_disk_id
               << " tier:" << cur_tier
               << " verify:" << verifyData
               << " result:" << tc_error;
 
+    tcStateType expect = TCSTATE_IN_PROGRESS;
+    tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
+    if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
+        // Implement error handling for token compactor.
+        return tc_error;
+    }
+
     // check error happened in the middle of compaction
     if (!tc_error.ok()) {
         // TODO(anna) need to recover from error because we may have already wrote
         // new objects to the shadow file!
-        fds_verify(false);  // IMPLEMENT THIS
+        return tc_error;
     }
 
     // tell persistent layer we are done copying -- remove the old file
