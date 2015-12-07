@@ -439,7 +439,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
     	auto uniqueId = std::make_pair(destDmUuid, fds_volid);
         {
         	SCOPEDWRITE(migrClientLock);
-        	LOGMIGRATE << "Creating migration client for node: " << destDmUuid << " volume ID# " << fds_volid;
+        	LOGNORMAL << "Creating migration client for node: " << destDmUuid << " volume ID# " << fds_volid;
 			clientMap.emplace(uniqueId,
 							  (client = DmMigrationClient::shared_ptr(new DmMigrationClient(DmReqHandler, dataManager,
 																							mySvcUuid, destDmUuid, filterSet,

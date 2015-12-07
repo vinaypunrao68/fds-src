@@ -1200,6 +1200,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_Module *om = OM_Module::om_singleton();
         ClusterMap* cm = om->om_clusmap_mod();
         NodeUuidSet addedDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+        NodeUuidSet resyncDMs = cm->getDmResyncServices();
         LOGNORMAL << "DM timeout in SL, node uuid " << std::hex
                   << recoverAckEvt.svcUuid.uuid_get_val() << std::dec
                   << " ; we had " << addedDms.size() << " added DMs";
@@ -1216,6 +1217,19 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
                 break;
             }
+        }
+        for (NodeUuidSet::const_iterator cit = resyncDMs.cbegin();
+                cit != resyncDMs.cend(); ++cit) {
+             if (*cit == recoverAckEvt.svcUuid) {
+                LOGWARN << "Looks like DM that we tried to resync to DMT is down, "
+                        << " setting it's state to down: node uuid " << std::hex
+                        << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+                OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+                OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
+                dm_agent->set_node_state(fpi::FDS_Node_Down);
+                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                break;
+             }
         }
     }
 
