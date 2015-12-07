@@ -143,8 +143,8 @@ namespace fds
             }
             else
             {
-                javaOptions = util::strformat ( "-Dfds.service.name=xdi -Dlog4j.configurationFile=%s/etc/log4j2.xml",
-                                                rootDir.c_str() );
+                javaOptions = util::strformat ( "-Dfds.service.name=xdi -Dlog4j.configurationFile=%setc/log4j2.xml -Dfds_root=%s",
+                                                rootDir.c_str(), rootDir.c_str() );
 
             }
             LOGDEBUG << "XDI_JAVA_OPTS = ' " << javaOptions << " ' FDS-ROOT: " << rootDir;
