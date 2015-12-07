@@ -136,7 +136,7 @@ Error Serializable::getSerialized(std::string& serializedData) const {
     try {
         serialize::Serializer *s = serialize::getMemSerializer(getEstimatedSize());
         bytesWritten = write(s);
-        LOGDEBUG << "byteswritten : " << bytesWritten;
+        // LOGDEBUG << "byteswritten : " << bytesWritten;
         serializedData.append(s->getBufferAsString());
         delete s;
     } catch(const TProtocolException& e) {
@@ -159,7 +159,7 @@ Error Serializable::loadSerialized(const std::string& serializedData) {
     try {
         serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
         bytesRead = read(d);
-        LOGDEBUG << "bytesread : " <<bytesRead;
+        // LOGDEBUG << "bytesread : " <<bytesRead;
         delete d;
     } catch(const TProtocolException& e) {
         LOGERROR << e.what();

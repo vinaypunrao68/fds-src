@@ -937,8 +937,8 @@ int DataMgr::mod_init(SysParams const *const param)
     sampleCounter = 0;
     counters = new fds::dm::Counters("dmcounters", MODULEPROVIDER()->get_cntrs_mgr().get());
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
-    closedmt_timer = MODULEPROVIDER()->getTimer();
-    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
+    auto timer = MODULEPROVIDER()->getTimer();
+    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
 
@@ -996,7 +996,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
-
     
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
     refCountMgr.reset(new refcount::RefCountManager(this));
