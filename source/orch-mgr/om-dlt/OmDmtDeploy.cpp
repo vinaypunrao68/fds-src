@@ -343,6 +343,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_ReRegister
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Transition table for OM DMT deployment.
@@ -373,6 +378,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Done    , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_AllOk   ,DmtErrorFoundEvt, DST_Error   , DACT_Error    , msf::none    >,
+    msf::Row< DST_AllOk   , DmtUpEvt   , DST_Error   , DACT_Error    , GRD_ReRegister>,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Error   , DmtEndErrorEvt , DST_AllOk   , DACT_EndError , msf::none    >,
     msf::Row< DST_Error   , DmtRecoveryEvt , DST_Error   , DACT_ChkEndErr, msf::none    >
@@ -432,6 +438,13 @@ OM_DMTMod::dmt_deploy_curr_state()
 //
 void
 OM_DMTMod::dmt_deploy_event(DmtDeployEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DMTMod::dmt_deploy_event(DmtUpEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dmt_dply_fsm->process_event(evt);
@@ -587,6 +600,15 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     	LOGDEBUG << cit.uuid_get_val();
     }
 
+    // For now, we're not supporting more than 1 resync nodes
+    if (cm->getDmResyncServices().size() > 1) {
+        // TODO - address it later
+        LOGNORMAL << "We are not supporting more than one node down at a time";
+        // bret = false;
+        // fds_assert(!"ERROR: 2 nodes gone down and trying to resync");  // panic in lab mode
+        // return bret;
+    }
+
     // this method computes new DMT and sets as target if
     // 1. newly computed DMT is different from the current commited DMT
     // or
@@ -629,6 +651,32 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;
     return bret;
+}
+
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DmtDplyFSM::GRD_ReRegister::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    fds_bool_t bret = false;
+    NodeUuid nodeChk = evt.uuid;
+
+    NodeList addNodes, rmNodes, resyncNodes;
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    if (cm->ongoingMigrationDMs.find(nodeChk) != cm->ongoingMigrationDMs.end()) {
+        /**
+         * The nodeChk UUID is found in a list of ongoing migrations
+         * so it means that the node (executor) has crashed and reregistered.
+         * We will fire the DACT_Error in this case
+         */
+        LOGNOTIFY << "Node " << nodeChk << " found to be already in syncing";
+        bret = true;
+    }
+
+    return (bret);
 }
 
 /* DACT_Start
@@ -730,8 +778,18 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
-    // TODO(Neil) - hack rebalance to have a list of resync nodes
+    // This should be a clear set
+    // fds_assert(cm->ongoingMigrationDMs.size() == 0);
+    cm->ongoingMigrationDMs.clear();
+
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
+
+    // Store a list of ongoing migrations so we can check if it's
+    // a duplicate.
+    for (auto cit : dst.pull_meta_dms) {
+        auto pair = cm->ongoingMigrationDMs.insert(cit);
+        fds_assert(pair.second); // we shouldn't have existing node in the set
+    }
 
     if ( !err.ok() )
     {
@@ -797,10 +855,15 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
                                                        vp->getCommittedDMT());
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
-//    fds_verify(dst.commit_acks_to_wait > 0);
+    //    fds_verify(dst.commit_acks_to_wait > 0);
 
     LOGNOTIFY << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
+
+    // Once we're in this state, it means all DMs ongoing staticMigrations have
+    // completed. We need to clear the ongoingMigrations list at this point.
+    cm->ongoingMigrationDMs.clear();
+
 }
 
 
@@ -845,7 +908,6 @@ DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     return bret;
 }
-
 
 /* DACT_BcastAM
  * ------------
@@ -1109,8 +1171,12 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     LOGNOTIFY << "DACT_EndError";
     // End of error handling for FSM. Not balancing volume anymore so turn it off.
     OM_Module* om = OM_Module::om_singleton();
+
     VolumePlacement* vp = om->om_volplace_mod();
     vp->notifyEndOfRebalancing();
+
+    ClusterMap* cm = om->om_clusmap_mod();
+    cm->ongoingMigrationDMs.clear();
 }
 
 // DACT_ChkEndErr

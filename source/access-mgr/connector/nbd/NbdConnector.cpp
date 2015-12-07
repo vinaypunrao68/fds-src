@@ -96,6 +96,15 @@ void NbdConnector::initialize() {
     }
 }
 
+void
+NbdConnector::deviceDone(int const socket) {
+    std::lock_guard<std::mutex> g(connection_lock);
+    auto it = connection_map.find(socket);
+    if (connection_map.end() == it) return;
+
+    connection_map.erase(it);
+}
+
 void NbdConnector::reset() {
     if (0 <= nbdSocket) {
         evIoWatcher->stop();
@@ -175,12 +184,14 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
         } while ((0 > clientsd) && (EINTR == errno));
 
         if (0 <= clientsd) {
+            std::lock_guard<std::mutex> g(connection_lock);
             // Setup some TCP options on the socket
             configureSocket(clientsd);
 
             // Create a handler for this NBD connection
             // Will delete itself when connection dies
-            NbdConnection *client = new NbdConnection(this, evLoop, clientsd, processor);
+            auto client = new NbdConnection(this, evLoop, clientsd, processor);
+            connection_map[clientsd].reset(client);
             LOGNORMAL << "Created client connection...";
         } else {
             switch (errno) {

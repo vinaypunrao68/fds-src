@@ -14,7 +14,7 @@ class DMDebugContext(Context):
         return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
 
-    @cliadmincmd
+    @clicmd
     @arg('vol-name', help= "-Volume name  of the checker")
     @arg('source-dm', help= "-service uuid of the source  DM")
     @arg('dry-run', help= "-Action based on the  checker result, True->sync the nodes False->report the diffs" )
