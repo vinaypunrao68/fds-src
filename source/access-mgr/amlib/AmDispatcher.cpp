@@ -233,6 +233,22 @@ AmDispatcher::lookupVolumeCb(std::string const& volume_name,
     AmDataProvider::lookupVolumeCb(desc, error);
 }
 
+void
+AmDispatcher::getVolumes(std::vector<VolumeDesc>& volumes) {
+    volumes.clear();
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
+    err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
+    if (err.ok()) {
+        // Transform the vector of CtrlNotifyAdd to one of VolumeDescs
+        std::transform(list.volumeList.begin(),
+                       list.volumeList.end(),
+                       std::back_inserter(volumes),
+                       [] (fpi::CtrlNotifyVolAdd const& c) -> VolumeDesc
+                           { return VolumeDesc(c.vol_desc); });
+    }
+}
+
 /**
  * MultiPrimary request with volume id will always be sent to Data Manager.
  * Look at the dmt to find possible destination DMs.

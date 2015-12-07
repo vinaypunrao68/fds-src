@@ -95,6 +95,7 @@ struct AmDispatcher :
     void stop() override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void lookupVolume(std::string const volume_name) override;
+    void getVolumes(std::vector<VolumeDesc>& volumes) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;

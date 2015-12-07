@@ -403,4 +403,28 @@ DEFINE_OUTPUT_FUNCS(SvcUuid) {
     out << SvcMgr::mapToSvcUuidAndName(msg);
     return out;
 }
+
+size_t sizeOfData(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg) {
+    size_t totalSize = 0;
+    auto blobDescList = msg->blob_desc_list;
+    for (auto bdlIt : blobDescList) {
+        totalSize += sizeof(bdlIt.vol_blob_name);
+        totalSize += sizeof(bdlIt.vol_blob_desc);
+    }
+    return (totalSize);
+}
+
+size_t sizeOfData(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg) {
+    size_t totalSize = 0;
+    auto blobList = msg->blob_obj_list;
+    for (auto blobObj : blobList) {
+        auto blob_diff_list = blobObj.blob_diff_list;
+        for (auto blobObjInfo : blob_diff_list) {
+            totalSize += sizeof(blobObjInfo.data_obj_id.digest);
+        }
+    }
+
+    return (totalSize);
+}
+
 }  // namespace fds

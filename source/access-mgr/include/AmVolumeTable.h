@@ -44,7 +44,7 @@ struct AmVolumeTable :
     bool done() override;
     void start() override;
     void stop() override;
-    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void lookupVolume(std::string const volume_name) override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
@@ -100,8 +100,8 @@ struct AmVolumeTable :
     volume_ptr_type getVolume(const std::string& vol_name) const;
     volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
-    volume_ptr_type ensureReadable(AmRequest *amReq);
-    volume_ptr_type ensureWritable(AmRequest *amReq);
+    volume_ptr_type ensureReadable(AmRequest *amReq, bool const otherwise_queue = true);
+    volume_ptr_type ensureWritable(AmRequest *amReq, bool const otherwise_queue = true);
 
     void renewTokenCb(AmRequest *amReq, const Error& error);
 };

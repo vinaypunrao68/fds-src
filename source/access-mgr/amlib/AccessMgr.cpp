@@ -128,4 +128,24 @@ AccessMgr::run() {
     }
 }
 
+void
+AccessMgr::volumeAdded(VolumeDesc const& volDesc) {
+    if (nbd_enabled) {
+        NbdConnector::volumeAdded(volDesc);
+    }
+    if (scst_enabled) {
+        ScstConnector::volumeAdded(volDesc);
+    }
+}
+
+void
+AccessMgr::volumeRemoved(VolumeDesc const& volDesc) {
+    if (nbd_enabled) {
+        NbdConnector::volumeRemoved(volDesc);
+    }
+    if (scst_enabled) {
+        ScstConnector::volumeRemoved(volDesc);
+    }
+}
+
 }  // namespace fds

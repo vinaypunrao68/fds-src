@@ -42,6 +42,14 @@ struct AmDataProvider {
         return true;
     }
 
+    virtual void getVolumes(std::vector<VolumeDesc>& volumes)
+    {
+        if (_next_in_chain) {
+            return _next_in_chain->getVolumes(volumes);
+        }
+        volumes.clear();
+    }
+
     virtual void registerVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
@@ -56,10 +64,10 @@ struct AmDataProvider {
         }
     }
 
-    virtual Error modifyVolumePolicy(fds_volid_t const vol_id, VolumeDesc const& volDesc)
+    virtual Error modifyVolumePolicy(VolumeDesc const& volDesc)
     {
         if (_next_in_chain) {
-            return _next_in_chain->modifyVolumePolicy(vol_id, volDesc);
+            return _next_in_chain->modifyVolumePolicy(volDesc);
         }
         return ERR_OK;
     }
