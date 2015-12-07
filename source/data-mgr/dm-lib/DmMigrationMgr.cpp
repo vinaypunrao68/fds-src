@@ -477,7 +477,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
 
 out:
     if (cleanUp) {
-        cleanUp(ERR_OK);
+        cleanUp(err);
     }
     return err;
 }
