@@ -1602,11 +1602,6 @@ OM_PmAgent::send_stop_service
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
-    
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    if (shutdownNode) {
-        domain->addToShutdownList(get_uuid().uuid_get_val());
-    }
 
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Up) {
         LOGNORMAL << "Stop services for node" << get_node_name()
@@ -1615,6 +1610,11 @@ OM_PmAgent::send_stop_service
                   << " stop dm ? " << stop_dm
                   << " stop am ? " << stop_am
                   << " size of svcInfoList: " << svcInfos.size();
+
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        if (shutdownNode) {
+            domain->addToShutdownList(get_uuid().uuid_get_val());
+        }
 
         fds_mutex::scoped_lock l(dbNodeInfoLock);
 
