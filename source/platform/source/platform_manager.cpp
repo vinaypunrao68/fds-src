@@ -139,9 +139,15 @@ namespace fds
 
             if (NULL != envValue)
             {
-                LOGDEBUG << "Found XDI_JAVA_OPTS ' " << envValue << " '";
                 javaOptions = envValue;
             }
+            else
+            {
+                javaOptions = util::strformat ( "-Dfds.service.name=xdi -Dlog4j.configurationFile=%s/etc/log4j2.xml",
+                                                rootDir.c_str() );
+
+            }
+            LOGDEBUG << "XDI_JAVA_OPTS = ' " << javaOptions << " ' FDS-ROOT: " << rootDir;
 
             if (javaOptions.size() > 0)
             {
