@@ -874,23 +874,20 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     }
 
     // find available token compactor and start compaction of next token
-    if (error.ok()) {
-        for (fds_uint32_t i = 0; i < scav_policy.proc_max_tokens; ++i) {
-            if (tok_compactor_vec[i]->isIdle()) {
-                fds_bool_t found = getNextCompactToken(&tok_id);
-                if (!found) {
-                    finished = true;
-                    break;
-                }
-                tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
-                                     std::bind(
-                                         &DiskScavenger::compactionDoneCb, this,
-                                         std::placeholders::_1, std::placeholders::_2));
-             }
-        }
-    } else {
-        // lets not continue if error
-        finished = true;
+    // even if the current token compaction error'ed we should move forward
+    // compacting other tokens in the disk.
+    for (fds_uint32_t i = 0; i < scav_policy.proc_max_tokens; ++i) {
+        if (tok_compactor_vec[i]->isIdle()) {
+            fds_bool_t found = getNextCompactToken(&tok_id);
+            if (!found) {
+                finished = true;
+                break;
+            }
+            tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
+                                 std::bind(
+                                     &DiskScavenger::compactionDoneCb, this,
+                                     std::placeholders::_1, std::placeholders::_2));
+         }
     }
 
     if (finished) {
