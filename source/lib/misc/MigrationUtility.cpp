@@ -448,6 +448,12 @@ MigrationTrackIOReqs::~MigrationTrackIOReqs()
     fds_assert(0 == numTrackIOReqs);
     fds_assert(!waitingTrackIOReqsCompletion);
     fds_assert(denyTrackIOReqs || !trackingStarted);
+
+    if (numTrackIOReqs > 0 || waitingTrackIOReqsCompletion) {
+        LOGERROR << "Tracking started = " << trackingStarted
+                 << "numTrackIOReqs = " << numTrackIOReqs
+                 << "waiting = " << waitingTrackIOReqsCompletion;
+    }
 }
 
 // Start tracking outstanding IO requests for SM token migration.
