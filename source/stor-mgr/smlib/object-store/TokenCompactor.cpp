@@ -325,8 +325,8 @@ void TokenCompactor::objsCompactedCb(const Error& error,
                  << " tier " << (fds_uint16_t)cur_tier
                  << " disk_id " << cur_disk_id
                  << " with error " << error;
-        handleCompactionDone(error);
         delete req;
+        handleCompactionDone(error);
         return;
     }
 
@@ -342,8 +342,8 @@ void TokenCompactor::objsCompactedCb(const Error& error,
                  << " disk_id " << cur_disk_id
                  << " with error " << ERR_INVALID_ARG
                  << " done " << total_done << " total " << total_objs;
-        handleCompactionDone(ERR_INVALID_ARG);
         delete req;
+        handleCompactionDone(ERR_INVALID_ARG);
         return;
     }
 
@@ -382,10 +382,28 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
     tcStateType expect = TCSTATE_IN_PROGRESS;
     tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
     if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
+        // set token compactor state to idle -- scavenger can use this TokenCompactor
+        // for a new compaction job
+        std::atomic_exchange(&state, TCSTATE_IDLE);
+
+        // notify the requester about the completion
+        if (done_evt_handler) {
+            done_evt_handler(token_id, Error(ERR_SM_TC_INVALID_STATE));
+        }
+
         return tc_error;
     }
 
     if (!tc_error.ok()) {
+        // set token compactor state to idle -- scavenger can use this TokenCompactor
+        // for a new compaction job
+        std::atomic_exchange(&state, TCSTATE_IDLE);
+
+        // notify the requester about the completion
+        if (done_evt_handler) {
+            done_evt_handler(token_id, tc_error);
+        }
+
         return tc_error;
     }
 

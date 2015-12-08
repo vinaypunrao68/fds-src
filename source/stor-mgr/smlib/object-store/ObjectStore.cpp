@@ -600,7 +600,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore
@@ -1397,7 +1397,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore
