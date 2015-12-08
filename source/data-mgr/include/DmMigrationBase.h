@@ -6,6 +6,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONBASE_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONBASE_H_
 #include <functional>
+#include <string>
 
 namespace fds {
 
@@ -19,6 +20,8 @@ extern size_t sizeOfData(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
 class DmMigrationBase {
 public:
     using migrationCb = std::function<void(const Error& e)>;
+    DmMigrationBase() = default;
+    explicit DmMigrationBase(int64_t migrationId);
 	virtual ~DmMigrationBase() {}
     /**
      * Response handler - no-op for OK, otherwise fail migration.
@@ -28,6 +31,12 @@ public:
     						  EPSvcRequest*,
     						  const Error&,
 							  boost::shared_ptr<std::string>);
+    virtual std::string logString() const;
+
+protected:
+    /* Id to identify migration. For now this can be the dmt version */
+    int64_t     migrationId;
+    std::string logStr;
 
 };
 

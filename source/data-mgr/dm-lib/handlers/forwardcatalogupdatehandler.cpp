@@ -56,7 +56,9 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     	 */
     	NodeUuid srcUuid(typedRequest->srcUuid);
     	dataManager.dmMigrationMgr->
-			finishActiveMigration(srcUuid, fds_volid_t(typedRequest->fwdCatMsg->volume_id));
+			finishActiveMigration(srcUuid,
+                                  fds_volid_t(typedRequest->fwdCatMsg->volume_id),
+                                  typedRequest->fwdCatMsg->DMT_version);
 
     	// finishActiveMigration would potentially remove the executor so the cb
     	// set above in handleRequest would no longer be valid.

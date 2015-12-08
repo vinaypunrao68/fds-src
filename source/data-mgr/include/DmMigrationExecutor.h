@@ -27,6 +27,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
+                                 int64_t migrationId,
 								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneCb _callback,
                                  uint32_t _timeout);

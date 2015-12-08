@@ -27,6 +27,7 @@ class DmMigrationClient : public DmMigrationBase {
     		DataMgr& _dataMgr,
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
+            int64_t migrationId,
 			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle,
             uint64_t _maxDeltaBlobs,
