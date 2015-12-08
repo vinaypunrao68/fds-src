@@ -94,7 +94,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
 /*
@@ -118,7 +118,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
 */
 template<class PayloadT>
 void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
-    // TODO(Rao): Do buffer managment so that the below deserialization is
+    // TODO(Rao): Do buffer management so that the below deserialization is
     // efficient
     bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
         new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
@@ -130,7 +130,7 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         fds_verify(read > 0);
     } catch(std::exception &e) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
         GLOGDEBUG << "Exception in deserializing: " << e.what();
         DBG(std::exception_ptr eptr = std::current_exception());
@@ -141,7 +141,7 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
 /*
