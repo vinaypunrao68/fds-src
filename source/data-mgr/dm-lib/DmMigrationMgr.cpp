@@ -487,8 +487,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         	client = getMigrationClient(uniqueId);
         	fds_assert(client != nullptr);
 
-        	std::function<void()> trackerBind = std::bind(&DmMigrationMgr::asyncMsgIssued, this);
-			err = client->processBlobFilterSet(trackerBind);
+			err = client->processBlobFilterSet();
 			if (ERR_OK != err) {
                 LOGERROR << client->logString() << " Processing filter set failed: " << err;
 				abortMigration();
@@ -667,9 +666,6 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role, int64_t migrationId)
 	if (role == MIGR_CLIENT) {
 		{
 			SCOPEDWRITE(migrClientLock);
-			LOGMIGRATE << "migrationid: " << migrationId
-                << " Waiting for all outstanding client async messages to be finished";
-			trackIOReqs.waitForTrackIOReqs();
 			/*
 			 * DMT Close is a broadcasted event. There's no need to handle each node separately.
 			 * Just nuke all the clientMap because DMT Close can only happen once all the executors
@@ -685,9 +681,6 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role, int64_t migrationId)
 	} else if (role == MIGR_EXECUTOR) {
 		{
 			SCOPEDWRITE(migrExecutorLock);
-			LOGMIGRATE << "migrationid: " << migrationId
-                << " Waiting for all outstanding executor async messages to be finished";
-			trackIOReqs.waitForTrackIOReqs();
 			LOGNORMAL << "migrationid: " << migrationId
                 << " Migration executors state reset";
 			/**
@@ -802,8 +795,6 @@ DmMigrationMgr::abortMigrationReal()
 		SCOPEDWRITE(migrExecutorLock);
 		{
 			SCOPEDWRITE(migrClientLock);
-			LOGDEBUG << "Waiting for all I/O to complete";
-			trackIOReqs.waitForTrackIOReqs();
 			DmMigrationClientMap::const_iterator citer (clientMap.begin());
 			DmMigrationExecMap::const_iterator eiter (executorMap.begin());
 			while (citer != clientMap.end()) {
@@ -838,32 +829,6 @@ DmMigrationMgr::abortMigrationReal()
 	bool expected = true;
 	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
 
-}
-
-void
-DmMigrationMgr::asyncMsgPassed()
-{
-	trackIOReqs.finishTrackIOReqs();
-	dataManager.counters->numberOfOutstandingIOs.decr(1);
-	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
-}
-
-void
-DmMigrationMgr::asyncMsgFailed(int64_t migrationId)
-{
-	trackIOReqs.finishTrackIOReqs();
-	dataManager.counters->numberOfOutstandingIOs.decr(1);
-	LOGDEBUG << "trackIO count-- is now: " << trackIOReqs.debugCount();
-    LOGERROR << "migrationid: " << migrationId << " Async migration message failed, aborting";
-	abortMigration();
-}
-
-void
-DmMigrationMgr::asyncMsgIssued()
-{
-	trackIOReqs.startTrackIOReqs();
-	LOGDEBUG << "trackIO count++ is now: " << trackIOReqs.debugCount();
-	dataManager.counters->numberOfOutstandingIOs.incr(1);
 }
 
 void
@@ -948,6 +913,20 @@ DmMigrationMgr::setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version) {
 
 void
 DmMigrationMgr::clearClients() {
+
+    LOGMIGRATE << " Waiting for all outstanding client async messages to be finished";
+
+    util::StopWatch sw;
+    for (auto client : clientMap) {
+        auto dmClient = client.second;
+        sw.reset();
+        dmClient->waitForAsyncMsgs();
+        auto elapsedMs = sw.getElapsedNanos()/1000000;
+        if (elapsedMs > 2000) {
+            LOGWARN << dmClient->logString() << " migrationclient for volid: "
+                << dmClient->volId << " took: " << elapsedMs << " ms to drain outstanding IO";
+        }
+    }
     clientMap.clear();
 	dataManager.counters->numberOfActiveMigrClients.set(0);
 
@@ -957,6 +936,20 @@ DmMigrationMgr::clearClients() {
 
 void
 DmMigrationMgr::clearExecutors() {
+
+    LOGMIGRATE << " Waiting for all outstanding executor async messages to be finished";
+
+    util::StopWatch sw;
+    for (auto executor : executorMap) {
+        auto dmExecutor = executor.second;
+        sw.reset();
+        dmExecutor->waitForAsyncMsgs();
+        auto elapsedMs = sw.getElapsedNanos()/1000000;
+        if (elapsedMs > 2000) {
+            LOGWARN << dmExecutor->logString() << " migrationexecutor for volid: "
+                << dmExecutor->volumeUuid << " took: " << elapsedMs << " ms to drain outstanding IO";
+        }
+    }
 	executorMap.clear();
 	dataManager.counters->numberOfActiveMigrExecutors.set(0);
 

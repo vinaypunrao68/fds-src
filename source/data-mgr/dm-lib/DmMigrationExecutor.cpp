@@ -22,8 +22,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneCb _callback,
                                          uint32_t _timeout)
-	: DmMigrationBase(migrationId),
-      dataMgr(_dataMgr),
+	: DmMigrationBase(migrationId, _dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
 	  autoIncrement(_autoIncrement),
@@ -157,14 +156,11 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     // asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed,
-                                                std::ref(dataMgr.dmMigrationMgr),
-                                                migrationId);
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed,
-                                               std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> abortBind = std::bind(&DmMigrationExecutor::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationExecutor::asyncMsgPassed, this);
     asyncInitialBlobSetReq->onResponseCb(
         RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
-    dataMgr.dmMigrationMgr->asyncMsgIssued();
+    asyncMsgIssued();
     asyncInitialBlobSetReq->invoke();
 
     return err;

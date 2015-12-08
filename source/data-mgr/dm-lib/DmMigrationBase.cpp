@@ -7,7 +7,8 @@
 
 namespace fds {
 
-DmMigrationBase::DmMigrationBase(int64_t migrationId)
+DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr)
+: dataMgr(_dataMgr)
 {
     this->migrationId = migrationId;
     std::stringstream ss;
@@ -34,6 +35,34 @@ DmMigrationBase::dmMigrationCheckResp(std::function<void()> abortFunc,
 	} else {
 		passFunc();
 	}
+}
+
+void DmMigrationBase::asyncMsgPassed()
+{
+    trackIOReqs.finishTrackIOReqs();
+    dataMgr.counters->numberOfOutstandingIOs.decr(1);
+    LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
+}
+
+void DmMigrationBase::asyncMsgFailed()
+{
+    trackIOReqs.finishTrackIOReqs();
+    dataMgr.counters->numberOfOutstandingIOs.decr(1);
+    LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
+    LOGERROR << logString() << " Async migration message failed, aborting";
+    dataMgr.dmMigrationMgr->abortMigration();
+}
+
+void DmMigrationBase::asyncMsgIssued()
+{
+    trackIOReqs.startTrackIOReqs();
+    LOGDEBUG << logString() << " trackIO count++ is now: " << trackIOReqs.debugCount();
+    dataMgr.counters->numberOfOutstandingIOs.incr(1);
+}
+
+void DmMigrationBase::waitForAsyncMsgs()
+{
+    trackIOReqs.waitForTrackIOReqs();
 }
 
 } // namespace fds

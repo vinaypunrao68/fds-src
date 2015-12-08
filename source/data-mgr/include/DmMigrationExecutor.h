@@ -120,10 +120,6 @@ class DmMigrationExecutor : public DmMigrationBase {
         return lastUpdateFromClientTsSec_;
     }
   private:
-    /** Reference to the DataManager
-     */
-    DataMgr& dataMgr;
-
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
@@ -233,6 +229,8 @@ class DmMigrationExecutor : public DmMigrationBase {
     
     /* Last timestamp of when we heard from the client */
     util::TimeStamp lastUpdateFromClientTsSec_;
+
+    friend class DmMigrationMgr;
 
 };  // DmMigrationExecutor
 
