@@ -175,15 +175,9 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
          it++) {
         uuid = (*it)->get_uuid();
         if (svc_type == fpi::FDSP_STOR_MGR) {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-//            fds_verify(curSmMap.count(uuid) == 0);
             curSmMap[uuid] = (*it);
             addedSMs.insert(uuid);
         } else {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-            // fds_verify(curDmMap.count(uuid) == 0);
             curDmMap[uuid] = (*it);
             addedDMs.insert(uuid);
         }
@@ -194,11 +188,10 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 		 it++) {
 		uuid = (*it)->get_uuid();
 		if (svc_type == fpi::FDSP_STOR_MGR) {
-			// Invalid use case
-			fds_assert(0);
+			fds_assert(!"Invalid use case");
 		} else {
-			curDmMap[uuid] = (*it);
-			resyncDMs.insert(uuid);
+		    curDmMap[uuid] = (*it);
+		    resyncDMs.insert(uuid);
 		}
 	}
 
