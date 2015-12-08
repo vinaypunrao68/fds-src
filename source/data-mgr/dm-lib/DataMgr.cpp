@@ -1117,6 +1117,7 @@ void DataMgr::mod_enable_service() {
                                                              *qosCtrl->threadPool,
                                                              *this));
 
+    LOGNORMAL << "Finished timevolCat creation";
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
@@ -1143,13 +1144,20 @@ void DataMgr::mod_enable_service() {
         // Get the volume descriptors from OM
         getAllVolumeDescriptors();
     }
+    LOGNORMAL << "Finished stat collection and pulling volume descriptors";
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    LOGNORMAL << "Finished creating DM directory layout";
+
     expungeMgr.reset(new ExpungeManager(this));
+
+    LOGNORMAL << "Finished creating expunge manager";
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
+
+    LOGNORMAL << "Finished starting TVC";
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.

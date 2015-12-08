@@ -457,6 +457,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
+    	message->DMT_version = dmtMgr->getTargetVersion();
 
     	err = agent->om_send_pullmeta(message);
     	if (err.ok()) {
