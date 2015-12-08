@@ -753,7 +753,8 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
         if (stat.tkn_reclaim_size > 0 &&
             reclaim_percent >= token_reclaim_threshold) {
                 tokenDb.insert(stat.tkn_id);
-                LOGNOTIFY << "Disk " << disk_id << " token " << stat.tkn_id
+                LOGNOTIFY << "TC will run for token " << stat.tkn_id
+                          << "Disk " << disk_id
                           << " total bytes " << stat.tkn_tot_size
                           << ", deleted bytes " << stat.tkn_reclaim_size
                           << " (" << reclaim_percent << "%)";
