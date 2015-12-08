@@ -15,3 +15,5 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 fds_ft_common_enable_multi_om_support=false
 fds_om_host_count=1
+fds_java_log_severity=TRACE
+# fds_ft_platform_use_new_superblock=true

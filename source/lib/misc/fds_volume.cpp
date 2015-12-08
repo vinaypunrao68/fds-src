@@ -32,6 +32,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
     state   = volinfo.state;
+
+    iscsiSettings = volinfo.iscsi;
+    nfsSettings = volinfo.nfs;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -56,6 +59,9 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = vdesc.iscsiSettings;
+    nfsSettings = vdesc.nfsSettings;
 }
 
 // NOTE: counterpart of outputting toFdspDesc
@@ -82,6 +88,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = voldesc.iscsi;
+    nfsSettings = voldesc.nfs;
 }
 
 /*
@@ -112,6 +121,9 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -141,6 +153,8 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     contCommitlogRetention = 0;
     timelineTime = 0;
     createTime = 0;
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -202,6 +216,8 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.timelineTime = timelineTime;
     voldesc.createTime = createTime;
     voldesc.state = state;
+    voldesc.iscsi = iscsiSettings;
+    voldesc.nfs = nfsSettings;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -232,6 +248,8 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->contCommitlogRetention = volinfo.contCommitlogRetention;
         this->timelineTime = volinfo.timelineTime;
         this->state = volinfo.state;
+        this->iscsiSettings = volinfo.iscsiSettings;
+        this->nfsSettings = volinfo.nfsSettings;
     }
     return *this;
 }

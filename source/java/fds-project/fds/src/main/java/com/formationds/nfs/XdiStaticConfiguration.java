@@ -10,6 +10,7 @@ public class XdiStaticConfiguration {
     private int amTimeoutSeconds;
     private int amRetryAttempts;
     private int amRetryIntervalSeconds;
+    private int statsPort;
 
     public XdiStaticConfiguration(int threadPoolSize,
                                   boolean activateStats,
@@ -17,7 +18,8 @@ public class XdiStaticConfiguration {
                                   int maxLiveNfsCookies,
                                   int amTimeoutSeconds,
                                   int amRetryAttempts,
-                                  int amRetryIntervalSeconds) {
+                                  int amRetryIntervalSeconds,
+                                  int statsPort) {
         this.threadPoolSize = threadPoolSize;
         this.activateStats = activateStats;
         this.deferMetadataUpdates = deferMetadataUpdates;
@@ -25,9 +27,15 @@ public class XdiStaticConfiguration {
         this.amTimeoutSeconds = amTimeoutSeconds;
         this.amRetryAttempts = amRetryAttempts;
         this.amRetryIntervalSeconds = amRetryIntervalSeconds;
+        this.statsPort = statsPort;
     }
 
-    public int getThreadPoolSize() {
+    public int getStatsPort( )
+    {
+        return statsPort;
+    }
+
+    public int getThreadPoolSize( ) {
         return threadPoolSize;
     }
 
