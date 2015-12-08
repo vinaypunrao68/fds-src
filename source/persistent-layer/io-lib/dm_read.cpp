@@ -31,7 +31,6 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
         obj_map_has_init_val(map) == true ||
         phyloc->obj_file_id != fi_id ||
         fi_fd < 0) {
-        perror("read Error");
         return fds::ERR_DISK_READ_FAILED;
     }
 
