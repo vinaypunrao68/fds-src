@@ -86,7 +86,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
-        GLOGDEBUG << "Excpetion in serializing: " << e.what();
+        GLOGDEBUG << "Exception in serializing: " << e.what();
 /*
  * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
  * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
@@ -132,7 +132,7 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
-        GLOGDEBUG << "Excpetion in deserializing: " << e.what();
+        GLOGDEBUG << "Exception in deserializing: " << e.what();
         DBG(std::exception_ptr eptr = std::current_exception());
 /*
  * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
