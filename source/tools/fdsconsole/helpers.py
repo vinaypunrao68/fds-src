@@ -83,6 +83,7 @@ class ConfigData:
         self.__platform = None
         self.__token = None
         self.__services = None
+        self.__volumes = None
         self.checkDefaults()
 
     def checkDefaults(self):
@@ -124,6 +125,13 @@ class ConfigData:
 
     def getServiceApi(self):
         return self.__services
+
+    def setVolumeApi(self, api):
+        self.__volumes = api
+
+    def getVolumeApi(self):
+        return self.__volumes
+
 
     def hasPlatformClient(self):
         return self.__platform != None
