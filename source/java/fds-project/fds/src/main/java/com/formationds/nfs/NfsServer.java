@@ -36,8 +36,8 @@ public class NfsServer {
         }
         String omHost = args[0];
         String amHost = args[1];
-        Configuration platformConfig = new Configuration("NFS", new String[]{"--console"});
-        XdiStaticConfiguration xdiStaticConfiguration = platformConfig.getXdiStaticConfig();
+        Configuration platformConfig = new Configuration( "NFS", "--console" );
+        XdiStaticConfiguration xdiStaticConfiguration = platformConfig.getXdiStaticConfig( 7000 );
         XdiClientFactory clientFactory = new XdiClientFactory();
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, 9090));
         config.startCacheUpdaterThread(1000);
@@ -51,7 +51,7 @@ public class NfsServer {
     public void start(XdiStaticConfiguration xdiStaticConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         Counters counters = new Counters();
         if (xdiStaticConfiguration.activateStats()) {
-            Thread t = new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters));
+            Thread t = new Thread(() -> new DebugWebapp().start(xdiStaticConfiguration.getStatsPort(), asyncAm, config, counters));
             t.setName("NFS statistics webapp");
             t.start();
         }
