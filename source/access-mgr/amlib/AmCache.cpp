@@ -401,7 +401,7 @@ AmCache::getOffsetsCb(AmRequest* amReq, Error const error) {
 void
 AmCache::getBlobCb(AmRequest *amReq, Error const error) {
     if (ERR_OK != error) {
-        return AmDataProvider::getBlobCb(amReq, ERR_OK);
+        return AmDataProvider::getBlobCb(amReq, error);
     }
 
     auto blobReq = static_cast<GetBlobReq *>(amReq);
