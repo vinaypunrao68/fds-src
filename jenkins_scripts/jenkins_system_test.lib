@@ -11,7 +11,7 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # This list of tests to be run
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIOKillTest ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
+SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
 
 function performance_report
 {
