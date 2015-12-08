@@ -61,7 +61,7 @@
         <RollingRandomAccessFile name="jsvclayer"
                                  fileName="${fds.logs}/jsvclayer.log"
                                  filePattern="${fds.logs}/archive/jsvclayer-%i.log.gz"
-                                 immediateFlush="true">
+                                immediateFlush="true">
 
             <Policies>
                 <!-- start a new file at startup regardless of time or size -->
@@ -80,15 +80,20 @@
     </Appenders>
 
     <Loggers>
-        <Root level="WARN">
+        <!-- Root level="WARN" -->
+        <Root level="TRACE">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Root>
-        <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
+        <!-- Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false" -->
+        <Logger name="com.formationds" level="TRACE" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
-            <AppenderRef ref="jsvclayer"/>
+
+       <!-- Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false" -->
+       <Logger name="com.formationds.platform" level="TRACE" additivity="false">
+                   <AppenderRef ref="jsvclayer"/>
         </Logger>
+
     </Loggers>
 </Configuration>
 {% endblock %}
