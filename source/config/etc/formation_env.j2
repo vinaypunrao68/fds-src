@@ -49,6 +49,9 @@ CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
 export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
 
+export LANG=POSIX
+export LC_MESSAGES=POSIX
+
 # JAVA Main executables
 export OM_JAVA_HOME=${OM_JAVA_HOME:=${FDS_JAVA_HOME}}
 export OM_MAIN_CLASS=com.formationds.om.Main

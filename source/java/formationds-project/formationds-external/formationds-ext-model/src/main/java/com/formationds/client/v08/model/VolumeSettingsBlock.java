@@ -13,8 +13,8 @@ public class VolumeSettingsBlock extends VolumeSettings {
     private Size capacity;
     private Size blockSize;
 
-    public VolumeSettingsBlock() { super(VolumeType.BLOCK); }
-    
+    public VolumeSettingsBlock() { }
+
     public VolumeSettingsBlock( Size capacity ) {
     	this( capacity, null );
     }
@@ -22,10 +22,13 @@ public class VolumeSettingsBlock extends VolumeSettings {
     public VolumeSettingsBlock( long capacity, long blockSize, SizeUnit unit ) {
         this( Size.of( capacity, unit ), Size.of( blockSize, unit ));
     }
+
     public VolumeSettingsBlock( Size capacity, Size blockSize ) {
-        super( VolumeType.BLOCK );
+        super( );
+
         this.capacity = capacity;
         this.blockSize = blockSize;
+        this.type = VolumeType.BLOCK;
     }
 
     /**
