@@ -78,7 +78,7 @@ public class RemoveService implements RequestHandler {
         		                         (node.getAddress().getHostAddress(), pmSvc);
         svcInfList.add(pmSvcInfo);
 
-		if( ( new RemoveNode() ).hasNonePMServices( svcInfList ) )
+		if( ( new RemoveNode() ).hasNonPMServices( svcInfList ) )
 		{
 			int status = getConfigApi( ).RemoveService(
 					new NotifyRemoveServiceMsg( svcInfList, false ) );

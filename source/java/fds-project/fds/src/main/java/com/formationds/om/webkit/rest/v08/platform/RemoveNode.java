@@ -96,7 +96,7 @@ public class RemoveNode
         }
         
         // TODO: Fix when we support multiple domains
-        if( hasNonePMServices( svcInfList ) )
+        if( hasNonPMServices( svcInfList ) )
         {
             logger.debug( "Stopping and removing services on node" );
             int status =
@@ -140,7 +140,7 @@ public class RemoveNode
         throw new ApiException( message, ErrorCode.MISSING_RESOURCE );
     }
 
-    public boolean hasNonePMServices( final List<SvcInfo> services )
+    public boolean hasNonPMServices( final List<SvcInfo> services )
     {
         return services.stream().filter( ( s ) -> !s.getSvc_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) ).count() > 0;
     }
