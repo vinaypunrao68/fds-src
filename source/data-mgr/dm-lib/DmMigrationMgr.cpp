@@ -781,8 +781,6 @@ DmMigrationMgr::abortMigrationReal()
      */
     migrationCV.notify_one();
 
-    dataManager.counters->totalMigrationsAborted.incr(1);
-
 	// set it to false to clean things up
 	bool expected = true;
 	std::atomic_compare_exchange_strong(&migrationAborted, &expected, false);
