@@ -68,7 +68,7 @@ static void add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDesc
     FDS_PLOG_SEV(g_fdslog, fds_log::notification)
         << "Volume in list: " << voldesc.vol_name << ":"
         << std::hex << voldesc.volUUID << std::dec
-        << " min iops (assured) " << voldesc.iops_assured << ", max iops (throttle)"
+        << "min iops (assured) " << voldesc.iops_assured << ",max iops (throttle)"
         << voldesc.iops_throttle << ", prio " << voldesc.rel_prio;
     vec.push_back(voldesc);
 }
@@ -979,7 +979,6 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                      << ", prio " << _return.rel_prio
                      << " media policy " << _return.mediaPolicy;
         } else {
-            LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
             FDSP_VolumeNotFound except;
             except.message = std::string("Volume " + vol_info_req->vol_name + " not found");
             LOGWARN << except.message;
@@ -1040,7 +1039,6 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     void listVolumes(std::vector<VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
 
-        LOGDEBUG<< "OM received listVolumes request";
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
 

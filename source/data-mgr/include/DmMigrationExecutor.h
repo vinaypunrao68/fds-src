@@ -110,7 +110,14 @@ class DmMigrationExecutor : public DmMigrationBase {
     inline bool isMigrationComplete() {
     	return (migrationProgress == MIGRATION_COMPLETE);
     }
+    /**
+    * Returns true if migration has been idle
+    */
+    bool isMigrationIdle(const util::TimeStamp& curTsSec) const;
 
+    inline util::TimeStamp getLastUpdateFromClientTsSec() const {
+        return lastUpdateFromClientTsSec_;
+    }
   private:
     /** Reference to the DataManager
      */
@@ -222,6 +229,9 @@ class DmMigrationExecutor : public DmMigrationBase {
 
     // DMT at the time migration began
     fds_uint64_t dmtVersion;
+    
+    /* Last timestamp of when we heard from the client */
+    util::TimeStamp lastUpdateFromClientTsSec_;
 
 };  // DmMigrationExecutor
 

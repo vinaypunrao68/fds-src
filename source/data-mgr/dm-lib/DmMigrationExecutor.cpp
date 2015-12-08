@@ -31,6 +31,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       msgHandler(_dataMgr),
       migrationProgress(INIT),
       txStateIsMigrated(true),
+      lastUpdateFromClientTsSec_(util::getTimeStampSeconds()),
       deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
       deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
@@ -152,7 +153,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
-    asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    // asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
     std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
     std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
@@ -179,6 +180,8 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                << " lastmsgseqid=" << msg->last_msg_seq_id
                << " numofblobdesc=" << msg->blob_desc_list.size();
 
+    dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
+    lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
     /**
      * Check if all blob offset is applied.  if applyBlobDescList is still
      * false, them queue them up to be applied later.
@@ -236,6 +239,8 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
                << ", last_seq_id=" << msg->last_msg_seq_id
                << ", num obj=" << msg->blob_obj_list.size();
 
+    lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
+
     /**
      * It is possible to get en empty message and last_sequence_id == true.
      */
@@ -249,6 +254,10 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         /**
          * For each blob in the blob_obj_list, apply blob offset.
          */
+
+    	// keep stats
+        dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
+
         for (auto & blobObj : msg->blob_obj_list) {
             /**
              * TODO(Sean):
@@ -531,5 +540,18 @@ DmMigrationExecutor::abortMigration()
             migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         }
     }
+}
+
+bool DmMigrationExecutor::isMigrationIdle(const util::TimeStamp& curTsSec) const
+{
+    /* If we haven't heard from client in while while static migration is in progress
+     * we abort migration
+     */
+    if (migrationProgress == STATICMIGRATION_IN_PROGRESS &&
+        curTsSec > lastUpdateFromClientTsSec_ &&
+        (curTsSec - lastUpdateFromClientTsSec_) > dataMgr.dmMigrationMgr->getIdleTimeout()) {
+        return true;
+    }
+    return false;
 }
 }  // namespace fds
