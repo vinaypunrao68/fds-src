@@ -315,101 +315,30 @@ class ServiceContext(Context):
     def showsvcmap(self, svcid):
         'display the service map'
         try:
-            svcid=self.getServiceId(svcid)
-            svcMap = ServiceMap.client(svcid).getSvcMap(None)
-            data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
-            data.sort(key=itemgetter(0))
-            return tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
-
+            for uuid in self.getServiceIds(svcid):
+                print ('\n{}\nsvcmap for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+                svcMap = ServiceMap.client(uuid).getSvcMap(None)
+                data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
+                data.sort(key=itemgetter(0))
+                print tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get svcmap'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('svcid', help= "Service Uuid",  type=str)
-    def listflag(self, svcid, name=None):
-        'show flags for the service'
-        try:
-            svcid=self.getServiceId(svcid)
-            if name is None:
-                flags = ServiceMap.client(svcid).getFlags(None)
-                data = [(v,k) for k,v in flags.iteritems()]
-                data.sort(key=itemgetter(1))
-                return tabulate(data, headers=['value', 'flag'], tablefmt=self.config.getTableFormat())
-            else:
-                return ServiceMap.client(svcid).getFlag(name)
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get volume list'
-
-    #--------------------------------------------------------------------------------------
-    @clidebugcmd
-    @arg('svcid', type=str)
-    @arg('flag', type=str)
-    @arg('value', type=long)
-    def setflag(self, svcid, flag, value):
-        'set the flag for a service'
-        svcid=self.getServiceId(svcid)
-        try:
-            ServiceMap.client(svcid).setFlag(flag, value)
-        except Exception, e:
-            log.exception(e)
-            return 'Unable to set flag: {}'.format(flag)
-    #--------------------------------------------------------------------------------------
-    @clidebugcmd
     @arg('svcid', type=str)
     @arg('cmd', type=str)
     def setfault(self, svcid, cmd):
         'set the specified fault'
-        svcid=self.getServiceId(svcid)
-        try:
-            success = ServiceMap.client(svcid).setFault(cmd)
-            if success:
-                return 'Ok'
-            else:
-                return "Failed to inject fault.  Check the command"
-        except Exception, e:
-            log.exception(e)
-            return 'Unable to set fault'
-
-    #--------------------------------------------------------------------------------------
-    @clidebugcmd
-    @arg('volname', help='-volume name')
-    def showvolumestats(self, volname):
-        'display info about no. of objects/blobs'
-        try:
-            data = []
-            dmClient = self.config.getPlatform();
-
-            dmUuids = dmClient.svcMap.svcUuids('dm')
-            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
-
-            getblobmeta = FdspUtils.newGetVolumeMetaDataMsg(volId);
-            cb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmeta, cb)
-
-            if not cb.wait():
-                print 'async volume meta request failed'
-            else:
-                data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
-                data += [("size",cb.payload.volume_meta_data.size)]
-                data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
-
-
-            getstatsmsg = FdspUtils.newGetDmStatsMsg(volId);
-            statscb = WaitedCallback();
-            dmClient.sendAsyncSvcReq(dmUuids[0], getstatsmsg, statscb)
-
-            if not statscb.wait():
-                print 'async get dm stats request failed'
-            else:
-                data += [("commitlogsize",statscb.payload.commitlog_size)]
-                data += [("extent0size",statscb.payload.extent0_size)]
-                data += [("extentsize",statscb.payload.extent_size)]
-                data += [("metadatasize",statscb.payload.metadata_size)]
-
-            print tabulate(data, tablefmt=self.config.getTableFormat())
-        except Exception, e:
-            log.exception(e)
-            return 'unable to get volume meta'
+        for uuid in self.getServiceIds(svcid):
+            print ('\n{}\nsvcmap for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+            try:
+                success = ServiceMap.client(uuid).setFault(cmd)
+                if success:
+                    print 'Ok'
+                else:
+                    print "Failed to inject fault.  Check the command"
+            except Exception, e:
+                log.exception(e)
+                print 'Unable to set fault [{}] @ [{}]'.format(cmd,self.getServiceName(uuid))
