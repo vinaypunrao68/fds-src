@@ -100,17 +100,22 @@ ObjectStore::~ObjectStore() {
 
 
 void ObjectStore::setUnavailable() {
-    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
     currentState = OBJECT_STORE_UNAVAILABLE;
 }
 
 void ObjectStore::setReadOnly() {
-    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_READ_ONLY. This should block write IOs but allow reads.";
-    currentState = OBJECT_STORE_READ_ONLY;
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READ_ONLY. This should block write IOs but allow reads.";
+
+    // If we're already unavailabe we should *not* set this state as it is more permissive than UNAVAILABLE
+    // However if we're in NORMAL state this is okay; if we're already READ ONLY this is idempotent
+    if (currentState != OBJECT_STORE_UNAVAILABLE) {
+        currentState = OBJECT_STORE_READ_ONLY;
+    }
 }
 
 void ObjectStore::setAvailable() {
-    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_READY. This should allow reads and writes again.";
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READY. This should allow reads and writes again.";
     currentState = OBJECT_STORE_READY;
 }
 
@@ -433,7 +438,7 @@ ObjectStore::checkAvailability() const {
         LOGERROR << "Object Store is coming up, but not ready to accept IO";
         return ERR_NOT_READY;
     } else if (curState == OBJECT_STORE_READ_ONLY) {
-        LOGERROR << "Object store is in read only mode.";
+        LOGWARN << "Object store is in read only mode.";
         return ERR_SM_READ_ONLY;
     }
     return ERR_OK;
@@ -649,7 +654,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() || err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -771,7 +776,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        Error& err)
 {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() || err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -794,7 +799,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
     Error err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() || err != ERR_SM_READ_ONLY) {
         return err;
     }
 

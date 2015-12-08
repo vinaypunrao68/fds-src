@@ -298,6 +298,8 @@ enum  FDSPMsgTypeId {
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
   CtrlFinishClientTokenResyncMsgTypeId      = 2068;
   CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
+  ObjectStoreCtrlMsgTypeId;
+  RequestObjectStoreStateMsgTypeId;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -331,7 +333,6 @@ enum  FDSPMsgTypeId {
   PrepareForShutdownMsgTypeId               = 10008;
   ActiveObjectsMsgTypeId;
   ActiveObjectsRspMsgTypeId;
-  ObjectStoreCtrlMsgTypeId;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;

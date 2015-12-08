@@ -1229,7 +1229,9 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                    boost::shared_ptr<fpi::ObjectStoreCtrlMsg>& msg) {
 
-    LOGDEBUG << "Received objectStorCtrlMsg telling us to set object store to " << msg->state << " state";
+    LOGNORMAL << "Received objectStorCtrlMsg from " << hdr->msg_src_id
+                << " telling us to set object store to " << msg->state << " state";
+
     // We just received a message from another SM that it had to enter read only mode, or that it is no longer
     // in read only mode. We need to just blindly follow right now. Down the road we should add more robust handling.
     if (msg->state == OBJECTSTORE_READ_ONLY) {
