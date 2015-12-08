@@ -175,15 +175,11 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
          it++) {
         uuid = (*it)->get_uuid();
         if (svc_type == fpi::FDSP_STOR_MGR) {
-            if (curSmMap.count(uuid) == 0) {
-                curSmMap[uuid] = (*it);
-                addedSMs.insert(uuid);
-            }
+            curSmMap[uuid] = (*it);
+            addedSMs.insert(uuid);
         } else {
-            if (curDmMap.count(uuid) == 0) {
-                curDmMap[uuid] = (*it);
-                addedDMs.insert(uuid);
-            }
+            curDmMap[uuid] = (*it);
+            addedDMs.insert(uuid);
         }
     }
 
@@ -192,13 +188,10 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 		 it++) {
 		uuid = (*it)->get_uuid();
 		if (svc_type == fpi::FDSP_STOR_MGR) {
-			// Invalid use case
-			fds_assert(0);
+			fds_assert(!"Invalid use case");
 		} else {
-		    if (curDmMap.count(uuid) == 0) {
-		        curDmMap[uuid] = (*it);
-		        resyncDMs.insert(uuid);
-		    }
+		    curDmMap[uuid] = (*it);
+		    resyncDMs.insert(uuid);
 		}
 	}
 
