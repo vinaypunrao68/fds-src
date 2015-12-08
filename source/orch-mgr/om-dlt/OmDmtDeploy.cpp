@@ -57,7 +57,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGNOTIFY << "DST_Idle. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Idle. Evt: " << e.logString() << " Ready for DM Migration";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGNOTIFY << "DST_Idle. Evt: " << e.logString();
@@ -73,10 +73,13 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_Error. Evt: " << e.logString() << " DM Migration encountered error"
+                    << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Error. Evt: " << e.logString();
         }
 
         fds_uint32_t abortMigrAcksToWait;
@@ -92,7 +95,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString() << " DM Migration error handling finished"
+                    << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
@@ -144,7 +150,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString() << " DM Migration in progress "
+                    << "(migrationid: " << vp->getTargetDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
             LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString();
@@ -1089,6 +1098,8 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         LOGWARN << "Failed to start try again timer!!!"
                 << " DM additions/deletions may be pending for long time";
     }
+
+    LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }
 
 // DACT_Error
@@ -1200,6 +1211,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_Module *om = OM_Module::om_singleton();
         ClusterMap* cm = om->om_clusmap_mod();
         NodeUuidSet addedDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+        NodeUuidSet resyncDMs = cm->getDmResyncServices();
         LOGNORMAL << "DM timeout in SL, node uuid " << std::hex
                   << recoverAckEvt.svcUuid.uuid_get_val() << std::dec
                   << " ; we had " << addedDms.size() << " added DMs";
@@ -1216,6 +1228,19 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
                 break;
             }
+        }
+        for (NodeUuidSet::const_iterator cit = resyncDMs.cbegin();
+                cit != resyncDMs.cend(); ++cit) {
+             if (*cit == recoverAckEvt.svcUuid) {
+                LOGWARN << "Looks like DM that we tried to resync to DMT is down, "
+                        << " setting it's state to down: node uuid " << std::hex
+                        << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+                OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+                OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
+                dm_agent->set_node_state(fpi::FDS_Node_Down);
+                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                break;
+             }
         }
     }
 
