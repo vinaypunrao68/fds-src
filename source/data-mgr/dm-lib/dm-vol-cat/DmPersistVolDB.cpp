@@ -626,22 +626,28 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
     // IS_OP_ALLOWED();
 
     BlobObjectKey key {blobName};
+    Error rc(ERR_OK);
 
-    CatWriteBatch batch;
-    TIMESTAMP_OP(batch);
+    unsigned counter = 0;
     for (fds_uint64_t i = startOffset; i <= endOffset; i += objSize_) {
+        // For now, flush each objSize. This should prevent gigantic delete batch
+        CatWriteBatch batch;
+        TIMESTAMP_OP(batch);
+
         auto objectIndex = i / objSize_;
         fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
+
+        rc = catalog_->Update(&batch);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
+                << std::hex << volId_ << std::dec << "'";
+            break;
+        }
     }
 
-    Error rc = catalog_->Update(&batch);
-    if (!rc.ok()) {
-        LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "'";
-    }
     return rc;
 }
 

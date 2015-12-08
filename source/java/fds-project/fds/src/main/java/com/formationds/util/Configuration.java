@@ -336,7 +336,7 @@ public class Configuration {
         return ( long ) omNodeUuid;
     }
 
-    public XdiStaticConfiguration getXdiStaticConfig() {
+    public XdiStaticConfiguration getXdiStaticConfig( int pmPort ) {
         ParsedConfig platformConfig = getPlatformConfig();
         return new XdiStaticConfiguration(
                 platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_SIZE).intValue(),
@@ -345,6 +345,8 @@ public class Configuration {
                 platformConfig.lookup(FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES).intValue(),
                 platformConfig.lookup(FDS_XDI_AM_TIMEOUT_SECONDS).intValue(),
                 platformConfig.lookup(FDS_XDI_AM_RETRY_ATTEMPTS).intValue(),
-                platformConfig.lookup(FDS_XDI_AM_RETRY_INTERVAL_SECONDS).intValue());
+                platformConfig.lookup(FDS_XDI_AM_RETRY_INTERVAL_SECONDS).intValue(),
+                // assign NFS statistics webapp port based on platform port number 7000 - 1445 == 5555
+                pmPort - 1445 );
     }
 }

@@ -755,6 +755,7 @@ struct DmIoMigration : DmRequest {
 struct DmIoResyncInitialBlob : DmRequest {
 	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	NodeUuid destNodeUuid;
+    std::function<void(const Error& e)> localCb = NULL;
     explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),
@@ -789,6 +790,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 
     boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> deltaBlobsMsg;
     CbType dmio_fwdcat_resp_cb;
+    inline ~DmIoMigrationDeltaBlobs() { LOGDEBUG << "Calling destructor for DmIoMigrationDeltaBlobs"; }
 };
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {

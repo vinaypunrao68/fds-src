@@ -19,7 +19,6 @@ public class Target
     public static class Builder
     {
         private List<LUN> luns = new ArrayList<>( );
-        private List<Initiator> initiators = new ArrayList<>( );
         private List<Credentials> incomingUsers = new ArrayList<>( );
         private List<Credentials> outgoingUsers = new ArrayList<>( );
 
@@ -38,24 +37,6 @@ public class Target
         {
             this.luns.clear();
             this.luns.addAll( luns );
-            return this;
-        }
-
-        protected List<Initiator> getInitiators( )
-        {
-            return initiators;
-        }
-
-        public Builder withInitiator( final Initiator initiator )
-        {
-            this.initiators.add( initiator );
-            return this;
-        }
-
-        public Builder withInitiators( final List<Initiator> initiators )
-        {
-            this.initiators.clear();
-            this.initiators.addAll( initiators );
             return this;
         }
 
@@ -108,17 +89,11 @@ public class Target
                 target.setOutgoingUsers( getOutgoingUsers() );
             }
 
-            if( !getInitiators().isEmpty() )
-            {
-                target.setInitiators( getInitiators() );
-            }
-
             return target;
         }
     }
 
     private List<LUN> luns = new ArrayList<>( );
-    private List<Initiator> initiators = new ArrayList<>( );
     private List<Credentials> incomingUsers = new ArrayList<>( );
     private List<Credentials> outgoingUsers = new ArrayList<>( );
 
@@ -144,22 +119,6 @@ public class Target
     public void setLuns( final List<LUN> luns )
     {
         this.luns = luns;
-    }
-
-    /**
-     * @return Returns the list of initiators (@link Initiator} for this target
-     */
-    public List<Initiator> getInitiators( )
-    {
-        return initiators;
-    }
-
-    /**
-     * @param initiators the list of initiators (@link Initiator} for this target
-     */
-    public void setInitiators( final List<Initiator> initiators )
-    {
-        this.initiators = initiators;
     }
 
     /**
@@ -202,7 +161,6 @@ public class Target
         if ( !super.equals( o ) ) return false;
         final Target target = ( Target ) o;
         return Objects.equals( getLuns( ), target.getLuns( ) ) &&
-            Objects.equals( getInitiators( ), target.getInitiators( ) ) &&
             Objects.equals( getIncomingUsers( ), target.getIncomingUsers( ) ) &&
             Objects.equals( getOutgoingUsers( ), target.getOutgoingUsers( ) );
     }
@@ -210,7 +168,9 @@ public class Target
     @Override
     public int hashCode( )
     {
-        return Objects.hash( super.hashCode( ), getLuns( ), getInitiators( ), getIncomingUsers( ),
+        return Objects.hash( super.hashCode( ),
+                             getLuns( ),
+                             getIncomingUsers( ),
                              getOutgoingUsers( ) );
     }
 }

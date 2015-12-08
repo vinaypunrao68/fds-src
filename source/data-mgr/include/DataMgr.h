@@ -193,7 +193,6 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
-    FdsTimerPtr closedmt_timer;
     FdsTimerTaskPtr closedmt_timer_task;
 
     /**

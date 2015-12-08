@@ -14,16 +14,24 @@ import java.util.Set;
  * @author ptinius
  */
 public class VolumeSettingsNfs
-    extends VolumeSettings
+    extends VolumeSettingsObject
 {
     public static class Builder
     {
-        private Set< NfsOptionBase > options = new HashSet<>( );
-        private Set< IPFilter > ipFilters = new HashSet<>( );
+        private Size maxObjectSize = Size.mb( 2 );
+        private Set<NfsOptionBase> options = new HashSet<>( );
+        private Set<IPFilter> ipFilters = new HashSet<>( );
 
-        public Set< NfsOptionBase > getOptions( )
+        public Set<NfsOptionBase> getOptions( )
         {
             return options;
+        }
+        public Size getMaxObjectSize() { return maxObjectSize; }
+
+        public Builder withMaxObjectSize( final Size maxObjectSize )
+        {
+            this.maxObjectSize = maxObjectSize;
+            return this;
         }
 
         public Builder withOption( final NfsOptionBase option )
@@ -32,14 +40,14 @@ public class VolumeSettingsNfs
             return this;
         }
 
-        public Builder withOptions( final Set< NfsOptionBase > options )
+        public Builder withOptions( final Set<NfsOptionBase> options )
         {
             this.options.clear();
             this.options.addAll( options );
             return this;
         }
 
-        public Set< IPFilter > getIpFilters( )
+        public Set<IPFilter> getIpFilters( )
         {
             return ipFilters;
         }
@@ -50,7 +58,7 @@ public class VolumeSettingsNfs
             return this;
         }
 
-        public Builder withIpFilters( final Set< IPFilter > ipFilters )
+        public Builder withIpFilters( final Set<IPFilter> ipFilters )
         {
             this.ipFilters.clear();
             this.ipFilters.addAll( ipFilters );
@@ -59,11 +67,11 @@ public class VolumeSettingsNfs
 
         public VolumeSettingsNfs build()
         {
-            return new VolumeSettingsNfs( getOptions(), getIpFilters() );
+            return new VolumeSettingsNfs( getOptions(), getIpFilters(), getMaxObjectSize() );
         }
     }
 
-    private Set< NfsOptionBase > options = new HashSet<>( );
+    private Set<NfsOptionBase> options = new HashSet<>( );
     private Set<IPFilter> filters = new HashSet<>( );
 
     public VolumeSettingsNfs( )
@@ -72,7 +80,7 @@ public class VolumeSettingsNfs
         this.type = VolumeType.NFS;
     }
 
-    public VolumeSettingsNfs( final Set< NfsOptionBase > options )
+    public VolumeSettingsNfs( final Set<NfsOptionBase> options )
     {
         super( );
 
@@ -80,12 +88,15 @@ public class VolumeSettingsNfs
         this.type = VolumeType.NFS;
     }
 
-    public VolumeSettingsNfs( final Set< NfsOptionBase > options, final Set< IPFilter > ipFilters )
+    public VolumeSettingsNfs( final Set<NfsOptionBase> options,
+                              final Set<IPFilter> ipFilters,
+                              final Size maxObjectSize )
     {
         super( );
 
         setOptions( options );
         setFilters( ipFilters );
+        setMaxObjectSize( maxObjectSize );
     }
 
     /**
@@ -99,7 +110,7 @@ public class VolumeSettingsNfs
     /**
      * @return Returns set of NFS options
      */
-    public Set< NfsOptionBase > getOptions( )
+    public Set<NfsOptionBase> getOptions( )
     {
         return options;
     }
@@ -126,9 +137,9 @@ public class VolumeSettingsNfs
      * @return a copy of the settings
      */
     @Override
-    public VolumeSettings newSettingsFrom( )
+    public VolumeSettingsNfs newSettingsFrom( )
     {
-        return new VolumeSettingsNfs( getOptions(), getFilters() );
+        return new VolumeSettingsNfs( getOptions(), getFilters(), getMaxObjectSize() );
     }
 
     @Override

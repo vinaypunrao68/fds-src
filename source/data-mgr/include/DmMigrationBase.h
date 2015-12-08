@@ -9,6 +9,9 @@
 
 namespace fds {
 
+extern size_t sizeOfData(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg);
+extern size_t sizeOfData(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg);
+
 /**
  * Common base class that provides functionality that DmMigrationMgr, Executor, and client
  * may use.

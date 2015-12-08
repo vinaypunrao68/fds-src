@@ -227,6 +227,23 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version);
 
+    /**
+     * Dumps all migration counters to the log NORMAL
+     */
+    void dumpStats();
+
+    /*
+     * Check if any of the migrations have been idle and abort migration if any migration
+     * has been idle.
+     */
+    void migrationIdleTimeoutCheck();
+
+    /**
+     * Get the timeout in seconds between msgs
+     */
+    inline uint32_t getIdleTimeout() {
+        return idleTimeoutSecs;
+    }
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
@@ -280,6 +297,11 @@ class DmMigrationMgr : public DmMigrationBase {
      * timeout for delta blob set
      */
     uint32_t deltaBlobTimeout;
+
+    /**
+    * If migration executor is idle for longer than this value migration is aborted.
+    */
+    uint32_t idleTimeoutSecs;
 
     /**
      * DMT version undergoing migration
@@ -353,7 +375,8 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp);
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
+									migrationCb cleanUp);
 
     /**
      * Source side DM:
@@ -414,6 +437,14 @@ class DmMigrationMgr : public DmMigrationBase {
 
     // Clear executorMap and other related stats
     void clearExecutors();
+
+    void startMigrationStopWatch();
+    void stopMigrationStopWatch();
+    /**
+     * Used for keeping time stats
+     */
+    std::atomic<bool> timerStarted;
+    util::StopWatch migrationStopWatch;
 
 };  // DmMigrationMgr
 }  // namespace fds

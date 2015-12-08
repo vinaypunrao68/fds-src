@@ -4,6 +4,13 @@
    fun:_ZN5boost8lockfree5queueIPN3fds10FDS_IOTypeENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
 }
 {
+   FDS QoS Queue (DEBUG)
+   Memcheck:Cond
+   fun:compare_exchange_weak
+   fun:compare_exchange_weak
+   fun:_ZN5boost8lockfree5queueIPN3fds10FDS_IOTypeENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
+}
+{
    Nbd SectorLock Queue
    Memcheck:Cond
    fun:_ZN5boost8lockfree5queueIPN3fds17NbdResponseVectorENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
@@ -14,7 +21,30 @@
    fun:_ZN5boost8lockfree5queueIPN3fds8ScstTaskENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
 }
 {
+   Scst Response Queue (DEBUG)
+   Memcheck:Cond
+   fun:compare_exchange_weak
+   fun:compare_exchange_weak
+   fun:_ZN5boost8lockfree5queueIPN3fds8ScstTaskENS_9parameter5void_ES6_S6_E7do_pushILb0EEEbRKS4_
+}
+{
    Service Layer Queue
    Memcheck:Cond
+   fun:_ZN3fds14LockfreeWorker7enqueueEPSt8functionIFvvEE
+}
+{
+   Service Layer Queue (DEBUG)
+   Memcheck:Cond
+   fun:do_push<false>
+   fun:push
+   fun:_ZN3fds14LockfreeWorker7enqueueEPSt8functionIFvvEE
+}
+{
+   Service Layer Queue (DEBUG) 2
+   Memcheck:Cond
+   fun:compare_exchange_weak
+   fun:compare_exchange_weak
+   fun:do_push<false>
+   fun:push
    fun:_ZN3fds14LockfreeWorker7enqueueEPSt8functionIFvvEE
 }

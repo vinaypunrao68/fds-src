@@ -3,8 +3,8 @@
 . jenkins_scripts/jenkins_system_test.lib
 
 
-# For long system test, do not disable any tests
-DISABLED_SYSTEM_TEST_SCENARIO_LIST=""
+# For long system test, disable only DmMigrationFailover
+DISABLED_SYSTEM_TEST_SCENARIO_LIST="DmMigrationFailover"
 
 if [[ "${1}" == "smoke_test_only" ]]
 then
