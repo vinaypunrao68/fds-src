@@ -135,12 +135,12 @@ public class RemoveNode
             return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
         }
 
-        final String message = "No active services on PM uuid[ " + nodeUuid + " ].";
+        final String message = "The specified PM uuid[ " + nodeUuid + " ] has no active services.";
         logger.debug( message );
         throw new ApiException( message, ErrorCode.MISSING_RESOURCE );
     }
 
-    private boolean hasNonePMServices( final List<SvcInfo> services )
+    public boolean hasNonePMServices( final List<SvcInfo> services )
     {
         return services.stream().filter( ( s ) -> !s.getSvc_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) ).count() > 0;
     }

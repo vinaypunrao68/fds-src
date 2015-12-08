@@ -77,23 +77,31 @@ public class RemoveService implements RequestHandler {
         SvcInfo pmSvcInfo = PlatformModelConverter.convertServiceToSvcInfoType
         		                         (node.getAddress().getHostAddress(), pmSvc);
         svcInfList.add(pmSvcInfo);
-        
 
-       int status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList, false));
-        
-       if ( status != 0 ){
+		if( ( new RemoveNode() ).hasNonePMServices( svcInfList ) )
+		{
+			int status = getConfigApi( ).RemoveService(
+					new NotifyRemoveServiceMsg( svcInfList, false ) );
 
-    	   status = HttpServletResponse.SC_BAD_REQUEST;
-           EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR, serviceId );
-            
-           throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
-       }
-       else
-       {
-    	   EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
-       }
+			if ( status != 0 )
+			{
 
-		return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
+				status = HttpServletResponse.SC_BAD_REQUEST;
+				EventManager.notifyEvent( OmEvents.REMOVE_SERVICE_ERROR, serviceId );
+
+				throw new ApiException( "Remove service failed.", ErrorCode.INTERNAL_SERVER_ERROR );
+			} else
+			{
+				EventManager.notifyEvent( OmEvents.REMOVE_SERVICE, serviceId );
+			}
+
+			return new JsonResource( new JSONObject( ).put( "status", "ok" ),
+									 HttpServletResponse.SC_OK );
+		}
+
+		final String message = "The specified service[ " + serviceId + " ] is not active on PM uuid[ " + nodeId + " ].";
+		logger.debug( message );
+		throw new ApiException( message, ErrorCode.MISSING_RESOURCE );
 	}
 	
 	private ConfigurationApi getConfigApi(){
