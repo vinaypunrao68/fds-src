@@ -4,6 +4,7 @@
 package com.formationds.om.webkit.rest.v08.volumes;
 
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeType;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -52,11 +53,23 @@ public class ListVolumes implements RequestHandler {
         String domain = "";
         List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
 
+        for( VolumeDescriptor descriptor : rawVolumes )
+        {
+            logger.trace( "volume [ {} ] type [ {} ] state [ {} ]",
+                          descriptor.getName(),
+                          descriptor.getPolicy().getVolumeType(),
+                          descriptor.getState() );
+            if( descriptor.getPolicy().getVolumeType().equals( VolumeType.ISCSI ) )
+            {
+                logger.trace( "iSCSI::{}", descriptor.getPolicy().getIscsiTarget() );
+            }
+        }
+
         // filter the results to things you can see and get rid of system volumes
         rawVolumes = rawVolumes.stream()
                                .filter( descriptor -> {
                                    // TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
-                                   boolean sysvol = descriptor.getName().startsWith( "SYSTEM_VOLUME" );
+                                   boolean sysvol = descriptor.getName().startsWith( "SYSTEM_" );
                                    if ( sysvol ) {
                                        logger.debug( "Removing volume " + descriptor.getName() +
                                                      " from the volume list." );
@@ -87,7 +100,7 @@ public class ListVolumes implements RequestHandler {
         return token;
     }
 
-    private ConfigurationApi getConfigApi() {
+    protected ConfigurationApi getConfigApi() {
 
         if ( configApi == null ) {
             configApi = SingletonConfigAPI.instance().api();

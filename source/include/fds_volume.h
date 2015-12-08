@@ -101,6 +101,9 @@ class VolumeDesc : public HasState {
     bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
     bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
 
+    FDS_ProtocolInterface::IScsiTarget iscsiSettings;
+    FDS_ProtocolInterface::NfsOption nfsSettings;
+
     FDS_ProtocolInterface::ResourceState     state;
 
     /* Output from block device */

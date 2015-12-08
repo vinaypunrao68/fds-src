@@ -463,7 +463,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
     	auto uniqueId = std::make_pair(destDmUuid, fds_volid);
         {
         	SCOPEDWRITE(migrClientLock);
-        	LOGMIGRATE << "migrationid: " << filterSet->DMT_version
+            LOGNORMAL << "migrationid: " << filterSet->DMT_version
                 << "Creating migration client for node: "
                 << destDmUuid << " volume ID# " << fds_volid;
 			clientMap.emplace(uniqueId,
@@ -833,8 +833,6 @@ DmMigrationMgr::abortMigrationReal()
      * we need to wake them up now.
      */
     migrationCV.notify_one();
-
-    dataManager.counters->totalMigrationsAborted.incr(1);
 
 	// set it to false to clean things up
 	bool expected = true;
