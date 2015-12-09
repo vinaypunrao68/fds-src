@@ -107,4 +107,11 @@ service OMSvc extends svc_api.PlatNetSvc {
    * @param NULL
    */
    svc_api.GetAllVolumeDescriptors getAllVolumeDescriptors(1: i64 nullarg) throws (1: common.ApiException e);
+
+  /**
+   * @brief Supply service endpoint information to remote local domain
+   *
+   * @param svctype Filter result according to the given service type
+   */
+   svc_api.GetSvcEndpoints getSvcEndpoints(1: svc_types.FDSP_MgrIdType svctype) throws (1: common.ApiException e);
 }

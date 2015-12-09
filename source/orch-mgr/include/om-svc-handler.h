@@ -49,6 +49,12 @@ namespace fds {
     	  return;
       }
 
+      virtual void getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
+          const ::FDS_ProtocolInterface::FDSP_MgrIdType svctype) override {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+          return;
+      }
+
       void getSvcInfo(fpi::SvcInfo &_return,
                       const  fpi::SvcUuid& svcUuid) override {
           // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -61,6 +67,8 @@ namespace fds {
       virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) override;
+      virtual void getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
+          boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype) override;
       virtual void getSvcInfo(fpi::SvcInfo & _return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 

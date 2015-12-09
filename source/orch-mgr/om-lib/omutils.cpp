@@ -151,6 +151,22 @@ namespace fds
         return retNodeState;
     }
 
+    fpi::SvcEndpoint toSvcEndpoint( const fpi::SvcInfo& svcinfo )
+    {
+        fpi::SvcEndpoint svcEndpoint = fpi::SvcEndpoint();
+        fpi::SvcUuid svcUuid = svcinfo.svc_id.svc_uuid;
+
+        svcEndpoint.svc_uuid = svcUuid.svc_uuid;
+        svcEndpoint.svc_type = svcinfo.svc_type;
+        svcEndpoint.svc_status = svcinfo.svc_status;
+        svcEndpoint.ip_lo_addr = net::ipString2Addr( svcinfo.ip );
+        svcEndpoint.control_port = 0;
+        svcEndpoint.data_port = svcinfo.svc_port;
+        svcEndpoint.migration_port = 0;
+
+        return svcEndpoint;
+    }
+
     // Usage: For functions related to add/remove/start/stop services
     // that require manipulation of passed in svcInfo vector depending
     //  on the current state of the system

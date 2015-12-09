@@ -506,6 +506,14 @@ struct SvcMgr : HasModuleProvider, Module {
     void getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list);
 
     /**
+     * @brief Request data, response is a list of service endpoint locators
+     *
+     * @details Enables client in remote domain to initiate service requests
+     * @param svctype Filter result according to given service type
+     */
+    void getSvcEndpoints(fpi::GetSvcEndpoints &record, const fpi::FDSP_MgrIdType& svctype);
+
+    /**
     * @brief Do an async notification to OM that service is down
     *
     * @param info

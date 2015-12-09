@@ -285,6 +285,28 @@ void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return
     volumes->vol_foreach<fpi::GetAllVolumeDescriptors&>(_return, populate_voldesc_list);
 }
 
+void OmSvcHandler::getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
+         boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype) {
+
+    _return.records.clear();
+    std::vector<fpi::SvcInfo> svclist;
+    if (configDB && configDB->getSvcMap(svclist)) {
+        // Linear scan for services that match given type
+        // TODO: convention seems to be 1 liners using lambda or foreach, as above
+        std::vector<fpi::SvcInfo>::const_iterator itr1 = svclist.cbegin();
+        while (itr1 != svclist.cend()) {
+            if (*svctype != itr1->svc_type) {
+                continue;
+            }
+            _return.records.push_back(fds::toSvcEndpoint(*itr1));
+        }
+    } else {
+        LOGWARN << "Failed to get list of registered services";
+        // TODO: is a custom exception important here?
+        throw fpi::SvcLookupException();
+    }
+}
+
 void OmSvcHandler::AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                   boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg)
 {
