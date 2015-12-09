@@ -141,6 +141,14 @@ namespace fds
             {
                 javaOptions = envValue;
             }
+            else
+            {
+                javaOptions = util::strformat (
+                        "-Dfds.service.name=xdi -Dlog4j.configurationFile=%setc/log4j2.xml -Dfds-root=%s",
+                        rootDir.c_str(), rootDir.c_str() );
+
+            }
+            LOGDEBUG << "XDI_JAVA_OPTS = ' " << javaOptions << " ' FDS-ROOT: " << rootDir;
 
             if (javaOptions.size() > 0)
             {
@@ -527,6 +535,8 @@ namespace fds
 
                 args.push_back ("-classpath");
                 args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
+//                args.push_back ("-Dfds.service.name=xdi");
+//                args.push_back ("-Dlog4j.configurationFile=" + rootDir + "etc/log4j2.xml");
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;

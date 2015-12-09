@@ -20,7 +20,10 @@ struct Counters : FdsCounters {
               totalMigrationsAborted("dm.migration.total.aborted", this),
               numberOfActiveMigrExecutors("dm.migrations.active.executors", this),
               numberOfActiveMigrClients("dm.migrations.active.clients", this),
-              numberOfOutstandingIOs("dm.migrations.active.outstandingios", this) {
+              numberOfOutstandingIOs("dm.migrations.active.outstandingios", this),
+              totalSizeOfDataMigrated("dm.migrations.total.BytesMigrated", this),
+              timeSpentForCurrentMigration("dm.migrations.current.timeSpent", this),
+              timeSpentForAllMigrations("dm.migrations.total.timeSpent", this) {
     }
     ~Counters() = default;
 
@@ -35,6 +38,9 @@ struct Counters : FdsCounters {
     SimpleNumericCounter numberOfActiveMigrExecutors;
     SimpleNumericCounter numberOfActiveMigrClients;
     SimpleNumericCounter numberOfOutstandingIOs;
+    SimpleNumericCounter totalSizeOfDataMigrated;
+    SimpleNumericCounter timeSpentForCurrentMigration;
+    SimpleNumericCounter timeSpentForAllMigrations;
 };
 }  // namespace dm
 }  // namespace fds

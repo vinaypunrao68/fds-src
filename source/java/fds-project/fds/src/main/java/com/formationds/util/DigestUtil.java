@@ -2,6 +2,7 @@ package com.formationds.util;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -22,6 +23,8 @@ public class DigestUtil {
             throw new AssertionError(macAlgorithm + " mac algorithm not found", ex);
         }
     }
+
+    public static MessageDigest newSha1() { return getMd("SHA1"); }
 
     public static MessageDigest newSha256() {
         return getMd("SHA-256");

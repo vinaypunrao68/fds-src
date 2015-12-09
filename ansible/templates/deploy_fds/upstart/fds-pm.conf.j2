@@ -34,6 +34,6 @@ script
 
   export LANG=POSIX
   export LC_MESSAGES=POSIX
-  exec platformd --fds-root=${fds_root} --foreground > ${fds_root}/bin/pm.out 2>&1
+  exec platformd --fds-root=${fds_root} --foreground >> ${fds_root}/bin/pm.out 2>&1
 end script
 {% endblock %}

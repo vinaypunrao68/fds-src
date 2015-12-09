@@ -972,7 +972,10 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
         if ((newLastOffset+1) < oldLastOffset) {
             // delete starting at the ofset after the new last offset
+            LOGDEBUG << "deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
+
             err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+            LOGDEBUG << "deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
                 LOGERROR << "During migration, failed to truncate blob: "

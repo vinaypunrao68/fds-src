@@ -1,11 +1,11 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <string>
 #include <AmCache.h>
+
+#include <climits>
 #include <fds_process.h>
 #include <PerfTrace.h>
-#include <climits>
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
 #include "requests/AttachVolumeReq.h"
@@ -30,9 +30,13 @@ AmCache::AmCache(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
 
 AmCache::~AmCache() = default;
 
-void
-AmCache::start() {
-    AmDataProvider::start();
+bool
+AmCache::done() {
+    std::lock_guard<std::mutex> g(obj_get_lock);
+    if (!obj_get_queue.empty()) {
+        return false;
+    }
+    return AmDataProvider::done();
 }
 
 void
@@ -47,12 +51,12 @@ AmCache::registerVolume(const VolumeDesc& volDesc) {
     AmDataProvider::registerVolume(volDesc);
 }
 
-Error
+void
 AmCache::removeVolume(VolumeDesc const& volDesc) {
     descriptor_cache.removeVolume(volDesc.volUUID);
     offset_cache.removeVolume(volDesc.volUUID);
     object_cache.removeVolume(volDesc.volUUID);
-    return AmDataProvider::removeVolume(volDesc);
+    AmDataProvider::removeVolume(volDesc);
 }
 
 BlobDescriptor::ptr
@@ -397,7 +401,7 @@ AmCache::getOffsetsCb(AmRequest* amReq, Error const error) {
 void
 AmCache::getBlobCb(AmRequest *amReq, Error const error) {
     if (ERR_OK != error) {
-        return AmDataProvider::getBlobCb(amReq, ERR_OK);
+        return AmDataProvider::getBlobCb(amReq, error);
     }
 
     auto blobReq = static_cast<GetBlobReq *>(amReq);

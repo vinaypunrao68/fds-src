@@ -16,6 +16,8 @@ class ServiceContext(Context):
         self.config.setServiceApi(self)
         self.serviceList = []
         self.serviceFetchTime = 0
+        self.hostToIpMap = {}
+        self.ipToHostMap = {}
 
     def restApi(self):
         if self.__restApi == None:
@@ -28,7 +30,34 @@ class ServiceContext(Context):
             return self.serviceList
         self.serviceList = self.restApi().listServices()
         self.serviceFetchTime = int(time.time())
+        pms = [ (s['ip'],s['uuid']) for s in self.serviceList if s['status'] == 'ACTIVE' and s['service'] == 'PM' ]
+        for ip,uuid in pms:
+            # print ip, self.getHostFromIp(ip), uuid
+            if ip == self.getHostFromIp(ip):
+                try:
+                    name =  ServiceMap.client(int(uuid)).getProperty('hostname')
+                    self.hostToIpMap[name] = [ip]
+                except Exception as e:
+                    pass
+                    
         return self.serviceList
+
+    def getIpsFromName(self, name) :
+        try:
+            if name not in self.hostToIpMap:
+                self.hostToIpMap[name] = socket.gethostbyname_ex(name)[2]
+            return self.hostToIpMap[name]
+        except:
+            return [name]
+
+    def getHostFromIp(self, ip) :
+        try :
+            for name, iplist in self.hostToIpMap.iteritems():
+                if ip in iplist:
+                    return name
+        except:
+            return ip
+        return ip            
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -78,8 +107,8 @@ class ServiceContext(Context):
             matchingServices = self.getServiceIds(svcid)
             if matchingServices!= None and len(matchingServices) > 0:
                 services = [s for s in services if int(s['uuid']) in matchingServices]
-            return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], x['port'], x['status']], services),
-                            headers=['UUID', 'Service Name', 'IP4 Address', 'TCP Port', 'Service Status'],
+            return tabulate(map(lambda x: [x['uuid'], x['service'], x['ip'], self.getHostFromIp(x['ip']),  x['port'], x['status']], services),
+                            headers=['UUID', 'Type', 'IP', 'Host', 'Port', 'Status'],
                             tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
@@ -131,10 +160,10 @@ class ServiceContext(Context):
                     ipdata=None
                 elif not ipPattern.match(ipdata):
                     # maybe a hostname
-                    try:
-                        ip = socket.gethostbyname_ex(ipdata)[2]
-                    except:
-                        pass
+                    resolvedIps = self.getIpsFromName(ipdata)
+                    if len(resolvedIps) > 0:
+                        ip = resolvedIps
+
                 if len(ip) == 0 and ipdata:
                     ip = [ipdata]
             else:
@@ -147,12 +176,11 @@ class ServiceContext(Context):
 
             if name not in ['om','am','pm','sm','dm', '*', 'all', None]:
                 # check for hostname
-                try:
-                    iplist = socket.gethostbyname_ex(name)[2]
+                iplist = self.getIpsFromName(name)
+                if len(iplist) > 0:
                     ip = iplist
                     name = None
-                except:
-                    pass
+
                 if name != None:
                     print 'unknown service : {}'.format(name)
                     return []
@@ -184,7 +212,7 @@ class ServiceContext(Context):
     @arg('svcid', help= "service uuid", type=str)
     @arg('match', help= "regex pattern", type=str, default=None, nargs='?')
     @arg('-z','--zero', help= "show zeros", action='store_true', default=False)
-    def listcounter(self, svcid, match, zero=False):
+    def counter(self, svcid, match, zero=False):
         'list debug counters'
         try:
             for uuid in self.getServiceIds(svcid):
@@ -217,7 +245,7 @@ class ServiceContext(Context):
     @clidebugcmd
     @arg('svcid', help= "service Uuid",  type=str)
     @arg('match', help= "regex pattern",  type=str, default=None, nargs='?')
-    def listconfig(self, svcid, match):
+    def config(self, svcid, match):
         'list the config values of a service'
         try:
             for uuid in self.getServiceIds(svcid):
@@ -232,6 +260,22 @@ class ServiceContext(Context):
             log.exception(e)
             return 'unable to get config list'
 
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svcid', help= "service Uuid",  type=str)
+    def properties(self, svcid):
+        'list the properties of a service'
+        try:
+            for uuid in self.getServiceIds(svcid):
+                data = ServiceMap.client(uuid).getProperties(0)
+                data = [(k.lower(),v) for k,v in data.iteritems()]
+                data.sort(key=itemgetter(0))
+                if len(data) > 0:
+                    print ('{}\nconfig set for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+                    print (tabulate(data,headers=['name', 'value'], tablefmt=self.config.getTableFormat()))
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get properties list'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
