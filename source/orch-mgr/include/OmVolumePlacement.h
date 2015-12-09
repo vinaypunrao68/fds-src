@@ -278,6 +278,13 @@ namespace fds {
          */
         fds_bool_t canRetryMigration();
 
+        /**
+         * Getter for numFailed
+         */
+        inline fds_uint32_t failedAttempts() {
+            return numOfFailures;
+        }
+
   private:
         /**
          * Config db object
