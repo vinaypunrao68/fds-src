@@ -1190,6 +1190,7 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     cm->ongoingMigrationDMs.clear();
 
     if (vp->canRetryMigration()) {
+        LOGNOTIFY << "Migration has failed " << vp->failedAttempts() << " times.";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
             std::chrono::seconds(1))) {
             LOGWARN << "DACT_EndError: failed to start retry timer!!!"
