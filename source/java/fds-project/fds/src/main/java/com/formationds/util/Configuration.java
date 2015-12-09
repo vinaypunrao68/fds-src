@@ -4,7 +4,7 @@
 package com.formationds.util;
 
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.nfs.NfsConfiguration;
+import com.formationds.nfs.XdiStaticConfiguration;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import com.sun.management.VMOption;
 import joptsimple.OptionParser;
@@ -31,12 +31,12 @@ public class Configuration {
     public static final String FDS_ROOT_ENV = "fds_root";
 
     public static final String FDS_XDI_NFS_THREAD_POOL_SIZE                 = "fds.xdi.nfs_thread_pool_size";
-    public static final String FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE           = "fds.xdi.nfs_thread_pool_queue_size";
-    public static final String FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS = "fds.xdi.nfs_incoming_request_timeout_seconds";
     public static final String FDS_XDI_NFS_STATS = "fds.xdi.nfs_stats";
     public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES = "fds.xdi.nfs_defer_metatada_updates";
     public static final String FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES = "fds.xdi.nfs_max_live_nfs_cookies";
-
+    public static final String FDS_XDI_AM_TIMEOUT_SECONDS = "fds.xdi.am_timeout_seconds";
+    public static final String FDS_XDI_AM_RETRY_ATTEMPTS = "fds.xdi.am_retry_attempts";
+    public static final String FDS_XDI_AM_RETRY_INTERVAL_SECONDS = "fds.xdi.am_retry_interval_seconds";
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
     public static final String FDS_OM_UUID = "fds.common.om_uuid";
     public static final String FDS_OM_NODE_UUID = "fds.pm.platform.uuid";
@@ -263,20 +263,8 @@ public class Configuration {
         }
     }
 
-    public Path getFdsConfigDir() {
-        return Paths.get(fdsRoot.getAbsolutePath(), "etc");
-    }
-
-    public Path getFdsConfigFile(String fileName) {
-        return getFdsConfigDir().resolve(fileName);
-    }
-
     public String getFdsRoot() {
         return fdsRoot.getAbsolutePath();
-    }
-
-    public Path getFdsRootPath() {
-        return fdsRoot.getAbsoluteFile().toPath();
     }
 
     public Path getPlatformConfigPath() {
@@ -348,14 +336,17 @@ public class Configuration {
         return ( long ) omNodeUuid;
     }
 
-    public NfsConfiguration getNfsConfig() {
+    public XdiStaticConfiguration getXdiStaticConfig( int pmPort ) {
         ParsedConfig platformConfig = getPlatformConfig();
-        return new NfsConfiguration(
+        return new XdiStaticConfiguration(
                 platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_SIZE).intValue(),
-                platformConfig.lookup(FDS_XDI_NFS_THREAD_POOL_QUEUE_SIZE).intValue(),
-                platformConfig.lookup(FDS_XDI_NFS_INCOMING_REQUEST_TIMEOUT_SECONDS).longValue(),
                 platformConfig.lookup(FDS_XDI_NFS_STATS).booleanValue(),
                 platformConfig.lookup(FDS_XDI_NFS_DEFER_METADATA_UPDATES).booleanValue(),
-                platformConfig.lookup(FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES).intValue());
+                platformConfig.lookup(FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES).intValue(),
+                platformConfig.lookup(FDS_XDI_AM_TIMEOUT_SECONDS).intValue(),
+                platformConfig.lookup(FDS_XDI_AM_RETRY_ATTEMPTS).intValue(),
+                platformConfig.lookup(FDS_XDI_AM_RETRY_INTERVAL_SECONDS).intValue(),
+                // assign NFS statistics webapp port based on platform port number 7000 - 1445 == 5555
+                pmPort - 1445 );
     }
 }

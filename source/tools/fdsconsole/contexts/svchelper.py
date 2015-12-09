@@ -38,7 +38,8 @@ class ServiceMap:
         try:
             ServiceMap.check()
             return ServiceMap.serviceMap().omConfig()
-        except:
+        except Exception as e:
+            print e
             raise Exception("unable to get a client connection")
 
     @staticmethod
@@ -46,7 +47,8 @@ class ServiceMap:
         try :
             om =  ServiceMap.serviceMap().omConfig()
             om.configurationVersion(1)
-        except:
+        except Exception as e:
+            print e
             ServiceMap.refresh()
 
     @staticmethod
@@ -72,5 +74,6 @@ class ServiceMap:
     def refresh(*args):
         try :
             return ServiceMap.serviceMap().refresh(*args)
-        except:
+        except Exception as e:
+            print e
             raise Exception("unable to get a client connection")

@@ -57,3 +57,43 @@ struct VolumeAccessMode {
   1: optional bool can_write = true;
   2: optional bool can_cache = true;
 }
+
+
+struct Initiator {
+    /** world-wide name */
+    1: required string wwn_mask
+}
+
+/** iSCSI */
+struct LogicalUnitNumber {
+    /** logical unit name */
+    1: required string name,
+    /** access mode */
+    2: required string access
+    /** initiators */
+    3: optional list<Initiator> initiators,
+}
+
+struct Credentials {
+    /** the user name */
+    1: required string name,
+    /** the user's password */
+    2: required string passwd
+}
+
+struct IScsiTarget {
+    /** a unordered list of logical unit numbers */
+    1: required list<LogicalUnitNumber> luns,
+    /** a unordered list of incoming user credentials */
+    2: optional list<Credentials> incomingUsers,
+    /** a unordered list of outgoing user credentials */
+    3: optional list<Credentials> outgoingUsers
+}
+
+/** NFS Options Map */
+struct NfsOption {
+    /** nfs option */
+    1: optional list<string> options
+    /** ip filters */
+    2: optional list<string> ipfilters
+}

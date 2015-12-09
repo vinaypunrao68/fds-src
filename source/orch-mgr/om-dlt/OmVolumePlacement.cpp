@@ -457,6 +457,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
+        message->DMT_version = dmtMgr->getTargetVersion();
 
     	err = agent->om_send_pullmeta(message);
     	if (err.ok()) {
@@ -636,17 +637,17 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
                         <<"["<< committedVersion << "] from configDB";
             err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
-            // check if DMT is valid with respect to nodes
-            // i.e. only contains node uuis that are in nodes' set
-            // does not contain any zeroes, etc.
-            std::set<fds_uint64_t> uniqueNodes;
-            dmt->getUniqueNodes(&uniqueNodes);
-            for (auto dm_uuid : deployed_dm_services) {
-                fds_verify(uniqueNodes.count(dm_uuid.uuid_get_val()) == 1);
+            // check if DLT is valid with respect to nodes
+            // i.e. only contains node uuis that are in deployed_sm_services
+            // set and does not contain any zeroes, etc.
+            err = dmt->verify(deployed_dm_services);
+            if (err.ok()) {
+                LOGNOTIFY << "Current DMT in config DB is valid!";
+                // we will set dmt because we don't know yet if
+                // the nodes in DMT will actually come up...
+                dmtMgr->add(dmt, DMT_TARGET);
+                LOGNOTIFY << "Loaded DMT version: " << committedVersion << ".  Setting as target";
             }
-            // we will set as target and distribute this dmt around
-            dmtMgr->add(dmt, DMT_TARGET);
-            LOGNOTIFY << "Loaded DMT version: " << committedVersion << ".  Setting as target";
         }
 
         if (!err.ok()) {
@@ -664,7 +665,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
         LOGWARN << "No current DMT even though we persisted "
                 << dm_services.size() << " DMs, "
                 << deployed_dm_services.size() << " deployed DMs";
-        fds_verify(!"No persisted dmt");
         return Error(ERR_PERSIST_STATE_MISMATCH);
     }
 

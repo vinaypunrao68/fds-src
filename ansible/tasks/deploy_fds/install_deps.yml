@@ -166,3 +166,7 @@
 -   name: Install NBD-Client
     when: fds_only_install is defined and fds_only_install == "yes"
     apt: name=nbd-client
+
+-   name: Install fio
+    when: fds_only_install is defined and fds_only_install == "yes"
+    apt: name=fio

@@ -245,7 +245,7 @@ class DmIoCommitBlobTx : public DmRequest {
     BlobTxId::const_ptr ioBlobTxDesc;
     fds_uint64_t dmt_version;
     sequence_id_t sequence_id;
-    bool usedForMigration; // is this used for migration? If so, keep count.
+    bool usedForMigration {false}; // is this used for migration? If so, keep count.
     std::mutex migrClientCntMtx; // Used to ensure atomicity for dealing with counts
     fds_uint64_t migrClientCnt; // Keep track of the outstanding clients still forwarding
     CbType dmio_commit_blob_tx_resp_cb; // response callback
@@ -755,6 +755,7 @@ struct DmIoMigration : DmRequest {
 struct DmIoResyncInitialBlob : DmRequest {
 	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	NodeUuid destNodeUuid;
+    std::function<void(const Error& e)> localCb = NULL;
     explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
             : message(msg),
@@ -789,6 +790,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 
     boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> deltaBlobsMsg;
     CbType dmio_fwdcat_resp_cb;
+    inline ~DmIoMigrationDeltaBlobs() { LOGDEBUG << "Calling destructor for DmIoMigrationDeltaBlobs"; }
 };
 
 struct DmIoMigrationDeltaBlobDesc : DmRequest {

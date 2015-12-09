@@ -3,14 +3,19 @@
  */
 #include "AmTxManager.h"
 
-#include <map>
-#include <string>
 #include <fds_process.h>
 #include "AmCache.h"
 #include "AmTxDescriptor.h"
 #include "FdsRandom.h"
 #include <ObjectId.h>
-#include "requests/requests.h"
+#include "requests/AbortBlobTxReq.h"
+#include "requests/CommitBlobTxReq.h"
+#include "requests/DeleteBlobReq.h"
+#include "requests/GetBlobReq.h"
+#include "requests/PutBlobReq.h"
+#include "requests/RenameBlobReq.h"
+#include "requests/SetBlobMetaDataReq.h"
+#include "requests/StartBlobTxReq.h"
 
 namespace fds {
 

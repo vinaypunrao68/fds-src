@@ -1,10 +1,13 @@
 package com.formationds.nfs;
 
+import com.formationds.apis.ObjectOffset;
 import com.formationds.xdi.RecoverableException;
+import org.joda.time.Duration;
 import org.junit.Test;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.time.Duration;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -34,13 +37,26 @@ public class RecoveryHandlerTest {
             }
         };
 
-        IoOps withTimeoutHandling = RecoveryHandler.buildProxy(ops, 4, Duration.ofMillis(10));
+        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
         withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, map, false);
         Map<String, String> result = withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get();
         assertEquals(3, exceptionCount.get());
         assertEquals("world", result.get("hello"));
+    }
+
+    @Test(expected = FileNotFoundException.class)
+    public void testBubbleExceptions() throws Exception {
+        IoOps ops = new MemoryIoOps() {
+            @Override
+            public ByteBuffer readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int objectSize) throws IOException {
+                throw new FileNotFoundException();
+            }
+        };
+
+        IoOps withTimeoutHandling = new RecoveryHandler(ops, 10, Duration.ZERO);
+        withTimeoutHandling.readCompleteObject("foo", "bar", "hello", new ObjectOffset(0), 42);
     }
 
     @Test
@@ -55,7 +71,7 @@ public class RecoveryHandlerTest {
             }
         };
 
-        IoOps withTimeoutHandling = RecoveryHandler.buildProxy(ops, 4, Duration.ofMillis(10));
+        IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         try {
             withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get();
         } catch (IOException e) {

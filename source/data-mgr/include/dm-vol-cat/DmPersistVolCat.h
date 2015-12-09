@@ -175,7 +175,9 @@ class DmPersistVolCat {
 
     virtual Error deleteBlobMetaDesc(const std::string & blobName) = 0;
 
-    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) = 0;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap& snap) = 0;
+
+    virtual uint64_t getNumInMemorySnapshots() = 0;
 
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);

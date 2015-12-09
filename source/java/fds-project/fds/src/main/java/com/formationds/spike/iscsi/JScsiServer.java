@@ -2,7 +2,6 @@ package com.formationds.spike.iscsi;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.util.HostAndPort;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -10,12 +9,16 @@ import com.formationds.xdi.XdiClientFactory;
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
+import org.joda.time.Duration;
 import org.jscsi.target.Configuration;
 import org.jscsi.target.Target;
 import org.jscsi.target.TargetServer;
 import org.jscsi.target.storage.IStorageModule;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 public class JScsiServer {
@@ -122,7 +125,7 @@ public class JScsiServer {
         List<Target> targets = new ArrayList<>();
 
         if(useExisting && omAddr != null && amAddr != null) {
-            RealAsyncAm am = new RealAsyncAm(amAddr.getHost(), amAddr.getPort(), 10383);
+            RealAsyncAm am = new RealAsyncAm(amAddr.getHost(), amAddr.getPort(), 10383, Duration.standardSeconds(30));
             am.start();
             ConfigurationService.Iface om = cf.remoteOmService(omAddr.getHost(), omAddr.getPort());
             for(VolumeDescriptor descriptor : om.listVolumes(ISCSI_DOMAIN)) {

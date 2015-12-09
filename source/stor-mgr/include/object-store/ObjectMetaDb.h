@@ -133,7 +133,8 @@ class ObjectMetadataDb {
      */
     static std::string getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId);
 
-    std::vector<ObjectID> getKeys(const fds_token_id &smToken);
+    void forEachObject(const fds_token_id& smToken,
+                       std::function<void (const ObjectID&)> &func);
 
     /**
      * Get info about where SM metadata is residing. Disk or flash.

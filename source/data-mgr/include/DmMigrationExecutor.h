@@ -8,7 +8,7 @@
 #include <MigrationUtility.h>
 #include <fds_timer.h>
 #include <DmMigrationBase.h>
-
+#include <dmhandler.h>
 namespace fds {
 
 // Forward declaration.
@@ -27,6 +27,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     explicit DmMigrationExecutor(DataMgr& _dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
+                                 int64_t migrationId,
 								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneCb _callback,
                                  uint32_t _timeout);
@@ -110,12 +111,15 @@ class DmMigrationExecutor : public DmMigrationBase {
     inline bool isMigrationComplete() {
     	return (migrationProgress == MIGRATION_COMPLETE);
     }
+    /**
+    * Returns true if migration has been idle
+    */
+    bool isMigrationIdle(const util::TimeStamp& curTsSec) const;
 
+    inline util::TimeStamp getLastUpdateFromClientTsSec() const {
+        return lastUpdateFromClientTsSec_;
+    }
   private:
-    /** Reference to the DataManager
-     */
-    DataMgr& dataMgr;
-
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
@@ -222,6 +226,11 @@ class DmMigrationExecutor : public DmMigrationBase {
 
     // DMT at the time migration began
     fds_uint64_t dmtVersion;
+    
+    /* Last timestamp of when we heard from the client */
+    util::TimeStamp lastUpdateFromClientTsSec_;
+
+    friend class DmMigrationMgr;
 
 };  // DmMigrationExecutor
 

@@ -129,6 +129,7 @@ public:
     virtual void set_volid(fds_volid_t volid);
     virtual bool volid_enable() const;
     virtual void reset() = 0;
+    void toMap(std::map<std::string, int64_t>& m) const;
 
 private:
     std::string id_;
@@ -136,6 +137,23 @@ private:
     fds_volid_t volid_;
 };
 
+struct SimpleNumericCounter : FdsBaseCounter {
+    SimpleNumericCounter(const std::string &id, FdsCounters *export_parent);
+    SimpleNumericCounter(const std::string &id, fds_volid_t volid,
+                   FdsCounters *export_parent);
+    SimpleNumericCounter(const SimpleNumericCounter& c);
+
+    uint64_t value() const;
+    // cannot be reset via thrift
+    void reset() {};
+
+    void incr(const uint64_t v = 1);
+    void decr(const uint64_t v = 1);
+    void set(const uint64_t v);
+
+  protected:
+    std::atomic<uint64_t> val_;
+};
 
 /**
  * @brief Numeric counter
@@ -220,6 +238,8 @@ public:
     inline uint64_t max_latency() const {
         return max_latency_.load();
     }
+
+    void toMap(std::map<std::string, int64_t>& m) const;
 
 private:
     std::atomic<uint64_t> total_latency_;

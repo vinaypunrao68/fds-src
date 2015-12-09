@@ -26,18 +26,28 @@ struct AmDataProvider {
         _prev_in_chain(_prev)
     { }
 
+    virtual ~AmDataProvider() = default;
+
     virtual void start()
     { forward_request(&AmDataProvider::start); }
 
     virtual void stop()
     { forward_request(&AmDataProvider::stop); }
 
-    virtual Error retrieveVolDesc(std::string const& volume_name)
+    virtual bool done()
     {
         if (_next_in_chain) {
-            return _next_in_chain->retrieveVolDesc(volume_name);
+            return _next_in_chain->done();
         }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
+        return true;
+    }
+
+    virtual void getVolumes(std::vector<VolumeDesc>& volumes)
+    {
+        if (_next_in_chain) {
+            return _next_in_chain->getVolumes(volumes);
+        }
+        volumes.clear();
     }
 
     virtual void registerVolume(const VolumeDesc& volDesc)
@@ -47,30 +57,32 @@ struct AmDataProvider {
         }
     }
 
-    virtual Error removeVolume(const VolumeDesc& volDesc)
+    virtual void removeVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
             return _next_in_chain->removeVolume(volDesc);
         }
-        return ERR_OK;
     }
 
-    virtual Error modifyVolumePolicy(fds_volid_t const vol_id, VolumeDesc const& volDesc)
+    virtual Error modifyVolumePolicy(VolumeDesc const& volDesc)
     {
         if (_next_in_chain) {
-            return _next_in_chain->modifyVolumePolicy(vol_id, volDesc);
+            return _next_in_chain->modifyVolumePolicy(volDesc);
         }
         return ERR_OK;
     }
 
+    virtual void lookupVolume(std::string const volume_name)
+    { return forward_request(&AmDataProvider::lookupVolume, volume_name); }
+
     virtual Error updateQoS(int64_t const* rate, float const* throttle)
     { return forward_request(&AmDataProvider::updateQoS, rate, throttle); }
 
-    virtual void closeVolume(fds_volid_t const vol_id, int64_t const token)
-    { return forward_request(&AmDataProvider::closeVolume, vol_id, token); }
-
     virtual void openVolume(AmRequest * amReq)
     { return forward_request(&AmDataProvider::openVolume, amReq); }
+
+    virtual void closeVolume(AmRequest * amReq)
+    { return forward_request(&AmDataProvider::closeVolume, amReq); }
 
     virtual void statVolume(AmRequest * amReq)
     { return forward_request(&AmDataProvider::statVolume, amReq); }
@@ -120,6 +132,12 @@ struct AmDataProvider {
     virtual void putBlobOnce(AmRequest * amReq)
     { return forward_request(&AmDataProvider::putBlobOnce, amReq); }
 
+    // If you don't know the type of request, use this to get runtime routing
+    void unknownTypeResume(AmRequest * amReq);
+
+    // If you don't know the type of request, use this to get runtime routing
+    void unknownTypeCb(AmRequest * amReq, Error const error);
+
     virtual Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
         if (_next_in_chain) {
             return _next_in_chain->updateDlt(dlt_type, dlt_data, cb);
@@ -141,8 +159,14 @@ struct AmDataProvider {
     { return forward_request(&AmDataProvider::getDLT); }
 
  protected:
+    virtual void lookupVolumeCb(VolumeDesc const vol_desc, Error const error)
+    { return forward_response(&AmDataProvider::lookupVolumeCb, vol_desc, error); }
+
     virtual void openVolumeCb(AmRequest * amReq, Error const error)
     { return forward_response(&AmDataProvider::openVolumeCb, amReq, error); }
+
+    virtual void closeVolumeCb(AmRequest * amReq, Error const error)
+    { return forward_response(&AmDataProvider::closeVolumeCb, amReq, error); }
 
     virtual void statVolumeCb(AmRequest * amReq, Error const error)
     { return forward_response(&AmDataProvider::statVolumeCb, amReq, error); }
@@ -195,12 +219,16 @@ struct AmDataProvider {
     AmDataProvider* getNextInChain() const
     { return _next_in_chain.get(); }
 
+    std::unique_ptr<AmDataProvider> _next_in_chain {nullptr};
+    AmDataProvider* const _prev_in_chain {nullptr};
+
  private:
     template<typename Ret, typename ... Args>
     constexpr Ret forward_request(Ret (AmDataProvider::*func)(Args...), Args... args) {
         if (_next_in_chain) {
             return ((_next_in_chain.get())->*(func))(args...);
         }
+        fds_panic("here");
         throw std::runtime_error("Unimplemented DataProvider routine.");
     }
 
@@ -209,11 +237,9 @@ struct AmDataProvider {
         if (_prev_in_chain) {
             return ((_prev_in_chain)->*(func))(args...);
         }
+        fds_panic("here");
         throw std::runtime_error("Unimplemented DataProvider routine.");
     }
-
-    std::unique_ptr<AmDataProvider> const _next_in_chain {nullptr};
-    AmDataProvider* const _prev_in_chain {nullptr};
 };
 
 }  // namespace fds

@@ -27,6 +27,7 @@ class DmMigrationClient : public DmMigrationBase {
     		DataMgr& _dataMgr,
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
+            int64_t migrationId,
 			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
 			DmMigrationClientDoneHandler _handle,
             uint64_t _maxDeltaBlobs,
@@ -38,7 +39,7 @@ class DmMigrationClient : public DmMigrationBase {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error processBlobFilterSet(incrementCountFunc inTracker);
+    Error processBlobFilterSet();
 
     Error processBlobFilterSet2();
 
@@ -92,10 +93,6 @@ class DmMigrationClient : public DmMigrationBase {
     void abortMigration();
 
  private:
-    /**
-     * Reference to the Data Manager.
-     */
-    DataMgr& dataMgr;
     DmIoReqHandler* DmReqHandler;
 
     /**
