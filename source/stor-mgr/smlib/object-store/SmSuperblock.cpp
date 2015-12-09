@@ -5,6 +5,9 @@
 #include <set>
 #include <map>
 #include <utility>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <boost/crc.hpp>
 #include <util/Log.h>
 #include <fds_process.h>
@@ -920,6 +923,9 @@ SmSuperblockMgr::reconcileSuperblock()
      * as th "master."  And, if necessary, overwrite bad superblocks with
      * the "master."
      */
+
+    // TODO(brian): Refactor this whole logic to be cleaner
+
     if (1 == uniqChecksum) {
         fds_verify(diskGoodSuperblock.size() > 0);
         auto goodSuperblock = diskGoodSuperblock.begin();
@@ -939,21 +945,88 @@ SmSuperblockMgr::reconcileSuperblock()
             checkForHandledErrors(err);
         }
     } else {
-        /* TODO(sean)
-         * This error detection is a bit more involved.  Should break up this
-         * function before working on this.
-         * But, for reconciling this case is a bit tricky. Which set of
-         * superblocks to trust????  This can theoretically happen if the system
-         * goes down when syncing superblocks to disks.
+        /* TODO(brian)
+         * This case can happen if the system goes down when syncing superblocks to disks. There should NEVER be more
+         * than two conflicting checksums. If there are more it's a real problem.
          *
-         * So, algorithm should look something like:
-         * 1) keep the most recent superblock
-         * 2) if most recent superblock still has simple majority (51%), then
-         *    we elect that as the master.
-         * 3) or if we can't elect, then we need to throw away everything
-         *    and recompute and regen superblock.
+         * With that in mind, there are a few major cases here that can occur:
+         *
+         * A) The superblock was updating due to a DLT update message. In this case we will likely not have all of the
+         *    objects for the tokens we now own. The particular superblock we pick likely doesn't matter as we
+         *    are likely already considered in error and migration has been aborted.
+         *
+         * B) The superblock was updating due to a DLT commit message. When the commit message arrives we have completed
+         *    migration so we should select the most recent superblock as we now have all of the tokens we're
+         *    responsible for.
+         *
+         * C) The superblock was updating due to GC running. In this case we may have a conflict regarding which is the
+         *    correct token file. We should select the most recent superblock in this case, as the new token file may
+         *    have been written to during compaction and may now hold objects that are not present in the old file.
+         *
+         * Given these three scenarios it makes the most sense to simply select the most recent superblock and run
+         * with it.
+         *
          */
-        fds_panic("more than one unique checksum detected with SM superblocks");
+
+        LOGWARN << "SM superblock detected " << uniqChecksum << " checksums, attempting to reconcile.";
+
+        if (uniqChecksum > 2) {
+            LOGERROR << "SM superblock had more than two conflicting \"good\" checksums. This is particularly bad "
+                        "and should not be possible. Still attempting to repair, but this should be examined "
+                        "immediately.";
+        }
+
+        fds_checksum32_t mostRecent = findMostRecentSuperblock(checksumToGoodDiskIdMap);
+        auto it = checksumToGoodDiskIdMap.find(mostRecent);
+
+        if (it == checksumToGoodDiskIdMap.end()) {
+            // If we can't find the most recent entry that we *just* found then we're in an extra bad place
+            // but we can try to be heroic and just pick whatever superblock is still around and hope that
+            // whatever state we end up in we can be fixed with a resync.
+            LOGERROR << "Tried to use checksum " << mostRecent << " but failed. Picking arbitrary superblock in"
+                        "a heroic effort not to fall over. System may be unreliable.";
+
+            it = checksumToGoodDiskIdMap.begin();
+        }
+
+        std::string goodSuperblockPath = getSuperblockPath(diskMap[it->second]);
+
+        // Expand on our diskBadSuperblock set to include "good bad" superblocks as well
+        std::set<fds_uint16_t> fixers{diskBadSuperblock};
+
+        for (auto it = checksumToGoodDiskIdMap.begin();
+            it != checksumToGoodDiskIdMap.end();
+            it++) {
+
+            if (it->first == mostRecent) {
+                // These are the IDs of those with the correct superblock already
+                LOGDEBUG << "Just found ourselves ! " << it->first;
+                continue;
+            }
+
+            // If we got here this is a conflicting disk ID, so add it to the fixers list
+            LOGDEBUG << "Adding " << it->second << " to the fixers list.";
+            fixers.insert(it->second);
+        }
+
+        /* Just another round of validation.  Being paranoid.  Nothing
+         * should fail at this point.  If it fails, not sure how to recover
+         * from it.  It will be a bit complicated.
+         * So, for now just verify that everything has gone smoothly.
+         */
+        err = superblockMaster.readSuperblock(goodSuperblockPath);
+        if (ERR_OK != err) {
+            LOGCRITICAL << "Failed to read known good superblock at " << goodSuperblockPath;
+            return ERR_SM_SUPERBLOCK_NO_RECONCILE;
+        }
+        fds_assert(ERR_OK == err);
+        err = superblockMaster.validateSuperblock();
+        fds_assert(ERR_OK == err);
+
+
+        // Sync the fixers
+        err = syncSuperblock(fixers);
+        checkForHandledErrors(err);
     }
 
     return err;
@@ -1145,4 +1218,45 @@ SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
     return superblockName;
 }
 
+/**
+ * Method determines which good superblock was most recently written. This is useful for complex reconciliation where
+ * we have multiple "good" disk maps.
+ *
+ * @param checkMap A multimap of <fds_checksum32_t, fds_int16_t> where keys are checksums, and values are disk IDs
+ *                 containing a superblock that checksums to it's key.
+ * @returns A key corresponding to the most recent superblock
+ */
+fds_checksum32_t
+SmSuperblockMgr::findMostRecentSuperblock(std::multimap<fds_checksum32_t, fds_uint16_t> checkMap) {
+    LOGNORMAL << "Trying to find most recent superblock!";
+    struct stat statbuf;
+    memset(&statbuf, 0, sizeof(statbuf));
+
+    // Track the path/time of the superblock that has been most recently updated
+    fds_checksum32_t latest_superblock {checkMap.begin()->first};
+    std::chrono::system_clock::time_point time_latest {};
+
+    // Stat each of the superblock files to determine which is the most recently written
+    for (auto it = checkMap.begin(); it != checkMap.end(); it++) {
+        std::string superblockPath = getSuperblockPath(diskMap[it->second]);
+
+        LOGDEBUG << "Trying to stat " << superblockPath << "...";
+
+         if (stat(superblockPath.c_str(), &statbuf) == -1) {
+            LOGERROR << "Tried to stat superblock @ " << superblockPath << " but the stat failed. "
+                        "Continuing anyway...";
+            continue;
+        }
+
+        std::chrono::system_clock::time_point file_time =
+            std::chrono::system_clock::from_time_t(statbuf.st_mtim.tv_sec);
+
+        if (file_time > time_latest) {
+            time_latest = file_time;
+            latest_superblock = it->first;
+        }
+
+    }
+    return latest_superblock;
+}
 }  // namespace fds
