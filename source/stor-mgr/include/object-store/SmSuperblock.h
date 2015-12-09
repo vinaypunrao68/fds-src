@@ -419,6 +419,9 @@ class SmSuperblockMgr {
     const std::string superblockName = "SmSuperblock";
 
     fds::DiskChangeFnObj diskChangeFn;
+
+    /// Find the most recent superblock written to disk
+    fds_checksum32_t findMostRecentSuperblock(std::multimap<fds_checksum32_t, fds_uint16_t> checkMap);
 };
 
 std::ostream& operator<< (std::ostream &out,
