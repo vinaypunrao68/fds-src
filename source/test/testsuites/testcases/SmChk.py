@@ -75,7 +75,7 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
             tokens_str = str(tokens)[1:-1]
             tokens_str = ''.join(tokens_str.split())
             self.log.info("Starting sm check for node {} with num_tokens = {}".format(hex(node_uuid), num_checked_tokens))
-            call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), '--targetTokens', tokens_str])
+            call = ' '.join(['./fdsconsole.py', 'smdebug', 'startSmchk', str(node_uuid), tokens_str])
             res = om_node.nd_agent.exec_wait(call, fds_tools=True)
             if res != 0:
                 self.log.error("start smchk failed...")

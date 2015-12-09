@@ -115,7 +115,7 @@ public class Main {
         int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
         int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 1911);
 
-        XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig();
+        XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.

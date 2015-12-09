@@ -23,7 +23,7 @@ StatStreamHandler::StatStreamHandler(DataMgr& dataManager)
 
 void StatStreamHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::StatStreamMsg>& message) {
-    GLOGDEBUG << "received stat stream " << logString(*asyncHdr);
+    // GLOGDEBUG << "received stat stream " << logString(*asyncHdr);
 
     auto dmReq = new DmIoStatStream(FdsDmSysTaskId, message);
     dmReq->cb = BIND_MSG_CALLBACK(StatStreamHandler::handleResponse, asyncHdr, message);

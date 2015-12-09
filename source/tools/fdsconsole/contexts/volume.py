@@ -3,7 +3,6 @@ from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 from restendpoint import *
-from pyfdsp.config_types import *
 
 import md5
 import os
@@ -12,13 +11,20 @@ import FdspUtils
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+        self.__restApi = None
 
-        # Rest endpoint
-        rest = RestEndpoint()
-        self.volEp = VolumeEndpoint(rest)
+    def restApi(self):
+        if self.__restApi == None:
+            self.__restApi = VolumeEndpoint(self.config.getRestApi())
+        return self.__restApi
 
     def s3Api(self):
         return self.config.getS3Api()
+
+    def getVolumeId(self, volume):
+        client = self.config.getPlatform();
+        volId = client.svcMap.omConfig().getVolumeId(volume)
+        return int(volId)
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -38,7 +44,7 @@ class VolumeContext(Context):
         return 'unable to get volume list'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('vol-name', help= "-Volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone")
     @arg('policy-id', help= "-volume policy id" , default=0, type=int, nargs='?')
@@ -56,7 +62,6 @@ class VolumeContext(Context):
         return 'create clone failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
     @arg('vol-name', help= "-volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone for restore")
     def restore(self, vol_name, clone_name):
@@ -72,7 +77,7 @@ class VolumeContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('vol-name', help='-volume name')
     @arg('--domain', help='-domain to add volume to')
     @arg('--minimum', help='-qos minimum guarantee', type=int)
@@ -86,9 +91,9 @@ class VolumeContext(Context):
     @arg('--media-policy', help='-media policy for volume', choices=['ssd', 'hdd', 'hybrid'])
     def create(self, vol_name, domain='abc', priority=10, minimum=0, maximum=0, max_obj_size=0,
                vol_type='object', blk_dev_size=21474836480, tenant_id=1, commit_log_retention=86400, media_policy='hdd'):
-
+        'create a new volume'
         try:
-            res = self.volEp.createVolume(vol_name,
+            res = self.restApi().createVolume(vol_name,
                                             priority,
                                             minimum,
                                             maximum,
@@ -108,15 +113,16 @@ class VolumeContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('vol-name', help='-volume name')
     @arg('--minimum', help='-qos minimum guarantee', type=int)
     @arg('--maximum', help='-qos maximum', type=int)
     @arg('--priority', help='-qos priority', type=int)
     def modify(self, vol_name, domain='abc', max_obj_size=2097152, tenant_id=1,
                minimum=0, maximum=0, priority=10):
+        'modify an existing volume'
         try:
-            vols = self.volEp.listVolumes()
+            vols = self.restApi().listVolumes()
             vol_id = None
             mediaPolicy = None
             commit_log_retention = None
@@ -128,7 +134,7 @@ class VolumeContext(Context):
             assert not vol_id is None
             assert not mediaPolicy is None
             assert not commit_log_retention is None
-            res = self.volEp.setVolumeParams(vol_id, minimum, priority, maximum, mediaPolicy, commit_log_retention)
+            res = self.restApi().setVolumeParams(vol_id, minimum, priority, maximum, mediaPolicy, commit_log_retention)
             return
         except ApiException, e:
             log.exception(e)
@@ -139,11 +145,11 @@ class VolumeContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('--domain', help='-name of domain that volume resides in')
     @arg('vol-name', help='-volume name')
     def delete(self, vol_name, domain='abc'):
-        'delete a volume'
+        'delete an existing volume'
         try:
             ServiceMap.omConfig().deleteVolume(domain, vol_name)
             return
@@ -154,7 +160,7 @@ class VolumeContext(Context):
         return 'delete volume failed: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clidebugcmd
     @arg('volname', help='-volume name')
     @arg('pattern', help='-blob name pattern for search', nargs='?', default='')
     @arg('count', help= "-max number for results", nargs='?' , type=long, default=1000)
@@ -164,6 +170,7 @@ class VolumeContext(Context):
     @arg('patternSemantics', help="-", nargs='?', default='PCRE')
     @arg('delimiter', help="-", nargs='?', default='/')
     def listblobs(self, volname, pattern, count, startpos, orderby, descending, patternSemantics, delimiter):
+        'list blobs from a specific volume'
         try:
             dmClient = self.config.getPlatform();
 
@@ -212,9 +219,7 @@ class VolumeContext(Context):
         put <volname> @filename  --> key will be name of the file
         put <volname> <key> @filename
         '''
-
         try:
-
             if key.startswith('@'):
                 value = open(key[1:],'rb').read()
                 key = os.path.basename(key[1:])
@@ -324,8 +329,7 @@ class VolumeContext(Context):
             return 'get objects failed on volume: {}'.format(vol_name)
 
     #--------------------------------------------------------------------------------------
-
-    @clidebugcmd
+    @clicmd
     def deleteobject(self, vol_name, key):
         'delete an object from the volume'
         try:
@@ -341,3 +345,26 @@ class VolumeContext(Context):
         except Exception, e:
             log.exception(e)
             return 'get {} failed on volume: {}'.format(key, vol_name)
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volname', help='-volume name')
+    def stats(self, volname):
+        'display info about no. of objects/blobs'
+        data = []
+        svc = self.config.getPlatform();
+        for uuid in self.config.getServiceApi().getServiceIds('dm'):
+            volId = self.getVolumeId(volname)
+            print volId
+            getblobmeta = FdspUtils.newGetVolumeMetaDataMsg(volId);
+            cb = WaitedCallback();
+            svc.sendAsyncSvcReq(uuid, getblobmeta, cb)
+
+            if not cb.wait(10):
+                print 'async volume meta request failed : {}'.format(cb.header)
+            else:
+                print cb.payload
+                data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
+                data += [("size",cb.payload.volume_meta_data.size)]
+                data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
+                print data

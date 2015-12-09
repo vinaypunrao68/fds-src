@@ -76,7 +76,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                              bool onePhaseMigration)
 {
     Error err(ERR_OK);
-    LOGMIGRATE << "Going to start SM token migration for DLT version "
+    LOGNOTIFY << "Starting SM migration for DLT version "
                << migrationMsg->DLT_version << "."
                << " It is a resync? " << (migrationType == SMMigrType::MIGR_SM_RESYNC);
 
@@ -808,6 +808,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
             // if we already synced some DLT tokens, they will be set to unavail
             // when DLT commit comes for the previousle committed DLT (to which OM
             // will revert to).
+            return;
         }
     }
 
@@ -929,6 +930,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
         } else {
             // done with second round -- all done
             if (omStartMigrCb) {
+                LOGNOTIFY << "SM data migration completed. Notifying OM";
                 omStartMigrCb(ERR_OK);
                 omStartMigrCb = NULL;  // we replied, so reset
             }
@@ -936,7 +938,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 // done with executors.  First check if there is any pending migration
                 // requests before clearing executors.  At this point, there shouldn't
                 // be any.
-                LOGNORMAL << "SM Resync data migration completed. Cleaninup up clients and executors";
+                LOGNOTIFY << "SM Resync data migration completed. Cleaninup up clients and executors";
                 LOGMIGRATE << "ResyncOnRestart: done with executors; wait for clients to complete";
                 coalesceExecutorsNoLock();
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
