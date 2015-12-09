@@ -69,7 +69,9 @@ class GenericCounter: public serialize::Serializable {
 typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map_t;
 
 /**
- * This class describes one slot in the volume performance history
+ * This class describes one slot in the volume performance history.
+ * A "slot" is a point-in-time bucket in which we collect all
+ * counters related to the given volume as they appear at that time.
  */
 class StatSlot: public serialize::Serializable {
   public:
@@ -85,7 +87,7 @@ class StatSlot: public serialize::Serializable {
      * stat_size is given 0, then will use time interval that is
      * already (previously) set
      */
-    void reset(fds_uint64_t rel_sec, fds_uint32_t stat_size = 0);
+    void reset(fds_uint64_t rel_sec, fds_uint32_t interval_sec = 0);
 
     /**
      * Add counter of type 'counter_type' to this slot
@@ -101,7 +103,7 @@ class StatSlot: public serialize::Serializable {
     StatSlot& operator +=(const StatSlot & rhs);
     StatSlot& operator =(const StatSlot & rhs);
 
-    inline fds_uint64_t getTimestamp() const { return rel_ts_sec; }
+    inline fds_uint64_t getRelSeconds() const { return rel_sec; }
     inline fds_uint32_t slotLengthSec() const { return interval_sec; }
     fds_bool_t isEmpty() const;
     /**
@@ -136,13 +138,20 @@ class StatSlot: public serialize::Serializable {
 
   private:
     counter_map_t stat_map;
-    fds_uint64_t rel_ts_sec;  /**< timestamp in seconds, relative */
-    fds_uint32_t interval_sec;  /**< time interval of this slot */
+
+    /**
+     * TODO(Greg): I think it would be easier to replace relative seconds
+     * with generation number. We could avoid a lot of timestamp and
+     * relative timestamp calcualtions that largly are needed to convert
+     * between relative timestamps and generations anyway.
+     */
+    fds_uint64_t rel_sec;  /**< timestamp in seconds, relative to start of collection. */
+    fds_uint32_t interval_sec;  /**< time interval between slots of this type. */
 };
 
 /**
  * Recent volume's history of aggregated performance counters, where each
- * time slot in history is same time interval and time interval is
+ * time slot in history is of the same time interval and time interval is
  * configurable. History is implemented as circular array.
  */
 class VolumePerfHistory {
@@ -193,13 +202,9 @@ class VolumePerfHistory {
     /**
      * Add slots from fdsp message to this history
      * It is up to the caller that we don't add the same slot more than once
-     * @param[in] fdsp_start_ts is remote start timestamp; all relative timestamps
-     * in fdsp message are relative to fdsp_start_ts
      */
-    Error mergeSlots(const fpi::VolStatList& fdsp_volstats,
-                     fds_uint64_t fdsp_start_ts);
-    void mergeSlots(const std::vector<StatSlot>& stat_list,
-                    fds_uint64_t remote_start_ts);
+    Error mergeSlots(const fpi::VolStatList& fdsp_volstats);
+    void mergeSlots(const std::vector<StatSlot>& stat_list);
 
     /**
      * Copies history into FDSP volume stat list; only timestamps that are
@@ -211,8 +216,8 @@ class VolumePerfHistory {
                                fds_uint64_t last_rel_sec);
 
     /**
-     * Copies history in StatSlot array, where index 0 constains the
-     * earliest timestamp copied. Only timestamps that are greater than
+     * Copies the history in the StatSlot array where index 0 contains the
+     * earliest timestamp copied. Only slots with relative seconds that are greater than
      * last_rel_sec are copied
      * @param[in] last_rel_sec is a relative timestamp in seconds
      * @param[in] max_slots maximum number of slots to return; if 0, then all
@@ -251,10 +256,10 @@ class VolumePerfHistory {
       return start_nano_;
     }
     inline fds_uint32_t secondsInSlot() const {
-        return slotsec_;
+        return slot_interval_sec_;
     }
     inline fds_uint32_t numberOfSlots() const {
-        return nslots_;
+        return max_slot_generations_;
     }
 
   private:  /* methods */
@@ -269,27 +274,25 @@ class VolumePerfHistory {
                                   fds_uint64_t rel_sec) const {
         return (start_nano + rel_sec * 1000000000);
     }
-    fds_uint64_t getLocalRelativeSec(fds_uint64_t remote_rel_sec,
-                                     fds_uint64_t remote_start_ts);
 
   private:
     /**
      * Configurable parameters
      */
     fds_volid_t volid_;       /**< volume id  */
-    fds_uint32_t nslots_;     /**< number of slots in history */
-    fds_uint32_t slotsec_;    /**< slot length is seconds */
+    fds_uint32_t max_slot_generations_;     /**< Maximum number of slot generations kept in the historical record beyond which we wrap. */
+    fds_uint32_t slot_interval_sec_;    /**< time interval in seconds between slot generations */
 
     fds_uint64_t start_nano_;  /**< ts in history are relative to this ts */
 
     /**
-     * Array of time slots with stats; once we fill in the last slot
-     * in the array, we will circulate and re-use the first slot for the
-     * next time interval and so on
+     * Array of time slots with stats. Once we fill in the last slot
+     * in the array, we will circle around and re-use the first slot for the
+     * next time interval and so on.
      */
     StatSlot* stat_slots_;
-    fds_uint64_t last_slot_num_;  /**< sequence number of the last slot */
-    fds_rwlock stat_lock_;  // protects stat_slots and last_slot_num
+    fds_uint64_t last_slot_generation_;  // The last generation (in historical line of descent) of slots since start_nano_. One generation every slot_interval_sec_ seconds.
+    fds_rwlock stat_lock_;  // protects stat_slots_ and last_slot_generation_
 };
 
 }  // namespace fds

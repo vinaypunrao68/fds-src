@@ -19,6 +19,10 @@ namespace fds {
 
 class StatStreamAggregator;
 
+/**
+ * Invokes the stats stream process after the expiration of a
+ * specified interval repeatedly.
+ */
 class StatStreamTimerTask : public FdsTimerTask {
   public:
     typedef boost::shared_ptr<StatStreamTimerTask> ptr;
@@ -39,6 +43,29 @@ class StatStreamTimerTask : public FdsTimerTask {
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
     std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_ts_;
+};
+
+/**
+ * Cancels the StatStreamTimerTask after the expiration of
+ * a given duration.
+ */
+class StatStreamCancelTimerTask : public FdsTimerTask {
+    public:
+        typedef boost::shared_ptr<StatStreamCancelTimerTask> ptr;
+
+        StatStreamCancelTimerTask(FdsTimer& cancelTimer,
+                                  FdsTimer& streamTimer,
+                                  std::int32_t reg_id,
+                                  FdsTimerTaskPtr statStreamTask);
+
+        virtual ~StatStreamCancelTimerTask() {}
+
+        virtual void runTimerTask() override;
+
+    private:
+        FdsTimer& streamTimer;
+        std::int32_t reg_id;
+        FdsTimerTaskPtr statStreamTask;
 };
 
 struct StatHistoryConfig {
@@ -148,7 +175,7 @@ class VolumeStats {
     /**
      * For processing finegrain stats
      */
-    fds_uint64_t last_print_ts_;
+    fds_uint64_t last_process_rel_secs_;
 };
 
 class StatHelper {
@@ -272,10 +299,10 @@ class StatStreamAggregator : public Module {
      */
     StatHistoryConfig hist_config;
 
-    // timer to update coarse grain and long term slots
-    FdsTimerPtr process_tm_;
-    FdsTimerTaskPtr process_tm_task_;
-    fds_uint32_t tmperiod_sec_;
+    // timer to aggregate fine-grained slots into coarse-grained and long term slots
+    FdsTimerPtr aggregate_stats_;
+    FdsTimerTaskPtr aggregate_stats_task_;
+    fds_uint32_t aggregate_stats_period_sec_;
 
     /**
      * Volume id to VolumeStats struct map; VolumeStats struct contains all
@@ -287,7 +314,8 @@ class StatStreamAggregator : public Module {
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
 
-    FdsTimer timer_;
+    FdsTimer streamTimer_;  // For repeated stream task at each interval.
+    FdsTimer cancelTimer_;  // To cancel the repeated stream task after duration.
 
     StatStreamRegistrationMap_t statStreamRegistrations_;
     std::unordered_map<fds_uint32_t, FdsTimerTaskPtr> statStreamTaskMap_;

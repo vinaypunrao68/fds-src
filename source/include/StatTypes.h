@@ -16,8 +16,10 @@ namespace fds {
  * sampling and pushing stats from individual modules to
  * an aggregator.
  */
-#define FdsStatPeriodSec         60
-#define FdsStatPushPeriodSec     180
+const std::int32_t FdsStatRunForever{-1};
+const std::int32_t FdsStatPeriodSec{60};  // How often are stats collected - fine-grained period.
+const std::int32_t FdsStatPushPeriodSec{120};  // How often stats are pushed for aggregation into coarse-grained stats.
+const std::int32_t FdsStatWaitFactor{2};  // The number of FdsStatPushPeriodSec seconds we are willing to wait for remote servies to get their stats to us before we go ahead and publish.
 
 typedef enum {
     STAT_AM_GET_OBJ,

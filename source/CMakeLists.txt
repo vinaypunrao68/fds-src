@@ -701,6 +701,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/ObjectMetaDb.h
     ./stor-mgr/include/object-store/ObjectPersistData.h
     ./stor-mgr/include/object-store/ObjectStore.h
+    ./stor-mgr/include/object-store/ObjectStoreCommon.h
     ./stor-mgr/include/object-store/RandomRankPolicy.h
     ./stor-mgr/include/object-store/RankEngine.h
     ./stor-mgr/include/object-store/Scavenger.h
@@ -710,6 +711,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/SmTokenState.h
     ./stor-mgr/include/object-store/TieringConfig.h
     ./stor-mgr/include/object-store/TokenCompactor.h
+    ./stor-mgr/include/counters.h
     ./stor-mgr/include/data_obj.h
     ./stor-mgr/include/HybridTierCtrlr.h
     ./stor-mgr/include/MigrationClient.h
@@ -725,17 +727,15 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/SmCtrl.h
     ./stor-mgr/include/SmDiskTypes.h
     ./stor-mgr/include/SmIo.h
-    ./stor-mgr/include/SmObjDb.h
     ./stor-mgr/include/SMSvcHandler.h
     ./stor-mgr/include/SmTypes.h
-    ./stor-mgr/include/stor_mgr.h
     ./stor-mgr/include/StorMgr.h
     ./stor-mgr/include/StorMgrVolumes.h
     ./stor-mgr/include/TierEngine.h
     ./stor-mgr/include/TierMigration.h
-    ./stor-mgr/include/TierPutAlgorithms.h
     ./stor-mgr/protos/counting_bloom_filter/CountingBloomFilter.hpp
     ./stor-mgr/protos/counting_bloom_filter/RandomHashGenerator.cpp
+    ./stor-mgr/smlib/object-store/LiveObjectsDB.cpp
     ./stor-mgr/smlib/object-store/ObjectDataCache.cpp
     ./stor-mgr/smlib/object-store/ObjectDataStore.cpp
     ./stor-mgr/smlib/object-store/ObjectMetaCache.cpp
@@ -750,6 +750,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/object-store/SmTokenPlacement.cpp
     ./stor-mgr/smlib/object-store/SmTokenState.cpp
     ./stor-mgr/smlib/object-store/TokenCompactor.cpp
+    ./stor-mgr/smlib/counters.cpp
     ./stor-mgr/smlib/HybridTierCtrlr.cpp
     ./stor-mgr/smlib/MigrationClient.cpp
     ./stor-mgr/smlib/MigrationExecutor.cpp
@@ -760,7 +761,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/ObjRank.cpp
     ./stor-mgr/smlib/ObjStats.cpp
     ./stor-mgr/smlib/SmIo.cpp
-    ./stor-mgr/smlib/SmObjDb.cpp
     ./stor-mgr/smlib/SMSvcHandler.cpp
     ./stor-mgr/smlib/SMCheck.cpp
     ./stor-mgr/smlib/SMCheckCtrl.cpp
@@ -768,7 +768,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/StorMgrVolumes.cpp
     ./stor-mgr/smlib/TierEngine.cpp
     ./stor-mgr/smlib/TierMigration.cpp
-    ./stor-mgr/smlib/TierPutAlgorithms.cpp
     ./stor-mgr/utils/SMCheckDriver.cpp
     ./stor-mgr/utils/SMCheckDriver.h
     ./stor-mgr/stormgr_main.cpp

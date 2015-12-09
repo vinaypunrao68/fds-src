@@ -274,11 +274,11 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  Error err = recv_hist->mergeSlots(fdsp_stats, start_time);
+  Error err = recv_hist->mergeSlots(fdsp_stats);
   statfile << "Sent history: " << *hist << std::endl;
   statfile << "Received history: " << *recv_hist << " " << err << std::endl;
   statfile << "Sent another history" << std::endl;
-  err = recv_hist->mergeSlots(fdsp_stats, start_time);
+  err = recv_hist->mergeSlots(fdsp_stats);
   statfile << "Merged history: " << *recv_hist << " " << err << std::endl;
 
   VolumePerfHistory::ptr snap = hist->getSnapshot();
@@ -297,11 +297,11 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  other_hist->mergeSlots(slot_list, start_time);
+  other_hist->mergeSlots(slot_list);
   statfile << "Source history: " << *hist << std::endl;
   statfile << "Destination history: " << *other_hist << std::endl;
   statfile << "Add source history again" << std::endl;
-  other_hist->mergeSlots(slot_list, start_time);
+  other_hist->mergeSlots(slot_list);
   statfile << "Merged history: " << *other_hist << std::endl;
 
 
