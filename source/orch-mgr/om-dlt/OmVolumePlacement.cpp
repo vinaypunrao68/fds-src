@@ -20,7 +20,8 @@ VolumePlacement::VolumePlacement()
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex"),
-		  numOfPrimaryDMs(1)
+		  numOfPrimaryDMs(1),
+		  numOfFailures(0)
 {
 	bRebalancing = ATOMIC_VAR_INIT(false);
 }
@@ -692,6 +693,19 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     }
 
     return err;
+}
+
+
+fds_bool_t VolumePlacement::canRetryMigration() {
+    fds_bool_t ret = false;
+
+    // For now, we maximize at 4. Perhaps to be made into a configurable var
+    // next time?
+    if (numOfFailures < 4) {
+        ret = true;
+    }
+
+    return ret;
 }
 
 }  // namespace fds
