@@ -259,6 +259,25 @@ namespace fds {
         	numOfPrimaryDMs = num;
         }
 
+        /**
+         * If a DM migration failed, track it here
+         */
+        inline void markFailure() {
+            ++numOfFailures;
+        }
+
+        /**
+         * If a migration passes, this gets called
+         */
+        inline void markSuccess() {
+            numOfFailures = 0;
+        }
+
+        /**
+         * Check to see if we can retry another migration
+         */
+        fds_bool_t canRetryMigration();
+
   private:
         /**
          * Config db object
@@ -328,6 +347,12 @@ namespace fds {
          * Number of primary DMs for a volume.
          */
         fds_uint32_t numOfPrimaryDMs;
+
+        /**
+         * How many times have this VolumePlacement failed.
+         * Resets to 0 once succeeds
+         */
+        fds_uint32_t numOfFailures;
     };
 }  // namespace fds
 
