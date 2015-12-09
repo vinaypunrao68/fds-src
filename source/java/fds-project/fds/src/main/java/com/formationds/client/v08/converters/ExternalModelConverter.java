@@ -479,7 +479,8 @@ public class ExternalModelConverter {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-            if( internalVolume.getPolicy().getIscsiTarget() == null )
+            if( internalVolume.getPolicy().getIscsiTarget() == null ||
+                !internalVolume.getPolicy().getIscsiTarget().getLuns().isEmpty() )
             {
 //                throw new IllegalArgumentException( "iSCSI target must be provided for converting to external model." );
                 extSettings = new VolumeSettingsISCSI.Builder( )
@@ -521,7 +522,8 @@ public class ExternalModelConverter {
             final Set<NfsOptionBase> options = new HashSet<>( );
             final Set<IPFilter> ipFilters = new HashSet<>( );
 
-            if( internalVolume.getPolicy().getNfsOptions() == null )
+            if( internalVolume.getPolicy().getNfsOptions() == null ||
+                !internalVolume.getPolicy().getNfsOptions().isSetOptions() )
             {
                 logger.debug( "No NFS options provided, defaulting to empty option set." );
             }
@@ -618,11 +620,13 @@ public class ExternalModelConverter {
         }
 
         final List<LogicalUnitNumber> intLuns = new ArrayList<>( );
+
         for ( final LUN lun : luns )
         {
             final LogicalUnitNumber logicalUnitNumber = new LogicalUnitNumber( lun.getLunName( ),
                                                                                lun.getAccessType( )
                                                                                   .name( ) );
+            logicalUnitNumber.setInitiators( convertToInternalInitiators( lun.getInitiators() ) );
             intLuns.add( logicalUnitNumber );
         }
 
@@ -776,9 +780,8 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.ISCSI );
-            if( iscsiSettings.getTarget() == null )
+            if( iscsiSettings.getTarget() == null || iscsiSettings.getTarget().getLuns().isEmpty() )
             {
-//                throw new IllegalArgumentException( "iSCSI target must be provided for converting to internal model." );
                 final IScsiTarget iscsiTarget =
                     new IScsiTarget( ).setLuns(
                         Collections.singletonList(
@@ -840,7 +843,7 @@ public class ExternalModelConverter {
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
             internalSettings.setVolumeType( VolumeType.NFS );
 
-            // TODO finish
+            // TODO finish NFS
 //            nfsSettings.setFilters(  );
 //            nfsSettings.setOptions(  );
         }
@@ -936,7 +939,10 @@ public class ExternalModelConverter {
                                          .longValue( ) );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
-            // TODO finish implementation iSCSI
+            final IScsiTarget target =
+                new IScsiTarget( convertToInternalLogicalUnitNumber( iscsi.getTarget().getLuns() ) );
+
+            volumeType.setIscsi( target );
 
         } else if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
