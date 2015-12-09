@@ -1,0 +1,123 @@
+Ideas shifts
+-IO isolation to grouping at a volume level.
+-Volume coordinator driven replication.
+-In the volume group, from serving IO perspective, all members of volume group are eqivalent.
+
+Goals
+-Don't impact exisiting functionality atleast until IO path is proven.
+-Fault in one DM shouldn't impact IO. No single point of failure.
+-Failure in volume group shouldn't impact other volume groups.
+-No DMT changes across DM reboots.
+-Always have recovery process.  Recovery via debug tool is fine.
+
+Working parameters
+-Only 3 dms
+
+Toggles
+-Exercising new functionality should be based on a toggle.  Don't break previous functional codepaths.
+-May not be able to toggle all the new code but functionality should be toggleable.
+
+Feature completion priority
+-3 dm cluster with IO and tolerate one dm failure.
+-Able to sync in the background without impacting IO.
+
+Work items
+OM
+-No dmt changes across reboots
+-Only 3 dm cluster
+-Open volumegroup work
+-VolumeDescriptor to have coordinator information.
+-Don't push volume when dm reboots.  Dm will pull the volumes (Not a must)
+
+DM
+-Volume bootup
+-Sync protocol
+-Introduction of functional, syncing, non-functional states.  Assuring appropriate IO is only services in right appropriate states.
+-Introduction of commit id and op id.  Every write requests from coordinator is tagged with sequence #, opid.  Every commit is given commit id.
+
+AM
+-Integrate with volume group handle to send IO down to DM groups.
+
+Service layer
+-Volume coordinator work
+--Driving IO
+--Open volumegroup protocol
+--Sync protocol
+
+FDSP changes
+-Volume descriptor to have cooridnator info
+-SetVolumeGroupCoordinatorMsg - message from volume group coordinator to OM requesting to be coordinator for the group
+-SetVolumeGroupCoordinatorRespMsg - message from OM to volume group coordinator whether set request succeeded or not.
+-PreareOpenVolumeGroupMsg - Message from group coordinator to volume replica requesting the volume to be opened.
+-PreareOpenVolumeGroupRespMsg - message back from volume replica to group coordinator indicating its current state.
+-CommitOpenVolumeGroupMsg - message from group coordinator to volume replica indicating which members are functional and which members need to go through sync protocol.
+
+Future considerations
+-Faster syncs based on committed journal log.
+-In DM if io is synchronized on volume we should be able to do faster resyncs
+
+Out of scope
+-Syncing system volumes
+-Support for adding more than 3 dms
+
+Open volume group protocol
+-Group coordinator sends SetVolumeGroupCoordinatorMsg to OM.
+-If no other cooridnator is set for the volume group, OM will accept the request.
+-On successful response from OM, coordinator sends PreareOpenVolumeGroupMsg to each volume replica.
+-Each volume replica will respond with it's current on disk state for the volume.  At present we can return the last commit id.
+-Coordinator will need atleas two replicas with matching states.  Replicas with recent matching states will be marked functional.  Others need to go throught sync protocol.  Group information containing functional replicas is relayed back to each replica via CommitOpenVolumeGroupMsg.
+-On CommitOpenVolumeGroupMsg any non-functional replica will need to go through sync protocol.
+
+Dm boot up sequence and sync protocol
+-Dm will query OM for volumes it is responsible for.
+-For each volume
+--Load local state.
+--If coordinator isn't available wait until cooridinator sends PreareOpenVolumeGroupMsg or sync is triggered manually.
+--If a coordinator is set for the volume then go through sync protocol.
+-Sync protocol
+--Increment version #
+--Send AddToVolumeGroup message to group coordinator indicating volume replica will go through sync.
+--Group coordinator will respond back with information regarding functional replicas.
+--Go through static migration.
+--NOTE: how to handle active will need to be discussed.  For the time being we can rely on currentscheme.  Time permitting I would like to optimize this part to relieve sync peer from doing forwards.
+
+Counters
+-Volume group cooridnator
+--state
+--version
+--# of reads, updates, commits completed, outstanding
+--For each member: state, commitid, opid, reads, updates, commits completed, outstanding
+-Volume replica
+--state, commitid, opid, reads, updates, commits completed
+--verison
+--sync retry count
+--coordinator uuid, version
+
+
+Questions
+1. How do you handle sitation where volume tries to go through sync protocol while group coordinator is trying to go through open volume protocol?
+#When group cooridnator is going through any sync requests will be rejected.
+#group coordinator will not accept sync reqeuests from a non-member.
+#On sync request rejectction from coordinator, volume replica will go through sync protcol with retry backoff.
+
+2. Do you allow IO requests to go through when volume replica is going through sync/bootup?
+No.  Only sync related messages are processed when volume replica is going through sync protocol.
+
+3. How do you handle failed syncs?
+When sync fails in the middle of sync data transfer, it will retry before giving up.  In case retries are exhausted, syncs can be triggered manually via debug tool.
+
+4. How do you recover failed volume group coordinator?
+Remounting the volume should make volume group coordinator go through open group protocol.
+
+5. How do you recover from failed volume?
+Debug tool will provide a command to force resync on a volume.
+
+6. How do you recover from situation when all replicas are non-functional?
+When all replicas are non-functional, group coordinator should also be non-functional.  For group coordinator to become functional again it must go through open group protocol and have sufficient number of functioning replicas before IO can proceed.
+
+7. Will Om need to manage any state for group coordinator?
+VolumeGroup coordinator state managed by OM need not be persisted.  Reason being when multi-om is implemented we don't need to worry OM reboots. In rare event that OM cluster does go down, volume group coordinator handles will need to be refreshed.
+NOTES:
+
+8.  Will group coordinator accept io requests while open group protocol is in progress?
+While open group protocol is in progress coordinator will not entertain any other requests.  All requests to coordinator will result in ERR_VOLUMECOORDINATOR_UNAVAILABLE

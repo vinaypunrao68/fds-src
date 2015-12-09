@@ -1612,7 +1612,9 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
         FDS_QoSControl(_max_thrds, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                                      parentDm->qosOutstandingTasks, log);
+                                      parentDm->qosOutstandingTasks, 
+                                      false,
+                                      log);
 
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(*threadPool));

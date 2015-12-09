@@ -10,7 +10,9 @@ user_cpp         := \
 	SvcRequestPool.cpp \
 	SvcRequest.cpp \
 	SvcProcess.cpp \
-	SvcPlatNetHandler.cpp
+	SvcPlatNetHandler.cpp \
+	volumegroup_extensions.cpp \
+	VolumeGroupHandle.cpp
 
 user_ar_libs     := fds-svc-request
 fds-svc-request  := $(user_cpp) $(user_cc)

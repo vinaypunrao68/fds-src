@@ -1,6 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include "VolumeGroupHandle.h"
+#include <net/VolumeGroupHandle.h>
 #include <net/SvcRequestPool.h>
 
 namespace fds {
@@ -50,6 +50,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    state_ = fpi::VolumeState::VOLUME_UNINIT;
     setGroupInfo_(groupInfo);
     // TODO(Rao): Go through protocol figure out the states of the replicas
     // For now set every handle as functional and start their op/commit ids
@@ -63,6 +64,44 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     // TODO(Rao): Set this to be the latest ids after querying the replicas
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
+}
+
+
+void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
+                             const StatusCb &clientCb)
+{
+#if  0
+    runSynchronized([this, msg]() mutable {
+        /* Send a message to OM requesting to be coordinator for the group */
+        auto req = createSetVolumeGroupCoordinatorMsgReq_();
+        auto respCb = [this, clientCb](const Error& e) {
+           if (e != ERR_OK) {
+            LOGWARN << "Failed set volume group coordinator.  Received " << e << " from om";
+            clientCb(e);
+            return;
+           }
+           auto openReq = createPreareOpenVolumeGroupMsgReq_();
+           auto openCb = [this, clientCb](const Error *e) {
+            if (e != ERR_OK) {
+                LOGWARN << "Prepare for open failed: " << e;
+                clientCb(e);
+                return;
+            }
+            determineFunctaionalReplicas();
+            if (functionalReplicas_.size() == 0) {
+                LOGWARN << "Not enough replicas.  Group remains non-functional";
+                clientCb(ERR_VOLUME_UNAVAILABLE);
+                return;
+            }
+            auto commitReq = createCommitOpenVolumeGroupMsgReq_();
+            commitReq->invoke();
+           };
+           openReq->invoke();
+        };
+        req->onResponseCb(respCb);
+        req->invoke();
+    });
+#endif
 }
 
 void VolumeGroupHandle::handleAddToVolumeGroupMsg(
@@ -114,11 +153,13 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
     if (volumeHandle->isFunctional() ||
         volumeHandle->isSyncing()) {
         if (inStatus == ERR_OK) {
+#ifdef IOHEADER_SUPPORTED
             fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
             fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
                        volumeHandle->appliedCommitId+1 == hdr.commitId);
             volumeHandle->appliedOpId = hdr.opId;
             volumeHandle->appliedCommitId = hdr.commitId;
+#endif
             if (volumeHandle->isFunctional()) {
                 successAcks++;
             }
@@ -129,6 +170,9 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                                        inStatus);
             fds_verify(changeErr == ERR_OK);
         }
+    } else if (volumeHandle->isUnitialized()) {
+        /* We get this when we are trying to open the volume */
+        fds_verify(state_ == fpi::VolumeState::VOLUME_UNINIT);
     } else {
         /* When replica isn't functional we don't expect subsequent IO to return with
          * success status
@@ -147,6 +191,11 @@ std::vector<VolumeReplicaHandle*> VolumeGroupHandle::getIoReadyReplicaHandles()
         replicas.push_back(&r);
     }
     return replicas;
+}
+
+VolumeReplicaHandle* VolumeGroupHandle::getFunctionalReplicaHandle()
+{
+    return &(functionalReplicas_.back());
 }
 
 VolumeGroupHandle::VolumeReplicaHandleList&
@@ -314,7 +363,10 @@ void VolumeGroupBroadcastRequest::invokeWork_()
     auto replicas = groupHandle_->getIoReadyReplicaHandles();
     state_ = SvcRequestState::INVOCATION_PROGRESS;
     for (const auto &r : replicas) {
-        addEndpoint(r->svcUuid, DLT_VER_INVALID, groupHandle_->getGroupId(), r->version);
+        addEndpoint(r->svcUuid,
+                    groupHandle_->getDmtVersion(),
+                    groupHandle_->getGroupId(),
+                    r->version);
         auto &ep = epReqs_.back();
         ep->setPayloadBuf(msgTypeId_, payloadBuf_);
         ep->setTimeoutMs(timeoutMs_);
@@ -339,7 +391,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
         GLOGWARN << fds::logString(*header) << " Already completed";
         return;
     }
-    epReq->complete(header->msg_code, header, payload);
+    epReq->completeReq(header->msg_code, header, payload);
 
     Error outStatus = ERR_OK;
     groupHandle_->handleVolumeResponse(header->msg_src_uuid,
@@ -366,6 +418,70 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
         } else {
             /* Atleast one replica succeeded */
             complete(ERR_OK);
+        }
+    }
+}
+
+void VolumeGroupFailoverRequest::invoke()
+{
+    invokeWork_();
+}
+
+void VolumeGroupFailoverRequest::invokeWork_()
+{
+    auto replica = groupHandle_->getFunctionalReplicaHandle();
+    addEndpoint(replica->svcUuid,
+                groupHandle_->getDmtVersion(),
+                groupHandle_->getGroupId(),
+                replica->version);
+    auto &ep = epReqs_.back();
+    ep->setPayloadBuf(msgTypeId_, payloadBuf_);
+    ep->setTimeoutMs(timeoutMs_);
+    ep->invokeWork_();
+}
+
+void VolumeGroupFailoverRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
+                                                  SHPTR<std::string>& payload)
+{
+    DBG(GLOGDEBUG << fds::logString(*header));
+    auto epReq = getEpReq_(header->msg_src_uuid);
+    if (isComplete()) {
+        /* Drop completed requests */
+        GLOGWARN << logString() << " Already completed";
+        return;
+    } else if (!epReq) {
+        /* Drop responses from uknown endpoint src ids */
+        GLOGWARN << fds::logString(*header) << " Unknown EpId";
+        return;
+    } else if (epReq->isComplete()) {
+        GLOGWARN << fds::logString(*header) << " Already completed";
+        return;
+    }
+    epReq->completeReq(header->msg_code, header, payload);
+
+    ++nAcked_;
+    fds_assert(nAcked_ <= groupHandle_->size());
+
+    Error outStatus = ERR_OK;
+    groupHandle_->handleVolumeResponse(header->msg_src_uuid,
+                                       header->replicaVersion,
+                                       volumeIoHdr_,
+                                       header->msg_code,
+                                       outStatus,
+                                       nSuccessAcked_);
+    if (nSuccessAcked_ == 1) {
+        responseCb_(ERR_OK, payload); 
+        responseCb_ = 0;
+        /* Atleast one replica succeeded */
+        complete(ERR_OK);
+    } else {
+        GLOGWARN << logString() << " " << fds::logString(*header)
+            << " outstatus: " << outStatus;
+        if (groupHandle_->isFunctional()) {
+            /* Try against another replica */
+            invokeWork_();
+        } else {
+            complete(ERR_SVC_REQUEST_FAILED);
         }
     }
 }

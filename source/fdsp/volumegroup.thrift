@@ -13,11 +13,8 @@ enum VolumeState {
     VOLUME_UNINIT,
     VOLUME_INITING,
     VOLUME_FUNCTIONAL,
-    VOLUME_NONFUNCTIONAL_BEGIN,
     VOLUME_DOWN,
-    VOLUME_QUICKSYNC_CHECK,
-    VOLUME_QUICKSYNC_INPROGRESS,
-    VOLUME_NONFUNCTIONAL_END
+    VOLUME_SYNCING
 }
 
 /* Header that must be part of every replica group io request */

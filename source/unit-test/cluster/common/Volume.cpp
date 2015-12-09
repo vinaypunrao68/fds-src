@@ -456,7 +456,7 @@ void Volume::startSyncCheck_()
     quicksyncCtx_->bufferIo = true;
 
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::VolumeState::VOLUME_QUICKSYNC_CHECK;
+    msg->targetState = fpi::VolumeState::VOLUME_SYNCING;
     msg->groupId = volId_.get();
     msg->replicaVersion = version_;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();

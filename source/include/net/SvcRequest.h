@@ -27,6 +27,7 @@ struct EPSvcRequest;
 struct FailoverSvcRequest;
 struct QuorumSvcRequest;
 struct MultiPrimarySvcRequest;
+template <class T> struct SvcRequestRetrier;
 
 using StringPtr = boost::shared_ptr<std::string>;
 
@@ -211,9 +212,44 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
 };
 
 /**
+* @brief Interface for all tracked requests
+*/
+struct TrackableRequest : HasModuleProvider {
+    TrackableRequest();
+    TrackableRequest(CommonModuleProviderIf* provider,
+                   const SvcRequestId &id);
+    virtual ~TrackableRequest() = default;
+    inline SvcRequestId getRequestId() const { return id_; }
+    inline bool isTracked() const;
+    inline void setRequestId(const SvcRequestId &id) { id_ = id; }
+    inline void setTimeoutMs(const uint32_t &timeout_ms) { timeoutMs_ = timeout_ms; }
+    inline uint32_t getTimeout() const { return timeoutMs_; }
+    inline void setCompletionCb(SvcRequestCompletionCb &completionCb) {
+        completionCb_ = completionCb;
+    }
+    inline bool isComplete() const { return state_ == SVC_REQUEST_COMPLETE; }
+
+    virtual std::string logString() = 0;
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) = 0;
+    virtual void complete(const Error& error);
+ protected:
+    /* Request Id */
+    SvcRequestId id_;
+    /* Async svc request state */
+    SvcRequestState state_;
+    /* Timeout */
+    uint32_t timeoutMs_;
+    /* Timer */
+    FdsTimerTaskPtr timer_;
+    /* Completion cb */
+    SvcRequestCompletionCb completionCb_;
+};
+
+/**
  * Base class for async svc requests
  */
-struct SvcRequestIf : HasModuleProvider {
+struct SvcRequestIf : TrackableRequest {
     SvcRequestIf();
 
     SvcRequestIf(CommonModuleProviderIf* provider,
@@ -246,28 +282,17 @@ struct SvcRequestIf : HasModuleProvider {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) = 0;
 
-    virtual void complete(const Error& error);
-    virtual void complete(const Error& error,
+    virtual void completeReq(const Error& error,
                           const fpi::AsyncHdrPtr& header,
                           const StringPtr& payload);
 
-    virtual bool isComplete();
 
-    virtual std::string logString() = 0;
-
-    void setTimeoutMs(const uint32_t &timeout_ms);
-
-    uint32_t getTimeout();
-
-    SvcRequestId getRequestId();
     TaskExecutorId getTaskExecutorId();
 
-    void setRequestId(const SvcRequestId &id);
     void setTaskExecutorId(const TaskExecutorId &teid);
     void unsetTaskExecutorId();
     bool taskExecutorIdIsSet();
 
-    void setCompletionCb(SvcRequestCompletionCb &completionCb);
     inline const fpi::AsyncHdrPtr& responseHeader() const { return respHeader_; }
     inline Error responseStatus() const { return respHeader_->msg_code; }
     inline const StringPtr& responsePayload() const { return respPayload_; }
@@ -294,21 +319,11 @@ struct SvcRequestIf : HasModuleProvider {
     std::stringstream& logSvcReqCommon_(std::stringstream &oss,
                                         const std::string &type);
 
-    /* Lock for synchronizing response handling */
-    fds_mutex respLock_;
-    /* Request Id */
-    SvcRequestId id_;
     /* Task executor ID. When set, replaces the Request ID for task serialization. */
     TaskExecutorId teid_;
     bool teidIsSet_;
     /* My endpoint id */
     fpi::SvcUuid myEpId_;
-    /* Async svc request state */
-    SvcRequestState state_;
-    /* Timeout */
-    uint32_t timeoutMs_;
-    /* Timer */
-    FdsTimerTaskPtr timer_;
     /* Message type id */
     fpi::FDSPMsgTypeId msgTypeId_;
     /* Payload buffer */
@@ -317,8 +332,6 @@ struct SvcRequestIf : HasModuleProvider {
     fpi::AsyncHdrPtr respHeader_;
     /* Response payload */
     StringPtr respPayload_;
-    /* Completion cb */
-    SvcRequestCompletionCb completionCb_;
     /* Where the request is fire and forget or not */
     bool fireAndForget_;
     /* Minor version */
@@ -370,6 +383,8 @@ struct EPSvcRequest : SvcRequestIf {
     friend class QuorumSvcRequest;
     friend class MultiPrimarySvcRequest;
     friend class VolumeGroupBroadcastRequest;
+    friend class VolumeGroupFailoverRequest;
+    friend class SvcRequestRetrier<EPSvcRequest>;
 };
 
 /**
@@ -605,6 +620,79 @@ struct MultiPrimarySvcRequestCbTask : concurrency::TaskStatus {
 
     Error                           error;
     MultiPrimarySvcRequestRespCb    cb;
+};
+
+/**
+* @brief Wrapper for retrying SvcRequests.
+* Currently supports retrying EPSvcRequest.  In theory any request with respCb_ as a member
+* with type of SvcRequestRetrier::ResponseCb should work.
+*
+* @tparam ReqT
+*/
+template<class ReqT>
+struct SvcRequestRetrier : TrackableRequest {
+    using NewSvcRequestFunc = std::function<SHPTR<ReqT> ()>;
+    using RetryPredicate = std::function<bool(SvcRequestRetrier*, const Error&)>; 
+    using ResponseCb = std::function<void (ReqT*,
+                                           const Error&,
+                                           SHPTR<std::string>)>;
+    SvcRequestRetrier(CommonModuleProviderIf* provider,
+                      const NewSvcRequestFunc &newSvcReqFunc,
+                      const RetryPredicate &pred)
+    {
+        newSvcReqFunc_ = newSvcReqFunc;
+        retryPredicate_ = pred;
+        retriedCnt_ = 0;
+        backOffMs_ = 30;
+    }
+    void responseCb(ReqT* r, const Error& e, boost::shared_ptr<std::string> payload) {
+        if (e == ERR_OK) {
+            respCb_(r, e, payload);
+            complete(ERR_OK);
+        } else {
+            bool retry = retryPredicate_(this, e);
+            if (retry) {
+                scheduleRetry();
+            } else {
+                complete(e);
+            }
+        }
+    }
+    void invoke()
+    {
+        auto req = newSvcReqFunc_();
+        fds_assert(!req->respCb_);
+        fds_assert(req->isTracked());
+        req->responseCb(std::bind(&responseCb, this));
+        req->invoke();
+    }
+    void scheduleRetry()
+    {
+        auto timer = MODULEPROVIDER()->getTimer();
+        timer->schedule(std::chrono::milliseconds(backOffMs_ << retriedCnt_),
+                        [this]() {
+                            retriedCnt_++;
+                            /* NOTE: For request types that don't synchronize inside will not
+                             * work with the following invocation
+                             */
+                            invoke();
+                        });
+    }
+    void onResponseCb(const ResponseCb &respCb)
+    {
+        respCb_ = respCb;
+    }
+    void withBackOff(int32_t backOffMs)
+    {
+        backOffMs_ = backOffMs;
+    }
+    inline int32_t getRetriedCnt() const { return retriedCnt_; }
+ protected:
+    NewSvcRequestFunc       newSvcReqFunc_;
+    RetryPredicate          retryPredicate_;
+    ResponseCb              respCb_;
+    int32_t                 retriedCnt_;
+    int32_t                 backOffMs_;
 };
 
 }  // namespace fds

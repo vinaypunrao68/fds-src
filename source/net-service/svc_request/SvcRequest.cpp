@@ -73,6 +73,44 @@ void SvcRequestTimer::runTimerTask()
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->postError(header_);
 }
 
+TrackableRequest::TrackableRequest()
+: TrackableRequest(nullptr, SvcRequestPool::SVC_UNTRACKED_REQ_ID)
+{
+}
+
+TrackableRequest::TrackableRequest(CommonModuleProviderIf* provider,
+                               const SvcRequestId &id)
+: HasModuleProvider(provider),
+  id_(id),
+  state_(PRIOR_INVOCATION),
+  timeoutMs_(0)
+{
+}
+
+inline bool TrackableRequest::isTracked() const {
+    return id_ != SvcRequestPool::SVC_UNTRACKED_REQ_ID;
+}
+
+/**
+ * Marks the svc request as complete and invokes the completion callback
+ * @param error
+ */
+void TrackableRequest::complete(const Error& error) {
+    DBG(GLOGDEBUG << logString() << " " << error);
+
+    fds_assert(state_ != SVC_REQUEST_COMPLETE);
+    state_ = SVC_REQUEST_COMPLETE;
+
+    if (timer_) {
+        MODULEPROVIDER()->getTimer()->cancel(timer_);
+        timer_.reset();
+    }
+
+    if (completionCb_) {
+        completionCb_(id_);
+    }
+}
+
 SvcRequestIf::SvcRequestIf()
 : SvcRequestIf(nullptr, SvcRequestPool::SVC_UNTRACKED_REQ_ID, fpi::SvcUuid())
 {
@@ -81,12 +119,9 @@ SvcRequestIf::SvcRequestIf()
 SvcRequestIf::SvcRequestIf(CommonModuleProviderIf* provider,
                            const SvcRequestId &id,
                            const fpi::SvcUuid &myEpId)
-    : HasModuleProvider(provider),
-    id_(id),
+    : TrackableRequest(provider, id),
     teidIsSet_(false),
     myEpId_(myEpId),
-    state_(PRIOR_INVOCATION),
-    timeoutMs_(0),
     fireAndForget_(false),
     minor_version(0)
 {
@@ -105,25 +140,6 @@ void SvcRequestIf::setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
     payloadBuf_ = buf;
 }
 
-/**
- * Marks the svc request as complete and invokes the completion callback
- * @param error
- */
-void SvcRequestIf::complete(const Error& error) {
-    DBG(GLOGDEBUG << logString() << " " << error);
-
-    fds_assert(state_ != SVC_REQUEST_COMPLETE);
-    state_ = SVC_REQUEST_COMPLETE;
-
-    if (timer_) {
-        MODULEPROVIDER()->getTimer()->cancel(timer_);
-        timer_.reset();
-    }
-
-    if (completionCb_) {
-        completionCb_(id_);
-    }
-}
 
 /**
 * @brief Marks the svc request as complete and invokes the completion callback
@@ -132,34 +148,12 @@ void SvcRequestIf::complete(const Error& error) {
 * @param header
 * @param payload
 */
-void SvcRequestIf::complete(const Error& error,
+void SvcRequestIf::completeReq(const Error& error,
                             const fpi::AsyncHdrPtr& header,
                             const StringPtr& payload) {
     respHeader_ = header;
     respPayload_ = payload;
     complete(error);
-}
-
-/**
- *
- * @return True if svc request is in complete state
- */
-bool SvcRequestIf::isComplete()
-{
-    return state_ == SVC_REQUEST_COMPLETE;
-}
-
-
-void SvcRequestIf::setTimeoutMs(const uint32_t &timeout_ms) {
-    timeoutMs_ = timeout_ms;
-}
-
-uint32_t SvcRequestIf::getTimeout() {
-    return timeoutMs_;
-}
-
-SvcRequestId SvcRequestIf::getRequestId() {
-    return id_;
 }
 
 TaskExecutorId SvcRequestIf::getTaskExecutorId() {
@@ -168,10 +162,6 @@ TaskExecutorId SvcRequestIf::getTaskExecutorId() {
     } else {
         return id_;
     }
-}
-
-void SvcRequestIf::setRequestId(const SvcRequestId &id) {
-    id_ = id;
 }
 
 void SvcRequestIf::setTaskExecutorId(const TaskExecutorId &teid) {
@@ -185,11 +175,6 @@ void SvcRequestIf::unsetTaskExecutorId() {
 
 bool SvcRequestIf::taskExecutorIdIsSet() {
     return teidIsSet_;
-}
-
-void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
-{
-    completionCb_ = completionCb;
 }
 
 /**
@@ -1010,7 +995,7 @@ void MultiPrimarySvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& he
         GLOGWARN << epReq->logString() << " Already completed";
         return;
     }
-    epReq->complete(header->msg_code, header, payload);
+    epReq->completeReq(header->msg_code, header, payload);
 
     bool bSuccess = (header->msg_code == ERR_OK);
     /* Handle the error */

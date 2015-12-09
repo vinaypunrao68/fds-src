@@ -3,7 +3,7 @@
  */
 #include <fdsp/PlatNetSvc.h>
 #include <net/PlatNetSvcHandler.h>
-#include <VolumeGroupHandle.h>
+#include <net/VolumeGroupHandle.h>
 #include <Am.h>
 
 namespace fds {

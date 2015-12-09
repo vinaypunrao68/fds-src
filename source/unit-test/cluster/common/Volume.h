@@ -9,7 +9,7 @@
 #include <fdsp/volumegroup_types.h>
 #include <lib/Catalog.h>
 #include <fdsp_utils.h>
-#include <volumegroup_extensions.h>
+#include <net/volumegroup_extensions.h>
 #include <TxLog.h>
 #include <Behavior.h>
 

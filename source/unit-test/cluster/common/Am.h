@@ -5,7 +5,7 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 #include <net/SvcProcess.h>
-#include <VolumeGroupHandle.h>
+#include <net/VolumeGroupHandle.h>
 
 namespace fds {
 struct VolumeGroupHandle;

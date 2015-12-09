@@ -1,6 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <volumegroup_extensions.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 

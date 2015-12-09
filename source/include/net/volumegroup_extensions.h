@@ -1,7 +1,7 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#ifndef _VOLUMEGROUP_EXTENSIONS_H_
-#define _VOLUMEGROUP_EXTENSIONS_H_
+#ifndef SOURCE_INCLUDE_NET_VOLUMEGROUP_EXTENSIONS_H_
+#define SOURCE_INCLUDE_NET_VOLUMEGROUP_EXTENSIONS_H_
 
 #include <sstream>
 #include <fdsp/volumegroup_types.h>
@@ -56,4 +56,4 @@ std::string logString(const fpi::AddToVolumeGroupRespCtrlMsg& msg);
 
 }  // namespace fds
 
-#endif
+#endif          // SOURCE_INCLUDE_NET_VOLUMEGROUP_EXTENSIONS_H_
