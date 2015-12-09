@@ -12,6 +12,9 @@ ifdef user_std_libs
         fds-osdep
 
     user_non_fds_libs += \
+        statsclient \
+	SimpleAmqpClient \
+	rabbitmq \
         boost_log \
         boost_system \
         boost_thread \
@@ -19,6 +22,9 @@ ifdef user_std_libs
         boost_program_options \
         boost_filesystem \
         boost_regex \
+	boost_chrono \
+	ssl \
+    	crypto \
         thrift \
         event \
         config++ \

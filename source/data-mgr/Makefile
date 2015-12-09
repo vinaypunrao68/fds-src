@@ -15,12 +15,17 @@ user_fds_ar_libs  := \
     fds-fdsp
 
 user_non_fds_libs := \
+    statsclient \
+    SimpleAmqpClient \
+    rabbitmq \
     jemalloc \
     leveldb \
     ssl \
     crypto \
     pcrecpp \
-    sqlite3
+    sqlite3 \
+    boost_chrono \
+    boost_system
 
 user_bin_exe      := DataMgr DmChecker
 DataMgr           := dm-main.cpp

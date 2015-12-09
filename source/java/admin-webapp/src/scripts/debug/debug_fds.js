@@ -15,6 +15,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
     $scope.statChoices = [{name: 'None'},
+                          {name: 'Demo Bytes', value: 'demo_dm_bytes'},
                           {name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
                           {name: 'AM GET Requests', value: 'AM_GET_OBJ_REQ'},
                           {name: 'DM Transaction Latency', value: 'DM_TX_OP'},

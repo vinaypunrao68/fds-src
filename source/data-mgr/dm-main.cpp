@@ -15,6 +15,11 @@
 #include "util/ExecutionGate.h"
 #include "util/Log.h"
 
+#include "StatsConnection.h"
+#include "StatDataPoint.h"
+#include "StatsConnFactory.h"
+
+
 template<class T, class... ArgTs> std::unique_ptr<T> make_unique(ArgTs&&... args)
 {
     return std::unique_ptr<T>(new T(std::forward<ArgTs>(args)...));
@@ -51,6 +56,14 @@ class DMMain : public SvcProcess
 
     virtual int run()
     {
+	// DEMO: Output to Stats Servic
+	fds::StatDataPoint tData;
+	tData.setMetricName("demo");
+	tData.setMetricValue(400.0);
+	tData.setContextType(fds::ContextType::fromString("VOLUME"));
+	fds::StatsRabbitMQConnection tCon("localhost", 11011, "admin", "admin");
+	tCon.publishStatistic(tData);       
+
         int retval = _dm->run();
 
         _shutdownGate.waitUntilOpened();

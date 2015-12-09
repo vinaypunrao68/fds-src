@@ -26,6 +26,19 @@ ifdef user_thrift_loc
 toolchain_thrf_opts  += -out $(user_thrift_loc)
 endif
 
+# Stats CPP settings.
+#
+toolchain_rabbitmq-c_lib  := -L/opt/rabbitmq-c/libs
+toolchain_rabbitmq-c_incl := -I/opt/rabbitmq-c/include
+toolchain_simpleamqpclient_lib  := -L/opt/simpleamqpclient/libs
+toolchain_simpleamqpclient_incl := -I/opt/simpleamqpclient/include
+toolchain_statscpp_lib  := -L/opt/fds-stats-client-c/libs
+toolchain_statscpp_lib  += $(toolchain_simpleamqpclient_lib)
+toolchain_statscpp_lib  += $(toolchain_rabbitmq-c_lib)
+toolchain_statscpp_incl := -I/opt/fds-stats-client-c/include
+toolchain_statscpp_incl += $(toolchain_simpleamqpclient_incl)
+toolchain_statscpp_incl += $(toolchain_rabbitmq-c_incl)
+
 # Boost settings.
 #
 toolchain_boost_lib  := /usr/local/lib
@@ -79,6 +92,7 @@ toolchain_incl_flags += $(toolchain_hiredis_incl)
 toolchain_incl_flags += $(toolchain_cmdconsole_incl)
 toolchain_incl_flags += $(toolchain_python_bind_incl)
 toolchain_incl_flags += $(toolchain_gmock_incl)
+toolchain_incl_flags += $(toolchain_statscpp_incl)
 
 ifdef COVERAGE
 coverage_cc_flags  := --coverage
@@ -95,6 +109,7 @@ toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
 toolchain_ld_flags   += $(toolchain_gmock_lib)
 toolchain_ld_flags   += $(coverage_ld_flags)
+toolchain_ld_flags   += $(toolchain_statscpp_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=
