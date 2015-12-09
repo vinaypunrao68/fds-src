@@ -266,7 +266,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * finish forwarding state -- forwarding will actually end when
      * all updates that are currently queued are processed.
      */
-    Error notifyDMTClose();
+    Error notifyDMTClose(int64_t dmtVersion);
     void finishForwarding(fds_volid_t volid);
 
     /**
