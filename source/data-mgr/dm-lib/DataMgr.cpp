@@ -862,7 +862,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
  * For all the volumes under going Active Migration forwarding,
  * turn them off.
  */
-Error DataMgr::notifyDMTClose() {
+Error DataMgr::notifyDMTClose(int64_t dmtVersion) {
     Error err(ERR_OK);
 
     // TODO(Andrew): Um, no where to we have a useful error statue
@@ -870,7 +870,8 @@ Error DataMgr::notifyDMTClose() {
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
     dmMigrationMgr->stopAllClientForwarding();
-    err = dmMigrationMgr->finishActiveMigration(DmMigrationMgr::MigrationRole::MIGR_CLIENT);
+    err = dmMigrationMgr->finishActiveMigration(
+        DmMigrationMgr::MigrationRole::MIGR_CLIENT, dmtVersion);
     return err;
 }
 
