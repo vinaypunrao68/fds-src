@@ -31,12 +31,20 @@ include $(topdir)/Makefile.incl
 # -----------------------------------------------------------------------------
 # The rule to generate build string content.
 #
+dynamics := $(wildcard $(topdir)/include/dynamic_*.h)
 .PHONY: update_buildstr
 update_buildstr:
-ifndef DONT_UPDATE_BUILD
+ifeq (,$(findstring dynamic_vers.h,$(dynamics)))
 	touch buildstr.cpp
 	git rev-parse --short HEAD | awk '{print "const char * versRev = \"" $$0"\";"}' > $(topdir)/include/dynamic_vers.h
 	cat $(topdir)/../omnibus/VERSION | awk '{print "const char * versDate = \"" $$0"\";"}' >> $(topdir)/include/dynamic_vers.h
 	uname -srvo | awk '{print "const char * machineArch = \"" $$0"\";"}' > $(topdir)/include/dynamic_machine_arch.h
+else
+ifdef UPDATEVERS
+	touch buildstr.cpp
+	git rev-parse --short HEAD | awk '{print "const char * versRev = \"" $$0"\";"}' > $(topdir)/include/dynamic_vers.h
+	cat $(topdir)/../omnibus/VERSION | awk '{print "const char * versDate = \"" $$0"\";"}' >> $(topdir)/include/dynamic_vers.h
+	uname -srvo | awk '{print "const char * machineArch = \"" $$0"\";"}' > $(topdir)/include/dynamic_machine_arch.h
+endif
 endif
 
