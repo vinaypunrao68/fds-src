@@ -28,8 +28,9 @@ class DmMigrationClient : public DmMigrationBase {
     		const NodeUuid& _myUuid,
 			NodeUuid& _destDmUuid,
             int64_t migrationId,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
+			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr _ribfsm,
 			DmMigrationClientDoneHandler _handle,
+			migrationCb _cleanup,
             uint64_t _maxDeltaBlobs,
             uint64_t _maxDeltaBlobDesc);
     ~DmMigrationClient();
@@ -45,6 +46,11 @@ class DmMigrationClient : public DmMigrationBase {
 
     typedef std::unique_ptr<DmMigrationClient> unique_ptr;
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
+
+    /**
+     * "Main" of this client
+     */
+    void run();
 
     /**
      * Whether or not I/O to this volume needs to be forwarded
@@ -89,8 +95,18 @@ class DmMigrationClient : public DmMigrationBase {
                                std::vector<std::string>& update_list,
                                std::vector<std::string>& delete_list);
 
+
+    static Error diffBlobLists(const std::map<std::string, int64_t>& dest,
+                               const std::map<std::string, int64_t>& source,
+                               std::vector<std::string>& update_list,
+                               std::vector<std::string>& delete_list,
+                               const fds_bool_t &abortFlag);
+
     // Called by MigrationMgr to clean up any ongoing residue due to migration
     void abortMigration();
+
+    // Wait for the run thread to rejoin
+    void finish();
 
  private:
     DmIoReqHandler* DmReqHandler;
@@ -140,7 +156,7 @@ class DmMigrationClient : public DmMigrationBase {
     /**
      * shared pointer to the initial blob filter set message
      */
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr ribfsm;
 
     /**
      * Snapshot used for diff.
@@ -208,6 +224,14 @@ class DmMigrationClient : public DmMigrationBase {
     // Function pointer for incrementing count per message sent
     incrementCountFunc trackerFunc;
 
+    // abort flag (only set one way) to notify async tasks to exit
+    fds_bool_t abortFlag;
+
+    // The spawn off thread of this client
+    std::thread *thrPtr;
+
+    // Removes the DmIoRequests
+	migrationCb cleanUp;
 };  // DmMigrationClient
 
 

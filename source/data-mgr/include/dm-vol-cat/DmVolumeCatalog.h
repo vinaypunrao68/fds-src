@@ -305,6 +305,10 @@ class DmVolumeCatalog : public Module, public HasLogger,
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														const Catalog::MemSnap snap);
 
+    Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+														const Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag);
+
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
     Error getBlobMetaDesc(fds_volid_t volId, const std::string & blobName,
