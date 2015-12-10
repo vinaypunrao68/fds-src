@@ -244,6 +244,7 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
         if (vol->access_token) {
             auto volReq = new DetachVolumeReq(volDesc.volUUID, volDesc.name, nullptr);
             volReq->token = vol->getToken();
+            LOGNOTIFY << "Releasing lease on: " << volDesc.name;
             AmDataProvider::closeVolume(volReq);
         }
         volume_map.erase(volIt);
@@ -429,6 +430,7 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
     if (invalid_vol_token == volReq->token) {
         return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
     }
+    LOGNOTIFY << "Releasing lease on: " << vol->voldesc->name;
     AmDataProvider::closeVolume(volReq);
 }
 

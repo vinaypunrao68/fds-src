@@ -247,23 +247,18 @@ void
 ScstDevice::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
-    LOGDEBUG << "Session "
-        << (attaching ? "attachment" : "detachment")
-        << " requested," << std::hex
-        << " handle [0x" << sess.sess_h
-        << "] lun [0x" << sess.lun
-        << "] R/O [" << (sess.rd_only == 0 ? "false" : "true")
-        << "] Init [" << sess.initiator_name
-        << "] Targ [" << sess.target_name << "]";
-    auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching && (0 == sessions++ || 0 == volume_size)) {
-        // Attach the volume to AM if we haven't already
+    LOGNOTIFY << "Session "
+              << (attaching ? "attachment" : "detachment") << " requested"
+              << ", handle [" << sess.sess_h
+              << "] Init [" << sess.initiator_name
+              << "] Targ [" << sess.target_name << "]";
+
+    if (attaching) {
+        auto volName = boost::make_shared<std::string>(volumeName);
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
         return scstOps->init(volName, amProcessor, task); // Defer
-    } else if (!attaching) {
-        if (0 < sessions && 0 == --sessions) {
-            scstOps->detachVolume();
-        }
+    } else {
+        scstOps->detachVolume();
     }
     fastReply(); // Setup the reply for the next ioctl
 }
