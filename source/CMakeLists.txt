@@ -53,7 +53,9 @@ include_directories(${INCLUDE_DIRECTORIES})
 
 set(SOURCE_FILES
     ./access-mgr/amlib/AccessMgr.cpp
+    ./access-mgr/amlib/AmAsyncDataApi.cpp
     ./access-mgr/amlib/AmCache.cpp
+    ./access-mgr/amlib/AmDataProvider.cpp
     ./access-mgr/amlib/AmDispatcher.cpp
     ./access-mgr/amlib/AmDispatcherMocks.hpp
     ./access-mgr/amlib/AmProcessor.cpp
@@ -62,8 +64,9 @@ set(SOURCE_FILES
     ./access-mgr/amlib/AmTxDescriptor.cpp
     ./access-mgr/amlib/AmTxManager.cpp
     ./access-mgr/amlib/AmVolume.cpp
-    ./access-mgr/amlib/AmVolumeAccessToken.cpp
     ./access-mgr/amlib/AmVolumeTable.cpp
+    ./access-mgr/amlib/BlockOperations.cpp
+    ./access-mgr/amlib/BlockTask.cpp
     ./access-mgr/amlib/handlers/responsehandler.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp

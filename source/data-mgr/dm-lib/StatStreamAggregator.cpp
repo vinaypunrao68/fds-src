@@ -320,7 +320,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
 
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
-    fds_uint64_t freq_nanos = hist_config.finestat_slotsec_ * 1000000000;
+    fds_uint64_t freq_nanos = hist_config.finestat_slotsec_ * NANOS_IN_SECOND;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
@@ -439,7 +439,8 @@ Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
 Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr registration) {
     if (!registration->sample_freq_seconds || !registration->duration_seconds) {
         return ERR_INVALID_ARG;
-    } else if (registration->duration_seconds % registration->sample_freq_seconds) {
+    } else if ((registration->duration_seconds % registration->sample_freq_seconds) &&
+                (registration->duration_seconds != FdsStatRunForever)) {
         return ERR_INVALID_ARG;
     }
 

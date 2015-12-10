@@ -63,7 +63,7 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
     // start time must be aligned to highest sampling frequency
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t stat_sampling_freq64 = stat_sampling_freq;
-    fds_uint64_t freq_nanos = stat_sampling_freq64 * 1000000000;
+    fds_uint64_t freq_nanos = stat_sampling_freq64 * NANOS_IN_SECOND;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
@@ -321,7 +321,7 @@ void StatsCollector::print()
 // record service-specific stats
 //
 void StatsCollector::sampleStats() {
-    fds_uint64_t stat_slot_nanos = slotsec_stat_*1000000000;
+    fds_uint64_t stat_slot_nanos = slotsec_stat_*NANOS_IN_SECOND;
     last_sample_ts_ += stat_slot_nanos;
 
     if (record_stats_cb_) {

@@ -250,7 +250,7 @@ class VolumePerfHistory {
 
     VolumePerfHistory::ptr getSnapshot();
     inline fds_uint64_t getTimestamp(fds_uint64_t rel_seconds) const {
-        return (start_nano_ + rel_seconds * 1000000000);
+        return (start_nano_ + rel_seconds * NANOS_IN_SECOND);
     }
     inline fds_uint64_t getStartTime() const {
       return start_nano_;
@@ -268,11 +268,11 @@ class VolumePerfHistory {
         if (tsnano < start_nano_) {
             return 0;
         }
-        return (tsnano - start_nano_) / 1000000000;
+        return (tsnano - start_nano_) / NANOS_IN_SECOND;
     }
     inline fds_uint64_t timestamp(fds_uint64_t start_nano,
                                   fds_uint64_t rel_sec) const {
-        return (start_nano + rel_sec * 1000000000);
+        return (start_nano + rel_sec * NANOS_IN_SECOND);
     }
 
   private:

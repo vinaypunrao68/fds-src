@@ -372,6 +372,10 @@ void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
     write_synchronized(stat_lock_)
     {
         index = useSlotLockHeld(rel_seconds);
+
+        /**
+         * An out-of-bounds index means the stat is too old.
+         */
         if (index < max_slot_generations_) {
             stat_slots_[index].add(stat_type, counter);
         }
@@ -438,6 +442,10 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
         fds_uint32_t index;
         write_synchronized(stat_lock_) {
             index = useSlotLockHeld(rel_seconds);
+
+            /**
+             * An out-of-bounds index means the stat is too old.
+             */
             if (index < max_slot_generations_) {
                 stat_slots_[index] += remote_slot;
             }
@@ -531,9 +539,15 @@ fds_uint32_t VolumePerfHistory::useSlotLockHeld(fds_uint64_t rel_seconds) {
              << ", slot_generation_index = " << slot_generation_index
              << ", last_slot_generation_ = " << last_slot_generation_;
 
-    // Check if we already started to fill in this slot.
+    // Check if we already started to fill or are ready to fill in this slot.
     if (stat_slots_[slot_generation_index].getRelSeconds() == slot_generation_rel_sec) {
-        // We have! Go with it.
+        /**
+         * Be sure to bump our latest generation if necessary.
+         */
+        if (slot_generation > last_slot_generation_) {
+            last_slot_generation_ = slot_generation;
+        }
+
         return static_cast<fds_uint32_t>(slot_generation_index);
     }
 
