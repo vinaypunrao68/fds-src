@@ -380,6 +380,7 @@ void ScavControl::stopScavengeProcess()
 void
 ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     fds_mutex::scoped_lock l(scav_lock);
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
     if (nextDiskToCompact == SM_INVALID_DISK_ID) {
         LOGDEBUG << "No more disks to compact";
         return;
@@ -786,7 +787,6 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
         OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
         return ERR_NOT_FOUND;
      }
-    OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
 
     LOGNORMAL << "scavenger started for disk:" << disk_id << " tier:"
               << tier << " num.tokens:" << tokenDb.size()
@@ -810,6 +810,7 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
 
 void DiskScavenger::stopScavenge() {
     ScavState expectState = SCAV_STATE_INPROG;
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
     if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_STOPPING)) {
         LOGNOTIFY << "Stopping scavenger cycle...";
     } else {

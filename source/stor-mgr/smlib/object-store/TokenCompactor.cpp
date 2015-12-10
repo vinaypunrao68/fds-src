@@ -4,6 +4,8 @@
 
 #include <vector>
 #include <map>
+#include <fiu-local.h>
+#include <fiu-control.h>
 #include <object-store/ObjectStore.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/TokenCompactor.h>
@@ -371,16 +373,20 @@ void TokenCompactor::objsCompactedCb(const Error& error,
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 {
     Error err(ERR_OK);
-
+    err = tc_error;
+    fiu_do_on("sm.tc.fail.compaction",\
+              LOGDEBUG << "sm.tc.fail.compaction fault point enabled";\
+              if (err.ok()) { err = ERR_NOT_FOUND; }\
+              fiu_disable("sm.tc.fail.compaction"));
     LOGNORMAL << "Finished compaction for token:" << token_id
               << " disk:" << cur_disk_id
               << " tier:" << cur_tier
               << " verify:" << verifyData
               << " tc state:" << state
-              << " error:" << tc_error;
+              << " error:" << err;
 
     tcStateType expect = TCSTATE_IN_PROGRESS;
-    tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
+    tcStateType new_state = err.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
     if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
         // set token compactor state to idle -- scavenger can use this TokenCompactor
         // for a new compaction job
@@ -391,20 +397,20 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
             done_evt_handler(token_id, Error(ERR_SM_TC_INVALID_STATE));
         }
 
-        return tc_error;
+        return err;
     }
 
-    if (!tc_error.ok()) {
+    if (!err.ok()) {
         // set token compactor state to idle -- scavenger can use this TokenCompactor
         // for a new compaction job
         std::atomic_exchange(&state, TCSTATE_IDLE);
 
         // notify the requester about the completion
         if (done_evt_handler) {
-            done_evt_handler(token_id, tc_error);
+            done_evt_handler(token_id, err);
         }
 
-        return tc_error;
+        return err;
     }
 
     // tell persistent layer we are done copying -- remove the old file
