@@ -51,7 +51,11 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     // static methods
     inline static fds_uint32_t getLastObjSize(fds_uint64_t blobSize, fds_uint32_t objSize) {
-        fds_uint32_t rc = blobSize ? (blobSize % objSize) : 0;
+        if (blobSize == 0) {
+            return 0;
+        }
+
+        fds_uint32_t rc = blobSize % objSize;
         return (rc ? rc : objSize);
     }
 
@@ -173,7 +177,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
     * @param dbItr
     * @param objects
     *
-    * @return 
+    * @return
     */
     Error getObjectIds(fds_volid_t volId,
                        const uint32_t &maxObjs,

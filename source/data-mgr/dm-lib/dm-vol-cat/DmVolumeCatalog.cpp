@@ -970,11 +970,12 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         const fds_uint64_t newLastOffset = DmVolumeCatalog::getLastOffset(newBlob.desc.blob_size,
                                                                           vol->getObjSize());
 
-        if ((newLastOffset+1) < oldLastOffset) {
-            // delete starting at the ofset after the new last offset
+        // if the new lastOffset is less than the olf lastOfffset, we need to truncate
+        if (newLastOffset < oldLastOffset) {
             LOGDEBUG << "deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
-            err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+            // delete starting at the offset AFTER the new last offset
+            err = vol->deleteObject(blobName, newLastOffset + vol->getObjSize(), oldLastOffset);
             LOGDEBUG << "deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
