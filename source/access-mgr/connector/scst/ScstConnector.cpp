@@ -52,7 +52,7 @@ void ScstConnector::stop() {
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
-    if (1 == volDesc.volType && instance_) {
+    if (1 == volDesc.volType && !volDesc.isSnapshot() && instance_) {
         instance_->addTarget(volDesc);
     }
 }
@@ -109,7 +109,7 @@ ScstConnector::discoverTargets() {
         // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
         // This is a magic value from thrift that i don't want to include
         // headers from
-        if (1 != vol.volType) continue;
+        if (1 != vol.volType || vol.isSnapshot()) continue;
         try {
             auto it = targets_.end();
             bool happened {false};
