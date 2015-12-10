@@ -12,10 +12,13 @@ import java.util.Objects;
  */
 abstract public class VolumeSettings {
 
-    private final VolumeType type;
-    private VolumeSettings() { type = null; /* hack to make compiler happy */ }
-    protected VolumeSettings( VolumeType type ) { this.type = type; }
-    public VolumeType getVolumeType() { return this.type; }
+    protected VolumeType type;
+    protected VolumeSettings() { }
+
+    /**
+     * @return Returns the {@link VolumeType}
+     */
+    public VolumeType getVolumeType() { return type; }
 
     /**
      * Create a copy of the settings based on the current settings
@@ -27,12 +30,12 @@ abstract public class VolumeSettings {
         if ( this == o ) { return true; }
         if ( !(o instanceof VolumeSettings) ) { return false; }
         final VolumeSettings that = (VolumeSettings)o;
-        return Objects.equals( type, that.type );
+        return Objects.equals( getVolumeType(), that.getVolumeType() );
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash( type );
+        return Objects.hash( getVolumeType() );
     }
 
 }

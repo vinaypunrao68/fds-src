@@ -7,12 +7,8 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.NfsServer;
-import com.formationds.security.Authenticator;
-import com.formationds.security.Authorizer;
-import com.formationds.security.DumbAuthorizer;
-import com.formationds.security.FdsAuthenticator;
-import com.formationds.security.FdsAuthorizer;
-import com.formationds.security.NullAuthenticator;
+import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
@@ -22,13 +18,7 @@ import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
 import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
-import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.FakeAsyncAm;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
+import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
@@ -125,6 +115,7 @@ public class Main {
         int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
         int streamingPortOffset = platformConfig.defaultInt("fds.am.streaming_port_offset", 1911);
 
+        XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
 
         // Create an OM REST Client and wrap the XdiConfigurationApi in the OM ConfigService Proxy.
         // This will result XDI create/delete Volume requests to redirect to the OM REST Client.
@@ -216,7 +207,7 @@ public class Main {
 
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
-                new RealAsyncAm(amHost, pmPort + xdiServicePortOffset, amResponsePort);
+                new RealAsyncAm(amHost, pmPort + xdiServicePortOffset, amResponsePort, xdiStaticConfig.getAmTimeout());
         asyncAm.start();
 
         // TODO: should XdiAsync use omCachedConfigProxy too?
@@ -243,7 +234,7 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         // Default NFS port is 2049, or 7000 - 4951
-        new NfsServer().start(configuration.getNfsConfig(), configCache, asyncAm, pmPort - 4951);
+        new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
         startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port

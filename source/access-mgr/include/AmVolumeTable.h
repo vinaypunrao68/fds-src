@@ -6,65 +6,53 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 
 #include <string>
-#include <mutex>
 #include <unordered_map>
 #include <vector>
 
 #include <fds_types.h>
-#include "fds_timer.h"
 #include "AmDataProvider.h"
-#include <qos_ctrl.h>
 #include <blob/BlobTypes.h>
-#include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
+#include "fds_module_provider.h"
 
 namespace fds {
 
 /* Forward declarations */
 struct AmVolume;
+struct FdsTimerTask;
+struct WaitQueue;
 class CommonModuleProviderIf;
 
 struct AmVolumeTable :
     public HasLogger,
-    public AmDataProvider
+    public AmDataProvider,
+    public HasModuleProvider
 {
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
     /// Use logger that passed in to the constructor
-    AmVolumeTable(AmDataProvider* prev, CommonModuleProviderIf *modProvider, fds_log *parent_log);
+    AmVolumeTable(AmDataProvider* prev, size_t const max_thrds, CommonModuleProviderIf *modProvider, fds_log *parent_log);
     AmVolumeTable(AmVolumeTable const& rhs) = delete;
     AmVolumeTable& operator=(AmVolumeTable const& rhs) = delete;
-    ~AmVolumeTable();
+    ~AmVolumeTable() override;
     
-    /**
-     * Returns NULL is volume does not exist
-     */
-    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
-
-    /**
-     * Returns volume if found in volume map.
-     * if volume does not exist, returns 'nullptr'
-     */
-    volume_ptr_type getVolume(const std::string& vol_name) const;
-
-    /**
-     * Return volumes that we are currently attached to
-     */
-    std::vector<volume_ptr_type> getVolumes() const;
-
-
     /**
      * These are the Volume specific DataProvider routines.
      * Everything else is pass-thru.
      */
+    bool done() override;
     void start() override;
     void stop() override;
-    Error modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
+    void lookupVolume(std::string const volume_name) override;
     void registerVolume(VolumeDesc const& volDesc) override;
-    Error removeVolume(VolumeDesc const& volDesc) override;
+    void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest *amReq) override;
+    void closeVolume(AmRequest *amReq) override;
+    void statVolume(AmRequest *amReq) override;
     void setVolumeMetadata(AmRequest *amReq) override;
+    void getVolumeMetadata(AmRequest *amReq) override;
     void volumeContents(AmRequest *amReq) override;
     void startBlobTx(AmRequest *amReq) override;
     void commitBlobTx(AmRequest *amReq) override;
@@ -76,11 +64,15 @@ struct AmVolumeTable :
     void putBlob(AmRequest *amReq) override;
     void putBlobOnce(AmRequest *amReq) override;
 
+    // Renews volume leases
+    void renewTokens();
+
  protected:
 
     /**
      * These are the response we actually care about seeing the results of
      */
+    void lookupVolumeCb(VolumeDesc const volDesc, Error const error) override;
     void openVolumeCb(AmRequest *amReq, const Error error) override;
     void statVolumeCb(AmRequest *amReq, const Error error) override;
 
@@ -91,15 +83,26 @@ struct AmVolumeTable :
     /// Protects volume_map
     mutable fds_rwlock map_rwlock;
 
+    boost::shared_ptr<FdsTimerTask> renewal_task;
+
+    std::unique_ptr<WaitQueue> read_queue;
+    std::unique_ptr<WaitQueue> write_queue;
+
     /// Timer for token renewal
-    FdsTimer token_timer;
+    boost::shared_ptr<FdsTimer> token_timer;
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
 
-    volume_ptr_type ensureReadable(AmRequest *amReq) const;
-    volume_ptr_type ensureWritable(AmRequest *amReq) const;
+    /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
-    void renewToken(const fds_volid_t vol_id);
+    volume_ptr_type ensureReadable(AmRequest *amReq, bool const otherwise_queue = true);
+    volume_ptr_type ensureWritable(AmRequest *amReq, bool const otherwise_queue = true);
+
     void renewTokenCb(AmRequest *amReq, const Error& error);
 };
 

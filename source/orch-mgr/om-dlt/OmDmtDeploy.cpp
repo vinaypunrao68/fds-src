@@ -57,25 +57,29 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Idle. Evt: " << e.logString() << " Ready for DM Migration";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Idle. Evt: " << e.logString();
         }
     };
     struct DST_Error
             : public msm::front::interrupt_state<mpl::vector<DmtEndErrorEvt, DmtRecoveryEvt>>
     {
-        DST_Error() : abortMigrAcksToWait(0), commitDmtAcksToWait(0) {}
+        DST_Error() : abortMigrAcksToWait( 0 ),
+                      commitDmtAcksToWait( 0 ) {}
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_Error. Evt: " << e.logString() << " DM Migration encountered error"
+                    << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Error. Evt: " << e.logString();
         }
 
         fds_uint32_t abortMigrAcksToWait;
@@ -83,15 +87,32 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     };
     struct DST_AllOk : public msm::front::state<>
     {
+        DST_AllOk() : close_acks_to_wait( 0 ),
+                      tryAgainTimer( new FdsTimer() ),
+                      tryAgainTimerTask( new RetryTimerTask( *tryAgainTimer ) ) {}
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString() << " DM Migration error handling finished"
+                    << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_AllOk. Evt: " << e.logString();
+            LOGNOTIFY << "DST_AllOk. Evt: " << e.logString();
         }
+
+
+        fds_uint32_t close_acks_to_wait;
+
+        /**
+         * Timer to try to compute DMT again, in case new DMs joined or DMs
+         * got removed while deploying current DMT
+         */
+        FdsTimerPtr tryAgainTimer;
+        FdsTimerTaskPtr tryAgainTimerTask;
     };
     struct DST_Waiting : public msm::front::state<>
     {
@@ -107,10 +128,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Waiting. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Waiting. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Waiting. Evt: " << e.logString();
         }
 
         /**
@@ -127,10 +148,13 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
+            OM_Module* om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString() << " DM Migration in progress "
+                    << "(migrationid: " << vp->getTargetDMTVersion() << ")";
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Rebalance. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Rebalance. Evt: " << e.logString();
         }
 
         NodeUuidSet dms_to_ack;
@@ -143,10 +167,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Commit. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Commit. Evt: " << e.logString();
         }
 
         // DMs that we send push_meta command and waiting for response from them
@@ -162,10 +186,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_BcastAM. Evt: " << e.logString();
+            LOGNOTIFY << "DST_BcastAM. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_BcastAM. Evt: " << e.logString();
+            LOGNOTIFY << "DST_BcastAM. Evt: " << e.logString();
         }
 
         fds_uint32_t commit_acks_to_wait;
@@ -180,10 +204,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Close. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Close. Evt: " << e.logString();
         }
 
         fds_uint32_t commit_acks_to_wait;
@@ -202,10 +226,10 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Done. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Done. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_Done. Evt: " << e.logString();
+            LOGNOTIFY << "DST_Done. Evt: " << e.logString();
         }
 
         fds_uint32_t close_acks_to_wait;
@@ -326,6 +350,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_ReRegister
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
 
     /**
      * Transition table for OM DMT deployment.
@@ -356,6 +385,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     msf::Row< DST_Done    , DmtEndErrorEvt , DST_Idle    , DACT_Recovered, msf::none    >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_AllOk   ,DmtErrorFoundEvt, DST_Error   , DACT_Error    , msf::none    >,
+    msf::Row< DST_AllOk   , DmtUpEvt   , DST_Error   , DACT_Error    , GRD_ReRegister>,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Error   , DmtEndErrorEvt , DST_AllOk   , DACT_EndError , msf::none    >,
     msf::Row< DST_Error   , DmtRecoveryEvt , DST_Error   , DACT_ChkEndErr, msf::none    >
@@ -415,6 +445,13 @@ OM_DMTMod::dmt_deploy_curr_state()
 //
 void
 OM_DMTMod::dmt_deploy_event(DmtDeployEvt const &evt)
+{
+    fds_mutex::scoped_lock l(fsm_lock);
+    dmt_dply_fsm->process_event(evt);
+}
+
+void
+OM_DMTMod::dmt_deploy_event(DmtUpEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
     dmt_dply_fsm->process_event(evt);
@@ -548,7 +585,7 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     fds_uint32_t nonFailedDms = cm->getNumNonfailedMembers(fpi::FDSP_DATA_MGR);
     fds_uint32_t totalDms = cm->getNumMembers(fpi::FDSP_DATA_MGR);
 
-    LOGDEBUG << "Added DMs size: " << added_nodes
+    LOGNOTIFY << "Added DMs size: " << added_nodes
              << " Removed DMs size: " << rm_nodes
 			 << " Resyncing DMs size: " << resync_nodes
              << " Total DMs: " << totalDms
@@ -568,6 +605,15 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     for (auto cit : cm->getDmResyncServices())
     {
     	LOGDEBUG << cit.uuid_get_val();
+    }
+
+    // For now, we're not supporting more than 1 resync nodes
+    if (cm->getDmResyncServices().size() > 1) {
+        // TODO - address it later
+        LOGNORMAL << "We are not supporting more than one node down at a time";
+        // bret = false;
+        // fds_assert(!"ERROR: 2 nodes gone down and trying to resync");  // panic in lab mode
+        // return bret;
     }
 
     // this method computes new DMT and sets as target if
@@ -606,12 +652,38 @@ DmtDplyFSM::GRD_DplyStart::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
      * So we cannot depend on evt.dmResync as a guarantee for state.
      */
     if (!bret && resync_nodes) {
-    	LOGDEBUG << "DMT did not change, but dmResync requested";
+    	LOGNOTIFY << "DMT did not change, but dmResync requested";
     	bret = true;
     }
 
     LOGNORMAL << "Start DMT compute and deploying new DMT? " << bret;
     return bret;
+}
+
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DmtDplyFSM::GRD_ReRegister::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    fds_bool_t bret = false;
+    NodeUuid nodeChk = evt.uuid;
+
+    NodeList addNodes, rmNodes, resyncNodes;
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    if (cm->ongoingMigrationDMs.find(nodeChk) != cm->ongoingMigrationDMs.end()) {
+        /**
+         * The nodeChk UUID is found in a list of ongoing migrations
+         * so it means that the node (executor) has crashed and reregistered.
+         * We will fire the DACT_Error in this case
+         */
+        LOGNOTIFY << "Node " << nodeChk << " found to be already in syncing";
+        bret = true;
+    }
+
+    return (bret);
 }
 
 /* DACT_Start
@@ -713,8 +785,18 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // send push meta messages to appropriate DMs
     dst.pull_meta_dms.clear();
-    // TODO(Neil) - hack rebalance to have a list of resync nodes
+    // This should be a clear set
+    // fds_assert(cm->ongoingMigrationDMs.size() == 0);
+    cm->ongoingMigrationDMs.clear();
+
     err = vp->beginRebalance(cm, &dst.pull_meta_dms);
+
+    // Store a list of ongoing migrations so we can check if it's
+    // a duplicate.
+    for (auto cit : dst.pull_meta_dms) {
+        auto pair = cm->ongoingMigrationDMs.insert(cit);
+        fds_assert(pair.second); // we shouldn't have existing node in the set
+    }
 
     if ( !err.ok() )
     {
@@ -780,10 +862,15 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
                                                        vp->getCommittedDMT());
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
-//    fds_verify(dst.commit_acks_to_wait > 0);
+    //    fds_verify(dst.commit_acks_to_wait > 0);
 
-    LOGDEBUG << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
+    LOGNOTIFY << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
+
+    // Once we're in this state, it means all DMs ongoing staticMigrations have
+    // completed. We need to clear the ongoingMigrations list at this point.
+    cm->ongoingMigrationDMs.clear();
+
 }
 
 
@@ -829,7 +916,6 @@ DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     return bret;
 }
 
-
 /* DACT_BcastAM
  * ------------
  * We got all acks for commit DMT from DMs. Broadcast DMT to all AMs
@@ -860,7 +946,7 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_ACCESS_MGR));
     }
 
-    LOGDEBUG << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
+    LOGNOTIFY << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
 }
 
@@ -943,7 +1029,7 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     LOGDEBUG << "Sending dmt up event";
     domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_DATA_MGR));
 
-    LOGDEBUG << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
+    LOGNOTIFY << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
 }
 
 /**
@@ -990,6 +1076,7 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     // persist commited DMT
     vp->persistCommitedTargetDmt();
+    vp->markSuccess();
 
     // set all added DMs to ACTIVE state
     NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
@@ -1018,6 +1105,8 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         LOGWARN << "Failed to start try again timer!!!"
                 << " DM additions/deletions may be pending for long time";
     }
+
+    LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }
 
 // DACT_Error
@@ -1026,7 +1115,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_Error fired.";
+    LOGNOTIFY << "DACT_Error fired.";
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
     fds_bool_t am_dm_needs_dmt_rollback = false;
@@ -1097,11 +1186,28 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_EndError";
+    LOGNOTIFY << "DACT_EndError";
     // End of error handling for FSM. Not balancing volume anymore so turn it off.
     OM_Module* om = OM_Module::om_singleton();
+
     VolumePlacement* vp = om->om_volplace_mod();
     vp->notifyEndOfRebalancing();
+    vp->markFailure();
+
+    ClusterMap* cm = om->om_clusmap_mod();
+    cm->ongoingMigrationDMs.clear();
+
+    if (vp->canRetryMigration()) {
+        LOGNOTIFY << "Migration has failed " << vp->failedAttempts() << " times.";
+        if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+            std::chrono::seconds(1))) {
+            LOGWARN << "DACT_EndError: failed to start retry timer!!!"
+                    << " DM migration may need manual intervention!";
+        }
+    } else {
+        LOGERROR << "Migration has failed too many times. Manually inspect and "
+                << " remove failed DMs and re-add them to initiate another migration";
+    }
 }
 
 // DACT_ChkEndErr
@@ -1114,7 +1220,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 {
     DmtRecoveryEvt recoverAckEvt = (DmtRecoveryEvt)evt;
     FdspNodeType node_type = recoverAckEvt.svcUuid.uuid_get_type();
-    LOGDEBUG << "DACT_EndError ack for abort migration? " << recoverAckEvt.ackForAbort
+    LOGNOTIFY << "DACT_EndError ack for abort migration? " << recoverAckEvt.ackForAbort
              << " node type " << node_type << " " << recoverAckEvt.ackError;
 
     // if we got SL timeout for one of the nodes we were trying to add to DMT
@@ -1125,6 +1231,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_Module *om = OM_Module::om_singleton();
         ClusterMap* cm = om->om_clusmap_mod();
         NodeUuidSet addedDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+        NodeUuidSet resyncDMs = cm->getDmResyncServices();
         LOGNORMAL << "DM timeout in SL, node uuid " << std::hex
                   << recoverAckEvt.svcUuid.uuid_get_val() << std::dec
                   << " ; we had " << addedDms.size() << " added DMs";
@@ -1141,6 +1248,19 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
                 break;
             }
+        }
+        for (NodeUuidSet::const_iterator cit = resyncDMs.cbegin();
+                cit != resyncDMs.cend(); ++cit) {
+             if (*cit == recoverAckEvt.svcUuid) {
+                LOGWARN << "Looks like DM that we tried to resync to DMT is down, "
+                        << " setting it's state to down: node uuid " << std::hex
+                        << recoverAckEvt.svcUuid.uuid_get_val() << std::dec;
+                OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+                OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
+                dm_agent->set_node_state(fpi::FDS_Node_Down);
+                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                break;
+             }
         }
     }
 
@@ -1167,7 +1287,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Recovered::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_Recovered";
+    LOGNOTIFY << "DACT_Recovered";
 }
 
 }  // namespace fds

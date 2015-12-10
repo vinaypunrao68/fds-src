@@ -58,30 +58,14 @@
             <PatternLayout pattern="${fds.pattern}"/>
         </RollingRandomAccessFile>
 
-        <RollingRandomAccessFile name="jsvclayer"
-                                 fileName="${fds.logs}/jsvclayer.log"
-                                 filePattern="${fds.logs}/archive/jsvclayer-%i.log.gz"
-                                 immediateFlush="true">
-
-            <Policies>
-                <!-- start a new file at startup regardless of time or size -->
-                <OnStartupTriggeringPolicy/>
-
-                <!-- rollover when file size reaches 100 MB -->
-                <SizeBasedTriggeringPolicy size="100 MB"/>
-            </Policies>
-            <DefaultRolloverStrategy max="100"/>
-            <PatternLayout pattern="${fds.pattern}"/>
-        </RollingRandomAccessFile>
-
         <Console name="console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d %-5p [%t] %c{2} (%F:%L) - %m%n"/>
         </Console>
     </Appenders>
 
     <Loggers>
-        <Root level="FATAL">
-            <AppenderRef ref="console"/>
+        <Root level="WARN">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Root>
         <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>

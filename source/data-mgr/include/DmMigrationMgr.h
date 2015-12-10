@@ -10,13 +10,14 @@
 #include <DmMigrationClient.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
+#include <counters.h>
 
 namespace fds {
 
 // Forward declaration
 class DmIoReqHandler;
 
-class DmMigrationMgr : public DmMigrationBase {
+class DmMigrationMgr {
 	using DmMigrationExecMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationClient::shared_ptr>;
 
@@ -177,13 +178,13 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * In the case no forwards is sent, this will finish the migration
      */
-    Error finishActiveMigration(NodeUuid destUuid, fds_volid_t volId);
+    Error finishActiveMigration(NodeUuid destUuid, fds_volid_t volId, int64_t migrationId);
 
 
     /**
      * Used to clean up migration clients or executors
      */
-    Error finishActiveMigration(MigrationRole role);
+    Error finishActiveMigration(MigrationRole role, int64_t migrationId);
 
     /**
      * Both DMs:
@@ -194,10 +195,6 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void abortMigration();
     void abortMigrationReal();
-
-    void asyncMsgPassed();
-    void asyncMsgFailed();
-    void asyncMsgIssued();
 
     // Get timeout for messages between clients and executors
     inline uint32_t getTimeoutValue() {
@@ -226,6 +223,23 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     void setDmtWatermark(fds_volid_t volId, fds_uint64_t dmt_version);
 
+    /**
+     * Dumps all migration counters to the log NORMAL
+     */
+    void dumpStats();
+
+    /*
+     * Check if any of the migrations have been idle and abort migration if any migration
+     * has been idle.
+     */
+    void migrationIdleTimeoutCheck();
+
+    /**
+     * Get the timeout in seconds between msgs
+     */
+    inline uint32_t getIdleTimeout() {
+        return idleTimeoutSecs;
+    }
   protected:
   private:
     DmIoReqHandler* DmReqHandler;
@@ -281,6 +295,11 @@ class DmMigrationMgr : public DmMigrationBase {
     uint32_t deltaBlobTimeout;
 
     /**
+    * If migration executor is idle for longer than this value migration is aborted.
+    */
+    uint32_t idleTimeoutSecs;
+
+    /**
      * DMT version undergoing migration
      */
     int64_t DMT_version;
@@ -302,6 +321,7 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     Error createMigrationExecutor(const NodeUuid& srcDmUuid,
 							      fpi::FDSP_VolumeDescType &vol,
+                                  int64_t migrationId,
 							      MigrationType& migrationType,
 								  const fds_bool_t& autoIncrement = false);
 
@@ -327,7 +347,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * Wrapper around calling OmStartMigrCb with a ERR_OK
      */
-    void ackStaticMigrationComplete(const Error &status);
+    void ackStaticMigrationComplete(const Error &status, int64_t migrationId);
 
 	/*
      * Destination side DM:
@@ -341,7 +361,10 @@ class DmMigrationMgr : public DmMigrationBase {
      * Destination side DM:
      * Callback for migrationExecutor. Not the callback from client.
      */
-    void migrationExecutorDoneCb(NodeUuid srcNode, fds_volid_t volId, const Error &result);
+    void migrationExecutorDoneCb(NodeUuid srcNode,
+                                 fds_volid_t volId,
+                                 int64_t migrationId,
+                                 const Error &result);
 
 
     /**
@@ -352,7 +375,8 @@ class DmMigrationMgr : public DmMigrationBase {
      */
     Error createMigrationClient(NodeUuid& srcDmUuid,
     								const NodeUuid& mySvcUuid,
-									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp);
+									fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& rvmp,
+									migrationCb cleanUp);
 
     /**
      * Source side DM:
@@ -364,7 +388,7 @@ class DmMigrationMgr : public DmMigrationBase {
      * Source side DM:
      * Callback for migrationClient.
      */
-    void migrationClientDoneCb(fds_volid_t uniqueId, const Error &result);
+    void migrationClientDoneCb(fds_volid_t uniqueId, int64_t migrationId, const Error &result);
 
     /**
      * For debugging
@@ -383,14 +407,6 @@ class DmMigrationMgr : public DmMigrationBase {
     fds_rwlock executorAccessLock;
     fds_rwlock clientAccessLock;
 
-    /**
-     * Scoped tracking - how it works:
-     * Normally, the migrationMgr gets a read lock on the respective exec/client.
-     * If the operation is synchronous, the call completes and the lock is release.
-     * If the operation is async, then we need to increment the counter and decrement it
-     * on the callback.
-     */
-    MigrationTrackIOReqs trackIOReqs;
 
     /**
      * Both DMs
@@ -407,6 +423,20 @@ class DmMigrationMgr : public DmMigrationBase {
      * the thread used to manage waiting for all piece of migration to complete before cleaning up when we abort
      */
     std::thread *abort_thread;
+
+    // Clear clientmap and other related stats
+    void clearClients();
+
+    // Clear executorMap and other related stats
+    void clearExecutors();
+
+    void startMigrationStopWatch();
+    void stopMigrationStopWatch();
+    /**
+     * Used for keeping time stats
+     */
+    std::atomic<bool> timerStarted;
+    util::StopWatch migrationStopWatch;
 
 };  // DmMigrationMgr
 }  // namespace fds

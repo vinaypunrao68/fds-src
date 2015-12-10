@@ -479,6 +479,9 @@ struct SvcMgr : HasModuleProvider, Module {
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
 
+    static fpi::SvcUuid mapToSvcUuid(const NodeUuid &in,
+                                     const fpi::FDSP_MgrIdType& svcType);
+
     /**
      * @brief Method to retrieve the DMT for the service.
      * Caller will provide a Thrift interface object and the method will

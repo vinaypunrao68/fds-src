@@ -210,6 +210,7 @@ class DiskScavenger {
     // keeps copy of SM disk map
     SmDiskMap::const_ptr smDiskMap;
     SmPersistStoreHandler* persistStoreGcHandler;
+    SmIoReqHandler *dataStoreReqHandler;
 };
 
 typedef enum {

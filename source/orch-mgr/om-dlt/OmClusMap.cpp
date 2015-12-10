@@ -179,16 +179,10 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
          it++) {
         uuid = (*it)->get_uuid();
         if (svc_type == fpi::FDSP_STOR_MGR) {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-//            fds_verify(curSmMap.count(uuid) == 0);
             curSmMap[uuid] = (*it);
             LOGDEBUG << "!Adding to addedSMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             addedSMs.insert(uuid);
         } else {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-            // fds_verify(curDmMap.count(uuid) == 0);
             curDmMap[uuid] = (*it);
             LOGDEBUG << "!Adding to addedDMs:" << std::hex << uuid.uuid_get_val() <<  std::dec;
             addedDMs.insert(uuid);
@@ -200,11 +194,10 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 		 it++) {
 		uuid = (*it)->get_uuid();
 		if (svc_type == fpi::FDSP_STOR_MGR) {
-			// Invalid use case
-			fds_assert(0);
+			fds_assert(!"Invalid use case");
 		} else {
-			curDmMap[uuid] = (*it);
-			resyncDMs.insert(uuid);
+		    curDmMap[uuid] = (*it);
+		    resyncDMs.insert(uuid);
 		}
 	}
 
@@ -263,10 +256,11 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
             curSmMap.erase(svc_uuid);
             break;
         case fpi::FDSP_DATA_MGR:
-            fds_verify(addedDMs.count(svc_uuid) != 0);
+            fds_verify((addedDMs.count(svc_uuid) != 0) || (resyncDMs.count(svc_uuid) != 0));
             fds_verify(curDmMap.count(svc_uuid) != 0);
             addedDMs.erase(svc_uuid);
             curDmMap.erase(svc_uuid);
+            resyncDMs.erase(svc_uuid);
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
