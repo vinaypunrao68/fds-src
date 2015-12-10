@@ -110,8 +110,6 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         /**
          * Timer to try to compute DMT again, in case new DMs joined or DMs
          * got removed while deploying current DMT
-         * NOTE: The timer needs to be actually called, for now these timers
-         * are not doing anything yet...
          */
         FdsTimerPtr tryAgainTimer;
         FdsTimerTaskPtr tryAgainTimerTask;
@@ -1076,6 +1074,7 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     // persist commited DMT
     vp->persistCommitedTargetDmt();
+    vp->markSuccess();
 
     // set all added DMs to ACTIVE state
     NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
@@ -1185,9 +1184,22 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     VolumePlacement* vp = om->om_volplace_mod();
     vp->notifyEndOfRebalancing();
+    vp->markFailure();
 
     ClusterMap* cm = om->om_clusmap_mod();
     cm->ongoingMigrationDMs.clear();
+
+    if (vp->canRetryMigration()) {
+        LOGNOTIFY << "Migration has failed " << vp->failedAttempts() << " times.";
+        if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+            std::chrono::seconds(1))) {
+            LOGWARN << "DACT_EndError: failed to start retry timer!!!"
+                    << " DM migration may need manual intervention!";
+        }
+    } else {
+        LOGERROR << "Migration has failed too many times. Manually inspect and "
+                << " remove failed DMs and re-add them to initiate another migration";
+    }
 }
 
 // DACT_ChkEndErr

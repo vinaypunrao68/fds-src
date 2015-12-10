@@ -85,7 +85,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     size_t volume_size {0};
     char serial_number[17];
     uint64_t volume_id {0};
-    size_t sessions {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;
