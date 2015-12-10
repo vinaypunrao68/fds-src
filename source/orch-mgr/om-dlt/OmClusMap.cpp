@@ -250,7 +250,7 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
             curSmMap.erase(svc_uuid);
             break;
         case fpi::FDSP_DATA_MGR:
-            fds_verify(addedDMs.count(svc_uuid) != 0);
+            fds_verify((addedDMs.count(svc_uuid) != 0) || (resyncDMs.count(svc_uuid) != 0));
             fds_verify(curDmMap.count(svc_uuid) != 0);
             addedDMs.erase(svc_uuid);
             curDmMap.erase(svc_uuid);

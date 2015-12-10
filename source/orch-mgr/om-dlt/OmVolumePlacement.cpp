@@ -20,7 +20,8 @@ VolumePlacement::VolumePlacement()
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex"),
-		  numOfPrimaryDMs(1)
+		  numOfPrimaryDMs(1),
+		  numOfFailures(0)
 {
 	bRebalancing = ATOMIC_VAR_INIT(false);
 }
@@ -461,7 +462,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
-        message->DMT_version = dmtMgr->getTargetVersion();
+    	message->DMT_version = dmtMgr->getTargetVersion();
 
     	err = agent->om_send_pullmeta(message);
     	if (err.ok()) {
@@ -696,6 +697,19 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     }
 
     return err;
+}
+
+
+fds_bool_t VolumePlacement::canRetryMigration() {
+    fds_bool_t ret = false;
+
+    // For now, we maximize at 4. Perhaps to be made into a configurable var
+    // next time?
+    if (numOfFailures < 4) {
+        ret = true;
+    }
+
+    return ret;
 }
 
 }  // namespace fds
