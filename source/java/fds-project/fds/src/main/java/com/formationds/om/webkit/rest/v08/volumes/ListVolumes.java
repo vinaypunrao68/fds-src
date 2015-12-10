@@ -3,6 +3,7 @@
  */
 package com.formationds.om.webkit.rest.v08.volumes;
 
+import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.v08.converters.ExternalModelConverter;
@@ -63,6 +64,18 @@ public class ListVolumes implements RequestHandler {
 
         logger.debug( "Listing all volumes." );
 
+        final Boolean showSys;
+        
+        // only admins can look at system volumes
+        User user = getAuthorizer().userFor( getToken() );
+        if ( !getAuthorizer().userFor( getToken() ).isIsFdsAdmin() ){
+        	logger.warn( "Unauthorized access to system volumes attempted by user: " + user.id );
+        	showSys = Boolean.FALSE;
+        }
+        else {
+        	showSys = showSysVolumes;
+        }
+        
         String domain = "";
         List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
 
@@ -83,7 +96,7 @@ public class ListVolumes implements RequestHandler {
                                .filter( descriptor -> {
                                    // TODO: Fix the HACK!  Should have an actual system volume "type" that we can check
                                    boolean sysvol = descriptor.getName().startsWith( "SYSTEM_" );
-                                   if ( sysvol ) {
+                                   if ( sysvol && !showSys ) {
                                        logger.debug( "Removing volume " + descriptor.getName() +
                                                      " from the volume list." );
                                    }
