@@ -1149,6 +1149,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
+        OBJECTSTOREMGR(objStorMgr)->counters->dataCopied.incr(objMeta->getObjSize());
+
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store
@@ -1163,6 +1165,7 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
+            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }

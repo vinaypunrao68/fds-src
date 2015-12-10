@@ -332,6 +332,8 @@ void ScavControl::startScavengeProcess()
     }
 
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerStartedAt.set(util::getTimeStampSeconds());
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataCopied.set(0);
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataRemoved.set(0);
 
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
