@@ -1,3 +1,21 @@
+Implmentation
+TODAY
+TODO
+1. Find out exactly what messages need protection when sync is in progress and make sure they are protected.
+
+Gaps
+Future todos
+1. Clean up old volume syncing code
+2. Remove support for deprecated messages in processIo and in handlers
+
+
+
+
+
+
+
+
+
 Ideas shifts
 -IO isolation to grouping at a volume level.
 -Volume coordinator driven replication.

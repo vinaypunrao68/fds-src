@@ -18,27 +18,27 @@ std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
 struct VolumeReplicaHandle {
     explicit VolumeReplicaHandle(const fpi::SvcUuid &id)
         : svcUuid(id),
-        state(fpi::VolumeState::VOLUME_UNINIT),
+        state(fpi::ResourceState::Unknown),
         lastError(ERR_OK),
         appliedOpId(VolumeGroupConstants::OPSTARTID),
         appliedCommitId(VolumeGroupConstants::COMMITSTARTID)
     {
     }
-    inline static bool isUnitialized(const fpi::VolumeState& s)
+    inline static bool isUnitialized(const fpi::ResourceState& s)
     {
-        return s == fpi::VolumeState::VOLUME_UNINIT;
+        return s == fpi::ResourceState::Unknown;
     }
-    inline static bool isFunctional(const fpi::VolumeState& s)
+    inline static bool isFunctional(const fpi::ResourceState& s)
     {
-        return s == fpi::VolumeState::VOLUME_FUNCTIONAL;
+        return s == fpi::ResourceState::Active;
     }
-    inline static bool isSyncing(const fpi::VolumeState& s)
+    inline static bool isSyncing(const fpi::ResourceState& s)
     {
-        return s == fpi::VolumeState::VOLUME_SYNCING;
+        return s == fpi::ResourceState::Syncing;
     }
-    inline static bool isNonFunctional(const fpi::VolumeState& s)
+    inline static bool isNonFunctional(const fpi::ResourceState& s)
     {
-        return s == fpi::VolumeState::VOLUME_DOWN;
+        return s == fpi::ResourceState::Offline;
     }
     inline bool isUnitialized() const {
         return isUnitialized(state);
@@ -52,7 +52,7 @@ struct VolumeReplicaHandle {
     inline bool isNonFunctional() const {
         return isNonFunctional(state);
     }
-    inline void setState(const fpi::VolumeState &state)
+    inline void setState(const fpi::ResourceState &state)
     {
         this->state = state;
     }
@@ -65,7 +65,7 @@ struct VolumeReplicaHandle {
         this->version = version;
     }
     inline void setInfo(const int32_t &version,
-                        const fpi::VolumeState &state,
+                        const fpi::ResourceState &state,
                         int64_t opId, int64_t commitId)
     {
         setState(state);
@@ -76,7 +76,7 @@ struct VolumeReplicaHandle {
 
     int32_t                 version;
     fpi::SvcUuid            svcUuid;
-    fpi::VolumeState        state;
+    fpi::ResourceState      state;
     Error                   lastError;
     /* Last succesfully applied operation id */
     int64_t                 appliedOpId;
@@ -174,7 +174,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
 
-    inline bool isFunctional() const { return state_ == fpi::VolumeState::VOLUME_FUNCTIONAL; }
+    inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
     inline int32_t getDmtVersion() const { return DLT_VER_INVALID; }
     inline int32_t size() const {
@@ -202,20 +202,20 @@ struct VolumeGroupHandle : HasModuleProvider {
     }
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
-                                    const fpi::VolumeState &targetState,
+                                    const fpi::ResourceState &targetState,
                                     const Error &e);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
     VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
-    VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::VolumeState& s);
+    VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
-    fpi::VolumeState                    state_;
+    fpi::ResourceState                  state_;
     int64_t                             groupId_;
     fpi::VolumeGroupVersion             version_;
     int64_t                             opSeqNo_;

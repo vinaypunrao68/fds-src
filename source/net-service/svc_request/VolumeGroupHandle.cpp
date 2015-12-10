@@ -37,7 +37,7 @@ std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
     out << "VolumeReplicaHandle" 
         << " svcUuid: " << SvcMgr::mapToSvcUuidAndName(h.svcUuid)
         << " version: " << h.version
-        << " state: " << fpi::_VolumeState_VALUES_TO_NAMES.at(static_cast<int>(h.state))
+        << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(h.state))
         << " lasterr: " << h.lastError
         << " appliedOp: " << h.appliedOpId
         << " appliedCommit: " << h.appliedCommitId;
@@ -50,14 +50,14 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    state_ = fpi::VolumeState::VOLUME_UNINIT;
+    state_ = fpi::ResourceState::Unknown;
     setGroupInfo_(groupInfo);
     // TODO(Rao): Go through protocol figure out the states of the replicas
     // For now set every handle as functional and start their op/commit ids
     // from beginning
     for (auto &r : functionalReplicas_) {
         r.setInfo(VolumeGroupConstants::VERSION_START,
-                  fpi::VolumeState::VOLUME_FUNCTIONAL,
+                  fpi::ResourceState::Active,
                   VolumeGroupConstants::OPSTARTID,
                   VolumeGroupConstants::COMMITSTARTID);
     }
@@ -166,13 +166,13 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
         } else {
             auto changeErr = changeVolumeReplicaState_(volumeHandle,
                                                        volumeHandle->version,
-                                                       fpi::VolumeState::VOLUME_DOWN,
+                                                       fpi::ResourceState::Offline,
                                                        inStatus);
             fds_verify(changeErr == ERR_OK);
         }
     } else if (volumeHandle->isUnitialized()) {
         /* We get this when we are trying to open the volume */
-        fds_verify(state_ == fpi::VolumeState::VOLUME_UNINIT);
+        fds_verify(state_ == fpi::ResourceState::Unknown);
     } else {
         /* When replica isn't functional we don't expect subsequent IO to return with
          * success status
@@ -199,7 +199,7 @@ VolumeReplicaHandle* VolumeGroupHandle::getFunctionalReplicaHandle()
 }
 
 VolumeGroupHandle::VolumeReplicaHandleList&
-VolumeGroupHandle::getVolumeReplicaHandleList_(const fpi::VolumeState& s)
+VolumeGroupHandle::getVolumeReplicaHandleList_(const fpi::ResourceState& s)
 {
     if (VolumeReplicaHandle::isFunctional(s)) {
         return functionalReplicas_;
@@ -223,11 +223,11 @@ VolumeGroupHandle::getVolumeReplicaHandleList_(const fpi::VolumeState& s)
 */
 Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                                    const int32_t &replicaVersion,
-                                                   const fpi::VolumeState &targetState,
+                                                   const fpi::ResourceState &targetState,
                                                    const Error &e)
 {
     LOGNORMAL << " Target state: "
-        << fpi::_VolumeState_VALUES_TO_NAMES.at(static_cast<int>(targetState))
+        << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(targetState))
         << " Prior update handle: " << *volumeHandle;
 
     auto srcState = volumeHandle->state;

@@ -9,14 +9,6 @@ namespace java com.formationds.protocol.replica
 typedef i32             VolumeGroupVersion
 typedef svc_types.ReplicaId VolumeGroupId
 
-enum VolumeState {
-    VOLUME_UNINIT,
-    VOLUME_INITING,
-    VOLUME_FUNCTIONAL,
-    VOLUME_DOWN,
-    VOLUME_SYNCING
-}
-
 /* Header that must be part of every replica group io request */
 struct VolumeIoHdr {
     1: required VolumeGroupVersion		version;
@@ -32,6 +24,11 @@ struct VolumeIoHdr {
     /* Commit Id. This is incremented for every commit style io */
     5: required i64				commitId;
     6: i64					txId;
+}
+
+struct VolumeGroupCoordinatorInfo {
+    1: required svc_types.SvcUuid		id;
+    2: required i32				version;
 }
 
 struct VolumeGroupInfo {
@@ -54,7 +51,7 @@ struct VolumeGroupInfoUpdateCtrlMsg {
  * the group
  */
 struct AddToVolumeGroupCtrlMsg {
-    1: VolumeState			targetState;
+    1: svc_types.ResourceState		targetState;
     2: required VolumeGroupId		groupId;
     3: required i32			replicaVersion;
     4: required svc_types.SvcUuid	svcUuid;

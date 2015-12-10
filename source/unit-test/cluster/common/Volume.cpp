@@ -456,7 +456,7 @@ void Volume::startSyncCheck_()
     quicksyncCtx_->bufferIo = true;
 
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::VolumeState::VOLUME_SYNCING;
+    msg->targetState = fpi::ResourceState::Syncing;
     msg->groupId = volId_.get();
     msg->replicaVersion = version_;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
@@ -610,7 +610,7 @@ void Volume::concludeQuickSync_(const fpi::PullCommitLogEntriesRespMsgPtr &pulle
 
     /* Notify coordinator we are functional */
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::VolumeState::VOLUME_FUNCTIONAL;
+    msg->targetState = fpi::ResourceState::Active;
     msg->groupId = volId_.get();
     msg->replicaVersion = version_;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();

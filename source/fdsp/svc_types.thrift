@@ -140,6 +140,7 @@ enum ResourceState {
   Unknown,
   Loading, /* resource is loading or in the middle of creation */
   Created, /* resource has been created */
+  Syncing, /* resource is being synced */
   Active,  /* resource activated - ready to use */
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */

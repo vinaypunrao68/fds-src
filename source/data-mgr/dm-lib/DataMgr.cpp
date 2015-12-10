@@ -558,6 +558,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     Error err(ERR_OK);
     bool fActivated = false;
+    bool fSyncRequired  = false;
     // create vol catalogs, etc first
 
     bool fPrimary = false;
@@ -680,7 +681,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            volmeta->vol_desc->setState(fpi::Active);
+            if (features.isVolumegroupingEnabled()) {
+                volmeta->vol_desc->setState(fpi::Syncing);
+                fSyncRequired = true;
+            } else {
+                volmeta->vol_desc->setState(fpi::Active);
+            }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
             volmeta->vol_desc->setState(fpi::InError);
@@ -744,8 +750,54 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
     }
+    if (fSyncRequired) {
+        runSyncProtocol();
+    }
 
     return err;
+}
+
+void DataMgr::runSyncProtocol(VolumeMeta *volmeta)
+{
+#if 0
+    /* Check if coordinator is set */
+    if (!volmeta->vol_desc->isCoordinatorSet()) {
+        LOGINFO << "Coordinator isn't set." << volmeta->currentStateStr()
+            << " Will go through sync once coordinator tries to open the volume";
+        return;
+    }
+    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
+    msg->targetState = fpi::VolumeState::VOLUME_SYNCING;
+    msg->groupId = volId_.get();
+    msg->replicaVersion = version_;
+    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    msg->lastOpId = opInfo_.appliedOpId;
+    msg->lastCommitId = opInfo_.appliedCommitId;
+
+    /* Send message to coordinator requesting to be added to the group */
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
+    auto prevVersion = getVersion();
+    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
+        VERSION_CHECK(prevVersion, getVersion());
+        Error err = e_;
+        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
+        if (err != ERR_OK) {
+            // TODO(Rao): Multiple types of errors can be returned here..handle them
+            LOGERROR << "Failed to receive sync info from coordinator: " << err
+                    << quicksyncLogStr();
+            setError_(err);
+            return;
+        }
+        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
+        LOGNORMAL << logString()
+                  << " Sync check coordinator response:  " << fds::logString(*responseMsg);
+
+        sendPullActiveTxsMsg_(responseMsg);
+    }));
+    req->invoke();
+#endif
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -981,6 +1033,9 @@ int DataMgr::mod_init(SysParams const *const param)
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
         "fds.dm.req_serialization", true));
+
+    features.setVolumegroupingEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 

@@ -182,6 +182,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
+        DEF_FEATURE(Volumegrouping, true);
     } features;
 
     dm::Counters* counters;
