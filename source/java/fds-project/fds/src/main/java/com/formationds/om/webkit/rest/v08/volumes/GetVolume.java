@@ -40,7 +40,7 @@ public class GetVolume  implements RequestHandler {
     	String showSysVolumeString = request.getParameter( ListVolumes.SHOW_SYSTEM_VOLUMES );
         Boolean showSysVolumes = Boolean.FALSE;
         
-        if ( showSysVolumeString != "true" ){
+        if ( showSysVolumeString != null && showSysVolumeString.equalsIgnoreCase( "true" ) ){
         	showSysVolumes = Boolean.TRUE;
         }
 		
