@@ -24,13 +24,13 @@ using incrementCountFunc = std::function<void()>;
 class DmMigrationClient : public DmMigrationBase {
   public:
     explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
-    		DataMgr& _dataMgr,
-    		const NodeUuid& _myUuid,
-			NodeUuid& _destDmUuid,
+            DataMgr& _dataMgr,
+            const NodeUuid& _myUuid,
+            NodeUuid& _destDmUuid,
             int64_t migrationId,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr _ribfsm,
-			DmMigrationClientDoneHandler _handle,
-			migrationCb _cleanup,
+            fpi::CtrlNotifyInitialBlobFilterSetMsgPtr _ribfsm,
+            DmMigrationClientDoneHandler _handle,
+            migrationCb _cleanup,
             uint64_t _maxDeltaBlobs,
             uint64_t _maxDeltaBlobDesc);
     ~DmMigrationClient();
@@ -228,7 +228,7 @@ class DmMigrationClient : public DmMigrationBase {
     fds_bool_t abortFlag;
 
     // The spawn off thread of this client
-    std::thread *thrPtr;
+    std::unique_ptr<std::thread> thrPtr;
 
     // Removes the DmIoRequests
 	migrationCb cleanUp;

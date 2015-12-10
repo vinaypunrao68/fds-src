@@ -47,7 +47,7 @@ DmMigrationClient::~DmMigrationClient()
 void
 DmMigrationClient::run()
 {
-    thrPtr = new std::thread([this] {
+    thrPtr.reset(new std::thread([this] {
         Error err(ERR_OK);
         err = processBlobFilterSet();
         if (ERR_OK != err) {
@@ -63,7 +63,7 @@ DmMigrationClient::run()
             dataMgr.dmMigrationMgr->abortMigration();
             return;
         }
-    });
+    }));
 }
 
 uint64_t
