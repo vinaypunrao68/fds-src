@@ -1447,12 +1447,13 @@ OM_PmAgent::send_start_service
             LOGERROR <<"No node services found in configDB, returning..";
             return Error(ERR_NOT_FOUND);
         }
-
-        fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_ACTIVE );
-        set_node_state(fpi::FDS_Node_Up);
     }
+
+// remove following since this is checked in through PR2915
+    fds::change_service_state( configDB,
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_ACTIVE );
+    set_node_state(fpi::FDS_Node_Up);
 
     if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
         LOGDEBUG << "Node UUID("
@@ -1475,6 +1476,10 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
+    // This can stay --
+    if (startNode) {
+        domain->clearFromShutdownList(get_uuid().uuid_get_val());
+    }
     std::vector<fpi::SvcInfo> existingSvcs;
     fpi::SvcUuid svcuuid;
     bool foundSvc = false;
@@ -1533,7 +1538,8 @@ OM_PmAgent::send_start_service
 
     return err;
 }
-
+// This function will get called explicitly upon response from PM
+// through the om-svc-handler
 void OM_PmAgent::send_start_service_resp
     (
     fpi::SvcUuid pmSvcUuid,
@@ -1612,6 +1618,12 @@ OM_PmAgent::send_stop_service
                   << " stop am ? " << stop_am
                   << " size of svcInfoList: " << svcInfos.size();
 
+        // TO  REMOVE included in 2915 --
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        if (shutdownNode) {
+            domain->addToShutdownList(get_uuid().uuid_get_val());
+        }
+
         fds_mutex::scoped_lock l(dbNodeInfoLock);
 
         fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
@@ -1622,7 +1634,22 @@ OM_PmAgent::send_stop_service
             fds::retrieveSvcId(pmSvcUuid.svc_uuid, smSvcId, fpi::FDSP_STOR_MGR);
             fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(smSvcId.svc_uuid );
 
-            if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+            // If a node shutdown is coming in, OM need not care if a registration
+            // of an associated svc is underway. This will get re-registered on
+            // node startup. Race conditions are prevented using the shutdownList
+            if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+                (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
+
+                OM_Module *om            = OM_Module::om_singleton();
+                DataPlacement *dp        = om->om_dataplace_mod();
+                OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+                NodeUuid uuid(smSvcId.svc_uuid);
+                if ( (!dp->hasNoTargetDlt()) && (dp->hasNonCommitedTarget()) ) {
+                    LOGDEBUG << "SM token migration in progress, will send abort msg";
+                    // Send out an abort
+                    domain->raiseAbortSmMigrationEvt(uuid);
+                }
 
                 LOGDEBUG << "Will stop SM service "
                          << std::hex
@@ -1636,7 +1663,13 @@ OM_PmAgent::send_stop_service
                 LOGERROR << "Service" << std::hex
                          << smSvcId.svc_uuid << std::dec
                          << "is not active so cannot stop";
-                return Error(ERR_NOT_READY);
+
+                stop_sm = false;
+                // If neither of the other services are being stopped, it is safe
+                // to return.
+                if ( !stop_am && !stop_dm ) {
+                    return Error(ERR_NOT_READY);
+                }
             }
         }
 
@@ -1645,7 +1678,19 @@ OM_PmAgent::send_stop_service
              fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
              fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
 
-             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+             if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+                 (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
+
+                 OM_Module *om            = OM_Module::om_singleton();
+                 VolumePlacement *vp      = om->om_volplace_mod();
+                 OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+                 NodeUuid uuid(dmSvcId.svc_uuid);
+                 if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
+                     LOGDEBUG << "DM migration in progress, will send abort msg";
+                     // Send out an abort
+                     domain->raiseAbortDmMigrationEvt(uuid);
+                 }
 
                  LOGDEBUG << "Will stop DM service "
                           << std::hex
@@ -1659,7 +1704,11 @@ OM_PmAgent::send_stop_service
                  LOGERROR << "Service" << std::hex
                           << dmSvcId.svc_uuid << std::dec
                           << "is not active so cannot stop";
-                 return Error(ERR_NOT_READY);
+
+                 stop_dm = false;
+                 if ( !stop_am && !stop_sm ) {
+                     return Error(ERR_NOT_READY);
+                 }
 
              }
          }
@@ -1669,7 +1718,8 @@ OM_PmAgent::send_stop_service
              fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
              fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
 
-             if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+             if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+                 (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
                  LOGDEBUG << "Will stop AM service "
                           << std::hex
                           << amSvcId.svc_uuid
@@ -1682,7 +1732,11 @@ OM_PmAgent::send_stop_service
                  LOGERROR << "Service" << std::hex
                           << amSvcId.svc_uuid << std::dec
                           << "is not active so cannot stop";
-                 return Error(ERR_NOT_READY);
+
+                 stop_am = false;
+                 if ( !stop_sm && !stop_dm ) {
+                     return Error(ERR_NOT_READY);
+                 }
              }
          }
 
@@ -3559,6 +3613,16 @@ OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
         // send shutdown to DM nodes
         count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
+/*
+        if ( count > 0 ) {
+            OM_Module *om       = OM_Module::om_singleton();
+            VolumePlacement *vp = om->om_volplace_mod();
+
+            // This flag is used to determine whether OM needs
+            // to unset the target after sending an abort migration to DMs
+            vp->setShutdownFlag(true);
+        }
+*/
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         // send shutdown to SM nodes
         count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);

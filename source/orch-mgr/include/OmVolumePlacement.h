@@ -245,6 +245,8 @@ namespace fds {
          */
         Error validateDmtOnDomainActivate(const NodeUuidSet& dm_services);
 
+        //void setShutdownFlag(bool flag);
+        //bool isDomainShuttingDown();
         /**
          * Returns the number of primary DMs in this current setup.
          */
@@ -328,6 +330,8 @@ namespace fds {
          * Number of primary DMs for a volume.
          */
         fds_uint32_t numOfPrimaryDMs;
+
+        //bool domainShutdownFlag;
     };
 }  // namespace fds
 
