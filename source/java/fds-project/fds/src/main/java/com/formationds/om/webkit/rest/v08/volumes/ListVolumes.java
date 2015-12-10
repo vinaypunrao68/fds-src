@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
     private static final Logger logger = LoggerFactory.getLogger( ListVolumes.class );
+    
+    public static final String SHOW_SYSTEM_VOLUMES = "system-volumes"; 
 
     private ConfigurationApi    configApi;
     private Authorizer          authorizer;
@@ -39,14 +41,25 @@ public class ListVolumes implements RequestHandler {
     @Override
     public Resource handle( Request request, Map<String, String> routeParameters ) throws Exception {
 
-        List<Volume> externalVolumes = listVolumes();
+    	String showSysVolumeString = request.getParameter( SHOW_SYSTEM_VOLUMES );
+        Boolean showSysVolumes = Boolean.FALSE;
+        
+        if ( showSysVolumeString != "true" ){
+        	showSysVolumes = Boolean.TRUE;
+        }
+    	
+        List<Volume> externalVolumes = listVolumes( showSysVolumes );
 
         String jsonString = ObjectModelHelper.toJSON( externalVolumes );
-
+        
         return new TextResource( jsonString );
     }
-
+    
     public List<Volume> listVolumes() throws Exception {
+    	return listVolumes( Boolean.FALSE );
+    }
+
+    public List<Volume> listVolumes( Boolean showSysVolumes ) throws Exception {
 
         logger.debug( "Listing all volumes." );
 
