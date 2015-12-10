@@ -43,8 +43,8 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
 {
     if (!amAsyncDataApi) {
         amAsyncDataApi.reset(new AmAsyncDataApi(processor, shared_from_this()));
+        volumeName = vol_name;
     }
-    volumeName = vol_name;
 
     {   // add response that we will fill in with data
         std::lock_guard<std::mutex> l(respLock);
