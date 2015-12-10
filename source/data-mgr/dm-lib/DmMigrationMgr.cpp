@@ -872,8 +872,8 @@ DmMigrationMgr::clearClients() {
     util::StopWatch sw;
     for (auto client : clientMap) {
         auto dmClient = client.second;
-        sw.reset();
         dmClient->finish();
+        sw.reset();
         auto elapsedMs = sw.getElapsedNanos()/1000000;
         if (elapsedMs > 2000) {
             LOGWARN << dmClient->logString() << " migrationclient for volid: "

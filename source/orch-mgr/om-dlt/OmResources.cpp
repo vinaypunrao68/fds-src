@@ -2843,7 +2843,7 @@ OM_NodeDomainMod::om_service_down(const Error& error,
         {
             // this is DM -- notify DMT state machine
             // For now, disable this as setupNewNode will throw the event
-            LOGNOTIFY << "DM " << svcUuid << " down.";
+            LOGNOTIFY << "DM " << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
             // om_dmt_update_cluster();
         }
     }
