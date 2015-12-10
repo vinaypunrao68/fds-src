@@ -37,18 +37,29 @@ public class GetVolume  implements RequestHandler {
        
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 		
-		Volume volume = getVolume( volumeId );
+    	String showSysVolumeString = request.getParameter( ListVolumes.SHOW_SYSTEM_VOLUMES );
+        Boolean showSysVolumes = Boolean.FALSE;
+        
+        if ( showSysVolumeString != "true" ){
+        	showSysVolumes = Boolean.TRUE;
+        }
+		
+		Volume volume = getVolume( volumeId, showSysVolumes );
 		
 		String jsonString = ObjectModelHelper.toJSON( volume );
 		
 		return new TextResource( jsonString );
 	}
 	
-	public Volume getVolume( long volumeId ) throws Exception{
+	public Volume getVolume( long volumeId ) throws Exception {
+		return getVolume( volumeId, Boolean.FALSE );
+	}
+	
+	public Volume getVolume( long volumeId, Boolean showSysVolumes ) throws Exception{
 		
 		logger.debug( "Retrieving volume: {}.", volumeId );
 		
-		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes();
+		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes( showSysVolumes );
 		
 		for ( Volume volume : volumes ){
 			if ( volume.getId().equals( volumeId ) ){
