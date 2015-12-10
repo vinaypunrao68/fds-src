@@ -1008,9 +1008,18 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
 }
 
 Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
-                                                 Catalog::MemSnap snap) {
+                                                 Catalog::MemSnap snap,
+                                                 const fds_bool_t &abortFlag) {
+
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
+
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap snap) {
+    fds_bool_t dummyFlag = false;
+    return (getAllBlobsWithSequenceId(volId, blobsSeqId, snap, dummyFlag));
 }
 
 Error DmVolumeCatalog::putObject(fds_volid_t volId,

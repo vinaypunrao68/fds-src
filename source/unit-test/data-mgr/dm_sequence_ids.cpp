@@ -300,8 +300,8 @@ TEST_F(SeqIdTest, BlobDiffIdentical){
     auto dest = std::map<std::string, long int>();
     auto source = std::map<std::string, long int>();
 
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source, NULL);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest, NULL);
 
     TIMEDBLOCK("diff") {
         Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
@@ -333,8 +333,8 @@ TEST_F(SeqIdTest, BlobDiffUpdate){
     auto dest = std::map<std::string, long int>();
     auto source = std::map<std::string, long int>();
 
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source, NULL);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest, NULL);
 
     TIMEDBLOCK("diff") {
         Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
@@ -366,8 +366,8 @@ TEST_F(SeqIdTest, BlobDiffDelete){
     auto dest = std::map<std::string, long int>();
     auto source = std::map<std::string, long int>();
 
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source, NULL);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest, NULL);
 
     TIMEDBLOCK("diff") {
         Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
@@ -400,8 +400,8 @@ TEST_F(SeqIdTest, BlobDiffOverwrite){
     auto dest = std::map<std::string, int64_t>();
     auto source = std::map<std::string, int64_t>();
 
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source);
-    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId1, source, NULL);
+    dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId2, dest, NULL);
 
     TIMEDBLOCK("diff") {
         Error err = DmMigrationClient::diffBlobLists(dest, source, update_list, delete_list);
