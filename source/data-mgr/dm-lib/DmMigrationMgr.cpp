@@ -177,6 +177,12 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         return err;
     }
 
+    if (migrationMsg->migrations.size() == 0) {
+        /* OM shouldn't ask us to migrate zero volumes */
+        fds_assert(!"zero volumes to migrate");
+        OmStartMigrCb(ERR_OK);
+    }
+
     if (delayStart) {
         LOGNOTIFY << "migrationid: " << migrationId
             << "Delaying creation of DM Migration Manager by " << delayStart << " seconds.";
@@ -200,7 +206,8 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
     // Store DMT version for debugging
     DMT_version = migrationMsg->DMT_version;
     LOGNOTIFY << "migrationid: " << migrationId
-        << "Starting Migration executors with DMT version = " << DMT_version;
+        << "Starting Migration executors with DMT version = " << DMT_version
+        << " # volumes: " << migrationMsg->migrations.size();
 
     firedMigrations = 0;
     for (std::vector<fpi::DMVolumeMigrationGroup>::iterator vmg = migrationMsg->migrations.begin();
@@ -233,7 +240,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
                                           localMigrationType,
                                           autoIncrement);
             if (!err.OK()) {
-                LOGERROR << "migrationid: " << migrationId
+                LOGERROR << "migrationid: " << migrationId << " volume: " << vdt->volUUID
                     << "Error creating migrating task.  err=" << err;
                 return err;
             }

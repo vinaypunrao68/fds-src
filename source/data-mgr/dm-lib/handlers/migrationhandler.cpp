@@ -29,7 +29,7 @@ DmMigrationHandler::DmMigrationHandler(DataMgr& dataManager)
 
 void DmMigrationHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg>& message) {
-    LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+    LOGNORMAL << "[migrate] " << logString(*asyncHdr) << logString(*message);
 
     auto dmReq = new DmIoMigration(FdsDmSysTaskId, message);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationHandler::handleResponse, asyncHdr, message);
@@ -74,7 +74,8 @@ void DmMigrationHandler::handleResponseReal(boost::shared_ptr<fpi::AsyncHdr>& as
 {
 
     asyncHdr->msg_code = e.GetErrno();
-    LOGMIGRATE << logString(*asyncHdr) << " sending async resp with err: " << e;
+    LOGNORMAL << "[migrate] " << logString(*asyncHdr) << " DMT version: " << dmtVersion
+        <<" sending async resp with err: " << e;
 
     fpi::CtrlNotifyDMStartMigrationRspMsgPtr msg(new fpi::CtrlNotifyDMStartMigrationRspMsg());
     if (msg) {

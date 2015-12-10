@@ -451,6 +451,10 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     // Send pull messages to the new DMs
     for (pull_msgs::iterator pmiter = pull_msg.begin();
     		pmiter != pull_msg.end(); pmiter++) {
+        if (pmiter->second.migrations.size() == 0) {
+            /* Nothing to migrate */
+            continue;
+        }
     	OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(pmiter->first));
     	fds_verify(agent != nullptr);
 
