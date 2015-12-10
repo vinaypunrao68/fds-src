@@ -245,7 +245,7 @@ class ServiceContext(Context):
     @clidebugcmd
     @arg('svcid', help= "service Uuid",  type=str)
     @arg('match', help= "regex pattern",  type=str, default=None, nargs='?')
-    def config(self, svcid, match):
+    def listconfig(self, svcid, match):
         'list the config values of a service'
         try:
             for uuid in self.getServiceIds(svcid):
