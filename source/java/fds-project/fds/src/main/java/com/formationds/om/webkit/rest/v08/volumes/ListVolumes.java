@@ -99,8 +99,12 @@ public class ListVolumes implements RequestHandler {
                                    if ( sysvol && !showSys ) {
                                        logger.debug( "Removing volume " + descriptor.getName() +
                                                      " from the volume list." );
+                                       return Boolean.FALSE;
                                    }
-                                   return !sysvol;
+                                   else {
+                                	   return Boolean.TRUE;
+                                   }
+
                                } )
                                .filter( descriptor -> {
                                    boolean hasAccess = getAuthorizer().ownsVolume( getToken(), descriptor.getName() );
