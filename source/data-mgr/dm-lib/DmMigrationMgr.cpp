@@ -189,13 +189,18 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               abortMigration(); return (ERR_NOT_READY););
 
     waitForMigrationBatchToFinish(MIGR_EXECUTOR);
-
+    
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
     if (err != ERR_OK) {
         return err;
     }
+
+    dataManager.counters->clearMigrationCounters();
+    dataManager.counters->migrationLastRun.set(util::getTimeStampSeconds());
+    dataManager.counters->totalVolumesToBeMigrated.set(migrationMsg->migrations.size());
+    dataManager.counters->migrationDMTVersion.set(migrationMsg->DMT_version);
 
     // Store DMT version for debugging
     DMT_version = migrationMsg->DMT_version;
