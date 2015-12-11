@@ -190,9 +190,10 @@ int VolumeDesc::getPriority() const {
 }
 
 std::string VolumeDesc::ToString() {
-    return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID().get()) +
-            std::string(">"));
+    std::stringstream sstream;
+
+    sstream << "Volume [ " << getName() << " ] UUID [ " << GetID().get() << " ]";
+    return sstream.str();
 }
 
 void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
