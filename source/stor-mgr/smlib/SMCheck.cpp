@@ -8,6 +8,7 @@
 #include <fds_process.h>
 #include "platform/platform.h"
 #include <StorMgr.h>
+#include <sys/types.h>
 
 #include <ObjectId.h>
 #include <boost/program_options.hpp>
@@ -26,7 +27,6 @@ SMCheckOffline::SMCheckOffline(SmDiskMap::ptr smDiskMap,
       smMdDb(smMdDb),
       verbose(verboseMsg)
 {
-
     std::string uuidPath = g_fdsprocess->proc_fdsroot()->dir_fds_logs() + UUIDFileName;
     if (access(uuidPath.c_str(), F_OK) == -1) {
        std::cout << "uuid file (" << uuidPath << ") doesn't exists.  "

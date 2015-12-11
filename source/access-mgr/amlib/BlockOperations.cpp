@@ -43,8 +43,8 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
 {
     if (!amAsyncDataApi) {
         amAsyncDataApi.reset(new AmAsyncDataApi(processor, shared_from_this()));
+        volumeName = vol_name;
     }
-    volumeName = vol_name;
 
     {   // add response that we will fill in with data
         std::lock_guard<std::mutex> l(respLock);
@@ -125,7 +125,11 @@ BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "Volume detach response: " << error;
-    amAsyncDataApi.reset();
+    if (shutting_down) {
+        blockResp->terminate();
+        blockResp = nullptr;
+        amAsyncDataApi.reset();
+    }
 }
 
 void
@@ -447,6 +451,7 @@ void
 BlockOperations::shutdown()
 {
     std::lock_guard<std::mutex> l(respLock);
+    if (shutting_down) return;
     shutting_down = true;
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {

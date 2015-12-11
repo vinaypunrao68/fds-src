@@ -16,6 +16,7 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <util/path.h>
 
 namespace fds {
 
@@ -77,6 +78,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+
+    /* Active Object Messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
 }
 
 int
@@ -912,6 +916,7 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         objStorMgr->quieseceIOsQos(volumeId);
         objStorMgr->deregVolQos(volumeId);
         objStorMgr->deregVol(volumeId);
+        objStorMgr->objectStore->removeObjectSet(volumeId);
     }
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
@@ -1219,5 +1224,52 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
 
+void
+SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                            boost::shared_ptr<fpi::ActiveObjectsMsg>& msg)
+{
+    Error err(ERR_OK);
+
+    LOGDEBUG << hdr;
+
+    /**
+        msg->filename
+        msg->checksum
+        msg->volumeIds
+        msg->token
+    */
+    std::string filename;
+    // verify the file checksum
+    if (msg->filename.empty() && msg->checksum.empty()) {
+        LOGDEBUG << "no active objects for token:" << msg->token
+                 << " for [" << msg->volumeIds.size() <<"]";
+    } else {
+        filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
+        if (!util::fileExists(filename)) {
+            err = ERR_FILE_DOES_NOT_EXIST;
+            LOGERROR << "active object file ["
+                     << filename
+                     << "] does not exist";
+        } else {
+            std::string chksum = util::getFileChecksum(filename);
+            if (chksum != msg->checksum) {
+                LOGERROR << "file checksum mismatch [orig:" << msg->checksum
+                         << " new:" << chksum << "]"
+                         << " file:" << filename;
+                err = ERR_CHECKSUM_MISMATCH;
+            }
+        }
+    }
+
+    TimeStamp ts = msg->scantimestamp * 1000 * 1000 * 1000;
+    for (auto volId : msg->volumeIds) {
+        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
+                                              ts, filename);
+    }
+
+    fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
+}
 
 }  // namespace fds

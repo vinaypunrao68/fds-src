@@ -2528,6 +2528,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -2637,6 +2639,10 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
             om_dlt_update_cluster();
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            // Check if this is a re-registration of an existing DM executor
+            LOGDEBUG << "Firing reregister event for DM node " << uuid;
+            dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
+
             // Send the DMT to DMs.
             om_dmt_update_cluster(fPrevRegistered);
             if (fPrevRegistered) {
@@ -2645,6 +2651,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             }
         }
     } else {
+        LOGDEBUG << "OM local domain not up";
         local_domain_event(RegNodeEvt(uuid, msg->node_type));
     }
 
