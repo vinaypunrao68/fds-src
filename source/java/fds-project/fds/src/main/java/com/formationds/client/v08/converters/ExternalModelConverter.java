@@ -674,8 +674,10 @@ public class ExternalModelConverter {
             return new ArrayList<>( );
         }
         return incomingUsers.stream( )
-                         .map( user -> new com.formationds.protocol.Credentials( user.getName(),
-                                                                                 user.getPasswd() ) )
+                            .filter( ( user ) -> user.getUsername() != null && user.getUsername().length() > 0 )
+                            .filter( ( user ) -> user.getPassword() != null && user.getPassword().length() > 0 )
+                         .map( user -> new com.formationds.protocol.Credentials( user.getUsername(),
+                                                                                 user.getPassword() ) )
                          .collect( Collectors.toList( ) );
     }
 
@@ -687,6 +689,8 @@ public class ExternalModelConverter {
         }
 
         return incomingUsers.stream( )
+                            .filter( ( user ) -> user.getName() != null && user.getName().length() > 0 )
+                            .filter( ( user ) -> user.getPasswd() != null && user.getPasswd().length() > 0 )
                          .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
                          .collect( Collectors.toList( ) );
     }
@@ -700,8 +704,10 @@ public class ExternalModelConverter {
         }
 
         return outgoingUsers.stream( )
-                            .map( user -> new com.formationds.protocol.Credentials( user.getName(),
-                                                                                   user.getPasswd() ) )
+                            .filter( ( user ) -> user.getUsername() != null && user.getUsername().length() > 0 )
+                            .filter( ( user ) -> user.getPassword() != null && user.getPassword().length() > 0 )
+                            .map( user -> new com.formationds.protocol.Credentials( user.getUsername(),
+                                                                                    user.getPassword() ) )
                             .collect( Collectors.toList( ) );
     }
 
@@ -713,6 +719,8 @@ public class ExternalModelConverter {
         }
 
         return outgoingUsers.stream( )
+                            .filter( ( user ) -> user.getName() != null && user.getName().length() > 0 )
+                            .filter( ( user ) -> user.getPasswd() != null && user.getPasswd().length() > 0 )
                             .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
                             .collect( Collectors.toList( ) );
     }
