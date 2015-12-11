@@ -6,6 +6,10 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Request;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.Optional;
 
@@ -79,5 +83,25 @@ public interface RequestHandler {
     public default Optional<String> optionalString(Map<String, String> routeAttributes, String name) {
         String value = routeAttributes.get(name);
         return value == null ? Optional.empty() : Optional.of(value);
+    }
+
+    default String readBody( final InputStream inputStream )
+        throws UsageException
+    {
+        final StringBuilder body = new StringBuilder( );
+        try( final BufferedReader reader = new BufferedReader( new InputStreamReader( inputStream ) ) )
+        {
+            String line;
+            while( ( line = reader.readLine( ) ) != null )
+            {
+                body.append( line );
+            }
+        }
+        catch ( IOException e )
+        {
+            throw new UsageException( "Error reading request body.", e );
+        }
+
+        return body.toString();
     }
 }
