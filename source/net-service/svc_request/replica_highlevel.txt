@@ -2,18 +2,12 @@ Implmentation
 TODAY
 TODO
 1. Find out exactly what messages need protection when sync is in progress and make sure they are protected.
+2. When volume handle is going through open, we should reject any other io requests.  Introduce a macro GROUPHANDLE_STATE_CHECK()
 
 Gaps
 Future todos
 1. Clean up old volume syncing code
 2. Remove support for deprecated messages in processIo and in handlers
-
-
-
-
-
-
-
 
 
 Ideas shifts
@@ -99,6 +93,23 @@ Dm boot up sequence and sync protocol
 --Go through static migration.
 --NOTE: how to handle active will need to be discussed.  For the time being we can rely on currentscheme.  Time permitting I would like to optimize this part to relieve sync peer from doing forwards.
 
+Message sent from Am to Dm that needs consideration
+-OpenVolumeMsg
+-CloseVolumeMsg
+-StatVolumeMsg
+-SetVolumeMetadataMsg
+-GetVolumeMetadataMsg
+-AbortBlobTxMsg
+-StartBlobTxMsg
+-DeleteBlobMsg special handling for ERR_BLOB_NOT_FOUND, ERR_CAT_ENTRY_NOT_FOUND 
+-UpdateCatalogMsg
+-UpdateCatalogOnceMsg
+-GetBlobMetaDataMsg
+-RenameBlobMsg
+-SetBlobMetaDataMsg
+-CommitBlobTxMsg
+-GetBucketMsg
+
 Counters
 -Volume group cooridnator
 --state
@@ -111,6 +122,10 @@ Counters
 --sync retry count
 --coordinator uuid, version
 
+DM syncing
+-Its important to sequence commits to leveldb.
+1. This allows for syncs to be quicker.
+2. State comparison when Coordinator opens the group is much simpler
 
 Questions
 1. How do you handle sitation where volume tries to go through sync protocol while group coordinator is trying to go through open volume protocol?

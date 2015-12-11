@@ -171,6 +171,8 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
+  /* Volume version */
+  3: i32                                replicaVersion;
 }
 
 /**

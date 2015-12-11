@@ -71,6 +71,15 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     return dmt_table->at(col_index);
 }
 
+std::vector<fpi::SvcUuid>
+DMT::getSvcUuids(fds_volid_t volume_id) const
+{
+    auto column = getNodeGroup(volume_id);
+    return column->toSvcUuids();
+}
+        
+
+
 /**
  * returns column index for given 'volume_id' for a given number of
  * columns in DMT

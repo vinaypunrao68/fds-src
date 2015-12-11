@@ -87,6 +87,7 @@ namespace fds {
     ADD(ERR_TIMER_TASK_NOT_SCHEDULED,= 67,"Timer task was not scheduled"), \
     ADD(ERR_FEATURE_DISABLED,= 68,"Feature disabled"), \
     ADD(ERR_INVALID_VOLUME_VERSION,= 69,"Invalid volume version"), \
+    ADD(ERR_VOLUMEGROUP_DOWN,= 70,"Volume group is down"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

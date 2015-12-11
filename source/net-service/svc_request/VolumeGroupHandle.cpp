@@ -1,5 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
+#include <vector>
 #include <net/VolumeGroupHandle.h>
 #include <net/SvcRequestPool.h>
 
@@ -45,11 +46,28 @@ std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h)
 }
 
 VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
-                                     const fpi::VolumeGroupInfo &groupInfo)
+                                     const fds_volid_t& volId,
+                                     uint32_t quorumCnt)
 : HasModuleProvider(provider)
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    quorumCnt_ = quorumCnt;
+    state_ = fpi::ResourceState::Unknown;
+
+    groupId_ = volId.get();
+    version_ = VolumeGroupConstants::VERSION_START;
+}
+
+#if 0
+VolumeGroupHandle::init(CommonModuleProviderIf* provider,
+                        const fpi::VolumeGroupInfo &groupInfo,
+                        int32_t quorumCnt)
+: HasModuleProvider(provider)
+{
+    taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
+    requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    quorumCnt_ = quorumCnt;
     state_ = fpi::ResourceState::Unknown;
     setGroupInfo_(groupInfo);
     // TODO(Rao): Go through protocol figure out the states of the replicas
@@ -65,43 +83,224 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 }
+#endif
 
+void VolumeGroupHandle::resetGroup_()
+{
+    /* NOTE: Consider not incrementing version every time open is called.  If open fails
+     * we may not want to incrment the version.
+     */
+    version_++;
+
+    changeState_(fpi::ResourceState::Offline);
+
+    opSeqNo_ = VolumeGroupConstants::OPSTARTID;
+    commitNo_ = VolumeGroupConstants::COMMITSTARTID;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    dmtVersion_ = svcMgr->getDMTVersion();
+    auto svcs = svcMgr->getDMTNodesForVolume(fds_volid_t(groupId_))->toSvcUuids();
+    functionalReplicas_.clear();
+    nonfunctionalReplicas_.clear();
+    syncingReplicas_.clear();
+    for (const auto &svcUuId : svcs) {
+        nonfunctionalReplicas_.push_back(VolumeReplicaHandle(svcUuId));
+    }
+}
 
 void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
                              const StatusCb &clientCb)
 {
-#if  0
-    runSynchronized([this, msg]() mutable {
+    runSynchronized([this, msg, clientCb]() mutable {
+        if (state_ == fpi::ResourceState::Active) {
+            LOGWARN << logString() << " - Trying open an already opened volume";
+            clientCb(ERR_INVALID);
+            return;
+        }
+
+        try {
+            resetGroup_();
+        } catch (const Exception &e) {
+            LOGWARN << logString() << " - Failed to get nodes from DMT";
+            clientCb(e.getError());
+            return;
+        }
+        
         /* Send a message to OM requesting to be coordinator for the group */
-        auto req = createSetVolumeGroupCoordinatorMsgReq_();
-        auto respCb = [this, clientCb](const Error& e) {
+        auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_();
+        setCoordinatorreq->onResponseCb([this, clientCb](EPSvcRequest*,
+                                                         const Error& e,
+                                                         StringPtr) {
            if (e != ERR_OK) {
-            LOGWARN << "Failed set volume group coordinator.  Received " << e << " from om";
+            LOGWARN << logString()
+                    << " Failed set volume group coordinator.  Received "
+                    << e << " from om";
             clientCb(e);
             return;
            }
            auto openReq = createPreareOpenVolumeGroupMsgReq_();
-           auto openCb = [this, clientCb](const Error *e) {
-            if (e != ERR_OK) {
-                LOGWARN << "Prepare for open failed: " << e;
-                clientCb(e);
-                return;
-            }
-            determineFunctaionalReplicas();
-            if (functionalReplicas_.size() == 0) {
-                LOGWARN << "Not enough replicas.  Group remains non-functional";
-                clientCb(ERR_VOLUME_UNAVAILABLE);
-                return;
-            }
-            auto commitReq = createCommitOpenVolumeGroupMsgReq_();
-            commitReq->invoke();
-           };
+           openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
+                                                  const Error& e_,
+                                                  boost::shared_ptr<std::string> payload) {
+             Error e = e_;
+             auto responseMsg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+             if (e != ERR_OK) {
+                 LOGWARN << logString() << "Prepare for open failed: " << e;
+                 clientCb(e);
+                 return;
+             }
+             determineFunctaionalReplicas_(openReq);
+             if (functionalReplicas_.size() == 0) {
+                 LOGWARN << logString()
+                     << " Not enough members with latest state to start a group";
+                 clientCb(ERR_VOLUMEGROUP_DOWN);
+                 return;
+             }
+             changeState_(fpi::ResourceState::Active);
+             broadcastGroupInfo_();
+           });
            openReq->invoke();
-        };
-        req->onResponseCb(respCb);
-        req->invoke();
+        });
+        LOGNORMAL << logString() << " - Setting coordinator request to OM";
+        setCoordinatorreq->invoke();
     });
-#endif
+}
+
+inline std::string VolumeGroupHandle::logString() const
+{
+    std::stringstream ss;
+    ss << " [VolumeGroupHandle: " << groupId_
+        << " version: " << version_
+        << " state:  " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_))
+        << "up:" << functionalReplicas_.size()
+        << "sync:" << syncingReplicas_.size()
+        << "down:" << nonfunctionalReplicas_.size()
+        << "] ";
+    return ss.str();
+}
+
+EPSvcRequestPtr
+VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
+{
+    auto msg = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorMsg>();
+    assign(msg->coordinator.id, groupId_);
+    msg->coordinator.version = version_;
+    auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
+    auto req = requestMgr_->newEPSvcRequest(omUuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorMsg), msg);
+    return req;
+}
+
+QuorumSvcRequestPtr
+VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
+{
+    fds_assert(functionalReplicas_.size() == 0 &&
+               syncingReplicas_.size() == 0 &&
+               nonfunctionalReplicas_.size() > 0);
+    std::vector<fpi::SvcUuid> replicas;
+    std::for_each(nonfunctionalReplicas_.begin(),
+                  nonfunctionalReplicas_.end(),
+                  [&replicas](const VolumeReplicaHandle &h) { replicas.push_back(h.svcUuid); });
+
+    auto prepareMsg = boost::make_shared<fpi::OpenVolumeMsg>();
+    prepareMsg->volume_id = groupId_;
+    // TODO(Rao): Set the token.  Set cooridnator as well
+    // prepareMsg->token = volReq->token;
+    // prepareMsg->mode = volReq->mode;
+
+    auto req = requestMgr_->newSvcRequest<QuorumSvcRequest>(getDmtVersion(), replicas);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), prepareMsg);
+    req->setQuorumCnt(replicas.size());
+    return req;
+}
+
+void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
+{
+    using Response = std::pair<fpi::SvcUuid, fpi::OpenVolumeRspMsgPtr>;
+    std::vector<Response> successSvcs;
+    std::vector<fpi::SvcUuid> errdSvcs;
+
+    /* Split services that responded succusfully from the ones that failed */
+    auto sz = size();    
+    for (int32_t i = 0; i < sz; i++) {
+        const auto &ep = openReq->ep(i);
+        if (ep->responseStatus() == ERR_OK) {
+            Error e;
+            auto resp = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, ep->responsePayload());
+            if (e != ERR_OK) {
+                fds_assert(!"Deserialization shouldn't fail here");
+                errdSvcs.push_back(ep->getPeerEpId());
+                continue;
+            }
+            successSvcs.push_back(std::make_pair(ep->getPeerEpId(), resp));
+            LOGNORMAL << logString()
+                << " open success svc: " << fds::logString(ep->getPeerEpId())
+                << " sequenceid: " << resp->sequence_id;
+        } else {
+            errdSvcs.push_back(ep->getPeerEpId());
+            LOGNORMAL << logString()
+                << " open errored svc: " << fds::logString(ep->getPeerEpId())
+                << ep->responseStatus();
+        }
+    }
+
+    /* Sort open responses by sequence id in descending order */
+    std::sort(successSvcs.begin(),
+              successSvcs.end(),
+              [](const Response &lhs, const Response &rhs) {
+                  return lhs.second->sequence_id > rhs.second->sequence_id;
+              });
+
+    /* Figure out if have quorum # of responses with latest state */
+    uint32_t latestStateReplicas = 1;
+    for (uint32_t i = 1; i < successSvcs.size(); ++i) {
+        if (successSvcs[i-1].second->sequence_id != successSvcs[i].second->sequence_id) {
+            break;
+        }
+        ++latestStateReplicas;
+    }
+    if (latestStateReplicas < quorumCnt_) {
+        LOGWARN << logString() << " Not enough members with latest state to start a group";
+        return;
+    }
+    for (uint32_t i = 0; i < latestStateReplicas; i++) {
+        auto volumeHandle = getVolumeReplicaHandle_(successSvcs[i].first);
+        /* For replica handle to be functional transition from syncing to functional so that
+         * all the accounting is taken care for ids appropriately
+         */
+        changeVolumeReplicaState_(volumeHandle,
+                                  successSvcs[i].second->replicaVersion-1,
+                                  fpi::ResourceState::Syncing,
+                                  ERR_OK);
+        changeVolumeReplicaState_(volumeHandle,
+                                  successSvcs[i].second->replicaVersion,
+                                  fpi::ResourceState::Active,
+                                  ERR_OK);
+    }
+}
+
+void VolumeGroupHandle::broadcastGroupInfo_()
+{
+    auto msg = MAKE_SHARED<fpi::VolumeGroupInfoUpdateCtrlMsg>();
+    msg->group = getGroupInfoForExternalUse_();
+    auto req = requestMgr_->newSvcRequest<QuorumSvcRequest>(
+        getDmtVersion(),
+        getAllReplicas());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::VolumeGroupInfoUpdateCtrlMsg), msg);
+    /* This broadcast intentionall is fire and forget */
+    req->invoke();
+}
+
+void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState)
+{
+    if (targetState == fpi::ResourceState::Active) {
+        fds_assert(functionalReplicas_.size() >= quorumCnt_);
+    } else {
+        functionalReplicas_.clear();
+        nonfunctionalReplicas_.clear();
+        syncingReplicas_.clear();
+    }
+    state_ = targetState;
 }
 
 void VolumeGroupHandle::handleAddToVolumeGroupMsg(
@@ -196,6 +395,16 @@ std::vector<VolumeReplicaHandle*> VolumeGroupHandle::getIoReadyReplicaHandles()
 VolumeReplicaHandle* VolumeGroupHandle::getFunctionalReplicaHandle()
 {
     return &(functionalReplicas_.back());
+}
+
+std::vector<fpi::SvcUuid> VolumeGroupHandle::getAllReplicas() const
+{
+    std::vector<fpi::SvcUuid> svcs;
+    auto appendF = [&svcs](const VolumeReplicaHandle& h) { svcs.push_back(h.svcUuid); };
+    std::for_each(functionalReplicas_.begin(), functionalReplicas_.end(), appendF);
+    std::for_each(nonfunctionalReplicas_.begin(), nonfunctionalReplicas_.end(), appendF);
+    std::for_each(syncingReplicas_.begin(), syncingReplicas_.end(), appendF);
+    return svcs;
 }
 
 VolumeGroupHandle::VolumeReplicaHandleList&

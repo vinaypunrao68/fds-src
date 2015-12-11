@@ -400,6 +400,7 @@ enum  FDSPMsgTypeId {
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
+  SetVolumeGroupCoordinatorMsgTypeId;
   AddToVolumeGroupCtrlMsgTypeId;
   AddToVolumeGroupRespCtrlMsgTypeId;
   VolumeStateUpdateInfoCtrlMsgTypeId;

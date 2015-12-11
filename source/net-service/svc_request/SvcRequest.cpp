@@ -858,7 +858,7 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         return;
     }
 
-    epReq->complete(header->msg_code);
+    epReq->completeReq(header->msg_code, header, payload);
 
     bool bSuccess = (header->msg_code == ERR_OK);
     /* Handle the error */

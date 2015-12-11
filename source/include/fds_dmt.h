@@ -50,6 +50,8 @@ namespace fds {
          */
         DmtColumnPtr getNodeGroup(fds_uint32_t col_index) const;
         DmtColumnPtr getNodeGroup(fds_volid_t volume_id) const;
+        std::vector<fpi::SvcUuid> getSvcUuids(fds_volid_t volume_id) const;
+
         /**
          * Returns column index in the DMT that is responsivle for
          * given volume id 'volume_id'.
