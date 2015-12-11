@@ -13,6 +13,9 @@ namespace java com.formationds.protocol
 const string INITIAL_XDI_VERSION = "0_8"
 const string CURRENT_XDI_VERSION = INITIAL_XDI_VERSION
 
+const i32 STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS = 60
+const i32 STAT_STREAM_RUN_FOR_EVER_DURATION = -1
+
 enum BlobListOrder {
     UNSPECIFIED = 0,
     LEXICOGRAPHIC,

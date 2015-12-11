@@ -564,6 +564,7 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
+    ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp

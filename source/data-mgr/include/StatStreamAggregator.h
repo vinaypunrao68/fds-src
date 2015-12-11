@@ -42,7 +42,7 @@ class StatStreamTimerTask : public FdsTimerTask {
     DataMgr& dataManager_;
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
-    std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_ts_;
+    std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_rel_sec_;
 };
 
 /**
@@ -95,7 +95,6 @@ class VolumeStats {
     /**
      * Fine-grain (cached) volume's history of stats
      * that are streamed out (we will log these)
-     * This will be set per-minute for now
      */
     VolumePerfHistory::ptr finegrain_hist_;
 
@@ -302,7 +301,6 @@ class StatStreamAggregator : public Module {
     // timer to aggregate fine-grained slots into coarse-grained and long term slots
     FdsTimerPtr aggregate_stats_;
     FdsTimerTaskPtr aggregate_stats_task_;
-    fds_uint32_t aggregate_stats_period_sec_;
 
     /**
      * Volume id to VolumeStats struct map; VolumeStats struct contains all

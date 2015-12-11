@@ -12,8 +12,8 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(FdsStatPushPeriodSec,
-                                FdsStatPeriodSec, 1);
+StatsCollector glStatsCollector(FdsStatPushAndAggregatePeriodSec,
+                                FdsStatFGPeriodSec, 1);
 
 class CollectorTimerTask : public FdsTimerTask {
   public:
@@ -74,7 +74,7 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
      * a delinquent pusher to get their stats to us before we publish.
      */
     fds_verify(slotsec_stat_ > 0);
-    slots_stat_ = push_interval_ / slotsec_stat_ + FdsStatWaitFactor;
+    slots_stat_ = push_interval_ / slotsec_stat_ + FdsStatCollectionWaitMult;
 
     svcMgr_ = nullptr;
     record_stats_cb_ = NULL;
