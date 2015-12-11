@@ -484,6 +484,7 @@ namespace fds
                }
                else
                {
+                   LOGWARN "Looking for process with pid " << pid << " and it is no longer " << procName;
                    return false;
                }
            }
