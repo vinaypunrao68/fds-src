@@ -365,6 +365,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
+    // Runs sync protocol
+    void runSyncProtocol(VolumeMeta *volmeta);
     /*
      * Gets and sets Number of primary DMs.
      */

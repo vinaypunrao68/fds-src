@@ -46,6 +46,11 @@ class OM_Module : public Module
     inline VolumePlacement *om_volplace_mod() {
         return om_volume_place;
     }
+
+    inline bool om_replica_mode() {
+        return replica_mode;
+    }
+
     /**
      * Module methods.
      */
@@ -60,6 +65,11 @@ class OM_Module : public Module
     OM_DMTMod               *om_dmt;
     DataPlacement           *om_data_place;
     VolumePlacement         *om_volume_place;
+
+    /**
+     * Toggles for service layer
+     */
+    bool    replica_mode;
 };
 
 }  // namespace fds
