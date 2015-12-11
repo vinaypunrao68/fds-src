@@ -141,6 +141,9 @@ function clean_up_environment
    message "STOPPING redis"
    sudo source/tools/redis.sh stop
 
+   message "Forcing removal of fds-deps"
+   sudo dpkg -P fds-deps
+
    # Clean remove the old /fds
    message "CLEAN existing /fds"
    rm -rf /fds || true
