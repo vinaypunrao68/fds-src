@@ -26,9 +26,9 @@ public class TargetTest
                       .withLun( new LUN.Builder()
                                        .withLun( "volume_0" )
                                        .withAccessType( LUN.AccessType.RW )
-                                       .withInitiator( new Initiator( "82:*:00:*" ) )
-                                       .withInitiator( new Initiator( "83:*:00:*" ) )
                                        .build( ) )
+                      .withInitiator( new Initiator( "82:*:00:*" ) )
+                      .withInitiator( new Initiator( "83:*:00:*" ) )
                       .build( );
 
         target.setId( 0L );
@@ -52,17 +52,17 @@ public class TargetTest
             Assert.assertNotNull( user.getPasswd() );
         }
 
-        Assert.assertTrue( target.getLuns().get( 0 ).getInitiators().size() == 2 );
-        for( final Initiator initiator : target.getLuns().get( 0 ).getInitiators() )
-        {
-            Assert.assertNotNull( initiator.getWWNMask() );
-        }
-
         Assert.assertTrue( target.getLuns( ).size( ) == 1 );
         for( final LUN lun : target.getLuns() )
         {
             Assert.assertNotNull( lun.getLunName() );
             Assert.assertNotNull( lun.getAccessType() );
+        }
+
+        Assert.assertTrue( target.getInitiators().size() == 2 );
+        for( final Initiator initiator : target.getInitiators() )
+        {
+            Assert.assertNotNull( initiator.getWWNMask() );
         }
     }
 }

@@ -448,12 +448,9 @@ public class ExternalModelConverter {
             {
                 logger.trace(
                     "Converting volume " + descriptor.getName( ) + " to external format." );
-                Volume externalVolume =
-                    ExternalModelConverter.convertToExternalVolume(
-                        descriptor,
-                        volumeStatus.get( descriptor.getVolId( ) ) );
-
-                ext.add( externalVolume );
+                ext.add( ExternalModelConverter.convertToExternalVolume(
+                    descriptor,
+                    volumeStatus.get( descriptor.getVolId( ) ) ) );
             }
         } );
 
@@ -482,7 +479,6 @@ public class ExternalModelConverter {
             if( internalVolume.getPolicy().getIscsiTarget() == null ||
                 !internalVolume.getPolicy().getIscsiTarget().getLuns().isEmpty() )
             {
-//                throw new IllegalArgumentException( "iSCSI target must be provided for converting to external model." );
                 extSettings = new VolumeSettingsISCSI.Builder( )
                     .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
                     .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
@@ -494,7 +490,6 @@ public class ExternalModelConverter {
             }
             else
             {
-
                 extSettings = new VolumeSettingsISCSI.Builder( )
                     .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
                     .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
@@ -505,9 +500,9 @@ public class ExternalModelConverter {
                                                                            .getIscsiTarget( )
                                                                            .getLuns( ) ) )
                                 .withIncomingUsers( convertToExternalIncomingUser(
-                                internalVolume.getPolicy( )
-                                              .getIscsiTarget( )
-                                              .getIncomingUsers( ) ) )
+                                    internalVolume.getPolicy( )
+                                                  .getIscsiTarget( )
+                                                  .getIncomingUsers( ) ) )
                             .withOutgoingUsers( convertToExternalOutgoingUser(
                                 internalVolume.getPolicy( )
                                               .getIscsiTarget( )
@@ -620,14 +615,11 @@ public class ExternalModelConverter {
         }
 
         final List<LogicalUnitNumber> intLuns = new ArrayList<>( );
-
         for ( final LUN lun : luns )
         {
-            final LogicalUnitNumber logicalUnitNumber = new LogicalUnitNumber( lun.getLunName( ),
-                                                                               lun.getAccessType( )
-                                                                                  .name( ) );
-            logicalUnitNumber.setInitiators( convertToInternalInitiators( lun.getInitiators() ) );
-            intLuns.add( logicalUnitNumber );
+            intLuns.add( new LogicalUnitNumber( lun.getLunName( ),
+                                                lun.getAccessType( )
+                                                   .name( ) ) );
         }
 
         return intLuns;
@@ -795,14 +787,15 @@ public class ExternalModelConverter {
                         convertToInternalLogicalUnitNumber(
                             iscsiSettings.getTarget( )
                                          .getLuns( ) ) )
+                                      .setInitiators(
+                                          convertToInternalInitiators(
+                                              iscsiSettings.getTarget().getInitiators() ) )
                                       .setIncomingUsers(
                                           convertToInternalIncomingUsers(
-                                              iscsiSettings.getTarget( )
-                                                           .getIncomingUsers( ) ) )
+                                              iscsiSettings.getTarget( ).getIncomingUsers( ) ) )
                                       .setOutgoingUsers(
                                           convertToInternalOutgoingUsers(
-                                              iscsiSettings.getTarget( )
-                                                           .getOutgoingUsers( ) ) );
+                                              iscsiSettings.getTarget( ).getOutgoingUsers( ) ) );
 
                 internalSettings.setIscsiTarget( iscsiTarget );
             }
@@ -940,7 +933,12 @@ public class ExternalModelConverter {
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
             final IScsiTarget target =
-                new IScsiTarget( convertToInternalLogicalUnitNumber( iscsi.getTarget().getLuns() ) );
+                new IScsiTarget(
+                    convertToInternalLogicalUnitNumber( iscsi.getTarget().getLuns() ) );
+
+            target.setInitiators( convertToInternalInitiators( iscsi.getTarget().getInitiators() ) );
+            target.setIncomingUsers( convertToInternalIncomingUsers( iscsi.getTarget().getIncomingUsers() ) );
+            target.setOutgoingUsers( convertToInternalOutgoingUsers( iscsi.getTarget().getOutgoingUsers() ) );
 
             volumeType.setIscsi( target );
 
@@ -952,7 +950,8 @@ public class ExternalModelConverter {
                 volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize( )
                                                               .getValue( SizeUnit.B )
                                                               .intValue( ) );
-            } else
+            }
+            else
             {
                 volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
             }
