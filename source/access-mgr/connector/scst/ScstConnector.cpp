@@ -122,25 +122,9 @@ ScstConnector::discoverTargets() {
         // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
         // This is a magic value from thrift that i don't want to include
         // headers from
-<<<<<<< HEAD
-        if (1 != vol.volType || vol.isSnapshot()) continue;
-        try {
-            auto it = targets_.end();
-            bool happened {false};
-            auto target = new ScstTarget(target_prefix + vol.name,
-                                         threads,
-                                         amProcessor);
-            targets_[vol.name].reset(target);
-            target->addDevice(vol.name);
-            target->enable();
-        } catch (ScstError& e) {
-            LOGERROR << "Failed to create device for: " << vol.name;
-        }
-=======
         if ((1 != vol.volType && 3 != vol.volType)
             || vol.isSnapshot()) continue;
         addTarget(vol);
->>>>>>> fds/master
     }
 }
 
