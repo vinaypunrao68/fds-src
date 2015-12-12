@@ -1,5 +1,6 @@
 from svchelper import *
 import restendpoint
+import dmtdlt
 
 # Currently (3/9/2015) does not support the full Local Domain
 # interface. Just enough to match what was supported by fdscli
@@ -225,3 +226,58 @@ class DomainContext(Context):
         except Exception, e:
             log.exception(e)
             return 'Unable to remove Services from Local Domain: {}'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def showdmt(self):
+        'display dmt info'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDMT(0)
+        #print msg
+        dmt = dmtdlt.DMT()
+        dmt.load(msg.dmt_data.dmt_data)
+        dmt.dump()
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def showdlt(self):
+        'display dlt info'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDLT(0)
+        #print msg
+        dlt = dmtdlt.DLT()
+        dlt.load(msg.dlt_data.dlt_data)
+        dlt.dump()
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volume', help='-volume name/id')
+    def whereisvolume(self, volume):
+        'display where the volume meta is located'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDMT(0)
+        dmt = dmtdlt.DMT()
+        dmt.load(msg.dmt_data.dmt_data)
+        volId = self.config.getVolumeApi().getVolumeId(volume)
+        count = 1
+        for uuid in dmt.getNodesForVolume(volId) :
+            print '{} : {}' .format(count, self.config.getServiceApi().getServiceName(uuid))
+            count += 1
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('objid', help='-object id')
+    def whereisobject(self, objid):
+        'display where the volume meta is located'
+
+        if len(objid) != 40:
+            print '{} does not seem to be a valid object id'.format(objid)
+            return
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDLT(0)
+        dlt = dmtdlt.DLT()
+        dlt.load(msg.dlt_data.dlt_data)
+        count = 1
+        for uuid in dlt.getNodesForObject(objid) :
+            print '{} : {}' .format(count, self.config.getServiceApi().getServiceName(uuid))
+            count += 1

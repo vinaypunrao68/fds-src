@@ -22,10 +22,17 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
     obj_phy_loc_t *phyloc = req->req_get_phy_loc();
     fds::Error  err(fds::ERR_OK);
 
-    fds_verify(phyloc->obj_stor_loc_id == fi_loc);
-    fds_verify(obj_map_has_init_val(map) == false);
-    fds_verify(phyloc->obj_file_id == fi_id);
-    fds_verify(fi_fd >= 0);
+    fds_assert(phyloc->obj_stor_loc_id == fi_loc);
+    fds_assert(obj_map_has_init_val(map) == false);
+    fds_assert(phyloc->obj_file_id == fi_id);
+    fds_assert(fi_fd >= 0);
+
+    if (phyloc->obj_stor_loc_id != fi_loc ||
+        obj_map_has_init_val(map) == true ||
+        phyloc->obj_file_id != fi_id ||
+        fi_fd < 0) {
+        return fds::ERR_DISK_READ_FAILED;
+    }
 
     off = phyloc->obj_stor_offset << DataIO::disk_io_blk_shift();
     fds_uint32_t retry_cnt=0;
@@ -45,7 +52,7 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
     disk_read_done(req);
     if ( len < 0 ) {
 	perror("read Error");
-	err= fds::ERR_DISK_READ_FAILED;
+	err = fds::ERR_DISK_READ_FAILED;
     }
     return err; 
 }
