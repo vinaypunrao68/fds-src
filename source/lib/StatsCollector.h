@@ -174,8 +174,6 @@ class StatsCollector : public boost::noncopyable {
      SvcMgr *svcMgr_;
 };
 
-extern StatsCollector* g_statsCollector;
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_STATSCOLLECTOR_H_

@@ -845,6 +845,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./umod-lib/common/fdsp_utils.cpp
     ./umod-lib/common/PerfTrace.cpp
     ./umod-lib/common/Tracebuffer.cpp
+    ./umod-lib/common/StatTypes.cpp
 
     ./umod-lib/concurrency/Mutex.cpp
     ./umod-lib/concurrency/Synchronization.cpp

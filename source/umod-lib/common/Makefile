@@ -16,7 +16,8 @@ user_cpp         := \
     fds-aio.cpp \
     fds_process.cpp \
     PerfTrace.cpp \
-    Tracebuffer.cpp
+    Tracebuffer.cpp \
+    StatTypes.cpp
 
 user_no_style    := \
     fds_request.cpp \

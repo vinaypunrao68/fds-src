@@ -80,7 +80,6 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                conf.longstat_slots_,
                                                conf.longstat_slotsec_)),
           long_stdev_update_ts_(0),
-          recent_stdev_update_ts_(0),
           cap_recent_stdev_(0),
           cap_long_stdev_(0),
           cap_recent_wma_(0),
@@ -102,7 +101,7 @@ void VolumeStats::processStats() {
                                                          last_process_rel_secs_,
                                                          0,  // max_slots - copy all slots from history at a point starting with, but not
                                                              // including, last_process_rel_secs_ except
-                                                         FdsStatCollectionWaitMult * FdsStatPushAndAggregatePeriodSec);
+                                                         StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
                                                             // the last few slots that are contained in the amount of time taken to
                                                             // do FdsStatCollectionWaitMult pushes.
                                                             // Why ignore those last few? Well, we are assuming that not all modules feeding
@@ -183,10 +182,9 @@ void VolumeStats::updateFirebreakMetrics() {
     if (elapsed_nanos < (NANOS_IN_SECOND * coarsegrain_hist_->secondsInSlot())) {
         return;  // no need to update long-term stdev
     }
-    recent_stdev_update_ts_ = now;
 
     // update recent (one day / coarse-grained slots) history stdev
-    coarsegrain_hist_->toSlotList(slots, 0, 0, FdsStatCollectionWaitMult * FdsStatPushAndAggregatePeriodSec);
+    coarsegrain_hist_->toSlotList(slots, 0, 0, StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
     fds_uint32_t min_slots = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
     if (min_slots > (coarsegrain_hist_->numberOfSlots() - 1)) {
         min_slots = (coarsegrain_hist_->numberOfSlots() - 1);
@@ -213,7 +211,7 @@ void VolumeStats::updateFirebreakMetrics() {
     long_stdev_update_ts_ = now;
 
     // get 1-day history
-    longterm_hist_->toSlotList(slots, 0, 0, FdsStatCollectionWaitMult * FdsStatPushAndAggregatePeriodSec);
+    longterm_hist_->toSlotList(slots, 0, 0, StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
     if (slots.size() < (longterm_hist_->numberOfSlots() - 1)) {
         // to start reporting long term stdev we must have most of history
         return;
@@ -240,7 +238,7 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
          cit != slots.cend();
          cit++) {
         double bytes = StatHelper::getTotalPhysicalBytes(*cit);
-        LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel ts "
+        LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel secs "
                  << (*cit).getRelSeconds() << " bytes " << static_cast<fds_int64_t>(bytes);
 
         if (cit == slots.cbegin()) {
@@ -251,7 +249,7 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
         double ops = StatHelper::getTotalPuts(*cit) + StatHelper::getTotalGets(*cit);
         double ops_per_unit = ops / units_in_slot;
 
-        LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel ts "
+        LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel secs "
                  << (*cit).getRelSeconds() << " bytes " << static_cast<fds_int64_t>(bytes)
                  << " prev bytes " << static_cast<fds_int64_t>(prev_bytes)
                  << " add_bytes_per_unit " << static_cast<fds_int64_t>(add_bytes_per_unit)
@@ -288,12 +286,12 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
     // default config
-    hist_config.finestat_slotsec_ = FdsStatFGPeriodSec;
-    hist_config.finestat_slots_ = FdsStatFGSlotCnt;
-    hist_config.coarsestat_slotsec_ = FdsStatCGPeriodSec;
-    hist_config.coarsestat_slots_ = FdsStatCGSlotCnt;
-    hist_config.longstat_slotsec_ = FdsStatLTPeriodSec;
-    hist_config.longstat_slots_ = FdsStatLTSlotCnt;
+    hist_config.finestat_slotsec_ = StatConstants::singleton()->FdsStatFGPeriodSec;
+    hist_config.finestat_slots_ = StatConstants::singleton()->FdsStatFGSlotCnt;
+    hist_config.coarsestat_slotsec_ = StatConstants::singleton()->FdsStatCGPeriodSec;
+    hist_config.coarsestat_slots_ = StatConstants::singleton()->FdsStatCGSlotCnt;
+    hist_config.longstat_slotsec_ = StatConstants::singleton()->FdsStatLTPeriodSec;
+    hist_config.longstat_slots_ = StatConstants::singleton()->FdsStatLTSlotCnt;
 
     // if in firebreak test mode, set different slot sizes for long and coarse
     // grain histories
@@ -336,13 +334,13 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     minLogReg->id = MinLogRegId;
     minLogReg->method = "log-local";
     minLogReg->sample_freq_seconds = 60;
-    minLogReg->duration_seconds = FdsStatRunForever;
+    minLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
 
     fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
     hourLogReg->id = HourLogRegId;
     hourLogReg->method = "log-local";
     hourLogReg->sample_freq_seconds = 3600;
-    hourLogReg->duration_seconds = FdsStatRunForever;
+    hourLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
 
     registerStream(minLogReg);
     registerStream(hourLogReg);
@@ -352,11 +350,11 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
      */
     LOGTRACE << "Finegrain slot period " << hist_config.finestat_slotsec_ << " seconds, "
              << "slots " << hist_config.finestat_slots_ << "; coarsegrain slot period "
-             << hist_config.coarsestat_slotsec_ << " seceonds, slots " << hist_config.coarsestat_slots_
-             << ". Will update coarse grain stats every " << FdsStatPushAndAggregatePeriodSec << " seconds.";
+             << hist_config.coarsestat_slotsec_ << " seconds, slots " << hist_config.coarsestat_slots_
+             << ". Will update coarse grain stats every " << StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec << " seconds.";
 
     fds_bool_t ret = aggregate_stats_->scheduleRepeated(aggregate_stats_task_,
-                                                        std::chrono::seconds(FdsStatPushAndAggregatePeriodSec));
+                                                        std::chrono::seconds(StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec));
 
     if (!ret) {
         LOGTRACE << "Failed to schedule timer for logging volume stats!";
@@ -440,7 +438,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
     if (!registration->sample_freq_seconds || !registration->duration_seconds) {
         return ERR_INVALID_ARG;
     } else if ((registration->duration_seconds % registration->sample_freq_seconds) &&
-                (registration->duration_seconds != FdsStatRunForever)) {
+                (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever)) {
         return ERR_INVALID_ARG;
     }
 
@@ -460,7 +458,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
      * Schedule the task to cancel our stream stats task at the expiration of our duration unles
      * we are asked to run the task indefinitely.
      */
-    if (registration->duration_seconds != FdsStatRunForever) {
+    if (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever) {
         LOGTRACE << "Streaming registration with id <" << registration->id << "> to be canceled after <"
                         << registration->duration_seconds << "> seconds.";
         FdsTimerTaskPtr statStreamCancelTask(
@@ -544,8 +542,8 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
-            LOGTRACE << " rsync node id: " << (nodes->get(i)).uuid_get_val()
-                               << "myuuid: " << selfSvcUuid.svc_uuid;
+            //LOGTRACE << " rsync node id: " << (nodes->get(i)).uuid_get_val()
+            //                   << "myuuid: " << selfSvcUuid.svc_uuid;
            if (selfSvcUuid != nodes->get(i).toSvcUuid()) {
                /* Disable volStatSync because we shouldn't be using rsync to sync stats
                 * One reaason is the below code use system() command to run rsync
@@ -774,11 +772,11 @@ void StatStreamTimerTask::runTimerTask() {
         }
         const std::string & volName = dataManager_.volumeName(volId);
 
-        VolumePerfHistory::ptr & hist = (FdsStatFGPeriodSec == reg_->sample_freq_seconds) ?
+        VolumePerfHistory::ptr & hist = (StatConstants::singleton()->FdsStatFGPeriodSec == reg_->sample_freq_seconds) ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
         fds_uint64_t last_rel_sec = (vol_last_rel_sec_.count(volId) > 0) ? vol_last_rel_sec_[volId] : 0;
-        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, FdsStatCollectionWaitMult *
-                                                                            FdsStatPushAndAggregatePeriodSec);
+        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, StatConstants::singleton()->FdsStatCollectionWaitMult *
+                                                                            StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
 
         for (auto slot : slots) {
             fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());

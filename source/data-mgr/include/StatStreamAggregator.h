@@ -169,7 +169,6 @@ class VolumeStats {
     double perf_long_stdev_;
     double perf_recent_wma_;
     fds_uint64_t long_stdev_update_ts_;
-    fds_uint64_t recent_stdev_update_ts_;
 
     /**
      * For processing finegrain stats

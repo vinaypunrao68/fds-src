@@ -451,8 +451,8 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
             }
         }
 
-        LOGTRACE << "For volume <" << fdsp_volstats.volume_id << "> using slot index <" << index
-        << "> with relative seconds <" << rel_seconds << "> to merge stats.";
+        //LOGTRACE << "For volume <" << fdsp_volstats.volume_id << "> using slot index <" << index
+        //         << "> with relative seconds <" << rel_seconds << "> to merge stats.";
     }
     return err;
 }
@@ -684,6 +684,9 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
         last_added_rel_sec = latest_rel_seconds;
     }
 
+    LOGTRACE << "last_rel_sec = <" << last_rel_sec
+             << ">, latest_rel_seconds = <" << latest_rel_seconds << ">.";
+
     return last_added_rel_sec;
 }
 
@@ -706,6 +709,9 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
     auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound.
     auto slot_copy_lower_bound_index = (slot_copy_upper_bound_index + 1) % max_slot_generations_;  // Potentially the oldest slot. Copy from and including this bound.
 
+    LOGTRACE << "slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index
+             << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index << ">.";
+
     auto slot_index = slot_copy_lower_bound_index;
     fds_uint64_t latest_rel_seconds = 0;
 
@@ -713,6 +719,8 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
     fdsp_volstat.volume_id = volid_.get();
     while (slot_index != slot_copy_upper_bound_index) {
         auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
+
+        LOGTRACE << "slot_rel_seconds = <" << slot_rel_seconds << ">.";
 
         /**
          * Ensure we don't copy any slots from the given last_rel_sec
@@ -742,6 +750,9 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
         last_added_rel_sec = latest_rel_seconds;
     }
 
+    LOGTRACE << "last_rel_sec = <" << last_rel_sec
+             << ">, latest_rel_seconds = <" << latest_rel_seconds << ">.";
+
     return last_added_rel_sec;
 }
 
@@ -753,10 +764,10 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                                       fds_uint64_t last_rel_sec) {
     // ensure last_slot_generation_ is up to date
     // important because if IO stopped and history was not updated
-    // the last slot before idle period will never printed
+    // the last slot before idle period will never be printed
     fds_uint64_t rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
     write_synchronized(stat_lock_) {
-        fds_uint32_t index = useSlotLockHeld(rel_seconds);
+        useSlotLockHeld(rel_seconds);
     }
 
     fds_uint32_t endix = last_slot_generation_ % max_slot_generations_;

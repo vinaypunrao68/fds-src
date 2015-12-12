@@ -12,8 +12,7 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(FdsStatPushAndAggregatePeriodSec,
-                                FdsStatFGPeriodSec, 1);
+StatsCollector* glStatsCollector = nullptr;
 
 class CollectorTimerTask : public FdsTimerTask {
   public:
@@ -74,7 +73,7 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
      * a delinquent pusher to get their stats to us before we publish.
      */
     fds_verify(slotsec_stat_ > 0);
-    slots_stat_ = push_interval_ / slotsec_stat_ + FdsStatCollectionWaitMult;
+    slots_stat_ = push_interval_ / slotsec_stat_ + StatConstants::singleton()->FdsStatCollectionWaitMult;
 
     svcMgr_ = nullptr;
     record_stats_cb_ = NULL;
@@ -125,7 +124,12 @@ StatsCollector::~StatsCollector() {
 }
 
 StatsCollector* StatsCollector::singleton() {
-    return &glStatsCollector;
+    if (glStatsCollector == nullptr) {
+        glStatsCollector = new StatsCollector(StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec,
+                                              StatConstants::singleton()->FdsStatFGPeriodSec, 1);
+    }
+
+    return glStatsCollector;
 }
 
 void StatsCollector::setSvcMgr(SvcMgr* svcMgr) {
@@ -323,6 +327,9 @@ void StatsCollector::print()
 void StatsCollector::sampleStats() {
     fds_uint64_t stat_slot_nanos = slotsec_stat_*NANOS_IN_SECOND;
     last_sample_ts_ += stat_slot_nanos;
+
+    LOGTRACE << "last_sample_ts_ = <" << last_sample_ts_
+             << ">, util::getTimeStampNanos() = <" << util::getTimeStampNanos() << ">.";
 
     if (record_stats_cb_) {
         record_stats_cb_(last_sample_ts_);
