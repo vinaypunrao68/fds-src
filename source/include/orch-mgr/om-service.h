@@ -47,8 +47,8 @@ class OM_Module : public Module
         return om_volume_place;
     }
 
-    inline bool om_replica_mode() {
-        return replica_mode;
+    inline bool om_volume_grouping() {
+        return volume_grouping;
     }
 
     /**
@@ -69,7 +69,7 @@ class OM_Module : public Module
     /**
      * Toggles for service layer
      */
-    bool    replica_mode;
+    bool    volume_grouping;
 };
 
 }  // namespace fds

@@ -12,7 +12,7 @@ namespace fds {
 
 OM_Module::OM_Module(char const *const name)
     : Module(name),
-      replica_mode(false)
+      volume_grouping(false)
 {
     om_data_place = new DataPlacement();
     om_volume_place = new VolumePlacement();
@@ -36,9 +36,9 @@ OM_Module::OM_Module(char const *const name)
     om_node_domain = &gl_OMNodeDomainMod;
 
     // TODO( volume grouping enabled toggle - move it somewhere better? )
-    // replica_mode = bool(MODULEPROVIDER()->get_fds_config()->
+    // volume_grouping = bool(MODULEPROVIDER()->get_fds_config()->
     //                                   get<bool>("fds.om.svc.replica"));
-    replica_mode = true;
+    volume_grouping = true;
 }
 
 OM_Module::~OM_Module() {
