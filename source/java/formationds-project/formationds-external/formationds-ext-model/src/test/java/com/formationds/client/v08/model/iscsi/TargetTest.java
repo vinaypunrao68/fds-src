@@ -52,17 +52,17 @@ public class TargetTest
             Assert.assertNotNull( user.getPasswd() );
         }
 
-        Assert.assertTrue( target.getInitiators().size() == 2 );
-        for( final Initiator initiator : target.getInitiators() )
-        {
-            Assert.assertNotNull( initiator.getWWN() );
-        }
-
         Assert.assertTrue( target.getLuns( ).size( ) == 1 );
         for( final LUN lun : target.getLuns() )
         {
             Assert.assertNotNull( lun.getLunName() );
             Assert.assertNotNull( lun.getAccessType() );
+        }
+
+        Assert.assertTrue( target.getInitiators().size() == 2 );
+        for( final Initiator initiator : target.getInitiators() )
+        {
+            Assert.assertNotNull( initiator.getWWNMask() );
         }
     }
 }

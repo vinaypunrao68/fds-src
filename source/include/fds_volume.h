@@ -101,6 +101,9 @@ class VolumeDesc : public HasState {
     bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
     bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
 
+    FDS_ProtocolInterface::IScsiTarget iscsiSettings;
+    FDS_ProtocolInterface::NfsOption nfsSettings;
+
     FDS_ProtocolInterface::ResourceState     state;
 
     /* Output from block device */
@@ -154,46 +157,6 @@ class VolumeDesc : public HasState {
     void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
     }
-};
-
-/**
- * Possible types of volumes.
- * TODO(Andrew): Disconnect volume layout type from
- * connector type and tiering policy.
- * We should only need blk and object types.
- */
-enum FDS_VolType {
-    FDS_VOL_S3_TYPE,
-    FDS_VOL_BLKDEV_TYPE,
-    FDS_VOL_BLKDEV_SSD_TYPE,
-    FDS_VOL_BLKDEV_DISK_TYPE,
-    FDS_VOL_BLKDEV_HYBRID_TYPE,
-    FDS_VOL_BLKDEV_HYBRID_PREFCAP_TYPE
-};
-
-/**
- * Preconfigured application settings.
- * Defines app types that correspond to known settings
- * that are optimized for that application
- */
-enum FDS_AppWorkload {
-    FDS_APP_WKLD_TRANSACTION,
-    FDS_APP_WKLD_NOSQL,
-    FDS_APP_WKLD_HDFS,
-    FDS_APP_WKLD_JOURNAL_FILESYS,  // Ext3/ext4
-    FDS_APP_WKLD_FILESYS,  // XFS, other
-    FDS_APP_NATIVE_OBJS,  // Native object aka not going over http/rest apis
-    FDS_APP_S3_OBJS,  // Amazon S3 style objects workload
-    FDS_APP_AZURE_OBJS,  // Azure style objects workload
-};
-
-/**
- * Update consistency settings.
- */
-enum FDS_ConsisProtoType {
-    FDS_CONS_PROTO_STRONG,
-    FDS_CONS_PROTO_WEAK,
-    FDS_CONS_PROTO_EVENTUAL
 };
 
 /**

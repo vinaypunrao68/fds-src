@@ -120,6 +120,10 @@ int SMCheckDriver::run() {
 
 int
 main(int argc, char** argv) {
+    if (getuid() != 0) {
+        std::cout << "User is not Root. Exiting..." << std::endl;
+        return 0;
+    }
     fds::SmDiskMap::ptr smDiskMap = fds::SmDiskMap::ptr(
             new fds::SmDiskMap("SMchk"));
 

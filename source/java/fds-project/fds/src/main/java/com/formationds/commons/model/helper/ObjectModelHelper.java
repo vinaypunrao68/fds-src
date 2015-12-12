@@ -4,11 +4,26 @@
 
 package com.formationds.commons.model.helper;
 
-import com.formationds.client.v08.model.*;
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeSettingsBlock;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
+import com.formationds.client.v08.model.VolumeSettingsNfs;
+import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
 import com.formationds.commons.model.type.Protocol;
-import com.google.gson.*;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import com.google.gson.LongSerializationPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,9 +59,7 @@ public class ObjectModelHelper {
         @Override
         public JsonElement serialize( VolumeSettings src, Type typeOfSrc,
                                       JsonSerializationContext context ) {
-
-            JsonElement elem = context.serialize( src );
-            return elem;
+            return context.serialize( src );
         }
 
         @Override

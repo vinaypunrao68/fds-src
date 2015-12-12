@@ -68,8 +68,29 @@ class ContextInfo:
             #print "no functions found in this context : %s" % (self.context.get_context_name()) 
             pass
 
+    def get_help(self, level):
+        helplist=[]
+        ctxName = self.context.name + ' ' if self.context.name != None else ''
+        if len(self.methods) > 0:
+            for cmd, cmdparser in self.parser._subparsers._actions[0].choices.iteritems():
+                cleanname = cmd.replace('_','-')
+                if self.methods[cleanname] > level:
+                    continue
+                #print cmd, cmdparser.description
+                desc=''
+                if cmdparser.description != None:
+                    desclist = cmdparser.description.strip().split('\n')
+                    if len(desclist)>0:
+                        desc = desclist[0]
+                helplist.append(('{}{}'.format(ctxName,cmd) , desc))
+
+        for ctx in self.subcontexts.values():
+            helplist.extend([('{}{}'.format(ctxName,h[0]), h[1]) for h in ctx.get_help(level)])
+
+        return helplist
+
     def add_sub_context(self, ctx):
-        if isinstance(ctx, Context):
+        if not isinstance(ctx, ContextInfo):
             ctx = ContextInfo(ctx)
         ctx.parent = self
         self.subcontexts[ctx.context.get_context_name()] = ctx
@@ -78,7 +99,7 @@ class ContextInfo:
     def get_subcontext_names(self):
         return self.subcontexts.keys()
 
-    def get_method_names(self, level = helpers.AccessLevel.DEBUG):
+    def get_method_names(self, level = helpers.AccessLevel.ADMIN):
         return [item for item, value in self.methods.items() if value <= level]
 
 class RootContext(Context):
