@@ -14,12 +14,12 @@ class ScavengerContext(Context):
         return self.config.getPlatform()
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def enable(self, sm):
         'enable garbage collection'
         try:
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'enabling scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newEnableScavengerMsg()
                 scavCB = WaitedCallback()
@@ -30,12 +30,12 @@ class ScavengerContext(Context):
             return 'Enable failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def disable(self, sm):
         'disable garbage collection'
         try:
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'disabling scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newDisableScavengerMsg()
                 scavCB = WaitedCallback()
@@ -45,12 +45,12 @@ class ScavengerContext(Context):
             return 'disable failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def start(self, sm):
         'start garbage collection on sm'
         try:
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'starting scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newStartScavengerMsg()
                 scavCB = WaitedCallback()
@@ -60,12 +60,12 @@ class ScavengerContext(Context):
             return 'start failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('dm', help= "-Uuid of the DM to send the command to", type=str, default='dm', nargs='?')
     def refscan(self, dm):
         'start object refscanner on dm'
         try:
-            for uuid in self.config.getServiceId(dm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(dm):
                 print 'starting refscan on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
                 cb = WaitedCallback()
@@ -75,12 +75,12 @@ class ScavengerContext(Context):
             return 'start refscan failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def stop(self, sm):
         'stop garbage collection'
         try:
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'stopping scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newStopScavengerMsg()
                 scavCB = WaitedCallback()
@@ -92,7 +92,7 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
 
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='*', nargs='?')
     def info(self, sm):
         'show information about garbage collection'
@@ -109,7 +109,7 @@ class ScavengerContext(Context):
                 sm='sm'
                 dm=True
 
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 numsvcs += 1
                 cntrs = ServiceMap.client(uuid).getCounters('*')
                 keys=cntrs.keys()
@@ -152,7 +152,7 @@ class ScavengerContext(Context):
             if dm:
                 totalobjects =0
                 totalvolumes=0
-                for uuid in self.config.getServiceId('dm', False):
+                for uuid in self.config.getServiceApi().getServiceIds('dm'):
                     cntrs = ServiceMap.client(uuid).getCounters('*')
                     keys=cntrs.keys()
                     data = []
@@ -188,7 +188,7 @@ class ScavengerContext(Context):
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
     def progress(self, sm):
         try:
-            for uuid in self.config.getServiceId(sm, False):
+            for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'progress of scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getStatusMsg = FdspUtils.newScavengerProgressMsg()
                 scavCB = WaitedCallback()
@@ -208,7 +208,7 @@ class ScrubberContext(Context):
     def smClient(self):
         return self.config.getPlatform()
 
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def enable(self, sm):
         'enable scrubber'
@@ -220,7 +220,7 @@ class ScrubberContext(Context):
             log.exception(e)
             return 'enable scrubber failed'
 
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def disable(self, sm):
         'disable scrubber'
@@ -232,7 +232,7 @@ class ScrubberContext(Context):
             log.exception(e)
             return 'disable scrubber failed'
 
-    @clicmd
+    @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
     def info(self, sm):
         'show info about scrubber status'

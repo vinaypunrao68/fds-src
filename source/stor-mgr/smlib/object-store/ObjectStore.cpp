@@ -600,7 +600,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore
@@ -1149,6 +1149,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
+        OBJECTSTOREMGR(objStorMgr)->counters->dataCopied.incr(objMeta->getObjSize());
+
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store
@@ -1163,6 +1165,7 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
+            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -1397,7 +1400,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore

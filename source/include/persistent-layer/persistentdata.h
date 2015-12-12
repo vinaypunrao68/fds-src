@@ -119,6 +119,7 @@ class PersisDataIO
 class FilePersisDataIO : public PersisDataIO
 {
   public:
+    typedef std::shared_ptr<FilePersisDataIO> shared_ptr;
     fds::Error disk_do_read(DiskRequest *req);
     fds::Error disk_do_write(DiskRequest *req);
 

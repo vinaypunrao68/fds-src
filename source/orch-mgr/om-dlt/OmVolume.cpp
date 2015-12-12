@@ -811,6 +811,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
     pkt->state        = pVol->getState();
+    pkt->iscsi        = pVol->iscsiSettings;
 }
 
 // vol_fmt_message
