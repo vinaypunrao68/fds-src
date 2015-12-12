@@ -97,7 +97,7 @@ class ObjectPersistData : public Module,
      * <tier, token, file id> is encoded into fds_uint64_t
      * see getFileKey() method.
      */
-    typedef std::map<fds_uint64_t, diskio::FilePersisDataIO *> TokFileMap;
+    typedef std::map<fds_uint64_t, diskio::FilePersisDataIO::shared_ptr> TokFileMap;
     TokFileMap tokFileTbl;
 
     /**
@@ -270,10 +270,10 @@ class ObjectPersistData : public Module,
     fds_uint16_t getWriteFileId(diskio::DataTier tier,
                                 fds_token_id smTokId);
 
-    diskio::FilePersisDataIO* getTokenFile(diskio::DataTier tier,
-                                           fds_token_id smTokId,
-                                           fds_uint16_t fileId,
-                                           fds_bool_t openIfNotExist);
+    diskio::FilePersisDataIO::shared_ptr getTokenFile(diskio::DataTier tier,
+                                                      fds_token_id smTokId,
+                                                      fds_uint16_t fileId,
+                                                      fds_bool_t openIfNotExist);
 };
 
 }  // namespace fds
