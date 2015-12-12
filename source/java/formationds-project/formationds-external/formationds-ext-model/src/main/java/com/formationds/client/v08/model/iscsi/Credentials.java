@@ -11,8 +11,8 @@ import java.util.Objects;
  */
 public class Credentials
 {
-    private final String name;
-    private final String passwd;
+    private final String username;
+    private final String password;
 
     /**
      * @param name the name of the user
@@ -20,19 +20,19 @@ public class Credentials
      */
     public Credentials( final String name, final String passwd )
     {
-        this.name = name;
-        this.passwd = passwd;
+        this.username = name;
+        this.password = passwd;
     }
 
     /**
      * @return Returns the user's password
      */
-    public String getPasswd( ) { return passwd; }
+    public String getPassword( ) { return password; }
 
     /**
      * @return Returns the user's login
      */
-    public String getName( ) { return name; }
+    public String getUsername( ) { return username; }
 
     @Override
     public boolean equals( final Object o )
@@ -40,13 +40,13 @@ public class Credentials
         if ( this == o ) return true;
         if ( !( o instanceof Credentials ) ) return false;
         final Credentials that = ( Credentials ) o;
-        return Objects.equals( getName( ), that.getName( ) ) &&
-            Objects.equals( getPasswd( ), that.getPasswd( ) );
+        return Objects.equals( getUsername( ), that.getUsername( ) ) &&
+            Objects.equals( getPassword( ), that.getPassword( ) );
     }
 
     @Override
     public int hashCode( )
     {
-        return Objects.hash( getName( ), getPasswd( ) );
+        return Objects.hash( getUsername( ), getPassword( ) );
     }
 }
