@@ -59,7 +59,7 @@ def suiteConstruction(self, install):
 if __name__ == '__main__':
 
     # Handle FDS specific commandline arguments.
-    log_dir, failfast, install, reusecluster = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir, failfast, install, reusecluster, config = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.
     if log_dir is None:
@@ -81,4 +81,10 @@ if __name__ == '__main__':
     runner = testcases.TestMgt.FDSTestRunner(output=log_dir, verbosity=0,
                                              fds_logger=logging.getLogger())
     runner.run(test_suite)
+    testResult = runner.run(test_suite)
+    log = logging.getLogger()
+    if not testResult.wasSuccessful():
+        log.error("%s test FAILED " %config.strip(".ini"))
+        sys.exit(1)
+
 
