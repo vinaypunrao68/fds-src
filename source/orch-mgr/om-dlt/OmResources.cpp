@@ -2779,9 +2779,12 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
-    dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
-    // in case there are no volume acknowledge to wait
-    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    if (!om->om_volume_grouping()) {
+        // Legacy mode - every node down and up event drives the state machine
+        dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
+        // in case there are no volume acknowledge to wait
+        dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    }
 }
 void
 OM_NodeDomainMod::om_dmt_waiting_timeout() {
@@ -2825,6 +2828,12 @@ void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
                                   fpi::FDSP_MgrIdType svcType) {
+
+    OM_Module *om = OM_Module::om_singleton();
+    if (om->om_volume_grouping()) {
+        // For volume groups, replica layer takes care of intermittent state
+        return;
+    }
     if ( om_local_domain_up() )
     {
         if (svcType == fpi::FDSP_STOR_MGR)
@@ -2844,6 +2853,11 @@ void
 OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                                 fpi::FDSP_MgrIdType svcType)
 {
+    OM_Module *om = OM_Module::om_singleton();
+    if (om->om_volume_grouping()) {
+        // For volume groups, replica layer takes care of intermittent state
+        return;
+    }
     if ( om_local_domain_up() )
     {
         if (svcType == fpi::FDSP_STOR_MGR)

@@ -751,7 +751,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         timelineMgr->loadSnapshot(vol_uuid);
     }
     if (fSyncRequired) {
-        runSyncProtocol();
+        // runSyncProtocol();
     }
 
     return err;
