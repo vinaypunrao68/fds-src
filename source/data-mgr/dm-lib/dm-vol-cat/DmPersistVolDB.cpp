@@ -250,6 +250,13 @@ Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) {
+    fds_bool_t dummyFlag = false;
+    return (getAllBlobsWithSequenceId(blobsSeqId, snap, dummyFlag));
+}
+
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) {
 	auto dbIt = catalog_->NewIterator(snap);
 
 	if (!dbIt) {
@@ -258,6 +265,12 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& 
     }
 
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        // Check to see if we are called to stop
+        if (abortFlag) {
+            LOGDEBUG << "Abort migration called. Exiting catalog operations.";
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
+
         leveldb::Slice dbKey = dbIt->key();
         if (*reinterpret_cast<CatalogKeyType const*>(dbKey.data()) == CatalogKeyType::BLOB_METADATA) {
             BlobMetaDesc blobMeta;
@@ -626,22 +639,28 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
     // IS_OP_ALLOWED();
 
     BlobObjectKey key {blobName};
+    Error rc(ERR_OK);
 
-    CatWriteBatch batch;
-    TIMESTAMP_OP(batch);
+    unsigned counter = 0;
     for (fds_uint64_t i = startOffset; i <= endOffset; i += objSize_) {
+        // For now, flush each objSize. This should prevent gigantic delete batch
+        CatWriteBatch batch;
+        TIMESTAMP_OP(batch);
+
         auto objectIndex = i / objSize_;
         fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
+
+        rc = catalog_->Update(&batch);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
+                << std::hex << volId_ << std::dec << "'";
+            break;
+        }
     }
 
-    Error rc = catalog_->Update(&batch);
-    if (!rc.ok()) {
-        LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "'";
-    }
     return rc;
 }
 

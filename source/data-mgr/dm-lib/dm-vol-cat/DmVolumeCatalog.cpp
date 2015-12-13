@@ -970,9 +970,13 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         const fds_uint64_t newLastOffset = DmVolumeCatalog::getLastOffset(newBlob.desc.blob_size,
                                                                           vol->getObjSize());
 
-        if ((newLastOffset+1) < oldLastOffset) {
-            // delete starting at the ofset after the new last offset
-            err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+        // if the new lastOffset is less than the olf lastOfffset, we need to truncate
+        if (newLastOffset < oldLastOffset) {
+            LOGDEBUG << "deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
+
+            // delete starting at the offset AFTER the new last offset
+            err = vol->deleteObject(blobName, newLastOffset + vol->getObjSize(), oldLastOffset);
+            LOGDEBUG << "deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
                 LOGERROR << "During migration, failed to truncate blob: "
@@ -1004,9 +1008,18 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
 }
 
 Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
-                                                 Catalog::MemSnap snap) {
+                                                 Catalog::MemSnap snap,
+                                                 const fds_bool_t &abortFlag) {
+
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
+
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap snap) {
+    fds_bool_t dummyFlag = false;
+    return (getAllBlobsWithSequenceId(volId, blobsSeqId, snap, dummyFlag));
 }
 
 Error DmVolumeCatalog::putObject(fds_volid_t volId,

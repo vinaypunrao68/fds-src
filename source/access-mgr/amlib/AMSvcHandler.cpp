@@ -107,9 +107,9 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     Error err(ERR_OK);
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
+    VolumeDesc vdesc(vol_msg->vol_desc);
     GLOGNOTIFY << "Received volume modify  event from OM"
-               << " for volume " << vdb->name << ":" << vol_uuid;
+               << " for volume " << vdesc;
 
     if (amProcessor->isShuttingDown())
     {
@@ -122,7 +122,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         // If this channel has threadpool on this we do not block though.
         // A real nonblocking could install callback upon read-lock acquiring...
         // and continue on next step...
-        err = amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
+        err = amProcessor->modifyVolumePolicy(vdesc);
     }
 
     hdr->msg_code = err.GetErrno();

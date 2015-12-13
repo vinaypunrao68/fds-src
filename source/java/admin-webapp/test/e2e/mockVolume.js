@@ -450,6 +450,17 @@ mockVolume = function(){
             },
             {
                 type: 'OBJECT'
+            },
+            {
+                type: 'ISCSI',
+                capacity: {
+                    value: 10,
+                    unit: 'GB'
+                },
+                target: {
+                    incomingUsers: [
+                    ]
+                }
             }
         ];
 

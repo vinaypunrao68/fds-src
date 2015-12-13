@@ -12,14 +12,17 @@
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <util/process.h>  // For print_stacktrace().
-
+#include <util/stringutils.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <execinfo.h>
 
 #include <sys/time.h>
 #include <sys/resource.h>
-
+extern const char * versRev;
+extern const char * versDate;
+extern const char * machineArch;
+extern const char * buildStrTmpl;
 namespace fds {
 
 /*
@@ -217,6 +220,23 @@ void FdsProcess::init(int argc, char *argv[],
 
         /* Process wide counters setup */
         setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
+        properties.set("hostname", net::get_my_hostname());
+        properties.set("build.version",util::strformat("%s-%s",versDate,versRev));
+        properties.set("build.os", machineArch);
+#ifdef DEBUG
+        properties.set("build.mode", "debug");
+#else
+        properties.set("build.mode", "release");
+#endif
+        // get the build date
+        auto pos = strstr(buildStrTmpl,"Date:");
+        if (pos) {
+            auto stpos = strstr(pos,"<");
+            auto endpos = strstr(pos,">");
+            if (stpos && endpos) {
+                properties.set("build.date", std::string(stpos+1, endpos-stpos-1));
+            }
+        }
 
         /* Process wide fault injection */
         fiu_init(0);
@@ -695,6 +715,7 @@ void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
     fds_verify(cntrs_mgrPtr_.get() == NULL);
     cntrs_mgrPtr_.reset(new FdsCountersMgr(mgr_id));
     g_cntrs_mgr = cntrs_mgrPtr_;
+    new ResourceUsageCounter(g_cntrs_mgr->get_default_counters());
 }
 
 void FdsProcess::setup_timer_service()

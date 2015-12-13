@@ -27,6 +27,7 @@ module.exports = function(config) {
       'node_modules/angular-mocks/angular-mocks.js',
       'src/scripts/main.js',
       'src/scripts/module-manifest.js',
+      'test/e2e/mock*.js',
       'src/**/!(main|module-manifest|demo-script|cheats).js',
       'test/karma/**/*.js'
     ],

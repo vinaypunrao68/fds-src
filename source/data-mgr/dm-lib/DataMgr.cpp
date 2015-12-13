@@ -914,7 +914,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
  * For all the volumes under going Active Migration forwarding,
  * turn them off.
  */
-Error DataMgr::notifyDMTClose() {
+Error DataMgr::notifyDMTClose(int64_t dmtVersion) {
     Error err(ERR_OK);
 
     // TODO(Andrew): Um, no where to we have a useful error statue
@@ -922,7 +922,8 @@ Error DataMgr::notifyDMTClose() {
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
     dmMigrationMgr->stopAllClientForwarding();
-    err = dmMigrationMgr->finishActiveMigration(DmMigrationMgr::MigrationRole::MIGR_CLIENT);
+    err = dmMigrationMgr->finishActiveMigration(
+        DmMigrationMgr::MigrationRole::MIGR_CLIENT, dmtVersion);
     return err;
 }
 
@@ -989,8 +990,8 @@ int DataMgr::mod_init(SysParams const *const param)
     sampleCounter = 0;
     counters = new fds::dm::Counters("dmcounters", MODULEPROVIDER()->get_cntrs_mgr().get());
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
-    closedmt_timer = MODULEPROVIDER()->getTimer();
-    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
+    auto timer = MODULEPROVIDER()->getTimer();
+    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
 
@@ -1051,7 +1052,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
-
     
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
     refCountMgr.reset(new refcount::RefCountManager(this));
@@ -1173,6 +1173,7 @@ void DataMgr::mod_enable_service() {
                                                              *qosCtrl->threadPool,
                                                              *this));
 
+    LOGNORMAL << "Finished timevolCat creation";
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
@@ -1199,13 +1200,20 @@ void DataMgr::mod_enable_service() {
         // Get the volume descriptors from OM
         getAllVolumeDescriptors();
     }
+    LOGNORMAL << "Finished stat collection and pulling volume descriptors";
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    LOGNORMAL << "Finished creating DM directory layout";
+
     expungeMgr.reset(new ExpungeManager(this));
+
+    LOGNORMAL << "Finished creating expunge manager";
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
+
+    LOGNORMAL << "Finished starting TVC";
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1627,7 +1635,8 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             // AM should enforce the policy for all connectors or we always leave
             // it up to the connector.
             if ((parentDm->features.isSerializeReqsEnabled()) &&
-                (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
+                (volType != fpi::FDSP_VOL_BLKDEV_TYPE) &&
+                (volType != fpi::FDSP_VOL_ISCSI_TYPE)) {
                 LOGDEBUG << io->log_string()
                          << " synchronize on hashkey: " << key.first << ":" << key.second;
                 serialExecutor->scheduleOnHashKey(keyHash(key),

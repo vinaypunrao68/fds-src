@@ -123,7 +123,7 @@ NbdConnection::~NbdConnection() {
 
 void
 NbdConnection::terminate() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
 }
 
@@ -421,13 +421,17 @@ NbdConnection::dispatchOp() {
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
-        nbdOps->shutdown();
-        if (ConnectionState::STOPPED == state_) {
-            asyncWatcher->stop();
+    if (ConnectionState::RUNNING != state_) {
+        nbdOps->shutdown();                             // We are shutting down
+        if (ConnectionState::STOPPED == state_ ||
+            ConnectionState::DRAINED == state_) {
+            asyncWatcher->stop();                       // We are not responding
             ioWatcher->stop();
-            nbdOps.reset();
-            return;
+            if (ConnectionState::STOPPED == state_) {
+                nbdOps.reset();
+                nbd_server->deviceDone(clientSocket);   // We are FIN!
+                return;
+            }
         }
     }
 
@@ -499,10 +503,10 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
         }
     }
     } catch(BlockError const& e) {
-        state_ = ConnectionState::STOPPING;
+        state_ = ConnectionState::DRAINING;
         if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
-            state_ = ConnectionState::STOPPED;
+            state_ = ConnectionState::DRAINED;
         }
     }
     // Unblocks the ev loop to handle events again on this connection
