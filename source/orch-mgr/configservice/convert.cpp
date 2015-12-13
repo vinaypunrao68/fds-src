@@ -196,12 +196,30 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
             volDescriptor.policy.volumeType = apis::ISCSI;
             volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.iscsiTarget = volDesc->iscsiSettings;
+
             LOGDEBUG << "LUN count [ " << volDescriptor.policy.iscsiTarget.luns.size() << " ]";
             for ( auto lun : volDescriptor.policy.iscsiTarget.luns )
             {
                 LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
             }
 
+            LOGDEBUG << "Initiator count [ " << volDescriptor.policy.iscsiTarget.initiators.size() << " ]";
+            for ( auto initiator : volDescriptor.policy.iscsiTarget.initiators )
+            {
+                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
+            }
+
+            LOGDEBUG << "Incoming Users count [ " << volDescriptor.policy.iscsiTarget.incomingUsers.size() << " ]";
+            for ( auto credentials : volDescriptor.policy.iscsiTarget.incomingUsers )
+            {
+                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
+            }
+
+            LOGDEBUG << "Outgoing Users count [ " << volDescriptor.policy.iscsiTarget.outgoingUsers.size() << " ]";
+            for ( auto credentials : volDescriptor.policy.iscsiTarget.outgoingUsers )
+            {
+                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
+            }
             break;
         case fpi::FDSP_VOL_S3_TYPE:
             LOGDEBUG << "OBJECT volume found [ " << volDescriptor.name << " ]";

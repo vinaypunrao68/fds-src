@@ -7,6 +7,7 @@
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ################################################################################
+# {{ ansible_managed }}
 {#
 
    Do NOT leave blank lines in this file except inside comment blocks like this one
@@ -47,7 +48,6 @@
 {% set dm_catalog_cache_size = fds_dm_catalog_cache_size if fds_dm_catalog_cache_size is defined else '16777216' %}
 {% set dm_catalog_write_buffer_size = fds_dm_catalog_write_buffer_size if fds_dm_catalog_write_buffer_size is defined else '52428800' %}
 {% set dm_req_serialization = fds_dm_req_serialization if fds_dm_req_serialization is defined else 'true' %}
-{% set dm_enable_timeline = fds_dm_enable_timeline if fds_dm_enable_timeline is defined else 'true' %}
 {% set dm_enable_migration = fds_dm_enable_migration if fds_dm_enable_migration is defined else 'true' %}
 {% set dm_enable_resync = fds_dm_enable_resync if fds_dm_enable_resync is defined else 'false' %}
 {% set dm_migration_timeout = fds_dm_migration_timeout if fds_dm_migration_timeout is defined else '300' %}
@@ -126,7 +126,8 @@
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
-{% set ft_common_enable_valgrind      		  = fds_ft_common_enable_valgrind 	           if fds_ft_common_enable_valgrind                  is defined else 'false'  %}
+{% set ft_common_enable_valgrind      		  = fds_ft_common_enable_valgrind 	           if fds_ft_common_enable_valgrind                  is defined else 'false' %}
+{% set ft_enable_timeline                         = fds_ft_enable_timeline                         if fds_ft_enable_timeline                         is defined else 'false' %}
 {% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'false' %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_am_nbd_enabled                          = fds_ft_am_nbd_enabled                          if fds_ft_am_nbd_enabled                          is defined else 'true'  %}

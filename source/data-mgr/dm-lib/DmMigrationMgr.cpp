@@ -195,13 +195,18 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               abortMigration(); return (ERR_NOT_READY););
 
     waitForMigrationBatchToFinish(MIGR_EXECUTOR);
-
+    
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
     if (err != ERR_OK) {
         return err;
     }
+
+    dataManager.counters->clearMigrationCounters();
+    dataManager.counters->migrationLastRun.set(util::getTimeStampSeconds());
+    dataManager.counters->totalVolumesToBeMigrated.set(migrationMsg->migrations.size());
+    dataManager.counters->migrationDMTVersion.set(migrationMsg->DMT_version);
 
     // Store DMT version for debugging
     DMT_version = migrationMsg->DMT_version;
@@ -415,30 +420,8 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
-    /**
-     * TODO(Neil)
-     * This is currently a bad design because DmIOResyncInitialBlob message
-     * can be super big. The createMigrationClient will not be finished with
-     * the big message and return in time to not block QoS thread so we're doing
-     * a quick fix to just spawn off another thread. This will avoid any future
-     * mysterious I/O timeout because we're holding on to the QoS thread.
-     * The real fix is to break the incoming msg into chunks, service them,
-     * and then return.
-     */
-    std::thread t1([this, destDmUuid, mySvcUuid, migReqMsg, cleanupCb] () mutable {
-        this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
-    });
-    t1.detach();
-    // std::thread t1([&] {this->createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);});
-    // This is bad but there's no control for now. Once we have a better abort, we
-    // will revisit this
-    // t1.detach();
+    err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
 
-	/**
-	 * When we return below, the ack will be sent back to the Executor.
-	 * The dmReq still exists, and will depend on cleanupCb above to be called by the
-	 * client to delete and ensure no memory leaks.
-	 */
     return err;
 }
 
@@ -463,7 +446,6 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         err = ERR_DUPLICATE;
         abortMigration();
     } else {
-        startMigrationStopWatch();
         /**
          * Create a new instance of client and start it.
          */
@@ -473,50 +455,26 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
             LOGNORMAL << "migrationid: " << filterSet->DMT_version
                 << "Creating migration client for node: "
                 << destDmUuid << " volume ID# " << fds_volid;
-			clientMap.emplace(uniqueId,
-							  (client = DmMigrationClient::shared_ptr(
-                              new DmMigrationClient(DmReqHandler,
-                                                    dataManager,
-                                                    mySvcUuid,
-                                                    destDmUuid,
-                                                    filterSet->DMT_version,
-                                                    filterSet,
-                                                    std::bind(&DmMigrationMgr::migrationClientDoneCb,
-                                                              this,
-                                                              std::placeholders::_1,
-                                                              filterSet->DMT_version,
-                                                              std::placeholders::_2),
-                                                    maxNumBlobs,
-                                                    maxNumBlobDesc))));
-        }
-        {
-        	SCOPEDREAD(migrClientLock);
-        	client = getMigrationClient(uniqueId);
-        	fds_assert(client != nullptr);
-
-			err = client->processBlobFilterSet();
-			if (ERR_OK != err) {
-                LOGERROR << client->logString() << " Processing filter set failed: " << err;
-				abortMigration();
-				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
-				goto out;
-			}
-
-			err = client->processBlobFilterSet2();
-			if (ERR_OK != err) {
-				// This one doesn't have an async callback to decrement so we fail it manually
-                LOGERROR << client->logString() << " Processing blob diff failed: " << err;
-				abortMigration();
-				// Shared the same error code, so look for above's msg
-				err = ERR_DM_CAT_MIGRATION_DIFF_FAILED;
-				goto out;
-			}
-        }
-    }
-
-out:
-    if (cleanUp) {
-        cleanUp(err);
+            client = DmMigrationClient::shared_ptr(
+                         new DmMigrationClient(DmReqHandler,
+                                               dataManager,
+                                               mySvcUuid,
+                                               destDmUuid,
+                                               filterSet->DMT_version,
+                                               filterSet,
+                                               std::bind(&DmMigrationMgr::migrationClientDoneCb,
+                                                         this,
+                                                         std::placeholders::_1,
+                                                         filterSet->DMT_version,
+                                                         std::placeholders::_2),
+                                               cleanUp,
+                                               maxNumBlobs,
+                                               maxNumBlobDesc));
+            clientMap[uniqueId] = client;
+       }
+        // Non-blocking call
+        startMigrationStopWatch();
+        client->run();
     }
     return err;
 }
@@ -926,8 +884,8 @@ DmMigrationMgr::clearClients() {
     util::StopWatch sw;
     for (auto client : clientMap) {
         auto dmClient = client.second;
+        dmClient->finish();
         sw.reset();
-        dmClient->waitForAsyncMsgs();
         auto elapsedMs = sw.getElapsedNanos()/1000000;
         if (elapsedMs > 2000) {
             LOGWARN << dmClient->logString() << " migrationclient for volid: "

@@ -1592,7 +1592,8 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             // AM should enforce the policy for all connectors or we always leave
             // it up to the connector.
             if ((parentDm->features.isSerializeReqsEnabled()) &&
-                (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
+                (volType != fpi::FDSP_VOL_BLKDEV_TYPE) &&
+                (volType != fpi::FDSP_VOL_ISCSI_TYPE)) {
                 LOGDEBUG << io->log_string()
                          << " synchronize on hashkey: " << key.first << ":" << key.second;
                 serialExecutor->scheduleOnHashKey(keyHash(key),

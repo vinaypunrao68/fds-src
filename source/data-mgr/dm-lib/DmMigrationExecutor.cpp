@@ -142,7 +142,8 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      * Get the list of <blobid, seqnum> for a volume associted with this executor.
      */
     err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(fds_volid_t(volumeUuid),
-                                                                       filterSet->blobFilterMap);
+                                                                       filterSet->blobFilterMap,
+                                                                       NULL);
     if (!err.ok()) {
         LOGERROR << logString() << "failed to generatate list of <blobid, seqnum> for volume=" << volumeUuid
                  <<" with error=" << err;
