@@ -348,7 +348,7 @@ VolumePerfHistory::VolumePerfHistory(fds_volid_t volid,
         : volid_(volid),
           max_slot_generations_(slots),
           slot_interval_sec_(slot_len_sec),
-          start_nano_(start_ts),
+          local_start_ts_(start_ts),
           last_slot_generation_(0) {
     fds_verify(max_slot_generations_ > 1);
     stat_slots_ = new(std::nothrow) StatSlot[max_slot_generations_];
@@ -371,7 +371,7 @@ void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
     fds_uint32_t index;
     write_synchronized(stat_lock_)
     {
-        index = useSlotLockHeld(rel_seconds);
+        index = relSecToStatHistIndex_LockHeld(rel_seconds);
 
         /**
          * An out-of-bounds index means the stat is too old.
@@ -393,7 +393,7 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     fds_uint32_t index;
     write_synchronized(stat_lock_) {
-        index = useSlotLockHeld(rel_seconds);
+        index = relSecToStatHistIndex_LockHeld(rel_seconds);
 
         /**
          * An out-of-bounds index means the stat is too old.
@@ -417,11 +417,68 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
 }
 
 //
+// Returns local "relative seconds" that corresponds to the remote "relative seconds".
+// Assumes both systems are collecting stats over the same interval of time. Also
+// assumes that while collection start time nanos may be vastly different, the clocks
+// on the two machines are roughly in sync' - at least within the range of a collection
+// interval.
+//
+fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
+                                                    fds_uint64_t remote_start_ts) {
+    LOGTRACE << "remote_rel_sec = <" << remote_rel_sec
+             << ">, remote_start_ts = <" << remote_start_ts
+             << ">, local_start_ts_ = <" << local_start_ts_ << ">.";
+    /**
+     * Check if we're the local machine, or possibly (though
+     * improbably) on the same timestamp as the local machine.
+     */
+    if (remote_start_ts == local_start_ts_) {
+        return remote_rel_sec;
+    }
+
+    /**
+     * To do this conversion, we need to know in what generation of stats with respect
+     * to our local machine the remote machine started collecting stats. For example,
+     * assuming we collect stats on both machines every 60 seconds and if
+     * remote_start_ts == 530000000000 and local_start_ts_ == 210000000000, then stats started collecting
+     * locally earlier than remotely. And in fact, the remote machine's collection start
+     * time corresponds to a local "relative seconds" of ((530000000000 - 210000000000)/NANOS_IN_SECOND) = 320
+     * or a local stat generation of 320 DIV 60 = 5. So in terms of local stat collection,
+     * a remote_rel_sec of, say, 420 needs to be adjusted up by 320 seconds to get the corresponding
+     * local "relative seconds". Thus in this case we would have a local "relative seconds" of
+     * 420 + 320 = 740 or a local stat generation of 740 DIV 60 = 12. Note that at the remote
+     * machine, this was stat generation 420 DIV 60 = 7.
+     *
+     * If the situation were reversed with remote_start_ts == 210000000000 and local_start_ts_ == 530000000000,
+     * then stats started collecting remotely earlier than locally and we should adjust
+     * remote_rel_sec such that we ignore any generation of stats that were collected before the
+     * local machine started its collection. That is, we need to ignore the first
+     * ((530000000000 - 210000000000)/NANOS_IN_SECOND) DIV 60 = 5 generations of remote stats.
+     * Whence the local "relative seconds" would be
+     * 420 - 320 = 100 or a local stat generation of 100 DIV 60 = 1. Note that at the remote
+     * machine, this was stat generation 420 DIV 60 = 7.
+     *
+     */
+    auto local_rel_sec = 0;
+    if (local_start_ts_ < remote_start_ts) {
+        auto diff_sec = tsToRelativeSec(remote_start_ts - local_start_ts_);
+        local_rel_sec += diff_sec;
+    } else {
+        auto diff_sec = tsToRelativeSec(local_start_ts_ - remote_start_ts);
+        local_rel_sec -= diff_sec;
+    }
+
+    return local_rel_sec;
+}
+
+//
 // add slots from fdsp message
 //
-Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
-    Error err(ERR_OK);
+Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
+                                    fds_uint64_t fdsp_start_ts) {
     fds_verify(static_cast<uint64_t>(fdsp_volstats.volume_id) == volid_.get());
+    Error err(ERR_OK);
+
     for (fds_uint32_t i = 0; i < fdsp_volstats.statlist.size(); ++i) {
         StatSlot remote_slot;
         err = remote_slot.loadSerialized(fdsp_volstats.statlist[i].slot_data);
@@ -430,18 +487,14 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
         }
 
         /**
-         * Regardless of the relationship between the clocks of the machine that
-         * generated this stat_list and this machine merging them, relative seconds
-         * between the two machines do not require any transformation since in both
-         * places they represent the difference between the start_nano_ and current
-         * timestamp of their respective machines converted to seconds.
-         *
-         * It's a difference, not an absolute.
+         * Convert the "remote relative seconds" to a more reasonsable "local relative seconds" figure.
+         * This is necessary since, not only are the machines expected to *not* be working with the
+         * same timestamps, but their collection start times may be different as well.
          */
-        fds_uint64_t rel_seconds = fdsp_volstats.statlist[i].rel_seconds;
+        fds_uint64_t rel_seconds = getLocalRelativeSec(fdsp_volstats.statlist[i].rel_seconds, fdsp_start_ts);
         fds_uint32_t index;
         write_synchronized(stat_lock_) {
-            index = useSlotLockHeld(rel_seconds);
+            index = relSecToStatHistIndex_LockHeld(rel_seconds);
 
             /**
              * An out-of-bounds index means the stat is too old.
@@ -451,8 +504,8 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
             }
         }
 
-        //LOGTRACE << "For volume <" << fdsp_volstats.volume_id << "> using slot index <" << index
-        //         << "> with relative seconds <" << rel_seconds << "> to merge stats.";
+        LOGTRACE << "For volume <" << fdsp_volstats.volume_id << "> using slot index <" << index
+                 << "> with relative seconds <" << rel_seconds << "> to merge fdsp stats.";
     }
     return err;
 }
@@ -462,18 +515,10 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats) {
 //
 void VolumePerfHistory::mergeSlots(const std::vector<StatSlot>& stat_list) {
     for (fds_uint32_t i = 0; i < stat_list.size(); ++i) {
-        /**
-         * Regardless of the relationship between the clocks of the machine that
-         * generated this stat_list and this machine merging them, relative seconds
-         * between the two machines do not require any transformation since in both
-         * places they represent the difference between the start_nano_ and current
-         * timestamp of their respective machines converted to seconds.
-         *
-         * It's a difference, not an absolute.
-         */
-        auto rel_seconds = stat_list[i].getRelSeconds();
         write_synchronized(stat_lock_) {
-            auto index = useSlotLockHeld(rel_seconds);
+            auto index = relSecToStatHistIndex_LockHeld(stat_list[i].getRelSeconds());
+            LOGTRACE << "rel_seconds = <" << stat_list[i].getRelSeconds()
+                     << ">, index = <" << index << ">.";
 
             /**
              * An out-of-bounds index indicates that this slot is too
@@ -491,7 +536,9 @@ double VolumePerfHistory::getSMA(FdsStatType stat_type,
                                  fds_uint32_t interval_sec) {
     double sma = 0;
     fds_uint32_t endix = last_slot_generation_ % max_slot_generations_;
-    fds_uint32_t startix = (endix + 1) % max_slot_generations_;  // ind of oldest slot
+    auto startix = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                       (endix + 1) % max_slot_generations_ :
+                                       0;  // The oldest slot. Copy from and including this bound.
     fds_uint32_t ix = startix;
 
     fds_uint32_t slot_count = 0;
@@ -525,19 +572,19 @@ double VolumePerfHistory::getSMA(FdsStatType stat_type,
  *
  * Assumes the caller holds the stat_lock_ lock.
  */
-fds_uint32_t VolumePerfHistory::useSlotLockHeld(fds_uint64_t rel_seconds) {
-    auto slot_generation = rel_seconds / slot_interval_sec_;  // The generation (in historical line of descent) of slots since start_nano_ with respect to rel_seconds. Could be more than max_slot_generations_ and if so we wrap.
+fds_uint32_t VolumePerfHistory::relSecToStatHistIndex_LockHeld(fds_uint64_t rel_seconds) {
+    auto slot_generation = rel_seconds / slot_interval_sec_;  // The generation (in historical line of descent) of slots since local_start_ts_ with respect to rel_seconds. Could be more than max_slot_generations_ and if so we wrap.
     auto remainder = rel_seconds % slot_interval_sec_;
-    auto slot_generation_rel_sec = rel_seconds - remainder;  // Number of seconds since start_nano_ that gets us to slot_generation.
+    auto slot_generation_rel_sec = rel_seconds - remainder;  // Number of seconds since local_start_ts_ that gets us to slot_generation.
     auto slot_generation_index = slot_generation % max_slot_generations_;  // Index into stat_slots_ that corresponds to this slot_generation.
 
-    LOGTRACE << "slot_interval_sec_ = " << slot_interval_sec_
-             << ", max_slot_generations_ = " << max_slot_generations_
-             << ", rel_seconds = " << rel_seconds
-             << ", slot_generation = " << slot_generation
-             << ", slot_generation_rel_sec = " << slot_generation_rel_sec
-             << ", slot_generation_index = " << slot_generation_index
-             << ", last_slot_generation_ = " << last_slot_generation_;
+    //LOGTRACE << "slot_interval_sec_ = " << slot_interval_sec_
+    //         << ", max_slot_generations_ = " << max_slot_generations_
+    //         << ", rel_seconds = " << rel_seconds
+    //         << ", slot_generation = " << slot_generation
+    //         << ", slot_generation_rel_sec = " << slot_generation_rel_sec
+    //         << ", slot_generation_index = " << slot_generation_index
+    //         << ", last_slot_generation_ = " << last_slot_generation_;
 
     // Check if we already started to fill or are ready to fill in this slot.
     if (stat_slots_[slot_generation_index].getRelSeconds() == slot_generation_rel_sec) {
@@ -576,77 +623,54 @@ fds_uint32_t VolumePerfHistory::useSlotLockHeld(fds_uint64_t rel_seconds) {
     stat_slots_[slot_generation_index].reset(slot_generation_rel_sec);
     last_slot_generation_ = slot_generation;
 
-    /**
-     * Based on this latest slot generation, we may find older generation slots in our array that
-     * are no longer valid because we can't store that generation any more. (Consider
-     * what happens, for example, if I/O for a volume stops for a period of time
-     * rendering our history in the array obsolete given the latest generation to be
-     * stored just determined.) Therefore, spin through the array searching for these old guys
-     * and put them out of the misery, making way for the newer generations.
-     *
-     * The newer generations would be ahead of the current generation in the array, being mindful of wrapping.
-     */
-    auto last_slot_generation_index = slot_generation_index;
-    slot_generation_index = (slot_generation_index + 1) % max_slot_generations_;
-    slot_generation++;
-    while (slot_generation_index != last_slot_generation_index) {
-        /**
-         * Look for slots whose relative seconds are less than the earliest relative seconds
-         * we could store. (We either have to convert the latest unsupported generation to relative seconds
-         * or relative seconds to generation. We'll do the former.)
-         *
-         * We'll take the opportunity to set the expected relative seconds for the newer generation slot which means
-         * if we hit a match on expected relative seconds, we're done!
-         */
-        if (stat_slots_[slot_generation_index].getRelSeconds() <= ((last_slot_generation_ - max_slot_generations_) * slot_interval_sec_)) {
-            stat_slots_[slot_generation_index].reset(slot_generation * slot_interval_sec_);
-        } else if (stat_slots_[slot_generation_index].getRelSeconds() == slot_generation * slot_interval_sec_) {
-            break;
-        }
-
-        /**
-         * Wrap the index, not the slot generation.
-         */
-        slot_generation_index = (slot_generation_index + 1) % max_slot_generations_;
-        slot_generation++;
-    }
-
-    return static_cast<fds_uint32_t>(last_slot_generation_index);
+    return static_cast<fds_uint32_t>(slot_generation_index);
 }
 
 fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
                                            fds_uint64_t last_rel_sec,
                                            fds_uint32_t max_slots,
                                            fds_uint32_t last_seconds_to_ignore) {
-    /**
-     * Ensure last_slot_generation_ is up to date with current time
-     * (last_slot_generation_ managed by useSlotLockHeld()).
-     * This is important because if IO stopped and history was not updated,
-     * the last slot before idle period will be lost. Why? Because we will
-     * assume that the last slot generation is not complete until we move
-     * to the next slot generation.
-     */
-    auto rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
-    write_synchronized(stat_lock_) {
-        useSlotLockHeld(rel_seconds);
-    }
 
     SCOPEDREAD(stat_lock_);
-    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound.
-    auto slot_copy_lower_bound_index = (last_slot_generation_ + 1) % max_slot_generations_;  // Potentially the oldest slot. Copy from and including this bound.
+    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound. We assume the upper bound is not complete yet.
+    auto slot_copy_lower_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                       (slot_copy_upper_bound_index + 1) % max_slot_generations_ :
+                                       0;  // The oldest slot. Copy from and including this bound.
 
     /**
-     * Adjust lower bound according to the given number of recent seconds to ignore.
+     * Adjust upper bound according to the given number of recent seconds to ignore.
+     *
+     * By default we would have not copied the upper bound. But the caller may be
+     * even more pessimistic about other services being behind in getting their
+     * stats to us. In that case, we adjust the upper bound back in history.
      */
-    auto num_latest_slots_to_ignore = last_seconds_to_ignore / slot_interval_sec_;
-    fds_verify(num_latest_slots_to_ignore < (max_slot_generations_ - 1));
+    fds_uint32_t num_latest_slots_to_ignore;
+    if (last_seconds_to_ignore == 0) {
+        num_latest_slots_to_ignore = 0;
+    } else {
+        /**
+         * We subtract 1 from the number of slots to ignore based on the last seconds
+         * to ignore since, as stated, we are already going to ignore the upper bound.
+         */
+        num_latest_slots_to_ignore = (last_seconds_to_ignore / slot_interval_sec_) - 1;
+    }
+
+    fds_verify(num_latest_slots_to_ignore <= (max_slot_generations_ - 1));
     for (fds_uint32_t i = 0; i < num_latest_slots_to_ignore; ++i) {
         if (slot_copy_upper_bound_index == 0) {
-            slot_copy_upper_bound_index = max_slot_generations_ - 1;
+            slot_copy_upper_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                          max_slot_generations_ - 1 : 0;
         } else {
             --slot_copy_upper_bound_index;
         }
     }
+
+    LOGTRACE << "last_rel_sec = <" << last_rel_sec
+             << ">, last_seconds_to_ignore = <" << last_seconds_to_ignore
+             << ">, last_slot_generation_ = <" << last_slot_generation_
+             << ">, max_slot_generations_ = <" << max_slot_generations_
+             << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index
+             << ">, slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index << ">.";
 
     auto slot_index = slot_copy_lower_bound_index;
     fds_uint64_t latest_rel_seconds = 0;
@@ -655,6 +679,7 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
     stat_list.clear();
     while (slot_index != slot_copy_upper_bound_index) {
         auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
+        LOGTRACE << "slot_rel_seconds = <" << slot_rel_seconds << ">.";
 
         /**
          * Ensure we don't copy any slots from the given last_rel_sec
@@ -684,76 +709,47 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
         last_added_rel_sec = latest_rel_seconds;
     }
 
-    LOGTRACE << "last_rel_sec = <" << last_rel_sec
-             << ">, latest_rel_seconds = <" << latest_rel_seconds << ">.";
+    LOGTRACE << "last_added_rel_sec = <" << last_added_rel_sec << ">.";
 
     return last_added_rel_sec;
 }
 
-fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
-                                              fds_uint64_t last_rel_sec) {
-    /**
-     * Ensure last_slot_generation_ is up to date with current time
-     * (last_slot_generation_ managed by useSlotLockHeld()).
-     * This is important because if IO stopped and history was not updated,
-     * the last slot before idle period will be lost. Why? Because we will
-     * assume that the last slot generation is not complete until we move
-     * to the next slot generation.
-     */
-    auto rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
-    write_synchronized(stat_lock_) {
-        useSlotLockHeld(rel_seconds);
-    }
+/**
+ * Here we are generating a list of Volume Stats for a specific volume
+ * ready to be sent to the service that will aggregate them. In this
+ * case, we want to capture all the slots or generations of stats that
+ * have been collected.
+ */
+void VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat) {
 
     SCOPEDREAD(stat_lock_);
-    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound.
-    auto slot_copy_lower_bound_index = (slot_copy_upper_bound_index + 1) % max_slot_generations_;  // Potentially the oldest slot. Copy from and including this bound.
+    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to *and* including this bound. In this case we're sending all the collected stats.
+    auto slot_copy_lower_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                            (slot_copy_upper_bound_index + 1) % max_slot_generations_ :
+                                            0;  // The oldest slot. Copy from and including this bound.
 
     LOGTRACE << "slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index
              << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index << ">.";
 
-    auto slot_index = slot_copy_lower_bound_index;
-    fds_uint64_t latest_rel_seconds = 0;
-
     fdsp_volstat.statlist.clear();
     fdsp_volstat.volume_id = volid_.get();
-    while (slot_index != slot_copy_upper_bound_index) {
+    for (auto slot_index = slot_copy_lower_bound_index;
+              slot_index <= slot_copy_upper_bound_index;
+
+              // Go to next slot, mindful to wrap but also to stop once we've copied everything.
+              slot_index = (slot_index != slot_copy_upper_bound_index) ?
+                               (slot_index + 1) % max_slot_generations_ :
+                               slot_copy_upper_bound_index + 1) {
+
         auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
 
         LOGTRACE << "slot_rel_seconds = <" << slot_rel_seconds << ">.";
 
-        /**
-         * Ensure we don't copy any slots from the given last_rel_sec
-         * entry or earlier.
-         */
-        if (slot_rel_seconds > last_rel_sec) {
-            fpi::VolStatSlot fdsp_slot;
-            stat_slots_[slot_index].getSerialized(fdsp_slot.slot_data);
-            fdsp_slot.rel_seconds = slot_rel_seconds;
-            fdsp_volstat.statlist.push_back(fdsp_slot);
-
-            if (latest_rel_seconds < slot_rel_seconds) {
-                latest_rel_seconds = slot_rel_seconds;
-            }
-        }
-
-        slot_index = (slot_index + 1) % max_slot_generations_;  // Go to next slot, mindful to wrap.
+        fpi::VolStatSlot fdsp_slot;
+        stat_slots_[slot_index].getSerialized(fdsp_slot.slot_data);
+        fdsp_slot.rel_seconds = slot_rel_seconds;
+        fdsp_volstat.statlist.push_back(fdsp_slot);
     }
-
-    /**
-     * Return the relative seconds of the latest slot we copied. If
-     * we didn't copy anything, return the lastest relative seconds
-     * we were told to start with.
-     */
-    auto last_added_rel_sec = last_rel_sec;
-    if (latest_rel_seconds != 0) {
-        last_added_rel_sec = latest_rel_seconds;
-    }
-
-    LOGTRACE << "last_rel_sec = <" << last_rel_sec
-             << ">, latest_rel_seconds = <" << latest_rel_seconds << ">.";
-
-    return last_added_rel_sec;
 }
 
 //
@@ -761,76 +757,113 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
 //
 fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                                       boost::posix_time::ptime curts,
-                                      fds_uint64_t last_rel_sec) {
-    // ensure last_slot_generation_ is up to date
-    // important because if IO stopped and history was not updated
-    // the last slot before idle period will never be printed
-    fds_uint64_t rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
-    write_synchronized(stat_lock_) {
-        useSlotLockHeld(rel_seconds);
+                                      fds_uint64_t last_rel_sec,
+                                      fds_uint32_t last_seconds_to_ignore) {
+
+    SCOPEDREAD(stat_lock_);
+    auto slot_print_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Print up to but not including this bound. We assume the upper bound is not compelte yet.
+    auto slot_print_lower_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                        (slot_print_upper_bound_index + 1) % max_slot_generations_ :
+                                        0;  // The oldest slot. Print from and including this bound.
+
+    /**
+     * Adjust upper bound according to the given number of recent seconds to ignore.
+     *
+     * By default we would have not copied the upper bound. But the caller may be
+     * even more pessimistic about other services being behind in getting their
+     * stats to us. In that case, we adjust the upper bound back in history.
+     */
+    fds_uint32_t num_latest_slots_to_ignore;
+    if (last_seconds_to_ignore == 0) {
+        num_latest_slots_to_ignore = 0;
+    } else {
+        /**
+         * We subtract 1 from the number of slots to ignore based on the last seconds
+         * to ignore since, as stated, we are already going to ignore the upper bound.
+         */
+        num_latest_slots_to_ignore = (last_seconds_to_ignore / slot_interval_sec_) - 1;
     }
 
-    fds_uint32_t endix = last_slot_generation_ % max_slot_generations_;
-    fds_uint32_t startix = (endix + 1) % max_slot_generations_;  // ind of oldest slot
-    fds_uint32_t ix = startix;
-    fds_uint64_t latest_ts = 0;
-    fds_uint64_t last_printed_ts = last_rel_sec;
+    fds_verify(num_latest_slots_to_ignore <= (max_slot_generations_ - 1));
 
-    // we will skip the last timeslot, because it may not be fully filled in
-    while (ix != endix) {
-        fds_uint64_t ts = stat_slots_[ix].getRelSeconds();
-        if (ts > last_rel_sec) {
+    for (fds_uint32_t i = 0; i < num_latest_slots_to_ignore; ++i) {
+        if (slot_print_upper_bound_index == 0) {
+            slot_print_upper_bound_index = max_slot_generations_ - 1;
+        } else {
+            --slot_print_upper_bound_index;
+        }
+    }
+
+    LOGTRACE << "slot_print_lower_bound_index = <" << slot_print_lower_bound_index
+             << ">, slot_print_upper_bound_index = <" << slot_print_upper_bound_index << ">.";
+
+    auto slot_index = slot_print_lower_bound_index;
+    fds_uint64_t latest_rel_seconds = 0;
+    fds_uint32_t slots_printed = 0;
+
+    while (slot_index != slot_print_upper_bound_index) {
+        auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
+        if (slot_rel_seconds > last_rel_sec) {
             // Aggregate PUT_IO and GET_IO counters
             GenericCounter put_counter, io_counter, tot_counter, m_counter;
-            fds_uint32_t slot_len = stat_slots_[ix].slotLengthSec();
-            stat_slots_[ix].getCounter(STAT_AM_PUT_OBJ, &put_counter);
-            stat_slots_[ix].getCounter(STAT_AM_GET_OBJ, &io_counter);
+            fds_uint32_t slot_len = stat_slots_[slot_index].slotLengthSec();
+            stat_slots_[slot_index].getCounter(STAT_AM_PUT_OBJ, &put_counter);
+            stat_slots_[slot_index].getCounter(STAT_AM_GET_OBJ, &io_counter);
             io_counter += put_counter;
 
-            stat_slots_[ix].getCounter(STAT_AM_GET_BMETA, &tot_counter);
-            stat_slots_[ix].getCounter(STAT_AM_PUT_BMETA, &m_counter);
+            stat_slots_[slot_index].getCounter(STAT_AM_GET_BMETA, &tot_counter);
+            stat_slots_[slot_index].getCounter(STAT_AM_PUT_BMETA, &m_counter);
             tot_counter += m_counter;
             tot_counter += io_counter;
 
             dumpFile << "[" << to_simple_string(curts) << "],"
             << volid_ << ","
-            << stat_slots_[ix].getRelSeconds() << ","
+            << stat_slots_[slot_index].getRelSeconds() << ","
             << static_cast<fds_uint32_t>(tot_counter.countPerSec(slot_len)) << ","
             << static_cast<fds_uint32_t>(io_counter.countPerSec(slot_len)) << ","  // iops
                      << static_cast<fds_uint32_t>(io_counter.average()) << ","    // ave latency
                      << io_counter.min() << ","                   // min latency
                      << io_counter.max() << ","                  // max latency
-                     << stat_slots_[ix].getAverage(STAT_AM_QUEUE_WAIT) << ","  // ave wait time
-                     << stat_slots_[ix].getMin(STAT_AM_QUEUE_WAIT) << ","      // min wait time
-                     << stat_slots_[ix].getMax(STAT_AM_QUEUE_WAIT) << ","      // max wait time
-                     << stat_slots_[ix].getAverage(STAT_AM_QUEUE_FULL) << ","
-                     << stat_slots_[ix].getMin(STAT_AM_QUEUE_FULL) << ","
-                     << stat_slots_[ix].getMax(STAT_AM_QUEUE_FULL) << ","
-                     << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_OBJ) << ","
-                     << stat_slots_[ix].getAverage(STAT_AM_GET_OBJ) << ","
-                     << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_BMETA) << ","
-                     << stat_slots_[ix].getAverage(STAT_AM_GET_BMETA) << ","
-                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_OBJ) << ","
-                     << stat_slots_[ix].getAverage(STAT_AM_PUT_OBJ) << ","
-                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_BMETA) << ","
-                     << stat_slots_[ix].getAverage(STAT_AM_PUT_BMETA) << std::endl;
+                     << stat_slots_[slot_index].getAverage(STAT_AM_QUEUE_WAIT) << ","  // ave wait time
+                     << stat_slots_[slot_index].getMin(STAT_AM_QUEUE_WAIT) << ","      // min wait time
+                     << stat_slots_[slot_index].getMax(STAT_AM_QUEUE_WAIT) << ","      // max wait time
+                     << stat_slots_[slot_index].getAverage(STAT_AM_QUEUE_FULL) << ","
+                     << stat_slots_[slot_index].getMin(STAT_AM_QUEUE_FULL) << ","
+                     << stat_slots_[slot_index].getMax(STAT_AM_QUEUE_FULL) << ","
+                     << stat_slots_[slot_index].getEventsPerSec(STAT_AM_GET_OBJ) << ","
+                     << stat_slots_[slot_index].getAverage(STAT_AM_GET_OBJ) << ","
+                     << stat_slots_[slot_index].getEventsPerSec(STAT_AM_GET_BMETA) << ","
+                     << stat_slots_[slot_index].getAverage(STAT_AM_GET_BMETA) << ","
+                     << stat_slots_[slot_index].getEventsPerSec(STAT_AM_PUT_OBJ) << ","
+                     << stat_slots_[slot_index].getAverage(STAT_AM_PUT_OBJ) << ","
+                     << stat_slots_[slot_index].getEventsPerSec(STAT_AM_PUT_BMETA) << ","
+                     << stat_slots_[slot_index].getAverage(STAT_AM_PUT_BMETA) << std::endl;
 
-            if (latest_ts < ts) {
-                latest_ts = ts;
+            if (latest_rel_seconds < slot_rel_seconds) {
+                latest_rel_seconds = slot_rel_seconds;
             }
         }
-        ix = (ix + 1) % max_slot_generations_;
+        slot_index = (slot_index + 1) % max_slot_generations_;
     }
 
-    if (latest_ts != 0) {
-        last_printed_ts = latest_ts;
+    /**
+     * Return the relative seconds of the latest slot we copied. If
+     * we didn't copy anything, return the lastest relative seconds
+     * we were told to start with.
+     */
+    auto last_printed_rel_sec = last_rel_sec;
+    if (latest_rel_seconds != 0) {
+        last_printed_rel_sec = latest_rel_seconds;
     }
 
-    return last_printed_ts;
+    LOGTRACE << "last_rel_sec = <" << last_rel_sec
+             << ">, latest_rel_seconds = <" << latest_rel_seconds << ">.";
+
+    return last_printed_rel_sec;
 }
 
 VolumePerfHistory::ptr VolumePerfHistory::getSnapshot() {
-    VolumePerfHistory::ptr snap(new VolumePerfHistory(volid_, start_nano_,
+    VolumePerfHistory::ptr snap(new VolumePerfHistory(volid_, local_start_ts_,
                                                       max_slot_generations_, slot_interval_sec_));
     SCOPEDREAD(stat_lock_);
     snap->last_slot_generation_ = last_slot_generation_;
@@ -842,13 +875,16 @@ VolumePerfHistory::ptr VolumePerfHistory::getSnapshot() {
 
 std::ostream& operator<< (std::ostream &out,
                           const VolumePerfHistory& hist) {
-    fds_uint32_t endix = hist.last_slot_generation_ % hist.max_slot_generations_;
-    fds_uint32_t startix = (endix + 1) % hist.max_slot_generations_;  // ind of oldest slot
-    fds_uint32_t ix = startix;
+    auto slot_stream_upper_bound_index = hist.last_slot_generation_ % hist.max_slot_generations_;  // Stream up to but not including this bound.
+    auto slot_stream_lower_bound_index = (hist.last_slot_generation_ >= hist.max_slot_generations_) ?  // We don't start wrapping until this point.
+                                         (slot_stream_upper_bound_index + 1) % hist.max_slot_generations_ :
+                                         0;  // The oldest slot. Stream from and including this bound.
+
+    fds_uint32_t ix = slot_stream_lower_bound_index;
 
     out << "Perf History: volume " << std::hex << hist.volid_
         << std::dec << "\n";
-    while (ix != endix) {
+    while (ix != slot_stream_upper_bound_index) {
         out << hist.stat_slots_[ix] << "\n";
         ix = (ix + 1) % hist.max_slot_generations_;
     }

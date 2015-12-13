@@ -138,13 +138,6 @@ class StatSlot: public serialize::Serializable {
 
   private:
     counter_map_t stat_map;
-
-    /**
-     * TODO(Greg): I think it would be easier to replace relative seconds
-     * with generation number. We could avoid a lot of timestamp and
-     * relative timestamp calcualtions that largly are needed to convert
-     * between relative timestamps and generations anyway.
-     */
     fds_uint64_t rel_sec;  /**< timestamp in seconds, relative to start of collection. */
     fds_uint32_t interval_sec;  /**< time interval between slots of this type. */
 };
@@ -203,17 +196,15 @@ class VolumePerfHistory {
      * Add slots from fdsp message to this history
      * It is up to the caller that we don't add the same slot more than once
      */
-    Error mergeSlots(const fpi::VolStatList& fdsp_volstats);
+    Error mergeSlots(const fpi::VolStatList& fdsp_volstats, fds_uint64_t fdsp_start_ts);
     void mergeSlots(const std::vector<StatSlot>& stat_list);
 
     /**
-     * Copies history into FDSP volume stat list; only timestamps that are
-     * greater than last_rel_sec are copied
-     * @param[in] last_rel_sec is a relative timestamp in seconds
+     * Copies history into FDSP volume stat list.
+     * @param[in] fdsp_volstats Collected volume statistics.
      * @return last timestamp copied into FDSP volume stat list
      */
-    fds_uint64_t toFdspPayload(fpi::VolStatList& fdsp_volstats,
-                               fds_uint64_t last_rel_sec);
+    void toFdspPayload(fpi::VolStatList& fdsp_volstats);
 
     /**
      * Copies the history in the StatSlot array where index 0 contains the
@@ -242,18 +233,22 @@ class VolumePerfHistory {
      * [curts],volid,seconds_since_beginning_of_history,iops,ave_lat,min_lat,max_lat
      * @param[in] cur_ts timestamp that will be printed
      * @param[in] last_rel_sec will print relative timestamps in seconds > last_rel_sec
+     * @param[in] last_seconds_to_ignore number of most recent seconds
+     * that will not be printed; 0 means print all most recent
+     * history
      * @return last timestamp printed
      */
     fds_uint64_t print(std::ofstream& dumpFile,
                        boost::posix_time::ptime curts,
-                       fds_uint64_t last_rel_sec);
+                       fds_uint64_t last_rel_sec,
+                       fds_uint32_t last_seconds_to_ignore = 0);
 
     VolumePerfHistory::ptr getSnapshot();
     inline fds_uint64_t getTimestamp(fds_uint64_t rel_seconds) const {
-        return (start_nano_ + rel_seconds * NANOS_IN_SECOND);
+        return (local_start_ts_ + rel_seconds * NANOS_IN_SECOND);
     }
     inline fds_uint64_t getStartTime() const {
-      return start_nano_;
+      return local_start_ts_;
     }
     inline fds_uint32_t secondsInSlot() const {
         return slot_interval_sec_;
@@ -261,17 +256,19 @@ class VolumePerfHistory {
     inline fds_uint32_t numberOfSlots() const {
         return max_slot_generations_;
     }
+    fds_uint64_t getLocalRelativeSec(fds_uint64_t remote_rel_sec,
+                                     fds_uint64_t remote_start_ts);
 
   private:  /* methods */
-    fds_uint32_t useSlotLockHeld(fds_uint64_t rel_seconds);
+    fds_uint32_t relSecToStatHistIndex_LockHeld(fds_uint64_t rel_seconds);
     inline fds_uint64_t tsToRelativeSec(fds_uint64_t tsnano) const {
-        if (tsnano < start_nano_) {
+        if (tsnano < local_start_ts_) {
             return 0;
         }
-        return (tsnano - start_nano_) / NANOS_IN_SECOND;
+        return (tsnano - local_start_ts_) / NANOS_IN_SECOND;
     }
-    inline fds_uint64_t timestamp(fds_uint64_t start_nano,
-                                  fds_uint64_t rel_sec) const {
+    inline fds_uint64_t relativeSecToTS(fds_uint64_t start_nano,
+                                        fds_uint64_t rel_sec) const {
         return (start_nano + rel_sec * NANOS_IN_SECOND);
     }
 
@@ -283,7 +280,7 @@ class VolumePerfHistory {
     fds_uint32_t max_slot_generations_;     /**< Maximum number of slot generations kept in the historical record beyond which we wrap. */
     fds_uint32_t slot_interval_sec_;    /**< time interval in seconds between slot generations */
 
-    fds_uint64_t start_nano_;  /**< ts in history are relative to this ts */
+    fds_uint64_t local_start_ts_;  /**< "relative seconds" in history are timestamps relative to this timestamp. */
 
     /**
      * Array of time slots with stats. Once we fill in the last slot
@@ -291,7 +288,7 @@ class VolumePerfHistory {
      * next time interval and so on.
      */
     StatSlot* stat_slots_;
-    fds_uint64_t last_slot_generation_;  // The last generation (in historical line of descent) of slots since start_nano_. One generation every slot_interval_sec_ seconds.
+    fds_uint64_t last_slot_generation_;  // The last generation (in historical line of descent) of slots since local_start_ts_. One generation every slot_interval_sec_ seconds.
     fds_rwlock stat_lock_;  // protects stat_slots_ and last_slot_generation_
 };
 

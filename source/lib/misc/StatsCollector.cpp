@@ -155,6 +155,7 @@ void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb,
         if (record_stats_cb) {
             record_stats_cb_ = record_stats_cb;
             last_sample_ts_ = util::getTimeStampNanos();
+
             fds_bool_t ret = sampleTimer->scheduleRepeated(sampleTimerTask,
                                                  std::chrono::seconds(slotsec_stat_));
             if (!ret) {
@@ -315,7 +316,8 @@ void StatsCollector::print()
             last_ts_qmap_[cit->first] = 0;
         }
         fds_uint64_t last_rel_sec = last_ts_qmap_[cit->first];
-        last_rel_sec = cit->second->print(statfile_, now_local, last_rel_sec);
+        last_rel_sec = cit->second->print(statfile_, now_local, last_rel_sec,
+                                          StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
         last_ts_qmap_[cit->first] = last_rel_sec;
     }
 }
@@ -325,11 +327,8 @@ void StatsCollector::print()
 // record service-specific stats
 //
 void StatsCollector::sampleStats() {
-    fds_uint64_t stat_slot_nanos = slotsec_stat_*NANOS_IN_SECOND;
+    fds_uint64_t stat_slot_nanos = (fds_uint64_t)slotsec_stat_*(fds_uint64_t)NANOS_IN_SECOND;
     last_sample_ts_ += stat_slot_nanos;
-
-    LOGTRACE << "last_sample_ts_ = <" << last_sample_ts_
-             << ">, util::getTimeStampNanos() = <" << util::getTimeStampNanos() << ">.";
 
     if (record_stats_cb_) {
         record_stats_cb_(last_sample_ts_);
@@ -350,6 +349,9 @@ void StatsCollector::sendStatStream() {
     read_synchronized(sh_lock_) {
         for (cit = stat_hist_map_.cbegin(); cit != stat_hist_map_.cend(); ++cit) {
             snap_map[cit->first] = (cit->second)->getSnapshot();
+
+            LOGTRACE << "Got snapshot of stats "
+                     << *(cit->second);
         }
     }
 
@@ -364,9 +366,14 @@ void StatsCollector::sendStatStream() {
             if (last_rel_sec_smap_.count(cit->first) == 0) {
                 last_rel_sec_smap_[cit->first] = 0;
             }
+
             fds_uint64_t last_rel_sec = last_rel_sec_smap_[cit->first];
+
+            LOGTRACE << "last_rel_sec = <" << last_rel_sec
+                     << "> for stats " << *(cit->second);
+
             std::vector<StatSlot> slot_list;
-            last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec);
+            last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec); // No last few seconds to ignore here since we're wanting to add local stats to the volume's history.
             last_rel_sec_smap_[cit->first] = last_rel_sec;
             // send to local stats aggregator
             stream_stats_cb_(start_time_, cit->first, slot_list);
@@ -407,25 +414,11 @@ void StatsCollector::sendStatStream() {
         }
 
         /**
-         * If not already set, initialize the last relative seconds
-         * for this volume.
-         */
-        if (last_rel_sec_smap_.count(cit->first) == 0) {
-            last_rel_sec_smap_[cit->first] = 0;
-        }
-
-        /**
-         * Copy our volume stats to an FDSP payload structure, obtaining
-         * the last relative seconds of the latest slot in those stats.
-         *
-         * We keep track of those last relative seconds so we know where
-         * pick up next time around.
+         * Copy our volume stats to an FDSP payload structure.
          */
         fpi::VolStatList volstats;
-        fds_uint64_t last_rel_sec = last_rel_sec_smap_[cit->first];
-        last_rel_sec = cit->second->toFdspPayload(volstats, last_rel_sec);
+        cit->second->toFdspPayload(volstats);
         (msg_map[dm_uuid]->volstats).push_back(volstats);
-        last_rel_sec_smap_[cit->first] = last_rel_sec;
 
         LOGTRACE << "Sending stats to DM " << std::hex
                  << dm_uuid.uuid_get_val() << std::dec

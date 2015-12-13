@@ -264,7 +264,7 @@ int runUnitTest(int slots, int sec_in_slot)
 
   std::cout << "Testing converting to FDSP and back" << std::endl;
   fpi::VolStatList fdsp_stats;
-  fds_uint64_t rel_sec = hist->toFdspPayload(fdsp_stats, 0);
+  hist->toFdspPayload(fdsp_stats);
 
   fds_uint64_t recv_start_time = start_time + nanos_in_slot;
   VolumePerfHistory *recv_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
@@ -274,11 +274,11 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  Error err = recv_hist->mergeSlots(fdsp_stats);
+  Error err = recv_hist->mergeSlots(fdsp_stats, start_time);
   statfile << "Sent history: " << *hist << std::endl;
   statfile << "Received history: " << *recv_hist << " " << err << std::endl;
   statfile << "Sent another history" << std::endl;
-  err = recv_hist->mergeSlots(fdsp_stats);
+  err = recv_hist->mergeSlots(fdsp_stats, start_time);
   statfile << "Merged history: " << *recv_hist << " " << err << std::endl;
 
   VolumePerfHistory::ptr snap = hist->getSnapshot();
@@ -287,7 +287,7 @@ int runUnitTest(int slots, int sec_in_slot)
 
   std::cout << "Testing converting to list of slots and back" << std::endl;
   std::vector<StatSlot> slot_list;
-  rel_sec = hist->toSlotList(slot_list, 0);
+  auto rel_sec = hist->toSlotList(slot_list, 0);
 
   recv_start_time = start_time + nanos_in_slot;
   VolumePerfHistory *other_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
