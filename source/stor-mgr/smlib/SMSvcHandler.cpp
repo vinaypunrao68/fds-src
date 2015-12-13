@@ -1156,6 +1156,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     }
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
+    DLTCloseReq->setVolId(FdsSysTaskQueueId);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
     DLTCloseReq->closeDLTVersion = (dlt->dlt_close).DLT_version;
 
