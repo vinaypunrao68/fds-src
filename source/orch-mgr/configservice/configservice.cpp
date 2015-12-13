@@ -900,6 +900,37 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkDomainStatus();
 
+        switch ( volumeSettings->volumeType )
+        {
+            case apis::BLOCK:
+                break;
+            case apis::ISCSI:
+            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ]";
+//            for ( auto lun : *volumeSettings.iscsiTarget.luns ) {
+//                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
+//            }
+//
+            LOGDEBUG << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ]";
+//            for ( auto initiator : *volumeSettings->iscsiASettungs ) {
+//                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
+//            }
+//
+            LOGDEBUG << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ]";
+//            for ( auto credentials : *volumeSettings.iscsiTarget.incomingUsers ) {
+//                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
+//            }
+//
+            LOGDEBUG << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
+//            for ( auto credentials : *volumeSettings.iscsiTarget.outgoingUsers ) {
+//                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
+//            }
+                break;
+            case apis::NFS:
+                break;
+            case apis::OBJECT:
+                break;
+        }
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);

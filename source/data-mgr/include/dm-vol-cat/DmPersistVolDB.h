@@ -86,6 +86,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) override;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) override;
+
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
     virtual void getObjectIds(const uint32_t &maxObjs,

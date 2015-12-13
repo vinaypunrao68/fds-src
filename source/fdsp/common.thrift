@@ -73,8 +73,6 @@ struct LogicalUnitNumber {
     1: required string name,
     /** access mode */
     2: required string access
-    /** initiators */
-    3: optional list<Initiator> initiators,
 }
 
 struct Credentials {
@@ -90,7 +88,9 @@ struct IScsiTarget {
     /** a unordered list of incoming user credentials */
     2: optional list<Credentials> incomingUsers,
     /** a unordered list of outgoing user credentials */
-    3: optional list<Credentials> outgoingUsers
+    3: optional list<Credentials> outgoingUsers,
+    /** initiators */
+    4: optional list<Initiator> initiators;
 }
 
 /** NFS Options Map */

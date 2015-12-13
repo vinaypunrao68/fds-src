@@ -19,13 +19,12 @@ public class Target
     public static class Builder
     {
         private List<LUN> luns = new ArrayList<>( );
+        private List<Initiator> initiators = new ArrayList<>( );
         private List<Credentials> incomingUsers = new ArrayList<>( );
         private List<Credentials> outgoingUsers = new ArrayList<>( );
 
-        protected List<LUN> getLuns( )
-        {
-            return luns;
-        }
+        protected List<LUN> getLuns( ) { return luns; }
+        protected List<Initiator> getInitiators() { return initiators; }
 
         public Builder withLun( final LUN lun )
         {
@@ -33,10 +32,23 @@ public class Target
             return this;
         }
 
-        public Builder withLuns( List<LUN> luns )
+        public Builder withLuns( final List<LUN> luns )
         {
             this.luns.clear();
             this.luns.addAll( luns );
+            return this;
+        }
+
+        public Builder withInitiator( final Initiator initiator )
+        {
+            this.initiators.add( initiator );
+            return this;
+        }
+
+        public Builder withInitiators( final List<Initiator> initiators )
+        {
+            this.initiators.clear();
+            this.initiators.addAll( initiators );
             return this;
         }
 
@@ -78,7 +90,7 @@ public class Target
 
         public Target build( )
         {
-            final Target target = new Target( getLuns() );
+            final Target target = new Target( getLuns(), getInitiators() );
             if( !getIncomingUsers().isEmpty() )
             {
                 target.setIncomingUsers( getIncomingUsers() );
@@ -94,15 +106,18 @@ public class Target
     }
 
     private List<LUN> luns = new ArrayList<>( );
+    private List<Initiator> initiators = new ArrayList<>( );
     private List<Credentials> incomingUsers = new ArrayList<>( );
     private List<Credentials> outgoingUsers = new ArrayList<>( );
 
     /**
      * @param luns the list of logical unit number {@link LUN} for this target
+     * @param initiators the list of initiators {@link Initiator} for this target
      */
-    public Target( final List<LUN> luns )
+    public Target( final List<LUN> luns, final List<Initiator> initiators )
     {
         this.luns.addAll( luns );
+        this.initiators.addAll( initiators );
     }
 
     /**
@@ -119,6 +134,22 @@ public class Target
     public void setLuns( final List<LUN> luns )
     {
         this.luns = luns;
+    }
+
+    /**
+     * @return Returns the list of logical unit numbers (@link LUN} for this target
+     */
+    public List<Initiator> getInitiators( )
+    {
+        return initiators;
+    }
+
+    /**
+     * @param initiators the list of initiators (@link Initiator} for this target
+     */
+    public void setInitiators( final List<Initiator> initiators )
+    {
+        this.initiators = initiators;
     }
 
     /**
@@ -161,6 +192,7 @@ public class Target
         if ( !super.equals( o ) ) return false;
         final Target target = ( Target ) o;
         return Objects.equals( getLuns( ), target.getLuns( ) ) &&
+            Objects.equals( getInitiators( ), target.getInitiators( ) ) &&
             Objects.equals( getIncomingUsers( ), target.getIncomingUsers( ) ) &&
             Objects.equals( getOutgoingUsers( ), target.getOutgoingUsers( ) );
     }
@@ -170,6 +202,7 @@ public class Target
     {
         return Objects.hash( super.hashCode( ),
                              getLuns( ),
+                             getInitiators(),
                              getIncomingUsers( ),
                              getOutgoingUsers( ) );
     }

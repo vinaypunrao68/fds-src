@@ -25,18 +25,6 @@ ObjectPersistData::ObjectPersistData(const std::string &modName,
 ObjectPersistData::~ObjectPersistData() {
     // First destruct scavenger
     scavenger.reset();
-    // Now close levelDBs
-    diskio::FilePersisDataIO* delFdesc = NULL;
-    for (TokFileMap::iterator it = tokFileTbl.begin();
-         it != tokFileTbl.end();
-         ++it) {
-        delFdesc = it->second;
-        if (delFdesc) {
-            // file is closed in FilePersisDataIO destructor
-            delete delFdesc;
-            it->second = NULL;
-        }
-    }
 }
 
 Error
@@ -76,7 +64,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                     writeFileIdMap[wkey] = fileId;
                 } else {
                     fds_uint64_t fkey = getFileKey(tier, *cit, writeFileIdMap[wkey]);
-                    fds_verify(tokFileTbl.count(fkey) > 0);
+                    fds_assert(tokFileTbl.count(fkey) > 0);
                     LOGDEBUG << "Token file already open for SM token " << *cit;
                     err = ERR_DUPLICATE;
                 }
@@ -106,7 +94,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
         }
         if ((tierNum == 0) && (ssdIds.size() > 0)) {
             // also open token files on SSDs
-            fds_verify(tier != diskio::flashTier);
+            fds_assert(tier != diskio::flashTier);
             LOGDEBUG << "Will open token files on SSDs";
             tier = diskio::flashTier;
         } else {
@@ -214,13 +202,14 @@ Error
 ObjectPersistData::writeObjectData(const ObjectID& objId,
                                    diskio::DiskRequest* req) {
     Error err(ERR_OK);
-    diskio::PersisDataIO *iop = nullptr;
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
 
-    if (fileId != SM_INVALID_FILE_ID) {
-        iop = getTokenFile(req->getTier(), smTokId, fileId, false);
+    if (fileId == SM_INVALID_FILE_ID) {
+        return ERR_NOT_FOUND;
     }
+
+    auto iop = getTokenFile(req->getTier(), smTokId, fileId, false);
 
     if (shuttingDown) {
         return ERR_NOT_READY;
@@ -245,14 +234,18 @@ ObjectPersistData::readObjectData(const ObjectID& objId,
     obj_phy_loc_t *loc = req->req_get_phy_loc();
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = loc->obj_file_id;
-    diskio::PersisDataIO *iop = getTokenFile(req->getTier(),
-                                             smTokId,
-                                             fileId, true);
+    auto iop = getTokenFile(req->getTier(), smTokId,
+                            fileId, true);
     if (shuttingDown) {
         return ERR_NOT_READY;
     }
 
-    fds_verify(iop);
+    fds_assert(iop);
+    if (!iop) {
+        LOGWARN << "File persist pointer not found for sm token " << smTokId
+                << " fileId " << fileId << " object " << objId;
+        return ERR_NOT_FOUND;
+    }
     err = iop->disk_read(req);
     fiu_do_on("sm.objectstore.fail.data.disk",
               if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
@@ -266,9 +259,8 @@ ObjectPersistData::notifyDataDeleted(const ObjectID& objId,
                                      const obj_phy_loc_t* loc) {
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = loc->obj_file_id;
-    diskio::PersisDataIO *iop = getTokenFile((diskio::DataTier)loc->obj_tier,
-                                             smTokId,
-                                             fileId, true);
+    auto iop = getTokenFile((diskio::DataTier)loc->obj_tier,
+                            smTokId, fileId, true);
 
     if (shuttingDown) {
       return;  // ignore for now, anyway delete stats are not persisted
@@ -327,7 +319,6 @@ ObjectPersistData::notifyEndGc(fds_token_id smTokId,
     fds_uint64_t wkey = getWriteFileIdKey(tier, smTokId);
     fds_uint16_t shadowFileId = SM_INVALID_FILE_ID;
     fds_uint16_t oldFileId = SM_INVALID_FILE_ID;
-    diskio::FilePersisDataIO *delFdesc = NULL;
 
     write_synchronized(mapLock) {
         fds_verify(writeFileIdMap.count(wkey) > 0);
@@ -341,12 +332,16 @@ ObjectPersistData::notifyEndGc(fds_token_id smTokId,
         // non-garbage data to the shadow file
         // TODO(Anna) update below code when supporting multiple files
         fds_uint64_t fkey = getFileKey(tier, smTokId, oldFileId);
-        fds_verify(tokFileTbl.count(fkey) > 0);
-        delFdesc = tokFileTbl[fkey];
+        fds_assert(tokFileTbl.count(fkey) > 0);
+        if (!(tokFileTbl.count(fkey) > 0)) {
+            LOGERROR << "Cannot find file key = " << std::hex << fkey
+                     << " in token file table";
+            return ERR_NOT_FOUND;
+        }
+        auto delFdesc = tokFileTbl[fkey];
         if (delFdesc) {
             err = delFdesc->delete_file();
-            delete delFdesc;
-            delFdesc = NULL;
+            tokFileTbl[fkey] = nullptr;
         }
         tokFileTbl.erase(fkey);
     }
@@ -372,7 +367,6 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
                                  fds_token_id smTokId,
                                  fds_uint16_t fileId) {
     Error err(ERR_OK);
-    diskio::FilePersisDataIO *fdesc = NULL;
     fds_uint16_t diskId = smDiskMap->getDiskId(smTokId, tier);
 
     // this method expects explicit file ids
@@ -396,7 +390,7 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
     if (tokFileTbl.count(fkey) > 0) {
         return ERR_DUPLICATE;
     }
-    fdesc = new(std::nothrow) diskio::FilePersisDataIO(filename.c_str(), fileId, diskId);
+    auto fdesc = std::make_shared<diskio::FilePersisDataIO>(filename.c_str(), fileId, diskId);
     if (!fdesc) {
         LOGERROR << "Failed to create FilePersisDataIO for " << filename;
         return ERR_OUT_OF_MEMORY;
@@ -455,7 +449,6 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
                                   fds_token_id smTokId,
                                   fds_uint16_t fileId,
                                   fds_bool_t delFile) {
-    diskio::FilePersisDataIO *delFdesc = NULL;
     fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
 
     // if need to close current file ID, must specify file id
@@ -465,7 +458,7 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
 
     SCOPEDWRITE(mapLock);
     if (tokFileTbl.count(fkey) > 0) {
-        delFdesc = tokFileTbl[fkey];
+        auto delFdesc = tokFileTbl[fkey];
         if (delFdesc) {
             if (delFile) {
                 Error err = delFdesc->delete_file();
@@ -475,14 +468,13 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
                             << ", but ok, ignoring " << err;
                 }
             }
-            delete delFdesc;
-            delFdesc = NULL;
+            tokFileTbl[fkey] = nullptr;
         }
         tokFileTbl.erase(fkey);
     }
 }
 
-diskio::FilePersisDataIO*
+diskio::FilePersisDataIO::shared_ptr
 ObjectPersistData::getTokenFile(diskio::DataTier tier,
                                 fds_token_id smTokId,
                                 fds_uint16_t fileId,
@@ -507,7 +499,10 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
     Error err = openTokenFile(tier, smTokId, fileId);
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
     SCOPEDREAD(mapLock);
-    fds_verify(tokFileTbl.count(fkey) > 0);
+    fds_assert(tokFileTbl.count(fkey) > 0);
+    if (!(tokFileTbl.count(fkey) > 0)) {
+        return nullptr;
+    }
     return tokFileTbl[fkey];
 }
 
@@ -528,13 +523,17 @@ ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
                                    diskio::DataTier tier,
                                    diskio::TokenStat* retStat) {
     fds_uint16_t fileId = getWriteFileId(tier, smTokId);
-    diskio::FilePersisDataIO *fdesc = getTokenFile(tier, smTokId, fileId, false);
+    auto fdesc = getTokenFile(tier, smTokId, fileId, false);
     if (shuttingDown) {
         return;
     }
 
-    fds_verify(fdesc);
-
+    fds_assert(fdesc);
+    if (!fdesc) {
+        LOGWARN << "File persist pointer not found for sm token " << smTokId
+                << " fileId " << fileId << " tier " << tier;
+        return;
+    }
     // TODO(Anna) if we do multiple files per SM token, this method should
     // change; current assumption there is only one file per SM token
     // (or two we are garbage collecting)
@@ -667,19 +666,6 @@ ObjectPersistData::mod_shutdown() {
     {
         SCOPEDWRITE(mapLock);
         shuttingDown = true;
-        // Now close levelDBs
-        diskio::FilePersisDataIO* delFdesc = NULL;
-        for (TokFileMap::iterator it = tokFileTbl.begin();
-             it != tokFileTbl.end();
-             ++it) {
-            delFdesc = it->second;
-            if (delFdesc) {
-                // file is closed in FilePersisDataIO destructor
-                delete delFdesc;
-                it->second = NULL;
-            }
-        }
-        tokFileTbl.clear();
     }
     Module::mod_shutdown();
     LOGDEBUG << "Done.";

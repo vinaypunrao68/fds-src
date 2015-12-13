@@ -1,8 +1,9 @@
 [tinius_vm]
-10.2.10.85
-10.2.10.86
-10.2.10.87
-10.2.10.88
+# 10.2.10.85
+# 10.2.10.86
+# 10.2.10.87
+# 10.2.10.88
+10.2.10.171
 
 [tinius_vm:vars]
 clean_fds=yes
@@ -11,7 +12,8 @@ force=yes
 fds_build=debug
 fds_default_nic=eth0
 fds_deploy_local_deps=no
-fds_om_host=10.2.10.85
+# fds_om_host=10.2.10.85
+fds_om_host=10.2.10.171
 fds_metrics_enabled=false
 fds_metricsdb_ip=127.0.0.1
 ansible_ssh_user=root
@@ -21,7 +23,6 @@ ansible_ssh_pass=passwd
 ansible_sudo_pass=passwd
 ansible_sudo=true
 ## performance setting
-fds_log_severity=debug
 fds_am_cache_max_data_entries=0
 fds_am_cache_max_metadata_entries=0
 fds_sm_data_verify=false
@@ -29,6 +30,9 @@ fds_sm_data_verify_background=false
 fds_ft_common_enable_volume_open_support=false
 fds_dm_enable_timeline=false
 fds_ft_platform_use_new_superblock=true
+
+# LOGGING SEVERITY
+fds_log_severity=trace
 
 # Manual FIX
 # in platform.conf.j2
