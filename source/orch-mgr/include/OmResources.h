@@ -1112,12 +1112,8 @@ class OM_NodeDomainMod : public Module
     void raiseAbortSmMigrationEvt(NodeUuid uuid);
     void raiseAbortDmMigrationEvt(NodeUuid uuid);
 
-
-
-
     void setDomainShuttingDown(bool domainDown);
     bool isDomainShuttingDown();
-
     void addToShutdownList(int64_t uuid);
     void clearFromShutdownList(int64_t uuid);
     void clearShutdownList();

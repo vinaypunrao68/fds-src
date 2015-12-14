@@ -1660,7 +1660,7 @@ OM_PmAgent::send_stop_service
             } else {
                 LOGERROR << "Service" << std::hex
                          << smSvcId.svc_uuid << std::dec
-                         << "is not active so cannot stop";
+                         << " is not active so cannot stop";
 
                 stop_sm = false;
                 // If neither of the other services are being stopped, it is safe
@@ -1701,7 +1701,7 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service" << std::hex
                           << dmSvcId.svc_uuid << std::dec
-                          << "is not active so cannot stop";
+                          << " is not active so cannot stop";
 
                  stop_dm = false;
                  if ( !stop_am && !stop_sm ) {
@@ -1729,7 +1729,7 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service" << std::hex
                           << amSvcId.svc_uuid << std::dec
-                          << "is not active so cannot stop";
+                          << " is not active so cannot stop";
 
                  stop_am = false;
                  if ( !stop_sm && !stop_dm ) {
@@ -3611,16 +3611,6 @@ OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
         // send shutdown to DM nodes
         count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
-/*
-        if ( count > 0 ) {
-            OM_Module *om       = OM_Module::om_singleton();
-            VolumePlacement *vp = om->om_volplace_mod();
-
-            // This flag is used to determine whether OM needs
-            // to unset the target after sending an abort migration to DMs
-            vp->setShutdownFlag(true);
-        }
-*/
     } else if (svc_type == fpi::FDSP_STOR_MGR) {
         // send shutdown to SM nodes
         count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);

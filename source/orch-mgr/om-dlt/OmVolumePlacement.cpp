@@ -705,18 +705,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
 
     return err;
 }
-/*
-void VolumePlacement::setShutdownFlag(bool flag)
-{
-    LOGDEBUG << "Setting shutdown flag to:" << flag;
-    domainShutdownFlag = flag;
-}
-
-bool VolumePlacement::isDomainShuttingDown()
-{
-    return domainShutdownFlag;
-}
-*/
 
 fds_bool_t VolumePlacement::canRetryMigration() {
     fds_bool_t ret = false;

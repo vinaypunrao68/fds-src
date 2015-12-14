@@ -451,11 +451,9 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-
     fds_bool_t b_ret = false;
     RegNodeEvt regEvt = (RegNodeEvt)evt;
 
-    LOGDEBUG <<"!GRD_NdsUp, sm_up:" << src.sm_up.size() << ", dm_up:" << src.dm_up.size();
     // check if this is one of the services we are waiting for
     if (src.sm_services.count(regEvt.svc_uuid) > 0) {
         src.sm_up.insert(regEvt.svc_uuid);
@@ -1164,11 +1162,10 @@ NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 {
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
 
-    // Will reset domain shuttng down flag upon restart
-    //OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    //if (domain->isDomainShuttingDown()) {
-
-    //}
+    // Will reset domain down flag upon startup
+    // This is in case previously scheduled setupNewNode tasks start
+    // after the domain state machine is already at this point, we
+    // should reject those attempts
 }
 
 /**
@@ -1644,9 +1641,7 @@ OM_NodeDomainMod::om_startup_domain()
         return err;
     }
 
-    // Probably best to clear out shutdown related flags here
-
-    //TO KEEP - modify to PR2915
+    // Clear out shutdown related info here
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     clearShutdownList();
     domain->setDomainShuttingDown(false);
@@ -1666,7 +1661,6 @@ OM_NodeDomainMod::om_startup_domain()
     LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
               << " and other commands for the domain";
 
-    clearShutdownList();
     // once domain state machine is in correct waiting state,
     // activate all known services on all known nodes (platforms)
     RsArray pmNodes;
@@ -2549,11 +2543,11 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     int64_t pmUuid = uuid.uuid_get_val();
     pmUuid &= ~0xF; // clear out the last 4 bits
+
     if ( isNodeShuttingDown(pmUuid) ) {
         LOGWARN << "Will not execute setupNewNode for uuid:"
                 << std::hex << uuid << std::dec
                 << " since node is shutting down";
-        // !!Need to clean up from the tracking vector
         return;
     }
 
@@ -2670,27 +2664,19 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      */
 
     if (om_local_domain_up()) {
-        int64_t pmUuid = uuid.uuid_get_val();
-        pmUuid &= ~0xF; // clear out the last 4 bits
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            om_dlt_update_cluster();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            // Check if this is a re-registration of an existing DM executor
+            LOGDEBUG << "Firing reregister event for DM node " << uuid;
+            dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
 
-        if ( !isNodeShuttingDown(pmUuid) ) {
-            if (msg->node_type == fpi::FDSP_STOR_MGR) {
-                om_dlt_update_cluster();
-            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-                // Check if this is a re-registration of an existing DM executor
-                LOGDEBUG << "Firing reregister event for DM node " << uuid;
-                dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
-
-                // Send the DMT to DMs.
-                om_dmt_update_cluster(fPrevRegistered);
-                if (fPrevRegistered) {
-                    om_locDomain->om_bcast_vol_list(newNode);
-                    LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
-                }
+            // Send the DMT to DMs.
+            om_dmt_update_cluster(fPrevRegistered);
+            if (fPrevRegistered) {
+                om_locDomain->om_bcast_vol_list(newNode);
+                LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
             }
-        } else {
-            LOGDEBUG << "Node:" << std::hex << pmUuid << std::dec
-                     << "is shutting down, will not attempt dlt/dmt update";
         }
     } else {
         LOGDEBUG << "OM local domain not up";
@@ -2825,8 +2811,6 @@ OM_NodeDomainMod::om_shutdown_domain()
     }
 
     local_domain_event(ShutdownEvt());
-
-
 
     setDomainShuttingDown(true);
 
@@ -3187,10 +3171,11 @@ OM_NodeDomainMod::raiseAbortDmMigrationEvt(NodeUuid uuid) {
                                               Error(ERR_DM_MIGRATION_ABORTED)));
 }
 
-// The domain shutting down flags will only be set
-// when the domain is being shut down. The nodeShutdown list
-// is populated both when a node is shutting down independently
-// and as a part of the domain shut down
+// The domain down flag will be set for the duration of when
+// a domain shutdown request comes in, until a domain startup
+// is issued.
+// The nodeShutdown list(2 below) is populated both when a node is shutting
+// down independently and as a part of the domain shut down
 void
 OM_NodeDomainMod::setDomainShuttingDown(bool flag)
 {
