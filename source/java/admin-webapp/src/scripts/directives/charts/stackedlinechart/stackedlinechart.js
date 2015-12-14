@@ -471,6 +471,10 @@ angular.module( 'charts' ).directive( 'stackedLineChart', function(){
                 else {
                     create();
                 }
+            },
+            function( newVal, oldVal ) {
+                
+                return (newVal === oldVal);
             });
         }
     };
