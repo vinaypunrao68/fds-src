@@ -1050,7 +1050,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
-        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
+        LOGNOTIFY << "delete volume processed for :" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -1352,7 +1352,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
-        desc.createTime = util::getTimeStampMillis();
+        desc.createTime = util::getTimeStampSeconds();
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -1385,7 +1385,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
             boost::shared_ptr<std::string> sp_snapName(new std::string(
                 util::strformat("snap0_%s_%d", clonedVolumeName->c_str(),
-                                util::getTimeStampNanos())));
+                                util::getTimeStampSeconds())));
             boost::shared_ptr<int64_t> sp_retentionTime(new int64_t(0));
             boost::shared_ptr<int64_t> sp_timelineTime(new int64_t(0));
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
@@ -1409,7 +1409,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         }
         snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
-        snapshot.creationTimestamp = util::getTimeStampMillis();
+        snapshot.creationTimestamp = util::getTimeStampSeconds();
         snapshot.retentionTimeSeconds = *retentionTime;
         snapshot.timelineTime = *timelineTime;
 
