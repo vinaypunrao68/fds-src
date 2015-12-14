@@ -349,9 +349,6 @@ void StatsCollector::sendStatStream() {
     read_synchronized(sh_lock_) {
         for (cit = stat_hist_map_.cbegin(); cit != stat_hist_map_.cend(); ++cit) {
             snap_map[cit->first] = (cit->second)->getSnapshot();
-
-            LOGTRACE << "Got snapshot of stats "
-                     << *(cit->second);
         }
     }
 
@@ -368,9 +365,6 @@ void StatsCollector::sendStatStream() {
             }
 
             fds_uint64_t last_rel_sec = last_rel_sec_smap_[cit->first];
-
-            LOGTRACE << "last_rel_sec = <" << last_rel_sec
-                     << "> for stats " << *(cit->second);
 
             std::vector<StatSlot> slot_list;
             last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec); // No last few seconds to ignore here since we're wanting to add local stats to the volume's history.

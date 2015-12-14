@@ -720,16 +720,12 @@ void StatStreamTimerTask::runTimerTask() {
      */
     std::vector<fds_volid_t> volumes;
     if (reg_->volumes.empty()) {
-        LOGTRACE << "Getting volumes from aggregator.";
         for (auto i : statStreamAggr_.volstats_map_) {
-            LOGTRACE << "volid = <" << i.first << ">.";
             volumes.push_back(i.first);
         }
         cleanupVolumes(volumes);  // cleanup in case volumes were removed
     } else {
-        LOGTRACE << "Getting volumes from registration.";
         for (auto i : reg_->volumes) {
-            LOGTRACE << "volid = <" << fds_volid_t(i) << ">.";
             volumes.push_back(fds_volid_t(i));
         }
     }
@@ -879,7 +875,6 @@ void StatStreamTimerTask::runTimerTask() {
             GLOGTRACE << "Failed to get svc info for uuid: '" << std::hex
                     << reg_->dest.svc_uuid << std::dec << "'";
         } else {
-            LOGTRACE << "Streaming stats to ip " << info.ip << ":" << 8911;
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);

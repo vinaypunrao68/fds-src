@@ -381,10 +381,10 @@ void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
         }
     }
 
-    LOGTRACE << " Recorded stat type <" << stat_type
-    << "> with rel seconds <" << rel_seconds
-    << "> giving slot index <" << index
-    << "> using counter <" << counter << ">.";
+    //LOGTRACE << " Recorded stat type <" << stat_type
+    //<< "> with rel seconds <" << rel_seconds
+    //<< "> giving slot index <" << index
+    //<< "> using counter <" << counter << ">.";
 }
 
 void VolumePerfHistory::recordEvent(fds_uint64_t ts,
@@ -403,17 +403,17 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
         }
     }
 
-    if (index < max_slot_generations_) {
-        LOGTRACE << " Recorded stat type <" << stat_type
-                 << "> with rel seconds <" << rel_seconds
-                 << "> giving slot index <" << index
-                 << "> using value <" << value << ">.";
-    } else {
-        LOGTRACE << " Can't recorded stat type <" << stat_type
-                 << "> with rel seconds <" << rel_seconds
-                 << "> giving slot index <" << index
-                 << "> using value <" << value << ">. Stat is too old.";
-    }
+    //if (index < max_slot_generations_) {
+    //    LOGTRACE << " Recorded stat type <" << stat_type
+    //             << "> with rel seconds <" << rel_seconds
+    //             << "> giving slot index <" << index
+    //             << "> using value <" << value << ">.";
+    //} else {
+    //    LOGTRACE << " Can't recorded stat type <" << stat_type
+    //             << "> with rel seconds <" << rel_seconds
+    //             << "> giving slot index <" << index
+    //             << "> using value <" << value << ">. Stat is too old.";
+    //}
 }
 
 //
@@ -517,8 +517,6 @@ void VolumePerfHistory::mergeSlots(const std::vector<StatSlot>& stat_list) {
     for (fds_uint32_t i = 0; i < stat_list.size(); ++i) {
         write_synchronized(stat_lock_) {
             auto index = relSecToStatHistIndex_LockHeld(stat_list[i].getRelSeconds());
-            LOGTRACE << "rel_seconds = <" << stat_list[i].getRelSeconds()
-                     << ">, index = <" << index << ">.";
 
             /**
              * An out-of-bounds index indicates that this slot is too
@@ -664,12 +662,12 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
         }
     }
 
-    LOGTRACE << "last_rel_sec = <" << last_rel_sec
-             << ">, last_seconds_to_ignore = <" << last_seconds_to_ignore
-             << ">, last_slot_generation_ = <" << last_slot_generation_
-             << ">, max_slot_generations_ = <" << max_slot_generations_
-             << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index
-             << ">, slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index << ">.";
+    //LOGTRACE << "last_rel_sec = <" << last_rel_sec
+    //         << ">, last_seconds_to_ignore = <" << last_seconds_to_ignore
+    //         << ">, last_slot_generation_ = <" << last_slot_generation_
+    //         << ">, max_slot_generations_ = <" << max_slot_generations_
+    //         << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index
+    //         << ">, slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index << ">.";
 
     auto slot_index = slot_copy_lower_bound_index;
     fds_uint32_t slots_copied = 0;
@@ -677,7 +675,6 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
     stat_list.clear();
     while (slot_index != slot_copy_upper_bound_index) {
         auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
-        //LOGTRACE << "slot_rel_seconds = <" << slot_rel_seconds << ">.";
 
         /**
          * Ensure we don't copy any slots from the given last_rel_sec
@@ -703,8 +700,6 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
                                     0;
     auto last_added_rel_sec = last_added_generation * slot_interval_sec_;
 
-    LOGTRACE << "last_added_rel_sec = <" << last_added_rel_sec << ">.";
-
     return last_added_rel_sec;
 }
 
@@ -722,9 +717,6 @@ void VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat) {
                                             (slot_copy_upper_bound_index + 1) % max_slot_generations_ :
                                             0;  // The oldest slot. Copy from and including this bound.
 
-    LOGTRACE << "slot_copy_upper_bound_index = <" << slot_copy_upper_bound_index
-             << ">, slot_copy_lower_bound_index = <" << slot_copy_lower_bound_index << ">.";
-
     fdsp_volstat.statlist.clear();
     fdsp_volstat.volume_id = volid_.get();
     for (auto slot_index = slot_copy_lower_bound_index;
@@ -736,8 +728,6 @@ void VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat) {
                                slot_copy_upper_bound_index + 1) {
 
         auto slot_rel_seconds = stat_slots_[slot_index].getRelSeconds();
-
-        LOGTRACE << "slot_rel_seconds = <" << slot_rel_seconds << ">.";
 
         fpi::VolStatSlot fdsp_slot;
         stat_slots_[slot_index].getSerialized(fdsp_slot.slot_data);
@@ -787,9 +777,6 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
             --slot_print_upper_bound_index;
         }
     }
-
-    LOGTRACE << "slot_print_lower_bound_index = <" << slot_print_lower_bound_index
-             << ">, slot_print_upper_bound_index = <" << slot_print_upper_bound_index << ">.";
 
     auto slot_index = slot_print_lower_bound_index;
 
@@ -843,8 +830,6 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                                     (last_slot_generation_ - 1) - num_latest_slots_to_ignore :
                                     0;
     auto last_printed_rel_sec = last_printed_generation * slot_interval_sec_;
-
-    LOGTRACE << "last_printed_rel_sec = <" << last_printed_rel_sec << ">.";
 
     return last_printed_rel_sec;
 }

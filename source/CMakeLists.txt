@@ -148,6 +148,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/renameblobhandler.cpp
     ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
     ./data-mgr/dm-lib/handlers/setvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/simplehandler.cpp
     ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
     ./data-mgr/dm-lib/handlers/statstreamhandler.cpp
     ./data-mgr/dm-lib/handlers/statvolumehandler.cpp
@@ -160,6 +161,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/timeline/timelinemanager.cpp
     ./data-mgr/dm-lib/CatalogSync.cpp
     ./data-mgr/dm-lib/CatalogSyncRecv.cpp
+    ./data-mgr/dm-lib/counters.cpp
     ./data-mgr/dm-lib/DataMgr.cpp
     ./data-mgr/dm-lib/DmBlobTypes.cpp
     ./data-mgr/dm-lib/DmMigrationBase.cpp
