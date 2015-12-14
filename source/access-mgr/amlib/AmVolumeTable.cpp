@@ -206,8 +206,8 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
     AmDataProvider::registerVolume(volDesc);
 }
 
-Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const VolumeDesc& vdesc) {
-    auto vol = getVolume(vol_uuid);
+Error AmVolumeTable::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    auto vol = getVolume(vdesc.volUUID);
     if (vol)
     {
         /* update volume descriptor */
@@ -220,7 +220,7 @@ Error AmVolumeTable::modifyVolumePolicy(fds_volid_t const vol_uuid, const Volume
             << " (iops_assured=" << vdesc.iops_assured
             << ", iops_throttle=" << vdesc.iops_throttle
             << ", prio=" << vdesc.relativePrio << ")";
-        return ERR_OK;
+        return AmDataProvider::modifyVolumePolicy(vdesc);
     }
 
     return ERR_VOL_NOT_FOUND;
@@ -244,6 +244,7 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
         if (vol->access_token) {
             auto volReq = new DetachVolumeReq(volDesc.volUUID, volDesc.name, nullptr);
             volReq->token = vol->getToken();
+            LOGNOTIFY << "Releasing lease on: " << volDesc.name;
             AmDataProvider::closeVolume(volReq);
         }
         volume_map.erase(volIt);
@@ -273,7 +274,8 @@ AmVolumeTable::volume_ptr_type AmVolumeTable::getVolume(fds_volid_t const vol_uu
 }
 
 AmVolumeTable::volume_ptr_type
-AmVolumeTable::ensureReadable(AmRequest* amReq) {
+AmVolumeTable::ensureReadable(AmRequest* amReq,
+                              bool const otherwise_queue) {
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
@@ -288,7 +290,8 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) {
     }
     // We do not know about this volume, delay it and try and look up the
     // required VolDesc to continue the operation.
-    if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq)) {
+    if (otherwise_queue &&
+        ERR_VOL_NOT_FOUND == read_queue->delay(amReq)) {
         GLOGTRACE << "Looking up volume: " << amReq->volume_name;
         AmDataProvider::lookupVolume(amReq->volume_name);
     }
@@ -296,16 +299,18 @@ AmVolumeTable::ensureReadable(AmRequest* amReq) {
 }
 
 AmVolumeTable::volume_ptr_type
-AmVolumeTable::ensureWritable(AmRequest* amReq) {
+AmVolumeTable::ensureWritable(AmRequest* amReq,
+                              bool const otherwise_queue) {
     static fpi::VolumeAccessMode const default_access_mode;
-    auto vol = ensureReadable(amReq);
+    auto vol = ensureReadable(amReq, otherwise_queue);
     if (vol) {
        if (vol->getMode().first) {
            return vol;
        }
 
        // Implicitly attach and delay till open response
-       if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq)) {
+       if (otherwise_queue &&
+           ERR_VOL_NOT_FOUND == write_queue->delay(amReq)) {
            GLOGTRACE << "Trying to update an unleased volume, implicit open.";
            auto volReq = new AttachVolumeReq(amReq->io_vol_id,
                                              amReq->volume_name,
@@ -407,7 +412,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
 
 void
 AmVolumeTable::closeVolume(AmRequest *amReq) {
-    auto vol = ensureReadable(amReq);
+    auto vol = ensureReadable(amReq, false);
 
     // If we didn't have the volume open, fine...
     if (!vol || !vol->access_token) {
@@ -425,6 +430,7 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
     if (invalid_vol_token == volReq->token) {
         return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
     }
+    LOGNOTIFY << "Releasing lease on: " << vol->voldesc->name;
     AmDataProvider::closeVolume(volReq);
 }
 

@@ -6,7 +6,7 @@ import logging
 import sys
 import time
 import hashlib
-
+import types
 from FDS_ProtocolInterface.ttypes import *
 
 from thrift.transport import TTransport
@@ -32,11 +32,20 @@ log = logging.getLogger(__name__)
 #
 # @return Service message object 
 def newSvcMsgByTypeId(typeId):
-    typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
+    if type(typeId) == types.StringType:
+        typeStr=typeId
+    else:
+        typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
     thType = typeStr.replace('TypeId','')
     log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
     thismodule = sys.modules[__name__]
-    thObj = getattr(thismodule, thType)()
+    thObj = None
+    if hasattr(thismodule, thType):
+        thObj = getattr(thismodule, thType)()
+        log.error('unable to find thrift object : {}'.format(thType))
+    else:
+        thType = thType.replace('RspMsg','MsgRsp')
+        thObj = getattr(thismodule, thType)()
     return thObj
 
 def getMsgTypeId(msg):
@@ -179,8 +188,8 @@ def newGetObjectMsg(volId, objectId):
 #
 # @return 
 def newGetVolumeMetaDataMsg(volId):
-    msg = GetVolumeMetaDataMsg()
-    msg.volume_id = volId
+    msg = GetVolumeMetadataMsg()
+    msg.volumeId = volId
     return msg
 
 ##

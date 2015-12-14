@@ -229,7 +229,14 @@ void SmDiskMap::getDiskMap() {
     std::string   path, dev;
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+
     std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
+    
+    if (map.fail() == true) {
+        LOGERROR << "DiskMap read failed. Check " << dir->dir_dev() 
+                  << " for a valid disk map";
+        return;
+    }
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {

@@ -78,8 +78,11 @@ class PlatSvc(object):
             serv.stop_serv()
 
     def stop(self):
-        if self.serverSock:
-            self.serverSock.close()
+        try:
+            if self.serverSock:
+                self.serverSock.close()
+        except:
+            pass
         
     def registerService(self, basePort, omPlatIp, omPlatPort):
         """
@@ -100,26 +103,25 @@ class PlatSvc(object):
         self.svcMap.omSvc().registerService(svcinfo);
 
     def startServer(self):
-        #handler = PlatNetSvcHandler()
-        handler = self
-        processor = PlatNetSvc.Processor(handler)
+        processor = PlatNetSvc.Processor(self)
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
-        #tfactory = TTransport.TBufferedTransportFactory()
-        #pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock)
+        tfactory = TTransport.TFramedTransportFactory()
+        pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+        self.server = TServer.TSimpleServer(processor, self.serverSock, tfactory, pfactory)
+        #self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
-        # self.serverThread.setDaemon(True)
+        self.serverThread.setDaemon(True)
         log.info("Starting server on {}".format(self.basePort));
-        # self.serverThread.start()
+        self.serverThread.start()
 
     def serve(self):
+        log.info('About to serve')
         self.server.serve()
         log.info("Exiting server")
 
-    def stop_serv(self):
-        self.server.stop()
-        self.server.close()
+    def stop_server(self):
+        self.stop()
 
     def sendAsyncReqToSvc(self, node, svc, msg, cb=None, timeout=None):
         targetUuid = self.svcMap.svc_uuid(node, svc)
@@ -137,7 +139,7 @@ class PlatSvc(object):
                 self.reqCbs[reqId] = cb
         # send the request
         try:
-            log.debug('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}'.format(self.mySvcUuid, targetUuid, reqId))
+            log.info('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}'.format(self.mySvcUuid, targetUuid, reqId))
             header = FdspUtils.newAsyncHeader(mySvcUuid=self.mySvcUuid,
                                               targetSvcUuid=targetUuid,
                                               reqId=reqId,
@@ -170,11 +172,11 @@ class PlatSvc(object):
     #
     # @return 
     def asyncResp(self, asyncHdr, payload):
-        log.debug('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}, error: {}'.format(
+        log.info('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}, error: {} payload:{}'.format(
             asyncHdr.msg_src_uuid.svc_uuid,
             asyncHdr.msg_dst_uuid.svc_uuid,
             asyncHdr.msg_src_id,
-            asyncHdr.msg_code))
+            asyncHdr.msg_code, payload))
         cb = None
         # extract registered callback
         with self.reqLock:

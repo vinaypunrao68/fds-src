@@ -4,11 +4,13 @@
 
 package com.formationds.om.webkit.rest.v08.platform;
 
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.FDSP_Uuid;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
+import com.formationds.protocol.svc.types.ServiceStatus;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.apis.FDSP_RemoveServicesType;
 import com.formationds.client.v08.model.Node;
@@ -56,7 +58,8 @@ public class RemoveNode
         
     	Node node = (new GetNode()).getNode(nodeUuid);
         
-        if( node == null ) {
+        if( node == null )
+        {
 	  		throw new ApiException( "The specified node uuid " + nodeUuid + " has no matching node name.", ErrorCode.MISSING_RESOURCE );
   		}
         
@@ -89,50 +92,63 @@ public class RemoveNode
         	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
         			                                 (node.getAddress().getHostAddress(),
                                                       pmSvc);
-        	svcInfList.add(svcInfo);
+            svcInfList.add( svcInfo );
         }
         
         // TODO: Fix when we support multiple domains
-        
-        logger.debug("Stopping and removing services on node");
-        int status =
-            getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList, true));
-
-        if( status != 0 )
+        if( hasNonPMServices( svcInfList ) )
         {
-            status= HttpServletResponse.SC_BAD_REQUEST;
-            EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                      node.getName(), nodeUuid );
-            throw new ApiException( "Error encountered while stopping services on node: "
-                    + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
-        }
-        else 
-        {   
-            // Now that we have stopped the services go remove them
-        	status = getConfigApi().RemoveService(new NotifyRemoveServiceMsg(svcInfList, true));
-        	
-        	if(status != 0)
-        	{
-                status= HttpServletResponse.SC_BAD_REQUEST;
-                EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
-                                          node.getName(), nodeUuid );
-                throw new ApiException( "Error encountered while removing services on node: "
-                        + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
-        	}
-        	else
-        	{
-                EventManager.notifyEvent( OmEvents.REMOVE_NODE,
-                                          node.getName(), nodeUuid );
-        	}
+            logger.debug( "Stopping and removing services on node" );
+            int status =
+                getConfigApi( ).StopService( new NotifyStopServiceMsg( svcInfList, true ) );
 
+            if ( status != 0 )
+            {
+                status = HttpServletResponse.SC_BAD_REQUEST;
+                EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+                                          node.getName( ), nodeUuid );
+                throw new ApiException( "Error encountered while stopping services on node: "
+                                            + nodeUuid, ErrorCode.INTERNAL_SERVER_ERROR );
+            }
+            else
+            {
+                // Now that we have stopped the services go remove them
+                status = getConfigApi( ).RemoveService(
+                    new NotifyRemoveServiceMsg( svcInfList, true ) );
+
+                if ( status != 0 )
+                {
+                    status = HttpServletResponse.SC_BAD_REQUEST;
+                    EventManager.notifyEvent( OmEvents.REMOVE_NODE_ERROR,
+                                              node.getName( ), nodeUuid );
+                    throw new ApiException( "Error encountered while removing services on node: "
+                                                + nodeUuid, ErrorCode.INTERNAL_SERVER_ERROR );
+                }
+                else
+                {
+                    EventManager.notifyEvent( OmEvents.REMOVE_NODE,
+                                              node.getName( ), nodeUuid );
+                }
+
+            }
+
+            return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
         }
-        
-        return new JsonResource( new JSONObject().put("status", "ok"), HttpServletResponse.SC_OK );
+
+        final String message = "The specified PM uuid[ " + nodeUuid + " ] has no active services.";
+        logger.debug( message );
+        throw new ApiException( message, ErrorCode.MISSING_RESOURCE );
     }
-    
-    private ConfigurationApi getConfigApi(){
-    	
-    	if ( configApi == null ){
+
+    public boolean hasNonPMServices( final List<SvcInfo> services )
+    {
+        return services.stream().filter( ( s ) -> !s.getSvc_type().equals( FDSP_MgrIdType.FDSP_PLATFORM ) ).count() > 0;
+    }
+
+    private ConfigurationApi getConfigApi()
+    {
+    	if ( configApi == null )
+        {
     		configApi = SingletonConfigAPI.instance().api();
     	}
     	

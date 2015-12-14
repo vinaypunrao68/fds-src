@@ -4,6 +4,8 @@
 
 package com.formationds.client.v08.model.iscsi;
 
+import java.util.Objects;
+
 /**
  * @author ptinius
  */
@@ -12,7 +14,7 @@ public class LUN
     public enum AccessType { RW, RO }
 
     public static class Builder {
-        private AccessType accessType;
+        private AccessType accessType = AccessType.RW;
         private String lunName;
 
         protected AccessType getAccessType( ) { return accessType; }
@@ -47,27 +49,37 @@ public class LUN
     {
         this.lunName = lunName;
         this.accessType = accessType;
-    }
+     }
 
     /**
      * @return Returns the access type of this Logical Unit Number
      */
-    public AccessType getAccessType( )
-    {
-        return accessType;
-    }
+    public AccessType getAccessType( ) { return accessType; }
 
     /**
      * @return Returns the name of this Logical Unit Number
      */
-    public String getLunName( )
+    public String getLunName( ) { return lunName; }
+
+    @Override
+    public boolean equals( final Object o )
     {
-        return lunName;
+        if ( this == o ) return true;
+        if ( !( o instanceof LUN ) ) return false;
+        final LUN lun = ( LUN ) o;
+        return getAccessType( ) == lun.getAccessType( ) &&
+            Objects.equals( getLunName( ), lun.getLunName( ) );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( getAccessType( ), getLunName( ) );
     }
 
     @Override
     public String toString( )
     {
-        return getLunName() + "(" + getAccessType() + ")";
+        return getLunName() + "(" + getAccessType() + ") ";
     }
 }

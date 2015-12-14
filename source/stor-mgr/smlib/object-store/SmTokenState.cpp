@@ -10,22 +10,9 @@ namespace fds {
 const fds_uint16_t fds_hdd_row = 0;
 const fds_uint16_t fds_ssd_row = 1;
 
-///// SmTokenDesc class implementation //////////
-SmTokenDesc &
-SmTokenDesc::operator =(const SmTokenDesc & rhs) {
-    if (&rhs != this) {
-        writeFileId = rhs.writeFileId;
-        tokenFlags = rhs.tokenFlags;
-    }
-    return *this;
-}
-
 ////// TokenDescTable class implementation ///////
 TokenDescTable::TokenDescTable() {
     memset(this, 0, sizeof(*this));
-}
-
-TokenDescTable::~TokenDescTable() {
 }
 
 fds_bool_t

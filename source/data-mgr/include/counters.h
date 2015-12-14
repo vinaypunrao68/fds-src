@@ -8,20 +8,7 @@
 namespace fds {
 namespace dm {
 struct Counters : FdsCounters {
-    Counters(const std::string &id, FdsCountersMgr *mgr) 
-            : FdsCounters(id, mgr),
-              refscanRunning("dm.refscan.running", this),
-              refscanNumVolumes("dm.refscan.num_volumes", this),
-              refscanNumTokenFiles("dm.refscan.num_tokens", this),
-              refscanNumObjects("dm.refscan.num_objects", this),
-              refscanLastRun("dm.refscan.lastrun.timestamp", this),
-              totalVolumesReceivedMigration("dm.migration.total.volumesReceived", this),
-              totalVolumesSentMigration("dm.migration.total.volumesSent", this),
-              totalMigrationsAborted("dm.migration.total.aborted", this),
-              numberOfActiveMigrExecutors("dm.migrations.active.executors", this),
-              numberOfActiveMigrClients("dm.migrations.active.clients", this),
-              numberOfOutstandingIOs("dm.migrations.active.outstandingios", this) {
-    }
+    Counters(const std::string &id, FdsCountersMgr *mgr);
     ~Counters() = default;
 
     SimpleNumericCounter refscanRunning;
@@ -29,12 +16,22 @@ struct Counters : FdsCounters {
     SimpleNumericCounter refscanNumTokenFiles;
     SimpleNumericCounter refscanLastRun;
     SimpleNumericCounter refscanNumObjects;
+
+    SimpleNumericCounter migrationLastRun;
     SimpleNumericCounter totalVolumesReceivedMigration;
     SimpleNumericCounter totalVolumesSentMigration;
     SimpleNumericCounter totalMigrationsAborted;
     SimpleNumericCounter numberOfActiveMigrExecutors;
     SimpleNumericCounter numberOfActiveMigrClients;
     SimpleNumericCounter numberOfOutstandingIOs;
+    SimpleNumericCounter totalSizeOfDataMigrated;
+    SimpleNumericCounter timeSpentForCurrentMigration;
+    SimpleNumericCounter timeSpentForAllMigrations;
+    SimpleNumericCounter totalVolumesToBeMigrated;
+    SimpleNumericCounter migrationDMTVersion;
+
+    void clearMigrationCounters();
+
 };
 }  // namespace dm
 }  // namespace fds
