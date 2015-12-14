@@ -27,7 +27,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                     initBounds();
                 }
 
-                var totalSteps = Math.round( ($scope.max - $scope.min) / $scope.step );
+                var totalSteps = Math.round( (parseInt( $scope.max ) - parseInt( $scope.min ) ) / parseInt( $scope.step ) );
                 var v = Math.ceil( eWidth / totalSteps );
 
                 $scope.segments = [];
@@ -68,15 +68,15 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                     return;
                 }
                 else {
-                    foundValue = $scope.min + (steps * $scope.step);
+                    foundValue = parseInt( $scope.min ) + (steps * parseInt( $scope.step ) );
                 }
 
                 // keep it in bounds
-                if ( foundValue > $scope.max ){
-                    $scope.value = $scope.max;
+                if ( foundValue > parseInt( $scope.max ) ){
+                    $scope.value = parseInt( $scope.max );
                 }
-                else if ( foundValue < $scope.min ){
-                    $scope.value = $scope.min;
+                else if ( foundValue < parseInt( $scope.min ) ){
+                    $scope.value = parseInt( $scope.min );
                 }
                 else {
                     $scope.value = foundValue;
@@ -114,8 +114,8 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                     }
                 }
                 else {                  
-                    steps = Math.round( ($scope.value - $scope.min) / $scope.step );
-                    $scope.value = $scope.min + ( steps * $scope.step );
+                    steps = Math.round( ($scope.value - parseInt( $scope.min ) ) / parseInt( $scope.step ) );
+                    $scope.value = parseInt( $scope.min ) + ( steps * parseInt( $scope.step ) );
                 }
 
                 $scope.position = (pxPerStep * (steps));
@@ -152,7 +152,7 @@ angular.module( 'form-directives' ).directive( 'slider', function(){
                     return $scope.values[ $index ];
                 }
                 else {
-                    return $index * $scope.step + $scope.min;
+                    return parseInt( $index ) * parseInt( $scope.step ) + parseInt( $scope.min );
                 }
             };
 
