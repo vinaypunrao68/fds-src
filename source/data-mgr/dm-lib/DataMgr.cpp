@@ -22,10 +22,6 @@
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
 
-#include "StatsConnection.h"
-#include "StatDataPoint.h"
-#include "StatsConnFactory.h"
-
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -224,14 +220,6 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
         LOGDEBUG << "volume " << std::hex << *cit << std::dec
                  << " bytes " << total_bytes << " blobs "
                  << total_blobs << " objects " << total_objects;
-	
-	fds::StatDataPoint tData;
-	tData.setMetricName("demo_dm_bytes");
-	tData.setMetricValue(total_bytes);
-	tData.setContextType(fds::ContextType::fromString("VOLUME"));
-	fds::StatsRabbitMQConnection tCon("localhost", 11011, "admin", "admin");
-	tCon.publishStatistic(tData);
-
         StatsCollector::singleton()->recordEvent(*cit,
                                                  timestamp,
                                                  STAT_DM_CUR_TOTAL_BYTES,
