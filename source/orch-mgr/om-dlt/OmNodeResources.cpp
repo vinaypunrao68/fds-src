@@ -27,6 +27,8 @@
 
 namespace fds {
 
+extern std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg& msg);
+
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
@@ -667,11 +669,12 @@ OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
     om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDMStartMigrationMsg), meta_msg);
     om_req->onResponseCb(std::bind(&OM_NodeAgent::om_pullmeta_resp, this,
             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-    om_req->setTimeoutMs(dm_migration_abort_timeout);
+    om_req->setTimeoutMs(10*60*60*1000); // set an hour for now, with a new polling mechanism incoming
     om_req->invoke();
 
     LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec
+              << " " << logString(*meta_msg);
     return err;
 }
 
@@ -685,7 +688,7 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
     	 * and doesn't have the volume descriptor.
     	 */
     }
-    LOGDEBUG << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
+    LOGNORMAL << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
 

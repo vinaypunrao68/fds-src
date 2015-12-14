@@ -24,7 +24,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     iops_throttle = 0;
     relativePrio = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
@@ -32,6 +32,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
     state   = volinfo.state;
+
+    iscsiSettings = volinfo.iscsi;
+    nfsSettings = volinfo.nfs;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -54,8 +57,11 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     contCommitlogRetention = vdesc.contCommitlogRetention;
     timelineTime = vdesc.timelineTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = vdesc.iscsiSettings;
+    nfsSettings = vdesc.nfsSettings;
 }
 
 // NOTE: counterpart of outputting toFdspDesc
@@ -80,8 +86,11 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = voldesc.iscsi;
+    nfsSettings = voldesc.nfs;
 }
 
 /*
@@ -91,7 +100,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
         : name(_name),
           volUUID(_uuid) {
     if (_uuid == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -110,8 +119,11 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     contCommitlogRetention = 0;
     timelineTime = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -125,7 +137,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
           iops_throttle(_iops_throttle),
           relativePrio(_priority) {
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -141,6 +153,8 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     contCommitlogRetention = 0;
     timelineTime = 0;
     createTime = 0;
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -176,9 +190,10 @@ int VolumeDesc::getPriority() const {
 }
 
 std::string VolumeDesc::ToString() {
-    return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID().get()) +
-            std::string(">"));
+    std::stringstream sstream;
+
+    sstream << "Volume [ " << getName() << " ] UUID [ " << GetID().get() << " ]";
+    return sstream.str();
 }
 
 void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
@@ -202,6 +217,8 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.timelineTime = timelineTime;
     voldesc.createTime = createTime;
     voldesc.state = state;
+    voldesc.iscsi = iscsiSettings;
+    voldesc.nfs = nfsSettings;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -232,6 +249,8 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->contCommitlogRetention = volinfo.contCommitlogRetention;
         this->timelineTime = volinfo.timelineTime;
         this->state = volinfo.state;
+        this->iscsiSettings = volinfo.iscsiSettings;
+        this->nfsSettings = volinfo.nfsSettings;
     }
     return *this;
 }

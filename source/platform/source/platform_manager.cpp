@@ -64,7 +64,7 @@ namespace fds
             fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
             loadRedisKeyId();
-            m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get<std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
+            m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get <std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
 
             int napTime = 1;
 
@@ -80,7 +80,7 @@ namespace fds
                     }
                 }
 
-                LOGCRITICAL << "unable to talk to redis @ [" << fdsConfig->get<std::string> ("redis_host","localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "], will retry in " << napTime << " seconds";
+                LOGCRITICAL << "unable to talk to redis @ [" << fdsConfig->get<std::string> ("redis_host", "localhost") << ":" << fdsConfig->get <int> ("redis_port", 6379) << "], will retry in " << napTime << " seconds";
 
                 sleep (napTime);
             }
@@ -108,7 +108,9 @@ namespace fds
 
                 LOGNOTIFY << "generated a new uuid for this node:  " << m_nodeInfo.uuid;
                 m_db->setNodeInfo (m_nodeInfo);
-            } else {
+            }
+            else
+            {
                 LOGNOTIFY << "Using stored nodeInfo record for this node:  " << m_nodeInfo.uuid;
             }
 
@@ -135,12 +137,18 @@ namespace fds
             // Load the java_am Java Options
             std::string javaOptions ("");
 
-            char *envValue = getenv("XDI_JAVA_OPTS");
+            char *envValue = getenv ("XDI_JAVA_OPTS");
 
             if (NULL != envValue)
             {
                 javaOptions = envValue;
             }
+            else
+            {
+                javaOptions = util::strformat ("-Dfds.service.name=xdi -Dlog4j.configurationFile=%setc/log4j2.xml -Dfds-root=%s", rootDir.c_str(), rootDir.c_str());
+
+            }
+            LOGDEBUG << "XDI_JAVA_OPTS = ' " << javaOptions << " ' FDS-ROOT: " << rootDir;
 
             if (javaOptions.size() > 0)
             {
@@ -160,7 +168,7 @@ namespace fds
             }
 
             // Load the java_am main class name
-            envValue = getenv("XDI_MAIN_CLASS");
+            envValue = getenv ("XDI_MAIN_CLASS");
 
             if (NULL == envValue)
             {
@@ -172,16 +180,16 @@ namespace fds
             }
 
             // Load the Java Home directory for the am/xdi
-            envValue = getenv("XDI_JAVA_HOME");
+            envValue = getenv ("XDI_JAVA_HOME");
 
             if (NULL == envValue)
             {
                 LOGDEBUG << "XDI_JAVA_HOME is not defined.  Using java from PATH.";
                 m_javaXdiJavaCmd = JAVA_PROCESS_NAME;
             }
-            else 
+            else
             {
-                std::string jhome(envValue);
+                std::string jhome (envValue);
                 LOGDEBUG << "Using XDI_JAVA_HOME=" << jhome;
                 m_javaXdiJavaCmd = jhome + "/bin/" + JAVA_PROCESS_NAME;
             }
@@ -266,7 +274,7 @@ namespace fds
                 else
                 {
                     updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
-                    stopProcess(JAVA_AM);
+                    stopProcess (JAVA_AM);
                 }
             }
 
@@ -301,7 +309,7 @@ namespace fds
         }
 
         //
-        void PlatformManager::verifyAndMountFDSFileSystems ()
+        void PlatformManager::verifyAndMountFDSFileSystems()
         {
             std::vector <std::string> fileSystemsToMount;
 
@@ -327,9 +335,9 @@ namespace fds
 
                         FdsRootDir::fds_mkdir (tabEntry->m_mountPath.c_str());      // Create the mount point
 
-                        std::string uuid = tabEntry->m_deviceName.substr(5);
+                        std::string uuid = tabEntry->m_deviceName.substr (5);
 
-                        auto item = m_diskUuidToDeviceMap.find(uuid);
+                        auto item = m_diskUuidToDeviceMap.find (uuid);
 
                         if (m_diskUuidToDeviceMap.end() == item)
                         {
@@ -474,6 +482,11 @@ namespace fds
                        return false;
                    }
                }
+               else
+               {
+                   LOGWARN "Looking for process with pid " << pid << " and it is no longer " << procName;
+                   return false;
+               }
            }
 
            return true;
@@ -527,6 +540,8 @@ namespace fds
 
                 args.push_back ("-classpath");
                 args.push_back (rootDir+JAVA_CLASSPATH_OPTIONS);
+//                args.push_back ("-Dfds.service.name=xdi");
+//                args.push_back ("-Dlog4j.configurationFile=" + rootDir + "etc/log4j2.xml");
 
 #ifdef DEBUG
                 std::ostringstream remoteDebugger;
@@ -1003,7 +1018,7 @@ namespace fds
                             }
                         }
 
-                        message->changeList.push_back(amChangeInfo);
+                        message->changeList.push_back (amChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (BARE_AM);
@@ -1031,7 +1046,7 @@ namespace fds
                         }
 
 
-                        message->changeList.push_back(dmChangeInfo);
+                        message->changeList.push_back (dmChangeInfo);
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                         m_startQueue.push_back (DATA_MANAGER);
@@ -1057,7 +1072,7 @@ namespace fds
                             }
                         }
 
-                        message->changeList.push_back(smChangeInfo);
+                        message->changeList.push_back (smChangeInfo);
 
 
                         std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
@@ -1073,7 +1088,7 @@ namespace fds
                 }
             }
 
-            request->setPayload(FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), message);
+            request->setPayload (FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), message);
             request->invoke();
 
             m_startQueueCondition.notify_one();
@@ -1171,17 +1186,17 @@ namespace fds
             request->invoke();
         }
 
-        void PlatformManager::updateServiceInfoProperties(std::map<std::string, std::string> *data)
+        void PlatformManager::updateServiceInfoProperties (std::map<std::string, std::string> *data)
         {
             determineDiskCapability();
-            util::Properties props = util::Properties(data);
-            props.set("fds_root", rootDir);
-            props.setInt("uuid", m_nodeInfo.uuid);
-            props.setInt("node_iops_max", diskCapability.node_iops_max);
-            props.setInt("node_iops_min", diskCapability.node_iops_min);
-            props.setDouble("disk_capacity", diskCapability.disk_capacity);
-            props.setDouble("ssd_capacity", diskCapability.ssd_capacity);
-            props.setInt("disk_type", diskCapability.disk_type);
+            util::Properties props = util::Properties (data);
+            props.set ("fds_root", rootDir);
+            props.setInt ("uuid", m_nodeInfo.uuid);
+            props.setInt ("node_iops_max", diskCapability.node_iops_max);
+            props.setInt ("node_iops_min", diskCapability.node_iops_min);
+            props.setDouble ("disk_capacity", diskCapability.disk_capacity);
+            props.setDouble ("ssd_capacity", diskCapability.ssd_capacity);
+            props.setInt ("disk_type", diskCapability.disk_type);
         }
 
         // TODO: this needs to populate real data from the disk module labels etc.
@@ -1191,11 +1206,11 @@ namespace fds
         // and calculate all the data.
         void PlatformManager::determineDiskCapability()
         {
-            auto ssd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_max");
-            auto ssd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.ssd.iops_min");
-            auto hdd_iops_max = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_max");
-            auto hdd_iops_min = fdsConfig->get<uint32_t>("capabilities.disk.hdd.iops_min");
-            auto space_reserve = fdsConfig->get<float>("capabilities.disk.reserved_space");
+            auto ssd_iops_max = fdsConfig->get<uint32_t> ("capabilities.disk.ssd.iops_max");
+            auto ssd_iops_min = fdsConfig->get<uint32_t> ("capabilities.disk.ssd.iops_min");
+            auto hdd_iops_max = fdsConfig->get<uint32_t> ("capabilities.disk.hdd.iops_max");
+            auto hdd_iops_min = fdsConfig->get<uint32_t> ("capabilities.disk.hdd.iops_min");
+            auto space_reserve = fdsConfig->get <float> ("capabilities.disk.reserved_space");
 
             DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             auto disk_counts = dpm->disk_counts();
@@ -1222,22 +1237,22 @@ namespace fds
                 diskCapability.ssd_capacity = (1.0 - space_reserve) * disk_capacities.second;
             }
 
-            if (fdsConfig->get<bool>("testing.manual_nodecap",false))
+            if (fdsConfig->get<bool> ("testing.manual_nodecap",false))
             {
-                diskCapability.node_iops_max    = fdsConfig->get<int>("testing.node_iops_max", 100000);
-                diskCapability.node_iops_min    = fdsConfig->get<int>("testing.node_iops_min", 6000);
+                diskCapability.node_iops_max    = fdsConfig->get <int> ("testing.node_iops_max", 100000);
+                diskCapability.node_iops_min    = fdsConfig->get <int> ("testing.node_iops_min", 6000);
             }
 
             LOGDEBUG << "Set node iops max to: " << diskCapability.node_iops_max;
             LOGDEBUG << "Set node iops min to: " << diskCapability.node_iops_min;
 
-            m_db->setNodeDiskCapability(diskCapability);
+            m_db->setNodeDiskCapability (diskCapability);
         }
 
-        fds_uint64_t PlatformManager::getNodeUUID(fpi::FDSP_MgrIdType svcType)
+        fds_uint64_t PlatformManager::getNodeUUID (fpi::FDSP_MgrIdType svcType)
         {
             ResourceUUID    uuid;
-            uuid.uuid_set_type(m_nodeInfo.uuid, svcType);
+            uuid.uuid_set_type (m_nodeInfo.uuid, svcType);
 
             return uuid.uuid_get_val();
         }
@@ -1256,7 +1271,7 @@ namespace fds
                     auto index = m_startQueue.front();
                     m_startQueue.pop_front();
 
-                    startProcess(index);
+                    startProcess (index);
                 }
             }
         }
@@ -1322,7 +1337,7 @@ namespace fds
                             if (BARE_AM == appIndex)
                             {
                                 LOGWARN << "Discovered an exited bare_am process, also bringing down XDI";
-                                stopProcess(JAVA_AM);
+                                stopProcess (JAVA_AM);
                             }
 
                             notifyOmAProcessDied (procName, appIndex, mapIter->second);
@@ -1397,7 +1412,7 @@ namespace fds
                 ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
 
                 // Check if this is a service on this node and is the same service type as the expired process
-                if (getNodeUUID(fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val() &&  uuid.uuid_get_type() == serviceType)
+                if (getNodeUUID (fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val() &&  uuid.uuid_get_type() == serviceType)
                 {
                     serviceRecord = &vectItem;
                     break;
@@ -1440,7 +1455,7 @@ namespace fds
 
             while (1)
             {
-                sleep(999);   /* we'll do hotplug uevent thread in here */
+                sleep (999);   /* we'll do hotplug uevent thread in here */
             }
         }
     }  // namespace pm

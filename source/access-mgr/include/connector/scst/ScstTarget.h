@@ -49,7 +49,7 @@ struct ScstTarget
     ScstTarget(ScstTarget const& rhs) = delete;
     ScstTarget& operator=(ScstTarget const& rhs) = delete;
 
-    ~ScstTarget() = default;
+    ~ScstTarget() override;
 
     bool enabled() const;
     void disable() { toggle_state(false); }
@@ -58,6 +58,8 @@ struct ScstTarget
     std::string targetName() const { return target_name; }
 
     void addDevice(std::string const& volume_name);
+    void deviceDone(std::string const& volume_name);
+    void removeDevice(std::string const& volume_name);
     void setInitiatorMasking(std::vector<std::string> const& ini_members);
 
     void mapDevices();
