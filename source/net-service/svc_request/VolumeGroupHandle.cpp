@@ -56,7 +56,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     state_ = fpi::ResourceState::Unknown;
 
     groupId_ = volId.get();
-    version_ = VolumeGroupConstants::VERSION_START;
+    version_ = VolumeGroupConstants::VERSION_INVALID;
 }
 
 #if 0
@@ -92,11 +92,12 @@ void VolumeGroupHandle::resetGroup_()
      */
     version_++;
 
-    changeState_(fpi::ResourceState::Offline);
+    changeState_(fpi::ResourceState::Offline, __FUNCTION__);
 
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 
+    /* Make all the replica handles non-functional */
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
     dmtVersion_ = svcMgr->getDMTVersion();
     auto svcs = svcMgr->getDMTNodesForVolume(fds_volid_t(groupId_))->toSvcUuids();
@@ -156,8 +157,10 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
                  clientCb(ERR_VOLUMEGROUP_DOWN);
                  return;
              }
-             changeState_(fpi::ResourceState::Active);
+             changeState_(fpi::ResourceState::Active, "Open volume");
              broadcastGroupInfo_();
+             clientCb(ERR_OK);
+             return;
            });
            openReq->invoke();
         });
@@ -166,15 +169,15 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
     });
 }
 
-inline std::string VolumeGroupHandle::logString() const
+std::string VolumeGroupHandle::logString() const
 {
     std::stringstream ss;
     ss << " [VolumeGroupHandle: " << groupId_
         << " version: " << version_
         << " state:  " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_))
-        << "up:" << functionalReplicas_.size()
-        << "sync:" << syncingReplicas_.size()
-        << "down:" << nonfunctionalReplicas_.size()
+        << " up:" << functionalReplicas_.size()
+        << " sync:" << syncingReplicas_.size()
+        << " down:" << nonfunctionalReplicas_.size()
         << "] ";
     return ss.str();
 }
@@ -269,7 +272,7 @@ void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
          * all the accounting is taken care for ids appropriately
          */
         changeVolumeReplicaState_(volumeHandle,
-                                  successSvcs[i].second->replicaVersion-1,
+                                  successSvcs[i].second->replicaVersion,
                                   fpi::ResourceState::Syncing,
                                   ERR_OK);
         changeVolumeReplicaState_(volumeHandle,
@@ -291,7 +294,8 @@ void VolumeGroupHandle::broadcastGroupInfo_()
     req->invoke();
 }
 
-void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState)
+void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState,
+                                     const std::string& logCtx)
 {
     if (targetState == fpi::ResourceState::Active) {
         fds_assert(functionalReplicas_.size() >= quorumCnt_);
@@ -301,6 +305,8 @@ void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState)
         syncingReplicas_.clear();
     }
     state_ = targetState;
+
+    LOGNORMAL << logString() << " - State changed.  Context: " << logCtx;
 }
 
 void VolumeGroupHandle::handleAddToVolumeGroupMsg(
@@ -334,6 +340,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                              uint8_t &successAcks)
 {
     ASSERT_SYNCHRONIZED();
+    GROUPHANDLE_FUNCTIONAL_CHECK();
 
     outStatus = inStatus;
 
@@ -369,9 +376,6 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                                        inStatus);
             fds_verify(changeErr == ERR_OK);
         }
-    } else if (volumeHandle->isUnitialized()) {
-        /* We get this when we are trying to open the volume */
-        fds_verify(state_ == fpi::ResourceState::Unknown);
     } else {
         /* When replica isn't functional we don't expect subsequent IO to return with
          * success status
@@ -439,10 +443,19 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(targetState))
         << " Prior update handle: " << *volumeHandle;
 
+    /* VolumeReplicaHandle state transitions
+     * Transition cycle is expected to be Syncing -> Active -> Offline
+     * On every new transition cycle starting with Syncing, version # is expected
+     * to be incremented.
+     * On a particual version # states transtions can only take place in the above cycle order.
+     * For ex. at replica handle at version 1, can't go from state Active to Syncing on same
+     * version #.
+     */
     auto srcState = volumeHandle->state;
 
     if (VolumeReplicaHandle::isSyncing(targetState)) {
-        if (replicaVersion <= volumeHandle->version) {
+        if (replicaVersion != VolumeGroupConstants::VERSION_START &&
+            replicaVersion <= volumeHandle->version) {
             fds_assert(!"Invalid version");
             return ERR_INVALID_VOLUME_VERSION;
         }
@@ -451,7 +464,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(e);
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
-        if (replicaVersion < volumeHandle->version) {
+        if (replicaVersion != volumeHandle->version) {
             fds_assert(!"Invalid version");
             return ERR_INVALID_VOLUME_VERSION;
         }
@@ -461,7 +474,9 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
     }
     LOGNORMAL << "After update handle: " << *volumeHandle;
 
-    /* Move the handle from the appropriate replica list */
+    /* Move the handle from the appropriate replica list
+     * NOTE: we move volumeHandle to the end in the destination list
+     */
     auto &srcList = getVolumeReplicaHandleList_(srcState);
     auto &dstList = getVolumeReplicaHandleList_(targetState);
     auto dstItr = std::move(volumeHandle, volumeHandle+1, std::back_inserter(dstList));

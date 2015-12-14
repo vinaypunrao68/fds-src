@@ -22,9 +22,11 @@ namespace fds {
 
 #define DMT_VER_INVALID 0  /**< Defines 0 as invalid DMT version */
 
+    class DMT;
     typedef TableColumn DmtColumn;
     typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
     typedef boost::shared_ptr<std::vector<DmtColumnPtr>> DmtTablePtr;
+    typedef boost::shared_ptr<DMT> DMTPtr;
 
     class DMT: public FDS_Table {
   public:
@@ -115,11 +117,13 @@ namespace fds {
 
         bool isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const;
 
+        /* Utility functions */
+        static DMTPtr newDMT(const std::vector<fpi::SvcUuid> &column);
+
   private:
         DmtTablePtr dmt_table;  /**< DMT table */
     };
 
-    typedef boost::shared_ptr<DMT> DMTPtr;
     typedef enum {
         DMT_COMMITTED,
         DMT_TARGET,

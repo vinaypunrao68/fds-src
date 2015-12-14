@@ -303,6 +303,17 @@ bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUu
     return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
 }
 
+DMTPtr DMT::newDMT(const std::vector<fpi::SvcUuid> &column)
+{
+    auto dmt = MAKE_SHARED<DMT>(1, column.size(), 1);
+    TableColumn tc(column.size());
+    for (uint32_t i = 0; i < column.size(); i++) {
+        tc.set(i, column[i].svc_uuid);
+    }
+    dmt->setNodeGroup(0, tc);
+    return dmt;
+}
+
 /***** DMTManager implementation ****/
 
 DMTManager::DMTManager(fds_uint32_t history_dmts)
