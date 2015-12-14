@@ -141,6 +141,9 @@ function clean_up_environment
    message "STOPPING redis"
    sudo source/tools/redis.sh stop
 
+   message "Forcing removal of fds-deps"
+   sudo dpkg -P fds-deps
+
    # Clean remove the old /fds
    message "CLEAN existing /fds"
    rm -rf /fds || true
@@ -312,6 +315,11 @@ function system_test_scenario_wrapper
 
     capture_process_list SysTest.${scenario}
 
+    # Fix for fs-3698
+    if [[ "${scenario}" == 'ActiveIORestart' ]]
+    then
+          rm -rf source/cit/*.xml
+    fi
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}
 

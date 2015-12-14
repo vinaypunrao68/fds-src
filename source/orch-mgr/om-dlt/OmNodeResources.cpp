@@ -1449,6 +1449,11 @@ OM_PmAgent::send_start_service
         }
     }
 
+    fds::change_service_state( configDB,
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_ACTIVE );
+    set_node_state(fpi::FDS_Node_Up);
+
     if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
         LOGDEBUG << "Node UUID("
                  << std::hex << svc_uuid.svc_uuid << std::dec
@@ -1470,10 +1475,10 @@ OM_PmAgent::send_start_service
     LOGNORMAL << "Start service for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec;
 
-
     if (startNode) {
         domain->clearFromShutdownList(get_uuid().uuid_get_val());
     }
+
     std::vector<fpi::SvcInfo> existingSvcs;
     fpi::SvcUuid svcuuid;
     bool foundSvc = false;
@@ -1611,6 +1616,11 @@ OM_PmAgent::send_stop_service
                   << " stop dm ? " << stop_dm
                   << " stop am ? " << stop_am
                   << " size of svcInfoList: " << svcInfos.size();
+
+        OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+        if (shutdownNode) {
+            domain->addToShutdownList(get_uuid().uuid_get_val());
+        }
 
         fds_mutex::scoped_lock l(dbNodeInfoLock);
 

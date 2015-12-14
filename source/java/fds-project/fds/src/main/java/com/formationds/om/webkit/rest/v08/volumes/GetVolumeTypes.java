@@ -5,7 +5,6 @@ import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.VolumeSettings;
 import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsISCSI;
-import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -21,39 +20,42 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class GetVolumeTypes implements RequestHandler{
+public class GetVolumeTypes
+    implements RequestHandler
+{
+    private static final Logger logger = LoggerFactory.getLogger( GetVolumeTypes.class );
+    private List<VolumeSettings> volumeTypes;
 
-	private static final Logger logger = LoggerFactory.getLogger( GetVolumeTypes.class );
-	private List<VolumeSettings> volumeTypes;
-	
-	@Override
-	public Resource handle(Request request, Map<String, String> routeParameters)
-			throws Exception {
-
-		logger.debug( "Getting supported volume types." );
-		
-		List<VolumeSettings> types = getVolumeTypes();
-		
-		logger.debug( "Found {} types.", types.size() );
-		
-		String jsonString = ObjectModelHelper.toJSON( types );
-		
-		return new TextResource( jsonString );
-	}
-	
-	public List<VolumeSettings> getVolumeTypes()
+    @Override
+    public Resource handle( Request request, Map<String, String> routeParameters )
+        throws Exception
     {
-		if ( volumeTypes == null )
-        {
-			volumeTypes = new ArrayList<>();
-            volumeTypes.add( new VolumeSettingsBlock( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ) ) );
-            volumeTypes.add( new VolumeSettingsObject( ) );
-            volumeTypes.add( new VolumeSettingsISCSI( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ),
-                                                      new Target( new ArrayList<>( ) ) ) );
-            volumeTypes.add( new VolumeSettingsNfs( ) );
-		}
-		
-		return volumeTypes;
-	}
+        logger.debug( "Getting supported volume types." );
 
+        List<VolumeSettings> types = getVolumeTypes( );
+
+        logger.debug( "Found {} types.", types.size( ) );
+
+        String jsonString = ObjectModelHelper.toJSON( types );
+
+        return new TextResource( jsonString );
+    }
+
+    public List<VolumeSettings> getVolumeTypes( )
+    {
+        if ( volumeTypes == null )
+        {
+            volumeTypes = new ArrayList<>( );
+            volumeTypes.add(
+                new VolumeSettingsBlock( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ) ) );
+            volumeTypes.add( new VolumeSettingsObject( ) );
+            volumeTypes.add(
+                new VolumeSettingsISCSI( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ),
+                                         new Target( new ArrayList<>( ),
+                                                     new ArrayList<>( ) ) ) );
+//            volumeTypes.add( new VolumeSettingsNfs( ) );
+        }
+
+        return volumeTypes;
+    }
 }

@@ -1118,6 +1118,11 @@ class OM_NodeDomainMod : public Module
     void setDomainShuttingDown(bool domainDown);
     bool isDomainShuttingDown();
 
+    void addToShutdownList(int64_t uuid);
+    void clearFromShutdownList(int64_t uuid);
+    void clearShutdownList();
+    bool isNodeShuttingDown(int64_t uuid);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1152,6 +1157,8 @@ class OM_NodeDomainMod : public Module
     std::map<int64_t, SvcInfoPtr> registeringSvcs;
 
     bool                          domainDown;
+    std::vector<int64_t>          shuttingDownNodes;
+
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

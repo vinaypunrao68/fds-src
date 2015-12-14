@@ -70,4 +70,12 @@ public class ISCSITest
 
         System.out.println( ObjectModelHelper.toJSON( volume ) );
     }
+
+    @Test
+    public void test_1()
+    {
+        final String x = "{\"capacity\": {\"value\": 10, \"unit\": \"GB\"}, \"type\": \"ISCSI\", \"target\": {\"luns\": [{\"lunName\": \"1\", \"accessType\": \"RO\"}], \"incomingUsers\": [{\"username\": \"Bob\", \"password\": \"Test\"}, {\"username\": \"Phyllis\", \"password\": \"Toast\"}], \"initiators\": [{\"wwn_mask\": \"me\"}, {\"wwn_mask\": \"you\"}, {\"wwn_mask\": \"them.*\"}, {\"wwn_mask\": \"him\"}, {\"wwn_mask\": \"her:\"}], \"outgoingUsers\": [{\"username\": \"Mack\", \"password\": \"Fires\"}, {\"username\": \"Mort\", \"password\": \"trom\"}]}}";
+        final VolumeSettings volume = ObjectModelHelper.toObject( x, VolumeSettings.class );
+        System.out.println( ObjectModelHelper.toJSON( volume ) );
+    }
 }

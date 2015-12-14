@@ -190,9 +190,10 @@ int VolumeDesc::getPriority() const {
 }
 
 std::string VolumeDesc::ToString() {
-    return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID().get()) +
-            std::string(">"));
+    std::stringstream sstream;
+
+    sstream << "Volume [ " << getName() << " ] UUID [ " << GetID().get() << " ]";
+    return sstream.str();
 }
 
 void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
@@ -273,28 +274,36 @@ bool VolumeDesc::isSystemVolume() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
-    return os << "["
-              << " uuid:" << vol.volUUID
-              << " name:" << vol.name
-              << " tenant:" << vol.tennantId
-              << " localdomain:" <<vol.localDomainId
-              << " type:" << vol.volType
-              << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
-              << " capacity:" << vol.capacity
-              << " vol.policy.id:" << vol.volPolicyId
-              << " media.policy:" << vol.mediaPolicy
-              << " placement.policy:" << vol.placementPolicy
-              << " iops.assured:" << vol.iops_assured
-              << " iops.throttle:" << vol.iops_throttle
-              << " rel.prio:" << vol.relativePrio
-              << " isSnapshot:" << vol.fSnapshot
-              << " srcVolumeId:" << vol.srcVolumeId
-              << " state:" << vol.getState()
-              << " qosQueueId:" << vol.contCommitlogRetention
-              << " timelineTime:" << vol.timelineTime
-              << " createTime:" << vol.createTime
-              << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
-              << " ]";
+    os << "["
+       << " uuid:" << vol.volUUID
+       << " name:" << vol.name
+       << " tenant:" << vol.tennantId
+       << " localdomain:" <<vol.localDomainId
+       << " type:" << vol.volType
+       << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
+       << " capacity:" << vol.capacity
+       << " vol.policy.id:" << vol.volPolicyId
+       << " media.policy:" << vol.mediaPolicy
+       << " placement.policy:" << vol.placementPolicy
+       << " iops.assured:" << vol.iops_assured
+       << " iops.throttle:" << vol.iops_throttle
+       << " rel.prio:" << vol.relativePrio
+       << " isSnapshot:" << vol.fSnapshot
+       << " srcVolumeId:" << vol.srcVolumeId
+       << " state:" << vol.getState()
+       << " qosQueueId:" << vol.contCommitlogRetention
+       << " timelineTime:" << vol.timelineTime
+       << " createTime:" << vol.createTime
+       << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second;
+
+    if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
+        os << " masks: { ";
+        for (auto const& ini : vol.iscsiSettings.initiators) {
+            os << ini.wwn_mask << " ";
+        }
+        os << "}";
+    }
+    return os << " ]";
 }
 
 /************************************************************************************/

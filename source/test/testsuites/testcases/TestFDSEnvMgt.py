@@ -15,6 +15,7 @@ import tempfile
 import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
 import subprocess
+from TestUtils import core_hunter_aws
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -468,11 +469,17 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
 
-        # If we have core files, return a failure and don't remove anything.
-        cur_dir = os.getcwd()
-        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
-        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
-        os.chdir(cur_dir)
+        if self.parameters['ansible_install_done'] == True:
+            nodes = fdscfg.rt_obj.cfg_nodes
+            for node in nodes:
+                rc =core_hunter_aws(self,node.nd_host)
+                if rc == 0: break
+        else:
+            # If we have core files, return a failure and don't remove anything.
+            cur_dir = os.getcwd()
+            os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+            rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+            os.chdir(cur_dir)
 
         # Note: core_hunter is looking for core files and returns a "success" code
         # when it finds at least one.
