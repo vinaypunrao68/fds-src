@@ -31,7 +31,7 @@ StatConstants::StatConstants() {
    * for this initialization.
    */
     FdsStatFGPeriodSec = FDS_ProtocolInterface::g_common_constants.STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS;  // The period over which "Fine-Grained" stats are collected.
-    FdsStatFGPeriodMultToCG = 60;  // The multiple of FG periods that define a CG period.
+    FdsStatFGPeriodMultToCG = 5;  // The multiple of FG periods that define a CG period.
     FdsStatFGSlotCnt = FdsStatFGPeriodMultToCG + 2;  // Number of "slots" or generations of FG stats we keep in history. We'll keep a few more than necessary to roll into a CG slot.
 
     FdsStatCGPeriodSec = FdsStatFGPeriodMultToCG * FdsStatFGPeriodSec;  // The period over which "Coarse-Grained" stats are collected

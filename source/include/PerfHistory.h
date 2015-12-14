@@ -256,8 +256,6 @@ class VolumePerfHistory {
     inline fds_uint32_t numberOfSlots() const {
         return max_slot_generations_;
     }
-    fds_uint64_t getLocalRelativeSec(fds_uint64_t remote_rel_sec,
-                                     fds_uint64_t remote_start_ts);
 
   private:  /* methods */
     fds_uint32_t relSecToStatHistIndex_LockHeld(fds_uint64_t rel_seconds);
@@ -271,6 +269,8 @@ class VolumePerfHistory {
                                         fds_uint64_t rel_sec) const {
         return (start_nano + rel_sec * NANOS_IN_SECOND);
     }
+    fds_uint64_t getLocalRelativeSec(fds_uint64_t remote_rel_sec,
+                                     fds_uint64_t remote_start_ts);
 
   private:
     /**

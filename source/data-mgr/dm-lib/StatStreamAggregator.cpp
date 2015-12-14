@@ -79,7 +79,6 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                start_time,
                                                conf.longstat_slots_,
                                                conf.longstat_slotsec_)),
-          long_stdev_update_ts_(0),
           cap_recent_stdev_(0),
           cap_long_stdev_(0),
           cap_recent_wma_(0),
@@ -124,7 +123,7 @@ void VolumeStats::processStats() {
          cit != slots.cend();
          ++cit) {
         // debugging for now, remove at some point
-        LOGTRACE << "[" << finegrain_hist_->getTimestamp((*cit).getRelSeconds()) << "], "
+        LOGTRACE << "[" << (*cit).getRelSeconds() << "], "
                  << "Volume " << std::hex << volid_ << std::dec << ", "
                  << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
                  << "Gets " << StatHelper::getTotalGets(*cit) << ", "
@@ -173,28 +172,10 @@ void VolumeStats::getFirebreakMetrics(double* recent_cap_stdev,
 //
 void VolumeStats::updateFirebreakMetrics() {
     std::vector<StatSlot> slots;
-    fds_uint64_t now = util::getTimeStampNanos();
-    fds_uint64_t elapsed_nanos = 0;
-    if (now > long_stdev_update_ts_) {
-        elapsed_nanos = now - long_stdev_update_ts_;
-    }
-    // check if it's time to update recent history stdev
-    if (elapsed_nanos < (NANOS_IN_SECOND * coarsegrain_hist_->secondsInSlot())) {
-        //return;  // no need to update long-term stdev
-    }
 
-    // update recent (one day / coarse-grained slots) history stdev
+    // update recent (coarse-grained slots) history stdev
     coarsegrain_hist_->toSlotList(slots, 0);
-    fds_uint32_t min_slots = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
-    if (min_slots > (coarsegrain_hist_->numberOfSlots() - 1)) {
-        min_slots = (coarsegrain_hist_->numberOfSlots() - 1);
-    }
-    LOGTRACE << "min_slots = " << min_slots << ", slots size = "
-             << slots.size();
-    if (slots.size() < min_slots) {
-        // we must have some history to start recording stdev
-        //return;
-    }
+
     updateStdev(slots, 1, &cap_recent_stdev_, &perf_recent_stdev_,
                 &cap_recent_wma_, &perf_recent_wma_);
     LOGTRACE << "Short term history size " << slots.size()
@@ -204,22 +185,12 @@ void VolumeStats::updateFirebreakMetrics() {
              << " capacity stdev " << cap_recent_stdev_
              << " perf stdev " << perf_recent_stdev_;
 
-    // check if it's time to update long term history stdev
-    if (elapsed_nanos < (NANOS_IN_SECOND * longterm_hist_->secondsInSlot())) {
-        //return;  // no need to update long-term stdev
-    }
-    long_stdev_update_ts_ = now;
-
-    // get 1-day history
+    // get long-term history
     longterm_hist_->toSlotList(slots, 0);
-    if (slots.size() < (longterm_hist_->numberOfSlots() - 1)) {
-        // to start reporting long term stdev we must have most of history
-        //return;
-    }
     double units = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
     updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_, NULL, NULL);
     LOGTRACE << "Long term history size " << slots.size()
-             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
+             << " seconds in slot " << longterm_hist_->secondsInSlot()
              << " short slot units " << units
              << " capacity stdev " << cap_long_stdev_
              << " perf stdev " << perf_long_stdev_;
