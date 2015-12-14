@@ -587,15 +587,15 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         long maxSize = (VolumeType.BLOCK.equals( vt ) ?
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
-        EventManager.notifyEvent( OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
-                                  vt.name(),
-                                  maxSize );
 
         statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
 
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );
 
+        EventManager.notifyEvent( OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
+                                  vt.name(),
+                                  maxSize );
     }
 
     @Override

@@ -154,7 +154,8 @@ std::string logString(const fpi::ReloadVolumeMsg & vol) {
 
 std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg & vol) {
     std::ostringstream oss;
-    oss << " CtrlNotifyDMStartMigrationMsg Vol Id: ";
+    oss << " CtrlNotifyDMStartMigrationMsg.  DMT version:  "<< vol.DMT_version
+        << " # of volumes: " << vol.migrations.size();
     return oss.str();
 }
 

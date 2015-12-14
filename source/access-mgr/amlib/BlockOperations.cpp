@@ -43,8 +43,8 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
 {
     if (!amAsyncDataApi) {
         amAsyncDataApi.reset(new AmAsyncDataApi(processor, shared_from_this()));
+        volumeName = vol_name;
     }
-    volumeName = vol_name;
 
     {   // add response that we will fill in with data
         std::lock_guard<std::mutex> l(respLock);
@@ -87,7 +87,8 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
 
     boost::shared_ptr<VolumeDesc> descriptor = nullptr;
     if (fpi::OK == error) {
-        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
+        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType &&
+            fpi::FDSP_VOL_ISCSI_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
             resp->setError(fpi::BAD_REQUEST);
         } else {

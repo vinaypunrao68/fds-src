@@ -49,6 +49,9 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     abortPending = false;
+    dltTokens.clear();
+    retryDltTokens.clear();
+    dltTokRetryCount.clear();
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -65,7 +68,6 @@ void
 MigrationExecutor::addDltToken(fds_token_id dltTok) {
     MigrationExecutorState curState = atomic_load(&state);
     fds_verify(curState == ME_INIT);
-    fds_verify(dltTokens.count(dltTok) == 0);
     dltTokens.insert(dltTok);
 }
 
