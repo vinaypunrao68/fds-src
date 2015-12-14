@@ -109,7 +109,9 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     struct DST_WaitNds : public msm::front::state<>
     {
         DST_WaitNds() : waitTimer(new FdsTimer()),
-                        waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+                        waitTimerTask(new WaitTimerTask(*waitTimer)) {
+            name = "DST_WaitNds";
+        }
 
         ~DST_WaitNds() {
             waitTimer->destroy();
@@ -125,6 +127,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_WaitNds. Evt: " << e.logString();
         }
 
+        std::string name;
         NodeUuidSet sm_services;  // sm services we are waiting to come up
         NodeUuidSet sm_up;  // sm services that are already up
         NodeUuidSet dm_services;  // dm services we are waiting to come up
@@ -141,7 +144,9 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     struct DST_WaitActNds : public msm::front::state<>
     {
         DST_WaitActNds() : waitTimer(new FdsTimer()),
-                           waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+                           waitTimerTask(new WaitTimerTask(*waitTimer)) {
+            name = "DST_WaitActNds";
+        }
 
         ~DST_WaitActNds() {
             waitTimer->destroy();
@@ -157,6 +162,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_WaitActNds. Evt: " << e.logString();
         }
 
+        std::string name;
         NodeUuidSet sm_services;  // sm services we are waiting to come up
         NodeUuidSet sm_up;  // sm services that are already up
         NodeUuidSet dm_services;  // dm services we are waiting to come up
@@ -630,8 +636,16 @@ NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         dst.sm_services.swap(waitEvt.sm_services);
         dst.dm_services.swap(waitEvt.dm_services);
 
-        dst.sm_up.clear();
-        dst.dm_up.clear();
+
+        // There are 2 possible destination states: DST_WaitNds and DST_WaitActNds
+        // When a domain is being started back up (after shutdown), the destination
+        // state is DST_WaitActNds. In this case, we want to clear out the sm_up, dm_up
+        // lists so left over state from potential previous domain up processing is cleared
+        // and the state machine will wait as needed during this startup
+        if (dst.name == "DST_WaitActNds") {
+            dst.sm_up.clear();
+            dst.dm_up.clear();
+        }
 
         LOGDEBUG << "Domain will wait for " << dst.sm_services.size()
                  << " SM(s) to come up and " << dst.dm_services.size() << " << DM(s) to come up";
