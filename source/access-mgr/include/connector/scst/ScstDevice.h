@@ -57,6 +57,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     // implementation of BlockOperations::ResponseIFace
     void respondTask(BlockTask* response) override;
     void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    void shutdown();
     void terminate() override;
 
     std::string getName() const { return volumeName; }
@@ -73,7 +74,8 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
-                                 STOPPING,
+                                 DRAINING,
+                                 DRAINED,
                                  STOPPED };
 
     ConnectionState state_ { ConnectionState::RUNNING };
@@ -83,7 +85,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     size_t volume_size {0};
     char serial_number[17];
     uint64_t volume_id {0};
-    size_t sessions {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;

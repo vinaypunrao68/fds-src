@@ -141,12 +141,22 @@ ScstDevice::start(std::shared_ptr<ev::dynamic_loop> loop) {
 }
 
 ScstDevice::~ScstDevice() {
-    GLOGNORMAL << "SCST client disconnected for " << scstDev;
+    if (0 <= scstDev) {
+        close(scstDev);
+        scstDev = -1;
+    }
+    GLOGNORMAL << "SCSI device " << volumeName << " stopped.";
+}
+
+void
+ScstDevice::shutdown() {
+    state_ = ConnectionState::DRAINING;
+    asyncWatcher->send();
 }
 
 void
 ScstDevice::terminate() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
 }
 
@@ -162,13 +172,17 @@ ScstDevice::openScst() {
 void
 ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
-        scstOps->shutdown();
-        if (ConnectionState::STOPPED == state_) {
-            asyncWatcher->stop();
+    if (ConnectionState::RUNNING != state_) {
+        scstOps->shutdown();                        // We are shutting down
+        if (ConnectionState::STOPPED == state_ ||
+            ConnectionState::DRAINED == state_) {
+            asyncWatcher->stop();                   // We are not responding
             ioWatcher->stop();
-            scstOps.reset();
-            return;
+            if (ConnectionState::STOPPED == state_) {
+                scstOps.reset();
+                scst_target->deviceDone(volumeName);    // We are FIN!
+                return;
+            }
         }
     }
 
@@ -217,8 +231,9 @@ void ScstDevice::execParseCmd() {
 }
 
 void ScstDevice::execTaskMgmtCmd() {
-    LOGDEBUG << "Task Management request.";
     auto& tmf_cmd = cmd.tm_cmd;
+    LOGIO << "Task Management request: [0x" << std::hex << tmf_cmd.fn
+          << "] on [" << volumeName << "]";
 
     if (SCST_TARGET_RESET == tmf_cmd.fn) {
         // Reset the reservation if we get a target reset
@@ -232,23 +247,18 @@ void
 ScstDevice::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
-    LOGDEBUG << "Session "
-        << (attaching ? "attachment" : "detachment")
-        << " requested," << std::hex
-        << " handle [0x" << sess.sess_h
-        << "] lun [0x" << sess.lun
-        << "] R/O [" << (sess.rd_only == 0 ? "false" : "true")
-        << "] Init [" << sess.initiator_name
-        << "] Targ [" << sess.target_name << "]";
-    auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching && (0 == sessions++ || 0 == volume_size)) {
-        // Attach the volume to AM if we haven't already
+    LOGNOTIFY << "Session "
+              << (attaching ? "attachment" : "detachment") << " requested"
+              << ", handle [" << sess.sess_h
+              << "] Init [" << sess.initiator_name
+              << "] Targ [" << sess.target_name << "]";
+
+    if (attaching) {
+        auto volName = boost::make_shared<std::string>(volumeName);
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
         return scstOps->init(volName, amProcessor, task); // Defer
-    } else if (!attaching) {
-        if (0 < sessions && 0 == --sessions) {
-            scstOps->detachVolume();
-        }
+    } else {
+        scstOps->detachVolume();
     }
     fastReply(); // Setup the reply for the next ioctl
 }
@@ -882,10 +892,10 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
         // Get the next command, and/or reply to any existing finished commands
         getAndRespond();
     } catch(BlockError const& e) {
-        state_ = ConnectionState::STOPPING;
+        state_ = ConnectionState::DRAINING;
         if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
-            state_ = ConnectionState::STOPPED;
+            state_ = ConnectionState::DRAINED;
         }
     }
     // Unblocks the ev loop to handle events again on this connection

@@ -27,6 +27,8 @@
 
 namespace fds {
 
+extern std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg& msg);
+
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
@@ -671,7 +673,8 @@ OM_NodeAgent::om_send_pullmeta(fpi::CtrlNotifyDMStartMigrationMsgPtr& meta_msg)
     om_req->invoke();
 
     LOGNORMAL << "OM: send CtrlNotifyDMStartMigrationMsg to " << get_node_name() << " uuid 0x"
-              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec
+              << " " << logString(*meta_msg);
     return err;
 }
 
@@ -685,7 +688,7 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
     	 * and doesn't have the volume descriptor.
     	 */
     }
-    LOGDEBUG << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
+    LOGNORMAL << "OM received response for CtrlNotifyDMStartMigrationMsg from node "
              << std::hex << req->getPeerEpId().svc_uuid << std::dec
              << " " << error;
 

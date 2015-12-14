@@ -13,9 +13,10 @@ import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.LUN;
 import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.client.v08.model.nfs.ACL;
-import com.formationds.client.v08.model.nfs.Async;
+import com.formationds.client.v08.model.nfs.AllSquash;
 import com.formationds.client.v08.model.nfs.NfsOptionBase;
-import com.formationds.client.v08.model.nfs.Squash;
+import com.formationds.client.v08.model.nfs.RootSquash;
+import com.formationds.client.v08.model.nfs.Sync;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import org.junit.Assert;
@@ -274,14 +275,14 @@ public class GSONTest {
     @Test
     public void testVolumeSettingNfs() {
         VolumeSettings v = new VolumeSettingsNfs.Builder()
-                                                .withOption( new ACL( ) )
-                                                .withOption( new Async( ) )
-                                                .withOption( new Squash( ) )
+                                                .withOption( new ACL( true ) )
+                                                .withOption( new Sync( false ) )
+                                                .withOption( new RootSquash( false ) )
+                                                .withOption( new AllSquash( false ) )
                                                 .withIpFilter( new IPFilter( "10.2.10.*",
                                                                              IPFilter.IP_FILTER_MODE.ALLOW ) )
-                                                .withIpFilter( new IPFilter(
-                                                        "10.2.11.1", "10.2.11.128",
-                                                        IPFilter.IP_FILTER_MODE.DENY ) )
+                                                .withIpFilter( new IPFilter( "*.local.domain",
+                                                                             IPFilter.IP_FILTER_MODE.DENY ) )
                                                 .build( );
         String j = gson.toJson( v );
         System.out.println( j );

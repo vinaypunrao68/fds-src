@@ -41,21 +41,15 @@ public class TargetTest
         Assert.assertTrue( target.getIncomingUsers().size() == 2 );
         for( final Credentials user : target.getIncomingUsers() )
         {
-            Assert.assertNotNull( user.getName() );
-            Assert.assertNotNull( user.getPasswd( ) );
+            Assert.assertNotNull( user.getUsername() );
+            Assert.assertNotNull( user.getPassword( ) );
         }
 
         Assert.assertTrue( target.getOutgoingUsers().size() == 1 );
         for( final Credentials user : target.getOutgoingUsers( ) )
         {
-            Assert.assertNotNull( user.getName() );
-            Assert.assertNotNull( user.getPasswd() );
-        }
-
-        Assert.assertTrue( target.getInitiators().size() == 2 );
-        for( final Initiator initiator : target.getInitiators() )
-        {
-            Assert.assertNotNull( initiator.getWWN() );
+            Assert.assertNotNull( user.getUsername() );
+            Assert.assertNotNull( user.getPassword() );
         }
 
         Assert.assertTrue( target.getLuns( ).size( ) == 1 );
@@ -63,6 +57,12 @@ public class TargetTest
         {
             Assert.assertNotNull( lun.getLunName() );
             Assert.assertNotNull( lun.getAccessType() );
+        }
+
+        Assert.assertTrue( target.getInitiators().size() == 2 );
+        for( final Initiator initiator : target.getInitiators() )
+        {
+            Assert.assertNotNull( initiator.getWWNMask() );
         }
     }
 }
