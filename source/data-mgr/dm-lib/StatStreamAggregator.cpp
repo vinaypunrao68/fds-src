@@ -302,13 +302,14 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
     minLogReg->id = MinLogRegId;
     minLogReg->method = "log-local";
-    minLogReg->sample_freq_seconds = 60;
+    minLogReg->sample_freq_seconds = StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1; // Smallest allowed streaming period.
     minLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
 
     fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
     hourLogReg->id = HourLogRegId;
     hourLogReg->method = "log-local";
-    hourLogReg->sample_freq_seconds = 3600;
+    fds_assert(StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*30 == 3600);  // We want this to be an hour and it has to be a multiple of StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec.
+    hourLogReg->sample_freq_seconds = StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*30;
     hourLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
 
     registerStream(minLogReg);
@@ -405,6 +406,8 @@ Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
 
 Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr registration) {
     if (!registration->sample_freq_seconds || !registration->duration_seconds) {
+        return ERR_INVALID_ARG;
+    } else if (registration->sample_freq_seconds % StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec != 0) {
         return ERR_INVALID_ARG;
     } else if ((registration->duration_seconds % registration->sample_freq_seconds) &&
                 (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever)) {

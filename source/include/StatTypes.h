@@ -30,6 +30,7 @@ class StatConstants {
         std::int32_t FdsStatCGSlotCnt;
         std::int32_t FdsStatPushAndAggregatePeriodSec;
         std::int32_t FdsStatCollectionWaitMult;
+        std::int32_t FdsStatFGStreamPeriodFactorSec;
         std::int32_t FdsStatRunForever;
 };
 
