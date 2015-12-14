@@ -1112,13 +1112,12 @@ class OM_NodeDomainMod : public Module
     void raiseAbortSmMigrationEvt(NodeUuid uuid);
     void raiseAbortDmMigrationEvt(NodeUuid uuid);
 
-    //TOREMOVE already there in PR2915
-        void addToShutdownList(int64_t uuid);
-        void clearFromShutdownList(int64_t uuid);
-        void clearShutdownList();
-        bool isNodeShuttingDown(int64_t uuid);
-        void setDomainShuttingDown(bool domainDown);
-        bool isDomainShuttingDown();
+
+
+
+    void setDomainShuttingDown(bool domainDown);
+    bool isDomainShuttingDown();
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1151,9 +1150,8 @@ class OM_NodeDomainMod : public Module
     // locks to protect accesses
     fds_rwlock                    svcRegMapLock;
     std::map<int64_t, SvcInfoPtr> registeringSvcs;
-// THIS LINE TO STAY
+
     bool                          domainDown;
-    std::vector<int64_t>          shuttingDownNodes;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
