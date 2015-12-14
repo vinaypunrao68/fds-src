@@ -708,7 +708,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT if any SMs joined";
+    LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT, DMT if any SMs or DMs joined";
 
     try {
 
@@ -741,7 +741,6 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             domain->om_dlt_update_cluster();
 
             // Also start DMT recompute/rebalance
-
             domain->om_dmt_update_cluster();
         }
     } catch(std::exception& e) {
