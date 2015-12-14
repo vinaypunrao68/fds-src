@@ -86,5 +86,3 @@ if __name__ == '__main__':
     if not testResult.wasSuccessful():
         log.error("%s test FAILED " %config.strip(".ini"))
         sys.exit(1)
-
-

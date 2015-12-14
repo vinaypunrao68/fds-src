@@ -250,6 +250,13 @@ Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) {
+    fds_bool_t dummyFlag = false;
+    return (getAllBlobsWithSequenceId(blobsSeqId, snap, dummyFlag));
+}
+
+Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) {
 	auto dbIt = catalog_->NewIterator(snap);
 
 	if (!dbIt) {
@@ -258,6 +265,12 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& 
     }
 
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        // Check to see if we are called to stop
+        if (abortFlag) {
+            LOGDEBUG << "Abort migration called. Exiting catalog operations.";
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
+
         leveldb::Slice dbKey = dbIt->key();
         if (*reinterpret_cast<CatalogKeyType const*>(dbKey.data()) == CatalogKeyType::BLOB_METADATA) {
             BlobMetaDesc blobMeta;

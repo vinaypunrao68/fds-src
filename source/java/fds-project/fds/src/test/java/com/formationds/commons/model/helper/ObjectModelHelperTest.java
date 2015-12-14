@@ -4,6 +4,12 @@
 
 package com.formationds.commons.model.helper;
 
+import com.formationds.client.v08.model.iscsi.Credentials;
+import com.formationds.client.v08.model.iscsi.Initiator;
+import com.formationds.client.v08.model.iscsi.LUN;
+import com.formationds.client.v08.model.iscsi.Target;
+import org.junit.Test;
+
 /**
  * @author ptinius
  */
@@ -72,4 +78,26 @@ public class ObjectModelHelperTest {
 //      }
 //    }
 //  }
+
+    @Test
+    public void createTarget()
+    {
+        final Target target =
+            new Target.Builder()
+                .withIncomingUser( new Credentials( "username",
+                                                    "userpassword" ) )
+                .withIncomingUser( new Credentials( "username1",
+                                                    "userpassword1" ) )
+                .withOutgoingUser( new Credentials( "ouser", "opasswd" ) )
+                .withLun( new LUN.Builder()
+                              .withLun( "volume_0" )
+                              .withAccessType( LUN.AccessType.RW )
+                              .build( ) )
+                .withInitiator( new Initiator( "82:*:00:*" ) )
+                .withInitiator( new Initiator( "83:*:00:*" ) )
+                .build( );
+
+        System.out.println( ObjectModelHelper.toJSON( target ) );
+    }
+
 }

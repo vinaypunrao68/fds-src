@@ -18,6 +18,8 @@ struct Counters : FdsCounters {
     SimpleNumericCounter scavengerRunning;
     SimpleNumericCounter scavengerStartedAt;
     SimpleNumericCounter compactorRunning;
+    SimpleNumericCounter dataRemoved;
+    SimpleNumericCounter dataCopied;
   protected:
     std::map<fds_token_id, std::pair<SimpleNumericCounter* ,SimpleNumericCounter* > > scanvengedTokens;
 };

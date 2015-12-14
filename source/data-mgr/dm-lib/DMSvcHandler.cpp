@@ -115,7 +115,7 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
 
                 // remove volume from timelineDB
-                err = dataManager_.timelineMgr->getDB()->removeVolume(vol_uuid);
+                err = dataManager_.timelineMgr->removeVolume(vol_uuid);
             } else {
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
             }

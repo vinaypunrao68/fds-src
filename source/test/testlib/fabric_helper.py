@@ -103,7 +103,7 @@ class FabricHelper():
 	if exists('{}'.format(self.fdsconsole)):
 		with settings(warn_only=True and hide('running','commands', 'stdout', 'stderr')):
 			with cd('{}'.format(self.fds_sbin)):
-				sudo('./fdsconsole.py accesslevel admin')
+
 				#run('./fdsconsole.py domain listServices local', stdout=self.sio)
 				cmd_output = sudo('./fdsconsole.py domain listServices local')
 				n_uuid = cmd_output.split()
