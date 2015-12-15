@@ -73,10 +73,13 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
 
     // Create target if it does not already exist
     ScstTarget* target = nullptr;
-    if (targets_.end() == targets_.find(volDesc.name)) {
+    auto it = targets_.find(volDesc.name);
+    if (targets_.end() == it) {
         target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
         targets_[volDesc.name].reset(target);
         target->addDevice(volDesc.name);
+    } else {
+      target = it->second.get();
     }
 
     // Setup some things like initiator masking
