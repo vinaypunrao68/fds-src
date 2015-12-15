@@ -13,9 +13,7 @@ typedef svc_types.ReplicaId VolumeGroupId
 struct VolumeIoHdr {
     1: required VolumeGroupVersion		version;
 
-    /* Id to identify the replication group.  In case of a volume group it's volume id
-     * In case of token it's the token id.
-     */
+    /* Id to identify the replication group */
     2: required VolumeGroupId			groupId;
 
     3: required svc_types.SvcUuid		svcUuid;
@@ -70,6 +68,7 @@ struct SetVolumeGroupCoordinatorMsg {
     1: VolumeGroupCoordinatorInfo	coordinator;
 }
 
+/* BEGIN exposed for testing.  Will be removed */
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
 }
@@ -107,4 +106,5 @@ struct PullCommitLogEntriesRespMsg {
     1: required i64			startCommitId;
     2: list<binary>			entries;
 }
+/* END exposed for testing.  Will be removed */
 
