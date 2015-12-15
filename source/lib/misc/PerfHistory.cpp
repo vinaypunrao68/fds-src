@@ -629,7 +629,7 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
                                            fds_uint32_t last_seconds_to_ignore) {
 
     SCOPEDREAD(stat_lock_);
-    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound. We assume the upper bound is not complete yet.
+    auto slot_copy_upper_bound_index = last_slot_generation_ % max_slot_generations_;  // Copy up to but not including this bound, the last generation of stats we have. We assume the upper bound is not complete yet.
     auto slot_copy_lower_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
                                        (slot_copy_upper_bound_index + 1) % max_slot_generations_ :
                                        0;  // The oldest slot. Copy from and including this bound.
@@ -651,8 +651,8 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
          */
         num_latest_slots_to_ignore = (last_seconds_to_ignore / slot_interval_sec_) - 1;
     }
-
     fds_verify(num_latest_slots_to_ignore <= (max_slot_generations_ - 1));
+
     for (fds_uint32_t i = 0; i < num_latest_slots_to_ignore; ++i) {
         if (slot_copy_upper_bound_index == 0) {
             slot_copy_upper_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.

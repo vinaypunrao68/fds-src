@@ -415,7 +415,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
     }
 
     LOGTRACE << "Adding streaming registration with id <" << registration->id
-             << "> and a sample period of <" << registration->sample_freq_seconds << "> seconds.";
+             << "> and a stream period of <" << registration->sample_freq_seconds << "> seconds.";
 
     /**
      * Schedule the task to repeatedly stream stats at the expiration of our interval.
@@ -744,16 +744,39 @@ void StatStreamTimerTask::runTimerTask() {
         }
         const std::string & volName = dataManager_.volumeName(volId);
 
-        VolumePerfHistory::ptr & hist = (StatConstants::singleton()->FdsStatFGPeriodSec == reg_->sample_freq_seconds) ?
-                volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
+        /**
+         * For non-logLocal registrations, we'll always stream the fine-grained stats because they
+         * are automatically configured as such. For logLocal registrations, we'll stream either
+         * the fine-grained or coarse grained depending upon the stream period designated in the registration message.
+         */
+        VolumePerfHistory::ptr hist = nullptr;
+        if (logLocal) {
+            hist = (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds) ?
+                   volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
+        } else {
+            hist = volStat->finegrain_hist_;
+        }
 
+        /**
+         * Where did we leave off?
+         */
         auto last_rel_sec = (vol_last_rel_sec_.count(volId) > 0) ? vol_last_rel_sec_[volId] : 0;
 
-        auto skip_secs = (StatConstants::singleton()->FdsStatFGPeriodSec == reg_->sample_freq_seconds) ?
-                         StatConstants::singleton()->FdsStatCollectionWaitMult *
-                         StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec : 0;
+        /**
+         * For reporting fine-grained stats, we want to ignore the last few seconds of stat generation
+         * to give remote services enough time to send them to us for aggregation. Otherwise, they get
+         * left out, or worse, appear later perhaps resulting in a change in history!
+         *
+         * How many seconds should we ignore? We'll wait some multiple of the number of seconds configured
+         * for the period, the expiration of which causes remote services to push their stats to us and triggers
+         * us to aggregate them for the volume.
+         */
+        auto last_secs_to_ignore = (hist == volStat->finegrain_hist_) ?
+                                    StatConstants::singleton()->FdsStatCollectionWaitMult *
+                                            StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec :
+                                    0;
 
-        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, skip_secs);
+        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, last_secs_to_ignore);
 
         for (auto slot : slots) {
             fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
