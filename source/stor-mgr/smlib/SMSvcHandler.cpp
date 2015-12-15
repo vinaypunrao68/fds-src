@@ -1224,9 +1224,10 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
         tgtTokens.insert(token);
     }
     SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
-    err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
+    // (Phillip) NotifySMCheck should not have a response - should be fire and forget
+    //err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
+    //hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
 
 void
