@@ -342,3 +342,64 @@ class ServiceContext(Context):
             except Exception, e:
                 log.exception(e)
                 print 'Unable to set fault [{}] @ [{}]'.format(cmd,self.getServiceName(uuid))
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('dm', help= "-Uuid of the DM to send the command to", type=str, default='*', nargs='?')
+    def dminfo(self, dm):
+        'show information about Data Managers'
+        try:
+            dmData =[]
+            cluster_totalVolMigrated = 0;
+            cluster_totalMigrationAborted = 0;
+            cluster_totalActiveVolSenders = 0;
+            cluster_totalActiveVolReceivers = 0;
+            cluster_migrationIsActive = 0;
+            cluster_totalOutstandingAsyncMsgs = 0;
+            cluster_totalBytesMigrated = 0;
+            cluster_totalSecsSpentMigrating = 0;
+            cluster_currentDMTVersion = 0;
+            if dm == '*' :
+                dm='dm'
+
+            for uuid in self.config.getServiceApi().getServiceIds(dm):
+                cntrs = ServiceMap.client(uuid).getCounters('*')
+                data = []
+                data.append(('num.total.ActiveSenders', cntrs.get('dm.migration.active.executors',0)))
+                cluster_totalActiveVolReceivers += cntrs.get('dm.migration.active.executors',0)
+                data.append(('num.total.ActiveReceivers', cntrs.get('dm.migration.active.clients',0)))
+                cluster_totalActiveVolSenders += cntrs.get('dm.migration.active.clients',0)
+                data.append(('num.total.ActiveAsyncMsgs', cntrs.get('dm.migration.active.outstandingios',0)))
+                cluster_totalOutstandingAsyncMsgs += cntrs.get('dm.migration.active.outstandingios',0)
+                data.append(('num.total.AbortedMigrations', cntrs.get('dm.migration.aborted',0)))
+                cluster_totalMigrationAborted += cntrs.get('dm.migration.aborted',0)
+                data.append(('num.total.VolumesSent', cntrs.get('dm.migration.volumes.sent',0)))
+                cluster_totalVolMigrated += cntrs.get('dm.migration.volumes.sent',0)
+                data.append(('num.total.VolumesReceived', cntrs.get('dm.migration.volumes.rcvd',0)))
+                data.append(('num.totalBytesMigrated', cntrs.get('dm.migration.bytes',0)))
+                cluster_totalBytesMigrated += cntrs.get('dm.migrations.bytes',0)
+                data.append(('num.total.secSpent', cntrs.get('dm.migration.total.duration',0)))
+                cluster_totalSecsSpentMigrating += cntrs.get('dm.migration.total.duration',0)
+                print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                if cntrs.get('dm.migration.active.executors',0) > 0 or cntrs.get('dm.migration.active.clients',0) > 0:
+                    cluster_migrationIsActive = 1;
+
+            dmData.append(('dm.migration.total.activeSenders',cluster_totalActiveVolSenders))
+            dmData.append(('dm.migration.total.activeReceivers',cluster_totalActiveVolReceivers))
+            dmData.append(('dm.migration.total.outstandingAsyncMsgs',cluster_totalOutstandingAsyncMsgs))
+            dmData.append(('dm.migration.total.migrationAborted',cluster_totalMigrationAborted))
+            dmData.append(('dm.migration.total.volSent',cluster_totalVolMigrated))
+            dmData.append(('dm.migration.total.bytesMigrated',cluster_totalBytesMigrated))
+            dmData.append(('dm.migration.total.SecSpent',cluster_totalSecsSpentMigrating))
+            print ('\n{}\ncombined dm info\n{}'.format('='*40,'='*40))
+            print tabulate(dmData,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+            print '=' * 40
+            if cluster_migrationIsActive > 0:
+                print "DM Migration is ACTIVE"
+            else:
+                print "DM Migration is INACTIVE"
+
+        except Exception, e:
+            log.exception(e)
+            return 'get counters failed: ' + str(e)
