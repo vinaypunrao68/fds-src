@@ -6,6 +6,8 @@ package com.formationds.client.v08.model.nfs;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.util.Objects;
+
 /**
  * @author ptinius
  */
@@ -15,9 +17,10 @@ public class ACL
     @SerializedName( "acl" )
     private Boolean acls = Boolean.TRUE;
 
-    public ACL( )
+    public ACL( final Boolean bool )
     {
         super();
+        this.acls = bool;
     }
 
     /**
@@ -27,5 +30,20 @@ public class ACL
     public Boolean getValue( )
     {
         return acls;
+    }
+
+    @Override
+    public boolean equals( final Object o )
+    {
+        if ( this == o ) return true;
+        if ( !( o instanceof ACL ) ) return false;
+        final ACL acl = ( ACL ) o;
+        return Objects.equals( acls, acl.acls );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( acls );
     }
 }

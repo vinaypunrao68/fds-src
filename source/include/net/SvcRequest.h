@@ -407,6 +407,19 @@ struct MultiEpSvcRequest : SvcRequestIf {
 
     void onEPAppStatusCb(EPAppStatusCb cb);
 
+    inline const fpi::AsyncHdrPtr& responseHeader(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responseHeader();
+    }
+    inline Error responseStatus(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responseStatus();
+    }
+    inline const StringPtr& responsePayload(uint8_t epIdx) const {
+        return epReqs_[epIdx]->responsePayload();
+    }
+    inline const EPSvcRequestPtr& ep(uint8_t epIdx) const {
+        return epReqs_[epIdx];
+    }
+
  protected:
     EPSvcRequestPtr getEpReq_(const fpi::SvcUuid &peerEpId);
 
@@ -549,15 +562,6 @@ struct MultiPrimarySvcRequest : MultiEpSvcRequest {
     }
     const std::vector<EPSvcRequestPtr>& getFailedOptionals() const {
         return failedOptionals_;
-    }
-    inline const fpi::AsyncHdrPtr& responseHeader(uint8_t epIdx) const {
-        return epReqs_[epIdx]->responseHeader();
-    }
-    inline Error responseStatus(uint8_t epIdx) const {
-        return epReqs_[epIdx]->responseStatus();
-    }
-    inline const StringPtr& responsePayload(uint8_t epIdx) const {
-        return epReqs_[epIdx]->responsePayload();
     }
 
  protected:

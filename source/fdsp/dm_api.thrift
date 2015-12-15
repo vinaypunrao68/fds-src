@@ -171,6 +171,8 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
+  /* Volume version */
+  3: i32                                replicaVersion;
 }
 
 /**
@@ -531,14 +533,15 @@ struct CtrlNotifyDMStartMigrationRspMsg {
  */
 struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
+  2: i64                     DMT_version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  2: i64                     msg_seq_id;
-  3: bool                    last_msg_seq_id = false;
+  3: i64                     msg_seq_id;
+  4: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume
    */
-  4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
+  5: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 struct CtrlNotifyDeltaBlobsRspMsg {
@@ -559,6 +562,7 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
  */
 struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
+  2: i64                     DMT_version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
@@ -575,7 +579,8 @@ struct CtrlNotifyDeltaBlobDescMsg {
  */
 struct CtrlNotifyTxStateMsg {
   1: i64                     volume_id;
-  2: list<string>            transactions;
+  2: i64                     DMT_version;
+  3: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
@@ -625,14 +630,15 @@ struct CtrlNotifyDMAbortMigration {
  */
 struct ForwardCatalogMsg {
   1: i64                          volume_id;
-  2: string                       blob_name;
+  2: i64                          DMT_version;
+  3: string                       blob_name;
   /** TODO(Andrew): The blob version isn't used, should be removed. */
-  3: i64                          blob_version;
-  4: dm_types.FDSP_BlobObjectList obj_list;
-  5: dm_types.FDSP_MetaDataList   meta_list;
-  6: i64                          sequence_id;
-  7: bool                         lastForward;
-  8: i64                          txId;
+  4: i64                          blob_version;
+  5: dm_types.FDSP_BlobObjectList obj_list;
+  6: dm_types.FDSP_MetaDataList   meta_list;
+  7: i64                          sequence_id;
+  8: bool                         lastForward;
+  9: i64                          txId;
 }
 /**
  * Forward catalog update response message
@@ -670,10 +676,11 @@ struct ReloadVolumeRspMsg {
 struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
   1: i64                volumeId;
+  2: i64                DMT_version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */
-  2: map<string, i64>      blobFilterMap;
+  3: map<string, i64>      blobFilterMap;
 }
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }

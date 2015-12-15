@@ -10,6 +10,19 @@
 #include <fdsp/dm_api_types.h>
 #include <net/volumegroup_extensions.h>
 
+#define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb) \
+    if (state_ != fpi::ResourceState::Active) { \
+        LOGWARN << logString() << " Unavailable"; \
+        cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+        return; \
+    }
+#define GROUPHANDLE_FUNCTIONAL_CHECK() \
+    if (state_ != fpi::ResourceState::Active) { \
+        LOGWARN << logString() << " Unavailable"; \
+        return; \
+    }
+
+
 namespace fds {
 struct VolumeGroupHandle;
 
@@ -17,16 +30,13 @@ std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
 
 struct VolumeReplicaHandle {
     explicit VolumeReplicaHandle(const fpi::SvcUuid &id)
-        : svcUuid(id),
-        state(fpi::ResourceState::Unknown),
+        : version(VolumeGroupConstants::VERSION_INVALID),
+        svcUuid(id),
+        state(fpi::ResourceState::Offline),
         lastError(ERR_OK),
         appliedOpId(VolumeGroupConstants::OPSTARTID),
         appliedCommitId(VolumeGroupConstants::COMMITSTARTID)
     {
-    }
-    inline static bool isUnitialized(const fpi::ResourceState& s)
-    {
-        return s == fpi::ResourceState::Unknown;
     }
     inline static bool isFunctional(const fpi::ResourceState& s)
     {
@@ -39,9 +49,6 @@ struct VolumeReplicaHandle {
     inline static bool isNonFunctional(const fpi::ResourceState& s)
     {
         return s == fpi::ResourceState::Offline;
-    }
-    inline bool isUnitialized() const {
-        return isUnitialized(state);
     }
     inline bool isFunctional() const {
         return isFunctional(state);
@@ -133,9 +140,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
-                      const fds_volid_t& volId);
-    VolumeGroupHandle(CommonModuleProviderIf* provider,
-                      const fpi::VolumeGroupInfo &groupInfo);
+                      const fds_volid_t& volId,
+                      uint32_t quorumCnt);
 
     void open(const SHPTR<fpi::OpenVolumeMsg>& msg, const StatusCb &cb);
 
@@ -164,42 +170,56 @@ struct VolumeGroupHandle : HasModuleProvider {
     virtual void handleAddToVolumeGroupMsg(
         const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
         const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
-
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const int32_t &replicaVersion,
                                       const fpi::VolumeIoHdr &hdr,
                                       const Error &inStatus,
                                       Error &outStatus,
                                       uint8_t &successAcks);
+
     std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
+    std::vector<fpi::SvcUuid> getAllReplicas() const;
 
+    inline const uint32_t& getQuorumCnt() const { return quorumCnt_; }
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
-    inline int32_t getDmtVersion() const { return DLT_VER_INVALID; }
+    inline int32_t getDmtVersion() const { return dmtVersion_; }
     inline int32_t size() const {
         return functionalReplicas_.size() +
             nonfunctionalReplicas_.size() +
             syncingReplicas_.size();
     }
+    inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
+    std::string logString() const;
 
  protected:
     template<class MsgT, class ReqT>
     SHPTR<ReqT> invokeCommon_(const fpi::FDSPMsgTypeId &msgTypeId,
                               SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+#ifdef IOHEADER_SUPPORTED
         /* Update the header in the message */
         setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
+#endif
 
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<ReqT>(this);
         req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
+#ifdef IOHEADER_SUPPORTED
         req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
+        LOGTRACE << fds::logString(req->volumeIoHdr_);
+#endif
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
-        LOGTRACE << fds::logString(req->volumeIoHdr_);
         req->invoke();
         return req;
     }
+    void resetGroup_();
+    EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
+    QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
+    void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    void broadcastGroupInfo_();
+    void changeState_(const fpi::ResourceState &targetState, const std::string& logCtx);
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
                                     const fpi::ResourceState &targetState,
@@ -215,11 +235,13 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
+    uint32_t                            quorumCnt_;
     fpi::ResourceState                  state_;
     int64_t                             groupId_;
     fpi::VolumeGroupVersion             version_;
     int64_t                             opSeqNo_;
     int64_t                             commitNo_;
+    uint64_t                            dmtVersion_;
     // TDOO(Rao): Need the state of the replica group.  Based on the state accept/reject
     // io
 
@@ -228,9 +250,22 @@ struct VolumeGroupHandle : HasModuleProvider {
 };
 
 template<class MsgT>
+void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+                                    SHPTR<MsgT> &msg, const VolumeResponseCb &cb)
+{
+    runSynchronized([this, msgTypeId, msg, cb]() mutable {
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+
+        invokeCommon_<MsgT, VolumeGroupFailoverRequest>(msgTypeId, msg, cb);
+    });
+}
+
+template<class MsgT>
 void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+
         opSeqNo_++;
         invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
@@ -240,6 +275,8 @@ template<class MsgT>
 void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+
         opSeqNo_++;
         commitNo_++;
         invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);

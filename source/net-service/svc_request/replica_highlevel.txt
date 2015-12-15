@@ -2,18 +2,12 @@ Implmentation
 TODAY
 TODO
 1. Find out exactly what messages need protection when sync is in progress and make sure they are protected.
+2. When volume handle is going through open, we should reject any other io requests.  Introduce a macro GROUPHANDLE_STATE_CHECK()
 
 Gaps
 Future todos
 1. Clean up old volume syncing code
 2. Remove support for deprecated messages in processIo and in handlers
-
-
-
-
-
-
-
 
 
 Ideas shifts
@@ -73,6 +67,7 @@ FDSP changes
 Future considerations
 -Faster syncs based on committed journal log.
 -In DM if io is synchronized on volume we should be able to do faster resyncs
+-Allow reads if atleast one replica is up.
 
 Out of scope
 -Syncing system volumes
@@ -99,6 +94,23 @@ Dm boot up sequence and sync protocol
 --Go through static migration.
 --NOTE: how to handle active will need to be discussed.  For the time being we can rely on currentscheme.  Time permitting I would like to optimize this part to relieve sync peer from doing forwards.
 
+Message sent from Am to Dm that needs consideration
+-OpenVolumeMsg
+-CloseVolumeMsg
+-StatVolumeMsg
+-SetVolumeMetadataMsg
+-GetVolumeMetadataMsg
+-AbortBlobTxMsg
+-StartBlobTxMsg
+-DeleteBlobMsg special handling for ERR_BLOB_NOT_FOUND, ERR_CAT_ENTRY_NOT_FOUND 
+-UpdateCatalogMsg
+-UpdateCatalogOnceMsg
+-GetBlobMetaDataMsg
+-RenameBlobMsg
+-SetBlobMetaDataMsg
+-CommitBlobTxMsg
+-GetBucketMsg
+
 Counters
 -Volume group cooridnator
 --state
@@ -111,6 +123,10 @@ Counters
 --sync retry count
 --coordinator uuid, version
 
+DM syncing
+-Its important to sequence commits to leveldb.
+1. This allows for syncs to be quicker.
+2. State comparison when Coordinator opens the group is much simpler
 
 Questions
 1. How do you handle sitation where volume tries to go through sync protocol while group coordinator is trying to go through open volume protocol?
@@ -139,3 +155,14 @@ NOTES:
 
 8.  Will group coordinator accept io requests while open group protocol is in progress?
 While open group protocol is in progress coordinator will not entertain any other requests.  All requests to coordinator will result in ERR_VOLUMECOORDINATOR_UNAVAILABLE
+
+9.  Blob level synchronization vs Volume level
+Blob level synchronization it's difficult to agree on right state between replicas when coordinator goes down.
+Because it's difficult to agree on state, it's also difficult to agree on a common point and do quick syncs.
+Blob level synchronization is inherently more parallel and in theory more performant.  However when you scale the # of volumes I feel going volume level is better.
+With volume level synchronization it's easier to reconcile state between replicas and easier to sync.
+
+10.  Handling write failures when quorum isn't met.  For example if quorum is 2 out of 3 and we receive ack from only replica 1 but failed responses from replica 2 & 3.
+With volume level synchronization we have few options.
+Option1: Ack to the client that write succeeded and go into read only mode until another replica comes up.  At this point for us to not lose data from client persepctive replica 1 shouldn't go down.  Once another replica comes up we can sync against replica 1 and group can be functional.
+Option2: Don't ack to client that write succeeded and go into ready only mode.  At this point we need to do a rollback on replica 1.  Leveldb doesn't support rollbacks out of the box.  Replica 1 will need revert back based on state from either 2 or 3 which has the latest committed state.

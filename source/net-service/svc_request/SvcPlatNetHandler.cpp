@@ -86,6 +86,12 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
     taskExecutor_ = taskExecutor;
 }
 
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
+}
+
 /**
  * @brief
  *
@@ -123,7 +129,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
     }
 
     fds_assert(state == ACCEPT_REQUESTS);
-    LOGDEBUG << logString(*header);
+    // LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed

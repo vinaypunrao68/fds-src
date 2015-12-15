@@ -30,3 +30,8 @@
         - 'usr/sbin/iscsi-scst-adm'
     tags:
       - install
+
+-   name: enable scst service
+    service: name=scst enabled=yes
+    tags:
+      - install

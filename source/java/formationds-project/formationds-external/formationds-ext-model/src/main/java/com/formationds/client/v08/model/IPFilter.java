@@ -4,6 +4,7 @@
 
 package com.formationds.client.v08.model;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -13,29 +14,14 @@ public class IPFilter
 {
     public static class Builder
     {
-        private String starting = null;
-        private String ending = null;
-        private IP_FILTER_MODE mode;
-
-        public String getStarting( )
+        public String getPattern( )
         {
-            return starting;
+            return pattern;
         }
 
-        public Builder withStarting( final String starting )
+        public Builder withPattern( final String pattern )
         {
-            this.starting = starting;
-            return this;
-        }
-
-        public String getEnding( )
-        {
-            return ending;
-        }
-
-        public Builder withEnding( final String ending )
-        {
-            this.ending = ending;
+            this.pattern = pattern;
             return this;
         }
 
@@ -52,82 +38,52 @@ public class IPFilter
 
         public IPFilter build()
         {
-            return new IPFilter( getStarting(), getEnding(), getMode() );
+            return new IPFilter( getPattern(), getMode() );
         }
+
+        private String pattern = null;
+        private IP_FILTER_MODE mode;
     }
 
-    public enum IP_FILTER_MODE
-    {
-        DENY,
-        ALLOW
-    }
+    public enum IP_FILTER_MODE { DENY, ALLOW }
 
-    private Optional<String> starting = Optional.empty();
-    private Optional<String> ending = Optional.empty();
+    private Optional<String> pattern = Optional.empty();
     private IP_FILTER_MODE mode;
 
-    public IPFilter( )
-    {
-        this( null, null, IP_FILTER_MODE.ALLOW );
-    }
+    public IPFilter( ) { this( null, IP_FILTER_MODE.ALLOW ); }
 
-    public IPFilter( final String starting, final IP_FILTER_MODE mode )
+    /**
+     *
+     */
+    public IPFilter( final String pattern, final IP_FILTER_MODE mode )
     {
-        this( starting, null, mode );
-    }
-
-    public IPFilter( final String starting, final String ending, final IP_FILTER_MODE mode )
-    {
-        this.starting = Optional.ofNullable( starting );
-        this.ending = Optional.ofNullable( ending );
+        this.pattern = Optional.ofNullable( pattern );
         this.mode = mode;
     }
 
     /**
-     * @return Returns the starting IP, if no ending IP is provided this is treated as a single IP to be {@link #getMode()}
+     * @return Returns the filter pattern to be {@link IP_FILTER_MODE#ALLOW} or {@link IP_FILTER_MODE#DENY}
      */
-    public Optional< String > getStarting( )
-    {
-        return starting;
-    }
-
-    /**
-     * @param starting the starting IP, if no ending IP is provided this is treated as a single IP to be {@link #getMode()}
-     */
-    public void setStarting( final String starting )
-    {
-        this.starting = Optional.ofNullable( starting );
-    }
-
-    /**
-     * @return Returns the ending IP, which defined the end of the filter range
-     */
-    public Optional< String > getEnding( )
-    {
-        return ending;
-    }
-
-    /**
-     * @param ending the ending IP, which defined the end of the filter range
-     */
-    public void setEnding( final String ending )
-    {
-        this.ending = Optional.ofNullable( ending );
-    }
+    public Optional<String> getPattern( ) { return pattern; }
 
     /**
      * @return Returns the IP filter mode as defined {@link IP_FILTER_MODE}
      */
-    public IP_FILTER_MODE getMode( )
+    public IP_FILTER_MODE getMode( ) { return mode; }
+
+    @Override
+    public boolean equals( final Object o )
     {
-        return mode;
+        if ( this == o ) return true;
+        if ( !( o instanceof IPFilter ) ) return false;
+        final IPFilter ipFilter = ( IPFilter ) o;
+        return Objects.equals( getPattern( ), ipFilter.getPattern( ) ) &&
+            getMode( ) == ipFilter.getMode( );
     }
 
-    /**
-     * @param mode the IP filter mode as defined {@link IP_FILTER_MODE}
-     */
-    public void setMode( IP_FILTER_MODE mode )
+    @Override
+    public int hashCode( )
     {
-        this.mode = mode;
+        return Objects.hash( getPattern( ), getMode( ) );
     }
 }
