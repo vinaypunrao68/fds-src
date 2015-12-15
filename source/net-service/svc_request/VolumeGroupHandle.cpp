@@ -190,6 +190,7 @@ VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
     msg->coordinator.version = version_;
     auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
     auto req = requestMgr_->newEPSvcRequest(omUuid);
+    req->setTaskExecutorId(groupId_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorMsg), msg);
     return req;
 }
@@ -212,6 +213,7 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
     // prepareMsg->mode = volReq->mode;
 
     auto req = requestMgr_->newSvcRequest<QuorumSvcRequest>(getDmtVersion(), replicas);
+    req->setTaskExecutorId(groupId_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::OpenVolumeMsg), prepareMsg);
     req->setQuorumCnt(replicas.size());
     return req;
@@ -375,6 +377,9 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                                        fpi::ResourceState::Offline,
                                                        inStatus);
             fds_verify(changeErr == ERR_OK);
+            if (functionalReplicas_.size() < quorumCnt_) {
+                changeState_(fpi::ResourceState::Offline, " not enough active replicas");
+            }
         }
     } else {
         /* When replica isn't functional we don't expect subsequent IO to return with
@@ -573,7 +578,9 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
 std::string VolumeGroupRequest::logString()
 {
     std::stringstream ss;
+#ifdef IOHEADER_SUPPORTED
     ss << volumeIoHdr_;
+#endif
     return ss.str();
 }
 
@@ -624,7 +631,8 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        header->msg_code,
                                        outStatus,
                                        nSuccessAcked_);
-    if (nSuccessAcked_ > 0 && responseCb_) {
+    if (nSuccessAcked_ == groupHandle_->getQuorumCnt() &&
+        responseCb_) {
         responseCb_(ERR_OK, payload); 
         responseCb_ = 0;
     }

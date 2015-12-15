@@ -181,6 +181,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeReplicaHandle* getFunctionalReplicaHandle();
     std::vector<fpi::SvcUuid> getAllReplicas() const;
 
+    inline const uint32_t& getQuorumCnt() const { return quorumCnt_; }
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
     inline int32_t getDmtVersion() const { return dmtVersion_; }
@@ -189,6 +190,7 @@ struct VolumeGroupHandle : HasModuleProvider {
             nonfunctionalReplicas_.size() +
             syncingReplicas_.size();
     }
+    inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
     std::string logString() const;
 
  protected:
@@ -205,10 +207,10 @@ struct VolumeGroupHandle : HasModuleProvider {
         req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
 #ifdef IOHEADER_SUPPORTED
         req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
+        LOGTRACE << fds::logString(req->volumeIoHdr_);
 #endif
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
-        LOGTRACE << fds::logString(req->volumeIoHdr_);
         req->invoke();
         return req;
     }

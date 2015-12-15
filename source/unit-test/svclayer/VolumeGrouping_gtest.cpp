@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <testlib/TestFixtures.h>
+#include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
 #include <FakeSvcDomain.hpp>
 
@@ -44,11 +45,11 @@ struct VolumegroupingTest : BaseTestFixture {
                                  fpi::StatVolumeRspMsg());
             });
         h->updateHandler(
-            FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+            FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
             [h](fpi::AsyncHdrPtr &hdr, StringPtr &payload) {
                 h->sendAsyncResp(*hdr,
-                                 FDSP_MSG_TYPEID(fpi::StatVolumeRspMsg),
-                                 fpi::StatVolumeRspMsg());
+                                 FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),
+                                 fpi::UpdateCatalogRspMsg());
             });
     }
     void setOmHandlers(const PlatNetSvcHandlerPtr &h) {
@@ -69,25 +70,29 @@ struct VolumegroupingTest : BaseTestFixture {
 */
 TEST_F(VolumegroupingTest, basicio) {
     concurrency::TaskStatus waiter;
-    int cnt = 4;
+    int cnt = 5;
     FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root") +
                              std::string("/etc/platform.conf"));
     auto dmt = DMT::newDMT({
                            domain[2]->getSvcMgr()->getSelfSvcUuid(),
-                           domain[3]->getSvcMgr()->getSelfSvcUuid()
+                           domain[3]->getSvcMgr()->getSelfSvcUuid(),
+                           domain[4]->getSvcMgr()->getSelfSvcUuid()
                            });
     auto group = dmt->getNodeGroup(fds_volid_t(10));
-    ASSERT_TRUE(group->getLength() == 2);
+    ASSERT_TRUE(group->getLength() == 3);
 
     domain.updateDmt(dmt);
     setOmHandlers(domain[0]->getSvcMgr()->getSvcRequestHandler());
     setOmHandlers(domain[1]->getSvcMgr()->getSvcRequestHandler());
     setDmHandlers(domain[2]->getSvcMgr()->getSvcRequestHandler());
     setDmHandlers(domain[3]->getSvcMgr()->getSvcRequestHandler());
+    setDmHandlers(domain[4]->getSvcMgr()->getSvcRequestHandler());
 
-    /* Basic opening should succeed */
+    /* Create a group with quorum of 2 out of 3 */
     fds_volid_t v1Id(10);
     VolumeGroupHandle v1(domain[1], v1Id, 2);
+
+    /* Open the group */
     v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
             [&waiter](const Error &e) {
                 ASSERT_TRUE(e == ERR_OK);
@@ -95,8 +100,35 @@ TEST_F(VolumegroupingTest, basicio) {
             });
     waiter.await();
 
-    waiter.reset(1);
+    /* We will use this message for all requests below..Although it doesn't make sense
+     * from DM semantics, for testing out coordinator this fine
+     */
     auto statMsg = MAKE_SHARED<fpi::StatVolumeMsg>();
+
+    /* Do a modify request */
+    waiter.reset(1);
+    v1.sendModifyMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            ASSERT_TRUE(e == ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+
+    /* Do a write request */
+    waiter.reset(1);
+    v1.sendWriteMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            ASSERT_TRUE(e == ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+
+    /* Do a read request */
+    waiter.reset(1);
     v1.sendReadMsg<fpi::StatVolumeMsg>(
         FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
         statMsg ,
@@ -105,6 +137,67 @@ TEST_F(VolumegroupingTest, basicio) {
             waiter.done();
         });
     waiter.await();
+
+    /* Fail one service */
+    domain.kill(2);
+    LOGNORMAL << "Killed servic #2";
+
+    /* Modify should succeed */
+    waiter.reset(1);
+    v1.sendWriteMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            LOGNOTIFY << "Cb called";
+            ASSERT_TRUE(e == ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+    LOGNOTIFY << "Wait finished";
+    POLL_MS(v1.getFunctionalReplicasCnt() == 2, 200, 7000);
+    ASSERT_TRUE(v1.getFunctionalReplicasCnt() == 2);
+
+    /* Read should succeed */
+    waiter.reset(1);
+    v1.sendReadMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            ASSERT_TRUE(e == ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+    ASSERT_TRUE(v1.getFunctionalReplicasCnt() == 2);
+
+    /* Fail another service */
+    domain.kill(3);
+    LOGNORMAL << "Killed servic #3";
+
+    /* Modify should fail */
+    waiter.reset(1);
+    v1.sendWriteMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            ASSERT_TRUE(e != ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+    ASSERT_TRUE(v1.getFunctionalReplicasCnt() == 0);
+    ASSERT_TRUE(v1.isFunctional() == false);
+
+    /* Read should fail */
+    waiter.reset(1);
+    v1.sendReadMsg<fpi::StatVolumeMsg>(
+        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
+        statMsg ,
+        [&waiter](const Error &e, StringPtr) {
+            ASSERT_TRUE(e != ERR_OK);
+            waiter.done();
+        });
+    waiter.await();
+    ASSERT_TRUE(v1.getFunctionalReplicasCnt() == 0);
+    ASSERT_TRUE(v1.isFunctional() == false);
 }
 
 int main(int argc, char** argv) {
