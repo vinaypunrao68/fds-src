@@ -39,7 +39,7 @@ class ServiceContext(Context):
                     self.hostToIpMap[name] = [ip]
                 except Exception as e:
                     pass
-                    
+
         return self.serviceList
 
     def getIpsFromName(self, name) :
@@ -57,7 +57,7 @@ class ServiceContext(Context):
                     return name
         except:
             return ip
-        return ip            
+        return ip
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -208,11 +208,11 @@ class ServiceContext(Context):
         return None
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', help= "service uuid", type=str)
     @arg('match', help= "regex pattern", type=str, default=None, nargs='?')
     @arg('-z','--zero', help= "show zeros", action='store_true', default=False)
-    def counter(self, svcid, match, zero=False):
+    def counters(self, svcid, match, zero=False):
         'list debug counters'
         try:
             for uuid in self.getServiceIds(svcid):
@@ -245,7 +245,7 @@ class ServiceContext(Context):
     @clidebugcmd
     @arg('svcid', help= "service Uuid",  type=str)
     @arg('match', help= "regex pattern",  type=str, default=None, nargs='?')
-    def listconfig(self, svcid, match):
+    def configs(self, svcid, match):
         'list the config values of a service'
         try:
             for uuid in self.getServiceIds(svcid):
@@ -271,11 +271,46 @@ class ServiceContext(Context):
                 data = [(k.lower(),v) for k,v in data.iteritems()]
                 data.sort(key=itemgetter(0))
                 if len(data) > 0:
-                    print ('{}\nconfig set for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+                    print ('{}\nproperties of for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
                     print (tabulate(data,headers=['name', 'value'], tablefmt=self.config.getTableFormat()))
         except Exception, e:
             log.exception(e)
             return 'unable to get properties list'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svcid', help= "service Uuid",  type=str, default='all', nargs='?')
+    def buildinfo(self, svcid):
+        'list the properties of a service'
+        plist=['build.date','build.mode','build.os','build.version']
+        infoMap={}
+
+        for uuid in self.getServiceIds(svcid):
+            try:
+                data = ServiceMap.client(uuid).getProperties(0)
+                data = [(k.lower(),v) for k,v in data.iteritems() if k in plist]
+                data.sort(key=itemgetter(0))
+                key=hash(str(data))
+                if key not in infoMap:
+                    infoMap[key] = {'data' : data, 'uuidlist' : []}
+                infoMap[key]['uuidlist'].append(uuid)
+            except Exception, e:
+                log.exception(e)
+                print 'unable to get build info for {}'.format(self.getServiceName(uuid))
+
+        if len(infoMap) == 0:
+            print 'no build info to display'
+            return
+
+        if len(infoMap) == 1:
+            key=infoMap.keys()[0]
+            print '{}\nAll [{}] services seem to have the same build info.\n{}'.format('-'*60, len(infoMap[key]['uuidlist']), '-'*60)
+            print tabulate(infoMap[key]['data'],headers=['name', 'value'], tablefmt=self.config.getTableFormat())
+        else:
+            print '{}\nooops!! differring build info detected.\n{}'.format('-'*40, '-'*40)
+            for key in infoMap.keys():
+                print '{}\nservices : {}'.format('-'*40, infoMap[key]['uuidlist'])
+                print tabulate(infoMap[key]['data'],headers=['name', 'value'], tablefmt=self.config.getTableFormat())
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd

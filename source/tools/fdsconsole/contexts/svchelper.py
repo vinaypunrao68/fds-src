@@ -17,6 +17,8 @@ from operator import itemgetter
 # importing some of these files
 if '__main__' in sys.modules and str(sys.modules['__main__']) == '<module \'__main__\' from \'./fdsconsole.py\'>':
     log = process.setup_logger('cli.log')
+else:
+    log = process.setup_logger()
 
 class ServiceMap:
     __serviceMap = None

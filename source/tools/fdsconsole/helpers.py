@@ -1,4 +1,3 @@
-
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
@@ -51,7 +50,7 @@ class AccessLevel:
     Defines different access levels for users
     '''
     DEBUG = 1
-    ADMIN = 2    
+    ADMIN = 2
 
     @staticmethod
     def getName(level):
@@ -85,6 +84,9 @@ class ConfigData:
         self.__services = None
         self.__volumes = None
         self.checkDefaults()
+
+    def isDebugTool(self):
+        return self.__data['debugTool']
 
     def checkDefaults(self):
         defaults = {
@@ -196,7 +198,7 @@ class ConfigData:
         else:
             return 'simple'
 
-def setupHistoryFile():
+def setupHistoryFile(debugTool = False):
     '''
     stores and retrieves the command history specific to the user
     '''
@@ -205,7 +207,10 @@ def setupHistoryFile():
         import readline
     except ImportError:
         return
+
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
+    if debugTool:
+        histfile = os.path.join(os.path.expanduser("~"), ".fdsdebugtool_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
     except IOError:
