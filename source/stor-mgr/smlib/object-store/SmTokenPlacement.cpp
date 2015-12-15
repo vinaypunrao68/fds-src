@@ -16,9 +16,6 @@ ObjectLocationTable::ObjectLocationTable() {
     memset(this, ObjLocationTablePoison, sizeof(*this));
 }
 
-ObjectLocationTable::~ObjectLocationTable() {
-}
-
 void
 ObjectLocationTable::setDiskId(fds_token_id smToken,
                                diskio::DataTier tier,

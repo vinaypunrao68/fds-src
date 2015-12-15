@@ -101,12 +101,11 @@ const uint16_t SmSuperblockMinorVer = 0;
  * We are saving persistent data on a disk, and we can't have any garbage
  * from the class definitions, which may have run-time data.
  */
-struct SmSuperblockHeader {
+struct __attribute__((__packed__)) SmSuperblockHeader {
   public:
     /* Constructor and destructor
      */
     SmSuperblockHeader();
-    ~SmSuperblockHeader();
 
     void initSuperblockHeader();
     Error validateSuperblockHeader();
@@ -191,10 +190,9 @@ static_assert((sizeof(struct SmSuperblockHeader) == SM_SUPERBLOCK_SECTOR_SIZE),
  *
  *      - Additional data (POD) should be added to the end of the
  */
-struct SmSuperblock {
+struct __attribute__((__packed__)) SmSuperblock {
   public:
     SmSuperblock();
-    ~SmSuperblock();
 
     /* Interfaces for loading and storing superblock
      */
@@ -233,6 +231,7 @@ struct SmSuperblock {
      */
     SmSuperblockHeader Header;
     fds_uint64_t DLTVersion;
+    char SmSuperblockReserved[504]; // To be backwards compat with pre 2015-11-30 blocks
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
@@ -419,6 +418,9 @@ class SmSuperblockMgr {
     const std::string superblockName = "SmSuperblock";
 
     fds::DiskChangeFnObj diskChangeFn;
+
+    /// Find the most recent superblock written to disk
+    fds_checksum32_t findMostRecentSuperblock(std::multimap<fds_checksum32_t, fds_uint16_t> checkMap);
 };
 
 std::ostream& operator<< (std::ostream &out,

@@ -87,7 +87,8 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
 
     boost::shared_ptr<VolumeDesc> descriptor = nullptr;
     if (fpi::OK == error) {
-        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType) {
+        if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType &&
+            fpi::FDSP_VOL_ISCSI_TYPE != volDesc->volType) {
             LOGWARN << "Wrong volume type: " << volDesc->volType;
             resp->setError(fpi::BAD_REQUEST);
         } else {

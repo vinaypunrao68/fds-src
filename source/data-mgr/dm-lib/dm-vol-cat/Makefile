@@ -15,7 +15,9 @@ user_cpp          := \
 #	DmPersistVolFile.cpp
 
 user_ar_libs      := fds-dm-lib
+user_so_libs      := fds-dm-vol-cat
 fds-dm-lib        := $(user_cpp)
+fds-dm-vol-cat    := $(user_cpp)
 
 user_fds_ar_libs := fds-lib
 
