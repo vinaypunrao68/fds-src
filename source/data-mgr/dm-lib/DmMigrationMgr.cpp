@@ -420,7 +420,11 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
-    err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    } else {
+        err = createMigrationClient(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    }
 
     return err;
 }
@@ -476,6 +480,17 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         startMigrationStopWatch();
         client->run();
     }
+    return err;
+}
+
+Error
+DmMigrationMgr::createMigrationSource(NodeUuid &destDmUuid,
+                                      const NodeUuid& mySvcUuid,
+                                      fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
+                                      migrationCb cleanUp)
+{
+    Error err(ERR_OK);
+
     return err;
 }
 

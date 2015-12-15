@@ -379,6 +379,14 @@ class DmMigrationMgr {
 									migrationCb cleanUp);
 
     /**
+     * Version 2: Uses volume group coordinator for peer migration
+     */
+    Error createMigrationSource(NodeUuid &destDmUuid,
+                                const NodeUuid& MySvcUuid,
+                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr rvmp,
+                                migrationCb cleanUp);
+
+    /**
      * Source side DM:
      * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
      */

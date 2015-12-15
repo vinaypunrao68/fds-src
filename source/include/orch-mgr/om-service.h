@@ -47,10 +47,6 @@ class OM_Module : public Module
         return om_volume_place;
     }
 
-    inline bool om_volume_grouping() {
-        return volume_grouping;
-    }
-
     /**
      * Module methods.
      */
@@ -66,10 +62,6 @@ class OM_Module : public Module
     DataPlacement           *om_data_place;
     VolumePlacement         *om_volume_place;
 
-    /**
-     * Toggles for service layer
-     */
-    bool    volume_grouping;
 };
 
 }  // namespace fds
