@@ -1644,9 +1644,8 @@ OM_PmAgent::send_stop_service
 
                 NodeUuid uuid(smSvcId.svc_uuid);
                 if ( (!dp->hasNoTargetDlt()) && (dp->hasNonCommitedTarget()) ) {
-                    LOGDEBUG << "SM token migration in progress, will send abort msg";
-                    // Send out an abort
-                    domain->raiseAbortSmMigrationEvt(uuid);
+                    LOGDEBUG << "SM migration in progress, cannot shutdown service or node";
+                    return Error(ERR_NOT_READY);
                 }
 
                 LOGDEBUG << "Will stop SM service "
@@ -1685,9 +1684,8 @@ OM_PmAgent::send_stop_service
 
                  NodeUuid uuid(dmSvcId.svc_uuid);
                  if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
-                     LOGDEBUG << "DM migration in progress, will send abort msg";
-                     // Send out an abort
-                     domain->raiseAbortDmMigrationEvt(uuid);
+                     LOGDEBUG << "DM migration in progress, cannot shutdown service or node";
+                     return Error(ERR_NOT_READY);
                  }
 
                  LOGDEBUG << "Will stop DM service "
