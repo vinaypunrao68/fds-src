@@ -354,7 +354,8 @@ class FdsCluster():
         return output
 
     def _init_fio_once(self):
-        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py accesslevel admin && ./fdsconsole.py volume create volume1 --vol-type block --blk-dev-size 10737418240 --max-obj-size 4096  && popd"'
+        # please use fdscli to create volumes..
+        cmd = 'bash -c "pushd /fds/sbin && ./fdsconsole.py volume create volume1 --vol-type block --blk-dev-size 10737418240 --max-obj-size 4096  && popd"'
         output = utils.loc_exec(cmd)
         time.sleep(5)
         if self.local_test == True:

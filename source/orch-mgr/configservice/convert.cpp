@@ -143,7 +143,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
 
     request->vol_info.contCommitlogRetention = volSettings.contCommitlogRetention;
     request->vol_info.mediaPolicy = getMediaPolicyToFDSP_MediaPolicy( volSettings.mediaPolicy );
-    request->vol_info.createTime = util::getTimeStampMillis();
+    request->vol_info.createTime = util::getTimeStampSeconds();
 }
 
 void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,

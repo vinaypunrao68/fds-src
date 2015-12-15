@@ -811,6 +811,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
     pkt->state        = pVol->getState();
+    pkt->iscsi        = pVol->iscsiSettings;
 }
 
 // vol_fmt_message
@@ -1063,9 +1064,10 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         return err;
     }
 
+    // set the create timestamp
+    vol->vol_get_properties()->createTime = util::getTimeStampSeconds();
 
     const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
-
     // store it in config db..
     LOGDEBUG << "volume creation [ " << volumeDesc.name << " ] ID [ "
              << volumeDesc.volUUID << " ] TYPE [ " << volumeDesc.volType << " ]";
@@ -1142,6 +1144,8 @@ Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
         LOGWARN << "Received DeleteVol for non-existing volume " << volId;
         return Error(ERR_NOT_FOUND);
     }
+
+    LOGNOTIFY << "will delete volume : " << volId << ":" << vol->vol_get_name();
 
     // start volume delete process
     vol->vol_event(VolDeleteEvt(uuid, vol.get()));
@@ -1654,7 +1658,7 @@ bool VolumeContainer::createSystemVolume(int32_t tenantId) {
         VolumeDesc volume(name, fds_volid_t(1));
         
         volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
-        volume.createTime = util::getTimeStampMillis();
+        volume.createTime = util::getTimeStampSeconds();
         volume.redundancyCnt = 4;
         volume.maxObjSizeInBytes = 2 * MB;
         volume.contCommitlogRetention = 0;

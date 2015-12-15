@@ -1090,13 +1090,25 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     LOGNOTIFY << "OM deployed DMT with "
               << cm->getNumMembers(fpi::FDSP_DATA_MGR) << " DMs";
 
+    /**
+      * TODO(Neil) - FS-3956
+      * We need to have ability to know whether or not DM's SvcUUID
+      * in the clustermap is really currently undergoing migration.
+      * To do this, we need to start caring for incarnation numbers. If
+      * the DM undergoing migration has a newer incarnation number, then that
+      * means the DM undergoing migration has crashed and we can throw an error.
+      * Otherwise, this should be a no-op.
+      * For now, this is conflicting with the DmtDeployEvt that setupNewNode is
+      * causing, so disable for now. setupNewNode should be throwing the deploy
+      * event fine and dependably.
+      */
     // In case new DMs got added or DMs got removed while we were
     // deploying current DMT, start timer to try deploy a DMT again
-    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
-                                     std::chrono::seconds(1))) {
-        LOGWARN << "Failed to start try again timer!!!"
-                << " DM additions/deletions may be pending for long time";
-    }
+//    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
+//                                     std::chrono::seconds(1))) {
+//        LOGWARN << "Failed to start try again timer!!!"
+//                << " DM additions/deletions may be pending for long time";
+//    }
 
     LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }

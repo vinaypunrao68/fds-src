@@ -213,6 +213,11 @@ Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snap
     return ERR_OK;
 }
 
+Error TimelineManager::removeVolume(fds_volid_t volId) {
+    TIMELINE_FEATURE_CHECK();
+    return timelineDB->removeVolume(volId);    
+}
+
 Error TimelineManager::createClone(VolumeDesc *vdesc) {
     TIMELINE_FEATURE_CHECK();
     Error err;

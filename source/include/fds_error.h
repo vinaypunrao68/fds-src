@@ -142,14 +142,14 @@ namespace fds {
     ADD(ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST, ,"  "), \
     ADD(ERR_SM_TIER_WRITEBACK_NOT_DONE, ,"  "), \
     ADD(ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME, ,"  "), \
-    ADD(ERR_SM_EXCEEDED_DISK_CAPACITY, ,"  "), \
     ADD(ERR_SM_NOERR_GAINED_SM_TOKENS, ,"  "), \
     ADD(ERR_SM_NOERR_LOST_SM_TOKENS, ,"  "), \
     ADD(ERR_SM_NOERR_NEED_RESYNC, ,"  "), \
     ADD(ERR_SM_NOERR_NOT_IN_DLT, ,"  "), \
     ADD(ERR_SM_RESYNC_SOURCE_DECLINE, ,"  "), \
     ADD(ERR_SM_NOT_READY_AS_MIGR_SRC, ,"  "), \
-    ADD(ERR_SM_NO_DISK, ,"  "), \
+    ADD(ERR_SM_NO_DISK, ," "), \
+    ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
     \
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \

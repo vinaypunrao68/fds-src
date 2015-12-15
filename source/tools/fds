@@ -767,8 +767,13 @@ do
             exit 0
             ;;
         # detect commands
-        kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
+            ;;
+        test)
+            CMD=$opt
+            (( n++ ))
+            APP="${args[$n]}"
             ;;
         # detect app
         om|am|dm|sm|pm|all|redis)
