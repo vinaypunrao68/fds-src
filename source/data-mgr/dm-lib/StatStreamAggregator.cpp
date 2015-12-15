@@ -427,7 +427,7 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
     streamTimer_.scheduleRepeated(statStreamTask, std::chrono::seconds(registration->sample_freq_seconds));
 
     /**
-     * Schedule the task to cancel our stream stats task at the expiration of our duration unles
+     * Schedule the task to cancel our stream stats task at the expiration of our duration unless
      * we are asked to run the task indefinitely.
      */
     if (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever) {
