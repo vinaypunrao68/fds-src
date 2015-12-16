@@ -1002,4 +1002,15 @@ DmMigrationMgr::stopMigrationStopWatch()
 	    migrationStopWatch.reset();
 	}
 }
+
+Error
+DmMigrationMgr::createMigrationDest(NodeUuid &srcDmUuid,
+                                    fpi::FDSP_VolumeDescType &vol,
+                                    int64_t migrationId)
+{
+    Error err(ERR_OK);
+
+    return (err);
+}
+
 }  // namespace fds
