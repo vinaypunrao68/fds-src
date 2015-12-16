@@ -22,7 +22,7 @@ ifdef user_std_libs
         boost_program_options \
         boost_filesystem \
         boost_regex \
-	boost_chrono \
+	boost_chrono \  # boost_chrono is used by SimpleAmqpClient
 	ssl \
     	crypto \
         thrift \
