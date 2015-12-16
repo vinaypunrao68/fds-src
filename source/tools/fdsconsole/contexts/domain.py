@@ -1,5 +1,6 @@
 from svchelper import *
 import restendpoint
+import dmtdlt
 
 # Currently (3/9/2015) does not support the full Local Domain
 # interface. Just enough to match what was supported by fdscli
@@ -15,7 +16,7 @@ class DomainContext(Context):
         return self.__restApi
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the new Local Domain. Must be unique within the Global Domain.")
     @arg('domain_site', help="Location of the new Local Domain.")
     def create(self, domain_name, domain_site):
@@ -30,7 +31,7 @@ class DomainContext(Context):
             return 'Unable to create Local Domain: {}'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     def list(self):
         """
         List currently defined Local Domains.
@@ -43,7 +44,7 @@ class DomainContext(Context):
             return 'Unable to list Local Domains.'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('old_domain_name', help="Current name of the Local Domain.")
     @arg('new_domain_name', help="New name for the Local Domain.")
     def updateName(self, old_domain_name, new_domain_name):
@@ -57,7 +58,7 @@ class DomainContext(Context):
             return 'Unable to change the name of Local Domain {} to {}'.format(old_domain_name, new_domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose site name is to be changed.")
     @arg('new_site_name', help="New name for the Local Domain's site.")
     def updateSite(self, domain_name, new_site_name):
@@ -71,7 +72,7 @@ class DomainContext(Context):
             return 'Unable to change the site name of Local Domain {} to {}'.format(domain_name, new_site_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose Throttle is to be set.")
     @arg('throttle_level', help="The new throttle level to which to set the Local Domain.")
     def setThrottle(self, domain_name, throttle_level):
@@ -85,7 +86,7 @@ class DomainContext(Context):
             return 'Unable to set the throttle level in Local Domain {} to {}'.format(domain_name, throttle_level)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose Scavenger is to be set.")
     @arg('scavenger_action', help="The Scavenger action to set: enable, disable, start, stop.")
     def setScavenger(self, domain_name, scavenger_action):
@@ -99,7 +100,7 @@ class DomainContext(Context):
             return 'Unable to set the scavenger action in Local Domain {} to {}'.format(domain_name, scavenger_action)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain to be started.")
     def startup(self, domain_name):
         """
@@ -112,7 +113,7 @@ class DomainContext(Context):
             return 'Unable to start Local Domain: {}'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain to be shutdown.")
     def shutdown(self, domain_name):
         """
@@ -125,7 +126,7 @@ class DomainContext(Context):
             return 'Unable to shutdown Local Domain: {}'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain to be deleted.")
     def delete(self, domain_name):
         """
@@ -138,7 +139,7 @@ class DomainContext(Context):
             return 'Unable to delete Local Domain: {}'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose Services are to be activated.")
     @arg('services', help="Optional comma-separated names of the Services to be activated. SM, DM, and/or AM. "
                           "If not provided, all Services defined for any given Node in the Local Domain are "
@@ -176,7 +177,7 @@ class DomainContext(Context):
             return 'Unable to activate Services on Local Domain: {}'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose Services are to be listed.")
     def listServices(self, domain_name):
         """
@@ -190,7 +191,7 @@ class DomainContext(Context):
             return 'Unable to list Services for Local Domain {}.'.format(domain_name)
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('domain_name', help="Name of the Local Domain whose Services are to be removed.")
     @arg('services', help="Optional comma-separated names of the Services to be removed. SM, DM, and/or AM. "
                           "If not provided, all Services defined for any given Node in the Local Domain are "
@@ -225,3 +226,58 @@ class DomainContext(Context):
         except Exception, e:
             log.exception(e)
             return 'Unable to remove Services from Local Domain: {}'.format(domain_name)
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def showdmt(self):
+        'display dmt info'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDMT(0)
+        #print msg
+        dmt = dmtdlt.DMT()
+        dmt.load(msg.dmt_data.dmt_data)
+        dmt.dump()
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def showdlt(self):
+        'display dlt info'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDLT(0)
+        #print msg
+        dlt = dmtdlt.DLT()
+        dlt.load(msg.dlt_data.dlt_data)
+        dlt.dump()
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volume', help='-volume name/id')
+    def whereisvolume(self, volume):
+        'display where the volume meta is located'
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDMT(0)
+        dmt = dmtdlt.DMT()
+        dmt.load(msg.dmt_data.dmt_data)
+        volId = self.config.getVolumeApi().getVolumeId(volume)
+        count = 1
+        for uuid in dmt.getNodesForVolume(volId) :
+            print '{} : {}' .format(count, self.config.getServiceApi().getServiceName(uuid))
+            count += 1
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('objid', help='-object id')
+    def whereisobject(self, objid):
+        'display where the volume meta is located'
+
+        if len(objid) != 40:
+            print '{} does not seem to be a valid object id'.format(objid)
+            return
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDLT(0)
+        dlt = dmtdlt.DLT()
+        dlt.load(msg.dlt_data.dlt_data)
+        count = 1
+        for uuid in dlt.getNodesForObject(objid) :
+            print '{} : {}' .format(count, self.config.getServiceApi().getServiceName(uuid))
+            count += 1

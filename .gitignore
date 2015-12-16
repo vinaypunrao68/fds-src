@@ -17,6 +17,7 @@ Build/*
 *.slo
 *.so
 *.sw?
+*.chk
 *~
 .DS_Store
 .classpath
@@ -32,7 +33,7 @@ Build/*
 ansible/.devsetup-is-*
 ansible/resources/*
 app/bower_components
-build.*
+build.linux*
 chef/nodes
 chef/vagrant/*/.vagrant/*
 core

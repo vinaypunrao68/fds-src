@@ -15,14 +15,24 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
                                      DataMgr& _dataMgr,
                                      const NodeUuid& _myUuid,
                                      NodeUuid& _destDmUuid,
-                                     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
+                                     int64_t migrationId,
+                                     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr _ribfsm,
                                      DmMigrationClientDoneHandler _handle,
+                                     migrationCb _cleanup,
                                      uint64_t _maxDeltaBlobs,
                                      uint64_t _maxDeltaBlobDescs)
-    : DmReqHandler(_DmReqHandle), migrDoneHandler(_handle), mySvcUuid(_myUuid),
-	  destDmUuid(_destDmUuid), dataMgr(_dataMgr), ribfsm(_ribfsm),
-      maxNumBlobs(_maxDeltaBlobs), maxNumBlobDescs(_maxDeltaBlobDescs),
-	  forwardingIO(false), snapshotTaken(false)
+    : DmMigrationBase(migrationId, _dataMgr),
+      DmReqHandler(_DmReqHandle), migrDoneHandler(_handle),
+      mySvcUuid(_myUuid),
+	  destDmUuid(_destDmUuid),
+	  ribfsm(_ribfsm),
+	  snap_(nullptr),
+      maxNumBlobs(_maxDeltaBlobs),
+      maxNumBlobDescs(_maxDeltaBlobDescs),
+	  forwardingIO(false),
+	  snapshotTaken(false),
+	  abortFlag(false),
+	  cleanUp(_cleanup)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
@@ -32,7 +42,28 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 
 DmMigrationClient::~DmMigrationClient()
 {
+}
 
+void
+DmMigrationClient::run()
+{
+    thrPtr.reset(new std::thread([this] {
+        Error err(ERR_OK);
+        err = processBlobFilterSet();
+        if (ERR_OK != err) {
+            LOGERROR << logString() << " Processing filter set failed: " << err << ". Exiting run thread";
+            dataMgr.dmMigrationMgr->abortMigration();
+            return;
+        }
+
+        err = processBlobFilterSet2();
+        if (ERR_OK != err) {
+            // This one doesn't have an async callback to decrement so we fail it manually
+            LOGERROR << logString() << " Processing blob diff failed: " << err << ". Exiting run thread";
+            dataMgr.dmMigrationMgr->abortMigration();
+            return;
+        }
+    }));
 }
 
 uint64_t
@@ -44,7 +75,7 @@ DmMigrationClient::getSeqNumBlobs()
 void
 DmMigrationClient::resetSeqNumBlobs()
 {
-    LOGMIGRATE << "Resetting seqNumBlobs=0";
+    LOGMIGRATE << logString() << "Resetting seqNumBlobs=0";
     std::atomic_store(&seqNumBlobs, 0UL);
 }
 
@@ -57,7 +88,7 @@ DmMigrationClient::getSeqNumBlobDescs()
 void
 DmMigrationClient::resetSeqNumBlobDescs()
 {
-    LOGMIGRATE << "Resetting seqNumBlobs=0";
+    LOGMIGRATE << logString() << "Resetting seqNumBlobs=0";
     std::atomic_store(&seqNumBlobDescs, 0UL);
 }
 
@@ -82,10 +113,26 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
                                  std::vector<std::string>& update_list,
                                  std::vector<std::string>& delete_list)
 {
+    fds_bool_t dummyFlag = false;
+    return (diffBlobLists(dest, source, update_list, delete_list, dummyFlag));
+}
+
+Error
+DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
+                                 const std::map<std::string, int64_t>& source,
+                                 std::vector<std::string>& update_list,
+                                 std::vector<std::string>& delete_list,
+                                 const fds_bool_t &abortFlag)
+{
     auto source_it = source.cbegin();
     auto dest_it = dest.cbegin();
 
     while (dest_it != dest.cend() && source_it != source.cend()) {
+        // check abort flag
+        if (abortFlag) {
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
+
         if (dest_it->first == source_it->first) {
             /* NOTE: this assumes we overwrite more recent versions on the Dest.
                Switch the comparison to '<' to only overwite older versions */
@@ -114,6 +161,9 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
 
     // delete the remainder of the Dest list
     while (dest_it != dest.cend()) {
+        if (abortFlag) {
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
         // delete blob from dest
         delete_list.push_back(dest_it->first);
         ++dest_it;
@@ -121,6 +171,9 @@ DmMigrationClient::diffBlobLists(const std::map<std::string, int64_t>& dest,
 
     // send the remainder of the Source list
     while (source_it != source.cend()) {
+        if (abortFlag) {
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
         // add blob on dest
         update_list.push_back(source_it->first);
         ++source_it;
@@ -140,10 +193,11 @@ DmMigrationClient::processBlobDiff()
     std::map<std::string, int64_t> localBlobMap;
     err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
                                                                        localBlobMap,
-                                                                       snap_);
+                                                                       snap_,
+                                                                       abortFlag);
 
     if (ERR_OK != err) {
-        LOGERROR << "Failed to get blob descriptors with sequence id for volume=" << volId
+        LOGERROR << logString() << "Failed to get blob descriptors with sequence id for volume=" << volId
             << " with error=" << err;
         return ERR_DM_CAT_MIGRATION_DIFF_FAILED;
     }
@@ -158,19 +212,19 @@ DmMigrationClient::processBlobDiff()
                         blobUpdateList,
                         blobDeleteList);
     if (ERR_OK != err) {
-        LOGERROR << "Failed to get blob update list and blob delete list for volume=" << volId
+        LOGERROR << logString() << "Failed to get blob update list and blob delete list for volume=" << volId
             << " with error=" << err;
         return err;
     }
 
-    LOGMIGRATE << "num blobs update=" << blobUpdateList.size()
+    LOGMIGRATE << logString() << "num blobs update=" << blobUpdateList.size()
         << "num blobs delete=" << blobDeleteList.size();
 
     // Now generate and set the blob delta set, which consists of list
     // blobs to be updated and deleted (blobs + descriptors.
     err = generateBlobDeltaSets(blobUpdateList, blobDeleteList);
     if (ERR_OK != err) {
-        LOGERROR << "Failed to generate blob delta set for volume=" << volId
+        LOGERROR << logString() << "Failed to generate blob delta set for volume=" << volId
             << " with error=" << err;
         return err;
     }
@@ -187,19 +241,24 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     // Allocate both blobs and blob desc list.
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg(new fpi::CtrlNotifyDeltaBlobsMsg());
     deltaBlobsMsg->volume_id = volId.get();
+    deltaBlobsMsg->DMT_version = migrationId;
     deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
 
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
     deltaBlobDescMsg->volume_id = volId.get();
+    deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
     for (const auto & blobName: updateBlobs) {
+        if (abortFlag) {
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
 
         BlobMetaDesc metaDesc;
         fpi::DMMigrationObjListDiff objList;
         objList.blob_name = blobName;
 
-        LOGMIGRATE << "Getting blobs and blob descriptor for blob=" << blobName;
+        LOGMIGRATE << logString() << "Getting blobs and blob descriptor for blob=" << blobName;
 
         // Now get blobs and blob descriptor for given blob name.
         err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
@@ -223,13 +282,14 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
 
         deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
 
-        LOGMIGRATE << "Got blobs and blob descriptor for blob name=" << blobName
+        LOGMIGRATE << logString() << "Got blobs and blob descriptor for blob name=" << blobName
             << ", Nblobs=" << deltaBlobDescMsg->blob_desc_list.size();
 
         if (deltaBlobDescMsg->blob_desc_list.size() >= maxNumBlobDescs) {
             /**
              * send the blob desc to thd destination dm.
              */
+            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobDescMsg));
             err = sendDeltaBlobDescs(deltaBlobDescMsg);
             fds_verify(ERR_OK == err);
             /**
@@ -239,6 +299,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
              */
             deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg);
             deltaBlobDescMsg->volume_id = volId.get();
+            deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
         }
 
@@ -246,6 +307,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             /**
              * send the blob desc to thd destination dm.
              */
+            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobsMsg));
             err = sendDeltaBlobs(deltaBlobsMsg);
             fds_verify(ERR_OK == err);
             /**
@@ -255,6 +317,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
              */
             deltaBlobsMsg.reset(new fpi::CtrlNotifyDeltaBlobsMsg);
             deltaBlobsMsg->volume_id = volId.get();
+            deltaBlobsMsg->DMT_version = migrationId;
             deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
         }
     }
@@ -291,6 +354,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
      */
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
     deltaBlobDescMsg->volume_id = volId.get();
+    deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
 
     /**
@@ -298,8 +362,11 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
      * Occassionaly send the message if the max payload is achieved.
      */
     for (const auto & blobName: deleteBlobs) {
-        fpi::DMBlobDescListDiff blobDesc;
+        if (abortFlag) {
+            return (ERR_DM_MIGRATION_ABORTED);
+        }
 
+        fpi::DMBlobDescListDiff blobDesc;
         /**
          * Add blob name to the descriptor list.
          */
@@ -307,7 +374,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
         /**
          * Intentionally not mofidying vol_blob_desc, since it should be 0 strlen.
          */
-        LOGMIGRATE << "Adding DELETE blob=" << blobDesc.vol_blob_name
+        LOGMIGRATE << logString() << "Adding DELETE blob=" << blobDesc.vol_blob_name
             << " to the descriptor list";
         deltaBlobDescMsg->blob_desc_list.emplace_back(blobDesc);
 
@@ -324,6 +391,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
              */
             deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg());
             deltaBlobDescMsg->volume_id = volId.get();
+            deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
         }
     }
@@ -352,14 +420,14 @@ DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateB
      */
     err = generateDeleteBlobDeltaSets(deleteBlobs);
     if (ERR_OK != err) {
-        LOGERROR << "Failed generate delete blobs for volume=" << volId
+        LOGERROR << logString() << "Failed generate delete blobs for volume=" << volId
             << " with error=" << err;
         return err;
     }
 
     err = generateUpdateBlobDeltaSets(updateBlobs);
     if (ERR_OK != err) {
-        LOGERROR << "Failed generate update blobs for volume=" << volId
+        LOGERROR << logString() << "Failed generate update blobs for volume=" << volId
             << " with error=" << err;
         return err;
     }
@@ -368,21 +436,19 @@ DmMigrationClient::generateBlobDeltaSets(const std::vector<std::string>& updateB
 }
 
 Error
-DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
+DmMigrationClient::processBlobFilterSet()
 {
-    LOGMIGRATE << "Taking snapshot for volume: " << volId;
+    LOGMIGRATE << logString() << "Taking snapshot for volume: " << volId;
 
     fiu_do_on("abort.dm.migration.processBlobFilter",\
-              LOGDEBUG << "abort.dm.migration processBlobFilter.fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration processBlobFilter.fault point enabled";\
               return ERR_NOT_READY;);
-
-    trackerFunc = inTracker;
 
     // Lookup commit log so we can take a snapshot of the volume while blocking
     // updates
     auto err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
     if (!err.ok() || !commitLog) {
-        LOGERROR << "Failed to get snapshot volume=" << volId
+        LOGERROR << logString() << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
         return err;
     }
@@ -396,10 +462,11 @@ DmMigrationClient::processBlobFilterSet(incrementCountFunc inTracker)
 			turnOnForwarding();
 		}
 		if (ERR_OK != err) {
-			LOGERROR << "Failed to get snapshot volume=" << volId
+			LOGERROR << logString() << "Failed to get snapshot volume=" << volId
 					 << " with error=" << err;
 			return err;
 		} else {
+		    fds_assert(snap_ != nullptr);
 			snapshotTaken = true;
 		}
     }
@@ -413,7 +480,7 @@ DmMigrationClient::processBlobFilterSet2()
 	Error err(ERR_OK);
 
     fiu_do_on("abort.dm.migration.processBlobFilter2",\
-              LOGDEBUG << "abort.dm.migration processBlobFilter2.fault point enabled";\
+              LOGNOTIFY << "abort.dm.migration processBlobFilter2.fault point enabled";\
               return ERR_NOT_READY;);
 
 	/**
@@ -431,14 +498,14 @@ DmMigrationClient::processBlobFilterSet2()
     }
 
     if (ERR_OK != err) {
-        LOGERROR << "Failed to process blob diff on volume=" << volId
+        LOGERROR << logString() << "Failed to process blob diff on volume=" << volId
             << " with error=" << err;
         return err;
     }
 
     // if completion handler is registered call it.
     if (migrDoneHandler) {
-        LOGMIGRATE << "Calling migration client done handler";
+        LOGMIGRATE << logString() << "Calling migration client done handler";
         migrDoneHandler(volId, err);
     }
 
@@ -450,8 +517,8 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
 {
     Error err(ERR_OK);
 
-    LOGMIGRATE << "Sending blobs to: " << std::hex << destDmUuid << std::dec
-        << " " << logString(*blobsMsg);
+    LOGMIGRATE << logString() << "Sending blobs to: " << std::hex << destDmUuid << std::dec
+        << " " << fds::logString(*blobsMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
     auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
@@ -459,11 +526,11 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationClient::asyncMsgPassed, this);
     asyncDeltaBlobsMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	asyncDeltaBlobsMsg->setTaskExecutorId(volId.v);
-	dataMgr.dmMigrationMgr->asyncMsgIssued();
+	asyncMsgIssued();
     asyncDeltaBlobsMsg->invoke();
 
     return err;
@@ -474,8 +541,8 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
 {
     Error err(ERR_OK);
 
-    LOGMIGRATE << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
-        << " " << logString(*blobDescMsg);
+    LOGMIGRATE << logString() << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
+        << " " << fds::logString(*blobDescMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
     auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
@@ -483,11 +550,11 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationClient::asyncMsgPassed, this);
     asyncDeltaBlobDescMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     asyncDeltaBlobDescMsg->setTaskExecutorId(volId.v);
-	dataMgr.dmMigrationMgr->asyncMsgIssued();
+	asyncMsgIssued();
     asyncDeltaBlobDescMsg->invoke();
 
     return err;
@@ -506,11 +573,12 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 		return err;
 	}
 
-    LOGMIGRATE << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
+    LOGMIGRATE << logString() << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
                << std::dec << " blob " << commitBlobReq->blob_name;
 
     fpi::ForwardCatalogMsgPtr fwdMsg(new fpi::ForwardCatalogMsg());
     fwdMsg->volume_id = commitBlobReq->volId.get();
+    fwdMsg->DMT_version = migrationId;
     fwdMsg->blob_name = commitBlobReq->blob_name;
     fwdMsg->blob_version = blob_version;
     fwdMsg->sequence_id = commitBlobReq->sequence_id;
@@ -535,7 +603,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
      * are sent over the wire synchronously.
      */
     asyncCatUpdReq->setTaskExecutorId(volId.v);
-    dataMgr.dmMigrationMgr->asyncMsgIssued();
+    asyncMsgIssued();
     asyncCatUpdReq->invoke();
 
     return err;
@@ -545,15 +613,17 @@ void DmMigrationClient::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 												EPSvcRequest* req,
 												const Error& error,
 												boost::shared_ptr<std::string> payload) {
-    LOGMIGRATE << "Received forward catalog update response for blob " << commitReq->blob_name
-               << " request that used DMT version " << commitReq->dmt_version << " with error " << error;
+    LOGMIGRATE << logString()
+        << "Received forward catalog update response for blob " << commitReq->blob_name
+        << " request that used DMT version " << commitReq->dmt_version
+        << " with error " << error;
     // Set the error code to forward failed when we got a timeout so that
     // the caller can differentiate between our timeout and its own.
     if (!error.ok()) {
-    	LOGERROR << "Forwarding failed. Aborting DM Migration.";
-        dataMgr.dmMigrationMgr->asyncMsgFailed();
+    	LOGERROR << logString() << "Forwarding failed: " << error << ". Aborting DM Migration";
+        asyncMsgFailed();
     }else{
-        dataMgr.dmMigrationMgr->asyncMsgPassed();
+        asyncMsgPassed();
     }
 
     fds_assert(commitReq->usedForMigration);
@@ -581,12 +651,12 @@ DmMigrationClient::shouldForwardIO(fds_uint64_t dmtVersionIn)
 
 
 void DmMigrationClient::turnOnForwarding() {
-	LOGMIGRATE << "Turning on forwarding for volume: " << volId;
+	LOGMIGRATE << logString() << "Turning on forwarding for volume: " << volId;
 	std::atomic_store(&forwardingIO, true);
 }
 
 void DmMigrationClient::turnOffForwardingInternal() {
-	LOGMIGRATE << "Turning off forwarding for volume: " << volId;
+	LOGMIGRATE << logString() << "Turning off forwarding for volume: " << volId;
 	std::atomic_store(&forwardingIO, false);
 }
 
@@ -601,20 +671,21 @@ DmMigrationClient::sendFinishFwdMsg()
 	Error err(ERR_OK);
 	fpi::ForwardCatalogMsgPtr finMsg(new fpi::ForwardCatalogMsg());
 
-	LOGMIGRATE << "Sending an empty finish forwarding message for volume: " << volId;
+	LOGMIGRATE << logString() << "Sending an empty finish forwarding message for volume: " << volId;
 
 	finMsg->volume_id = volId.v;
+	finMsg->DMT_version = migrationId;
 	finMsg->blob_name = "";
 	finMsg->lastForward = true;
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
     thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationClient::asyncMsgPassed, this);
     thriftMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
 	thriftMsg->setTaskExecutorId(volId.v);
-	dataMgr.dmMigrationMgr->asyncMsgIssued();
+	asyncMsgIssued();
 	thriftMsg->invoke();
 
 	return (err);
@@ -623,16 +694,37 @@ DmMigrationClient::sendFinishFwdMsg()
 void
 DmMigrationClient::abortMigration()
 {
+    /**
+     * Clean up tasks by notifying them via this abortFlag
+     */
+    abortFlag = true;
+
 	/**
 	 * Clean up after processBlobFilterSet()
 	 */
 	turnOffForwardingInternal();
+}
+
+void
+DmMigrationClient::finish()
+{
+    waitForAsyncMsgs();
+ 	// join the work thread
+	if (thrPtr) {
+	    LOGDEBUG << "Waiting for volume " << volId << " work thread to complete";
+	    thrPtr->join();
+	    LOGDEBUG << "Volume " << volId << " work thread to completed";
+	}
 	{
         fds_scoped_lock lock(ssTakenScopeLock);
 		if (snapshotTaken) {
+		    fds_assert(snap_ != nullptr);
 			dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
 			snapshotTaken = false;
 		}
+	}
+	if (cleanUp) {
+	    cleanUp(ERR_OK);
 	}
 }
 }  // namespace fds

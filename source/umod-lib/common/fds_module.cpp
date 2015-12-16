@@ -546,6 +546,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_var_tools(root     + std::string("var/tools/")),
       d_dev(root           + std::string("dev/")),
       d_user_repo(root     + std::string("user-repo/")),
+      d_filetransfer(root  + std::string("user-repo/filetransfer/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
       d_user_repo_stats(d_user_repo   + std::string("vol-stats/")),

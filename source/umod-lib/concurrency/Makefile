@@ -9,6 +9,7 @@ user_cpp         := \
     fds_actor.cpp
 
 user_ar_libs     := fds-thread
+user_so_libs     := fds-thread
 fds-thread       := $(user_cpp)
 
 include $(topdir)/Makefile.incl

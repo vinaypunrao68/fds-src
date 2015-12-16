@@ -228,10 +228,9 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
 }
 
 struct FTCallback : concurrency::TaskStatus {
-    void handle(const fpi::SvcUuid &svcId,
-                const std::string& srcFile,
+    void handle(fds::net::FileTransferService::Handle::ptr handle,
                 const Error &e) {
-        GLOGNORMAL << "in callback : " << srcFile << " : " << e;
+        GLOGNORMAL << "in callback : " << handle->srcFile << " : " << e;
         done();
     }
 };
@@ -240,7 +239,7 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     int cnt = 2;
     FakeSyncSvcDomain domain(cnt, confFile);
     FTCallback cb;
-    fds::net::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
+    fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
     domain[0]->filetransfer->send(domain.getFakeSvcUuid(1), "/bin/ls", "test.txt", ftcb, false);
     cb.await();
     cb.reset(1);

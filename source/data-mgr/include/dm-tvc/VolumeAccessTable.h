@@ -15,6 +15,7 @@
 
 #include "shared/fds_types.h"
 #include "fds_volume.h"
+#include "fds_module_provider.h"
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -68,9 +69,9 @@ struct DmVolumeAccessTable {
     /**
      * A timer to expire tokens
      */
-    static std::shared_ptr<FdsTimer> getTimer();
+    static boost::shared_ptr<FdsTimer> getTimer();
 
-    std::shared_ptr<FdsTimer> timer;
+    boost::shared_ptr<FdsTimer> timer;
 };
 }  // namespace fds
 

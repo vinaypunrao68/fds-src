@@ -224,6 +224,15 @@ fpi::SvcUuid SvcMgr::mapToSvcUuid(const fpi::SvcUuid &in,
     return resIn.toSvcUuid();
 }
 
+fpi::SvcUuid SvcMgr::mapToSvcUuid(const NodeUuid &in,
+                                  const fpi::FDSP_MgrIdType& svcType)
+{
+    ResourceUUID resIn(in);
+    resIn.uuid_set_type(in.uuid_get_val(), svcType);
+    return resIn.toSvcUuid();
+}
+
+
 SvcMgr::~SvcMgr()
 {
     svcServer_->stop();

@@ -10,21 +10,10 @@
 namespace fds
 {
 
-std::shared_ptr<FdsTimer>
+boost::shared_ptr<FdsTimer>
 DmVolumeAccessTable::getTimer() {
-    static std::mutex lock;
-    static std::weak_ptr<FdsTimer> _timer;
-
-    // Create a timer instance if we need one, we
-    // use a weak pointer so the timer can be deleted
-    // once all volumes have been closed; i.e. shutdown
-    std::lock_guard<std::mutex> g(lock);
-    auto ret_val(_timer.lock());
-    if (!ret_val) {
-        ret_val = std::make_shared<FdsTimer>();
-        _timer = ret_val;
-    }
-    return ret_val;
+    auto timer = MODULEPROVIDER()->getTimer();
+    return timer;
 }
 
 DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)

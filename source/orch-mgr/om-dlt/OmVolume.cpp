@@ -811,6 +811,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime = pVol->timelineTime;
     pkt->state        = pVol->getState();
+    pkt->iscsi        = pVol->iscsiSettings;
 }
 
 // vol_fmt_message
@@ -895,6 +896,10 @@ VolumeInfo::vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr)
     }
     // We admitted modified policy.
     setDescription(*vdesc_ptr);
+
+    LOGDEBUG << "volume modification [ " << vdesc_ptr->name << " ] ID [ "
+             << vdesc_ptr->volUUID << " ] TYPE [ " << vdesc_ptr->volType << " ]";
+
     // store it in config db..
     if (!gl_orch_mgr->getConfigDB()->addVolume(*vdesc_ptr)) {
         LOGWARN << "unable to store volume info in to config db "
@@ -974,33 +979,6 @@ fds_bool_t VolumeInfo::isCheckDelete() {
 fds_bool_t VolumeInfo::isDeletePending() {
     fds_mutex::scoped_lock l(fsm_lock);
     return volume_fsm->is_flag_active<VolumeDelPending>();
-}
-
-void VolumeInfo::vol_populate_fdsp_descriptor(fpi::CtrlNotifyVolAdd &fdsp_voladd) {
-	VolumeDesc *desc = vol_get_properties();
-	fds_assert(desc);
-
-	// Counterpart found in VolumeDesc::VolumeDesc(fpi::FDSP_VolumeDescType)
-	fdsp_voladd.vol_desc.vol_name = desc->name;
-	fdsp_voladd.vol_desc.tennantId = desc->tennantId;
-	fdsp_voladd.vol_desc.localDomainId = desc->localDomainId;
-	fdsp_voladd.vol_desc.volUUID = desc->volUUID.v;
-	fdsp_voladd.vol_desc.volType = desc->volType;
-	fdsp_voladd.vol_desc.maxObjSizeInBytes = desc->maxObjSizeInBytes;
-	fdsp_voladd.vol_desc.capacity = desc->capacity;
-	fdsp_voladd.vol_desc.volPolicyId = desc->volPolicyId;
-	fdsp_voladd.vol_desc.placementPolicy = desc->placementPolicy;
-	fdsp_voladd.vol_desc.mediaPolicy = desc->mediaPolicy;
-	fdsp_voladd.vol_desc.iops_assured = desc->iops_assured;
-	fdsp_voladd.vol_desc.iops_throttle = desc->iops_throttle;
-	fdsp_voladd.vol_desc.rel_prio = desc->relativePrio;
-	fdsp_voladd.vol_desc.fSnapshot = desc->fSnapshot;
-	fdsp_voladd.vol_desc.state = desc->state;
-	fdsp_voladd.vol_desc.contCommitlogRetention = desc->contCommitlogRetention;
-	fdsp_voladd.vol_desc.srcVolumeId = desc->srcVolumeId.v;
-	fdsp_voladd.vol_desc.timelineTime = desc->timelineTime;
-	fdsp_voladd.vol_desc.createTime = desc->createTime;
-	fdsp_voladd.vol_desc.state = desc->state;
 }
 
 // --------------------------------------------------------------------------------------
@@ -1086,14 +1064,18 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         return err;
     }
 
+    // set the create timestamp
+    vol->vol_get_properties()->createTime = util::getTimeStampSeconds();
 
     const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
     // store it in config db..
+    LOGDEBUG << "volume creation [ " << volumeDesc.name << " ] ID [ "
+             << volumeDesc.volUUID << " ] TYPE [ " << volumeDesc.volType << " ]";
+
     if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
         LOGWARN << "unable to store volume info in to config db "
-                << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
+                << "[" << volumeDesc.name << ":" << volumeDesc.volUUID << "]";
     }
-
 
     // this event will broadcast vol create msg to other nodes and wait for acks
     vol->vol_event(VolCreateEvt(vol.get()));
@@ -1162,6 +1144,8 @@ Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
         LOGWARN << "Received DeleteVol for non-existing volume " << volId;
         return Error(ERR_NOT_FOUND);
     }
+
+    LOGNOTIFY << "will delete volume : " << volId << ":" << vol->vol_get_name();
 
     // start volume delete process
     vol->vol_event(VolDeleteEvt(uuid, vol.get()));
@@ -1312,9 +1296,10 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 // om_get_volume_descriptor
 // --------------
 //
-void
+Error
 VolumeContainer::om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                          const std::string& vol_name)
+                                          const std::string& vol_name,
+                                          VolumeDesc& desc)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     std::string         vname = vol_name;
@@ -1336,17 +1321,10 @@ VolumeContainer::om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>
         } else {
             LOGNOTIFY << "invalid bucket " << vname;
         }
-        if (am != NULL) {
-            am->om_send_vol_cmd(NULL, &vname, fpi::CtrlNotifyVolAddTypeId);
-        }
-    } else {
-        // TODO(bszmyd): Thu 14 May 2015 06:49:26 AM MDT
-        // Should make this a response a la SvcLayer and not an RPC message
-        // Respond
-        if (am != NULL) {
-            am->om_send_vol_cmd(vol, fpi::CtrlNotifyVolAddTypeId);
-        }
+        return ERR_VOL_NOT_FOUND;
     }
+    desc = *vol->vol_get_properties();
+    return ERR_OK;
 }
 
 void
@@ -1577,6 +1555,9 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
 
 
     // store it in config db..
+    LOGDEBUG << "volume add [ " << volumeDesc.name << " ] ID [ "
+             << volumeDesc.volUUID << " ] TYPE [ " << volumeDesc.volType << " ]";
+
     if (!gl_orch_mgr->getConfigDB()->addVolume(volumeDesc)) {
         LOGWARN << "unable to store volume info in to config db "
                 << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
@@ -1677,12 +1658,12 @@ bool VolumeContainer::createSystemVolume(int32_t tenantId) {
         VolumeDesc volume(name, fds_volid_t(1));
         
         volume.volUUID = gl_orch_mgr->getConfigDB()->getNewVolumeId();
-        volume.createTime = util::getTimeStampMillis();
+        volume.createTime = util::getTimeStampSeconds();
         volume.redundancyCnt = 4;
         volume.maxObjSizeInBytes = 2 * MB;
         volume.contCommitlogRetention = 0;
         volume.tennantId = tenantId;
-        volume.capacity  = 1*GB;
+        volume.capacity  = 1 * GB;
         fReturn = addVolume(volume);
         if (!fReturn) {
             LOGERROR << "unable to add system volume "

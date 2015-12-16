@@ -490,6 +490,9 @@ angular.module( 'charts' ).directive( 'lineChart', function(){
                 else {
                     create();
                 }
+            },
+            function( newVal, oldVal ){
+                return ( newVal === oldVal );
             });
         }
     };

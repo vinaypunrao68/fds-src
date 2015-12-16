@@ -6,5 +6,5 @@
 {
    Service Layer Queue
    Memcheck:Cond
-   fun:_ZN5boost8lockfree5queueIPSt8functionIFvvEENS_9parameter5void_ES7_S7_E7do_pushILb0EEEbRKS5_
+   fun:_ZN3fds14LockfreeWorker7enqueueEPSt8functionIFvvEE
 }

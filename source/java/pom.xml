@@ -105,6 +105,7 @@
     <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
     <formationds.jsvc.layer.version>2015.08.14-SNAPSHOT</formationds.jsvc.layer.version>
     <formationds.commons.version>2015.08.14-SNAPSHOT</formationds.commons.version>
+    <formationds.stats.client.version>0.0.1-SNAPSHOT</formationds.stats.client.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>

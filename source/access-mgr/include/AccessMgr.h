@@ -39,7 +39,12 @@ class AccessMgr : public Module, public boost::noncopyable {
 
     void run();
 
-    void initilizeConnectors();
+    /**
+     * These are sent to the connectors so they may
+     * manipulate their exports.
+     */
+    void volumeAdded(VolumeDesc const& volDesc);
+    void volumeRemoved(VolumeDesc const& volDesc);
 
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }
@@ -66,6 +71,8 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     bool nbd_enabled {true};
     bool scst_enabled {false};
+
+    void initilizeConnectors();
 };
 
 }  // namespace fds

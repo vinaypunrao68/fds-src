@@ -23,6 +23,7 @@
 
 #include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstTarget.h"
+#include "AmProcessor.h"
 #include "fds_process.h"
 extern "C" {
 #include "connector/scst/scst_user.h"
@@ -41,6 +42,7 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
         FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
         auto target_prefix = conf.get<std::string>("target_prefix", "iqn.2012-05.com.formationds:");
         instance_.reset(new ScstConnector(target_prefix, processor));
+        instance_->discoverTargets();
     });
 }
 
@@ -49,29 +51,83 @@ void ScstConnector::stop() {
     // Implement
 }
 
+void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
+    // TODO(bszmyd): Tue 08 Dec 2015 02:40:23 PM MST
+    // Block volumes have the first low order bit set today, this
+    // should be more explicit
+    if ((1 == volDesc.volType || 3 == volDesc.volType)
+        && !volDesc.isSnapshot()
+        && instance_) {
+        instance_->addTarget(volDesc);
+    }
+}
+
+void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
+    if (instance_) {
+        instance_->removeTarget(volDesc);
+    }
+}
+
+void ScstConnector::addTarget(VolumeDesc const& volDesc) {
+    std::lock_guard<std::mutex> lg(target_lock_);
+
+    // Create target if it does not already exist
+    ScstTarget* target = nullptr;
+    auto it = targets_.find(volDesc.name);
+    if (targets_.end() == it) {
+        target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
+        targets_[volDesc.name].reset(target);
+        target->addDevice(volDesc.name);
+    } else {
+      target = it->second.get();
+    }
+
+    // Setup some things like initiator masking
+    std::vector<std::string> initiator_list;
+    for (auto const& ini : volDesc.iscsiSettings.initiators) {
+        GLOGDEBUG << "Initiator mask: " << ini.wwn_mask;
+        initiator_list.emplace_back(ini.wwn_mask);
+    }
+    target->setInitiatorMasking(initiator_list);
+    target->enable();
+}
+
+void ScstConnector::removeTarget(VolumeDesc const& volDesc) {
+    std::lock_guard<std::mutex> lg(target_lock_);
+
+    auto it = targets_.find(volDesc.name);
+    if (targets_.end() == it) return;
+
+    it->second->removeDevice(volDesc.name);
+}
+
 ScstConnector::ScstConnector(std::string const& prefix,
                              std::weak_ptr<AmProcessor> processor)
         : amProcessor(processor),
           target_prefix(prefix)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
-    auto threads = conf.get<uint32_t>("threads", 1);
-    // TODO(bszmyd): Thu 24 Sep 2015 02:46:57 PM MDT
-    // This is just for testing until we support dynamic volume loading
-    LOGDEBUG << "Creating auto volumes for connector.";
-    auto auto_volumes = conf.get<std::string>("auto_volumes", "scst_vol");
-    {
-        boost::tokenizer<boost::escaped_list_separator<char> > tok(auto_volumes);
-        for (auto const& vol_name : tok) {
-            try {
-                ScstTarget* target {nullptr};
-                target = new ScstTarget(target_prefix + vol_name,  threads, amProcessor);
-                target->addDevice(vol_name);
-                target->enable();
-            } catch (ScstError& e) {
-                LOGERROR << "Failed to create device for: " << vol_name;
-            }
-        }
+    threads = conf.get<uint32_t>("threads", threads);
+}
+
+void
+ScstConnector::discoverTargets() {
+    auto amProc = amProcessor.lock();
+    if (!amProc) {
+        GLOGERROR << "No processing layer, no targets.";
+        return;
+    }
+    GLOGNORMAL << "Discovering iSCSI volumes to export.";
+    std::vector<VolumeDesc> volumes;
+    amProc->getVolumes(volumes);
+
+    for (auto const& vol : volumes) {
+        // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
+        // This is a magic value from thrift that i don't want to include
+        // headers from
+        if ((1 != vol.volType && 3 != vol.volType)
+            || vol.isSnapshot()) continue;
+        addTarget(vol);
     }
 }
 

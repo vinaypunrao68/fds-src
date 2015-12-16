@@ -342,6 +342,7 @@ struct DmMigrationBlobFilterHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseCleanUp(Error const& e, DmRequest* dmRequest);
 };
 
 /**
@@ -385,6 +386,12 @@ struct DmMigrationTxStateHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
+
+struct SimpleHandler : Handler {
+    explicit SimpleHandler(DataMgr& dataManager);
+    DECL_ASYNC_HANDLER(handleStartRefScanRequest, StartRefScanMsg);
+};
+
 
 }  // namespace dm
 }  // namespace fds

@@ -62,6 +62,8 @@ class FdsConfig {
         return config_;
     }
 
+    void getConfigMap(std::map<std::string,std::string>&);
+
     void set(const std::string &key, const char *value);
     void set(const std::string &key, const std::string& value);
     void set(const std::string &key, const fds_int32_t& value);
