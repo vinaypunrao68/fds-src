@@ -199,10 +199,10 @@ void ScstDevice::execAllocCmd() {
     LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
 
     // Allocate a page aligned memory buffer for Scst usage
+    fastReply();
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
     // This is mostly to shutup valgrind
     memset((void*) fast_reply.alloc_reply.pbuf, 0x00, length);
-    fastReply();
 }
 
 void ScstDevice::execMemFree() {
@@ -226,18 +226,36 @@ void ScstDevice::execCompleteCmd() {
 void ScstDevice::execParseCmd() {
     LOGDEBUG << "Need parsing help.";
     fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd.cmd_h, SCST_USER_PARSE);
-    readyResponses.push(task);
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDevice::execTaskMgmtCmd() {
     auto& tmf_cmd = cmd.tm_cmd;
-    LOGIO << "Task Management request: [0x" << std::hex << tmf_cmd.fn
-          << "] on [" << volumeName << "]";
-
+    auto done = (SCST_USER_TASK_MGMT_DONE == cmd.subcode) ? true : false;
     if (SCST_TARGET_RESET == tmf_cmd.fn) {
+        LOGNOTIFY << "Target Reset request:"
+                  << " [0x" << std::hex << tmf_cmd.fn
+                  << "] on [" << volumeName << "]"
+                  << " " << (done ? "Done." : "Received.");
+    } else {
+        LOGIO << "Task Management request:"
+              << " [0x" << std::hex << tmf_cmd.fn
+              << "] on [" << volumeName << "]"
+              << " " << (done ? "Done." : "Received.");
+    }
+
+    if (done) {
         // Reset the reservation if we get a target reset
-        reservation_session_id = invalid_session_id;
+        switch (tmf_cmd.fn) {
+        case SCST_TARGET_RESET:
+        case SCST_LUN_RESET:
+        case SCST_PR_ABORT_ALL:
+            {
+                reservation_session_id = invalid_session_id;
+            }
+        default:
+            break;;
+        }
     }
 
     fastReply(); // Setup the reply for the next ioctl
@@ -380,7 +398,7 @@ void ScstDevice::execUserCmd() {
                     param_cursor += inquiry_page_dev_id(param_cursor, buflen, buffer);
                     break;;
                 default:
-                    LOGERROR << "Request for unsupported page code.";
+                    LOGNOTIFY << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                     continue;
                 }
@@ -621,6 +639,7 @@ void ScstDevice::execUserCmd() {
                 param_cursor += 12;
                 break;;
             default:
+                LOGNOTIFY << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }

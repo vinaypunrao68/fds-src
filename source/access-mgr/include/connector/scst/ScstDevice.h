@@ -124,6 +124,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
 
     void fastReply() {
+        memset(&fast_reply, 0, sizeof(fast_reply));
         fast_reply.cmd_h = cmd.cmd_h;
         fast_reply.subcode = cmd.subcode;
         cmd.preply = (unsigned long)&fast_reply;
