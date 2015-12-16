@@ -16,6 +16,7 @@ user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          := $(wildcard *.cpp)
 
 user_ar_libs      := fds-smlib
+user_so_libs      := fds-smlib
 fds-smlib         := $(user_cpp)
 
 include $(topdir)/Makefile.incl
