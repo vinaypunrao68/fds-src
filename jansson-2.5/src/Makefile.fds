@@ -16,6 +16,7 @@ user_cc           := \
     value.c
                 
 user_ar_libs      := jansson
+user_so_libs      := jansson
 jansson           := $(user_cc)
 
 include $(jansson_dir)/Makefile.incl

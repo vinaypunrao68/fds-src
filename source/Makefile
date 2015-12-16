@@ -22,7 +22,8 @@ user_build_dir :=                       \
     tools                               \
     testlib                             \
     unit-test                           \
-    java
+    java                                \
+		packages
 
 ifdef ONLYMAIN
     user_build_dir := $(filter-out unit-test tools java, $(user_build_dir))

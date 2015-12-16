@@ -57,10 +57,9 @@ angular.module( 'qos' ).directive( 'qosPanel', function(){
                     $scope.presets.push( $scope.custom );
                     
                     rationalizeWithPresets();
+                }).then( function() {
+                    refreshSliders();
                 });
-                
-                
-                refreshSliders();
             };
             
             $scope.limitSliderLabel = function( value ){
