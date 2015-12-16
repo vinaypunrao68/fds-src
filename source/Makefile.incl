@@ -11,6 +11,8 @@ ifdef user_std_libs
         fds-thread \
         fds-osdep
 
+	# boost_chrono and rabbitmq are used in the SimpleAmqpClient library
+	# The SimpleAmqpClient is used in the statsclient library
     user_non_fds_libs += \
         statsclient \
 	SimpleAmqpClient \
@@ -22,7 +24,7 @@ ifdef user_std_libs
         boost_program_options \
         boost_filesystem \
         boost_regex \
-	boost_chrono \  # boost_chrono is used by SimpleAmqpClient
+	boost_chrono \
 	ssl \
     	crypto \
         thrift \
