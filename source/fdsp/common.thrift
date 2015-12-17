@@ -13,6 +13,16 @@ namespace java com.formationds.protocol
 const string INITIAL_XDI_VERSION = "0_8"
 const string CURRENT_XDI_VERSION = INITIAL_XDI_VERSION
 
+/**
+ * By default, at the expiration of this period, fine-grained stats
+ * will be streamed to registrations for them. It should be a multiple
+ * of the Push&Aggregate constant used by Services to push what they've
+ * collected to the aggregating DM who will then aggregate,
+ * FdsStatPushAndAggregatePeriodSec.
+ */
+const i32 STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS = 120
+const i32 STAT_STREAM_RUN_FOR_EVER_DURATION = -1
+
 enum BlobListOrder {
     UNSPECIFIED = 0,
     LEXICOGRAPHIC,
@@ -70,8 +80,6 @@ struct LogicalUnitNumber {
     1: required string name,
     /** access mode */
     2: required string access
-    /** initiators */
-    3: optional list<Initiator> initiators,
 }
 
 struct Credentials {
@@ -87,7 +95,9 @@ struct IScsiTarget {
     /** a unordered list of incoming user credentials */
     2: optional list<Credentials> incomingUsers,
     /** a unordered list of outgoing user credentials */
-    3: optional list<Credentials> outgoingUsers
+    3: optional list<Credentials> outgoingUsers,
+    /** initiators */
+    4: optional list<Initiator> initiators;
 }
 
 /** NFS Options Map */

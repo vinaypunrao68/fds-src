@@ -1110,7 +1110,15 @@ class OM_NodeDomainMod : public Module
     Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
     void  removeRegisteredSvc(int64_t uuid);
 
-    void raiseAbortMigrationEvt(NodeUuid uuid);
+    void raiseAbortSmMigrationEvt(NodeUuid uuid);
+    void raiseAbortDmMigrationEvt(NodeUuid uuid);
+
+    void setDomainShuttingDown(bool domainDown);
+    bool isDomainShuttingDown();
+    void addToShutdownList(int64_t uuid);
+    void clearFromShutdownList(int64_t uuid);
+    void clearShutdownList();
+    bool isNodeShuttingDown(int64_t uuid);
 
     void removeNodeComplete(NodeUuid uuid);
   protected:
@@ -1137,18 +1145,22 @@ class OM_NodeDomainMod : public Module
                                   std::vector<fpi::SvcInfo> dmSvcs);
     
 
-    fds_bool_t                       om_test_mode;
-    OM_NodeContainer                *om_locDomain;
-    kvstore::ConfigDB               *configDB;
+    fds_bool_t                    om_test_mode;
+    OM_NodeContainer              *om_locDomain;
+    kvstore::ConfigDB             *configDB;
 
-    FSM_NodeDomain                  *domain_fsm;
+    FSM_NodeDomain                *domain_fsm;
     // to protect access to msm process_event
-    fds_mutex                       fsm_lock;
+    fds_mutex                     fsm_lock;
 
     // Vector to track registering services and
     // locks to protect accesses
-    fds_rwlock svcRegMapLock;
+    fds_rwlock                    svcRegMapLock;
     std::map<int64_t, SvcInfoPtr> registeringSvcs;
+
+    bool                          domainDown;
+    std::vector<int64_t>          shuttingDownNodes;
+
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

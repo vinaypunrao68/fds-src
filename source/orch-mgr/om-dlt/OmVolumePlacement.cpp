@@ -535,6 +535,13 @@ VolumePlacement::undoTargetDmtCommit() {
                 LOGWARN << "unable to store target dmt type to config db";
             }
             rollBackNeeded = true;
+        } else {
+            OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+
+            if (domain->isDomainShuttingDown()) {
+                LOGDEBUG << "Domain is shutting down, unset target DMT for correct state on startup";
+                dmtMgr->unsetTarget(false);
+            }
         }
     }
     return rollBackNeeded;
@@ -699,7 +706,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     return err;
 }
 
-
 fds_bool_t VolumePlacement::canRetryMigration() {
     fds_bool_t ret = false;
 
@@ -711,5 +717,4 @@ fds_bool_t VolumePlacement::canRetryMigration() {
 
     return ret;
 }
-
 }  // namespace fds

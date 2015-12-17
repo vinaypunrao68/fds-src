@@ -13,6 +13,8 @@ user_cpp          := \
 	VolumeAccessTable.cpp
 
 user_ar_libs      := fds-dm-lib
+user_so_libs      := fds-dm-tvc
 fds-dm-lib        := $(user_cpp)
+fds-dm-tvc        := $(user_cpp)
 
 include $(topdir)/Makefile.incl

@@ -13,6 +13,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
     <Properties>
+        <!-- {{ ansible_managed }} -->
         <!-- must match environment variable name -->
         <property name ="fds_root">/fds</property>
         <property name="fds.service.name">default</property>
@@ -71,7 +72,7 @@
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
         <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
-            <AppenderRef ref="jsvclayer"/>
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
     </Loggers>
 </Configuration>

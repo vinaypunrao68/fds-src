@@ -903,7 +903,7 @@ bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
 {
     try
     {
-        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ]";
+        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ] ( SET )";
         return kv_store.sendCommand( "set vol:%ld:settings %b",
                                      volumeId,
                                      serialized->data(),
@@ -916,27 +916,6 @@ bool ConfigDB::setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<
     }
 
     return false;
-}
-
-boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int volumeId )
-{
-    try
-    {
-        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ]";
-        Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
-        if ( !reply.isNil() )
-        {
-            LOGDEBUG << "Successful retrieved Volume Settings for volume ID[ " << volumeId << " ]";
-            return boost::make_shared<std::string>( reply.getString( ) );
-        }
-    }
-    catch(const RedisException& e)
-    {
-        LOGERROR << "error with Redis: " << e.what();
-    }
-
-    LOGDEBUG << "Failed to retrieved Volume Settings for volume ID[ " << volumeId << " ]";
-    return nullptr;
 }
 
 bool ConfigDB::setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
@@ -1118,6 +1097,11 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             auto iscsi = boost::make_shared<fpi::IScsiTarget>( );
             fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), iscsi );
             vol.iscsiSettings = *iscsi;
+
+            LOGDEBUG << "iSCSI["
+                     << " luns size() == " << vol.iscsiSettings.luns.size()
+                     << " initiators size() == " << vol.iscsiSettings.initiators.size()
+                     << " ]";
         }
         else if ( vol.volType ==  fpi::FDSP_VOL_NFS_TYPE )
         {
@@ -1134,6 +1118,27 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
         LOGERROR << e.what();
     }
     return false;
+}
+
+boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int volumeId )
+{
+    try
+    {
+        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ] ( GET )";
+        Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
+        if ( !reply.isNil() )
+        {
+            LOGDEBUG << "Successful retrieved Volume Settings for volume ID[ " << volumeId << " ]";
+            return boost::make_shared<std::string>( reply.getString( ) );
+        }
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "error with Redis: " << e.what();
+    }
+
+    LOGDEBUG << "Failed to retrieved Volume Settings for volume ID[ " << volumeId << " ]";
+    return nullptr;
 }
 
 // dlt

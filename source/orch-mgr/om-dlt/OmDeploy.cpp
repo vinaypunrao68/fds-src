@@ -469,8 +469,12 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 void DltDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
-    domain->om_dlt_update_cluster();
+    if (!domain->isDomainShuttingDown()) {
+        LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
+        domain->om_dlt_update_cluster();
+    } else {
+        LOGNOTIFY << "Will not recompute DLT since domain is shutting down or is down";
+    }
 }
 
 // GRD_DltCompute

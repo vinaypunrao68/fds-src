@@ -543,8 +543,12 @@ DmtDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 void DmtDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "Retry to re-compute DMT";
-    domain->om_dmt_update_cluster();
+    if (!domain->isDomainShuttingDown()) {
+        LOGNOTIFY << "Retry to re-compute DMT";
+        domain->om_dmt_update_cluster();
+    } else {
+        LOGNOTIFY << "Will not recompute DMT since domain is shutting down or is down";
+    }
 }
 void DmtDplyFSM::WaitingTimerTask::runTimerTask()
 {
@@ -1098,13 +1102,25 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     LOGNOTIFY << "OM deployed DMT with "
               << cm->getNumMembers(fpi::FDSP_DATA_MGR) << " DMs";
 
+    /**
+      * TODO(Neil) - FS-3956
+      * We need to have ability to know whether or not DM's SvcUUID
+      * in the clustermap is really currently undergoing migration.
+      * To do this, we need to start caring for incarnation numbers. If
+      * the DM undergoing migration has a newer incarnation number, then that
+      * means the DM undergoing migration has crashed and we can throw an error.
+      * Otherwise, this should be a no-op.
+      * For now, this is conflicting with the DmtDeployEvt that setupNewNode is
+      * causing, so disable for now. setupNewNode should be throwing the deploy
+      * event fine and dependably.
+      */
     // In case new DMs got added or DMs got removed while we were
     // deploying current DMT, start timer to try deploy a DMT again
-    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
-                                     std::chrono::seconds(1))) {
-        LOGWARN << "Failed to start try again timer!!!"
-                << " DM additions/deletions may be pending for long time";
-    }
+//    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
+//                                     std::chrono::seconds(1))) {
+//        LOGWARN << "Failed to start try again timer!!!"
+//                << " DM additions/deletions may be pending for long time";
+//    }
 
     LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }
@@ -1128,14 +1144,15 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
 
-        // Revert to previously committed DMT locally in OM
-        am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
-
         // We already computed target DMT, so most likely sent start migration msg
         // Send abort migration to DMs first, so that we can restart migration later
         // (otherwise DMs will think they are still migrating)
         LOGWARN << "Already computed or commited target DMT, will send abort msg "
                 << " got target DMT version " << vp->getTargetDMTVersion();
+
+        // Revert to previously committed DMT locally in OM
+        am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
+
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_dm_migration_abort(vp->getCommittedDMTVersion());
         dst.abortMigrAcksToWait = 0;
         if (abortCnt > 0) {

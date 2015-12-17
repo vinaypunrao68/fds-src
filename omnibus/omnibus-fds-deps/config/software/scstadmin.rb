@@ -22,6 +22,7 @@ build do
   command "dpkg-deb -x *.deb ./", env:env
 
   patch source: "config.diff", plevel: 1
+  patch source: "init.diff", plevel: 1
 
   mkdir "#{dest_dir}#{perl_dir}"
   mkdir "#{dest_dir}#{sbin_dir}"
