@@ -18,7 +18,7 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     DMT_version(DMT_VER_INVALID),
     migrationAborted(false),
     timerStarted(false),
-    abortThread(NULL)
+    abort_thread(NULL)
 {
     maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                   get<int>("fds.dm.migration.migration_max_concurrency"));
