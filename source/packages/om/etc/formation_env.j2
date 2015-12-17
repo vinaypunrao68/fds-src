@@ -13,7 +13,7 @@
 
 DEFAULT_FDS_ROOT={{ fds_root }}
 
-FDS_DEPS=/opt/jdk1.8.0
+FDS_DEPS=/opt/jdk1.8.0_60
 DEFAULT_JAVA_HOME=${FDS_DEPS}/jre
 
 # set fds_root to the default if it is not set in the
@@ -55,6 +55,7 @@ CLASSPATH=${fds_root}/etc
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/hadoop
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
+CLASSPATH=${CLASSPATH}:{{ package_path }}/lib/java
 export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
 
 export LANG=POSIX
