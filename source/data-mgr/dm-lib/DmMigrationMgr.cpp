@@ -1004,13 +1004,86 @@ DmMigrationMgr::stopMigrationStopWatch()
 }
 
 Error
+DmMigrationMgr::startMigration(NodeUuid& srcDmUuid,
+                               fpi::FDSP_VolumeDescType &vol,
+                               int64_t migrationId)
+{
+    Error err(ERR_OK);
+
+    err = createMigrationDest(srcDmUuid, vol, migrationId);
+
+    if (!err.ok()) {
+        LOGERROR << "Error starting migration for Node: " << srcDmUuid << " volume: " << vol.vol_name;
+        return err;
+    }
+
+    fds_volid_t volId(vol.volUUID);
+    auto uniqueId = std::make_pair(srcDmUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    auto dest = getMigrationDest(uniqueId);
+    // TODO(Neil) need to have error handling
+
+
+    return err;
+}
+
+Error
 DmMigrationMgr::createMigrationDest(NodeUuid &srcDmUuid,
                                     fpi::FDSP_VolumeDescType &vol,
                                     int64_t migrationId)
 {
     Error err(ERR_OK);
+    SCOPEDWRITE(migrDestLock);
+    auto uniqueId = std::make_pair(srcDmUuid, fds_volid_t(vol.volUUID));
+    auto search = destMap.find(uniqueId);
+    if (search != destMap.end()) {
+        LOGMIGRATE << "migrationid: " << migrationId
+            << " Migration v2 for node " << srcDmUuid
+            << " volume " << vol.vol_name << " is a duplicated request.";
+        err = ERR_DUPLICATE;
+    } else {
+        /**
+         * Create a new instance of migration Destination
+         */
+        LOGMIGRATE << "migrationid: " << migrationId
+            << "Creating migration v2 instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
+            << " name=" << vol.vol_name;
 
+
+        startMigrationStopWatch();
+
+        destMap.emplace(uniqueId,
+                       DmMigrationDest::unique_ptr(
+                            new DmMigrationDest(migrationId,
+                                                dataManager,
+                                                srcDmUuid,
+                                                vol,
+                                                deltaBlobTimeout)));
+    }
     return (err);
 }
+
+DmMigrationDest::shared_ptr
+DmMigrationMgr::getMigrationDest(std::pair<NodeUuid, fds_volid_t> uniqueId)
+{
+    auto search = destMap.find(uniqueId);
+    if (search == destMap.end()) {
+        return nullptr;
+    } else {
+        return search->second;
+    }
+}
+
+DmMigrationSrc::shared_ptr
+DmMigrationMgr::getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId)
+{
+   auto search = srcMap.find(uniqueId);
+   if (search == srcMap.end()) {
+       return nullptr;
+   } else {
+       return search->second;
+   }
+}
+
 
 }  // namespace fds
