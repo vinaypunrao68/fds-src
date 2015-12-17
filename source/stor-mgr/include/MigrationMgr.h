@@ -255,9 +255,9 @@ class MigrationMgr {
      * to resync or get data from other SMs).
      * This method must be called only when this SM is a part of DLT
      */
-    void notifyDltUpdate(const fds::DLT *dlt,
-                         fds_uint32_t bitsPerDltToken,
-                         const NodeUuid& mySvcUuid);
+    void makeTokensAvailable(const fds::DLT *dlt,
+                             fds_uint32_t bitsPerDltToken,
+                             const NodeUuid& mySvcUuid);
 
     /**
      * Coalesce all migration executor.
