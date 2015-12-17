@@ -1914,7 +1914,6 @@ OM_PmAgent::send_remove_service
     if (remove_am) {
 
         fds::retrieveSvcId(node_uuid.uuid_get_val(), svcuuid, fpi::FDSP_ACCESS_MGR);
-        DLT::addToRemoveList(svcuuid.svc_uuid);
         change_service_state( configDB,
                               svcuuid.svc_uuid,
                               fpi::SVC_STATUS_REMOVED,
@@ -1935,9 +1934,10 @@ OM_PmAgent::send_remove_service
                         << std::dec << ", result: " << err.GetErrstr();
     }
 
+    std::vector<fpi::SvcInfo>::iterator iter;
     //cm->addPendingRmService(svc.svc_type, node_uuid);
     /*
-    std::vector<fpi::SvcInfo>::iterator iter;
+
     if (remove_sm)
     {
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
@@ -1967,6 +1967,7 @@ OM_PmAgent::send_remove_service
                      << std::hex << node_uuid << std::dec;
 
     }
+    */
     if (remove_am)
     {
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
@@ -1981,7 +1982,7 @@ OM_PmAgent::send_remove_service
             LOGERROR << "Failed to delete AM from service map for node:"
                      << std::hex << node_uuid << std::dec;
     }
-*/
+
     fpi::NotifyRemoveServiceMsgPtr removeServiceMsg = boost::make_shared<fpi::NotifyRemoveServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = removeServiceMsg->services;
 

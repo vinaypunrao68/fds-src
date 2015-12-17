@@ -3116,16 +3116,6 @@ OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
 
 }
 
-void
-OM_NodeDomainMod::raiseAbortMigrationEvt(NodeUuid uuid) {
-    OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
-
-    // tell DLT state machine about abort (error state)
-    dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid,
-                                              Error(ERR_SM_TOK_MIGRATION_ABORTED)));
-}
-
 // Called when OM receives notification that the re-balance is
 // done on node with uuid 'uuid'.
 Error
@@ -3450,5 +3440,4 @@ OM_NodeDomainMod::isNodeShuttingDown(int64_t uuid)
 
     return nodeIsShuttingDown;
 }
-
 } // namespace fds

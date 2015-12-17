@@ -1089,7 +1089,6 @@ class OM_NodeDomainMod : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    void raiseAbortMigrationEvt(NodeUuid uuid);
     /**
      * Apply an event to domain state machine
      */
