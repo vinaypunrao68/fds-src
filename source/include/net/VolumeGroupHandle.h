@@ -28,6 +28,11 @@ struct VolumeGroupHandle;
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
 
+/**
+* @brief Used for keeping state information about an individual volume replica.
+* Acts as a proxy for the volume replica residing on a DM.
+* VolumeGroupHandle manages a collection of VolumeReplicaHandles
+*/
 struct VolumeReplicaHandle {
     explicit VolumeReplicaHandle(const fpi::SvcUuid &id)
         : version(VolumeGroupConstants::VERSION_INVALID),
@@ -82,6 +87,7 @@ struct VolumeReplicaHandle {
     }
 
     int32_t                 version;
+    /* Service where this replica is hosted */
     fpi::SvcUuid            svcUuid;
     fpi::ResourceState      state;
     Error                   lastError;
@@ -96,7 +102,9 @@ using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
 using StatusCb = std::function<void(const Error&)>;
 
 /**
-* @brief Payload is sent to all replicas.
+* @brief Base class for group requests that are related to VolumeGrouping
+* All volume request track op id and commit ids for making sure operations
+* applied in order.
 */
 struct VolumeGroupRequest : MultiEpSvcRequest {
     VolumeGroupRequest(CommonModuleProviderIf* provider,
@@ -115,6 +123,9 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
 };
 
 
+/**
+* @brief Request for broadcasting the payload to all replicas
+*/
 struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
@@ -125,6 +136,9 @@ struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
     virtual void invokeWork_() override;
 };
 
+/**
+* @brief Failover style request for volume group
+*/
 struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
@@ -135,6 +149,14 @@ struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     virtual void invokeWork_() override;
 };
 
+/**
+* @brief VolumeGroupHandle provides access to a group of volumes.
+* It manages io coordination/replication to a group of volumes. Think
+* of it as a file handle to a group of volumes.
+* -Ensures IO is replicated in order to all the volumes in the group.
+* -Handles faults in a volume group
+* -Manages sync/repair of a failed volume replica.
+*/
 struct VolumeGroupHandle : HasModuleProvider {
     using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
