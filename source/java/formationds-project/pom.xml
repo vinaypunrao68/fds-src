@@ -63,7 +63,7 @@
       <properties>
         <!-- thrift properties -->
         <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
-        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
+        <thrift.binary>/usr/local/bin/thrift-${thrift.version}</thrift.binary>
       </properties>
     </profile>
     <profile>
@@ -75,7 +75,7 @@
       </activation>
       <properties>
         <!-- thrift properties -->
-        <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
+        <thrift.binary>${basedir}/../../../../Build/fds-thrift-${thrift.version}/bin/thrift</thrift.binary>
       </properties>
     </profile>
   </profiles>

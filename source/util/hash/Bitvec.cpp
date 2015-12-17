@@ -143,7 +143,7 @@ uint32_t getbit_wrap ( const void * block, int len, uint32_t bit )
   return (b[byte] >> bit) & 1;
 }
 
-void setbit ( void * block, int len, uint32_t bit )
+void setBit ( void * block, int len, uint32_t bit )
 {
   uint8_t * b = (uint8_t*)block;
 
@@ -153,9 +153,9 @@ void setbit ( void * block, int len, uint32_t bit )
   if(byte < len) b[byte] |= (1 << bit);
 }
 
-void setbit ( void * block, int len, uint32_t bit, uint32_t val )
+void setBit ( void * block, int len, uint32_t bit, uint32_t val )
 {
-  val ? setbit(block,len,bit) : clearbit(block,len,bit);
+  val ? setBit(block,len,bit) : clearbit(block,len,bit);
 }
 
 void clearbit ( void * block, int len, uint32_t bit )
@@ -197,7 +197,7 @@ void lshift1 ( void * blob, int len, int c )
 
   for(int i = nbits-1; i >= 0; i--)
   {
-    setbit(blob,len,i,getbit(blob,len,i-c));
+    setBit(blob,len,i,getbit(blob,len,i-c));
   }
 }
 
@@ -277,7 +277,7 @@ void rshift1 ( void * blob, int len, int c )
 
   for(int i = 0; i < nbits; i++)
   {
-    setbit(blob,len,i,getbit(blob,len,i+c));
+    setBit(blob,len,i,getbit(blob,len,i+c));
   }
 }
 
@@ -360,7 +360,7 @@ void lrot1 ( void * blob, int len, int c )
 
     lshift1(blob,len,1);
 
-    setbit(blob,len,0,bit);
+    setBit(blob,len,0,bit);
   }
 }
 
@@ -455,7 +455,7 @@ void rrot1 ( void * blob, int len, int c )
 
     rshift1(blob,len,1);
 
-    setbit(blob,len,nbits-1,bit);
+    setBit(blob,len,nbits-1,bit);
   }
 }
 
@@ -553,7 +553,7 @@ uint32_t window1 ( void * blob, int len, int start, int count )
 
   for(int i = 0; i < count; i++)
   {
-    setbit(&t,sizeof(t),i, getbit_wrap(blob,len,start+i));
+    setBit(&t,sizeof(t),i, getbit_wrap(blob,len,start+i));
   }
 
   return t;
