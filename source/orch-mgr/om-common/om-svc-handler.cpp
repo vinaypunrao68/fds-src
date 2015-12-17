@@ -285,25 +285,60 @@ void OmSvcHandler::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return
     volumes->vol_foreach<fpi::GetAllVolumeDescriptors&>(_return, populate_voldesc_list);
 }
 
-void OmSvcHandler::getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
-         boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype) {
+void OmSvcHandler::getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& _return,
+         boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype,
+         boost::shared_ptr<int32_t>& localDomainId) {
 
-    _return.records.clear();
-    std::vector<fpi::SvcInfo> svclist;
-    if (configDB && configDB->getSvcMap(svclist)) {
-        // Linear scan for services that match given type
-        // TODO: convention seems to be 1 liners using lambda or foreach, as above
-        std::vector<fpi::SvcInfo>::const_iterator itr1 = svclist.cbegin();
-        while (itr1 != svclist.cend()) {
-            if (*svctype != itr1->svc_type) {
-                continue;
+    _return.clear();
+
+    // Is the given local domain known?
+    LocalDomain ld;
+    auto result = kvstore::ConfigDB::ReturnType::NOT_FOUND;
+    if (configDB) {
+        result = configDB->getLocalDomain(*localDomainId, ld);
+    }
+
+    if (result != kvstore::ConfigDB::ReturnType::SUCCESS) {
+        LOGERROR << "Unknown Local Domain \'" << localDomainId << "\' or database exception.";
+        fpi::ApiException e;
+        e.message = "Error retrieving Local Domain.";
+        e.errorCode = fpi::INTERNAL_SERVER_ERROR;
+        throw e;
+    }
+
+    // If given local domain corresponds to this OM cluster, look-up the
+    // service map. Otherwise, make a request to remote OM cluster.
+    if (ld.isCurrent()) {
+        std::vector<fpi::SvcInfo> svclist;
+        if (configDB && configDB->getSvcMap(svclist)) {
+            // Linear scan for services that match given type
+            // TODO: convention seems to be 1 liners using lambda or foreach, as above
+            std::vector<fpi::SvcInfo>::const_iterator itr1 = svclist.cbegin();
+            while (itr1 != svclist.cend()) {
+                if (*svctype != itr1->svc_type) {
+                    continue;
+                }
+                _return.push_back(fds::fromSvcInfo(*itr1));
             }
-            _return.records.push_back(fds::toSvcEndpoint(*itr1));
+        } else {
+            LOGWARN << "Failed to get list of registered services";
+            // TODO: is a custom exception important here?
+            throw fpi::SvcLookupException();
         }
     } else {
-        LOGWARN << "Failed to get list of registered services";
-        // TODO: is a custom exception important here?
-        throw fpi::SvcLookupException();
+        // Ask a remote OM
+        const std::vector<fpi::FDSP_RegisterNodeType>& omNodes = ld.getOMNodes();
+        if (omNodes.size() > 0) {
+            auto omNode = omNodes[0];
+            std::string ip = fds::net::ipAddr2String(omNode.ip_lo_addr);
+            int32_t port = omNode.control_port;
+            try {
+                EpInvokeRpc(fpi::OMSvcClient, getSvcEndpoints, ip, port, _return, svctype, localDomainId);
+            }
+            catch (std::exception& e) {
+                throw fpi::SvcLookupException();
+            }
+        }
     }
 }
 

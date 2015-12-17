@@ -111,7 +111,22 @@ service OMSvc extends svc_api.PlatNetSvc {
   /**
    * @brief Supply service endpoint information to remote local domain
    *
+   * @detail
+   * Consider a global domain with more than one local domain. The service layer
+   * will need to route requests to services in a remote local domain (different
+   * OM cluster). As of 1/1/2016, the SvcMap for an OM cluster does not list
+   * services for remote local domains. Therefore getSvcMap() is unsuitable for
+   * getting remote service endpoints.
+   * <p/>
+   * This interface provides a uniform way to get service endpoints for any 
+   * local domain. It abstracts away making connections to the correct master
+   * OM endpoint and caching of endpoint records.
+   *
    * @param svctype Filter result according to the given service type
+   * @param localDomainId Filter result according to given local domain Id
    */
-   svc_api.GetSvcEndpoints getSvcEndpoints(1: svc_types.FDSP_MgrIdType svctype) throws (1: common.ApiException e);
+   list<svc_types.FDSP_Node_Info_Type> getSvcEndpoints(
+     1: svc_types.FDSP_MgrIdType svctype,
+     2: i32 localDomainId)
+   throws (1: common.ApiException e);
 }

@@ -510,8 +510,11 @@ struct SvcMgr : HasModuleProvider, Module {
      *
      * @details Enables client in remote domain to initiate service requests
      * @param svctype Filter result according to given service type
+     * @param localDomainId
      */
-    void getSvcEndpoints(fpi::GetSvcEndpoints &record, const fpi::FDSP_MgrIdType& svctype);
+    void getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& records,
+        const fpi::FDSP_MgrIdType svctype,
+        const int32_t localDomainId);
 
     /**
     * @brief Do an async notification to OM that service is down

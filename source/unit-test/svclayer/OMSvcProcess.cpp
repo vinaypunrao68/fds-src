@@ -70,6 +70,18 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     }
 
 
+    void getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& _return,
+             const ::FDS_ProtocolInterface::FDSP_MgrIdType svctype,
+             const int32_t localDomainId) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& _return,
+             boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype,
+             boost::shared_ptr<int32_t>& localDomainId) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override
     {

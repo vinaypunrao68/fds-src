@@ -5,7 +5,6 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMUTILS_H_
 #include <string>
 #include <fds_types.h>
-#include <fdsp/svc_api_types.h>
 #include <kvstore/kvstore.h>
 #include <kvstore/configdb.h>
 
@@ -30,11 +29,6 @@ namespace fds
     bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo );
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
     fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);
-
-    /**
-     * @brief Convert to FDS protocol service endpoint
-     */
-    fpi::SvcEndpoint toSvcEndpoint(const fpi::SvcInfo& svcinfo);
 
     void updateSvcInfoList(std::vector<fpi::SvcInfo>& svcInfos,
                            bool smFlag, bool dmFlag, bool amFlag);

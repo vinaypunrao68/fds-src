@@ -4,13 +4,14 @@
 
 package com.formationds.platform.svclayer;
 
+import java.util.List;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.CtrlNotifyDLTUpdate;
 import com.formationds.protocol.svc.CtrlNotifyDMTUpdate;
 import com.formationds.protocol.svc.GetAllVolumeDescriptors;
-import com.formationds.protocol.svc.GetSvcEndpoints;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.thrift.TException;
@@ -56,8 +57,8 @@ public class OmSvcHandler extends PlatNetSvcHandlerBase<OMSvc.Iface> implements 
     }
 
     @Override
-    public GetSvcEndpoints getSvcEndpoints( FDSP_MgrIdType svctype ) throws TException {
+    public List<FDSP_Node_Info_Type> getSvcEndpoints( FDSP_MgrIdType svctype, int localDomainId ) throws TException {
         logger.trace( "getSvcEndpoints" );
-        return super.getOmNativePlatformClientFactory().getClient().getSvcEndpoints( svctype );
+        return super.getOmNativePlatformClientFactory().getClient().getSvcEndpoints( svctype, localDomainId );
     }
 }

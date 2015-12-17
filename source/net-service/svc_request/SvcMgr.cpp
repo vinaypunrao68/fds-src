@@ -658,15 +658,17 @@ void SvcMgr::getAllVolumeDescriptorsData(fpi::GetAllVolumeDescriptors &list)
 	omSvcRpc->getAllVolumeDescriptors(list, nullarg);
 }
 
-void SvcMgr::getSvcEndpoints(fpi::GetSvcEndpoints &record, const fpi::FDSP_MgrIdType& svctype)
+void SvcMgr::getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type> &records,
+    const fpi::FDSP_MgrIdType svctype, const int32_t localDomainId)
 {
     fpi::OMSvcClientPtr omSvcRpc = MODULEPROVIDER()->getSvcMgr()->getNewOMSvcClient();
     fds_verify(omSvcRpc);
 
     auto pArg1 = boost::make_shared<fpi::FDSP_MgrIdType>(svctype);
+    auto pArg2 = boost::make_shared<int32_t>(localDomainId);
     // TODO: what if the RPC fails? Shouldn't there be exception checking here? What is the wait period
     // for service timeout?
-    omSvcRpc->getSvcEndpoints(record, pArg1);
+    omSvcRpc->getSvcEndpoints(records, pArg1, pArg2);
 }
 
 void SvcMgr::notifyOMSvcIsDown(const fpi::SvcInfo &info)

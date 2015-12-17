@@ -32,32 +32,6 @@ struct CtrlNotifyDMTUpdate {
 }
 
 /**
- * @brief Service endpoint locator for use by remote domain
- * @review Reuse SvcInfo structure instead?
- * @review Which types have FDSP prefix by convention?
- * @review How to future proof for DNS resolution?
- * @review Who has the responsibility for discovering, marking 'up', and connecting
- *   fault-tolerant routes?
- */
-struct SvcEndpoint {
-  1: i64                      svc_uuid,
-  2: svc_types.FDSP_MgrIdType svc_type,
-  3: svc_types.ServiceStatus  svc_status,
-  4: i64                      ip_hi_addr, /* IP V6 high address */
-  5: i64                      ip_lo_addr, /* IP V4 address or V6 low address of the node */
-  6: i32                      control_port,
-  7: i32                      data_port,
-  8: i32                      migration_port,
-}
-
-/**
- * @brief Request data, response is a list of service endpoint locators
- */
-struct GetSvcEndpoints {
-  1: required list<SvcEndpoint> records;
-}
-
-/**
  * Notify addition of volume.
  */
 struct CtrlNotifyVolAdd {

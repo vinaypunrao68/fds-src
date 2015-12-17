@@ -49,8 +49,9 @@ namespace fds {
     	  return;
       }
 
-      virtual void getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
-          const ::FDS_ProtocolInterface::FDSP_MgrIdType svctype) override {
+      virtual void getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& records,
+          const ::FDS_ProtocolInterface::FDSP_MgrIdType svctype,
+          const int32_t localDomainId) override {
           // Don't do anything here. This stub is just to keep cpp compiler happy
           return;
       }
@@ -67,8 +68,32 @@ namespace fds {
       virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) override;
-      virtual void getSvcEndpoints( ::FDS_ProtocolInterface::GetSvcEndpoints& _return,
-          boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype) override;
+      /**
+       * @brief Supply service endpoint information to remote local domain
+       *
+       * @details
+       * Consider a global domain with more than one local domain. The service layer
+       * will need to route requests to services in a remote local domain (different
+       * OM cluster). As of 1/1/2016, the SvcMap for an OM cluster does not list
+       * services for remote local domains. Therefore getSvcMap() is unsuitable for
+       * getting remote service endpoints.
+       * <p/>
+       * This interface provides a uniform way to get service endpoints for any 
+       * local domain. It abstracts away making connections to the correct master
+       * OM endpoint and caching of endpoint records.
+       *
+       * @param svctype Filter result according to the given service type
+       * @param localDomainId Filter result according to given local domain Id
+       *
+       * @remark
+       * Pushes significant business logic into service layer. Might result in
+       * multiple requests to NIC. Instead, should we provide a client helper
+       * that manages requests to the various OM clusters? 
+       */
+      virtual void getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& _return,
+          boost::shared_ptr< fpi::FDSP_MgrIdType>& svctype,
+          boost::shared_ptr<int32_t>& localDomainId) override;
+
       virtual void getSvcInfo(fpi::SvcInfo & _return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 
