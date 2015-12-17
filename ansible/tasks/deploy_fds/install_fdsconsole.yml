@@ -1,0 +1,10 @@
+---
+-   name: copy fdsconsole dir to host
+    copy: src=../../../source/tools/fdsconsole
+      dest=/fds/sbin/
+      mode=0755
+
+-   name: copy fdsconsole.py to host
+    copy: src=../../../source/tools/fdsconsole.py
+      dest=/fds/sbin/
+      mode=0755
