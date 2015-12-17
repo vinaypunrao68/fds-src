@@ -397,6 +397,43 @@ void ScstDevice::execUserCmd() {
                 case 0x83: // Device ID
                     param_cursor += inquiry_page_dev_id(param_cursor, buflen, buffer);
                     break;;
+                case 0x86: // Extended VPD
+                    /* /-------------------------------------------------------------------------\
+                     * |                                   PAGE                                  |
+                     * |                                  LENGTH                                 |
+                     * | ACTIVE MICROCODE  |            SPT           | GRD_CHK| APP_CHK| REF_CHK|
+                     * |       resv        |UASK_SUP|GROUPSUP|PRIORSUP|HEAD_SUP| ORD_SUP|SIMP_SUP|
+                     * |                 resv                | WU_SUP | CRD_SUP| NV_SUP | V_SUP  |
+                     * |            resv            |P_II_SUP|           resv           | LUICLR |
+                     * |            resv            | R_SUP  |           resv           |  CBCS  |
+                     * |                 resv                | MULTI I_T NEXUS MICROCODE DOWNLOAD|
+                     * |                            EXTENDED SELF-TEST                           |
+                     * |                            COMPLETION MINUTES                           |
+                     * | POA_SUP | HRA_SUP | VSA_SUP|                    resv                    |
+                     * |                         MAX SENSE DATA LENGTH                           |
+                     * \_________________________________________________________________________/
+                     */
+                    static uint8_t const extended_vpd [] = {
+                        0,
+                        60,
+                        0b00000000,
+                        0b00000111,
+                        0b00000000,
+                        0b00000000,
+                        0b00000000,
+                        0x00,
+                        0,
+                        0,
+                        0b00000000,
+                        0
+                    };
+                    if (param_cursor < buflen) {
+                        memcpy(&buffer[param_cursor],
+                               extended_vpd,
+                               std::min(buflen - param_cursor, sizeof(extended_vpd)));
+                    }
+                    param_cursor += 62;
+                    break;;
                 default:
                     LOGNOTIFY << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
