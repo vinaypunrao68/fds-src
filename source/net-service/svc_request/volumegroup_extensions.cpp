@@ -55,13 +55,6 @@ std::string logString(const fpi::PullCommitLogEntriesMsg &msg)
     return ss.str();
 }
 
-std::string logString(const fpi::PullActiveTxsMsg& msg)
-{
-    std::stringstream ss;
-    ss << "PullActiveTxsMsg groupId: " << msg.groupId;
-    return ss.str();
-}
-
 std::string logString(const fpi::VolumeGroupInfo &group)
 {
     std::stringstream ss;
