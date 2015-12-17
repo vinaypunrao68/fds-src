@@ -569,7 +569,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         return ERR_NOT_FOUND;
     }
 
-    std::string node_root = svcmgr->getSvcProperty<std::string>(
+    std::string node_root = svcmgr->getSvcProperty(
         svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
