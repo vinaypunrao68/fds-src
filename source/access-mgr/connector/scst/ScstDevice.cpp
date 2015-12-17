@@ -199,10 +199,10 @@ void ScstDevice::execAllocCmd() {
     LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
 
     // Allocate a page aligned memory buffer for Scst usage
-    fastReply();
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
     // This is mostly to shutup valgrind
     memset((void*) fast_reply.alloc_reply.pbuf, 0x00, length);
+    fastReply();
 }
 
 void ScstDevice::execMemFree() {
@@ -224,7 +224,7 @@ void ScstDevice::execCompleteCmd() {
 }
 
 void ScstDevice::execParseCmd() {
-    LOGDEBUG << "Need parsing help.";
+    LOGWARN << "Need parsing help.";
     fds_panic("Should not be here!");
     fastReply(); // Setup the reply for the next ioctl
 }
@@ -356,7 +356,7 @@ void ScstDevice::execUserCmd() {
             // Check EVPD bit
             if (scsi_cmd.cdb[1] & 0x01) {
                 auto& page = scsi_cmd.cdb[2];
-                LOGDEBUG << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
+                LOGTRACE << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
                 switch (page) {
                 case 0x00: // Supported pages
                     /* |                                 PAGE                                  |*/
@@ -435,14 +435,14 @@ void ScstDevice::execUserCmd() {
                     param_cursor += 62;
                     break;;
                 default:
-                    LOGNOTIFY << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
+                    LOGDEBUG << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                     continue;
                 }
                 buffer[1] = page; // Identity of the page we're returning
                 task->setResponseLength(std::min(buflen, param_cursor));
             } else {
-                LOGDEBUG << "Standard inquiry requested.";
+                LOGTRACE << "Standard inquiry requested.";
                 /* /-----------------------------------------------------------------------\
                  * |                                VERSION                                |
                  * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
@@ -498,7 +498,7 @@ void ScstDevice::execUserCmd() {
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
             uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
             uint8_t& subpage = scsi_cmd.cdb[3];
-            LOGDEBUG << "Mode Sense: "
+            LOGTRACE << "Mode Sense: "
                      << " dbd[" << std::hex << dbd
                      << "] pc[" << std::hex << (uint32_t)pc
                      << "] page_code[" << (uint32_t)page_code
@@ -676,7 +676,7 @@ void ScstDevice::execUserCmd() {
                 param_cursor += 12;
                 break;;
             default:
-                LOGNOTIFY << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
+                LOGDEBUG << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
@@ -724,7 +724,7 @@ void ScstDevice::execUserCmd() {
     case READ_CAPACITY:     // READ_CAPACITY(10)
     case READ_CAPACITY_16:
         {
-            LOGDEBUG << "Read Capacity received.";
+            LOGTRACE << "Read Capacity received.";
             uint64_t num_blocks = volume_size / logical_block_size;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
@@ -783,7 +783,7 @@ void ScstDevice::execUserCmd() {
             LOGIO << "Releasing device [" << volumeName << "]";
             reservation_session_id = invalid_session_id;
         } else {
-            LOGNOTIFY << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
+            LOGTRACE << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
         }
         break;
     default:
@@ -898,6 +898,13 @@ ScstDevice::getAndRespond() {
         int res = 0;
         cmd.cmd_h = 0x00;
         cmd.subcode = 0x00;
+        if (0 != cmd.preply) {
+            auto const& reply = *reinterpret_cast<scst_user_reply_cmd*>(cmd.preply);
+            LOGTRACE << "Responding to: "
+                     << "[0x" << std::hex << reply.cmd_h
+                     << "] sc [0x" << reply.subcode
+                     << "] result [0x" << reply.result << "]";
+        }
         do { // Make sure and finish the ioctl
         res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
         } while ((0 > res) && (EINTR == errno));
