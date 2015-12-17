@@ -38,21 +38,20 @@ typedef std::function<void (fds_uint64_t start_timestamp,
  * collection. It periodically pushes the collected stats to the
  * module that does aggregation of systems stats from all modules.
  * There maybe multiple destination modules (DM), and stats are sent
- * by volume, depending which DM has a primary reponsibility for a volume
+ * by volume, depending which DM has a primary responsibility for a volume
  */
 class StatsCollector : public boost::noncopyable {
   public:
     /**
-     * @param[in] push_sec is the interval in seconds, every push_sec
-     * stats are pushed to the aggregator module
-     * Stats are kept just a bit longer than push_sec interval
-     * @param[in] meta_sampling_freq interval in seconds each stat is
-     * sampled for stats streaming
-     * @param[in] qos_sampling_freq interval in seconds in stat is
-     * is sampled for logging qos stats
+     * @param[in] push_sec is an interval in seconds. Every push_sec
+     * seconds stats are pushed to the aggregator module.
+     * @param[in] stat_sampling_freq is an interval in seconds. Each stat is
+     * sampled for streaming every stat_sampling_freq seconds.
+     * @param[in] qos_sampling_freq is an interval in seconds. Each QoS stat is
+     * sampled for logging every qos_sampling_freq seconds.
      * TODO(Anna) this is the default for all volumes; we should allow
-     * override this interval for each volume if needed, so that we
-     * can push stats for different volume with different frequency
+     * override of this interval for each volume if needed, so that we
+     * can push stats for different volumes with different frequencies
      */
     StatsCollector(fds_uint32_t push_sec,
                    fds_uint32_t stat_sampling_freq = 60,
@@ -132,15 +131,15 @@ class StatsCollector : public boost::noncopyable {
     std::unordered_map<fds_volid_t, fds_uint64_t> last_ts_qmap_;
 
     /**
-     * Coarse-graned history of all volumes we are collecting stats
-     * those are pushed for metadata streaming API.
-     * Currently, each slot in 1 minute length
+     * Coarse-grained history of all volumes for which we are collecting stats.
+     * These are pushed via stats streaming API.
+     * Currently, each slot (sample) is 1 minute length
      * Those are either filled directly by recordEvent() and recordEventNow()
      * or on timer sampling of stats from performance framework.
      */
     std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> stat_hist_map_;
     fds_rwlock sh_lock_;  // lock protecting volume history map
-    std::unordered_map<fds_volid_t, fds_uint64_t> last_ts_smap_;
+    std::unordered_map<fds_volid_t, fds_uint64_t> last_rel_sec_smap_;
 
     fds_uint64_t start_time_;  // history timestamps are relative to this time
 
@@ -174,8 +173,6 @@ class StatsCollector : public boost::noncopyable {
     /* Reference to service manager mostly for dmt */
      SvcMgr *svcMgr_;
 };
-
-extern StatsCollector* g_statsCollector;
 
 }  // namespace fds
 

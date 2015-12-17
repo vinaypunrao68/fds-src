@@ -13,6 +13,8 @@ user_cpp          := \
 	ArchiveClient.cpp
 
 user_ar_libs      := fds-dm-lib
-fds-dm-lib	  := $(user_cpp)
+user_so_libs      := fds-dm-archive
+fds-dm-lib	      := $(user_cpp)
+fds-dm-archive    := $(user_cpp)
 
 include $(topdir)/Makefile.incl

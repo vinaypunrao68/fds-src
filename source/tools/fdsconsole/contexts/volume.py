@@ -3,7 +3,6 @@ from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 from restendpoint import *
-
 import md5
 import os
 import FdspUtils
@@ -11,6 +10,7 @@ import FdspUtils
 class VolumeContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
+        self.config.setVolumeApi(self)
         self.__restApi = None
 
     def restApi(self):
@@ -22,16 +22,21 @@ class VolumeContext(Context):
         return self.config.getS3Api()
 
     def getVolumeId(self, volume):
+        if volume.isdigit():
+            return int(volume)
         client = self.config.getPlatform();
         volId = client.svcMap.omConfig().getVolumeId(volume)
         return int(volId)
 
     #--------------------------------------------------------------------------------------
-    @clicmd
-    def list(self):
+    @clidebugcmd
+    @arg('-s','--sysvols', help= "show system volumes", action='store_true', default=False)
+    def list(self, sysvols=False):
         'show the list of volumes in the system'
         try:
             volumes = ServiceMap.omConfig().listVolumes("")
+            if not sysvols:
+                volumes = [v for v in volumes if not v.name.startswith('SYSTEM_')]
             volumes.sort(key=lambda vol: ResourceState._VALUES_TO_NAMES[vol.state] + ':' + vol.name)
             return tabulate([(item.volId, item.name, item.tenantId, item.dateCreated, ResourceState._VALUES_TO_NAMES[item.state],
                               'OBJECT' if item.policy.volumeType == 0 else 'BLOCK',
@@ -210,7 +215,7 @@ class VolumeContext(Context):
             return 'unable to get volume meta list'
 
     #--------------------------------------------------------------------------------------
-    @clidebugcmd
+    @clicmd
     @arg('value', help='value' , nargs='?')
     def put(self, vol_name, key, value):
         '''
@@ -245,7 +250,7 @@ class VolumeContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-    @clidebugcmd
+    @clicmd
     @arg('cnt', help= "count of objs to get", type=long, default=100)
     def bulkget(self, vol_name, cnt):
         '''
@@ -264,7 +269,7 @@ class VolumeContext(Context):
         return 'Done!'
 
     #--------------------------------------------------------------------------------------
-    @clidebugcmd
+    @clicmd
     @arg('cnt', help= "count of objs to put", type=long, default=100)
     @arg('seed', help= "count of objs to put", default='seed')
     def bulkput(self, vol_name, cnt, seed):
@@ -353,18 +358,21 @@ class VolumeContext(Context):
         'display info about no. of objects/blobs'
         data = []
         svc = self.config.getPlatform();
-        for uuid in self.config.getServiceApi().getServiceIds('dm'):
-            volId = self.getVolumeId(volname)
-            print volId
-            getblobmeta = FdspUtils.newGetVolumeMetaDataMsg(volId);
-            cb = WaitedCallback();
-            svc.sendAsyncSvcReq(uuid, getblobmeta, cb)
+        volId = self.getVolumeId(volname)
+        msg = FdspUtils.newSvcMsgByTypeId('StatVolumeMsg');
+        msg.volume_id = volId
 
-            if not cb.wait(10):
-                print 'async volume meta request failed : {}'.format(cb.header)
+        for uuid in self.config.getServiceApi().getServiceIds('dm'):
+            cb = WaitedCallback();
+            svc.sendAsyncSvcReq(uuid, msg, cb)
+
+            if not cb.wait(30):
+                print 'async volume stats request failed : {}'.format(self.config.getServiceApi().getServiceName(uuid))
             else:
-                print cb.payload
-                data += [("numblobs",cb.payload.volume_meta_data.blobCount)]
-                data += [("size",cb.payload.volume_meta_data.size)]
-                data += [("numobjects",cb.payload.volume_meta_data.objectCount)]
-                print data
+                #print cb.payload
+                data = []
+                data += [("numblobs",cb.payload.volumeStatus.blobCount)]
+                data += [("numobjects",cb.payload.volumeStatus.objectCount)]
+                data += [("size",cb.payload.volumeStatus.size)]
+                print ('\n{}\n stats for vol:{} @ {}\n{}'.format('-'*40, volId, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['key','value'])

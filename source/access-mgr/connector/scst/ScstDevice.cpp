@@ -247,23 +247,18 @@ void
 ScstDevice::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
-    LOGDEBUG << "Session "
-        << (attaching ? "attachment" : "detachment")
-        << " requested," << std::hex
-        << " handle [0x" << sess.sess_h
-        << "] lun [0x" << sess.lun
-        << "] R/O [" << (sess.rd_only == 0 ? "false" : "true")
-        << "] Init [" << sess.initiator_name
-        << "] Targ [" << sess.target_name << "]";
-    auto volName = boost::make_shared<std::string>(volumeName);
-    if (attaching && (0 == sessions++ || 0 == volume_size)) {
-        // Attach the volume to AM if we haven't already
+    LOGNOTIFY << "Session "
+              << (attaching ? "attachment" : "detachment") << " requested"
+              << ", handle [" << sess.sess_h
+              << "] Init [" << sess.initiator_name
+              << "] Targ [" << sess.target_name << "]";
+
+    if (attaching) {
+        auto volName = boost::make_shared<std::string>(volumeName);
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
         return scstOps->init(volName, amProcessor, task); // Defer
-    } else if (!attaching) {
-        if (0 < sessions && 0 == --sessions) {
-            scstOps->detachVolume();
-        }
+    } else {
+        scstOps->detachVolume();
     }
     fastReply(); // Setup the reply for the next ioctl
 }
@@ -627,6 +622,7 @@ void ScstDevice::execUserCmd() {
                 break;;
             default:
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
             }
 
             // Set data length
@@ -643,15 +639,27 @@ void ScstDevice::execUserCmd() {
     case READ_12:
     case READ_16:
         {
-            // If we are anything but READ_6 read the FUA bit
-            bool fua = (READ_6 == op_code) ?
-                            false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
+            // If we are anything but READ_6 read the PR and FUA bits
+            bool fua = false;
+            uint8_t rdprotect = 0x00;
+            if (READ_6 != op_code) {
+                rdprotect = (0x07 & (scsi_cmd.cdb[1] >> 5));
+                fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
+            }
 
             LOGIO << "Read received for "
                   << "LBA[0x" << std::hex << scsi_cmd.lba
                   << "] Length[0x" << scsi_cmd.bufflen
                   << "] FUA[" << fua
+                  << "] PR[0x" << (uint32_t)rdprotect
                   << "] Handle[0x" << cmd.cmd_h << "]";
+
+            // We do not support rdprotect data
+            if (0x00 != rdprotect) {
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
+            }
+
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
             return scstOps->read(task);
@@ -682,15 +690,27 @@ void ScstDevice::execUserCmd() {
     case WRITE_12:
     case WRITE_16:
         {
-            // If we are anything but WRITE_6 read the FUA bit
-            bool fua = (WRITE_6 == op_code) ?
-                            false : (0x00 != (scsi_cmd.cdb[1] & 0x08));
+            // If we are anything but READ_6 read the PR and FUA bits
+            bool fua = false;
+            uint8_t wrprotect = 0x00;
+            if (WRITE_6 != op_code) {
+                wrprotect = (0x07 & (scsi_cmd.cdb[1] >> 5));
+                fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
+            }
 
             LOGIO << "Write received for "
                   << "LBA[0x" << std::hex << scsi_cmd.lba
                   << "] Length[0x" << scsi_cmd.bufflen
                   << "] FUA[" << fua
+                  << "] PR[0x" << (uint32_t)wrprotect
                   << "] Handle[0x" << cmd.cmd_h << "]";
+
+            // We do not support wrprotect data
+            if (0x00 != wrprotect) {
+                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+                continue;
+            }
+
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setWrite(offset, scsi_cmd.bufflen);
             // Right now our API expects the data in a boost shared_ptr :(
@@ -930,7 +950,7 @@ ScstDevice::respondTask(BlockTask* response) {
         if (scst_response->isWrite()) {
             scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            scst_response->setResult(-((uint32_t)scst_response->getError()));
+            scst_response->setResult(scst_response->getError());
         }
     }
 

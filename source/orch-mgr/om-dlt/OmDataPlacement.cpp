@@ -479,6 +479,8 @@ DataPlacement::persistCommitedTargetDlt() {
                 << "[" << commitedDlt->getVersion() << "]";
     }
 
+    LOGNORMAL << "DLT version: " << commitedDlt->getVersion();
+
     // TODO(prem) do we need to remove the old dlt from the config db ??
     // oldVersion ?
 

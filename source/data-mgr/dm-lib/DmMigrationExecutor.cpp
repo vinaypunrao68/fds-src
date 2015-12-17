@@ -18,10 +18,11 @@ namespace fds {
 DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
     							 	 	 const NodeUuid& _srcDmUuid,
 	 	 								 fpi::FDSP_VolumeDescType& _volDesc,
+                                         int64_t migrationId,
 										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneCb _callback,
                                          uint32_t _timeout)
-	: dataMgr(_dataMgr),
+	: DmMigrationBase(migrationId, _dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
 	  autoIncrement(_autoIncrement),
@@ -39,7 +40,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 
     dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
 
-	LOGMIGRATE << "Migration executor received for volume ID " << volDesc;
+	LOGMIGRATE << logString() << "Migration executor received for volume ID " << volDesc;
 }
 
 DmMigrationExecutor::~DmMigrationExecutor()
@@ -51,7 +52,7 @@ DmMigrationExecutor::startMigration()
 {
 	Error err(ERR_OK);
 
-	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
+	LOGMIGRATE << logString() << "starting migration for VolDesc: " << volDesc;
 
     /** TODO(Sean):
      *
@@ -86,7 +87,7 @@ DmMigrationExecutor::startMigration()
     	/**
     	 * First do a StopDequeue on the volume
     	 */
-    	LOGMIGRATE << "Stopping De-queing IO for volume " << volumeUuid;
+    	LOGMIGRATE << logString() << "Stopping De-queing IO for volume " << volumeUuid;
     	dataMgr.qosCtrl->stopDequeue(volumeUuid);
     	// Note: in error cases, abortMigration() gets called, as well as resumeIO().
 
@@ -96,12 +97,12 @@ DmMigrationExecutor::startMigration()
     	 */
     	err = processInitialBlobFilterSet();
     	if (!err.ok()) {
-    		LOGERROR << "processInitialBlobFilterSet failed on volume=" << volumeUuid
+    		LOGERROR << logString() << "processInitialBlobFilterSet failed on volume=" << volumeUuid
     				<< " with error=" << err;
     		dataMgr.dmMigrationMgr->abortMigration();
     	}
     } else {
-        LOGERROR << "process_add_vol failed on volume=" << volumeUuid
+        LOGERROR << logString() << "process_add_vol failed on volume=" << volumeUuid
                  << " with error=" << err;
         if (migrDoneCb) {
         	migrDoneCb(srcDmSvcUuid, volDesc.volUUID, err);
@@ -128,7 +129,7 @@ Error
 DmMigrationExecutor::processInitialBlobFilterSet()
 {
 	Error err(ERR_OK);
-	LOGMIGRATE << "starting migration for VolDesc: " << volDesc;
+	LOGMIGRATE << logString() << "starting migration for VolDesc: " << volDesc;
 
     /**
      * create and initialize message for initial filter set.
@@ -136,14 +137,15 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
 
-    LOGMIGRATE << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
+    LOGMIGRATE << logString() << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**
      * Get the list of <blobid, seqnum> for a volume associted with this executor.
      */
     err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(fds_volid_t(volumeUuid),
-                                                                       filterSet->blobFilterMap);
+                                                                       filterSet->blobFilterMap,
+                                                                       NULL);
     if (!err.ok()) {
-        LOGERROR << "failed to generatate list of <blobid, seqnum> for volume=" << volumeUuid
+        LOGERROR << logString() << "failed to generatate list of <blobid, seqnum> for volume=" << volumeUuid
                  <<" with error=" << err;
         return err;
     }
@@ -155,10 +157,11 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     // asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
-    std::function<void()> abortBind = std::bind(&DmMigrationMgr::asyncMsgFailed, std::ref(dataMgr.dmMigrationMgr));
-    std::function<void()> passBind = std::bind(&DmMigrationMgr::asyncMsgPassed, std::ref(dataMgr.dmMigrationMgr));
-    asyncInitialBlobSetReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
-    dataMgr.dmMigrationMgr->asyncMsgIssued();
+    std::function<void()> abortBind = std::bind(&DmMigrationExecutor::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationExecutor::asyncMsgPassed, this);
+    asyncInitialBlobSetReq->onResponseCb(
+        RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
+    asyncMsgIssued();
     asyncInitialBlobSetReq->invoke();
 
     return err;
@@ -174,7 +177,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
 
     Error err(ERR_OK);
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
-	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
+	LOGMIGRATE << logString() << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
                << std::hex << msg->volume_id << std::dec
                << " msgseqid=" << msg->msg_seq_id
                << " lastmsgseqid=" << msg->last_msg_seq_id
@@ -190,7 +193,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
         /**
          * add to the blob descriptor list while holding lock.
          */
-        LOGMIGRATE << "Queueing incoming blob descriptor message vof volume="
+        LOGMIGRATE << logString() << "Queueing incoming blob descriptor message vof volume="
                    << std::hex << msg->volume_id << std::dec
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
@@ -206,13 +209,13 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
 		 */
 		fds_verify(deltaBlobsSeqNum.isSeqNumComplete());
 
-		LOGMIGRATE << "Applying blob descriptor for volume="
+		LOGMIGRATE << logString() << "Applying blob descriptor for volume="
 				   << std::hex << volumeUuid << std::dec
 				   << ", sequencId=" << msg->msg_seq_id
 				   << ", lastMsg=" << msg->last_msg_seq_id;
 		err = applyBlobDesc(msg);
 		if (err != ERR_OK) {
-			LOGERROR << "Applying blob descriptor failed on volume="
+			LOGERROR << logString() << "Applying blob descriptor failed on volume="
 					 << std::hex << msg->volume_id << std::dec
 					 << " msgseqid=" << msg->msg_seq_id
 					 << " lastmsgseqid=" << msg->last_msg_seq_id
@@ -233,7 +236,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         return ERR_NOT_READY;);
 
 	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
-	LOGMIGRATE << "Processing incoming CtrlNotifyDeltaBlobsMsg: "
+	LOGMIGRATE << logString() << "Processing incoming CtrlNotifyDeltaBlobsMsg: "
                << std::hex << volumeUuid << std::hex
                << ", msg_seq_id=" << msg->msg_seq_id
                << ", last_seq_id=" << msg->last_msg_seq_id
@@ -245,12 +248,12 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
      * It is possible to get en empty message and last_sequence_id == true.
      */
 	if (0 == msg->blob_obj_list.size()) {
-		LOGMIGRATE << "For volume=" << std::hex << volumeUuid << std::dec
+		LOGMIGRATE << logString() << "For volume=" << std::hex << volumeUuid << std::dec
                    << " received empty object list with"
                    << ", msg_seq_id=" << msg->msg_seq_id
                    << " last_mst_seq_id=" << msg->last_msg_seq_id;
     } else {
-    	LOGMIGRATE << "Volume " << volumeUuid << " received non-empty blob message";
+    	LOGMIGRATE << logString() << "Volume " << volumeUuid << " received non-empty blob message";
         /**
          * For each blob in the blob_obj_list, apply blob offset.
          */
@@ -265,7 +268,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
              */
             BlobObjList blobList(blobObj.blob_diff_list);
 
-            LOGMIGRATE << "put object on volume="
+            LOGMIGRATE << logString() << "put object on volume="
                          << std::hex << volumeUuid << std::dec
                          << ", blob_name=" << blobObj.blob_name
                          << ", num_blobs=" << blobList.size();
@@ -279,7 +282,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
                                                                blobObj.blob_name,
                                                                blobList);
             if (!err.ok()) {
-                LOGERROR << "putObject failed on volume="
+                LOGERROR << logString() << "putObject failed on volume="
                          << std::hex << volumeUuid << std::dec
                          << ", blob_name=" << blobObj.blob_name;
                 return err;
@@ -302,7 +305,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
 		 * So, any descriptors in the queue should be flushed.
 		 */
 		if (deltaBlobsSeqNum.isSeqNumComplete()) {
-			LOGMIGRATE << "blob sequence number is complete for volume="
+			LOGMIGRATE << logString() << "blob sequence number is complete for volume="
 					   << std::hex << volumeUuid << std::dec
 					   << ".  Apply queued blob descriptors.";
 			err = applyQueuedBlobDescs();
@@ -319,7 +322,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
     Error err(ERR_OK);
 
     for (auto & desc : msg->blob_desc_list) {
-        LOGMIGRATE << "Applying blob descriptor for volume="
+        LOGMIGRATE << logString() << "Applying blob descriptor for volume="
                    << std::hex << volumeUuid << std::dec
                    << ", blob_name=" << desc.vol_blob_name;
 
@@ -327,7 +330,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
                                                      desc.vol_blob_name,
                                                      desc.vol_blob_desc);
         if (!err.ok()) {
-            LOGERROR << "Failed to apply blob descriptor for volume="
+            LOGERROR << logString() << "Failed to apply blob descriptor for volume="
                        << std::hex << volumeUuid << std::dec
                        << ", blob_name=" << desc.vol_blob_name;
             return err;
@@ -347,7 +350,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
      * the static migration is complete for this MigrationExecutor.
      */
     if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
-        LOGMIGRATE << "All Blob descriptors applied to volume="
+        LOGMIGRATE << logString() << "All Blob descriptors applied to volume="
                    << std::hex << volumeUuid << std::dec;
         testStaticMigrationComplete();
     }
@@ -366,14 +369,14 @@ DmMigrationExecutor::applyQueuedBlobDescs()
     for (auto & blobDescPair : blobDescList) {
     	fpi::CtrlNotifyDeltaBlobDescMsgPtr blobDescMsg = std::get<0>(blobDescPair);
     	migrationCb ackDescriptor = std::get<1>(blobDescPair);
-        LOGMIGRATE << "Applying queued blob descriptor for volume="
+        LOGMIGRATE << logString() << "Applying queued blob descriptor for volume="
                    << std::hex << volumeUuid << std::dec
                    << ", sequencId=" << blobDescMsg->msg_seq_id
                    << ", lastMsg=" << blobDescMsg->last_msg_seq_id;
         err = applyBlobDesc(blobDescMsg);
         ackDescriptor(err);
         if (!err.ok()) {
-            LOGERROR << "Failed applying queued blob descriptor for vlume="
+            LOGERROR << logString() << "Failed applying queued blob descriptor for vlume="
                      << std::hex << volumeUuid << std::dec
                      << ", sequencId=" << blobDescMsg->msg_seq_id
                      << ", lastMsg=" << blobDescMsg->last_msg_seq_id;
@@ -392,7 +395,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
 
     if (!err.ok()) {
-        LOGERROR << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
+        LOGERROR << logString() << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
         return err;
     }
 
@@ -405,7 +408,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
         }
         testStaticMigrationComplete();
     } else {
-    	LOGMIGRATE << "Error trying to apply forwarded commit logs content with error " << err;
+    	LOGMIGRATE << logString() << "Error trying to apply forwarded commit logs content with error " << err;
     }
 
     return err;
@@ -414,7 +417,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
 void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
-	LOGERROR << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
+	LOGERROR << logString() << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
     dataMgr.dmMigrationMgr->abortMigration();
 }
 
@@ -451,7 +454,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     /* Callback from QOS */
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
-            LOGERROR << "error processing forwarded commit " << e;
+            LOGERROR << logString() << "error processing forwarded commit " << e;
         	dataMgr.dmMigrationMgr->abortMigration();
             delete dmReq;
             return;
@@ -503,7 +506,7 @@ DmMigrationExecutor::finishActiveMigration()
     dataMgr.dmMigrationMgr->setDmtWatermark(volumeUuid, dmtVersion);
 
 	migrationProgress = MIGRATION_COMPLETE;
-    LOGMIGRATE << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
+    LOGMIGRATE << logString() << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
 	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
 	dataMgr.counters->totalVolumesReceivedMigration.incr(1);
@@ -523,10 +526,10 @@ DmMigrationExecutor::abortMigration()
 	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
     if (volumeMeta) {
         volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
-        LOGERROR << "Aborting migration: Setting volume state for " << volumeUuid
+        LOGERROR << logString() << "Aborting migration: Setting volume state for " << volumeUuid
 	            << " to " << fpi::ResourceState::InError;
     } else {
-        LOGERROR << "Aborting migration: Executor hasn't started yet and has no volumeMetaData";
+        LOGERROR << logString() << "Aborting migration: Executor hasn't started yet and has no volumeMetaData";
     }
     fds_scoped_lock lock(progressLock);
     if (migrationProgress != INIT) {
@@ -536,7 +539,7 @@ DmMigrationExecutor::abortMigration()
     if (migrationProgress != MIGRATION_ABORTED) {
         migrationProgress = MIGRATION_ABORTED;
         if (migrDoneCb) {
-            LOGMIGRATE << "Abort migration called.";
+            LOGMIGRATE << logString() << "Abort migration called.";
             migrDoneCb(srcDmSvcUuid, volDesc.volUUID, ERR_DM_MIGRATION_ABORTED);
         }
     }

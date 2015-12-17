@@ -42,6 +42,8 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     snapshotRequest.isPersistent = true;
     SMTokenID = SMTokenInvalidID;
     executorID = SM_INVALID_EXECUTOR_ID;
+    filterObjectSet.clear();
+    dltTokenIDs.clear();
 
     maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
 }

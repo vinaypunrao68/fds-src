@@ -59,9 +59,7 @@ public class ObjectModelHelper {
         @Override
         public JsonElement serialize( VolumeSettings src, Type typeOfSrc,
                                       JsonSerializationContext context ) {
-
-            JsonElement elem = context.serialize( src );
-            return elem;
+            return context.serialize( src );
         }
 
         @Override

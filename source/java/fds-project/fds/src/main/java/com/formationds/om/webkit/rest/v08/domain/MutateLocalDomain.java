@@ -8,6 +8,7 @@ import com.formationds.apis.LocalDomainDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.Domain;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
@@ -24,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+
+import javax.servlet.http.HttpServletResponse;
 
 public class MutateLocalDomain
 implements RequestHandler {
@@ -85,7 +88,15 @@ implements RequestHandler {
 		
 		logger.info( "Shutting down domain: " + domain.getName() );
 		
-		getConfigApi().shutdownLocalDomain( domain.getName() );
+		int status = getConfigApi().shutdownLocalDomain( domain.getName() );
+		
+       if( status != 0 )
+        {
+            status= HttpServletResponse.SC_BAD_REQUEST;
+
+            throw new ApiException( "Unable to shutdown domain at this time, try again in a few minutes",
+                        ErrorCode.INTERNAL_SERVER_ERROR );	
+        }
 	}
 	
 	public void startDomain( Domain domain ) throws ApiException, TException {

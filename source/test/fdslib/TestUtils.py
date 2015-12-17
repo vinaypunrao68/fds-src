@@ -27,6 +27,10 @@ from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
 from fdscli.services.local_domain_service import LocalDomainService
+from fabric.contrib.files import *
+from fabric.context_managers import cd
+import fnmatch
+import fabric
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -550,3 +554,22 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
         return False
 
     return True
+
+def core_hunter_aws(self,node_ip):
+    env.user='root'
+    env.password='passwd'
+    env.host_string = node_ip
+    internal_ip = run("hostname")
+    # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
+    print("internal_ip[%s]" % internal_ip)
+    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+
+    for dir in {'/fds/bin','/corefiles'}:
+        with cd(dir):
+            files = run('ls').split()
+            for file in files:
+                if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
+                    fabric.state.connections[node_ip].get_transport().close()
+                    self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
+                    return 0
+    return 1
