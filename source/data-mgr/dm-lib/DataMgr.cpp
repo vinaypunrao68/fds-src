@@ -21,6 +21,7 @@
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
+#include <net/volumegroup_extensions.h>
 
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
@@ -751,53 +752,57 @@ Error DataMgr::addVolume(const std::string& vol_name,
         timelineMgr->loadSnapshot(vol_uuid);
     }
     if (fSyncRequired) {
-        // runSyncProtocol();
+        // TODO(Rao): Include the version
+        runSyncProtocol(0, *vdesc);
     }
 
     return err;
 }
 
-void DataMgr::runSyncProtocol(VolumeMeta *volmeta)
+void DataMgr::runSyncProtocol(int32_t version,
+                              const VolumeDesc &volDesc)
 {
-#if 0
     /* Check if coordinator is set */
-    if (!volmeta->vol_desc->isCoordinatorSet()) {
-        LOGINFO << "Coordinator isn't set." << volmeta->currentStateStr()
+    if (!volDesc.isCoordinatorSet()) {
+        // TODO(Rao): Become offline
+        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
             << " Will go through sync once coordinator tries to open the volume";
         return;
     }
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::VolumeState::VOLUME_SYNCING;
-    msg->groupId = volId_.get();
-    msg->replicaVersion = version_;
+    msg->targetState = fpi::ResourceState::Syncing;
+    msg->groupId = volDesc.volUUID.get();
+    msg->replicaVersion = version;
     msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+#ifdef IOHEADER_SUPPORTED
     msg->lastOpId = opInfo_.appliedOpId;
     msg->lastCommitId = opInfo_.appliedCommitId;
+#endif
 
     /* Send message to coordinator requesting to be added to the group */
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(coordinatorUuid_);
+    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
     req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    auto prevVersion = getVersion();
-    req->onResponseCb(synchronizedResponseCb([this, prevVersion](const Error &e_, StringPtr payload) {
-        VERSION_CHECK(prevVersion, getVersion());
+    auto prevVersion = version;
+    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
+                                          const Error &e_,
+                                          StringPtr payload) {
+        // TODO(Rao): May need to do a version check here
+        // VERSION_CHECK(prevVersion, getVersion());
         Error err = e_;
         auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
         if (err != ERR_OK) {
+            fds_assert(!"Not handled");
             // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err
-                    << quicksyncLogStr();
-            setError_(err);
+            LOGERROR << "Failed to receive sync info from coordinator: " << err;
+            // TODO(Rao): Go into error state
             return;
         }
         // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
-        LOGNORMAL << logString()
-                  << " Sync check coordinator response:  " << fds::logString(*responseMsg);
-
-        sendPullActiveTxsMsg_(responseMsg);
-    }));
+        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
+        // TODO(Rao): Initiate migration
+    });
     req->invoke();
-#endif
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)

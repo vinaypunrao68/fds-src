@@ -4,12 +4,6 @@ TODO
 1. Find out exactly what messages need protection when sync is in progress and make sure they are protected.
 2. When volume handle is going through open, we should reject any other io requests.  Introduce a macro GROUPHANDLE_STATE_CHECK()
 
-Gaps
-Future todos
-1. Clean up old volume syncing code
-2. Remove support for deprecated messages in processIo and in handlers
-
-
 Ideas shifts
 -IO isolation to grouping at a volume level.
 -Volume coordinator driven replication.
@@ -64,10 +58,15 @@ FDSP changes
 -PreareOpenVolumeGroupRespMsg - message back from volume replica to group coordinator indicating its current state.
 -CommitOpenVolumeGroupMsg - message from group coordinator to volume replica indicating which members are functional and which members need to go through sync protocol.
 
-Future considerations
+Future considerations/todo
 -Faster syncs based on committed journal log.
 -In DM if io is synchronized on volume we should be able to do faster resyncs
 -Allow reads if atleast one replica is up.
+-Clean up old volume syncing code from the POC days
+-Remove support for deprecated messages in processIo and in handlers
+
+Gaps
+-If a coordinator isn't set replica on DM will wait indefinitely.  We can have a periodic checking mechansim.
 
 Out of scope
 -Syncing system volumes
