@@ -452,7 +452,7 @@ Error ObjectStorMgr::handleDltUpdate() {
                   << " token diff resync";
 
         // Start the resync process
-        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
+        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
             err = objStorMgr->migrationMgr->startResync(curDlt,
                                                         getUuid(),
                                                         curDlt->getNumBitsForToken(),
