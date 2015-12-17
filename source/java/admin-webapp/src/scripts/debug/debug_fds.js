@@ -1,4 +1,4 @@
-angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', '$interval', function( $scope, $http, $base64, $interval ){
+angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', '$interval', '$stats_push_helper', function( $scope, $http, $base64, $interval, $stats_push_helper ){
     
     $scope.stats = [];
     
@@ -29,6 +29,7 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     $scope.max = undefined;
     $scope.syncRange = false;
     
+    $scope.chartType = ['sum', 'sum', 'sum', 'sum'];
     $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0]];
     $scope.rangeMaximum = undefined;
     $scope.rangeMinimum = undefined;
@@ -202,7 +203,16 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
             $scope.rangeMaximum = max;
         }
         
-        $scope.$broadcast( 'fds::new_stats', response.data );
+        var cStats = $stats_push_helper.convertBusDataToPoints( response.data );
+        
+        for ( var dataIt = 0; dataIt < $scope.chartData.length; dataIt++ ){
+            
+            $stats_push_helper.push_stat( $scope.chartData[dataIt], 
+                                          cStats, 
+                                          [$scope.chartChoice[dataIt].value], 
+                                          $scope.durationChoice.value * 1000*60*60, 
+                                          ($scope.chartType[dataIt] === 'avg' ) );
+        }
     };
     
     $scope.getMessages = function(){

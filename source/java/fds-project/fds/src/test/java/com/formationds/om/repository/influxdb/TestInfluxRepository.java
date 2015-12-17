@@ -1,16 +1,40 @@
 package com.formationds.om.repository.influxdb;
 
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.XdiService;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.model.DateRange;
+import com.formationds.om.helper.SingletonAmAPI;
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.util.Configuration;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestInfluxRepository {
+
+    static final Configuration mockedConfig    = mock( Configuration.class );
+    static final ParsedConfig mockedPC = mock( ParsedConfig.class );
+
+    @BeforeClass
+    static public void setUpClass() throws Exception {
+        SingletonConfiguration.instance().setConfig( mockedConfig );
+        when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_ALL, false ) ).thenReturn( false );
+        when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_READS, false ) ).thenReturn( false );
+        when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_WRITES, false ) ).thenReturn( false );
+        when( mockedConfig.getPlatformConfig() ).thenReturn( mockedPC );
+    }
+
     @Test
     public void verifyUIQuerySyntax() {
 

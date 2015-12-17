@@ -43,7 +43,11 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 
                 // this means its iSCSI
                 if ( angular.isDefined( $scope.volumeType.target ) ){
-                    $scope.volumeType.target.incomingUsers = [{username: $scope._username, password: $scope._password}];
+                    $scope.volumeType.target.incomingUsers = [];
+                    
+                    if ( angular.isDefined( $scope._username ) && $scope._username.trim() !== "" ){
+                        $scope.volumeType.target.incomingUsers = [{username: $scope._username, password: $scope._password}];
+                    }
                 }
                 
                 // this is the NFS ip filters

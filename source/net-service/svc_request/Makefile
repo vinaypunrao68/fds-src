@@ -13,6 +13,7 @@ user_cpp         := \
 	SvcPlatNetHandler.cpp
 
 user_ar_libs     := fds-svc-request
+user_so_libs     := fds-svc-request
 fds-svc-request  := $(user_cpp) $(user_cc)
 
 include $(topdir)/Makefile.incl

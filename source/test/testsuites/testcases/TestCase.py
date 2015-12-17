@@ -359,4 +359,4 @@ class FDSTestCase(unittest.TestCase):
             _parameters["stop_on_fail"] = True
 
         #print "Parameters: ", _parameters
-        return log_dir, failfast, pyUnitInstall, pyUnitReuseCluster
+        return log_dir, failfast, pyUnitInstall, pyUnitReuseCluster, pyUnitConfig

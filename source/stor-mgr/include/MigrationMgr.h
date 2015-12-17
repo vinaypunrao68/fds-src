@@ -81,6 +81,10 @@ class MigrationMgr {
         return (curState == MIGR_IDLE);
     }
 
+    inline fds_bool_t isResync() const {
+        return resyncOnRestart;
+    }
+
     /**
      * Handles start migration message from OM.
      * Creates MigrationExecutor object for each SM token, source SM
