@@ -26,10 +26,18 @@ public:
                             _volDesc,
                             _migrId,
                             false,
-                            NULL,
+                            std::bind(&DmMigrationDest::staticMigrationStatusToSrc,
+                                      this,
+                                      std::placeholders::_1,
+                                      std::placeholders::_2,
+                                      std::placeholders::_3),
                             _timeout,
                             true) {}
     ~DmMigrationDest() {}
+
+    void staticMigrationStatusToSrc(NodeUuid srcNodeUuid,
+                                    fds_volid_t volumeId,
+                                    const Error &result);
 
     /**
      * Wraps around processInitialBlobFilterSet, now done in a volume

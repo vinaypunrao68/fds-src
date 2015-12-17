@@ -19,5 +19,12 @@ DmMigrationDest::start()
     return err;
 }
 
+void
+DmMigrationDest::staticMigrationStatusToSrc(NodeUuid srcNodeUuid,
+                                            fds_volid_t volumeId,
+                                            const Error &result)
+{
+    // TODO
+}
 
 } // namespace fds

@@ -244,11 +244,13 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     deltaBlobsMsg->volume_id = volId.get();
     deltaBlobsMsg->DMT_version = migrationId;
     deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
+    deltaBlobsMsg->volume_group_mode = volumeGroupMode;
 
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
     deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+    deltaBlobDescMsg->volume_group_mode = volumeGroupMode;
 
     for (const auto & blobName: updateBlobs) {
         if (abortFlag) {
@@ -357,6 +359,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
     deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+    deltaBlobDescMsg->volume_group_mode = volumeGroupMode;
 
     /**
      * Loop and generate delta desc msg for the delete blobs.

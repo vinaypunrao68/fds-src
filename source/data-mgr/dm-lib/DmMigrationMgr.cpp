@@ -288,40 +288,64 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
     fds_volid_t volId(deltaBlobDescMsg->volume_id);
     NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
-    auto uniqueId = std::make_pair(srcUuid, volId);
-    SCOPEDREAD(migrExecutorLock);
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     Error err(ERR_OK);
-    migrationCb descCb = deltaBlobDescReq->localCb;
+    auto uniqueId = std::make_pair(srcUuid, volId);
+    if (deltaBlobDescMsg->volume_group_mode) {
+        SCOPEDREAD(migrDestLock);
+        DmMigrationDest::shared_ptr destination = getMigrationDest(uniqueId);
+        migrationCb descCb = deltaBlobDescReq->localCb;
+        if (destination == nullptr) {
+            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                    << "Unable to find destination for volume " << volId;
+            return ERR_NOT_FOUND;
+        }
+        err = destination->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
-    if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "migrationid: " << deltaBlobDescMsg->DMT_version
-                << " Unable to find executor for volume " << volId
-                << " during migration abort";
-    	} else {
-			LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-                << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// TODO - need to clean migrationAborted up. Avoid assert for now
-			// fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
+        if (err == ERR_NOT_READY) {
+            LOGDEBUG << "Blobs descriptor not applied yet.";
+            // This means that the blobs have not been applied yet. Override this to ERR_OK.
+            err = ERR_OK;
+        } else if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                << " Error applying blob descriptor " << err;
+            dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
+            // TODO cleanup
+        }
+    } else {
+        SCOPEDREAD(migrExecutorLock);
+        DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+        migrationCb descCb = deltaBlobDescReq->localCb;
 
-    err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
-    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+        if (executor == nullptr) {
+            if (isMigrationAborted()) {
+                LOGMIGRATE << "migrationid: " << deltaBlobDescMsg->DMT_version
+                    << " Unable to find executor for volume " << volId
+                    << " during migration abort";
+            } else {
+                LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                    << "Unable to find executor for volume " << volId;
+                // this is an race cond error that needs to be fixed in dev env.
+                // Only panic in debug build.
+                // TODO - need to clean migrationAborted up. Avoid assert for now
+                // fds_assert(0);
+            }
+            return ERR_NOT_FOUND;
+        }
 
-    if (err == ERR_NOT_READY) {
-    	LOGDEBUG << "Blobs descriptor not applied yet.";
-    	// This means that the blobs have not been applied yet. Override this to ERR_OK.
-    	err = ERR_OK;
-    } else if (!err.ok()) {
-    	LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-            << " Error applying blob descriptor " << err;
-    	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
-    	abortMigration();
+        err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+
+        if (err == ERR_NOT_READY) {
+            LOGDEBUG << "Blobs descriptor not applied yet.";
+            // This means that the blobs have not been applied yet. Override this to ERR_OK.
+            err = ERR_OK;
+        } else if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                << " Error applying blob descriptor " << err;
+            dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
+            abortMigration();
+        }
     }
 
     return err;
@@ -335,32 +359,52 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     fds_volid_t volId(deltaBlobsMsg->volume_id);
     NodeUuid srcUuid(deltaBlobReq->srcUuid);
     auto uniqueId = std::make_pair(srcUuid, volId);
-    SCOPEDREAD(migrExecutorLock);
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
-    if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "migrationid: " << deltaBlobsMsg->DMT_version
-                << " Unable to find executor for volume " << volId
-                << " during migration abort";
-    	} else {
-			LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-                << " Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// TODO - need to clean migrationAborted up. Avoid assert for now
-			// fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
-    LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
-    err = executor->processDeltaBlobs(deltaBlobsMsg);
-    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+    if (deltaBlobsMsg->volume_group_mode) {
+        SCOPEDREAD(migrDestLock);
+        DmMigrationDest::shared_ptr destination = getMigrationDest(uniqueId);
+        if (destination == nullptr) {
+            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                    << " Unable to find executor for volume " << volId;
+            return ERR_NOT_FOUND;
+        }
+        LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
+        err = destination->processDeltaBlobs(deltaBlobsMsg);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
-    if (!err.ok()) {
-    	LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-            << " Processing deltaBlobs failed " << err;
-    	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
-    	abortMigration();
+        if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                << " Processing deltaBlobs failed " << err;
+            dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
+            // TODO - clean up
+        }
+    } else {
+        SCOPEDREAD(migrExecutorLock);
+        DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+        if (executor == nullptr) {
+            if (isMigrationAborted()) {
+                LOGMIGRATE << "migrationid: " << deltaBlobsMsg->DMT_version
+                    << " Unable to find executor for volume " << volId
+                    << " during migration abort";
+            } else {
+                LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                    << " Unable to find executor for volume " << volId;
+                // this is an race cond error that needs to be fixed in dev env.
+                // Only panic in debug build.
+                // TODO - need to clean migrationAborted up. Avoid assert for now
+                // fds_assert(0);
+            }
+            return ERR_NOT_FOUND;
+        }
+        LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
+        err = executor->processDeltaBlobs(deltaBlobsMsg);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+
+        if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                << " Processing deltaBlobs failed " << err;
+            dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
+            abortMigration();
+        }
     }
 
     return err;
