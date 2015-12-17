@@ -410,6 +410,7 @@ enum  FDSPMsgTypeId {
   AddToVolumeGroupRespCtrlMsgTypeId;
   VolumeStateUpdateInfoCtrlMsgTypeId;
   GetVolumeStateCtrlMsgTypeId;
+  /* BEGIN Volumegroup test messages.  Will be removed */
   CreateVolumeMsgTypeId;
   StartTxMsgTypeId;
   UpdateTxMsgTypeId;
@@ -419,6 +420,7 @@ enum  FDSPMsgTypeId {
   PullCommitLogEntriesMsgTypeId;
   PullCommitLogEntriesRespMsgTypeId;
   QosFunctionTypeId;
+  /* END Volumegroup test messages.  Will be removed */
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
