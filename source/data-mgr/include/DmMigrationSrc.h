@@ -10,14 +10,15 @@
 #include <boost/shared_ptr.hpp>
 #include <MigrationUtility.h>
 #include <dmhandler.h>
-#include <DmMigrationBase.h>
+#include <DmMigrationClient.h>
 
 namespace fds {
 
-
-class DmMigrationSrc : DmMigrationBase {
+class DmMigrationSrc : public DmMigrationClient {
 public:
-    using DmMigrationBase::DmMigrationBase;
+    //using DmMigrationBase::DmMigrationBase;
+    // DmMigrationSrc() : DmMigrationClient() {}
+    using DmMigrationClient::DmMigrationClient;
     ~DmMigrationSrc() {}
     typedef std::shared_ptr<DmMigrationSrc> shared_ptr;
     typedef std::unique_ptr<DmMigrationSrc> unique_ptr;

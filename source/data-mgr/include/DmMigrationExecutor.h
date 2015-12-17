@@ -30,7 +30,8 @@ class DmMigrationExecutor : public DmMigrationBase {
                                  int64_t migrationId,
 								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneCb _callback,
-                                 uint32_t _timeout);
+                                 uint32_t _timeout,
+                                 bool _volumeGroupMode);
     ~DmMigrationExecutor();
 
     typedef std::unique_ptr<DmMigrationExecutor> unique_ptr;
@@ -47,7 +48,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      * Step 1:
      * process initial filter set of blobs to be sent to the source DM.
      */
-    Error processInitialBlobFilterSet();
+    Error processInitialBlobFilterSet(bool volumeGroupMode = false);
 
     /**
      * Step 2.1:
@@ -125,7 +126,7 @@ class DmMigrationExecutor : public DmMigrationBase {
         return lastUpdateFromClientTsSec_;
     }
 
-  private:
+  protected:
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
@@ -236,6 +237,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     /* Last timestamp of when we heard from the client */
     util::TimeStamp lastUpdateFromClientTsSec_;
 
+    bool volumeGroupMode;
     friend class DmMigrationMgr;
 
 };  // DmMigrationExecutor

@@ -21,7 +21,8 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
                                          int64_t migrationId,
 										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneCb _callback,
-                                         uint32_t _timeout)
+                                         uint32_t _timeout,
+                                         bool _volumeGroupMode)
 	: DmMigrationBase(migrationId, _dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
@@ -34,7 +35,8 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
       txStateIsMigrated(true),
       lastUpdateFromClientTsSec_(util::getTimeStampSeconds()),
       deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
-      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
+      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
+      volumeGroupMode(_volumeGroupMode)
 {
     volumeUuid = volDesc.volUUID;
 
@@ -99,7 +101,7 @@ DmMigrationExecutor::startMigration()
     	if (!err.ok()) {
     		LOGERROR << logString() << "processInitialBlobFilterSet failed on volume=" << volumeUuid
     				<< " with error=" << err;
-    		dataMgr.dmMigrationMgr->abortMigration();
+    		routeAbortMigration();
     	}
     } else {
         LOGERROR << logString() << "process_add_vol failed on volume=" << volumeUuid
@@ -107,7 +109,7 @@ DmMigrationExecutor::startMigration()
         if (migrDoneCb) {
         	migrDoneCb(srcDmSvcUuid, volDesc.volUUID, err);
         }
-    	dataMgr.dmMigrationMgr->abortMigration();
+    	routeAbortMigration();
     }
 
     return err;
@@ -126,7 +128,7 @@ DmMigrationExecutor::shouldAutoExecuteNext()
 }
 
 Error
-DmMigrationExecutor::processInitialBlobFilterSet()
+DmMigrationExecutor::processInitialBlobFilterSet(bool volumeGroupMode)
 {
 	Error err(ERR_OK);
 	LOGMIGRATE << logString() << "starting migration for VolDesc: " << volDesc;
@@ -136,6 +138,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
+    filterSet->volumeGroupMode = volumeGroupMode;
 
     LOGMIGRATE << logString() << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**
@@ -157,6 +160,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
     // asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
+    // These asyncMsgFailed/Passed actually goes to DmMigrationBase and then re-routes
     std::function<void()> abortBind = std::bind(&DmMigrationExecutor::asyncMsgFailed, this);
     std::function<void()> passBind = std::bind(&DmMigrationExecutor::asyncMsgPassed, this);
     asyncInitialBlobSetReq->onResponseCb(
@@ -418,7 +422,7 @@ void
 DmMigrationExecutor::sequenceTimeoutHandler()
 {
 	LOGERROR << logString() << "Error: blob/blobdesc sequence timed out for volume =  " << volumeUuid;
-    dataMgr.dmMigrationMgr->abortMigration();
+    routeAbortMigration();
 }
 
 void
@@ -455,7 +459,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
             LOGERROR << logString() << "error processing forwarded commit " << e;
-        	dataMgr.dmMigrationMgr->abortMigration();
+        	routeAbortMigration();
             delete dmReq;
             return;
         }

@@ -6,6 +6,9 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 
 #include <dmhandler.h>
+#include <DmMigrationBase.h>
+#include <lib/Catalog.h>
+#include "dm-tvc/CommitLog.h"
 
 namespace fds {
 
@@ -32,7 +35,8 @@ class DmMigrationClient : public DmMigrationBase {
             DmMigrationClientDoneHandler _handle,
             migrationCb _cleanup,
             uint64_t _maxDeltaBlobs,
-            uint64_t _maxDeltaBlobDesc);
+            uint64_t _maxDeltaBlobDesc,
+            bool _volumeGroupMode);
     ~DmMigrationClient();
 
     /**
@@ -113,7 +117,7 @@ class DmMigrationClient : public DmMigrationBase {
     // Wait for the run thread to rejoin
     void finish();
 
- private:
+ protected:
     DmIoReqHandler* DmReqHandler;
 
     /**
@@ -237,6 +241,8 @@ class DmMigrationClient : public DmMigrationBase {
 
     // Removes the DmIoRequests
 	migrationCb cleanUp;
+
+	bool volumeGroupMode;
 };  // DmMigrationClient
 
 

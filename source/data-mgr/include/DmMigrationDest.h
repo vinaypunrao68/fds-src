@@ -27,8 +27,16 @@ public:
                             _migrId,
                             false,
                             NULL,
-                            _timeout) {}
+                            _timeout,
+                            true) {}
     ~DmMigrationDest() {}
+
+    /**
+     * Wraps around processInitialBlobFilterSet, now done in a volume
+     * specific context.
+     */
+    Error start();
+
     typedef std::shared_ptr<DmMigrationDest> shared_ptr;
     typedef std::unique_ptr<DmMigrationDest> unique_ptr;
 private:

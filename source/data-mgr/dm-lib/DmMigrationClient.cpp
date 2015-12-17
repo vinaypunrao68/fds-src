@@ -4,7 +4,6 @@
 
 #include <DataMgr.h>
 #include <DmMigrationClient.h>
-#include <DmMigrationBase.h>
 
 namespace fds {
 
@@ -20,7 +19,8 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
                                      DmMigrationClientDoneHandler _handle,
                                      migrationCb _cleanup,
                                      uint64_t _maxDeltaBlobs,
-                                     uint64_t _maxDeltaBlobDescs)
+                                     uint64_t _maxDeltaBlobDescs,
+                                     bool _volumeGroupMode)
     : DmMigrationBase(migrationId, _dataMgr),
       DmReqHandler(_DmReqHandle), migrDoneHandler(_handle),
       mySvcUuid(_myUuid),
@@ -32,7 +32,8 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 	  forwardingIO(false),
 	  snapshotTaken(false),
 	  abortFlag(false),
-	  cleanUp(_cleanup)
+	  cleanUp(_cleanup),
+	  volumeGroupMode(_volumeGroupMode)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
@@ -52,7 +53,7 @@ DmMigrationClient::run()
         err = processBlobFilterSet();
         if (ERR_OK != err) {
             LOGERROR << logString() << " Processing filter set failed: " << err << ". Exiting run thread";
-            dataMgr.dmMigrationMgr->abortMigration();
+            routeAbortMigration();
             return;
         }
 
@@ -60,7 +61,7 @@ DmMigrationClient::run()
         if (ERR_OK != err) {
             // This one doesn't have an async callback to decrement so we fail it manually
             LOGERROR << logString() << " Processing blob diff failed: " << err << ". Exiting run thread";
-            dataMgr.dmMigrationMgr->abortMigration();
+            routeAbortMigration();
             return;
         }
     }));

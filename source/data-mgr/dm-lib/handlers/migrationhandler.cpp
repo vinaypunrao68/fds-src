@@ -98,9 +98,6 @@ DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
     if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
     }
-    if (dataManager.features.isVolumegroupingEnabled()) {
-
-    }
 }
 
 void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -115,6 +112,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
                                 this,
                                 std::placeholders::_1,
                                 dmReq);
+    dmReq->volumeGroupMode = message->volumeGroupMode;
 
     fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
@@ -128,7 +126,11 @@ void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 
-    helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
+    if (typedRequest->volumeGroupMode) {
+        helper.err = dataManager.dmMigrationMgr->startMigrationSource(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
+    }
 }
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
