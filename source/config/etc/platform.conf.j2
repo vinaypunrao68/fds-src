@@ -670,6 +670,9 @@ fds: {
         influxdb: {
             url="{{ om_influxdb_url }}"
             enable_query_backtrace = false
+            serialize_reads={{ om_influxdb_serialize_reads }}
+            serialize_writes={{ om_influxdb_serialize_writes }}
+            serialize_all={{ om_influxdb_serialize_all }}
         }
 
         test_mode=false

@@ -5,6 +5,7 @@
 package com.formationds.om;
 
 import com.formationds.apis.StreamingRegistrationMsg;
+import com.formationds.protocol.commonConstants;
 import com.google.common.collect.Lists;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -26,10 +27,10 @@ public class StatStreamRegistrationHandler {
     public static Logger logger = LoggerFactory.getLogger( StatStreamRegistrationHandler.class );
 
     // TODO pull these values from the platform.conf file.
-    private static final String URL = "http://%s:%d/api/stats";
+    private static final String URL = "http://%s:%d/fds/config/v08/stats";
     private static final String METHOD = "POST";
-    private static final Long DURATION = TimeUnit.MINUTES.toSeconds( 2 );
-    private static final Long FREQUENCY = TimeUnit.MINUTES.toSeconds( 1 );
+    private static final Long DURATION = Long.valueOf(commonConstants.STAT_STREAM_RUN_FOR_EVER_DURATION);
+    private static final Long FREQUENCY = Long.valueOf(commonConstants.STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS);
 
     private final OmConfigurationApi configApi;
 

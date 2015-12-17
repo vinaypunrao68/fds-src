@@ -13,6 +13,7 @@ user_cpp         :=               \
 
 user_no_style    := dm_read.cpp tokFileMgr.cpp
 user_ar_libs     := fds-dsk-io
+user_so_libs     := fds-dsk-io
 fds-dsk-io       := $(user_cpp)
 
 include $(topdir)/Makefile.incl

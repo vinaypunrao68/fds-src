@@ -12,8 +12,7 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(FdsStatPushPeriodSec,
-                                FdsStatPeriodSec, 1);
+StatsCollector* glStatsCollector = nullptr;
 
 class CollectorTimerTask : public FdsTimerTask {
   public:
@@ -63,12 +62,18 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
     // start time must be aligned to highest sampling frequency
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t stat_sampling_freq64 = stat_sampling_freq;
-    fds_uint64_t freq_nanos = stat_sampling_freq64 * 1000000000;
+    fds_uint64_t freq_nanos = stat_sampling_freq64 * NANOS_IN_SECOND;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
+    /**
+     * For collecting stats to be pushed to other services, we will collect
+     * as many generations of stat slots as can be sampled in a push
+     * period plus the number of push periods we are willing to wait for
+     * a delinquent pusher to get their stats to us before we publish.
+     */
     fds_verify(slotsec_stat_ > 0);
-    slots_stat_ = static_cast<double>(push_interval_) / slotsec_stat_ + 2;
+    slots_stat_ = push_interval_ / slotsec_stat_ + StatConstants::singleton()->FdsStatCollectionWaitMult;
 
     svcMgr_ = nullptr;
     record_stats_cb_ = NULL;
@@ -119,7 +124,12 @@ StatsCollector::~StatsCollector() {
 }
 
 StatsCollector* StatsCollector::singleton() {
-    return &glStatsCollector;
+    if (glStatsCollector == nullptr) {
+        glStatsCollector = new StatsCollector(StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec,
+                                              StatConstants::singleton()->FdsStatFGPeriodSec, 1);
+    }
+
+    return glStatsCollector;
 }
 
 void StatsCollector::setSvcMgr(SvcMgr* svcMgr) {
@@ -145,6 +155,7 @@ void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb,
         if (record_stats_cb) {
             record_stats_cb_ = record_stats_cb;
             last_sample_ts_ = util::getTimeStampNanos();
+
             fds_bool_t ret = sampleTimer->scheduleRepeated(sampleTimerTask,
                                                  std::chrono::seconds(slotsec_stat_));
             if (!ret) {
@@ -305,7 +316,8 @@ void StatsCollector::print()
             last_ts_qmap_[cit->first] = 0;
         }
         fds_uint64_t last_rel_sec = last_ts_qmap_[cit->first];
-        last_rel_sec = cit->second->print(statfile_, now_local, last_rel_sec);
+        last_rel_sec = cit->second->print(statfile_, now_local, last_rel_sec,
+                                          StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
         last_ts_qmap_[cit->first] = last_rel_sec;
     }
 }
@@ -315,21 +327,10 @@ void StatsCollector::print()
 // record service-specific stats
 //
 void StatsCollector::sampleStats() {
-    fds_uint64_t now = util::getTimeStampNanos();
-    fds_uint64_t stat_slot_nanos = slotsec_stat_;
-    stat_slot_nanos *= 1000000000;
+    fds_uint64_t stat_slot_nanos = (fds_uint64_t)slotsec_stat_*(fds_uint64_t)NANOS_IN_SECOND;
     last_sample_ts_ += stat_slot_nanos;
-    fds_uint64_t diff = 0;
-    if (now > last_sample_ts_) {
-        diff = now - last_sample_ts_;
-    } else {
-        diff = last_sample_ts_ - now;
-    }
-    if (diff > stat_slot_nanos) {
-        LOGERROR << "Timer is off from what we expected; implement "
-                 << " adjusting last_sample_ts_";
-    }
-    if (last_sample_ts_) {
+
+    if (record_stats_cb_) {
         record_stats_cb_(last_sample_ts_);
     }
 }
@@ -342,6 +343,9 @@ void StatsCollector::sendStatStream() {
     std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> snap_map;
     std::unordered_map<fds_volid_t, VolumePerfHistory::ptr>::const_iterator cit;
 
+    /**
+     * Get a static snapshot of our stats history.
+     */
     read_synchronized(sh_lock_) {
         for (cit = stat_hist_map_.cbegin(); cit != stat_hist_map_.cend(); ++cit) {
             snap_map[cit->first] = (cit->second)->getSnapshot();
@@ -356,13 +360,15 @@ void StatsCollector::sendStatStream() {
     // method needs to be extended to stream to both local and remote DM
     if (stream_stats_cb_) {
         for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
-            if (last_ts_smap_.count(cit->first) == 0) {
-                last_ts_smap_[cit->first] = 0;
+            if (last_rel_sec_smap_.count(cit->first) == 0) {
+                last_rel_sec_smap_[cit->first] = 0;
             }
-            fds_uint64_t last_rel_sec = last_ts_smap_[cit->first];
+
+            fds_uint64_t last_rel_sec = last_rel_sec_smap_[cit->first];
+
             std::vector<StatSlot> slot_list;
-            last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec);
-            last_ts_smap_[cit->first] = last_rel_sec;
+            last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec); // No last few seconds to ignore here since we're wanting to add local stats to the volume's history.
+            last_rel_sec_smap_[cit->first] = last_rel_sec;
             // send to local stats aggregator
             stream_stats_cb_(start_time_, cit->first, slot_list);
         }
@@ -374,6 +380,10 @@ void StatsCollector::sendStatStream() {
     std::unordered_map<NodeUuid, fpi::StatStreamMsgPtr, UuidHash>::const_iterator msg_cit;
     for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
         DmtColumnPtr nodes;
+
+        /**
+         * Get our DM UUID.
+         */
         try {
             nodes = svcMgr_->getDMTNodesForVolume(cit->first);
             if (nodes == nullptr) {
@@ -386,20 +396,23 @@ void StatsCollector::sendStatStream() {
             return;
         }
         NodeUuid dm_uuid = nodes->get(0);
+
+        /**
+         * If this is the first time we've seen this DM, build a
+         * StatStream message structure for it.
+         */
         if (msg_map.count(dm_uuid) == 0) {
             fpi::StatStreamMsgPtr msg(new fpi::StatStreamMsg());
             msg->start_timestamp = start_time_;
             msg_map[dm_uuid] = msg;
         }
-        if (last_ts_smap_.count(cit->first) == 0) {
-            last_ts_smap_[cit->first] = 0;
-        }
 
+        /**
+         * Copy our volume stats to an FDSP payload structure.
+         */
         fpi::VolStatList volstats;
-        fds_uint64_t last_rel_sec = last_ts_smap_[cit->first];
-        last_rel_sec = cit->second->toFdspPayload(volstats, last_rel_sec);
+        cit->second->toFdspPayload(volstats);
         (msg_map[dm_uuid]->volstats).push_back(volstats);
-        last_ts_smap_[cit->first] = last_rel_sec;
 
         LOGTRACE << "Sending stats to DM " << std::hex
                  << dm_uuid.uuid_get_val() << std::dec

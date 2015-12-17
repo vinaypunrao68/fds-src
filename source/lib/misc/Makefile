@@ -45,6 +45,8 @@ user_no_style    := \
 # specific.
 #
 user_ar_libs     := fds-lib
+user_so_libs     := fds-misc
 fds-lib          := $(user_cpp)
+fds-misc         := $(user_cpp)
 
 include $(topdir)/Makefile.incl

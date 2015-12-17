@@ -1156,6 +1156,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     }
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
+    DLTCloseReq->setVolId(FdsSysTaskQueueId);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
     DLTCloseReq->closeDLTVersion = (dlt->dlt_close).DLT_version;
 
@@ -1224,8 +1225,9 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
     SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
+    // (Phillip) NotifySMCheck should not have a response - should be fire and forget
+    //hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
 
 void
