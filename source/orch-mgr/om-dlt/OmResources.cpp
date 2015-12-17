@@ -2905,18 +2905,19 @@ OM_NodeDomainMod::om_service_down(const Error& error,
     pmUuid &= ~0xF;
 
     if (!isNodeShuttingDown(pmUuid)) {
-        if ( om_local_domain_up() )
+        if (om_local_domain_up())
         {
             if (svcType == fpi::FDSP_STOR_MGR)
             {
                 // this is SM -- notify DLT state machine
-                om_dlt_update_cluster();
+                LOGNOTIFY << "SM " << std::hex << svcUuid << " down. Will skip DLT recalculation until it rejoins.";
+                // om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)
             {
                 // this is DM -- notify DMT state machine
                 // For now, disable this as setupNewNode will throw the event
-                LOGNOTIFY << "DM " << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
+                LOGNOTIFY << "DM " << std::hex << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
                 // om_dmt_update_cluster();
             }
         } else {
