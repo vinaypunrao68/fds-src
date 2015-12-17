@@ -112,7 +112,7 @@ service ConfigurationService {
    *
    * @return void.
    */
-  void shutdownLocalDomain(1:string domainName)
+  i32 shutdownLocalDomain(1:string domainName)
       throws (1: common.ApiException e);
 
   /**

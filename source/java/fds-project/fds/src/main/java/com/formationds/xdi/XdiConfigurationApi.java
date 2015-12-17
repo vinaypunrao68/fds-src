@@ -466,10 +466,9 @@ public class XdiConfigurationApi implements ConfigurationApi {
         return;
     }
     @Override
-    public void shutdownLocalDomain(String domainName)
+    public int shutdownLocalDomain(String domainName)
             throws TException {
-        config.shutdownLocalDomain(domainName);
-        return;
+        return config.shutdownLocalDomain(domainName);
     }
     
     @Override
