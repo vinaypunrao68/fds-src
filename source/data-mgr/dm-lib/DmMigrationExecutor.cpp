@@ -516,6 +516,12 @@ DmMigrationExecutor::finishActiveMigration()
 }
 
 void
+DmMigrationExecutor::routeAbortMigration()
+{
+    dataMgr.dmMigrationMgr->abortMigration();
+}
+
+void
 DmMigrationExecutor::abortMigration()
 {
 	/**
