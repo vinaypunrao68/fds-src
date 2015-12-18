@@ -178,6 +178,7 @@
         - libboost-thread1.55-dev
         - libboost-regex1.55-dev
         - libboost-filesystem1.55-dev
+        - libboost-chrono1.55-dev
         - libical-dev
         - libical1
         - libleveldb-dev
