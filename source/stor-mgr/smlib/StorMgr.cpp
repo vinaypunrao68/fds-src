@@ -213,6 +213,7 @@ void ObjectStorMgr::mod_enable_service()
         totalRate = static_cast<uint32_t>(atoi(
                 svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
                                        "node_iops_min").c_str()));
+        fds_assert(totalRate > 0);
     }
 
     /*

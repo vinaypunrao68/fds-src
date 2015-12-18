@@ -1157,6 +1157,7 @@ void DataMgr::mod_enable_service() {
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
     scheduleRate = 2 * static_cast<uint32_t>(diskIOPsMin);
+    fds_assert(scheduleRate > 0);
     LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
