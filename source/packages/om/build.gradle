@@ -1,0 +1,88 @@
+buildscript {
+	repositories {
+		jcenter()
+		mavenLocal()
+	}
+
+	dependencies {
+		classpath 'com.netflix.nebula:gradle-ospackage-plugin:3.2.0'
+	}
+}
+
+apply plugin: 'nebula.deb'
+
+task buildDeb(type: Deb) {
+
+	def build_num = "$System.env.BUILD_NUMBER"
+
+	if ( null == build_num || '' == build_num || 'null' == build_num ) {
+		build_num = 'dev'
+	}
+
+	version = '1.0.0'
+	ext.packagePrefix = 'fds-orchestration-manager'
+	release = build_num
+	packageName = packagePrefix + '-' + version
+	arch = "amd64"
+
+	def baseDir = main_dir_build
+
+	into '/opt/fds/formation_one/packages/om-' + version + '-' + release
+
+	from(baseDir + '/bin/orchMgr') {
+		into 'bin'
+		fileMode 755
+	}
+
+	from(baseDir + '/bin/liborchmgr.so') {
+		into 'bin'
+		fileMode 755
+	}
+
+	from(baseDir + '/lib/libfds-om-common.a') {
+		into 'lib'
+		fileMode 644
+	}
+
+	from(baseDir + '/lib/java') {
+		into 'lib/java'
+	}
+
+	from(baseDir + '/lib/admin-webapp') {
+		into 'lib/admin-webapp'
+	}
+}
+
+task deployDeb( dependsOn: 'buildDeb' ) << {
+	if ( !project.hasProperty( 'username' ) || !project.hasProperty( 'password' ) ){
+		println 'You must specify both a -Pusername and -Ppassword value. Skipping deployDeb task.'
+		return
+	}
+
+	def debName = 'NONE'
+	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f -> 
+
+		if ( f.name.startsWith( buildDeb.packagePrefix ) && f.name.endsWith( 'deb' ) ) {
+			debName = f.name
+		}
+
+	})
+
+	if ( debName == 'NONE' ) {
+		println 'Nothing to deploy'
+		return
+	}
+
+	def fullName = debName
+
+	def command = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	def proc = command.execute()
+
+	proc.text.eachLine { line -> println line }
+
+	if ( proc.exitValue() ) {
+		throw new GradleException( 'Artifact upload failed.' )
+	}
+
+}

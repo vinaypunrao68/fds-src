@@ -20,7 +20,8 @@ VolumePlacement::VolumePlacement()
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex"),
-		  numOfPrimaryDMs(1)
+		  numOfPrimaryDMs(1),
+		  numOfFailures(0)
 {
 	bRebalancing = ATOMIC_VAR_INIT(false);
 }
@@ -451,12 +452,17 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     // Send pull messages to the new DMs
     for (pull_msgs::iterator pmiter = pull_msg.begin();
     		pmiter != pull_msg.end(); pmiter++) {
+        if (pmiter->second.migrations.size() == 0) {
+            /* Nothing to migrate */
+            continue;
+        }
     	OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(pmiter->first));
     	fds_verify(agent != nullptr);
 
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
+    	message->DMT_version = dmtMgr->getTargetVersion();
 
     	err = agent->om_send_pullmeta(message);
     	if (err.ok()) {
@@ -529,6 +535,13 @@ VolumePlacement::undoTargetDmtCommit() {
                 LOGWARN << "unable to store target dmt type to config db";
             }
             rollBackNeeded = true;
+        } else {
+            OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+
+            if (domain->isDomainShuttingDown()) {
+                LOGDEBUG << "Domain is shutting down, unset target DMT for correct state on startup";
+                dmtMgr->unsetTarget(false);
+            }
         }
     }
     return rollBackNeeded;
@@ -675,7 +688,7 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     // but this is an optimization, may do later
     fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
     if (targetVersion > 0 && targetVersion != committedVersion) {
-        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+        LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DMT and re-compute it again if discovered "
                   << "SMs re-register";
         if (!configDB->setDmtType(0, "next")) {
@@ -693,4 +706,15 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     return err;
 }
 
+fds_bool_t VolumePlacement::canRetryMigration() {
+    fds_bool_t ret = false;
+
+    // For now, we maximize at 4. Perhaps to be made into a configurable var
+    // next time?
+    if (numOfFailures < 4) {
+        ret = true;
+    }
+
+    return ret;
+}
 }  // namespace fds

@@ -5,7 +5,8 @@
         - /fds/bin/*.core
         - /fds/bin/core.*
         - /fds/bin/core
-        - /fds/var/logs
+        - /fds/var/log/*
+        - /fds/var/logs/*
         - /corefiles/*
         - /fds/var/core/*.core
     tags:

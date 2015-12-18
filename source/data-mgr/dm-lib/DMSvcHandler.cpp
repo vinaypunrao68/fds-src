@@ -100,6 +100,7 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         LOGERROR << "Volume NOT found vol:" << vol_uuid;
         err = ERR_VOL_NOT_FOUND;
     } else {
+        LOGNOTIFY << "will delete volume : " << vol_uuid << ":" << volDesc->name;
         if (vol_msg->vol_desc.fSnapshot) {
             if (fCheck) {
                 err =  dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);
@@ -115,7 +116,7 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
 
                 // remove volume from timelineDB
-                err = dataManager_.timelineMgr->getDB()->removeVolume(vol_uuid);
+                err = dataManager_.timelineMgr->removeVolume(vol_uuid);
             } else {
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
             }
@@ -393,7 +394,7 @@ DMSvcHandler::NotifyDMTClose(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                                             dmtClose,
                                             std::placeholders::_1);
     // will finish forwarding when all queued updates are processed
-    err = dataManager_.notifyDMTClose();
+    err = dataManager_.notifyDMTClose(dmtClose->dmt_close.DMT_version);
 
     if (!err.ok()) {
         LOGERROR << "DMT Close, volume meta may not be synced properly";
