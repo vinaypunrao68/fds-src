@@ -21,6 +21,15 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
+  /**
+   * @details
+   * Templated so that dependency injection can be used to substitute
+   * a fake data store for kvstore::ConfigDB. Enables component testing
+   * with no inter-process dependencies.
+   * If kvstore::ConfigDB implemented an interface, we would not need
+   * to use a template here.
+   */
+  template<class DataStoreT>
   class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
   {
     public:
@@ -117,7 +126,7 @@ namespace fds {
       void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
 
-      void setConfigDB(kvstore::ConfigDB* configDB);
+      void setConfigDB(DataStoreT* configDB);
 
       void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
@@ -143,7 +152,12 @@ namespace fds {
       void healthReportError(fpi::FDSP_MgrIdType &svc_type,
                              boost::shared_ptr<fpi::NotifyHealthReport> &msg);
 
-      kvstore::ConfigDB* configDB = NULL;
+      /**
+       * @brief Supports look-up of global domain objects
+       * @details
+       * Templated so that unit tests can substitute fake/mock objects
+       */
+      DataStoreT* pConfigDB_;
   };
 
 }  // namespace fds

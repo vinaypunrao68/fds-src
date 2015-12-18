@@ -17,6 +17,7 @@
 #include <fdsp/OMSvc.h>
 #include <om-svc-handler.h>
 #include <net/SvcMgr.h>
+#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -45,8 +46,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
         node_id_to_name[i] = "";
     }
 
-    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
-                                                 "fds.om.", "om.log", omVec);
+    init<fds::OmSvcHandler<kvstore::ConfigDB>, fpi::OMSvcProcessor>(argc,
+        argv,
+        "platform.conf",  // configuration file for the process
+        "fds.om",         // base path
+        "om.log",         // default log file
+        omVec);           // collection of modules
 
     enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
             "fds.om.enable_snapshot_schedule", true);
