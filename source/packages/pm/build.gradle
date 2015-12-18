@@ -63,6 +63,17 @@ task buildDeb(type: Deb) {
 		fileMode 644
 	}
 
+	from( '../../../ansible/templates/deploy_fds/upstart' ){
+		include 'fds_upstart_defaults*', 'fds-pm.conf.j2'
+		into 'upstart'
+		fileMode 755
+ 	}
+
+	from( 'etc' ){
+		into 'etc'
+		fileMode 755
+	}
+
 }
 
 task deployDeb( dependsOn: 'buildDeb' ) << {

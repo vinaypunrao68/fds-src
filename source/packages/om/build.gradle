@@ -51,6 +51,17 @@ task buildDeb(type: Deb) {
 	from(baseDir + '/lib/admin-webapp') {
 		into 'lib/admin-webapp'
 	}
+
+	from( '../../../ansible/templates/deploy_fds/upstart' ){
+		into 'upstart'
+		include 'fds_upstart_defaults*', 'fds-om.conf.j2'
+		fileMode 755
+	}
+
+	from( 'etc' ){
+		into 'etc'
+		fileMode 755
+	}
 }
 
 task deployDeb( dependsOn: 'buildDeb' ) << {
