@@ -17,8 +17,10 @@ uint32_t parity      ( uint32_t v );
 uint32_t getbit      ( const void * blob, int len, uint32_t bit );
 uint32_t getbit_wrap ( const void * blob, int len, uint32_t bit );
 
-void     setbit      ( void * blob, int len, uint32_t bit );
-void     setbit      ( void * blob, int len, uint32_t bit, uint32_t val );
+// HACK change name to "setBit" to avoid name collision with a macro named "setbit"
+// that is defined somewhere (possibly glibc-2.0?)
+void     setBit      ( void * blob, int len, uint32_t bit );
+void     setBit      ( void * blob, int len, uint32_t bit, uint32_t val );
 
 void     clearbit    ( void * blob, int len, uint32_t bit );
 
@@ -45,13 +47,13 @@ template<> inline uint32_t getbit ( uint64_t & blob, uint32_t bit ) { return (bl
 //----------
 
 template< typename T >
-inline void setbit ( T & blob, uint32_t bit )
+inline void setBit ( T & blob, uint32_t bit )
 {
-  return setbit(&blob,sizeof(blob),bit);
+  return setBit(&blob,sizeof(blob),bit);
 }
 
-template<> inline void setbit ( uint32_t & blob, uint32_t bit ) { blob |= uint32_t(1) << (bit & 31); }
-template<> inline void setbit ( uint64_t & blob, uint32_t bit ) { blob |= uint64_t(1) << (bit & 63); }
+template<> inline void setBit ( uint32_t & blob, uint32_t bit ) { blob |= uint32_t(1) << (bit & 31); }
+template<> inline void setBit ( uint64_t & blob, uint32_t bit ) { blob |= uint64_t(1) << (bit & 63); }
 
 //----------
 

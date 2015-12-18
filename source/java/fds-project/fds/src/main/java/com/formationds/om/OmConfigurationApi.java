@@ -183,8 +183,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @throws TException
      */
     @Override
-    public void shutdownLocalDomain( String domainName ) throws TException {
-        getConfig().shutdownLocalDomain( domainName );
+    public int shutdownLocalDomain( String domainName ) throws TException {
+        return getConfig().shutdownLocalDomain( domainName );
     }
 
     /**

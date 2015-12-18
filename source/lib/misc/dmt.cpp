@@ -71,6 +71,15 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     return dmt_table->at(col_index);
 }
 
+std::vector<fpi::SvcUuid>
+DMT::getSvcUuids(fds_volid_t volume_id) const
+{
+    auto column = getNodeGroup(volume_id);
+    return column->toSvcUuids();
+}
+        
+
+
 /**
  * returns column index for given 'volume_id' for a given number of
  * columns in DMT
@@ -292,6 +301,17 @@ void DMT::getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const {
 bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const {
     auto nodeGroup = getNodeGroup(volId);
     return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
+}
+
+DMTPtr DMT::newDMT(const std::vector<fpi::SvcUuid> &column)
+{
+    auto dmt = MAKE_SHARED<DMT>(1, column.size(), 1);
+    TableColumn tc(column.size());
+    for (uint32_t i = 0; i < column.size(); i++) {
+        tc.set(i, column[i].svc_uuid);
+    }
+    dmt->setNodeGroup(0, tc);
+    return dmt;
 }
 
 /***** DMTManager implementation ****/

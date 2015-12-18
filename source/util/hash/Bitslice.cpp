@@ -73,7 +73,7 @@ void Bitslice ( std::vector<hashtype> & hashes, slice_vec & slices )
     {
       int b = getbit(hashes[i],j);
 
-      setbit(sliceblob,slicelen*4,i,b);
+      setBit(sliceblob,slicelen*4,i,b);
     }
   }
 }

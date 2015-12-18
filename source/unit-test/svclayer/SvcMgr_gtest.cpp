@@ -30,14 +30,14 @@ struct SvcMgrTest : BaseTestFixture {
 * @brief Tests svc map update in the domain.
 */
 TEST_F(SvcMgrTest, svcmapUdpate) {
-    int cnt = 4;
+    int cnt = 5;
     FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root") +
                              std::string("/etc/platform.conf"));
-    for (int svcIdx = 0; svcIdx < cnt; svcIdx++) {
+    for (int svcIdx = 1; svcIdx < cnt; svcIdx++) {
         ASSERT_TRUE(domain.checkSvcInfoAgainstDomain(svcIdx));
     }
 
-    for (int svcIdx = 0; svcIdx < cnt; svcIdx++) {
+    for (int svcIdx = 1; svcIdx < cnt; svcIdx++) {
         domain.kill(svcIdx);
         domain.spawn(svcIdx);
         ASSERT_TRUE(domain.checkSvcInfoAgainstDomain(svcIdx));
@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
+    g_fdslog = new fds_log("SvcMgrTest");
     SvcMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

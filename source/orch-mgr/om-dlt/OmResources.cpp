@@ -109,7 +109,9 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     struct DST_WaitNds : public msm::front::state<>
     {
         DST_WaitNds() : waitTimer(new FdsTimer()),
-                        waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+                        waitTimerTask(new WaitTimerTask(*waitTimer)) {
+            name = "DST_WaitNds";
+        }
 
         ~DST_WaitNds() {
             waitTimer->destroy();
@@ -125,6 +127,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_WaitNds. Evt: " << e.logString();
         }
 
+        std::string name;
         NodeUuidSet sm_services;  // sm services we are waiting to come up
         NodeUuidSet sm_up;  // sm services that are already up
         NodeUuidSet dm_services;  // dm services we are waiting to come up
@@ -141,7 +144,9 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     struct DST_WaitActNds : public msm::front::state<>
     {
         DST_WaitActNds() : waitTimer(new FdsTimer()),
-                           waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+                           waitTimerTask(new WaitTimerTask(*waitTimer)) {
+            name = "DST_WaitActNds";
+        }
 
         ~DST_WaitActNds() {
             waitTimer->destroy();
@@ -157,6 +162,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_WaitActNds. Evt: " << e.logString();
         }
 
+        std::string name;
         NodeUuidSet sm_services;  // sm services we are waiting to come up
         NodeUuidSet sm_up;  // sm services that are already up
         NodeUuidSet dm_services;  // dm services we are waiting to come up
@@ -427,19 +433,19 @@ void NodeDomainFSM::WaitTimerTask::runTimerTask()
 template <class Event, class Fsm>
 void NodeDomainFSM::on_entry(Event const &evt, Fsm &fsm)
 {
-    LOGDEBUG << "NodeDomainFSM on entry";
+    LOGNOTIFY << "NodeDomainFSM on entry";
 }
 
 template <class Event, class Fsm>
 void NodeDomainFSM::on_exit(Event const &evt, Fsm &fsm)
 {
-    LOGDEBUG << "NodeDomainFSM on exit";
+    LOGNOTIFY << "NodeDomainFSM on exit";
 }
 
 template <class Event, class Fsm>
 void NodeDomainFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 {
-    LOGDEBUG << "Evt: " << evt.logString() << " NodeDomainFSM no transition";
+    LOGNOTIFY << "Evt: " << evt.logString() << " NodeDomainFSM no transition";
 }
 
 /**
@@ -466,12 +472,12 @@ NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         b_ret = true;
     }
 
-    LOGDEBUG << "GRD_NdsUp: register svc uuid " << std::hex
-             << regEvt.svc_uuid.uuid_get_val() << std::dec << "; waiting for "
-             << src.sm_services.size() << " Sms, already got "
-             << src.sm_up.size() << " SMs; waiting for "
-             << src.dm_services.size() << " Dms, already got "
-             << src.dm_up.size() << " DMs; returning " << b_ret;
+    LOGNOTIFY << "GRD_NdsUp: register svc uuid " << std::hex
+              << regEvt.svc_uuid.uuid_get_val() << std::dec << "; waiting for "
+              << src.sm_services.size() << " Sms, already got "
+              << src.sm_up.size() << " SMs; waiting for "
+              << src.dm_services.size() << " Dms, already got "
+              << src.dm_up.size() << " DMs; returning " << b_ret;
 
     return b_ret;
 }
@@ -484,7 +490,7 @@ NodeDomainFSM::GRD_NdsUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_SendDltDmt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
-    LOGDEBUG << "Sending DLT/DMT to recently onlined node "
+    LOGNOTIFY << "Sending DLT/DMT to recently onlined node "
                 << std::hex << evt.svc_uuid.uuid_get_val()
                 << std::dec;
 
@@ -524,7 +530,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_NodesUp";
+    LOGNOTIFY << "NodeDomainFSM DACT_NodesUp";
     
     try {
         OM_Module *om = OM_Module::om_singleton();
@@ -597,7 +603,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
+    LOGNOTIFY << "NodeDomainFSM DACT_LoadVols";
     
     try {
         OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
@@ -623,12 +629,23 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_WaitNds";
+    LOGNOTIFY << "NodeDomainFSM DACT_WaitNds";
         
     try {
         WaitNdsEvt waitEvt = (WaitNdsEvt)evt;
         dst.sm_services.swap(waitEvt.sm_services);
         dst.dm_services.swap(waitEvt.dm_services);
+
+
+        // There are 2 possible destination states: DST_WaitNds and DST_WaitActNds
+        // When a domain is being started back up (after shutdown), the destination
+        // state is DST_WaitActNds. In this case, we want to clear out the sm_up, dm_up
+        // lists so left over state from potential previous domain up processing is cleared
+        // and the state machine will wait as needed during this startup
+        if (dst.name == "DST_WaitActNds") {
+            dst.sm_up.clear();
+            dst.dm_up.clear();
+        }
 
         LOGDEBUG << "Domain will wait for " << dst.sm_services.size()
                  << " SM(s) to come up and " << dst.dm_services.size() << " << DM(s) to come up";
@@ -660,8 +677,8 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_Wait::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_Wait: initial wait for " << OM_WAIT_START_SECONDS
-             << " seconds before start DLT compute for new SMs";
+    LOGNOTIFY << "NodeDomainFSM DACT_Wait: initial wait for " << OM_WAIT_START_SECONDS
+              << " seconds before start DLT compute for new SMs";
 
     try {
         // start timer to timeout in case services do not come up
@@ -691,7 +708,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT if any SMs joined";
+    LOGNOTIFY << "NodeDomainFSM DACT_WaitDone: will try to compute DLT, DMT if any SMs or DMs joined";
 
     try {
 
@@ -713,7 +730,7 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             }
 
             if (uuid.uuid_get_val() != 0) {
-                domain->raiseAbortMigrationEvt(uuid);
+                domain->raiseAbortSmMigrationEvt(uuid);
             } else {
                 LOGWARN << "No active/up SMs according to clustermap! Did not send abort";
             }
@@ -722,6 +739,9 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             // so that we move to DLT that reflects actual nodes that came up
 
             domain->om_dlt_update_cluster();
+
+            // Also start DMT recompute/rebalance
+            domain->om_dmt_update_cluster();
         }
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -807,7 +827,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "NodeDomainFSM DACT_UpdDlt";
+    LOGNOTIFY << "NodeDomainFSM DACT_UpdDlt";
     
     try {
         OM_Module *om = OM_Module::om_singleton();
@@ -883,7 +903,7 @@ NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             src.dmt_up = true;
         }
         
-        LOGDEBUG << "GRD_DltDmtUp dlt up: " << src.dlt_up << " dmt up: " << src.dmt_up;
+        LOGNOTIFY << "GRD_DltDmtUp dlt up: " << src.dlt_up << " dmt up: " << src.dmt_up;
 
         if (src.dlt_up && src.dmt_up) {
             b_ret = true;
@@ -912,7 +932,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "Will send shutdown msg to all AMs";
+    LOGNOTIFY << "Will send shutdown msg to all AMs";
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
@@ -970,7 +990,7 @@ NodeDomainFSM::GRD_AmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                      << " why that happened";
         }
         
-        LOGDEBUG << "AM acks to wait: " << src.am_acks_to_wait
+        LOGNOTIFY << "AM acks to wait: " << src.am_acks_to_wait
                  << " GRD will return " << b_ret;
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -989,16 +1009,16 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_ShutDmSm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "Will send shutdown msg to all DMs and SMs";
+    LOGNOTIFY << "Will send shutdown msg to all DMs and SMs";
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
         // broadcast shutdown message to all DMs and SMs
         dst.dm_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_DATA_MGR);
-        LOGDEBUG << "Will wait for acks from " << dst.dm_acks_to_wait << " DMs";
+        LOGNOTIFY << "Will wait for acks from " << dst.dm_acks_to_wait << " DMs";
         dst.sm_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_STOR_MGR);
-        LOGDEBUG << "Will wait for acks from " << dst.sm_acks_to_wait << " SMs";
+        LOGNOTIFY << "Will wait for acks from " << dst.sm_acks_to_wait << " SMs";
         if (dst.dm_acks_to_wait == 0 && dst.sm_acks_to_wait == 0) {
             // do dummy acknowledge event so we progress to next state
             fsm.process_event(ShutAckEvt(fpi::FDSP_INVALID_SVC, ERR_OK));
@@ -1050,8 +1070,8 @@ NodeDomainFSM::GRD_DmSmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
                        (src.dm_acks_to_wait == 0));
         }
         
-        LOGDEBUG << "SM acknowledges to wait: " << src.sm_acks_to_wait
-                 << ", DM acknowledges to wait: " << src.dm_acks_to_wait;
+        LOGNOTIFY << "SM acknowledges to wait: " << src.sm_acks_to_wait
+                  << ", DM acknowledges to wait: " << src.dm_acks_to_wait;
 
         if ((src.sm_acks_to_wait == 0) &&
             (src.dm_acks_to_wait == 0)) {
@@ -1097,7 +1117,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             src.acks_to_wait--;
         }
 
-        LOGDEBUG << "PM acks for deactivate services to wait: " << src.acks_to_wait;
+        LOGNOTIFY << "PM acks for deactivate services to wait: " << src.acks_to_wait;
 
         if (src.acks_to_wait == 0) {
             b_ret = true;
@@ -1121,7 +1141,7 @@ void
 NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     // At this point we are ready to send msg to PMs to kill the services
-    LOGDEBUG << "Will send deactivate services msg to all PMs";
+    LOGNOTIFY << "Will send deactivate services msg to all PMs";
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
@@ -1154,6 +1174,11 @@ void
 NodeDomainFSM::DACT_Shutdown::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGCRITICAL << "Domain shut down. OM will reject all requests from services";
+
+    // Will reset domain down flag upon startup
+    // This is in case previously scheduled setupNewNode tasks start
+    // after the domain state machine is already at this point, we
+    // should reject those attempts
 }
 
 /**
@@ -1166,7 +1191,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "All services re-activated on domain activate";
+    LOGNOTIFY << "All services re-activated on domain activate";
 
     try {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1197,7 +1222,8 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
 OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
         : Module(name),
           fsm_lock("OM_NodeDomainMod fsm lock"),
-          configDB(nullptr)
+          configDB(nullptr),
+          domainDown(false)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1628,6 +1654,11 @@ OM_NodeDomainMod::om_startup_domain()
         return err;
     }
 
+    // Clear out shutdown related info here
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    clearShutdownList();
+    domain->setDomainShuttingDown(false);
+
     if ( ( sm_services.size() > 0 ) || ( dm_services.size() > 0 ) )
     {
         LOGNOTIFY << "Will wait for " << sm_services.size()
@@ -1643,7 +1674,6 @@ OM_NodeDomainMod::om_startup_domain()
     LOGNOTIFY << "Starting up domain, will allow processing node add/remove"
               << " and other commands for the domain";
 
-    clearShutdownList();
     // once domain state machine is in correct waiting state,
     // activate all known services on all known nodes (platforms)
     RsArray pmNodes;
@@ -2524,6 +2554,16 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
 
+    int64_t pmUuid = uuid.uuid_get_val();
+    pmUuid &= ~0xF; // clear out the last 4 bits
+
+    if ( isNodeShuttingDown(pmUuid) ) {
+        LOGWARN << "Will not execute setupNewNode for uuid:"
+                << std::hex << uuid << std::dec
+                << " since node is shutting down";
+        return;
+    }
+
     LOGNORMAL << "Scheduled task 'setupNewNode' started, uuid "
               << std::hex << uuid << std::dec;
 
@@ -2637,27 +2677,19 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      */
 
     if (om_local_domain_up()) {
-        int64_t pmUuid = uuid.uuid_get_val();
-        pmUuid &= ~0xF; // clear out the last 4 bits
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            om_dlt_update_cluster();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            // Check if this is a re-registration of an existing DM executor
+            LOGDEBUG << "Firing reregister event for DM node " << uuid;
+            dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
 
-        if ( !isNodeShuttingDown(pmUuid) ) {
-            if (msg->node_type == fpi::FDSP_STOR_MGR) {
-                om_dlt_update_cluster();
-            } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-                // Check if this is a re-registration of an existing DM executor
-                LOGDEBUG << "Firing reregister event for DM node " << uuid;
-                dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
-
-                // Send the DMT to DMs.
-                om_dmt_update_cluster(fPrevRegistered);
-                if (fPrevRegistered) {
-                    om_locDomain->om_bcast_vol_list(newNode);
-                    LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
-                }
+            // Send the DMT to DMs.
+            om_dmt_update_cluster(fPrevRegistered);
+            if (fPrevRegistered) {
+                om_locDomain->om_bcast_vol_list(newNode);
+                LOGDEBUG << "bcasting vol as domain is up : " << msg->node_type;
             }
-        } else {
-            LOGDEBUG << "Node:" << std::hex << pmUuid << std::dec
-                     << "is shutting down, will not attempt dlt/dmt update";
         }
     } else {
         LOGDEBUG << "OM local domain not up";
@@ -2779,6 +2811,21 @@ OM_NodeDomainMod::om_shutdown_domain()
         return ERR_NOT_READY;
     }
 
+    // If SM or DM migration is going on, reject the shutdown request
+    OM_Module *om       = OM_Module::om_singleton();
+    DataPlacement *dp   = om->om_dataplace_mod();
+    VolumePlacement *vp = om->om_volplace_mod();
+
+    if ( (!dp->hasNoTargetDlt()) && (dp->hasNonCommitedTarget()) ) {
+        LOGWARN << "SM migration in progress, cannot shutdown domain";
+        return Error(ERR_NOT_READY);
+    }
+
+    if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
+        LOGWARN << "DM migration in progress, cannot shutdown domain";
+        return Error(ERR_NOT_READY);
+    }
+
     LOGNOTIFY << "Shutting down domain, will stop processing node add/remove"
               << " and other commands for the domain";
 
@@ -2793,6 +2840,8 @@ OM_NodeDomainMod::om_shutdown_domain()
 
     local_domain_event(ShutdownEvt());
 
+    setDomainShuttingDown(true);
+
     return err;
 }
 
@@ -2805,9 +2854,12 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
-    dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
-    // in case there are no volume acknowledge to wait
-    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    if (!dmtMod->volumeGrpMode()) {
+        // Legacy mode - every node down and up event drives the state machine
+        dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
+        // in case there are no volume acknowledge to wait
+        dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    }
 }
 void
 OM_NodeDomainMod::om_dmt_waiting_timeout() {
@@ -2850,24 +2902,31 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType)
-{
+                                  fpi::FDSP_MgrIdType svcType) {
+
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     int64_t pmUuid = svcUuid.uuid_get_val();
     pmUuid &= ~0xF;
-
+    if (dmtMod->volumeGrpMode()) {
+        // For volume groups, replica layer takes care of intermittent state
+        LOGDEBUG << "Volume Group Mode: ignoring service down";
+        return;
+    }
     if (!isNodeShuttingDown(pmUuid)) {
-        if ( om_local_domain_up() )
+        if (om_local_domain_up())
         {
             if (svcType == fpi::FDSP_STOR_MGR)
             {
                 // this is SM -- notify DLT state machine
-                om_dlt_update_cluster();
+                LOGNOTIFY << "SM " << std::hex << svcUuid << " down. Will skip DLT recalculation until it rejoins.";
+                // om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)
             {
                 // this is DM -- notify DMT state machine
                 // For now, disable this as setupNewNode will throw the event
-                LOGNOTIFY << "DM " << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
+                LOGNOTIFY << "DM " << std::hex << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
                 // om_dmt_update_cluster();
             }
         } else {
@@ -2881,9 +2940,15 @@ void
 OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                                 fpi::FDSP_MgrIdType svcType)
 {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     int64_t pmUuid = svcUuid.uuid_get_val();
     pmUuid &= ~0xF;
-
+    if (dmtMod->volumeGrpMode()) {
+        // For volume groups, replica layer takes care of intermittent state
+        LOGDEBUG << "Volume Group Mode: ignoring service up";
+        return;
+    }
     if (!isNodeShuttingDown(pmUuid)) {
         if ( om_local_domain_up() )
         {
@@ -3122,9 +3187,9 @@ OM_NodeDomainMod::om_recv_dlt_close_resp(const NodeUuid& uuid,
 }
 
 void
-OM_NodeDomainMod::raiseAbortMigrationEvt(NodeUuid uuid) {
+OM_NodeDomainMod::raiseAbortSmMigrationEvt(NodeUuid uuid) {
 
-    LOGDEBUG << "Raising abort migration event from random SM, uuid:"
+    LOGDEBUG << "Raising abort migration event from SM, uuid:"
              << std::hex << uuid.uuid_get_val() << std::dec;
 
     OM_Module *om = OM_Module::om_singleton();
@@ -3133,6 +3198,37 @@ OM_NodeDomainMod::raiseAbortMigrationEvt(NodeUuid uuid) {
     // tell DLT state machine about abort (error state)
     dltMod->dlt_deploy_event(DltErrorFoundEvt(uuid,
                                               Error(ERR_SM_TOK_MIGRATION_ABORTED)));
+}
+
+void
+OM_NodeDomainMod::raiseAbortDmMigrationEvt(NodeUuid uuid) {
+
+    LOGDEBUG << "Raising abort migration event from DM, uuid:"
+             << std::hex << uuid.uuid_get_val() << std::dec;
+
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    // tell DMT state machine about abort (error state)
+    dmtMod->dmt_deploy_event(DmtErrorFoundEvt(uuid,
+                                              Error(ERR_DM_MIGRATION_ABORTED)));
+}
+
+// The domain down flag will be set for the duration of when
+// a domain shutdown request comes in, until a domain startup
+// is issued.
+// The nodeShutdown list(2 below) is populated both when a node is shutting
+// down independently and as a part of the domain shut down
+void
+OM_NodeDomainMod::setDomainShuttingDown(bool flag)
+{
+    domainDown = flag;
+}
+
+bool
+OM_NodeDomainMod::isDomainShuttingDown()
+{
+    return domainDown;
 }
 
 void
