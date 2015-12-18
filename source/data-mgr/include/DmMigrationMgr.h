@@ -8,6 +8,8 @@
 #include <fds_error.h>
 #include <DmMigrationExecutor.h>
 #include <DmMigrationClient.h>
+#include <DmMigrationDest.h>
+#include <DmMigrationSrc.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
 #include <counters.h>
@@ -20,6 +22,8 @@ class DmIoReqHandler;
 class DmMigrationMgr {
 	using DmMigrationExecMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationClient::shared_ptr>;
+	using DmMigrationDestMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationDest::shared_ptr>;
+    using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
 
   public:
     explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
@@ -437,6 +441,32 @@ class DmMigrationMgr {
      */
     std::atomic<bool> timerStarted;
     util::StopWatch migrationStopWatch;
+
+
+    /**
+     * Version 2: Uses volume group coordinator for peer migration
+     */
+    Error createMigrationSource(NodeUuid &destDmUuid,
+                                const NodeUuid& MySvcUuid,
+                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr rvmp,
+                                migrationCb cleanUp);
+
+    Error createMigrationDest(NodeUuid &srcDmUuid,
+                              fpi::FDSP_VolumeDescType &vol,
+                              int64_t migrationId);
+
+    /**
+     * Source side DM:
+     * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
+     */
+    DmMigrationSrcMap srcMap;
+
+   /**
+     * Destination side DM:
+     * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
+     */
+    DmMigrationDestMap destMap;
+
 
 };  // DmMigrationMgr
 }  // namespace fds

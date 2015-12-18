@@ -85,7 +85,9 @@ void invokeWork(SMApi *smapi,
     // header.msg_type_id = msgTypeId;
 
     try {
-        auto respHdr = gSvcRequestPool->newSvcRequestHeaderPtr(reqId, msgTypeId, dstUuid, srcUuid);
+        auto respHdr = gSvcRequestPool->\
+                       newSvcRequestHeaderPtr(reqId, msgTypeId, dstUuid, srcUuid,
+                                              DLT_VER_INVALID, 0, 0);
         respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         // auto hdr = new fpi::AsyncHdr();
         // auto respHdr = SvcRequestPool::newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid);

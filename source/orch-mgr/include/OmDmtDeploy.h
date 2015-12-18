@@ -166,6 +166,13 @@ class OM_DMTMod : public Module
     ~OM_DMTMod();
 
     /**
+     * Whether or not to do legacy mode or volumeGroupMode
+     */
+    inline bool volumeGrpMode() {
+        return volume_grp_mode;
+    }
+
+    /**
      * Return the current state of the DMT deployment FSM.
      */
     char const *const dmt_deploy_curr_state();
@@ -195,6 +202,8 @@ class OM_DMTMod : public Module
     FSM_DplyDMT     *dmt_dply_fsm;
     // to protect access to msm process_event
     fds_mutex       fsm_lock;
+    // Toggles for service replica mode
+    bool            volume_grp_mode;
 };
 
 extern OM_DMTMod             gl_OMDmtMod;
