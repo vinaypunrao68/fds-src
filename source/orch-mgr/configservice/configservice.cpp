@@ -120,7 +120,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
     void startupLocalDomain(const std::string& domainName) {}
-    void shutdownLocalDomain(const std::string& domainName) {}
+    int32_t shutdownLocalDomain(const std::string& domainName) { return 0; }
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
@@ -441,9 +441,10 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     *
     * @return void.
     */
-    void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
+    int32_t shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
         LocalDomain localDomain;
         checkMasterDomain();
+        Error err(ERR_OK);
 
         auto ret = configDB->getLocalDomain(*domainName, localDomain);
         if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
@@ -462,7 +463,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         try {
             LOGNORMAL << "Received shutdown for Local Domain " << domainName;
 
-            domain->om_shutdown_domain();
+            err = domain->om_shutdown_domain();
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -470,6 +471,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             apiException("Error shutting down Local Domain " + *domainName + " Services. Broadcast shutdown failed.");
         }
 
+        return err.GetErrno();
     }
 
     /**
