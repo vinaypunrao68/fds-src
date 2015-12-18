@@ -98,6 +98,9 @@ DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
     if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
     }
+    if (dataManager.features.isVolumegroupingEnabled()) {
+
+    }
 }
 
 void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

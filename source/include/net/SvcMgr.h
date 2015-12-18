@@ -62,6 +62,8 @@ using OMSvcClientPtr = boost::shared_ptr<OMSvcClient>;
 }
 namespace fpi = FDS_ProtocolInterface;
 
+DECL_EXTERN_OUTPUT_FUNCS(SvcUuid);
+
 namespace fds {
 
 namespace bo  = boost;
