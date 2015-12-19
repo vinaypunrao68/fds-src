@@ -56,6 +56,8 @@ void AbortBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoAbortBlobTx* typedRequest = static_cast<DmIoAbortBlobTx*>(dmRequest);
 
+    ENSURE_IO_ORDER(typedRequest);
+
     // Call TVC abortTx
     helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,
                                                       typedRequest->ioBlobTxDesc);

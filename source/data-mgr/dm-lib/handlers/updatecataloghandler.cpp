@@ -51,6 +51,8 @@ void UpdateCatalogHandler::handleQueueItem(DmRequest * dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
+    ENSURE_IO_ORDER(request);
+
     LOGDEBUG << "Will update blob " << *request;
 
     helper.err = dataManager.timeVolCat_->updateBlobTx(request->volId,

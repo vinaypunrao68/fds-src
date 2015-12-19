@@ -50,6 +50,9 @@
         return; \
     }
 
+/* Ensure IO is ordered */
+#define ENSURE_IO_ORDER(msg)
+
 namespace fds {
 
 struct DataMgr;

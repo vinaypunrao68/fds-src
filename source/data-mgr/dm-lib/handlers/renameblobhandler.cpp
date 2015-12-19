@@ -56,6 +56,8 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     auto source_tx = boost::make_shared<const BlobTxId>(typedRequest->message->source_tx_id);
     auto dest_tx = boost::make_shared<const BlobTxId>(typedRequest->message->destination_tx_id);
 
+    ENSURE_IO_ORDER(typedRequest);
+
     // Mock a commit request
     typedRequest->commitReq = new DmIoCommitBlobOnce<DmIoRenameBlob>(typedRequest->volId,
                                                                      dest_blob,
