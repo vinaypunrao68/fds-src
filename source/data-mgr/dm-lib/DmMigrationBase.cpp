@@ -50,7 +50,7 @@ void DmMigrationBase::asyncMsgFailed()
     dataMgr.counters->numberOfOutstandingIOs.decr(1);
     LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
     LOGERROR << logString() << " Async migration message failed, aborting";
-    dataMgr.dmMigrationMgr->abortMigration();
+    routeAbortMigration();
 }
 
 void DmMigrationBase::asyncMsgIssued()

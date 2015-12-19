@@ -171,6 +171,8 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
+  /* Volume version */
+  3: i32                                replicaVersion;
 }
 
 /**
@@ -684,6 +686,18 @@ struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }
 
 struct StartRefScanMsg {
+}
+
+struct CtrlNotifyGetActiveTxMsg {
+    1: i64      volume_id;
+    2: i64      DMT_version;
+}
+
+/**
+ * A map of blobTxId -> commitLogTx details
+ */
+struct CtrlNotifyGetActiveTxRspMsg {
+    1: map<i64, dm_types.DMCommitLogTx> activeTxMap;
 }
 
 /* ------------------------------------------------------------

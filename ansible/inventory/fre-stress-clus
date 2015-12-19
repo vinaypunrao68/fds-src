@@ -19,3 +19,4 @@ fds_ssh_user=root
 fds_ssh_password=passwd
 ansible_ssh_user=root
 ansible_ssh_pass=passwd
+install_fdsconsole=yes

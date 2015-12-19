@@ -83,7 +83,9 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
                                     const fpi::FDSPMsgTypeId &msgTypeId,
                                     const fpi::SvcUuid &srcUuid,
                                     const fpi::SvcUuid &dstUuid,
-                                    const fds_uint64_t dlt_version)
+                                    const fds_uint64_t dlt_version,
+                                    const fpi::ReplicaId &replicaId,
+                                    const int32_t &replicaVersion)
 {
     fpi::AsyncHdr header;
 
@@ -93,6 +95,8 @@ SvcRequestPool::newSvcRequestHeader(const SvcRequestId& reqId,
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
     header.dlt_version = dlt_version;
+    header.replicaId = replicaId;
+    header.replicaVersion = replicaVersion;
 
     return header;
 }
@@ -111,10 +115,13 @@ boost::shared_ptr<fpi::AsyncHdr> SvcRequestPool::newSvcRequestHeaderPtr(
                                     const fpi::FDSPMsgTypeId &msgTypeId,
                                     const fpi::SvcUuid &srcUuid,
                                     const fpi::SvcUuid &dstUuid,
-                                    const fds_uint64_t dlt_version)
+                                    const fds_uint64_t dlt_version,
+                                    const fpi::ReplicaId &replicaId,
+                                    const int32_t &replicaVersion)
 {
     boost::shared_ptr<fpi::AsyncHdr> hdr(new fpi::AsyncHdr());
-    *hdr = newSvcRequestHeader(reqId, msgTypeId, srcUuid, dstUuid, dlt_version);
+    *hdr = newSvcRequestHeader(reqId, msgTypeId, srcUuid,
+                               dstUuid, dlt_version, replicaId, replicaVersion);
     return hdr;
 }
 

@@ -21,6 +21,7 @@
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
+#include <net/volumegroup_extensions.h>
 
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
@@ -558,6 +559,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     Error err(ERR_OK);
     bool fActivated = false;
+    bool fSyncRequired  = false;
     // create vol catalogs, etc first
 
     bool fPrimary = false;
@@ -680,7 +682,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            volmeta->vol_desc->setState(fpi::Active);
+            if (features.isVolumegroupingEnabled()) {
+                volmeta->vol_desc->setState(fpi::Syncing);
+                fSyncRequired = true;
+            } else {
+                volmeta->vol_desc->setState(fpi::Active);
+            }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
             volmeta->vol_desc->setState(fpi::InError);
@@ -744,8 +751,58 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
     }
+    if (fSyncRequired) {
+        // TODO(Rao): Include the version
+        runSyncProtocol(0, *vdesc);
+    }
 
     return err;
+}
+
+void DataMgr::runSyncProtocol(int32_t version,
+                              const VolumeDesc &volDesc)
+{
+    /* Check if coordinator is set */
+    if (!volDesc.isCoordinatorSet()) {
+        // TODO(Rao): Become offline
+        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
+            << " Will go through sync once coordinator tries to open the volume";
+        return;
+    }
+    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
+    msg->targetState = fpi::ResourceState::Syncing;
+    msg->groupId = volDesc.volUUID.get();
+    msg->replicaVersion = version;
+    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+#ifdef IOHEADER_SUPPORTED
+    msg->lastOpId = opInfo_.appliedOpId;
+    msg->lastCommitId = opInfo_.appliedCommitId;
+#endif
+
+    /* Send message to coordinator requesting to be added to the group */
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
+    auto prevVersion = version;
+    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
+                                          const Error &e_,
+                                          StringPtr payload) {
+        // TODO(Rao): May need to do a version check here
+        // VERSION_CHECK(prevVersion, getVersion());
+        Error err = e_;
+        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
+        if (err != ERR_OK) {
+            fds_assert(!"Not handled");
+            // TODO(Rao): Multiple types of errors can be returned here..handle them
+            LOGERROR << "Failed to receive sync info from coordinator: " << err;
+            // TODO(Rao): Go into error state
+            return;
+        }
+        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
+        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
+        // TODO(Rao): Initiate migration
+    });
+    req->invoke();
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -983,6 +1040,9 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
         "fds.dm.req_serialization", true));
 
+    features.setVolumegroupingEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false));
+
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
     /*
@@ -1086,9 +1146,9 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = standalone ? 60*1000 :
-            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "node_iops_min");
+    auto diskIOPsMin = standalone ? 60*1000 :
+            atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
+                                        "node_iops_min").c_str());
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1096,7 +1156,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2 * diskIOPsMin;
+    scheduleRate = 2 * static_cast<uint32_t>(diskIOPsMin);
+    fds_assert(scheduleRate > 0);
     LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
@@ -1621,7 +1682,9 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
         FDS_QoSControl(_max_thrds, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                                      parentDm->qosOutstandingTasks, log);
+                                      parentDm->qosOutstandingTasks, 
+                                      false,
+                                      log);
 
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(*threadPool));

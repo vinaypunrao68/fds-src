@@ -3640,7 +3640,8 @@ void OM_NodeContainer::om_bcast_svcmap()
         SvcRequestPool::SVC_UNTRACKED_REQ_ID,
         FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
         svcMgr->getSelfSvcUuid(),
-        fpi::SvcUuid());
+        fpi::SvcUuid(),
+        DLT_VER_INVALID, 0, 0 );
 
     // TODO(Rao): add the filter so that we don't send the broad cast to om
     svcMgr->broadcastAsyncSvcReqMessage(header, buf,

@@ -102,6 +102,11 @@ class DmMigrationClient : public DmMigrationBase {
                                std::vector<std::string>& delete_list,
                                const fds_bool_t &abortFlag);
 
+    /**
+     * Overrides the base and routes to the mgr
+     */
+    void routeAbortMigration() override;
+
     // Called by MigrationMgr to clean up any ongoing residue due to migration
     void abortMigration();
 
