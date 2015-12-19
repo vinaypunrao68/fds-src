@@ -182,6 +182,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
+        DEF_FEATURE(Volumegrouping, false);
     } features;
 
     dm::Counters* counters;
@@ -363,6 +364,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
+    // Runs sync protocol
+    void runSyncProtocol(int32_t version,
+                         const VolumeDesc &volDesc);
     /*
      * Gets and sets Number of primary DMs.
      */

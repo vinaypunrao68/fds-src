@@ -8,6 +8,7 @@
 #include <string>
 #include <unistd.h>
 #include <exception>
+#include <functional>
 #include <arpa/inet.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -105,6 +106,14 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
     }
     payloadBuf = bo::make_shared<std::string>();
     *payloadBuf = buffer->getBufferAsString();
+}
+
+template<class PayloadT>
+bo::shared_ptr<std::string> serializeFdspMsg(const PayloadT &payload)
+{
+    bo::shared_ptr<std::string> payloadBuf;
+    serializeFdspMsg<PayloadT>(payload, payloadBuf);
+    return payloadBuf;
 }
 
 /**
