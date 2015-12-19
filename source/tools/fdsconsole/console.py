@@ -340,8 +340,12 @@ class FDSConsole(cmd.Cmd):
             print '%10s   =  %5s' % (argv[0], self.config.getSystem(argv[0]))
             return
 
-        if argv[0] in helpers.PROTECTED_KEYS:
-            print 'cannot modify a protected system key : %s' % (argv[0])
+        modifiablekeys=['username','gridoutput','password','port','host']
+        if not self.debugTool:
+            modifiablekeys.append('host')
+
+        if argv[0] not in modifiablekeys:
+            print 'can set only these : {}'.format(modifiablekeys)
             return
 
         self.config.setSystem(argv[0], argv[1])
@@ -368,7 +372,7 @@ class FDSConsole(cmd.Cmd):
         raise ConsoleExit()
 
     def help_exit(self, *args):
-        print 'exit the fds console'
+        print 'exit'
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.get_access_level()]

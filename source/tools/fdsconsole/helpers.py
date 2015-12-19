@@ -17,6 +17,7 @@ from fdslib import platformservice
 import re
 import humanize
 import itertools
+import time
 
 def get_simple_re(pattern, flags=re.IGNORECASE):
     if pattern == None:
@@ -44,6 +45,20 @@ def expandIntRange(data, generator=False):
             return [n for n in itertools.chain.from_iterable(ranges)]
     except Exception as e:
         raise Exception('unable to expand range [{}] - {}'.format(data,e))
+
+def addHumanInfo(datamap, nozero = False):
+    for key in datamap.keys():
+        if nozero and int(datamap[key]) == 0:
+            continue
+        if key.endswith('.timestamp'):
+            value='{} ago'.format(humanize.naturaldelta(time.time()-int(datamap[key]))) if datamap[key] > 0 else 'not yet'
+            datamap[key + ".human"] = value
+        elif key.endswith('.totaltime'):
+            value = '{}'.format(humanize.naturaldelta(datamap[key]))
+            datamap[key + ".human"] = value
+        elif key.endswith('.bytes'):
+            value = '{}'.format(humanize.naturalsize(datamap[key]))
+            datamap[key + ".human"] = value
 
 class AccessLevel:
     '''

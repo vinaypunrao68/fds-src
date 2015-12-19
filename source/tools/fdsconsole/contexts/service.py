@@ -5,7 +5,6 @@ import FdspUtils
 import restendpoint
 import re
 import types
-import humanize
 import time
 import socket
 
@@ -218,19 +217,7 @@ class ServiceContext(Context):
             for uuid in self.getServiceIds(svcid):
                 p=helpers.get_simple_re(match)
                 cntrs = ServiceMap.client(uuid).getCounters('*')
-                addeditems={}
-                for key in cntrs:
-                    if not zero and cntrs[key] == 0:
-                        continue
-                    if key.endswith('.timestamp'):
-                        value='{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key]))) if cntrs[key] > 0 else 'not yet'
-                        addeditems[key + ".human"] = value
-                    elif key.endswith('.totaltime'):
-                        value = '{}'.format(humanize.naturaldelta(cntrs[key]))
-                        addeditems[key + ".human"] = value
-
-                cntrs.update(addeditems)
-
+                helpers.addHumanInfo(cntrs, not zero)
                 data = [(v,k) for k,v in cntrs.iteritems() if (not p or p.match(k)) and (zero or v != 0)]
                 data.sort(key=itemgetter(1))
                 if len(data) > 0:
