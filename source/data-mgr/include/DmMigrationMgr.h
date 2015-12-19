@@ -446,6 +446,10 @@ class DmMigrationMgr {
     /**
      * Version 2: Uses volume group coordinator for peer migration
      */
+    Error startMigration(NodeUuid&srcDmUuid,
+                         fpi::FDSP_VolumeDescType &vol,
+                         int64_t migrationId);
+
     Error createMigrationSource(NodeUuid &destDmUuid,
                                 const NodeUuid& MySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr rvmp,
@@ -467,6 +471,17 @@ class DmMigrationMgr {
      */
     DmMigrationDestMap destMap;
 
+    /**
+     * Locks for the above maps
+     */
+    fds_rwlock migrSrcLock;
+    fds_rwlock migrDestLock;
+
+    // Get a destination ptr
+    DmMigrationDest::shared_ptr getMigrationDest(std::pair<NodeUuid, fds_volid_t> uniqueId);
+
+    // Get a source ptr
+    DmMigrationSrc::shared_ptr getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId);
 
 };  // DmMigrationMgr
 }  // namespace fds

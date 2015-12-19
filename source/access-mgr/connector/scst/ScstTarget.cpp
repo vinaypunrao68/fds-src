@@ -176,7 +176,7 @@ void ScstTarget::mapDevices() {
 
 void
 ScstTarget::clearMasking() {
-    GLOGNORMAL << "Clearing initiator mask for: " << target_name;
+    GLOGDEBUG << "Clearing initiator mask for: " << target_name;
     // Remove the security group
     {
         std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,

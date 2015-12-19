@@ -1146,9 +1146,9 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = standalone ? 60*1000 :
-            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "node_iops_min");
+    auto diskIOPsMin = standalone ? 60*1000 :
+            atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
+                                        "node_iops_min").c_str());
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1156,7 +1156,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2 * diskIOPsMin;
+    scheduleRate = 2 * static_cast<uint32_t>(diskIOPsMin);
+    fds_assert(scheduleRate > 0);
     LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*

@@ -50,7 +50,6 @@ std::string logString(const fpi::UpdateTxMsg& msg);
 std::string logString(const fpi::CommitTxMsg& msg);
 std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg);
 std::string logString(const fpi::PullCommitLogEntriesMsg &msg);
-std::string logString(const fpi::PullActiveTxsMsg& msg);
 std::string logString(const fpi::VolumeGroupInfo &group);
 std::string logString(const fpi::AddToVolumeGroupRespCtrlMsg& msg);
 
