@@ -62,6 +62,8 @@ using OMSvcClientPtr = boost::shared_ptr<OMSvcClient>;
 }
 namespace fpi = FDS_ProtocolInterface;
 
+DECL_EXTERN_OUTPUT_FUNCS(SvcUuid);
+
 namespace fds {
 
 namespace bo  = boost;
@@ -222,8 +224,7 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief  Returns property for service with svcUuid
     * @throws when service or key are not found
     */
-    template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
+    std::string getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
         fpi::SvcInfo svcInfo;
         bool found = getSvcInfo(svcUuid, svcInfo);
         if (!found) {
@@ -236,7 +237,7 @@ struct SvcMgr : HasModuleProvider, Module {
             GLOGWARN << "Unknown key: " << key;
             throw SvcKeyException(key + " not found");
         }
-        return boost::lexical_cast<T>(itr->second);
+        return itr->second;
     }
 
     /**
@@ -245,11 +246,10 @@ struct SvcMgr : HasModuleProvider, Module {
     * @param key
     * @param defaultVal
     */
-    template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid,
-                     const std::string& key, const T &defaultVal) {
+    std::string getSvcProperty(const fpi::SvcUuid &svcUuid,
+                     const std::string& key, const std::string &defaultVal) {
         try {
-            return getSvcProperty<T>(svcUuid, key);
+            return getSvcProperty(svcUuid, key);
         } catch (std::exception &e) {
             return defaultVal;
         }
@@ -477,6 +477,9 @@ struct SvcMgr : HasModuleProvider, Module {
     * @return 
     */
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
+                                     const fpi::FDSP_MgrIdType& svcType);
+
+    static fpi::SvcUuid mapToSvcUuid(const NodeUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
 
     /**

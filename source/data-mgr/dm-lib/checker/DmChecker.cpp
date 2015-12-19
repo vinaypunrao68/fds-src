@@ -66,7 +66,7 @@ uint32_t DMOfflineCheckerEnv::getReplicaCount(const fds_volid_t &volId) const {
 std::string DMOfflineCheckerEnv::getCatalogPath(const fds_volid_t &volId,
                                                 const uint32_t &replicaIdx) const {
     auto dmSvcUuid = svcMgr_->getDMTNodesForVolume(volId)->get(replicaIdx).toSvcUuid();
-    std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
+    std::string nodeRoot = svcMgr_->getSvcProperty(
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
     std::string path;

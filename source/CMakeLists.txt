@@ -53,7 +53,9 @@ include_directories(${INCLUDE_DIRECTORIES})
 
 set(SOURCE_FILES
     ./access-mgr/amlib/AccessMgr.cpp
+    ./access-mgr/amlib/AmAsyncDataApi.cpp
     ./access-mgr/amlib/AmCache.cpp
+    ./access-mgr/amlib/AmDataProvider.cpp
     ./access-mgr/amlib/AmDispatcher.cpp
     ./access-mgr/amlib/AmDispatcherMocks.hpp
     ./access-mgr/amlib/AmProcessor.cpp
@@ -62,8 +64,9 @@ set(SOURCE_FILES
     ./access-mgr/amlib/AmTxDescriptor.cpp
     ./access-mgr/amlib/AmTxManager.cpp
     ./access-mgr/amlib/AmVolume.cpp
-    ./access-mgr/amlib/AmVolumeAccessToken.cpp
     ./access-mgr/amlib/AmVolumeTable.cpp
+    ./access-mgr/amlib/BlockOperations.cpp
+    ./access-mgr/amlib/BlockTask.cpp
     ./access-mgr/amlib/handlers/responsehandler.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp
@@ -101,8 +104,6 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/StatVolumeReq.h
     ./access-mgr/include/requests/VolumeContentsReq.h
     ./access-mgr/include/AccessMgr.h
-    ./access-mgr/include/AmAsyncDataApi.h
-    ./access-mgr/include/AmAsyncDataApi_impl.h
     ./access-mgr/include/AmAsyncResponseApi.h
     ./access-mgr/include/AmCache.h
     ./access-mgr/include/AmDispatcher.h
@@ -147,6 +148,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/renameblobhandler.cpp
     ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
     ./data-mgr/dm-lib/handlers/setvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/simplehandler.cpp
     ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
     ./data-mgr/dm-lib/handlers/statstreamhandler.cpp
     ./data-mgr/dm-lib/handlers/statvolumehandler.cpp
@@ -159,6 +161,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/timeline/timelinemanager.cpp
     ./data-mgr/dm-lib/CatalogSync.cpp
     ./data-mgr/dm-lib/CatalogSyncRecv.cpp
+    ./data-mgr/dm-lib/counters.cpp
     ./data-mgr/dm-lib/DataMgr.cpp
     ./data-mgr/dm-lib/DmBlobTypes.cpp
     ./data-mgr/dm-lib/DmMigrationBase.cpp
@@ -220,37 +223,7 @@ set(SOURCE_FILES
     ./include/S3Client.h
     ./include/StatTypes.h
     ./include/Tracebuffer.h
-./include/apis/AmService.cpp
-./include/apis/AmService.h
-./include/apis/AmService_server.skeleton.cpp
-./include/apis/AsyncAmServiceRequest.cpp
-./include/apis/AsyncAmServiceRequest.h
-./include/apis/AsyncAmServiceRequest_server.skeleton.cpp
-./include/apis/AsyncAmServiceResponse.cpp
-./include/apis/AsyncAmServiceResponse.h
-./include/apis/AsyncAmServiceResponse_server.skeleton.cpp
-./include/apis/ConfigurationService.cpp
-./include/apis/ConfigurationService.h
-./include/apis/ConfigurationService_server.skeleton.cpp
-./include/apis/Streaming.cpp
-./include/apis/Streaming.h
-./include/apis/Streaming_server.skeleton.cpp
-./include/apis/apis_constants.cpp
-./include/apis/apis_constants.h
-./include/apis/apis_types.cpp
-./include/apis/apis_types.h
-./include/apis/common_constants.cpp
-./include/apis/common_constants.h
-./include/apis/common_types.cpp
-./include/apis/common_types.h
-./include/apis/fds_stream_constants.cpp
-./include/apis/fds_stream_constants.h
-./include/apis/fds_stream_types.cpp
-./include/apis/fds_stream_types.h
-./include/apis/snapshot_constants.cpp
-./include/apis/snapshot_constants.h
-./include/apis/snapshot_types.cpp
-./include/apis/snapshot_types.h
+
 ./include/blob/BlobTypes.h
 ./include/cache/KvCache.h
 ./include/cache/SharedKvCache.h
@@ -593,6 +566,7 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
+    ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp
@@ -733,6 +707,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/ObjectMetaDb.h
     ./stor-mgr/include/object-store/ObjectPersistData.h
     ./stor-mgr/include/object-store/ObjectStore.h
+    ./stor-mgr/include/object-store/ObjectStoreCommon.h
     ./stor-mgr/include/object-store/RandomRankPolicy.h
     ./stor-mgr/include/object-store/RankEngine.h
     ./stor-mgr/include/object-store/Scavenger.h
@@ -742,6 +717,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/SmTokenState.h
     ./stor-mgr/include/object-store/TieringConfig.h
     ./stor-mgr/include/object-store/TokenCompactor.h
+    ./stor-mgr/include/counters.h
     ./stor-mgr/include/data_obj.h
     ./stor-mgr/include/HybridTierCtrlr.h
     ./stor-mgr/include/MigrationClient.h
@@ -757,17 +733,15 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/SmCtrl.h
     ./stor-mgr/include/SmDiskTypes.h
     ./stor-mgr/include/SmIo.h
-    ./stor-mgr/include/SmObjDb.h
     ./stor-mgr/include/SMSvcHandler.h
     ./stor-mgr/include/SmTypes.h
-    ./stor-mgr/include/stor_mgr.h
     ./stor-mgr/include/StorMgr.h
     ./stor-mgr/include/StorMgrVolumes.h
     ./stor-mgr/include/TierEngine.h
     ./stor-mgr/include/TierMigration.h
-    ./stor-mgr/include/TierPutAlgorithms.h
     ./stor-mgr/protos/counting_bloom_filter/CountingBloomFilter.hpp
     ./stor-mgr/protos/counting_bloom_filter/RandomHashGenerator.cpp
+    ./stor-mgr/smlib/object-store/LiveObjectsDB.cpp
     ./stor-mgr/smlib/object-store/ObjectDataCache.cpp
     ./stor-mgr/smlib/object-store/ObjectDataStore.cpp
     ./stor-mgr/smlib/object-store/ObjectMetaCache.cpp
@@ -782,6 +756,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/object-store/SmTokenPlacement.cpp
     ./stor-mgr/smlib/object-store/SmTokenState.cpp
     ./stor-mgr/smlib/object-store/TokenCompactor.cpp
+    ./stor-mgr/smlib/counters.cpp
     ./stor-mgr/smlib/HybridTierCtrlr.cpp
     ./stor-mgr/smlib/MigrationClient.cpp
     ./stor-mgr/smlib/MigrationExecutor.cpp
@@ -792,7 +767,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/ObjRank.cpp
     ./stor-mgr/smlib/ObjStats.cpp
     ./stor-mgr/smlib/SmIo.cpp
-    ./stor-mgr/smlib/SmObjDb.cpp
     ./stor-mgr/smlib/SMSvcHandler.cpp
     ./stor-mgr/smlib/SMCheck.cpp
     ./stor-mgr/smlib/SMCheckCtrl.cpp
@@ -800,7 +774,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/StorMgrVolumes.cpp
     ./stor-mgr/smlib/TierEngine.cpp
     ./stor-mgr/smlib/TierMigration.cpp
-    ./stor-mgr/smlib/TierPutAlgorithms.cpp
     ./stor-mgr/utils/SMCheckDriver.cpp
     ./stor-mgr/utils/SMCheckDriver.h
     ./stor-mgr/stormgr_main.cpp
@@ -874,6 +847,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./umod-lib/common/fdsp_utils.cpp
     ./umod-lib/common/PerfTrace.cpp
     ./umod-lib/common/Tracebuffer.cpp
+    ./umod-lib/common/StatTypes.cpp
 
     ./umod-lib/concurrency/Mutex.cpp
     ./umod-lib/concurrency/Synchronization.cpp

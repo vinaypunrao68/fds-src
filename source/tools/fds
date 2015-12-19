@@ -59,6 +59,8 @@ apps["dm"]="DataMgr"
 apps["pm"]="platformd"
 apps["rabbitmq"]="rabbitmq"
 apps["stats"]="stats.service.Main"
+apps["redis"]="redis-server"
+apps["influxdb"]="influxd"
 
 declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
@@ -78,6 +80,7 @@ function usage() {
     log "   - $(yellow cleanstart): stop+clean+start all"
     log "   - $(yellow test)      : run specific tests"
     log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow top)       : top command for fds apps"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
     log "   - $(yellow nomemchk)  : run services $(green normally)"
@@ -90,7 +93,7 @@ function usage() {
     log "   : $(yellow --xdi-debug-port) java debugger port #"
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
-    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
+    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
     printBuildMode
     printRunMode
     exit 0
@@ -192,7 +195,7 @@ function activate() {
         sleep 14
 
         logwarn "asking OM to accept all discovered nodes..."
-	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
+	(cd ${TOOLSDIR}; /usr/bin/python fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
     fi
 }
 
@@ -225,7 +228,7 @@ function startApp() {
         stats|all|rabbitmq)
             loginfo "Starting RabbitMQ server..."
             PATH=$PATH:${RABBITDIR} rabbitmq-server start &
-	    loginfo "Starting stats service..."
+            loginfo "Starting stats service..."
             ${STATSDIR}/scripts/fds-stats-service &
             ;;
     esac
@@ -255,14 +258,14 @@ function startApp() {
 
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 echo $params
-		valgrind=""
+                valgrind=""
                 if test ${RUNMODE} == "memchk"; then
                     valgrind="valgrind ${VALGRIND_OPTIONS}${apps[$name]}.%p.memcheck"
                 fi
-	        (cd ${BINDIR}; ${valgrind} ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
+                (cd ${BINDIR}; ${valgrind} ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
 
-		if ! (waitForApp $name) ; then
+                if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
@@ -288,7 +291,7 @@ function stopApp() {
         ${TOOLSDIR}/redis.sh stop 1 $REDIS_ARG
     fi
 
-    case "$appname" in 
+    case "$appname" in
         om|all|influx*)
             if [ "$CMD" != "clean" ]; then
                 stopInfluxDB
@@ -420,12 +423,12 @@ function statusApp() {
         ${TOOLSDIR}/redis.sh status 1 $REDIS_ARG
     fi
 
-    case "$appname" in 
+    case "$appname" in
         om|all|influx*)
             sudo service influxdb status 2>&1 >> /dev/null
             if [ $? == 0 ]; then
                 echo "$(boldblue influxdb) : $(green RUNNING)"
-            else 
+            else
                 echo "$(boldblue influxdb) : $(yellow Not running)"
             fi
             ;;
@@ -448,7 +451,7 @@ function getAppPid() {
         echo -n $pid
     else
         for p in $pid; do
-            if [[ "Z" != $(ps -o s= -p $p) ]]; then 
+            if [[ "Z" != $(ps -o s= -p $p) ]]; then
                 echo -n "$p "
             fi
         done
@@ -544,6 +547,30 @@ function taillog() {
     esac
 }
 
+function showtop() {
+    local justapps="${applist}"
+    if [[ $1 == 'all' ]]; then
+        justapps="${applist} influxdb"
+    else
+        justapps="$@"
+    fi
+
+    topparams=""
+    for name in $justapps ; do
+        pid="$(getAppPid $name zombie)"
+        if [[ -n $pid ]] ; then
+            for procid in $pid ; do
+                topparams="${topparams} -p $pid"
+            done
+        fi
+    done
+
+    if [[ -n ${topparams} ]]; then
+        exec top -c ${topparams}
+    fi
+}
+
+
 function showerrors() {
     local apps="$@"
     if [[ $1 == 'all' ]]; then
@@ -568,6 +595,8 @@ function showerrors() {
         echo
     done
 }
+
+
 
 function showports() {
     local apps="$@"
@@ -623,18 +652,18 @@ function clean() {
                 rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-		# valgrind stuff
+                # valgrind stuff
                 rm -rf /${node}/memcheck/*.memcheck
 
-		rm -rf /${node}/var/logs/*.log*
-		rm -rf /${node}/var/logs/archive
-		rm -rf /${node}/var/logs/*DLT
+                rm -rf /${node}/var/logs/*.log*
+                rm -rf /${node}/var/logs/archive
+                rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
         fi
     done
 
-	rm -f /dev/shm/0x*
+        rm -f /dev/shm/0x*
 
     cleanInfluxDB
     cleanBinDirs
@@ -708,11 +737,11 @@ do
         -h|--help)
             usage
             ;;
-        nomemchk)
+        nomemch*)
             setRunMode nomemchk
             exit 0
             ;;
-        memchk)
+        memch*)
             setRunMode memchk
             exit 0
             ;;
@@ -738,11 +767,16 @@ do
             exit 0
             ;;
         # detect commands
-        kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*)
+        kill|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
+        test)
+            CMD=$opt
+            (( n++ ))
+            APP="${args[$n]}"
+            ;;
         # detect app
-        om|am|dm|sm|pm|all|redis) 
+        om|am|dm|sm|pm|all|redis)
             APP=$opt
             ;;
         *)
@@ -774,12 +808,12 @@ FDSROOT=${FDSROOT:=/fds}
 TESTNAME=""
 FDSLOGROOT=${FDSROOT}/var/logs
 
-#echo CMD:               ${CMD} 
-#echo APP:                ${APP} 
-#echo FDSROOT:      ${FDSROOT} 
-#echo SOURCEDIR:   ${SOURCEDIR} 
-#echo TOOLSDIR:     ${TOOLSDIR} 
-#echo CONFIG_ETC:  ${CONFIG_ETC} 
+#echo CMD:               ${CMD}
+#echo APP:                ${APP}
+#echo FDSROOT:      ${FDSROOT}
+#echo SOURCEDIR:   ${SOURCEDIR}
+#echo TOOLSDIR:     ${TOOLSDIR}
+#echo CONFIG_ETC:  ${CONFIG_ETC}
 #echo BINDIR:           ${BINDIR}
 #echo args:                ${args[@]}
 #exit 0
@@ -827,6 +861,9 @@ case "${CMD}" in
         ;;
     port*)
         showports $APP
+        ;;
+    top)
+        showtop $APP
         ;;
     *) usage ;;
 esac

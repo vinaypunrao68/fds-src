@@ -194,12 +194,6 @@ class VolumeInfo : public Resource, public HasState
         return vol_properties;
     }
 
-    /**
-     * Convert and populate the FDSP version of volume descriptors from
-     * the internal VolumeDesc type
-     */
-    void vol_populate_fdsp_descriptor(fpi::CtrlNotifyVolAdd &fdsp_voladd);
-
     fpi::ResourceState getState() const {
         if (vol_properties) return vol_properties->getState();
         return fpi::ResourceState::Unknown;
@@ -327,8 +321,9 @@ class VolumeContainer : public RsContainer
                                 const FdspDelVolPtr           &del_msg);
     Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                          const std::string& vol_name);
+    virtual Error om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                           const std::string& vol_name,
+                                           VolumeDesc& desc);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
         fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 

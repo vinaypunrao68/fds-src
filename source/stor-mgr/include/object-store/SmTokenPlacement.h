@@ -28,9 +28,8 @@ namespace fds {
  */
 #define OBJ_LOCATION_TABLE_SECTOR_SIZE    (512)
 
-struct ObjectLocationTable {
+struct __attribute__((__packed__)) ObjectLocationTable {
     ObjectLocationTable();
-    ~ObjectLocationTable();
 
     /**
      * Sets disk id for a given sm token id and tier

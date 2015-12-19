@@ -10,6 +10,7 @@
 #include <string>
 
 #include <fds_dmt.h>
+#include <include/net/SvcMgr.h>
 
 namespace fds {
 
@@ -69,6 +70,15 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     fds_uint32_t col_index = volume_id.get() % columns;
     return dmt_table->at(col_index);
 }
+
+std::vector<fpi::SvcUuid>
+DMT::getSvcUuids(fds_volid_t volume_id) const
+{
+    auto column = getNodeGroup(volume_id);
+    return column->toSvcUuids();
+}
+        
+
 
 /**
  * returns column index for given 'volume_id' for a given number of
@@ -193,6 +203,42 @@ std::ostream& operator<< (std::ostream &oss, const DMT& dmt) {
     return oss;
 }
 
+Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
+    Error err(ERR_OK);
+
+    // we should not have more rows than nodes
+    if (getDepth() > expectedUuidSet.size()) {
+        LOGERROR << "DMT has more rows (" << depth
+                 << ") than nodes (" << expectedUuidSet.size() << ")";
+        return ERR_INVALID_DLT;
+    }
+
+    // check each column in DMT
+    NodeUuidSet colSet;
+    for (fds_token_id i = 0; i < getNumColumns(); ++i) {
+        colSet.clear();
+        DmtColumnPtr column = getNodeGroup(i);
+        for (fds_uint32_t j = 0; j < getDepth() ; ++j) {
+            NodeUuid uuid = column->get(j);
+            if ((uuid.uuid_get_val() == 0) ||
+                (expectedUuidSet.count(uuid) == 0)) {
+                // unexpected uuid in this DMT cell
+                LOGERROR << "DMT contains unexpected uuid " << std::hex
+                         << uuid.uuid_get_val() << std::dec;
+                return ERR_INVALID_DMT;
+            }
+            colSet.insert(uuid);
+        }
+
+        // make sure that column contains all unique uuids
+        if (colSet.size() < depth) {
+            LOGERROR << "Found non-unique uuids in DMT column " << i;
+            return ERR_INVALID_DMT;
+        }
+    }
+
+    return err;
+}
 Error DMT::verify() const {
     Error err(ERR_OK);
     std::vector<DmtColumnPtr>::const_iterator it;
@@ -255,6 +301,17 @@ void DMT::getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const {
 bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const {
     auto nodeGroup = getNodeGroup(volId);
     return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
+}
+
+DMTPtr DMT::newDMT(const std::vector<fpi::SvcUuid> &column)
+{
+    auto dmt = MAKE_SHARED<DMT>(1, column.size(), 1);
+    TableColumn tc(column.size());
+    for (uint32_t i = 0; i < column.size(); i++) {
+        tc.set(i, column[i].svc_uuid);
+    }
+    dmt->setNodeGroup(0, tc);
+    return dmt;
 }
 
 /***** DMTManager implementation ****/

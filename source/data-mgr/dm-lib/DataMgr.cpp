@@ -10,8 +10,11 @@
 #include <fds_timestamp.h>
 #include <lib/StatsCollector.h>
 #include <DataMgr.h>
+#include <DmMigrationMgr.h>
+#include <dmhandler.h>
 #include "fdsp/sm_api_types.h"
 #include <dmhandler.h>
+#include <counters.h>
 #include <util/stringutils.h>
 #include <util/path.h>
 #include <util/disk_utils.h>
@@ -19,8 +22,7 @@
 #include <fiu-local.h>
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
-
-
+#include <net/volumegroup_extensions.h>
 
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
@@ -486,9 +488,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
 }
 
 /**
- * Note that volId may not necessarily match volume id in ioReq
- * Example when it will not match: if we enqueue request for volumeA
- * to shadow queue, we will pass shadow queue's volId (queue id)
+* Note that volId may not necessarily match volume id in ioReq
+* Example when it will not match: if we enqueue request for volumeA
+* to shadow queue, we will pass shadow queue's volId (queue id)
  * but ioReq will contain actual volume id; so maybe we should change
  * this method to pass queue id as first param not volid
  */
@@ -535,8 +537,8 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
- * other DM first
- */
+* other DM first
+*/
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
@@ -558,6 +560,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     Error err(ERR_OK);
     bool fActivated = false;
+    bool fSyncRequired  = false;
     // create vol catalogs, etc first
 
     bool fPrimary = false;
@@ -680,7 +683,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            volmeta->vol_desc->setState(fpi::Active);
+            if (features.isVolumegroupingEnabled()) {
+                volmeta->vol_desc->setState(fpi::Syncing);
+                fSyncRequired = true;
+            } else {
+                volmeta->vol_desc->setState(fpi::Active);
+            }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
             volmeta->vol_desc->setState(fpi::InError);
@@ -744,8 +752,58 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
     }
+    if (fSyncRequired) {
+        // TODO(Rao): Include the version
+        runSyncProtocol(0, *vdesc);
+    }
 
     return err;
+}
+
+void DataMgr::runSyncProtocol(int32_t version,
+                              const VolumeDesc &volDesc)
+{
+    /* Check if coordinator is set */
+    if (!volDesc.isCoordinatorSet()) {
+        // TODO(Rao): Become offline
+        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
+            << " Will go through sync once coordinator tries to open the volume";
+        return;
+    }
+    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
+    msg->targetState = fpi::ResourceState::Syncing;
+    msg->groupId = volDesc.volUUID.get();
+    msg->replicaVersion = version;
+    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+#ifdef IOHEADER_SUPPORTED
+    msg->lastOpId = opInfo_.appliedOpId;
+    msg->lastCommitId = opInfo_.appliedCommitId;
+#endif
+
+    /* Send message to coordinator requesting to be added to the group */
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
+    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
+    auto prevVersion = version;
+    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
+                                          const Error &e_,
+                                          StringPtr payload) {
+        // TODO(Rao): May need to do a version check here
+        // VERSION_CHECK(prevVersion, getVersion());
+        Error err = e_;
+        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
+        if (err != ERR_OK) {
+            fds_assert(!"Not handled");
+            // TODO(Rao): Multiple types of errors can be returned here..handle them
+            LOGERROR << "Failed to receive sync info from coordinator: " << err;
+            // TODO(Rao): Go into error state
+            return;
+        }
+        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
+        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
+        // TODO(Rao): Initiate migration
+    });
+    req->invoke();
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -829,7 +887,7 @@ void DataMgr::detachVolume(fds_volid_t vol_uuid) {
     }
     statStreamAggr_->detachVolume(vol_uuid);
     LOGNORMAL << "Detached vol meta for vol uuid "
-        << std::hex << vol_uuid << std::dec;
+              << std::hex << vol_uuid << std::dec;
 }
 
 Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
@@ -862,7 +920,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
  * For all the volumes under going Active Migration forwarding,
  * turn them off.
  */
-Error DataMgr::notifyDMTClose() {
+Error DataMgr::notifyDMTClose(int64_t dmtVersion) {
     Error err(ERR_OK);
 
     // TODO(Andrew): Um, no where to we have a useful error statue
@@ -870,7 +928,8 @@ Error DataMgr::notifyDMTClose() {
     sendDmtCloseCb(err);
     LOGMIGRATE << "Sent DMT close message to OM";
     dmMigrationMgr->stopAllClientForwarding();
-    err = dmMigrationMgr->finishActiveMigration(DmMigrationMgr::MigrationRole::MIGR_CLIENT);
+    err = dmMigrationMgr->finishActiveMigration(
+        DmMigrationMgr::MigrationRole::MIGR_CLIENT, dmtVersion);
     return err;
 }
 
@@ -935,10 +994,10 @@ int DataMgr::mod_init(SysParams const *const param)
 
     lastCapacityMessageSentAt = 0;
     sampleCounter = 0;
-
+    counters = new fds::dm::Counters("dmcounters", MODULEPROVIDER()->get_cntrs_mgr().get());
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
-    closedmt_timer = boost::make_shared<FdsTimer>();
-    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
+    auto timer = MODULEPROVIDER()->getTimer();
+    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
 
@@ -963,24 +1022,27 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.enable_timeline", true));
+    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
     features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.feature_toggle.common.volume_open_support", false));
+        "fds.feature_toggle.common.volume_open_support", false));
 
     features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.enable_expunge", true));
+        "fds.feature_toggle.common.periodic_expunge", false));
 
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
     features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
-            "fds.dm.req_serialization", true));
+        "fds.dm.req_serialization", true));
+
+    features.setVolumegroupingEnabled(modProvider_->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -988,7 +1050,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Retrieves the number of primary DMs from the config file.
      */
     int primary_check = MODULEPROVIDER()->get_fds_config()->
-                                  get<int>("fds.dm.number_of_primary");
+            get<int>("fds.dm.number_of_primary");
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
@@ -996,7 +1058,9 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
-
+    
+    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+    refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
 }
 
@@ -1027,6 +1091,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
     handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
+    new dm::SimpleHandler(*this);
 }
 
 DataMgr::~DataMgr()
@@ -1034,8 +1099,6 @@ DataMgr::~DataMgr()
     // shutdown all data manager modules
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
-
-    dmMigrationMgr.reset();
 
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
@@ -1075,6 +1138,7 @@ void DataMgr::mod_startup()
               << MODULEPROVIDER()->getSvcMgr()->getSvcPort();
 
     setup_metasync_service();
+    refCountMgr->mod_startup();
 
     LOGNORMAL;
 }
@@ -1083,9 +1147,9 @@ void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-    fds_uint32_t diskIOPsMin = standalone ? 60*1000 :
-            svcmgr->getSvcProperty<fds_uint32_t>(svcmgr->getMappedSelfPlatformUuid(),
-                                                 "node_iops_min");
+    auto diskIOPsMin = standalone ? 60*1000 :
+            atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
+                                        "node_iops_min").c_str());
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1093,7 +1157,8 @@ void DataMgr::mod_enable_service() {
     // totalRate to node_iops_min does not actually restrict the SM from
     // servicing more IO if there is more capacity (eg.. because we have
     // cache and SSDs)
-    scheduleRate = 2 * diskIOPsMin;
+    scheduleRate = 2 * static_cast<uint32_t>(diskIOPsMin);
+    fds_assert(scheduleRate > 0);
     LOGNOTIFY << "Will set totalRate to " << scheduleRate;
 
     /*
@@ -1115,6 +1180,7 @@ void DataMgr::mod_enable_service() {
                                                              *qosCtrl->threadPool,
                                                              *this));
 
+    LOGNORMAL << "Finished timevolCat creation";
 
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
@@ -1141,13 +1207,20 @@ void DataMgr::mod_enable_service() {
         // Get the volume descriptors from OM
         getAllVolumeDescriptors();
     }
+    LOGNORMAL << "Finished stat collection and pulling volume descriptors";
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    LOGNORMAL << "Finished creating DM directory layout";
+
     expungeMgr.reset(new ExpungeManager(this));
+
+    LOGNORMAL << "Finished creating expunge manager";
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
+
+    LOGNORMAL << "Finished starting TVC";
 
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
@@ -1197,12 +1270,16 @@ void DataMgr::mod_shutdown()
     }
 
     LOGNORMAL;
+    if (refCountMgr.get()) {
+        refCountMgr->mod_shutdown();
+    }
+
     if ( statStreamAggr_ ) {
-      statStreamAggr_->mod_shutdown();
+        statStreamAggr_->mod_shutdown();
     }
 
     if ( timeVolCat_ ) {
-      timeVolCat_->mod_shutdown();
+        timeVolCat_->mod_shutdown();
     }
 
     if (features.isCatSyncEnabled()) {
@@ -1211,8 +1288,11 @@ void DataMgr::mod_shutdown()
         LOGWARN << "catalog sync feature - NOT enabled";
     }
 
+    if (dmMigrationMgr) {
+        dmMigrationMgr->mod_shutdown();
+    }
+
     LOGNORMAL << "Destructing the Data Manager";
-    closedmt_timer->destroy();
 
     for (auto it = vol_meta_map.begin();
          it != vol_meta_map.end();
@@ -1280,23 +1360,23 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
  */
 fds_bool_t
 DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
-        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
-                const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
-                fds_verify(nodes->getLength() > 0);
-                const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+        const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volUuid);
+        fds_verify(nodes->getLength() > 0);
+        const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
 
         if (topPrimary) {
-                // Only the 0th element is considered top Primary
-                return (myUuid == nodes->get(0).toSvcUuid());
+            // Only the 0th element is considered top Primary
+            return (myUuid == nodes->get(0).toSvcUuid());
         } else {
-                // Anything else within number_of_primary is within primary group
-                const int numberOfPrimaryDMs = getNumOfPrimary();
-                fds_verify(numberOfPrimaryDMs > 0);
-                for (int i = 0; i < numberOfPrimaryDMs; i++) {
-                        if (nodes->get(i).toSvcUuid() == myUuid) {
-                                return true;
-                        }
+            // Anything else within number_of_primary is within primary group
+            const int numberOfPrimaryDMs = getNumOfPrimary();
+            fds_verify(numberOfPrimaryDMs > 0);
+            for (int i = 0; i < numberOfPrimaryDMs; i++) {
+                if (nodes->get(i).toSvcUuid() == myUuid) {
+                    return true;
                 }
+            }
         }
     }
     return false;
@@ -1304,12 +1384,12 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
 
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-        return (_amIPrimaryImpl(volUuid, true));
+    return (_amIPrimaryImpl(volUuid, true));
 }
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
-        return (_amIPrimaryImpl(volUuid, false));
+    return (_amIPrimaryImpl(volUuid, false));
 }
 
 /**
@@ -1440,26 +1520,189 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
 Error
 DataMgr::getAllVolumeDescriptors()
 {
-	Error err(ERR_OK);
-	fpi::GetAllVolumeDescriptors list;
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
 
     if (!err.ok()) {
-    	return err;
+        return err;
     }
 
     for (auto const& volAdd : list.volumeList) {
-    	VolumeDesc desc(volAdd.vol_desc);
-    	fds_volid_t vol_uuid (desc.volUUID);
-    	GLOGNOTIFY << "Pulled create for vol "
-    			<< "[" << vol_uuid << ", "
-				<< desc.getName() << "]";
-    	err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
+        VolumeDesc desc(volAdd.vol_desc);
+        fds_volid_t vol_uuid (desc.volUUID);
+        GLOGNOTIFY << "Pulled create for vol "
+                   << "[" << vol_uuid << ", "
+                   << desc.getName() << "]";
+        err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
                         vol_uuid,
                         &desc);
     }
 
-	return err;
+    return err;
+}
+
+Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
+    Error err(ERR_OK);
+
+    DmRequest *io = static_cast<DmRequest*>(_io);
+
+    // Stop the queue latency timer.
+    PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+
+    // Get the key and vol type to use during serialization
+    // TODO(Andrew): Adding the sender's SvcUuid to the key
+    // would allow additional concurrency. Since we already
+    // don't ensure ordering with multiple senders we don't
+    // need to make them serialize.
+    SerialKey key(io->volId, io->blob_name);
+    fpi::FDSP_VolType volType(fpi::FDSP_VOL_S3_TYPE);
+    {
+        fds_mutex::scoped_lock l(*(parentDm->vol_map_mtx));
+        auto mapEntry = parentDm->vol_meta_map.find(io->volId);
+        if (mapEntry != parentDm->vol_meta_map.end()) {
+            volType = mapEntry->second->vol_desc->volType;
+        }
+    }
+    GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
+              << " key: " << key.first << ":" << key.second;
+    switch (io->io_type){
+        /* TODO(Rao): Add the new refactored DM messages types here */
+        case FDS_DM_SNAP_VOLCAT:
+        case FDS_DM_SNAPDELTA_VOLCAT:
+            threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
+            break;
+        case FDS_DM_PUSH_META_DONE:
+            threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
+            break;
+        case FDS_DM_PURGE_COMMIT_LOG:
+            threadPool->schedule(io->proc, io);
+            break;
+        case FDS_DM_META_RECVD:
+            threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
+            break;
+
+            /* End of new refactored DM message types */
+            // catalog read handlers
+        case FDS_LIST_BLOB:
+        case FDS_GET_BLOB_METADATA:
+        case FDS_CAT_QRY:
+        case FDS_STAT_VOLUME:
+        case FDS_GET_VOLUME_METADATA:
+        case FDS_DM_LIST_BLOBS_BY_PATTERN:
+        case FDS_DM_MIGRATION:
+        case FDS_DM_MIG_TX_STATE:
+            // Other (stats, etc...) handlers
+        case FDS_DM_SYS_STATS:
+        case FDS_DM_STAT_STREAM:
+            threadPool->schedule(&dm::Handler::handleQueueItem,
+                                 parentDm->handlers.at(io->io_type),
+                                 io);
+            break;
+        case FDS_RENAME_BLOB:
+            // If serialization is enabled, serialize on both keys,
+            // otherwise just schedule directly.
+            if ((parentDm->features.isSerializeReqsEnabled())) {
+                auto renameReq = static_cast<DmIoRenameBlob*>(io);
+                SerialKey key2(io->volId, renameReq->message->destination_blob);
+                serialExecutor->scheduleOnHashKeys(keyHash(key),
+                                                   keyHash(key2),
+                                                   std::bind(&dm::Handler::handleQueueItem,
+                                                             parentDm->handlers.at(io->io_type),
+                                                             io));
+            } else {
+                threadPool->schedule(&dm::Handler::handleQueueItem,
+                                     parentDm->handlers.at(io->io_type),
+                                     io);
+            }
+
+            break;
+            // catalog write handlers
+        case FDS_DELETE_BLOB:
+        case FDS_CAT_UPD:
+        case FDS_START_BLOB_TX:
+        case FDS_COMMIT_BLOB_TX:
+        case FDS_CAT_UPD_ONCE:
+        case FDS_SET_BLOB_METADATA:
+        case FDS_ABORT_BLOB_TX:
+        case FDS_SET_VOLUME_METADATA:
+        case FDS_OPEN_VOLUME:
+        case FDS_CLOSE_VOLUME:
+        case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_RESYNC_INIT_BLOB:
+        case FDS_DM_MIG_DELTA_BLOB:
+        case FDS_DM_MIG_DELTA_BLOBDESC:
+        case FDS_DM_MIG_FINISH_VOL_RESYNC:
+            // If serialization in enabled, serialize on the key
+            // otherwise just schedule directly.
+            // Note: We avoid this serialization in the block connector
+            // case since the connector is ensuring we won't have overlapping
+            // concurrent requests.
+            // TODO(Andrew): Remove this block connector special casing. Either
+            // AM should enforce the policy for all connectors or we always leave
+            // it up to the connector.
+            if ((parentDm->features.isSerializeReqsEnabled()) &&
+                (volType != fpi::FDSP_VOL_BLKDEV_TYPE) &&
+                (volType != fpi::FDSP_VOL_ISCSI_TYPE)) {
+                LOGDEBUG << io->log_string()
+                         << " synchronize on hashkey: " << key.first << ":" << key.second;
+                serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                  std::bind(&dm::Handler::handleQueueItem,
+                                                            parentDm->handlers.at(io->io_type),
+                                                            io));
+            } else {
+                LOGDEBUG << io->log_string() << " not synchronized"; 
+                threadPool->schedule(&dm::Handler::handleQueueItem,
+                                     parentDm->handlers.at(io->io_type),
+                                     io);
+            }
+            break;
+        case FDS_DM_FWD_CAT_UPD:
+            /* Forwarded IO during migration needs to synchronized on blob id */
+            serialExecutor->scheduleOnHashKey(keyHash(key),
+                                              std::bind(&dm::Handler::handleQueueItem,
+                                                        parentDm->handlers.at(io->io_type),
+                                                        io));
+            break;
+        case FDS_DM_FUNCTOR:
+            threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
+            break;
+        default:
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+            assert(0);
+            break;
+    }
+
+    return err;
+}
+
+DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
+                              uint32_t _max_thrds,
+                              dispatchAlgoType algo,
+                              fds_log *log) :
+        FDS_QoSControl(_max_thrds, algo, log, "DM") {
+    parentDm = _parent;
+    dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
+                                      parentDm->qosOutstandingTasks, 
+                                      false,
+                                      log);
+
+    serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
+        new SynchronizedTaskExecutor<size_t>(*threadPool));
+}
+
+
+Error DataMgr::dmQosCtrl::markIODone(const FDS_IOType& _io) {
+    Error err(ERR_OK);
+    dispatcher->markIODone(const_cast<FDS_IOType *>(&_io));
+    return err;
+}
+
+DataMgr::dmQosCtrl::~dmQosCtrl() {
+    delete dispatcher;
+    if (dispatcherThread) {
+        dispatcherThread->join();
+    }
 }
 
 namespace dmutil {
@@ -1493,10 +1736,10 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                                 root->dir_user_repo_dm().c_str(), volId.get(), snapId);
+                               root->dir_user_repo_dm().c_str(), volId.get(), snapId);
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                                 root->dir_sys_repo_dm().c_str(), volId, volId);
+                               root->dir_sys_repo_dm().c_str(), volId, volId);
     }
 }
 

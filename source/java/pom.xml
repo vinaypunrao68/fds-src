@@ -85,7 +85,7 @@
     <redisson.version>1.2.1</redisson.version>
     <slf4j.version>1.7.12</slf4j.version>
     <snmp4j.version>2.3.3_1</snmp4j.version>
-    <thrift.version>0.9.0</thrift.version>
+    <thrift.version>0.9.3</thrift.version>
     <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
     <grizzly.framework.version>2.3.21</grizzly.framework.version>
@@ -105,6 +105,7 @@
     <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
     <formationds.jsvc.layer.version>2015.08.14-SNAPSHOT</formationds.jsvc.layer.version>
     <formationds.commons.version>2015.08.14-SNAPSHOT</formationds.commons.version>
+    <formationds.stats.client.version>0.0.1-SNAPSHOT</formationds.stats.client.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>

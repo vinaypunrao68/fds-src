@@ -8,7 +8,7 @@
 #include <map>
 #include <string>
 #include <vector>
-
+#include <atomic>
 // Internal includes.
 #include "catalogKeys/CatalogKeyComparator.h"
 #include "concurrency/RwLock.h"
@@ -44,7 +44,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
                               clone,
                               fpi::FDSP_VOL_S3_TYPE,
                               srcVolId),
-              configHelper_(g_fdsprocess->get_conf_helper())
+        configHelper_(g_fdsprocess->get_conf_helper()), snapshotCount(0)
     {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
@@ -86,6 +86,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) override;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) override;
+
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
     virtual void getObjectIds(const uint32_t &maxObjs,
@@ -119,7 +123,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
-    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) override;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap& snap) override;
+    virtual uint64_t getNumInMemorySnapshots() override;
 
     Catalog* getCatalog() {
         return catalog_.get();
@@ -129,7 +134,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     // methods
 
     // vars
-
+    std::atomic<uint64_t> snapshotCount;
     // Catalog that stores volume's objects
     std::unique_ptr<Catalog> catalog_;
     CatalogKeyComparator cmp_;

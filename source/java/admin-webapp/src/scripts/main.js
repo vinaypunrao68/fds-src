@@ -1,6 +1,6 @@
 webPrefix = "/fds/config/v08";
 
-app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant', 'debug', 'pascalprecht.translate'] );
+app = angular.module( 'formation', ['ui.router', 'main', 'volumes', 'system', 'inbox', 'status', 'activity-management', 'user-page', 'admin-settings', 'tenant', 'debug', 'pascalprecht.translate', 'statistics'] );
 
 app.config( function( $stateProvider, $urlRouterProvider ){
 

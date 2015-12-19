@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
 /*
  * Systems stats types
@@ -7,17 +7,34 @@
 #ifndef SOURCE_INCLUDE_STATTYPES_H_
 #define SOURCE_INCLUDE_STATTYPES_H_
 
+#include <fdsp/common_constants.h>
 #include "fds_typedefs.h" //NOLINT
 
 namespace fds {
 
-/**
- * Defaults (later could be configurable) for
- * sampling and pushing stats from individual modules to
- * an aggregator.
- */
-#define FdsStatPeriodSec         60
-#define FdsStatPushPeriodSec     180
+class StatConstants {
+    public:
+        StatConstants();
+        static const StatConstants* singleton();
+
+        /**
+         * See the constructor for details about how and why these are set.
+         */
+        std::int32_t FdsStatLTPeriodSec;
+        std::int32_t FdsStatLTSlotCnt;
+        std::int32_t FdsStatFGPeriodSec;
+        std::int32_t FdsStatFGPeriodMultToCG;
+        std::int32_t FdsStatFGSlotCnt;
+        std::int32_t FdsStatCGPeriodSec;
+        std::int32_t FdsStatCGPeriodMultToLT;
+        std::int32_t FdsStatCGSlotCnt;
+        std::int32_t FdsStatPushAndAggregatePeriodSec;
+        std::int32_t FdsStatCollectionWaitMult;
+        std::int32_t FdsStatFGStreamPeriodFactorSec;
+        std::int32_t FdsStatRunForever;
+};
+
+extern const StatConstants* g_stat_constants;
 
 typedef enum {
     STAT_AM_GET_OBJ,

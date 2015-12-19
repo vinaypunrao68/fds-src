@@ -441,7 +441,6 @@ pkg: $(omnibus_dir)
 	cd $(omnibus_dir)/omnibus-$(project) && rm -f pkg/*
 	cd $(omnibus_dir)/omnibus-$(project) && bundle install --without development --binstubs
 	cd $(omnibus_dir)/omnibus-$(project) && FDS_SRC_DIR=$(shell cd $(incl_scripts)/../../.. && pwd -P) bundle exec bin/omnibus build $(project)
-	
 else
 pkg:
 	@echo "You must pass an argument to the 'package' target (ex: make package fds-platform)"
@@ -449,7 +448,6 @@ endif
 
 .PHONY: package
 package : pkg
-
 
 # -----------------------------------------------------------------------------
 # List Targets

@@ -4,6 +4,8 @@
 
 package com.formationds.client.v08.model.iscsi;
 
+import java.util.Objects;
+
 /**
  * @author ptinius
  */
@@ -58,6 +60,22 @@ public class ISNSServer
      * @return Returns the internet storage service server port number
      */
     public int getPort( ) { return port; }
+
+    @Override
+    public boolean equals( final Object o )
+    {
+        if ( this == o ) return true;
+        if ( !( o instanceof ISNSServer ) ) return false;
+        final ISNSServer that = ( ISNSServer ) o;
+        return getPort( ) == that.getPort( ) &&
+            Objects.equals( getHost( ), that.getHost( ) );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( getHost( ), getPort( ) );
+    }
 
     @Override
     public String toString( )

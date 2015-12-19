@@ -87,6 +87,8 @@ ScstTarget::ScstTarget(std::string const& name,
     t.detach();
 }
 
+ScstTarget::~ScstTarget() = default;
+
 void
 ScstTarget::addDevice(std::string const& volume_name) {
     std::unique_lock<std::mutex> l(deviceLock);
@@ -131,6 +133,23 @@ ScstTarget::addDevice(std::string const& volume_name) {
     deviceStartCv.wait(l, [this] () -> bool { return devicesToStart.empty(); });
 }
 
+void
+ScstTarget::deviceDone(std::string const& volume_name) {
+    std::lock_guard<std::mutex> g(deviceLock);
+    auto it = device_map.find(volume_name);
+    if (device_map.end() == it) return;
+
+    it->second->reset();
+    device_map.erase(it);
+}
+
+void ScstTarget::removeDevice(std::string const& volume_name) {
+    std::lock_guard<std::mutex> g(deviceLock);
+    auto it = device_map.find(volume_name);
+    if (device_map.end() == it) return;
+    (*it->second)->shutdown();
+}
+
 void ScstTarget::mapDevices() {
     // Map the luns to either the security group or default group depending on
     // whether we have any assigned initiators.
@@ -157,7 +176,7 @@ void ScstTarget::mapDevices() {
 
 void
 ScstTarget::clearMasking() {
-    GLOGNORMAL << "Clearing initiator mask for: " << target_name;
+    GLOGDEBUG << "Clearing initiator mask for: " << target_name;
     // Remove the security group
     {
         std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,

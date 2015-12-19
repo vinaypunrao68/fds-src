@@ -57,6 +57,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     // implementation of BlockOperations::ResponseIFace
     void respondTask(BlockTask* response) override;
     void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    void shutdown();
     void terminate() override;
 
     std::string getName() const { return volumeName; }
@@ -73,7 +74,8 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
-                                 STOPPING,
+                                 DRAINING,
+                                 DRAINED,
                                  STOPPED };
 
     ConnectionState state_ { ConnectionState::RUNNING };
@@ -82,13 +84,11 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     int scstDev {-1};
     size_t volume_size {0};
     char serial_number[17];
-    size_t sessions {0};
+    uint64_t volume_id {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;
     BlockOperations::shared_ptr scstOps;
-
-    size_t resp_needed;
 
     scst_user_get_cmd cmd {};
     scst_user_reply_cmd fast_reply {};
@@ -117,6 +117,9 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     void execCompleteCmd();
     void execTaskMgmtCmd();
     void execParseCmd();
+
+    // Utility functions to build Inquiry Pages...etc
+    size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
 
     void fastReply() {
         fast_reply.cmd_h = cmd.cmd_h;

@@ -120,7 +120,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
     void startupLocalDomain(const std::string& domainName) {}
-    void shutdownLocalDomain(const std::string& domainName) {}
+    int32_t shutdownLocalDomain(const std::string& domainName) { return 0; }
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
@@ -441,9 +441,10 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     *
     * @return void.
     */
-    void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
+    int32_t shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
         LocalDomain localDomain;
         checkMasterDomain();
+        Error err(ERR_OK);
 
         auto ret = configDB->getLocalDomain(*domainName, localDomain);
         if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
@@ -462,7 +463,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         try {
             LOGNORMAL << "Received shutdown for Local Domain " << domainName;
 
-            domain->om_shutdown_domain();
+            err = domain->om_shutdown_domain();
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -470,6 +471,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             apiException("Error shutting down Local Domain " + *domainName + " Services. Broadcast shutdown failed.");
         }
 
+        return err.GetErrno();
     }
 
     /**
@@ -900,11 +902,45 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkDomainStatus();
 
+        switch ( volumeSettings->volumeType )
+        {
+            case apis::BLOCK:
+                break;
+            case apis::ISCSI:
+            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ]";
+//            for ( auto lun : *volumeSettings.iscsiTarget.luns ) {
+//                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
+//            }
+//
+            LOGDEBUG << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ]";
+//            for ( auto initiator : *volumeSettings->iscsiASettungs ) {
+//                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
+//            }
+//
+            LOGDEBUG << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ]";
+//            for ( auto credentials : *volumeSettings.iscsiTarget.incomingUsers ) {
+//                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
+//            }
+//
+            LOGDEBUG << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
+//            for ( auto credentials : *volumeSettings.iscsiTarget.outgoingUsers ) {
+//                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
+//            }
+                break;
+            case apis::NFS:
+                break;
+            case apis::OBJECT:
+                break;
+        }
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK) apiException("volume already exists", fpi::RESOURCE_ALREADY_EXISTS);
+        if (err == ERR_OK)
+        {
+            apiException( "Volume ( " + *volumeName + " ) already exists", fpi::RESOURCE_ALREADY_EXISTS);
+        }
 
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
@@ -912,7 +948,10 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request);
-        if (err != ERR_OK) apiException("error creating volume");
+        if ( err != ERR_OK )
+        {
+            apiException( "Error creating volume ( " + *volumeName + " ) - " + err.GetErrstr() );
+        }
 
         // wait for the volume to be active upto 5 minutes
         int count = 600;
@@ -923,9 +962,11 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             count--;
         } while (count > 0 && vol && !vol->isStateActive());
 
-        if (!vol || !vol->isStateActive()) {
-            LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
-            apiException("error creating volume");
+        if (!vol || !vol->isStateActive())
+        {
+            std::string emsg = "Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE";
+            LOGERROR << emsg;
+            apiException( emsg );
         }
     }
 
@@ -938,7 +979,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         if (vol) {
             return vol->rs_get_uuid().uuid_get_val();
         } else {
-            LOGWARN << "unable to get volume info for vol:" << *volumeName;
+            LOGWARN << "Unable to get volume info for vol:" << *volumeName;
             return 0;
         }
     }
@@ -952,7 +993,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         if (vol) {
             volumeName =  vol->vol_get_name();
         } else {
-            LOGWARN << "unable to get volume info for vol:" << *volumeId;
+            LOGWARN << "Unable to get volume info for vol:" << *volumeId;
         }
     }
 
@@ -971,9 +1012,9 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                      << ", prio " << _return.rel_prio
                      << " media policy " << _return.mediaPolicy;
         } else {
-            LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
             FDSP_VolumeNotFound except;
-            except.message = std::string("Volume not found");
+            except.message = std::string("Volume " + vol_info_req->vol_name + " not found");
+            LOGWARN << except.message;
             throw except;
         }
     }
@@ -1005,13 +1046,13 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
 
-        if (err != ERR_OK) apiException("volume does NOT exist", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException("volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
 
         fpi::FDSP_MsgHdrTypePtr header;
         apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
-        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
+        LOGNOTIFY << "delete volume processed for :" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -1021,7 +1062,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException("volume NOT found", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT found" , fpi::MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -1030,17 +1071,14 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
     void listVolumes(std::vector<VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
-        checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
-        LOGDEBUG << "just Active volumes";
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
-                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()
-                            ? "snapshot" : "volume")
-                         << " - " << vol->vol_get_name()
-                         << ":" << vol->vol_get_properties()->getStateName();
+            LOGDEBUG << (vol->vol_get_properties()->isSnapshot() ? "snapshot" : "volume")
+                     << " [ " << vol->vol_get_name() << " ] type [ " << vol->vol_get_properties()->volType
+                     << " ] state [ " << vol->vol_get_properties()->getStateName() << " ] ";
 
                 if (!vol->vol_get_properties()->isSnapshot()) {
                     if (vol->getState() == fpi::Active) {
@@ -1053,7 +1091,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     }
 
     void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, boost::shared_ptr<int32_t>& ignore) {
-        LOGNOTIFY<< "OM received ListVolumes message";
+        LOGDEBUG<< "OM received ListVolumes message";
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer vols = local->om_vol_mgr();
         // list volumes that are not in 'delete pending' state
@@ -1316,7 +1354,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
-        desc.createTime = util::getTimeStampMillis();
+        desc.createTime = util::getTimeStampSeconds();
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -1349,7 +1387,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
             boost::shared_ptr<std::string> sp_snapName(new std::string(
                 util::strformat("snap0_%s_%d", clonedVolumeName->c_str(),
-                                util::getTimeStampNanos())));
+                                util::getTimeStampSeconds())));
             boost::shared_ptr<int64_t> sp_retentionTime(new int64_t(0));
             boost::shared_ptr<int64_t> sp_timelineTime(new int64_t(0));
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
@@ -1373,7 +1411,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         }
         snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
-        snapshot.creationTimestamp = util::getTimeStampMillis();
+        snapshot.creationTimestamp = util::getTimeStampSeconds();
         snapshot.retentionTimeSeconds = *retentionTime;
         snapshot.timelineTime = *timelineTime;
 

@@ -13,11 +13,7 @@ from fdslib.TestUtils import findNodeFromInv
 from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
-import os
-import socket
-from fdscli.services.volume_service import VolumeService
 from fdscli.services.fds_auth import *
-from fdslib.TestUtils import create_fdsConf_file
 from fdslib.TestUtils import convertor
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
@@ -61,7 +57,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             newVolume = convertor(volume, fdscfg)
             status = vol_service.create_volume(newVolume)
 
-            if isinstance(status, FdsError):
+            if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                 self.log.error("Volume %s creation on %s returned status %s." %
                                (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
                 return False
@@ -201,8 +197,11 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             self.log.info("Detach volume %s on node %s." % (volName, am_node))
             cmd = ('detach %s' % (volName))
 
+            if check_localhost(ip):
+                cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+            else:
+                cinder_dir= os.path.join('/fds/sbin')
 
-            cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
             status = om_node.nd_agent.exec_wait('bash -c \"(nohup %s/nbdadm.py  %s >> %s/nbdadm.out 2>&1 &) \"' %
                                                 (cinder_dir, cmd, log_dir if om_node.nd_agent.env_install else "."),
                                                 fds_tools=True)
@@ -256,7 +255,7 @@ class TestVolumeDelete(TestCase.FDSTestCase):
         vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
         status = vol_service.delete_volume(volume_id)
 
-        if isinstance(status, FdsError):
+        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
             self.log.error("Delete volume %s on %s returned status as %s." %
                                (volume.name, om_node.nd_conf_dict['node-name'], status))
             return False

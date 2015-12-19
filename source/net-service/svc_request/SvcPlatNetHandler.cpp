@@ -86,6 +86,12 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
     taskExecutor_ = taskExecutor;
 }
 
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
+}
+
 /**
  * @brief
  *
@@ -123,7 +129,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
     }
 
     fds_assert(state == ACCEPT_REQUESTS);
-    LOGDEBUG << logString(*header);
+    // LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -320,6 +326,17 @@ void PlatNetSvcHandler::getProperties(std::map<std::string, std::string> & _retu
     _return = MODULEPROVIDER()->getProperties()->getAllProperties();
 }
 
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg) {
+    if (!MODULEPROVIDER()) return;
+    MODULEPROVIDER()->get_fds_config()->getConfigMap(_return);
+}
+
+
 /**
  * Return list of domain nodes in the node inventory.
  */
@@ -360,7 +377,7 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
 {
 }
 
-void PlatNetSvcHandler::setConfigVal(const std::string& id, const int64_t val)
+void PlatNetSvcHandler::setConfigVal(const std::string& name, const std::string& value)
 {
 }
 
@@ -444,20 +461,17 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
  * @param id
  * @param val
  */
-void PlatNetSvcHandler::
-setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-             boost::shared_ptr<int64_t>& val)
-{
-    if (!MODULEPROVIDER())
-    {
+void PlatNetSvcHandler:: setConfigVal(SHPTR<std::string>& name, SHPTR<std::string>& value) {
+    if (!MODULEPROVIDER()) {
         return;
     }
 
-    try
-    {
-        MODULEPROVIDER()->get_fds_config()->set(*id, static_cast<fds_uint64_t>(*val));
-    } catch(...)
-    {
+    try {
+        if (name->find("log_severity") != std::string::npos) {
+            LOGGERPTR->setSeverityFilter(fds_log::getLevelFromName(*value));
+        }
+        MODULEPROVIDER()->get_fds_config()->set(*name, *value);
+    } catch(...) {
         // TODO(Rao): Only ignore SettingNotFound exception
         /* Ignore the error */
     }

@@ -16,6 +16,7 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <util/path.h>
 
 namespace fds {
 
@@ -77,6 +78,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+
+    /* Active Object Messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
 }
 
 int
@@ -107,6 +111,22 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Start Migration for target DLT "
              << migrationMsg->DLT_version;
 
+/* (Gurpreet: Fix for ignoring multiple start migration messages from OM. UNTESTED!!)
+
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
+    fds_uint64_t reqMigrTgtDlt = migrationMsg->DLT_version;
+    auto ongoingMigrTgtDlt = objStorMgr->migrationMgr->getTargetDltVersion();
+    if (!objStorMgr->migrationMgr->isMigrationIdle() ||
+        ((curDlt->getVersion() != DLT_VER_INVALID)  && !curDlt->isClosed())) {
+        LOGWARN << "Received start migration for dlt version: " << reqMigrTgtDlt
+                << " during ongoing migration for version: " << ongoingMigrTgtDlt
+                << ". Ignoring message.";
+        if (ongoingMigrTgtDlt != reqMigrTgtDlt) {
+            startMigrationCb(asyncHdr, migrationMsg->DLT_version, ERR_SM_TOK_MIGRATION_INPROGRESS);
+        }
+        return;
+    }
+*/
     // first disable GC and Tier Migration
     // Note that after disabling GC, GC work in QoS queue will still
     // finish... however, there is no correctness issue if we are running
@@ -182,7 +202,7 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              CtrlNotifySMAbortMigrationPtr& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Abort Migration, will revert to previously "
+    LOGNOTIFY << "Received Abort Migration, will revert to previously "
              << " commited DLT version " << abortMsg->DLT_version;
 
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
@@ -218,6 +238,26 @@ SMSvcHandler::migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr,
                   FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration),
                   *(abortMigrationReq->abortMigrationReqMsg));
+    /**
+     * Enable scavenger and tiering, which was disabled before
+     * starting the migration.
+     * Eventually we should just remove this inter-dependency
+     * between migration and gc.
+     *
+     * (Gurpreet): Revisit this fix. Make complete fix keeping in
+     * mind combinations of
+     * (
+     *  Add node migration,
+     *  Resync Migration,
+     *  SM being a source,
+     *  SM being a destination of a migration.
+     * )
+     */
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 }
 
 /**
@@ -896,6 +936,7 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         objStorMgr->quieseceIOsQos(volumeId);
         objStorMgr->deregVolQos(volumeId);
         objStorMgr->deregVol(volumeId);
+        objStorMgr->objectStore->removeObjectSet(volumeId);
     }
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
@@ -1115,6 +1156,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     }
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
+    DLTCloseReq->setVolId(FdsSysTaskQueueId);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
     DLTCloseReq->closeDLTVersion = (dlt->dlt_close).DLT_version;
 
@@ -1183,8 +1225,9 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
     SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
+    // (Phillip) NotifySMCheck should not have a response - should be fire and forget
+    //hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
 
 void
@@ -1202,5 +1245,52 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
 
+void
+SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                            boost::shared_ptr<fpi::ActiveObjectsMsg>& msg)
+{
+    Error err(ERR_OK);
+
+    LOGDEBUG << hdr;
+
+    /**
+        msg->filename
+        msg->checksum
+        msg->volumeIds
+        msg->token
+    */
+    std::string filename;
+    // verify the file checksum
+    if (msg->filename.empty() && msg->checksum.empty()) {
+        LOGDEBUG << "no active objects for token:" << msg->token
+                 << " for [" << msg->volumeIds.size() <<"]";
+    } else {
+        filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
+        if (!util::fileExists(filename)) {
+            err = ERR_FILE_DOES_NOT_EXIST;
+            LOGERROR << "active object file ["
+                     << filename
+                     << "] does not exist";
+        } else {
+            std::string chksum = util::getFileChecksum(filename);
+            if (chksum != msg->checksum) {
+                LOGERROR << "file checksum mismatch [orig:" << msg->checksum
+                         << " new:" << chksum << "]"
+                         << " file:" << filename;
+                err = ERR_CHECKSUM_MISMATCH;
+            }
+        }
+    }
+
+    TimeStamp ts = msg->scantimestamp * 1000 * 1000 * 1000;
+    for (auto volId : msg->volumeIds) {
+        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
+                                              ts, filename);
+    }
+
+    fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
+}
 
 }  // namespace fds

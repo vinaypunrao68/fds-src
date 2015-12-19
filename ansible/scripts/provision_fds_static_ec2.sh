@@ -19,15 +19,16 @@ Options:
   -h -- This help
   -v -- Enable verbosity in ansible
   -t -- Build type local|nightly|beta [ default: "nightly" ]
-  -a -- Action (deploy | stop | start | destroy | clean) [ default: deploy ]
+  -a -- Action (deploy | stop | start | destroy | clean | cleanstart) [ default: deploy ]
 Deploy FDS to a cluster in EC2
 name-tag needs to exactly match the name of your inventory file in fds-src/ansible/inventory/
 Actions:
-  - deploy  : Provision instances & deploy FDS to them
-  - stop    : Stop all instances matching name-tag
-  - start   : Start all instances matching name-tag
-  - destroy : Destroy all instances matching name-tag
-  - clean   : Clean domain & Restart FDS
+  - deploy      : Provision instances & deploy FDS to them
+  - stop        : Stop all instances matching name-tag
+  - start       : Start all instances matching name-tag
+  - destroy     : Destroy all instances matching name-tag
+  - clean       : Only clean the domain and don't start FDS
+  - cleanstart  : Clean domain & Restart FDS
 Examples:
 ${0##/*} -t nightly kung-ec2
 ${0##/*} -t local foobar-nodes
@@ -119,7 +120,13 @@ case "$action" in
   clean)
     D "Cleaning..."
     ansible_args="${playbooks}/provision_fds_static_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} \
-      -e clean_fds=yes -e force=yes \
+      -e clean_fds=yes -e force=yes -e fds_only_install=yes\
+      --skip-tags uninstall,install-deps,install-local,install-repo,post-install"
+    ;;
+  cleanstart)
+    D "Cleaning and starting the domain..."
+    ansible_args="${playbooks}/provision_fds_static_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} \
+      -e clean_fds=yes -e force=yes -e fds_only_install=no\
       --skip-tags uninstall,install-deps,install-local,install-repo,post-install"
     ;;
   stop)

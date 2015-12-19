@@ -3,6 +3,8 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
+include "common.thrift"
+
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.svc.types
 
@@ -44,7 +46,7 @@ struct SvcVer {
  * TODO(Andrew): Should this just be a typedef?
  */
 struct FDS_ObjectIdType {
-  1: string  digest
+  1: binary  digest
 }
 
 enum FDSP_NotifyVolFlag {
@@ -134,12 +136,15 @@ enum FDSP_MediaPolicy {
 enum FDSP_VolType {
   FDSP_VOL_S3_TYPE,
   FDSP_VOL_BLKDEV_TYPE
+  FDSP_VOL_NFS_TYPE
+  FDSP_VOL_ISCSI_TYPE
 }
 
 enum ResourceState {
   Unknown,
   Loading, /* resource is loading or in the middle of creation */
   Created, /* resource has been created */
+  Syncing, /* resource is being synced */
   Active,  /* resource activated - ready to use */
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
@@ -169,12 +174,13 @@ struct FDSP_VolumeDescType {
   13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
 
   14: bool                      fSnapshot,
-  15: ResourceState      state,
+  15: ResourceState             state,
   16: i64                       contCommitlogRetention,
   17: i64                       srcVolumeId,
   18: i64                       timelineTime,
-  19: i64                       createTime
-  // 20: Removed.
+  19: i64                       createTime,
+  20: common.IScsiTarget        iscsi,
+  21: common.NfsOption          nfs
 }
 
 struct FDSP_PolicyInfoType {
@@ -312,6 +318,7 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
+  GetVolumeDescriptorRespTypeId             = 3002;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
@@ -394,6 +401,26 @@ enum  FDSPMsgTypeId {
   RenameBlobRespMsgTypeId;
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
+  StartRefScanMsgTypeId;
+
+  /* VolumeGroup messages */
+  VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
+  SetVolumeGroupCoordinatorMsgTypeId;
+  AddToVolumeGroupCtrlMsgTypeId;
+  AddToVolumeGroupRespCtrlMsgTypeId;
+  VolumeStateUpdateInfoCtrlMsgTypeId;
+  GetVolumeStateCtrlMsgTypeId;
+  /* BEGIN Volumegroup test messages.  Will be removed */
+  CreateVolumeMsgTypeId;
+  StartTxMsgTypeId;
+  UpdateTxMsgTypeId;
+  CommitTxMsgTypeId;
+  PullActiveTxsMsgTypeId;
+  PullActiveTxsRespMsgTypeId; 
+  PullCommitLogEntriesMsgTypeId;
+  PullCommitLogEntriesRespMsgTypeId;
+  QosFunctionTypeId;
+  /* END Volumegroup test messages.  Will be removed */
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
@@ -427,6 +454,8 @@ enum ServiceStatus {
    SvcLayer Types
    ------------------------------------------------------------*/
 
+typedef i64 ReplicaId
+
 /*
  * This message header is owned, controlled and set by the net service layer.
  * Application code treats it as opaque type.
@@ -439,27 +468,33 @@ struct AsyncHdr {
   /**  */
   3: required i64               msg_src_id;
   /** Sender's Uuid */
-  4: required SvcUuid    msg_src_uuid;
+  4: required SvcUuid           msg_src_uuid;
   /** Destination Uuid */
-  5: required SvcUuid    msg_dst_uuid;
+  5: required SvcUuid           msg_dst_uuid;
   /**  */
   6: required i32               msg_code;
   /**  */
   7: optional i64               dlt_version = 0;
+  /* Replica id.  Made part of AsyncHdr for convenience */
+  8: optional ReplicaId         replicaId = 0;
+  /* Replica version.  Made part of AsyncHdr for convenience */
+  9: optional i32               replicaVersion = 0;
+  /* Header specific for payload */
+  10: optional binary           payloadHdr;
   /**  */
-  8: i64                        rqSendStartTs;
+  11: i64                       rqSendStartTs;
   /**  */
-  9: i64                        rqSendEndTs;
+  12: i64                       rqSendEndTs;
   /**  */
-  10:i64                        rqRcvdTs;
+  13:i64                        rqRcvdTs;
   /**  */
-  11:i64                        rqHndlrTs;
+  14:i64                        rqHndlrTs;
   /**  */
-  12:i64                        rspSerStartTs;
+  15:i64                        rspSerStartTs;
   /**  */
-  13:i64                        rspSendStartTs;
+  16:i64                        rspSendStartTs;
   /**  */
-  14:i64                        rspRcvdTs;
+  17:i64                        rspRcvdTs;
 }
 
 

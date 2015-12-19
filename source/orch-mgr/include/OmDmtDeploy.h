@@ -34,6 +34,21 @@ class DmtDeployEvt
     fds_bool_t dmResync;  // if true, DMT computation will be for DM Resync
 };
 
+/**
+ * Event deployed to check to see if there's ongoing migrations, to see if we need
+ * to error out
+ */
+class DmtUpEvt
+{
+    public:
+        explicit DmtUpEvt(const NodeUuid& _uuid) : uuid(_uuid) {}
+        std::string logString() const {
+            return "DmtUpEvt with node: " + std::to_string(uuid.uuid_get_val());
+        }
+
+        NodeUuid uuid;
+};
+
 class DmtRecoveryEvt
 {
   public:
@@ -151,6 +166,13 @@ class OM_DMTMod : public Module
     ~OM_DMTMod();
 
     /**
+     * Whether or not to do legacy mode or volumeGroupMode
+     */
+    inline bool volumeGrpMode() {
+        return volume_grp_mode;
+    }
+
+    /**
      * Return the current state of the DMT deployment FSM.
      */
     char const *const dmt_deploy_curr_state();
@@ -167,6 +189,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
     void dmt_deploy_event(DmtErrorFoundEvt const &evt);
     void dmt_deploy_event(DmtRecoveryEvt const &evt);
+    void dmt_deploy_event(DmtUpEvt const &evt);
 
     /**
      * Module methods
@@ -179,6 +202,8 @@ class OM_DMTMod : public Module
     FSM_DplyDMT     *dmt_dply_fsm;
     // to protect access to msm process_event
     fds_mutex       fsm_lock;
+    // Toggles for service replica mode
+    bool            volume_grp_mode;
 };
 
 extern OM_DMTMod             gl_OMDmtMod;
