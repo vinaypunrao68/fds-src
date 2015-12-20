@@ -365,10 +365,11 @@ void ScstDevice::execUserCmd() {
                     /* |                              (   ...   )                              |*/
                     static uint8_t const supported_page_header [] = {
                         0,
-                        3,
+                        4,
                         0x00,   // This Page
                         0x80,   // Unit Serial
                         0x83,   // Vendor ID Page
+                        0x86,   // Extended VPD
                     };
                     if (param_cursor < buflen) {
                         memcpy(&buffer[param_cursor],
