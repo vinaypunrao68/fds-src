@@ -85,6 +85,7 @@ struct VolumeReplicaHandle {
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
+    inline std::string logString() const;
 
     int32_t                 version;
     /* Service where this replica is hosted */
@@ -150,6 +151,13 @@ struct VolumeGroupFailoverRequest : VolumeGroupRequest {
 };
 
 /**
+* @brief VolumeGroupHandle listener.
+*/
+struct VolumeGroupHandleListener {
+    virtual bool isError(const fpi::FDSPMsgTypeId &reqMsgTypeId, const Error &e) = 0;
+};
+
+/**
 * @brief VolumeGroupHandle provides access to a group of volumes.
 * It manages io coordination/replication to a group of volumes. Think
 * of it as a file handle to a group of volumes.
@@ -181,6 +189,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     void sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
+    void setListener(VolumeGroupHandleListener *listener);
+
     template<class F>
     void runSynchronized(F&& f)
     {
@@ -192,9 +202,12 @@ struct VolumeGroupHandle : HasModuleProvider {
     virtual void handleAddToVolumeGroupMsg(
         const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
         const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
+
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const int32_t &replicaVersion,
                                       const fpi::VolumeIoHdr &hdr,
+                                      const fpi::FDSPMsgTypeId &msgTypeId,
+                                      const bool mutationReq,
                                       const Error &inStatus,
                                       Error &outStatus,
                                       uint8_t &successAcks);
@@ -245,7 +258,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
                                     const fpi::ResourceState &targetState,
-                                    const Error &e);
+                                    const Error &e,
+                                    const std::string &context);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
@@ -254,6 +268,7 @@ struct VolumeGroupHandle : HasModuleProvider {
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
+    VolumeGroupHandleListener           *listener_ {nullptr};
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
