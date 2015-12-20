@@ -58,7 +58,7 @@ void SetBlobMetaDataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetBlobMetaData* typedRequest = static_cast<DmIoSetBlobMetaData*>(dmRequest);
 
-    ENSURE_IO_ORDER(typedRequest);
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     LOGDEBUG << "Will setBlobMetaData  blob " << *typedRequest;
     helper.err = dataManager.timeVolCat_->updateBlobTx(typedRequest->volId,

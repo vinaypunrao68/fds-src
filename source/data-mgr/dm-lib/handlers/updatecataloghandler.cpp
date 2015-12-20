@@ -51,7 +51,7 @@ void UpdateCatalogHandler::handleQueueItem(DmRequest * dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoUpdateCat * request = static_cast<DmIoUpdateCat *>(dmRequest);
 
-    ENSURE_IO_ORDER(request);
+    ENSURE_IO_ORDER(request, helper);
 
     LOGDEBUG << "Will update blob " << *request;
 

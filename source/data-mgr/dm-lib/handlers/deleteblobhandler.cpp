@@ -50,7 +50,7 @@ void DeleteBlobHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoDeleteBlob *request = static_cast<DmIoDeleteBlob*>(dmRequest);
 
-    ENSURE_IO_ORDER(request);
+    ENSURE_IO_ORDER(request, helper);
 
     LOGDEBUG << " volid:" << request->volId
              << " blob:" << request->message->blob_name
