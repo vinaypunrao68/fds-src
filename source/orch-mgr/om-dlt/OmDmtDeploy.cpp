@@ -1071,7 +1071,6 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "DACT_UpdDone";
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_Module* om = OM_Module::om_singleton();
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -1089,9 +1088,9 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         dm_agent->handle_service_deployed();
     }
 
-    NodeUuidSet removeDms = cm->getRemovedServices(fpi::FDSP_DATA_MGR);
+    NodeUuidSet removedDms = cm->getRemovedServices(fpi::FDSP_DATA_MGR);
 
-    for (auto uuid : removeDms) {
+    for (auto uuid : removedDms) {
         domain->removeNodeComplete(uuid);
     }
 
@@ -1144,14 +1143,30 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
 
+        fds_uint64_t targetDmtVersion = vp->getTargetDMTVersion();
+
+        if ( DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
+            targetDmtVersion = DltDmtUtil::getInstance()->getDMTargetVersionForAbort();
+            LOGDEBUG << "Setting target DMT version for abort to:" << targetDmtVersion;
+        }
+
         // We already computed target DMT, so most likely sent start migration msg
         // Send abort migration to DMs first, so that we can restart migration later
         // (otherwise DMs will think they are still migrating)
         LOGWARN << "Already computed or commited target DMT, will send abort msg "
-                << " got target DMT version " << vp->getTargetDMTVersion();
+                << " for target DMT version " << targetDmtVersion;
 
-        // Revert to previously committed DMT locally in OM
-        am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
+        // This flag is set only if OM came up after a restart and found it
+        // was interrupted during a DMT computation. In this case, we do not
+        // want to do undoTarget. TargetDmt/committedDmt values
+        // are set correctly though om_load_state( ::loadDmtsFromConfigDb , ::commitDmt).
+        // We prevented targetVersion in DMTmgr from being cleared out to enter this
+        // error mode, checks in undoTarget will falsely assume the target has been committed
+        // and take action. Target version will be explicitly cleared out in the end of error mode
+        if ( !DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
+            // Revert to previously committed DMT locally in OM
+            am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
+        }
 
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_dm_migration_abort(vp->getCommittedDMTVersion());
         dst.abortMigrAcksToWait = 0;
@@ -1213,6 +1228,12 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     ClusterMap* cm = om->om_clusmap_mod();
     cm->ongoingMigrationDMs.clear();
+
+    if ( DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
+        vp->clearTargetDmt();
+
+        DltDmtUtil::getInstance()->clearDMAbortParams();
+    }
 
     if (vp->canRetryMigration()) {
         LOGNOTIFY << "Migration has failed " << vp->failedAttempts() << " times.";

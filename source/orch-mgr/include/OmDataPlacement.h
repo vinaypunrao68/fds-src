@@ -554,6 +554,7 @@ namespace fds {
          * and resets target DLT in persistent store
          */
         void undoTargetDltCommit();
+        void clearTargetDlt();
 
         /**
          * Returns the current commited version of the DLT.
@@ -612,11 +613,6 @@ namespace fds {
         inline fds_uint32_t getNumOfPrimarySMs() const {
             return numOfPrimarySMs;
         }
-
-        void         setAbortParams(bool abort, fds_int64_t version);
-        void         clearAbortParams();
-        bool         isAbortAfterRestartTrue();
-        fds_uint64_t getTargetVersionForAbort();
 
   private:  // methods
         /**

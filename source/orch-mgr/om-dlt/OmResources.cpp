@@ -713,11 +713,14 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     try {
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        OM_Module *om = OM_Module::om_singleton();
-        ClusterMap *cm = om->om_clusmap_mod();
+        OM_Module *om     = OM_Module::om_singleton();
+        ClusterMap *cm    = om->om_clusmap_mod();
         DataPlacement *dp = om->om_dataplace_mod();
 
-        if ( dp->isAbortAfterRestartTrue() ) {
+        bool smMigAbort =  DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue();
+        bool dmMigAbort =  DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue();
+
+        if ( smMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all SMs,"
                      << "prev DLT computation was interrupted";
 
@@ -729,23 +732,35 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             }
 
             if (uuid.uuid_get_val() != 0) {
-                LOGDEBUG << "Raising abort migration event from uuid:"
-                         << std::hex << uuid.uuid_get_val() << std::dec;
                 domain->raiseAbortSmMigrationEvt(uuid);
             } else {
                 LOGWARN << "No active/up SMs according to clustermap! Did not send abort";
             }
-        }  else {
+        } else {
             // start cluster update process that will recompute DLT /rebalance /etc
             // so that we move to DLT that reflects actual nodes that came up
 
             domain->om_dlt_update_cluster();
-
-            // Also start DMT recompute/rebalance
-            domain->om_dmt_update_cluster();
         }
 
-        if ( (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size() > 0 ) {
+        if ( dmMigAbort ) {
+            LOGDEBUG << "OM needs to send abortMigration to all DMs,"
+                     << "prev DMT computation was interrupted";
+            NodeUuid uuid;
+            NodeUuidSet nonFailedDms = cm->getNonfailedServices(fpi::FDSP_DATA_MGR);
+
+            if (nonFailedDms.size() > 0) {
+                uuid = *(nonFailedDms.begin());
+            }
+
+            if (uuid.uuid_get_val() != 0) {
+                domain->raiseAbortDmMigrationEvt(uuid);
+            } else {
+                LOGWARN << "No active/up DMs according to clustermap! Did not send abort";
+            }
+
+        } else {
+            // Start DMT recompute/rebalance
             domain->om_dmt_update_cluster();
         }
 
@@ -1475,19 +1490,23 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         std::vector<fpi::SvcInfo> amSvcs;
         std::vector<fpi::SvcInfo> smSvcs;
         std::vector<fpi::SvcInfo> dmSvcs;
-
+        std::vector<fpi::SvcInfo> removedSvcs;
         
-        isAnySvcPendingRemoval(&smSvcs, &dmSvcs);
+        isAnySvcPendingRemoval(&removedSvcs);
 
-        if ( smSvcs.size() > 0 ) {
-            LOGDEBUG << "Will generate the node token map for retrieved DLT";
+        bool smPendingRemoval = false;
+        for ( auto svc : removedSvcs ) {
+            if (svc.svc_type == fpi::FDSP_STOR_MGR) {
+                smPendingRemoval = true;
+                break;
+            }
+        }
+
+        if ( smPendingRemoval ) {
             dp->generateNodeTokenMapOnRestart();
         }
 
-        handlePendingSvcRemoval(smSvcs, dmSvcs);
-
-        smSvcs.clear();
-        dmSvcs.clear();
+        handlePendingSvcRemoval(removedSvcs);
 
         OM_Module *om = OM_Module::om_singleton();
         DataPlacement *dp = om->om_dataplace_mod();
@@ -1499,18 +1518,19 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // which checks for a NULL value of newDlt, and returns without action
         // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
         // At the end of error handling we will explicitly clear "next" version
-        // and newDlt out as a part of clearAbortParams()
-        bool unset = !(dp->isAbortAfterRestartTrue());
-        dp->commitDlt( unset );
+        // and newDlt out as a part of clearSMAbortParams()
+        bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
+        dp->commitDlt( unsetTarget );
 
         LOGNOTIFY << "OM deployed DLT with "
                   << deployed_sm_services.size() << " nodes";
 
-        vp->commitDMT( true );
+        // Same reasoning as above
+        unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());
+        vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
             LOGDEBUG << "OM Restart, Found ( returned ) "
-
                      << pmSvcs.size() << " PMs. "
                      << amSvcs.size() << " AMs. "
                      << dmSvcs.size() << " DMs. "
@@ -2157,117 +2177,96 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
     
 
 void OM_NodeDomainMod::handlePendingSvcRemoval(
-    std::vector<fpi::SvcInfo> smSvcs,
-    std::vector<fpi::SvcInfo> dmSvcs )
+    std::vector<fpi::SvcInfo> removedSvcs)
 {
-    LOGDEBUG << "&Entered handlePendingSvcRemoval";
     OM_Module *om = OM_Module::om_singleton();
     ClusterMap *cm = om->om_clusmap_mod();
 
-    for (auto svc : smSvcs)
+    for (auto svc : removedSvcs)
     {
+        LOGDEBUG << "Handle pending removal of SM or DM service:"
+                 << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                 << std::dec;
+
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
         fromSvcInfoToFDSP_RegisterNodeTypePtr( svc, reg_node_req );
 
         NodeUuid node_uuid( static_cast<uint64_t>( reg_node_req->service_uuid.uuid ) );
 
-        LOGDEBUG << "!SpoofRegisterations removed svc handling";
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         NodeServices services;
         bool foundSvcs = gl_orch_mgr->getConfigDB()->getNodeServices(node_uuid, services);
 
+        // Determining whether we successfully managed to execute om_del_services as a part
+        // of service remove. If found that execution was interrupted during, try
+        // to determine at what point, and run the commands om_del would have done
         if (foundSvcs) {
-            if (services.sm.uuid_get_val() != 0) {
-                LOGDEBUG << "!Call om_del_services";
-                // handle_unregister_service didn't happen at all, so call into that now
+            if ( ( (svc.svc_type == fpi::FDSP_STOR_MGR) && (services.sm.uuid_get_val() != 0)) ||
+                 ( (svc.svc_type == fpi::FDSP_DATA_MGR) && (services.dm.uuid_get_val() != 0)) ){
+
+                LOGDEBUG << "Non-zero service uuid, call into delete services";
+                // handle_unregister_service didn't happen at all, so call into om_del_services now
                 om_del_services(node_uuid, reg_node_req->node_name, true, false, false);
 
-            } else {
-                NodeUuid uuid(svc.svc_id.svc_uuid.svc_uuid);
-                OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
+            } else { // We proceeded some in om_del_services, try to determine till exactly where
 
-                if (smAgent != NULL) {
-                    LOGDEBUG << "!Calling dc_unregister_node";
-                    om_locDomain->dc_unregister_node(node_uuid, smAgent->get_node_name());
+                if (svc.svc_type == fpi::FDSP_STOR_MGR) {
+                    //TODO @meena : For SM, om_del_service performs an update_capacity
+                    // there is no way I know of now to easily determine whether that was performed
+                    // For now, simply proceed with the rest of the actions
+                    OM_SmAgent::pointer smAgent = om_sm_agent(node_uuid);
 
-                } else {
-                    LOGDEBUG << "!SmAgent is NULL, did not call dc_unregister";
-                }
+                    if (smAgent != NULL) {
+                        Error err(ERR_OK);
+                        LOGDEBUG << "Non-Null value for svcAgent, unregister the node";
+                        err =  om_locDomain->dc_unregister_node(node_uuid, smAgent->get_node_name());
+
+                        // send shutdown message to SM
+                        if (err.ok()) {
+                            err = smAgent->om_send_shutdown();
+                        } else {
+                            LOGERROR << "Failed to unregister SM node:"
+                                     << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                                     << ". Not sending shutdown message to SM";
+                        }
+                    }
+                } else if (svc.svc_type == fpi::FDSP_DATA_MGR) {
+                    OM_DmAgent::pointer dmAgent = om_dm_agent(node_uuid);
+
+                    if (dmAgent != NULL) {
+                        Error err(ERR_OK);
+                        LOGDEBUG << "Non-Null value for svcAgent, unregister the node";
+
+                        err = om_locDomain->dc_unregister_node(node_uuid, dmAgent->get_node_name());
+                        // send shutdown message to DM
+                        if (err.ok()) {
+                            err = dmAgent->om_send_shutdown();
+                        } else {
+                            LOGERROR << "Failed to unregister DM node:"
+                                     << std::dec << node_uuid.uuid_get_val() << std::hex << " " << err
+                                     << ". Not sending shutdown message to DM";
+                        }
+                    }
+                } // svc type is DM
             }
         }
 
-        //domain->removeNodeComplete(node_uuid);
-        DLT::addToRemoveList(svc.svc_id.svc_uuid.svc_uuid);
+        DltDmtUtil::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid);
         cm->addPendingRmService(svc.svc_type, node_uuid);
     }
-
-    for (auto svc : dmSvcs) {
-        fpi::FDSP_RegisterNodeTypePtr reg_node_req;
-        reg_node_req.reset( new FdspNodeReg() );
-        fromSvcInfoToFDSP_RegisterNodeTypePtr( svc, reg_node_req );
-
-        NodeServices services;
-
-        NodeUuid node_uuid( static_cast<uint64_t>( reg_node_req->service_uuid.uuid ) );
-        bool foundSvcs = gl_orch_mgr->getConfigDB()->getNodeServices(node_uuid, services);
-
-        if (foundSvcs) {
-            if (services.dm.uuid_get_val() != 0) {
-                LOGDEBUG << "!-Call om_del_services";
-                // handle_unregister_service didn't happen at all, so call into that now
-                om_del_services(node_uuid, reg_node_req->node_name, true, false, false);
-
-            } else {
-                NodeUuid uuid(svc.svc_id.svc_uuid.svc_uuid);
-                OM_DmAgent::pointer dmAgent = om_dm_agent(uuid);
-
-                if (dmAgent != NULL) {
-                    LOGDEBUG << "!Calling dc_unregister_node";
-                    om_locDomain->dc_unregister_node(node_uuid, dmAgent->get_node_name());
-
-                } else {
-                    LOGDEBUG << "!DmAgent is NULL, did not call dc_unregister";
-                }
-            }
-        }
-
-        cm->addPendingRmService(svc.svc_type, node_uuid);
-
-
 }
 
-
-}
-void OM_NodeDomainMod::isAnySvcPendingRemoval(
-    std::vector<fpi::SvcInfo>* smSvcs,
-    std::vector<fpi::SvcInfo>* dmSvcs )
+void OM_NodeDomainMod::isAnySvcPendingRemoval(std::vector<fpi::SvcInfo>* removedSvcs)
 {
-    LOGDEBUG <<"&Entered isANySvcPendingRemoval";
     std::vector<fpi::SvcInfo> svcs;
     configDB->getSvcMap( svcs );
 
-    if ( svcs.size() > 0 )
+    for ( const auto svc : svcs )
     {
-        for ( const auto svc : svcs )
+        if ( svc.svc_status == fpi::SVC_STATUS_REMOVED)
         {
-            if ( isStorageMgrSvc( svc ) ) {
-                LOGDEBUG << "Process SM svc" << std::hex << svc.svc_id.svc_uuid.svc_uuid
-                         << std::dec << " with status:" << svc.svc_status;
-            }
-            if ( svc.svc_status == fpi::SVC_STATUS_REMOVED)
-            {
-                if ( isStorageMgrSvc( svc ) )
-                {
-                    LOGDEBUG <<"&Adding to sm list";
-                    smSvcs->push_back( svc );
-                }
-                else if ( isDataMgrSvc( svc ) )
-                {
-                    LOGDEBUG <<"&Adding to dm list";
-                    dmSvcs->push_back( svc );
-                }
-            }
+            removedSvcs->push_back( svc );
         }
     }
 }
@@ -2889,7 +2888,6 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             }
         }
         if (om_local_domain_up()) {
-            LOGDEBUG << "#!not Skipping DLT update for now";
             om_dlt_update_cluster();
         }
     }
@@ -2911,7 +2909,10 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                          << ". Not sending shutdown message to DM";
             }
         }
-        om_dmt_update_cluster();
+
+        if (om_local_domain_up()) {
+            om_dmt_update_cluster();
+        }
     }
     if (err.ok() && remove_am) {
         uuid = pmNodes->
@@ -2940,7 +2941,9 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 void
 OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
-    LOGDEBUG << "!RemoveNodeComplete";
+    LOGDEBUG << "Completed removal of service:"
+             << std::hex << uuid.uuid_get_val() << std::dec;
+
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fpi::SvcInfo svcInfo;
     fpi::SvcUuid svcuuid;
@@ -2948,14 +2951,12 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
     bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
     if (ret) {
-        LOGDEBUG << "!Deleting from svcMap now, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
+        LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
         fds_mutex dbLock;
         fds_mutex::scoped_lock l(dbLock);
-        configDB->deleteSvcMap(svcInfo);
 
-        if (svcInfo.svc_type == fpi::FDSP_STOR_MGR) {
-            DLT::clearFromRemoveList(uuid.uuid_get_val());
-        }
+        configDB->deleteSvcMap(svcInfo);
+        DltDmtUtil::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
 
@@ -3034,7 +3035,6 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
  */
 void
 OM_NodeDomainMod::om_dlt_update_cluster() {
-    LOGDEBUG << "!!### OM_DLT_UPDATE_CLUSTER";
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
 

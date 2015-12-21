@@ -147,7 +147,6 @@ PlacementDiff::PlacementDiff(const PlacementMetricsPtr& newPlacement,
                              const DLT* curDlt,
                              const NodeUuidSet& nodes)
         : l1toks_transfer(0) {
-    LOGDEBUG << "!->PlacementDiff constructor";
     int new_toks, old_toks;
     NodeUuidSet::const_iterator cit, cit2;
     int index = 0;
@@ -161,22 +160,17 @@ PlacementDiff::PlacementDiff(const PlacementMetricsPtr& newPlacement,
         TokenList node_l1_toks;
         NodeUuid l1_uuid = *cit;
 
-        LOGDEBUG << "!->Eval node:" << std::hex
-                 << l1_uuid.uuid_get_val() << std::dec;
         curDlt->getTokens(&node_l1_toks, l1_uuid, 0);
         new_toks = newPlacement->tokens(l1_uuid);
         old_toks = node_l1_toks.size();
         if (new_toks != old_toks)
             l1_diff_toks[l1_uuid] = new_toks - old_toks;
-        LOGDEBUG << "newToks:" << new_toks << " - " << "old_toks:" << old_toks;
         if (new_toks > old_toks) {
             l1toks_transfer += (new_toks - old_toks);
         } else {
             l1toks_remove += (old_toks - new_toks);
         }
 
-        LOGDEBUG << "!-Tokens transferred:" << l1toks_transfer << " &&"
-                 <<" Tokens removed:" << l1toks_remove;
         // fill in maps for L1-2 groups token transfers
         NodeTokCountMap l12_old_toks;
         if (curDlt->getDepth() >= 2) {
@@ -783,7 +777,6 @@ ConsistHashAlgorithm::checkUpdateValid(const ClusterMap *curMap,
             for (fds_uint32_t j = 0; j < primDepth; ++j) {
                 NodeUuid uuid = col->get(j);
                 if (rmNodes.count(uuid) > 0) {
-                    //LOGDEBUG << "!Incrementing removed count by uuid:" << std::hex << uuid.uuid_get_val() << std::dec;
                     ++rmCount;
                 }
             }
@@ -826,7 +819,6 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
         nodes.insert(cit->first);
     }
 
-    LOGDEBUG << "!->HANDLE DltChange";
     // Calculate new optimal number of primary and secondary tokens
     // to give to each node (this is done in PlacementMetrics constructor)
     PlacementMetricsPtr metricsPtr(

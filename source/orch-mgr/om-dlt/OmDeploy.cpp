@@ -387,7 +387,6 @@ void
 OM_DLTMod::dlt_deploy_event(DltComputeEvt const &evt)
 {
     fds_mutex::scoped_lock l(fsm_lock);
-    LOGDEBUG << "DLT - process event";
     dlt_dply_fsm->process_event(evt);
 }
 
@@ -656,14 +655,6 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // persist commited DLT
     dp->persistCommitedTargetDlt();
 
-    // Now print
-    NodeUuidSet smNodes = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
-    LOGDEBUG << "********At the end of commit ******";
-    for (auto uuid : smNodes) {
-        dp->printToks(uuid);
-    }
-
-
     // set all added DMs to ACTIVE state
     NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
     for (auto uuid : addedNodes) {
@@ -834,24 +825,27 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
 
+        if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
+            targetDltVersion = DltDmtUtil::getInstance()->getSMTargetVersionForAbort();
+            LOGDEBUG << "Setting target DLT version to:" << targetDltVersion;
+        }
+
+        LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
+                  << "for target DLT version " << targetDltVersion;
+
         // This flag is set only if OM came up after a restart and found it
         // was interrupted during a DLT computation. In this case, we do not
-        // want to do undoTarget.. since it resets newDlt/committedDlt values
+        // want to do undoTarget since it resets newDlt/committedDlt values
         // which have already been set to what they should be in ::loadDltsFromConfigDb.
-        // The "next" version will be cleared out in the clearAbortParams method call
-        // after all this processing is done
-        if ( !dp->isAbortAfterRestartTrue() ) {
+        // The "next" version will be explicitly cleared at the end of error mode
+        if ( !DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
             dp->undoTargetDltCommit();
-        } else {
-            targetDltVersion = dp->getTargetVersionForAbort();
-            LOGDEBUG << "Re-setting target DLT version for abort msg to:" << targetDltVersion;
         }
 
         // we already computed target DLT, so most likely sent start migration msg
         // send abort migration to SMs first, so that we can restart migratino later
         // (otherwise SMs will be left in bad state)
-        LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
-                  << " for target DLT version " << targetDltVersion;
+
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion(),
                                                                       targetDltVersion);
         LOGNORMAL << "Sent abort migration msgs to " << abortCnt << " SMs";
@@ -919,7 +913,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     OM_Module *om     = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
 
-    if ( dp->isAbortAfterRestartTrue() ) {
+    if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
 
         LOGDEBUG << "Will try re-compute DLT in a minute, abortMigrationMsg has been sent on restart";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
@@ -929,7 +923,9 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                     << " SM additions/deletions may be pending for long time!";
         }
 
-        dp->clearAbortParams();
+        dp->clearTargetDlt();
+
+        DltDmtUtil::getInstance()->clearSMAbortParams();
     }
 }
 

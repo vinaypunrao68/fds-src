@@ -547,6 +547,18 @@ VolumePlacement::undoTargetDmtCommit() {
     return rollBackNeeded;
 }
 
+void
+VolumePlacement::clearTargetDmt()
+{
+    LOGDEBUG << "Clearing out target DMT in configDB & dmtMgr";
+    if (!configDB->setDmtType(0, "target")) {
+        LOGWARN << "unable to store target dmt type to config db";
+    }
+
+    dmtMgr->unsetTarget(false);
+
+}
+
 /**
  * Returns true if there is no target DMT computed or committed
  * as an official version
@@ -649,8 +661,8 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
                         <<"["<< committedVersion << "] from configDB";
             err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
-            // check if DLT is valid with respect to nodes
-            // i.e. only contains node uuis that are in deployed_sm_services
+            // check if DMT is valid with respect to nodes
+            // i.e. only contains node uuids that are in deployed_dm_services
             // set and does not contain any zeroes, etc.
             err = dmt->verify(deployed_dm_services);
             if (err.ok()) {
@@ -694,6 +706,8 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
         if (!configDB->setDmtType(0, "next")) {
             LOGWARN << "unable to reset target DMT version to config db ";
         }
+
+        DltDmtUtil::getInstance()->setDMAbortParams(true, targetVersion);
     } else {
         if (0 == targetVersion) {
             LOGDEBUG << "There is only commited DMT in configDB (OK)";

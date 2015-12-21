@@ -187,11 +187,6 @@ namespace fds {
         static std::set<fds_token_id> token_diff(const NodeUuid &uid,
                 const DLT* new_dlt, const DLT* old_dlt);
 
-        static void addToRemoveList(fds_int64_t nodeUuid);
-        static bool isMarkedForRemoval(fds_int64_t nodeUuid);
-        static void clearFromRemoveList(fds_int64_t nodeUuid);
-        static bool isAnyRemovalPending(fds_int64_t& nodeUuid);
-        static std::vector<fds_int64_t> nodeVec;
 
         friend std::ostream& operator<< (std::ostream &out, const DLT& dlt);
 

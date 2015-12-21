@@ -123,12 +123,6 @@ DataPlacement::computeDlt() {
                      version,
                      true);
 
-    LOGDEBUG <<"*****Computing new ****";
-    NodeUuidSet smNodes = curClusterMap->getNonfailedServices(fpi::FDSP_STOR_MGR);
-    for (auto uuid : smNodes) {
-        printToks(uuid);
-    }
-
     err = placeAlgo->computeNewDlt(curClusterMap,
                                    commitedDlt,
                                    newDlt, getNumOfPrimarySMs());
@@ -432,11 +426,9 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
     }
 
     commitedDlt = newDlt;
-    LOGDEBUG << "!DLT version of commited is:" << commitedDlt->getVersion();
 
     if ( unsetTarget )
     {
-        LOGDEBUG << "!!UNSET of target";
         if (!configDB->setDltType(0, "next")) {
             LOGWARN << "Failed to unset target DLT in config db";
         }
@@ -494,18 +486,6 @@ DataPlacement::persistCommitedTargetDlt() {
     // oldVersion ?
 
     newDlt = NULL;
-}
-
-
-void
-DataPlacement::printToks(NodeUuid uuid) {
-
-    if ( commitedDlt != NULL ) {
-        LOGDEBUG << "!Committed version:" << commitedDlt->getVersion();
-        commitedDlt->printNumbersInTokenMap(uuid);
-    } else {
-        LOGDEBUG <<"!No commited version yet";
-    }
 }
 
 const DLT*
@@ -628,13 +608,14 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
 
 void DataPlacement::generateNodeTokenMapOnRestart()
 {
-    if (newDlt == NULL) {
-        LOGWARN << "newDlt member is NULL, cannot generate new node token map";
-        return;
-    }
+    LOGDEBUG << "Generating token map on OM restart";
 
-    if (commitedDlt == NULL) {
-        newDlt->generateNodeTokenMap();
+    if ( commitedDlt == NULL ) {
+        if ( newDlt != NULL ) {
+            newDlt->generateNodeTokenMap();
+        } else {
+            LOGWARN << "No values for committed or new DLT, unable to generate node token map";
+        }
     } else {
         commitedDlt->generateNodeTokenMap();
     }
@@ -667,10 +648,6 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             // i.e. only contains node uuis that are in deployed_sm_services
             // set and does not contain any zeroes, etc.
             err = dlt->verify(deployed_sm_services);
-            //for (auto i : deployed_sm_services) {
-            //    LOGDEBUG << "--DLT just retrieved from configDB";
-            //    dlt->printNumbersInTokenMap(i);
-            //}
 
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
@@ -710,7 +687,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             LOGWARN << "unable to reset DLT target version in configDB";
         }
 
-        setAbortParams(true, nextVersion);
+        DltDmtUtil::getInstance()->setSMAbortParams(true, nextVersion);
 
     } else {
         if (0 == nextVersion) {
@@ -729,35 +706,14 @@ void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB)
     this->configDB = configDB;
 }
 
-void DataPlacement::setAbortParams(bool abort, fds_int64_t version)
+void DataPlacement::clearTargetDlt()
 {
-    sendMigAbortAfterRestart = abort;
-    targetVersionForAbort    = version;
+    LOGDEBUG << "Clearing out target DLT in configDB";
 
-}
-
-void DataPlacement::clearAbortParams()
-{
-    sendMigAbortAfterRestart = false;
-    targetVersionForAbort    = 0;
-
-
-    // We prevented this from being cleared out during om_load_state
-    // so do it now
     if (!configDB->setDltType(0, "next")) {
         LOGWARN << "Failed to unset target DLT in config db";
     }
     newDlt = NULL;
-}
-
-bool DataPlacement::isAbortAfterRestartTrue()
-{
-    return sendMigAbortAfterRestart;
-}
-
-fds_uint64_t DataPlacement::getTargetVersionForAbort()
-{
-    return targetVersionForAbort;
 }
 
 }  // namespace fds

@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <DltDmtUtil.h>
 #include <ostream>
 #include <sstream>
 #include <iostream>
@@ -213,10 +214,16 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DMT cell
-                LOGERROR << "DMT contains unexpected uuid " << std::hex
-                         << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DMT;
+                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DMT cell
+                    LOGERROR << "DMT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DMT;
+                } else {
+                    LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val()
+                             << std::dec << " pending removal present in DMT,"
+                             << " will process in next update";
+                }
             }
             colSet.insert(uuid);
         }
