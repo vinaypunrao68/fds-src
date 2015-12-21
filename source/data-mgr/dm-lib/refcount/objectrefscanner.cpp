@@ -153,7 +153,7 @@ void ObjectRefScanMgr::mod_startup() {
     maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);
 
     LOGNORMAL << "refscanner [enabled:" << (timeBasedEnabled?"true":"false") <<"]"
-              << " [interval:" << scanIntervalSec << " s]"
+              << " [interval:" << scanIntervalSec.count() << " s]"
               << " [scancount:" << maxEntriesToScan << "]";
 
     /* Only if enabled is set we start timer based scanning */
