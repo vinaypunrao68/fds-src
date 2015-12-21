@@ -9,7 +9,7 @@
   <parent>
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2015.08.14-SNAPSHOT</version>
+    <version>2016.01.01-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.project.name} Thrift</name>
