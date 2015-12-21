@@ -712,6 +712,9 @@ struct CtrlNotifyPeerSrcDmStaticDone {
     2: i64      volume_id;
 }
 
+struct CtrlNotifyPeerSrcDmStaticDoneRsp {
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

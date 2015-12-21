@@ -402,6 +402,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
   StartRefScanMsgTypeId;
+  CtrlNotifyPeerSrcDmStaticDoneTypeId;
+  CtrlNotifyPeerSrcDmStaticDoneRspTypeId;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;

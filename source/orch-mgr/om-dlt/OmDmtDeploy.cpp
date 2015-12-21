@@ -415,7 +415,7 @@ OM_DMTMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
     volume_grp_mode = bool(MODULEPROVIDER()->get_fds_config()->
-                        get<bool>("fds.feature_toggle.common.enable_volumegrouping"));
+                        get<bool>("fds.feature_toggle.common.enable_volumegrouping", false));
 
     return 0;
 }

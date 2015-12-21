@@ -246,7 +246,8 @@ class DmMigrationMgr {
     }
 
     /**
-     * Version 2: Uses volume group coordinator for peer migration
+     * Version 2: Uses volume group coordinator for peer migration.
+     * This is the hook to start a migration.
      */
     Error startMigration(NodeUuid& srcDmUuid,
                          fpi::FDSP_VolumeDescType &vol,
