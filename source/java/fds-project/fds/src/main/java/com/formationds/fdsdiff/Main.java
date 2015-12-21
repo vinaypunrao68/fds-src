@@ -147,6 +147,9 @@ public final class Main
             Gson gson = new Gson();
 
             // First try to deserialize any provided input files.
+            // NOTE: setting to an Object first and then casting is a
+            // workaround for Eclipse Compiler issue that is resulting
+            // in a TypeMismatch error.
             Object a = 
                     tunnel(IOException.class,
                            in -> { return inputAPath.map(in); },

@@ -117,7 +117,7 @@ public final class Config extends AbstractConfig
                                        {
                                            return getEndpointAHost().map( in );
                                        }
-                                       catch ( Exception e )
+                                       catch ( ParseException e )
                                        {
                                            throw new RuntimeException( e );
                                        }
@@ -133,6 +133,7 @@ public final class Config extends AbstractConfig
                 {
                     throw (ParseException) cause;
                 }
+                throw re;
             }
         }
         return _endpointA;
@@ -154,7 +155,7 @@ public final class Config extends AbstractConfig
                                        {
                                            return getEndpointBHost().map( in );
                                        }
-                                       catch ( Exception e )
+                                       catch ( ParseException e )
                                        {
                                            throw new RuntimeException( e );
                                        }
@@ -170,6 +171,7 @@ public final class Config extends AbstractConfig
                 {
                     throw (ParseException) cause;
                 }
+                throw re;
             }
         }
         return _endpointB;
