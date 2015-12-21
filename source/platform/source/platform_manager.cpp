@@ -617,13 +617,6 @@ namespace fds
             m_db->setNodeInfo (m_nodeInfo);
         }
 
-
-/*
- 10: pm_types.pmServiceStateTypeId  bareAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 11: pm_types.pmServiceStateTypeId  javaAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 12: pm_types.pmServiceStateTypeId  dmState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 13: pm_types.pmServiceStateTypeId  smState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
-*/
         void PlatformManager::updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState)
         {
             switch (processType)
@@ -729,6 +722,8 @@ namespace fds
 
             // TODO(DJN): check for pid < 2 here and error
 
+            m_serviceFlapDetector->removeService (procIndex);
+
             if (orphanChildProcess)
             {
                 rc = kill (pid, SIGKILL);
@@ -740,7 +735,6 @@ namespace fds
             }
             else
             {
-
                 rc = kill (pid, SIGTERM);
 
                 if (rc < 0)
@@ -770,7 +764,6 @@ namespace fds
             m_appPidMap.erase (mapIter);
             updateNodeInfoDbPid (procIndex, EMPTY_PID);
         }
-
 
         // plf_start_node_services
         // -----------------------

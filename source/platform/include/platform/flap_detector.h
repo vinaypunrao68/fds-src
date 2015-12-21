@@ -14,10 +14,7 @@ extern "C"
 
 // STD C++ Library includes
 #include <map>
-
-// FDS Includes
-
-// Platform Includes
+#include <mutex>
 
 namespace fds
 {
@@ -26,7 +23,6 @@ namespace fds
         class FlapDetector
         {
             public:
-
                 class ServiceRecord
                 {
                     public:
@@ -43,7 +39,7 @@ namespace fds
             protected:
 
             private:
-                // std::map <int, std::unique_ptr <ServiceRecord>> m_appMap;
+                std::mutex                    m_appMapMutex;
                 std::map <int, ServiceRecord> m_appMap;
 
                 uint32_t                      m_timeWindow;

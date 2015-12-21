@@ -28,16 +28,20 @@ namespace fds
 
             record.m_timeStamp = time (nullptr);
             record.m_restartCount = 0;
+
             m_appMap[serviceIndex] = record;
         }
 
         void FlapDetector::removeService (int serviceIndex)
         {
+            std::lock_guard <decltype (m_appMapMutex)> lock (m_appMapMutex);
+
             std::map <int, ServiceRecord>::iterator mapIter = m_appMap.find (serviceIndex);
 
             if (m_appMap.end() != mapIter)
             {
                 LOGERROR << "Preparing to remove a service (service index = " << serviceIndex << ") from the Flap Detector.";
+
                 m_appMap.erase (mapIter);
             }
             else
@@ -55,6 +59,8 @@ namespace fds
                 return false;
             }
 
+            std::lock_guard <decltype (m_appMapMutex)> lock (m_appMapMutex);
+
             std::map <int, ServiceRecord>::iterator mapIter = m_appMap.find (serviceIndex);
 
             if (m_appMap.end() != mapIter)
@@ -66,7 +72,7 @@ namespace fds
                 {
                     // Service last restarted within timeWindow
 
-                    if (mapIter->second.m_restartCount++ > m_flapLimit)
+                    if (++mapIter->second.m_restartCount > m_flapLimit)
                     {
                         LOGERROR << "Service is flapping, will not attempt to restart the service again (service index = " << serviceIndex << ").";
                         m_appMap.erase (mapIter);
