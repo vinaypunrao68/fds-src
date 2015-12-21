@@ -9,21 +9,8 @@ import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsISCSI;
 import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
-import com.formationds.client.v08.model.nfs.NfsOptionBase;
 import com.formationds.commons.model.type.Protocol;
-
-import com.google.gson.FieldNamingPolicy;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import com.google.gson.LongSerializationPolicy;
+import com.google.gson.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,50 +75,6 @@ public class ObjectModelHelper {
             }
 
             return context.deserialize( jsonObject, klass );
-        }
-    }
-
-    // implement NfsOptions Adapter
-    public static class NfsOptionAdapter
-            implements JsonSerializer<NfsOptionBase>, JsonDeserializer<NfsOptionBase>
-    {
-        private static final String CLASSNAME = "CLASSNAME";
-        private static final String INSTANCE  = "INSTANCE";
-
-        @Override
-        public NfsOptionBase deserialize( JsonElement json,
-                                          Type typeOfT,
-                                          JsonDeserializationContext context )
-                throws JsonParseException
-        {
-            JsonObject jsonObject =  json.getAsJsonObject();
-            JsonPrimitive prim = ( JsonPrimitive ) jsonObject.get( CLASSNAME ) ;
-            String className = prim.getAsString();
-
-            Class<?> klass;
-            try
-            {
-                klass = Class.forName( className );
-            }
-            catch (ClassNotFoundException e)
-            {
-                throw new JsonParseException( e.getMessage() );
-            }
-
-            return context.deserialize( jsonObject.get( INSTANCE ), klass );
-        }
-
-        @Override
-        public JsonElement serialize( NfsOptionBase src,
-                                      Type typeOfSrc,
-                                      JsonSerializationContext context )
-        {
-            JsonObject retValue = new JsonObject();
-            String className = src.getClass().getCanonicalName();
-            retValue.addProperty( CLASSNAME, className );
-            JsonElement elem = context.serialize( src );
-            retValue.add( INSTANCE, elem );
-            return retValue;
         }
     }
 
@@ -245,7 +188,6 @@ public class ObjectModelHelper {
                                 .setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
                                 .setLongSerializationPolicy( LongSerializationPolicy.STRING )
                                 .registerTypeAdapter( VolumeSettings.class, new VolumeSettingsAdapter() )
-                                .registerTypeAdapter( NfsOptionBase.class, new NfsOptionAdapter() )
                                 .setPrettyPrinting()
                                 .create();
     }

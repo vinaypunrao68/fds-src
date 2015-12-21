@@ -12,7 +12,7 @@ import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.Initiator;
 import com.formationds.client.v08.model.iscsi.LUN;
 import com.formationds.client.v08.model.iscsi.Target;
-import com.formationds.client.v08.model.nfs.NfsOptionBase;
+import com.formationds.client.v08.model.nfs.NfsOptions;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
@@ -514,22 +514,13 @@ public class ExternalModelConverter {
             Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
-            final Set<NfsOptionBase> options = new HashSet<>( );
-            final Set<IPFilter> ipFilters = new HashSet<>( );
-
-            if( internalVolume.getPolicy().getNfsOptions() == null ||
-                !internalVolume.getPolicy().getNfsOptions().isSetOptions() )
-            {
-                logger.debug( "No NFS options provided, defaulting to empty option set." );
-            }
-
             // TODO populate NFS options and ipFilters
 
             extSettings = new VolumeSettingsNfs.Builder()
-                                               .withIpFilters( ipFilters )
-                                               .withOptions( options )
+                                               .withOptions( new NfsOptions.Builder().build() )
                                                .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
                                                .build();
+            // TODO finish
 
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
             Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
@@ -592,19 +583,18 @@ public class ExternalModelConverter {
                            null );
     }
 
-    public static NfsOption convertToInternalNfsOptions( final Set<NfsOptionBase> nfs )
+    public static NfsOption convertToInternalNfsOptions( final String nfs, final String client )
     {
         if( nfs == null )
         {
             return new NfsOption( );
         }
 
-        final NfsOption nfsOptions = new NfsOption();
-        final Iterator<NfsOptionBase> iterator = nfs.iterator();
+        final NfsOption options = new NfsOption( );
+        options.setOptions( nfs );
+        options.setClient( client );
 
-        // TODO determine if this is even needed.
-
-        return nfsOptions;
+        return options;
     }
 
     public static List<LogicalUnitNumber> convertToInternalLogicalUnitNumber( final List<LUN> luns )
@@ -844,9 +834,45 @@ public class ExternalModelConverter {
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
             internalSettings.setVolumeType( VolumeType.NFS );
 
-            // TODO finish NFS
-//            nfsSettings.setFilters(  );
-//            nfsSettings.setOptions(  );
+            Size maxObjSize = nfsSettings.getMaxObjectSize();
+
+            if ( maxObjSize != null &&
+                 maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() &&
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() )
+            {
+                internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B )
+                                                                    .intValue() );
+            }
+            else
+            {
+                logger.warn( OBJECT_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+            }
+
+            final NfsOption options = new NfsOption( );
+            if( nfsSettings.getOptions() == null || nfsSettings.getOptions().isEmpty() )
+            {
+                options.setOptions( "" );
+            }
+            else
+            {
+                options.setOptions( nfsSettings.getOptions() );
+            }
+
+            if( nfsSettings.getClients() == null || nfsSettings.getClients().isEmpty() )
+            {
+                options.setClient( "*" );
+            }
+            else
+            {
+                options.setClient( nfsSettings.getClients() );
+            }
+
+            internalSettings.setNfsOptions( options );
         }
         else // Object Volume
         {
@@ -970,8 +996,21 @@ public class ExternalModelConverter {
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
         } else if( settings instanceof VolumeSettingsNfs ) {
             VolumeSettingsNfs nfs = ( VolumeSettingsNfs ) settings;
-            if ( nfs.getOptions() != null ) {
-                volumeType.setNfs( convertToInternalNfsOptions( nfs.getOptions() ) );
+
+            final String options = nfs.getOptions();
+            final String clients = nfs.getClients();
+
+            if ( options != null && clients == null )
+            {
+                volumeType.setNfs( convertToInternalNfsOptions( options, "*" ) );
+            }
+            else if ( options != null )
+            {
+                volumeType.setNfs( convertToInternalNfsOptions( options, clients ) );
+            }
+
+            if ( nfs.getMaxObjectSize() != null ) {
+                volumeType.setMaxObjSizeInBytes( nfs.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
             } else {
                 volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
             }

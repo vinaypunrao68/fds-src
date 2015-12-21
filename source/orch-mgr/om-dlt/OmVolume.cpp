@@ -812,6 +812,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->timelineTime = pVol->timelineTime;
     pkt->state        = pVol->getState();
     pkt->iscsi        = pVol->iscsiSettings;
+    pkt->nfs          = pVol->nfsSettings;
 }
 
 // vol_fmt_message
