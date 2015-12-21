@@ -247,15 +247,18 @@ NodeUuid DLT::getSourceNodeForToken(const NodeUuid &destNodeUuid,
                                     const fds_token_id &tokenId) const {
     NodeUuid srcNodeUuid(INVALID_RESOURCE_UUID);
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
+    fds_uint32_t numReplicas = tokenNodeGroup->getLength();
 
-    if (destNodeUuid != tokenNodeGroup->get(sm1PIdx)) {
-        srcNodeUuid = tokenNodeGroup->get(sm1PIdx);
-    } else if (tokenNodeGroup->getLength() > sm2PIdx) {
-        srcNodeUuid = tokenNodeGroup->get(sm2PIdx);
+    for (fds_uint32_t replica = 0; replica < numReplicas; ++replica) {
+        if (destNodeUuid != tokenNodeGroup->get(replica)) {
+            srcNodeUuid = tokenNodeGroup->get(replica);
+            break;
+        }
     }
 
     return srcNodeUuid;
 }
+
 // get source nodes for all the tokens of a given destination node
 void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
                                     SourceNodeMap &srcNodeTokenMap) const {
