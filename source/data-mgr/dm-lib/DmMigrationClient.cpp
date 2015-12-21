@@ -692,6 +692,12 @@ DmMigrationClient::sendFinishFwdMsg()
 }
 
 void
+DmMigrationClient::routeAbortMigration()
+{
+    dataMgr.dmMigrationMgr->abortMigration();
+}
+
+void
 DmMigrationClient::abortMigration()
 {
     /**

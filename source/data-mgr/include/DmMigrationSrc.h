@@ -17,8 +17,10 @@ namespace fds {
 
 class DmMigrationSrc : DmMigrationBase {
 public:
-    ~DmMigrationSrc();
+    using DmMigrationBase::DmMigrationBase;
+    ~DmMigrationSrc() {}
     typedef std::shared_ptr<DmMigrationSrc> shared_ptr;
+    typedef std::unique_ptr<DmMigrationSrc> unique_ptr;
 private:
 };
 

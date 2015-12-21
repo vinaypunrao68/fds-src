@@ -10,14 +10,27 @@
 #include <boost/shared_ptr.hpp>
 #include <MigrationUtility.h>
 #include <dmhandler.h>
-#include <DmMigrationBase.h>
+#include <DmMigrationExecutor.h>
 
 namespace fds {
 
-class DmMigrationDest : DmMigrationBase {
+class DmMigrationDest : public DmMigrationExecutor {
 public:
-    ~DmMigrationDest();
+    DmMigrationDest(int64_t _migrId,
+                    DataMgr &_dm,
+                    NodeUuid &_srcDmUuid,
+                    fpi::FDSP_VolumeDescType& _volDesc,
+                    uint32_t _timeout) :
+        DmMigrationExecutor(_dm,
+                            _srcDmUuid,
+                            _volDesc,
+                            _migrId,
+                            false,
+                            NULL,
+                            _timeout) {}
+    ~DmMigrationDest() {}
     typedef std::shared_ptr<DmMigrationDest> shared_ptr;
+    typedef std::unique_ptr<DmMigrationDest> unique_ptr;
 private:
 };
 

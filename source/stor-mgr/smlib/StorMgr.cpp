@@ -210,8 +210,10 @@ void ObjectStorMgr::mod_enable_service()
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
-            modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
+        totalRate = static_cast<uint32_t>(atoi(
+                svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
+                                       "node_iops_min").c_str()));
+        fds_assert(totalRate > 0);
     }
 
     /*
