@@ -595,10 +595,14 @@ MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
                              << " for the DLT token " << dltToken << " returning error";
                     return false;
                 }
+                NodeUuid executorNodeUuid(executorSmUuid);
+
+                if (cit->first == executorNodeUuid) {
+                    return false;
+                }
 
                 // see if it has higher responsibility for the DLT token
                 DltTokenGroupPtr smGroup = dlt->getNodes(dltToken);
-                NodeUuid executorNodeUuid(executorSmUuid);
                 // see which SM we find first
                 for (uint i = 0; i < smGroup->getLength(); ++i) {
                     if (smGroup->get(i) == executorNodeUuid) {
