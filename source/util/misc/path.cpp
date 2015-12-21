@@ -78,5 +78,31 @@ std::string getFileChecksum(const std::string& filename) {
     sum.get_checksum(strsum);
     return strsum;
 }
+
+/**
+ * Return bytes from human file size
+ * input string as: case-insensitive
+ * "12345",""12345b", "12345bytes" = 12345
+ * "1g", "1 GB" = 1024*1024*1024 bytes
+ * "60k", "60KB" = 60*1024
+ */
+fds_uint64_t getBytesFromHumanSize(const std::string& strFileSize) {
+    fds_uint64_t mult = 1;
+    fds_uint64_t bytes = 0;
+    char *p, *end;
+    bytes =  std::strtol(strFileSize.c_str(), &end, 10);
+    p = end;
+    for ( ; *p; ++p) *p = tolower(*p);
+    if (end != strFileSize.c_str()) {
+        if (0 == strncmp(end, "b", 1)) mult = 1;
+        else if (0 == strncmp(end, "k", 1)) mult = 1024;
+        else if (0 == strncmp(end, "m", 1)) mult = 1024*1024;
+        else if (0 == strncmp(end, "g", 1)) mult = 1024*1024*1024;
+        else if (0 == strncmp(end, "t", 1)) mult = 1024L*1024L*1024L*1024L;
+    }
+    return bytes * mult;
+}
+
+
 }  // namespace util
 }  // namespace fds
