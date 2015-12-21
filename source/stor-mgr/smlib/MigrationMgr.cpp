@@ -1212,9 +1212,9 @@ MigrationMgr::handleDltClose(const DLT* dlt,
 }
 
 void
-MigrationMgr::notifyDltUpdate(const DLT *dlt,
-                              fds_uint32_t bitsPerDltToken,
-                              const NodeUuid& mySvcUuid)
+MigrationMgr::makeTokensAvailable(const DLT *dlt,
+                                  fds_uint32_t bitsPerDltToken,
+                                  const NodeUuid& mySvcUuid)
 {
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);

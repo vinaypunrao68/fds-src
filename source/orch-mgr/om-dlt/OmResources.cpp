@@ -3014,9 +3014,12 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
-    dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
-    // in case there are no volume acknowledge to wait
-    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    if (!dmtMod->volumeGrpMode()) {
+        // Legacy mode - every node down and up event drives the state machine
+        dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
+        // in case there are no volume acknowledge to wait
+        dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    }
 }
 void
 OM_NodeDomainMod::om_dmt_waiting_timeout() {
@@ -3058,24 +3061,31 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
 void
 OM_NodeDomainMod::om_service_down(const Error& error,
                                   const NodeUuid& svcUuid,
-                                  fpi::FDSP_MgrIdType svcType)
-{
+                                  fpi::FDSP_MgrIdType svcType) {
+
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     int64_t pmUuid = svcUuid.uuid_get_val();
     pmUuid &= ~0xF;
-
+    if (dmtMod->volumeGrpMode()) {
+        // For volume groups, replica layer takes care of intermittent state
+        LOGDEBUG << "Volume Group Mode: ignoring service down";
+        return;
+    }
     if (!isNodeShuttingDown(pmUuid)) {
-        if ( om_local_domain_up() )
+        if (om_local_domain_up())
         {
             if (svcType == fpi::FDSP_STOR_MGR)
             {
                 // this is SM -- notify DLT state machine
-                om_dlt_update_cluster();
+                LOGNOTIFY << "SM " << std::hex << svcUuid << " down. Will skip DLT recalculation until it rejoins.";
+                // om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)
             {
                 // this is DM -- notify DMT state machine
                 // For now, disable this as setupNewNode will throw the event
-                LOGNOTIFY << "DM " << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
+                LOGNOTIFY << "DM " << std::hex << svcUuid << " down. Will skip DMT recalculation until it rejoins.";
                 // om_dmt_update_cluster();
             }
         } else {
@@ -3089,9 +3099,15 @@ void
 OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                                 fpi::FDSP_MgrIdType svcType)
 {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     int64_t pmUuid = svcUuid.uuid_get_val();
     pmUuid &= ~0xF;
-
+    if (dmtMod->volumeGrpMode()) {
+        // For volume groups, replica layer takes care of intermittent state
+        LOGDEBUG << "Volume Group Mode: ignoring service up";
+        return;
+    }
     if (!isNodeShuttingDown(pmUuid)) {
         if ( om_local_domain_up() )
         {
@@ -3112,7 +3128,6 @@ OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                      << " is shutting down, will not update dlt/dmt";
         }
     }
-
 }
 
 // Called when OM receives notification that the re-balance is

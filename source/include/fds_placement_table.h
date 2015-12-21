@@ -123,6 +123,15 @@ namespace fds {
             return retSet;
         }
 
+        std::vector<fpi::SvcUuid> toSvcUuids() const
+        {
+            std::vector<fpi::SvcUuid> svcUuids(getLength());
+            for (uint32_t i = 0; i < getLength(); i++) {
+                svcUuids[i] = p[i].toSvcUuid();
+            }
+            return svcUuids;
+        }
+
         friend std::ostream& operator<< (std::ostream &out,
                                          const TableColumn& column);
 

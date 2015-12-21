@@ -240,12 +240,11 @@ AmDispatcher::getVolumes(std::vector<VolumeDesc>& volumes) {
     fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
     if (err.ok()) {
-        // Transform the vector of CtrlNotifyAdd to one of VolumeDescs
-        std::transform(list.volumeList.begin(),
-                       list.volumeList.end(),
-                       std::back_inserter(volumes),
-                       [] (fpi::CtrlNotifyVolAdd const& c) -> VolumeDesc
-                           { return VolumeDesc(c.vol_desc); });
+        for (auto const& volume : list.volumeList) {
+            if (fpi::Active == volume.vol_desc.state) {
+                volumes.emplace_back(volume.vol_desc);
+            }
+        }
     }
 }
 

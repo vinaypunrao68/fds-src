@@ -56,7 +56,7 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     snapDir += "/";
     snapDir += getVolIdStr() + "_vcat.ldb";
 
-    std::string nodeRoot = svcmgr->getSvcProperty<std::string>(
+    std::string nodeRoot = svcmgr->getSvcProperty(
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
     const std::string destDir = nodeRoot + "sys-repo/dm-names/" + getVolIdStr() + "/";

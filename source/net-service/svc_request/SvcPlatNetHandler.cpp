@@ -86,6 +86,12 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
     taskExecutor_ = taskExecutor;
 }
 
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
+}
+
 /**
  * @brief
  *
