@@ -22,7 +22,7 @@ namespace fds
 
         void FlapDetector::addService (int serviceIndex)
         {
-            LOGDEBUG << "No flap record found (service index = " << serviceIndex << "), creating a record.";
+            LOGDEBUG << "No flap detector record found (service index = " << serviceIndex << "), creating a record.";
 
             ServiceRecord record;
 
@@ -40,14 +40,14 @@ namespace fds
 
             if (m_appMap.end() != mapIter)
             {
-                LOGERROR << "Preparing to remove a service (service index = " << serviceIndex << ") from the Flap Detector.";
+                LOGERROR << "Preparing to remove a service (service index = " << serviceIndex << ") from the flap detector.";
 
                 m_appMap.erase (mapIter);
             }
             else
             {
                 // This shouldn't happen, but lets log an error
-                LOGDEBUG << "No flap dector record found (service index = " << serviceIndex << "), removing a record.";
+                LOGDEBUG << "No flap detector record found (service index = " << serviceIndex << "), removing a record.";
             }
         }
 
