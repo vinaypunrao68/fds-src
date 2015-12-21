@@ -9,7 +9,7 @@
   <parent>
     <artifactId>company-pom</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2016.01.01-SNAPSHOT</version>
+    <version>1.0.4</version>
   </parent>
 
   <name>${formationds.project.name} Project POM</name>
