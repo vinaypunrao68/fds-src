@@ -158,11 +158,13 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             removed = curSmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
+//            fds_verify(removed ==1);
             removedSMs.insert(uuid);
         } else {
             removed = curDmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
+//            fds_verify(removed ==1);
             removedDMs.insert(uuid);
         }
     }

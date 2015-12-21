@@ -548,7 +548,6 @@ namespace fds {
          * Stores commited DLT to the permanent DLT history
          */
         void persistCommitedTargetDlt();
-        void printToks(NodeUuid uuid);
         /**
          * Restores cached commited DLT from persistent store
          * and resets target DLT in persistent store

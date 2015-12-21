@@ -87,7 +87,6 @@ namespace fds {
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
         void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
-        void printNumbersInTokenMap(NodeUuid &uid) const;
         typedef std::map<NodeUuid, std::vector<fds_int32_t>> SourceNodeMap;
 
         /**
@@ -186,7 +185,6 @@ namespace fds {
          */
         static std::set<fds_token_id> token_diff(const NodeUuid &uid,
                 const DLT* new_dlt, const DLT* old_dlt);
-
 
         friend std::ostream& operator<< (std::ostream &out, const DLT& dlt);
 

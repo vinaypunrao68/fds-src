@@ -715,7 +715,6 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_Module *om     = OM_Module::om_singleton();
         ClusterMap *cm    = om->om_clusmap_mod();
-        DataPlacement *dp = om->om_dataplace_mod();
 
         bool smMigAbort =  DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue();
         bool dmMigAbort =  DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue();
@@ -3440,4 +3439,5 @@ OM_NodeDomainMod::isNodeShuttingDown(int64_t uuid)
 
     return nodeIsShuttingDown;
 }
+
 } // namespace fds

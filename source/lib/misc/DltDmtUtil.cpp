@@ -1,13 +1,9 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015 Formation Data Systems, Inc.
  */
-
-
 
 #include <DltDmtUtil.h>
-/**
- *  Implementationg for DLT ...
- */
+
 namespace fds {
 
 DltDmtUtil* DltDmtUtil::m_instance = NULL;
@@ -20,6 +16,7 @@ DltDmtUtil::DltDmtUtil()
 {
 
 }
+
 DltDmtUtil* DltDmtUtil::getInstance() {
     if (!m_instance) {
         m_instance = new DltDmtUtil();
@@ -52,17 +49,14 @@ void DltDmtUtil::clearFromRemoveList(int64_t nodeUuid)
                         {
                         return nodeUuid == id;
                        });
+
     if (iter != removedNodes.end()) {
-        //LOGDEBUG << "Erased SM:" << std::hex << nodeUuid << std::dec
-        //         << "from the remove list";
+        LOGDEBUG << "Erasing SM/DM:" << std::hex << nodeUuid << std::dec
+                 << " from the remove list";
         removedNodes.erase(iter);
-    } else {
-        //LOGWARN << "Did not delete SM:" << std::hex
-        //        << nodeUuid << std::dec << "from the dlt remove list";
     }
 }
 
-// double check the use of this
 bool DltDmtUtil::isAnyRemovalPending(fds_int64_t& nodeUuid)
 {
     if (removedNodes.size() != 0) {
@@ -74,7 +68,7 @@ bool DltDmtUtil::isAnyRemovalPending(fds_int64_t& nodeUuid)
 
 }
 
-void DltDmtUtil::setSMAbortParams(bool abort, fds_int64_t version)
+void DltDmtUtil::setSMAbortParams(bool abort, fds_uint64_t version)
 {
     sendSMMigAbortAfterRestart = abort;
     dltTargetVersionForAbort   = version;
@@ -92,13 +86,13 @@ bool DltDmtUtil::isSMAbortAfterRestartTrue()
     return sendSMMigAbortAfterRestart;
 }
 
-int64_t DltDmtUtil::getSMTargetVersionForAbort()
+fds_uint64_t DltDmtUtil::getSMTargetVersionForAbort()
 {
     return dltTargetVersionForAbort;
 }
 
 
-void DltDmtUtil::setDMAbortParams(bool abort, fds_int64_t version)
+void DltDmtUtil::setDMAbortParams(bool abort, fds_uint64_t version)
 {
     sendDMMigAbortAfterRestart = abort;
     dmtTargetVersionForAbort   = version;
@@ -116,7 +110,7 @@ bool DltDmtUtil::isDMAbortAfterRestartTrue()
     return sendDMMigAbortAfterRestart;
 }
 
-int64_t DltDmtUtil::getDMTargetVersionForAbort()
+fds_uint64_t DltDmtUtil::getDMTargetVersionForAbort()
 {
     return dmtTargetVersionForAbort;
 }

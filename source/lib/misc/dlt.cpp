@@ -199,7 +199,6 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() const {
-    LOGDEBUG << "!Generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -371,7 +370,6 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
                 }
             }
                 colSet.insert(uuid);
-
         }
 
         // make sure that column contains all unique uuids
@@ -655,7 +653,6 @@ std::set<fds_token_id> DLT::token_diff(const NodeUuid &uid,
             std::insert_iterator<std::set<fds_token_id> >(ret_set, ret_set.end()));
     return ret_set;
 }
-
 //================================================================================
 
 /**

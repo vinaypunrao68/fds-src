@@ -6,20 +6,13 @@
 #define SOURCE_INCLUDE_DLTDMTUTIL_H_
 
 #include <vector>
-#include <utility>
 
-#include <fds_resource.h>
 #include <fds_typedefs.h>
-#include <fds_defines.h>
-#include <fds_module.h>
 
 #include <util/Log.h>
 
 namespace fds
 {
-
-typedef std::pair<fpi::FDSP_MgrIdType, int64_t> Svc;
-
     class DltDmtUtil
     {
     public:
@@ -39,16 +32,16 @@ typedef std::pair<fpi::FDSP_MgrIdType, int64_t> Svc;
          * for both DM and SM */
 
         // SM related
-        void    setSMAbortParams(bool abort, int64_t version);
-        bool    isSMAbortAfterRestartTrue();
-        void    clearSMAbortParams();
-        int64_t getSMTargetVersionForAbort();
+        void         setSMAbortParams(bool abort, fds_uint64_t version);
+        bool         isSMAbortAfterRestartTrue();
+        void         clearSMAbortParams();
+        fds_uint64_t getSMTargetVersionForAbort();
 
         // DM related
-        void    setDMAbortParams(bool abort, int64_t version);
-        bool    isDMAbortAfterRestartTrue();
-        void    clearDMAbortParams();
-        int64_t getDMTargetVersionForAbort();
+        void         setDMAbortParams(bool abort, fds_uint64_t version);
+        bool         isDMAbortAfterRestartTrue();
+        void         clearDMAbortParams();
+        fds_uint64_t getDMTargetVersionForAbort();
 
     private:
 
@@ -65,8 +58,8 @@ typedef std::pair<fpi::FDSP_MgrIdType, int64_t> Svc;
         /* Keep track of migration interruptions */
         bool                 sendSMMigAbortAfterRestart;
         bool                 sendDMMigAbortAfterRestart;
-       fds_uint64_t          dltTargetVersionForAbort;
-       fds_uint64_t          dmtTargetVersionForAbort;
+        fds_uint64_t         dltTargetVersionForAbort;
+        fds_uint64_t         dmtTargetVersionForAbort;
     };
 
 } // namespace fds

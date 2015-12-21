@@ -680,9 +680,6 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
                   << "persisted  target DLT and re-compute it again if discovered "
                   << "SMs re-register";
 
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
-
         if (!configDB->setDltType(0, "next")) {
             LOGWARN << "unable to reset DLT target version in configDB";
         }

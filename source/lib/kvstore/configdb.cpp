@@ -1169,7 +1169,6 @@ bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int loca
 
 bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
     try {
-        //LOGDEBUG << "!!Storing new DLT";
         // fds_uint64_t version = dlt.getVersion();
         Reply reply = kv_store.sendCommand("sadd %d:dlts %ld", localDomain, dlt.getVersion());
         if (!reply.wasModified()) {
@@ -1180,9 +1179,6 @@ bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain)
         std::string serializedData, hexCoded;
         const_cast<DLT&>(dlt).getSerialized(serializedData);
         kv_store.encodeHex(serializedData, hexCoded);
-
-
-        //LOGDEBUG << "dlt : [" << dlt.getVersion() << "] : size = " << hexCoded.length() << ", string:" << hexCoded.c_str();
 
         reply = kv_store.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
         bool fSuccess = reply.isOk();
@@ -2426,7 +2422,6 @@ bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const sn
 }
 
 bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo) {
-    //LOGDEBUG << "!configDB::deleteSvcMap";
     try {
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
