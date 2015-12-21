@@ -385,13 +385,6 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
               << " tc state:" << state
               << " error:" << err;
 
-    LOGNORMAL << "Finished compaction for token:" << token_id
-              << " disk:" << cur_disk_id
-              << " tier:" << cur_tier
-              << " verify:" << verifyData
-              << " tc state:" << state
-              << " error:" << tc_error;
-
     tcStateType expect = TCSTATE_IN_PROGRESS;
     tcStateType new_state = err.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
     if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
