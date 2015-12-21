@@ -352,7 +352,7 @@ namespace fds {
     } else {
       switch (algo_type) {
       case FDS_QoSControl::FDS_DISPATCH_WFQ:
-	dispatcher = new QoSWFQDispatcher(this, tot_rate, 10, ut_log);
+	dispatcher = new QoSWFQDispatcher(this, tot_rate, 10, false, ut_log);
 	break;
       case FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET:
 	{

@@ -100,6 +100,7 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         LOGERROR << "Volume NOT found vol:" << vol_uuid;
         err = ERR_VOL_NOT_FOUND;
     } else {
+        LOGNOTIFY << "will delete volume : " << vol_uuid << ":" << volDesc->name;
         if (vol_msg->vol_desc.fSnapshot) {
             if (fCheck) {
                 err =  dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);

@@ -11,6 +11,7 @@ user_cpp          :=                   \
 
 user_no_style     := $(user_cpp)
 user_ar_libs      := fds-odb
+user_so_libs      := fds-odb
 fds-odb           := $(user_cpp)
 
 include $(topdir)/Makefile.incl

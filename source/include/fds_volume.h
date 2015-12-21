@@ -25,8 +25,11 @@
 #include <boost/io/ios_state.hpp>
 #include <serialize.h>
 #include <shared/fds-constants.h>
+#include <fdsp/volumegroup_types.h>
 #define FdsSysTaskQueueId fds_volid_t(0xefffffff)
 #define FdsSysTaskPri 5
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
@@ -106,6 +109,8 @@ class VolumeDesc : public HasState {
 
     FDS_ProtocolInterface::ResourceState     state;
 
+    FDS_ProtocolInterface::VolumeGroupCoordinatorInfo   coordinator;
+
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
 
@@ -156,6 +161,19 @@ class VolumeDesc : public HasState {
 
     void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
+    }
+
+    inline fpi::VolumeGroupCoordinatorInfo getCoordinatorInfo() const {
+        return coordinator;
+    }
+    inline fpi::SvcUuid getCoordinatorId() const {
+        return coordinator.id;
+    }
+    inline int32_t getCoordinatorVersion() const {
+        return coordinator.version;
+    }
+    inline bool isCoordinatorSet() const {
+        return coordinator.id.svc_uuid != 0;
     }
 };
 

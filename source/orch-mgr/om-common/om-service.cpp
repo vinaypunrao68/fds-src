@@ -58,5 +58,4 @@ OM_Module::mod_shutdown()
 {
     Module::mod_shutdown();
 }
-
 }  // namespace fds

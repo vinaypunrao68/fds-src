@@ -120,7 +120,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
     void startupLocalDomain(const std::string& domainName) {}
-    void shutdownLocalDomain(const std::string& domainName) {}
+    int32_t shutdownLocalDomain(const std::string& domainName) { return 0; }
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
@@ -441,9 +441,10 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     *
     * @return void.
     */
-    void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
+    int32_t shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
         LocalDomain localDomain;
         checkMasterDomain();
+        Error err(ERR_OK);
 
         auto ret = configDB->getLocalDomain(*domainName, localDomain);
         if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
@@ -462,7 +463,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         try {
             LOGNORMAL << "Received shutdown for Local Domain " << domainName;
 
-            domain->om_shutdown_domain();
+            err = domain->om_shutdown_domain();
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -470,6 +471,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             apiException("Error shutting down Local Domain " + *domainName + " Services. Broadcast shutdown failed.");
         }
 
+        return err.GetErrno();
     }
 
     /**
@@ -1050,7 +1052,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
-        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
+        LOGNOTIFY << "delete volume processed for :" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -1352,7 +1354,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
-        desc.createTime = util::getTimeStampMillis();
+        desc.createTime = util::getTimeStampSeconds();
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -1385,7 +1387,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
             boost::shared_ptr<std::string> sp_snapName(new std::string(
                 util::strformat("snap0_%s_%d", clonedVolumeName->c_str(),
-                                util::getTimeStampNanos())));
+                                util::getTimeStampSeconds())));
             boost::shared_ptr<int64_t> sp_retentionTime(new int64_t(0));
             boost::shared_ptr<int64_t> sp_timelineTime(new int64_t(0));
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
@@ -1409,7 +1411,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         }
         snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
-        snapshot.creationTimestamp = util::getTimeStampMillis();
+        snapshot.creationTimestamp = util::getTimeStampSeconds();
         snapshot.retentionTimeSeconds = *retentionTime;
         snapshot.timelineTime = *timelineTime;
 

@@ -104,6 +104,11 @@ class DmMigrationExecutor : public DmMigrationBase {
     Error finishActiveMigration();
 
     /**
+     * Overrides the base and routes to the mgr
+     */
+    void routeAbortMigration() override;
+
+    /**
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
     void abortMigration();
@@ -119,6 +124,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     inline util::TimeStamp getLastUpdateFromClientTsSec() const {
         return lastUpdateFromClientTsSec_;
     }
+
   private:
     /** Uuid of source DM
      */

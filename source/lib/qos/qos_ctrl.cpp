@@ -26,6 +26,17 @@ FDS_QoSControl::~FDS_QoSControl()  {
     delete threadPool;
 }
 
+void FDS_QoSControl::stop() {
+    threadPool->stop();
+    if (dispatcher) {
+        dispatcher->stop();
+        if (dispatcherThread) {
+            dispatcherThread->join();
+            dispatcherThread.reset();
+        }
+    }
+}
+
 fds_uint32_t FDS_QoSControl::waitForWorkers() {
     return 10;
 }
@@ -105,6 +116,10 @@ Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
     Error err(ERR_OK);
 
     return err;
+}
+
+Error FDS_QoSControl::markIODone(FDS_IOType* io) {
+    return dispatcher->markIODone(io);
 }
 
 }  // namespace fds
