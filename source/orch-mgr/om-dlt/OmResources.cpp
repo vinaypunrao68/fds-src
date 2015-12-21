@@ -744,7 +744,7 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 
         if ( dmMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all DMs,"
-                     << "prev DMT computation was interrupted";
+                     << " prev DMT computation was interrupted";
             NodeUuid uuid;
             NodeUuidSet nonFailedDms = cm->getNonfailedServices(fpi::FDSP_DATA_MGR);
 
