@@ -82,13 +82,33 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
       target = it->second.get();
     }
 
-    // Setup some things like initiator masking
+    // Setup initiator masking
     std::vector<std::string> initiator_list;
     for (auto const& ini : volDesc.iscsiSettings.initiators) {
         GLOGDEBUG << "Initiator mask: " << ini.wwn_mask;
         initiator_list.emplace_back(ini.wwn_mask);
     }
     target->setInitiatorMasking(initiator_list);
+
+    // Setup CHAP
+    std::unordered_map<std::string, std::string> credentials;
+    for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
+        if (12 > cred.passwd.size()) {
+            GLOGWARN << "User: [" << cred.name
+                     << "] has an undersized password of length: [" << cred.passwd.size()
+                     << "] where the minimum length is 12.";
+            continue;
+        }
+        auto it = credentials.end();
+        bool happened;
+        std::tie(it, happened) = credentials.emplace(cred.name, cred.passwd);
+        if (!happened) {
+            GLOGWARN << "Duplicate user: [" << cred.name << "]";
+            continue;
+        }
+    }
+    target->setCHAPCreds(credentials);
+
     target->enable();
 }
 
@@ -127,6 +147,7 @@ ScstConnector::discoverTargets() {
         // headers from
         if ((1 != vol.volType && 3 != vol.volType)
             || vol.isSnapshot()) continue;
+        GLOGNORMAL << "Adding target for volume: " << vol;
         addTarget(vol);
     }
 }
