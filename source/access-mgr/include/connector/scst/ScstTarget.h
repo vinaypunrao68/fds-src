@@ -60,6 +60,7 @@ struct ScstTarget
     void addDevice(std::string const& volume_name);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
+    void setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials);
     void setInitiatorMasking(std::vector<std::string> const& ini_members);
 
     void mapDevices();
