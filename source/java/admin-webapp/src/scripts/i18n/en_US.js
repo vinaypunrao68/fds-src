@@ -198,6 +198,7 @@ var en_US = {
         l_timeline_settings: 'Timeline Settings',
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
+        l_virtual_capacity: 'Virtual capacity',
         f_priority: 'Priority:',
         th_capacity: 'Capacity Used',
         th_capacity_limit: 'Capacity Limit',

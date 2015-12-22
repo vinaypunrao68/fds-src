@@ -134,7 +134,7 @@
         <div class="sub-header" translate>volumes.l_data_connector</div>
         <div>
             <span>{{ getDataTypeLabel() }}</span>
-            <span ng-show="dataConnector.attributes">, {{ dataConnector.attributes.size }} {{ dataConnector.attributes.unit }}</span>
+            <span ng-show="thisVolume.settings.capacity">, {{ getAllocatedSize() }} {{ 'volumes.l_virtual_capacity' | translate }}</span>
         </div>
     </section>
 
