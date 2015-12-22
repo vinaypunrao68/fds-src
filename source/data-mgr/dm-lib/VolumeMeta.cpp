@@ -13,7 +13,9 @@ namespace fds {
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_volid_t _uuid,
                        VolumeDesc* desc)
-              : fwd_state(VFORWARD_STATE_NONE), dmVolQueue(0)
+              : fwd_state(VFORWARD_STATE_NONE),
+                dmVolQueue(0),
+                dataManager(nullptr)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -31,10 +33,12 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_volid_t _uuid,
                        fds_log* _dm_log,
-                       VolumeDesc* _desc)
+                       VolumeDesc* _desc,
+                       DataMgr* _dm)
         : VolumeMeta(_name, _uuid, _desc) {
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
+    dataManager = _dm;
 }
 
 VolumeMeta::~VolumeMeta() {
@@ -94,6 +98,29 @@ sequence_id_t VolumeMeta::getSequenceId(){
     fds_mutex::scoped_lock l(sequence_lock);
 
     return sequence_id;
+}
+
+
+Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
+                                 fpi::FDSP_VolumeDescType &vol,
+                                 int64_t migrationId,
+                                 migrationCb doneCb) {
+    Error err(ERR_OK);
+    fds_assert(migrationDest == nullptr);
+
+    uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
+
+    // DataMgr *nonConstDm = dataManager;
+
+    migrationDest.reset(new DmMigrationDest(migrationId,
+                                            dataManager,
+                                            srcDmUuid,
+                                            vol,
+                                            deltaBlobTimeout,
+                                            doneCb));
+
+    return err;
 }
 
 }  // namespace fds

@@ -18,9 +18,13 @@
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
+#include <DmMigrationDest.h>
+#include <DmMigrationSrc.h>
 
 namespace fds {
 
+using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
+using migrationCb = std::function<void(const Error& e)>;
 class VolumeMeta : public HasLogger {
  public:
     /**
@@ -101,7 +105,8 @@ class VolumeMeta : public HasLogger {
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
                fds_log* _dm_log,
-               VolumeDesc *v_desc);
+               VolumeDesc *v_desc,
+               DataMgr *_dm);
     ~VolumeMeta();
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
@@ -109,6 +114,33 @@ class VolumeMeta : public HasLogger {
      * per volume queue
      */
     boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+
+    /**
+     * DM Migration related
+     */
+ public:
+    void createMigrationClient(DmRequest *dmRequest);
+
+
+    Error startMigration(NodeUuid& srcDmUuid,
+                         fpi::FDSP_VolumeDescType &vol,
+                         int64_t migrationId,
+                         migrationCb doneCb);
+ private:
+    /**
+     * This volume could be a source of migration to multiple nodes.
+     */
+    DmMigrationSrcMap migrationSrcMap;
+
+    /**
+     * This volume can only be a destination to one node
+     */
+    DmMigrationDest::unique_ptr migrationDest;
+
+    /**
+     * DataMgr ptr
+     */
+    DataMgr *dataManager;
 };
 
 }  // namespace fds

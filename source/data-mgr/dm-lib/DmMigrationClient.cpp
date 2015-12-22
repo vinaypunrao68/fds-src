@@ -11,7 +11,7 @@ extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg);
 
 DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
-                                     DataMgr& _dataMgr,
+                                     DataMgr* _dataMgr,
                                      const NodeUuid& _myUuid,
                                      NodeUuid& _destDmUuid,
                                      int64_t migrationId,
@@ -192,7 +192,7 @@ DmMigrationClient::processBlobDiff()
     // gather all blob blob descriptors with sequence id.
     // the snapshot should've been taken before calling this.
     std::map<std::string, int64_t> localBlobMap;
-    err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
+    err = dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(volId,
                                                                        localBlobMap,
                                                                        snap_,
                                                                        abortFlag);
@@ -264,7 +264,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
         LOGMIGRATE << logString() << "Getting blobs and blob descriptor for blob=" << blobName;
 
         // Now get blobs and blob descriptor for given blob name.
-        err = dataMgr.timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
+        err = dataMgr->timeVolCat_->queryIface()->getBlobAndMetaFromSnapshot(volId,
                                                                             blobName,
                                                                             metaDesc,
                                                                             objList.blob_diff_list,
@@ -292,7 +292,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             /**
              * send the blob desc to thd destination dm.
              */
-            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobDescMsg));
+            dataMgr->counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobDescMsg));
             err = sendDeltaBlobDescs(deltaBlobDescMsg);
             fds_verify(ERR_OK == err);
             /**
@@ -310,7 +310,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             /**
              * send the blob desc to thd destination dm.
              */
-            dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobsMsg));
+            dataMgr->counters->totalSizeOfDataMigrated.incr(sizeOfData(deltaBlobsMsg));
             err = sendDeltaBlobs(deltaBlobsMsg);
             fds_verify(ERR_OK == err);
             /**
@@ -450,7 +450,7 @@ DmMigrationClient::processBlobFilterSet()
 
     // Lookup commit log so we can take a snapshot of the volume while blocking
     // updates
-    auto err = dataMgr.timeVolCat_->getCommitlog(volId, commitLog);
+    auto err = dataMgr->timeVolCat_->getCommitlog(volId, commitLog);
     if (!err.ok() || !commitLog) {
         LOGERROR << logString() << "Failed to get snapshot volume=" << volId
                  << " with error=" << err;
@@ -462,7 +462,7 @@ DmMigrationClient::processBlobFilterSet()
         fds_scoped_lock lock(ssTakenScopeLock);
 		{
 			auto auto_lock = commitLog->getCommitLock(true);
-			err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
+			err = dataMgr->timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
 			turnOnForwarding();
 		}
 		if (ERR_OK != err) {
@@ -497,7 +497,7 @@ DmMigrationClient::processBlobFilterSet2()
     // free the in-memory snapshot diff after completion.
     {
         fds_scoped_lock lock(ssTakenScopeLock);
-    	fds_verify(dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
+    	fds_verify(dataMgr->timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_).ok());
     	snapshotTaken = false;
     }
 
@@ -526,7 +526,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
 
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
     auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobsMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    asyncDeltaBlobsMsg->setTimeoutMs(dataMgr->dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
@@ -550,7 +550,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
 
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
     auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
-    asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr->dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
     // A hack because g++ doesn't like a bind within a macro that does bind
@@ -596,7 +596,7 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
     auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
-    asyncCatUpdReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    asyncCatUpdReq->setTimeoutMs(dataMgr->dmMigrationMgr->getTimeoutValue());
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
                                                       commitBlobReq));
     /**
@@ -684,7 +684,7 @@ DmMigrationClient::sendFinishFwdMsg()
 
 	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
-    thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    thriftMsg->setTimeoutMs(dataMgr->dmMigrationMgr->getTimeoutValue());
     std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);
     std::function<void()> passBind = std::bind(&DmMigrationClient::asyncMsgPassed, this);
     thriftMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
@@ -698,7 +698,7 @@ DmMigrationClient::sendFinishFwdMsg()
 void
 DmMigrationClient::routeAbortMigration()
 {
-    dataMgr.dmMigrationMgr->abortMigration();
+    dataMgr->dmMigrationMgr->abortMigration();
 }
 
 void
@@ -729,7 +729,7 @@ DmMigrationClient::finish()
         fds_scoped_lock lock(ssTakenScopeLock);
 		if (snapshotTaken) {
 		    fds_assert(snap_ != nullptr);
-			dataMgr.timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
+			dataMgr->timeVolCat_->queryIface()->freeVolumeSnapshot(volId, snap_);
 			snapshotTaken = false;
 		}
 	}

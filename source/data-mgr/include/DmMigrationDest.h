@@ -17,7 +17,7 @@ namespace fds {
 class DmMigrationDest : public DmMigrationExecutor {
 public:
     DmMigrationDest(int64_t _migrId,
-                    DataMgr &_dm,
+                    DataMgr *_dm,
                     NodeUuid &_srcDmUuid,
                     fpi::FDSP_VolumeDescType& _volDesc,
                     uint32_t _timeout,

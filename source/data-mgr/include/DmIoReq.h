@@ -755,7 +755,6 @@ struct DmIoMigration : DmRequest {
 struct DmIoResyncInitialBlob : DmRequest {
 	boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> message;
 	NodeUuid destNodeUuid;
-	bool volumeGroupMode;
     std::function<void(const Error& e)> localCb = NULL;
     explicit DmIoResyncInitialBlob(fds_volid_t volid, boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg> msg,
     		NodeUuid &_destNodeUuid)
