@@ -251,8 +251,12 @@ class DmMigrationMgr {
      */
     Error startMigration(NodeUuid& srcDmUuid,
                          fpi::FDSP_VolumeDescType &vol,
-                         int64_t migrationId);
+                         int64_t migrationId,
+                         migrationCb doneCb);
 
+    /**
+     * Not to be called by anyone else but internally by handler.
+     */
     Error startMigrationSource(DmRequest *dmRequest);
 
   private:
@@ -472,7 +476,8 @@ class DmMigrationMgr {
 
     Error createMigrationDest(NodeUuid &srcDmUuid,
                               fpi::FDSP_VolumeDescType &vol,
-                              int64_t migrationId);
+                              int64_t migrationId,
+                              migrationCb doneCb);
 
     /**
      * Source side DM:

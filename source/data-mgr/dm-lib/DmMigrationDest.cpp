@@ -22,7 +22,8 @@ DmMigrationDest::start()
 void
 DmMigrationDest::staticMigrationStatusToSrc(NodeUuid srcNodeUuid,
                                             fds_volid_t volumeId,
-                                            const Error &result)
+                                            const Error &result,
+                                            migrationCb cbToCoordinator)
 {
     fpi::CtrlNotifyPeerSrcDmStaticDonePtr finMsg(new fpi::CtrlNotifyPeerSrcDmStaticDone);
     finMsg->result = static_cast<int64_t>(result.GetErrno());
@@ -36,6 +37,10 @@ DmMigrationDest::staticMigrationStatusToSrc(NodeUuid srcNodeUuid,
     // Do we need a cb check?
     // msgToSrc->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
     msgToSrc->invoke();
+
+    // Return result to coordinator
+    fds_assert(cbToCoordinator != NULL);
+    cbToCoordinator(result);
 }
 
 } // namespace fds

@@ -1103,11 +1103,12 @@ DmMigrationMgr::stopMigrationStopWatch()
 Error
 DmMigrationMgr::startMigration(NodeUuid& srcDmUuid,
                                fpi::FDSP_VolumeDescType &vol,
-                               int64_t migrationId)
+                               int64_t migrationId,
+                               migrationCb doneCb)
 {
     Error err(ERR_OK);
 
-    err = createMigrationDest(srcDmUuid, vol, migrationId);
+    err = createMigrationDest(srcDmUuid, vol, migrationId, doneCb);
 
     if (!err.ok()) {
         LOGERROR << "Error starting migration for Node: " << srcDmUuid << " volume: " << vol.vol_name;
@@ -1144,7 +1145,8 @@ DmMigrationMgr::startMigrationSource(DmRequest *dmRequest)
 Error
 DmMigrationMgr::createMigrationDest(NodeUuid &srcDmUuid,
                                     fpi::FDSP_VolumeDescType &vol,
-                                    int64_t migrationId)
+                                    int64_t migrationId,
+                                    migrationCb doneCb)
 {
     Error err(ERR_OK);
     SCOPEDWRITE(migrDestLock);
@@ -1169,7 +1171,8 @@ DmMigrationMgr::createMigrationDest(NodeUuid &srcDmUuid,
                                                 dataManager,
                                                 srcDmUuid,
                                                 vol,
-                                                deltaBlobTimeout)));
+                                                deltaBlobTimeout,
+                                                doneCb)));
     }
     return (err);
 }
@@ -1195,6 +1198,5 @@ DmMigrationMgr::getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId)
        return search->second;
    }
 }
-
 
 }  // namespace fds
