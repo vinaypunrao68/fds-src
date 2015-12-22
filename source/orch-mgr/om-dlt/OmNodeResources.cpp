@@ -331,7 +331,7 @@ OM_NodeAgent::om_send_dm_abort_migration(fds_uint64_t dmtVersion) {
     om_req->setTimeoutMs(dm_migration_abort_timeout);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
-    LOGNORMAL << "OM: Send abort DM migration (DMT version " << dmtVersion
+    LOGNORMAL << "OM: Send abort DM migration (Committed DMT version " << dmtVersion
                 << ") to " << get_node_name() << " uuid 0x"
                 << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
@@ -1900,6 +1900,39 @@ OM_PmAgent::send_remove_service
                     << " remove dm ? " << remove_dm
                     << " remove am ? " << remove_am;
 
+    fpi::SvcUuid smId, dmId, amId;
+    fds::retrieveSvcId(node_uuid.uuid_get_val(), smId, fpi::FDSP_STOR_MGR);
+    fds::retrieveSvcId(node_uuid.uuid_get_val(), dmId, fpi::FDSP_DATA_MGR);
+    fds::retrieveSvcId(node_uuid.uuid_get_val(), amId, fpi::FDSP_ACCESS_MGR);
+
+    {
+        fds_mutex::scoped_lock l(dbNodeInfoLock);
+        if (remove_sm) {
+
+            DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid);
+
+            change_service_state( configDB,
+                                  smId.svc_uuid,
+                                  fpi::SVC_STATUS_REMOVED,
+                                  true);
+        }
+        if (remove_dm) {
+
+            DltDmtUtil::getInstance()->addToRemoveList(dmId.svc_uuid);
+
+            change_service_state( configDB,
+                                  dmId.svc_uuid,
+                                  fpi::SVC_STATUS_REMOVED,
+                                  true );
+        }
+        if (remove_am) {
+            change_service_state( configDB,
+                                  amId.svc_uuid,
+                                  fpi::SVC_STATUS_REMOVED,
+                                  true );
+        }
+    }
+
     err = domain->om_del_services(node_uuid,
                                   get_node_name(),
                                   remove_sm,
@@ -1911,40 +1944,15 @@ OM_PmAgent::send_remove_service
                         << get_node_name() << ", uuid "
                         << std::hex << node_uuid
                         << std::dec << ", result: " << err.GetErrstr();
+        return err;
     }
 
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
 
     std::vector<fpi::SvcInfo>::iterator iter;
-    if (remove_sm)
-    {
-        iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_STOR_MGR );
 
-        if (iter != svcInfos.end())
-        {
-            LOGNOTIFY <<"Deleting SM from service map for node:"
-                      << std::hex << node_uuid << std::dec;
-            configDB->deleteSvcMap(*iter);
-        }
-        else
-            LOGERROR << "Failed to delete SM from service map for node:"
-                     << std::hex << node_uuid << std::dec;
-    }
-    if (remove_dm)
-    {
-        iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_DATA_MGR );
+    // SMs and DMs in the svcmap will be taken care of when the associated DLT/DMT updates
+    // occur in the above om_del_services path. Only AM needs handling here
 
-        if (iter != svcInfos.end())
-        {
-            LOGNOTIFY <<"Deleting DM from service map for node:"
-                      << std::hex << node_uuid << std::dec;
-            configDB->deleteSvcMap(*iter);
-        }
-        else
-            LOGERROR << "Failed to delete DM from service map for node:"
-                     << std::hex << node_uuid << std::dec;
-
-    }
     if (remove_am)
     {
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
@@ -1973,8 +1981,6 @@ OM_PmAgent::send_remove_service
                                 std::placeholders::_3));
     req->setTimeoutMs(10000);
     req->invoke();
-
-
 
     return err;
 }

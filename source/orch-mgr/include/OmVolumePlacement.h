@@ -219,6 +219,8 @@ namespace fds {
          */
         fds_bool_t undoTargetDmtCommit();
 
+        void clearTargetDmt();
+
         /**
          * Returns true if there is no target DMT computed or committed
          * as an official version

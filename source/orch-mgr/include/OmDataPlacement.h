@@ -548,12 +548,12 @@ namespace fds {
          * Stores commited DLT to the permanent DLT history
          */
         void persistCommitedTargetDlt();
-
         /**
          * Restores cached commited DLT from persistent store
          * and resets target DLT in persistent store
          */
         void undoTargetDltCommit();
+        void clearTargetDlt();
 
         /**
          * Returns the current commited version of the DLT.
@@ -583,6 +583,7 @@ namespace fds {
          */
         NodeUuidSet getRebalanceNodes() const;
 
+        void generateNodeTokenMapOnRestart();
         /**
          * Both commited DLT and target DLT must be NULL when
          * this method is called (should be called only during init)
@@ -611,11 +612,6 @@ namespace fds {
         inline fds_uint32_t getNumOfPrimarySMs() const {
             return numOfPrimarySMs;
         }
-
-        void         setAbortParams(bool abort, fds_int64_t version);
-        void         clearAbortParams();
-        bool         isAbortAfterRestartTrue();
-        fds_uint64_t getTargetVersionForAbort();
 
   private:  // methods
         /**
