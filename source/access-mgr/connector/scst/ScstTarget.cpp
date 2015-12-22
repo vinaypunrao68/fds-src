@@ -73,6 +73,9 @@ currentIncomingUsers(std::string const& target_name) {
                         current_users.emplace(user, password);
                     }
                 }
+            } else {
+                GLOGERROR << "Could not open: [" << *user
+                          << "] may have tainted credential list";
             }
             ++user; --glob_buf.gl_pathc;
         }
@@ -92,6 +95,7 @@ void addIncomingUser(std::string const& target_name,
     std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
     if (!tgt_dev.is_open()) {
         GLOGERROR << "Could not add attribute to: " << target_name;
+        return;
     }
     tgt_dev << "add_target_attribute "  << target_name
             << " IncomingUser "         << user_name
@@ -108,6 +112,7 @@ void removeIncomingUser(std::string const& target_name,
     std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
     if (!tgt_dev.is_open()) {
         GLOGERROR << "Could not remove attribute from: " << target_name;
+        return;
     }
     tgt_dev << "del_target_attribute "  << target_name
             << " IncomingUser "         << user_name << std::endl;

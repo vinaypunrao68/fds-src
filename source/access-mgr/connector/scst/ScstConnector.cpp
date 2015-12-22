@@ -31,6 +31,8 @@ extern "C" {
 
 namespace fds {
 
+static constexpr size_t minimum_chap_password_len {12};
+
 // The singleton
 std::unique_ptr<ScstConnector> ScstConnector::instance_ {nullptr};
 
@@ -93,10 +95,10 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
     // Setup CHAP
     std::unordered_map<std::string, std::string> credentials;
     for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
-        if (12 > cred.passwd.size()) {
+        if (minimum_chap_password_len > cred.passwd.size()) {
             GLOGWARN << "User: [" << cred.name
                      << "] has an undersized password of length: [" << cred.passwd.size()
-                     << "] where the minimum length is 12.";
+                     << "] where the minimum length is " << minimum_chap_password_len;
             continue;
         }
         auto it = credentials.end();
