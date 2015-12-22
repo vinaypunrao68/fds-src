@@ -88,8 +88,19 @@ namespace fds
                                     // This thread set the PM to down(in the configDB) when it
                                     // didn't hear a heartbeat back.
                                     // However, svc layer still thinks it's active, so attempt retry
-                                    handleRetryOnInactive(svcUuid);
 
+                                    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+
+                                    if (domain->om_local_domain_up()) {
+                                        handleRetryOnInactive(svcUuid);
+                                    } else {
+                                        auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                                        double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                                        updateKnownPMsMap(svcUuid, timeInMinutes, false );
+
+                                        LOGNOTIFY << "Domain is down, reset last heard times, will not re-check PM heartbeats";
+                                    }
                                 } else {
                                     Error err = handleActiveEntry(svcUuid);
 
@@ -143,7 +154,6 @@ namespace fds
         )
     {
         cleanUpOldState(svcUuid, updateSvcState);
-
 
         SCOPEDWRITE(pmMapLock);
 
@@ -285,6 +295,9 @@ namespace fds
         fpi::SvcUuid svcUuid
         )
     {
+		LOGDEBUG << "Handling stale PM entry:"
+                 << std::hex << svcUuid.svc_uuid << std::dec;
+
         // Update service state in the configDB, svclayer Map
         {
         fds_mutex::scoped_lock l(dbLock);
