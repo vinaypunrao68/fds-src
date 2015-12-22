@@ -7,6 +7,7 @@
 #include <map>
 #include <algorithm>
 #include <dlt.h>
+#include <DltDmtUtil.h>
 #include <iostream>
 #include <string>
 #include <util/Log.h>
@@ -198,7 +199,6 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() const {
-    LOGDEBUG << "generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -361,12 +361,18 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DLT;
+                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DLT cell
+                    LOGERROR << "DLT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DLT;
+                } else {
+                    LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val()
+                             << std::dec << " pending removal present in DLT,"
+                             << " will process in next update";
+                }
             }
-            colSet.insert(uuid);
+                colSet.insert(uuid);
         }
 
         // make sure that column contains all unique uuids

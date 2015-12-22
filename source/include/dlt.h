@@ -85,7 +85,6 @@ namespace fds {
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
         void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
-
         typedef std::map<NodeUuid, std::vector<fds_int32_t>> SourceNodeMap;
 
         /**
