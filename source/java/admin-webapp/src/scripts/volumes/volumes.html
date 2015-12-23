@@ -3,6 +3,11 @@
     <!-- Real stuff -->
     <div class="volumecontainer">
 
+        <div style="width: 200px; height: 200px;">
+            <pie-chart data="volumesBySize" pie-property="value" tooltip="fakeTooltip" colors="fakeColorFunction"></pie-chart>
+        </div>
+        <div style="background-color: blue;width: 100px; height: 20px;" ng-click="changePieData()">Change Data</div>
+        
         <div class="volumes">
             <span>{{name}}</span>
             <span class="header pull-left" style="margin-right: 24px;" translate>volumes.title</span>

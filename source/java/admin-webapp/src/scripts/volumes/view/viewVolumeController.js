@@ -153,8 +153,12 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     
     $scope.getAllocatedSize = function(){
         
-        var sizeString = $byte_converter.convertBytesToString( $scope.thisVolume.settings.capacity.value, 0 );
-        return sizeString;
+        if ( angular.isDefined( $scope.thisVolume.settings ) && angular.isDefined( $scope.thisVolume.settings.capacity ) ){
+            var sizeString = $byte_converter.convertBytesToString( $scope.thisVolume.settings.capacity.value, 0 );
+            return sizeString;
+        }
+        
+        return '';
     };
 
     $scope.formatDate = function( ms ){

@@ -4,6 +4,36 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
     $scope.sortPredicate = '';
     $scope.reverse = true;
     
+    $scope.volumesBySize = [{value: 10, name: 'One'},{value: 20, name: 'Two'},{value:5, name: 'Three'}];
+    
+    $scope.changePieData = function(){
+        
+        var newData = [];
+        
+        for ( var i = 0; i < 3; i++ ){
+            newData.push( {value: Math.random() * 1000 + 1, name: i } );
+        }
+        
+        $scope.volumesBySize = newData;
+    };
+    
+    $scope.fakeTooltip = function( d, i, j ){
+        return d.data.name + ': ' + d.data.value;
+    };
+    
+    $scope.fakeColorFunction = function( d, i, j ){
+        
+        if ( d.data.name === 'One' ){
+            return 'purple';
+        }
+        else if ( d.data.name == 'Two' ){
+            return 'green';
+        }
+        else {
+            return 'cyan';
+        }
+    };
+    
     $scope.clicked = function( volume){
         $scope.volumeVars.selectedVolume = volume;
         $scope.volumeVars.viewing = true;
