@@ -65,7 +65,7 @@ public class DmChannel {
 
     public CompletableFuture<OpenVolumeRspMsg> openVolume(OpenVolumeMsg msg) {
         return channel.call(FDSPMsgTypeId.OpenVolumeMsgTypeId, msg, dmtVersion)
-                .deserializeInto(FDSPMsgTypeId.OpenVolumeRspMsgTypeId, new OpenVolumeRspMsg(0L, 0L));
+                .deserializeInto(FDSPMsgTypeId.OpenVolumeRspMsgTypeId, new OpenVolumeRspMsg(0L, 0L, 0));
     }
 
     public CompletableFuture<CloseVolumeRspMsg> closeVolume(CloseVolumeMsg msg) {

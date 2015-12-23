@@ -1,0 +1,8 @@
+---
+
+-   name: Install fdsconsole
+    hosts: all
+    gather_facts: yes
+    sudo: yes
+    tasks:
+    -   include: ../tasks/deploy_fds/install_fdsconsole.yml

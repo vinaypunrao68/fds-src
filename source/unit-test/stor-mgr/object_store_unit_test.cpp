@@ -277,7 +277,7 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
      */
     for (fds_uint8_t incDelCount = 0; incDelCount < fds::objDelCountThresh; ++incDelCount) {
         objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID,
-                                  util::getTimeStampNanos(), bfFileName, 1);
+                                  util::getTimeStampNanos(), bfFileName);
         tokStats.tkn_id = 0;
         tokStats.tkn_tot_size = 0;
         tokStats.tkn_reclaim_size = 0;

@@ -24,6 +24,10 @@
 #include <fstream>
 #include <thread>
 
+extern "C" {
+#include <glob.h>
+}
+
 #include <ev++.h>
 
 #include "connector/scst/ScstDevice.h"
@@ -44,6 +48,75 @@ static std::string scst_iscsi_ini_mgmt      { "/ini_groups/mgmt" };
 static std::string scst_iscsi_lun_mgmt      { "/luns/mgmt" };
 
 static std::string scst_iscsi_host_mgmt      { "/initiators/mgmt" };
+
+using credential_map = std::unordered_map<std::string, std::string>;
+
+/**
+ * Build a map of the current users known to SCST for a given target
+ */
+credential_map
+currentIncomingUsers(std::string const& target_name) {
+    credential_map current_users;
+    glob_t glob_buf {};
+    auto pattern = scst_iscsi_target_path + target_name + "/IncomingUser*";
+    auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
+    if (0 == res) {
+        auto user = glob_buf.gl_pathv;
+        while (nullptr != user && 0 < glob_buf.gl_pathc) {
+            std::ifstream scst_user(*user, std::ios::in);
+            if (scst_user.is_open()) {
+                std::string line;
+                if (std::getline(scst_user, line)) {
+                    std::istringstream iss(line);
+                    std::string user, password;
+                    if (iss >> user >> password) {
+                        current_users.emplace(user, password);
+                    }
+                }
+            } else {
+                GLOGERROR << "Could not open: [" << *user
+                          << "] may have tainted credential list";
+            }
+            ++user; --glob_buf.gl_pathc;
+        }
+    }
+    globfree(&glob_buf);
+    return current_users;
+}
+
+/**
+ * Add the given credential to the target's IncomingUser attributes
+ */
+void addIncomingUser(std::string const& target_name,
+                     std::string const& user_name,
+                     std::string const& password) {
+    GLOGDEBUG << "Adding iSCSI target attribute IncomingUser [" << user_name
+              << "] for: [" << target_name << "]";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+    if (!tgt_dev.is_open()) {
+        GLOGERROR << "Could not add attribute to: " << target_name;
+        return;
+    }
+    tgt_dev << "add_target_attribute "  << target_name
+            << " IncomingUser "         << user_name
+            << " "                      << password << std::endl;
+}
+
+/**
+ * Remove the given credential to the target's IncomingUser attributes
+ */
+void removeIncomingUser(std::string const& target_name,
+                        std::string const& user_name) {
+    GLOGDEBUG << "Removing iSCSI target attribute IncomingUser [" << user_name
+              << "] for: [" << target_name << "]";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+    if (!tgt_dev.is_open()) {
+        GLOGERROR << "Could not remove attribute from: " << target_name;
+        return;
+    }
+    tgt_dev << "del_target_attribute "  << target_name
+            << " IncomingUser "         << user_name << std::endl;
+}
 
 ScstTarget::ScstTarget(std::string const& name, 
                        size_t const followers,
@@ -141,6 +214,9 @@ ScstTarget::deviceDone(std::string const& volume_name) {
 
     it->second->reset();
     device_map.erase(it);
+    if (device_map.empty()) {
+        toggle_state(false);
+    }
 }
 
 void ScstTarget::removeDevice(std::string const& volume_name) {
@@ -176,7 +252,7 @@ void ScstTarget::mapDevices() {
 
 void
 ScstTarget::clearMasking() {
-    GLOGNORMAL << "Clearing initiator mask for: " << target_name;
+    GLOGDEBUG << "Clearing initiator mask for: " << target_name;
     // Remove the security group
     {
         std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
@@ -186,6 +262,21 @@ ScstTarget::clearMasking() {
         }
     }
     ini_members.clear();
+}
+
+void
+ScstTarget::setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials) {
+    std::unique_lock<std::mutex> l(deviceLock);
+
+    // Remove all existing IncomingUsers
+    for (auto const& cred : currentIncomingUsers(target_name)) {
+        removeIncomingUser(target_name, cred.first);
+    }
+
+    // Apply all credentials
+    for (auto const& cred : credentials) {
+        addIncomingUser(target_name, cred.first, cred.second);
+    }
 }
 
 void

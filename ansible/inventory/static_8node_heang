@@ -41,3 +41,4 @@ fds_om_host_count=3
 clean_fds=yes
 force=yes
 fds_only_install=yes
+install_fdsconsole=yes

@@ -115,7 +115,8 @@ void OMSvcProcess::init(int argc, char *argv[])
 void OMSvcProcess::registerSvcProcess()
 {
     LOGNOTIFY;
-    /* For now nothing to do */
+    /* Add self to svcmap */
+    svcMgr_->updateSvcMap({svcInfo_});
 }
 
 void OMSvcProcess::setupConfigDb_()
@@ -162,7 +163,8 @@ void OMSvcProcess::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             SvcRequestPool::SVC_UNTRACKED_REQ_ID,
             FDSP_MSG_TYPEID(fpi::UpdateSvcMapMsg),
             svcMgr_->getSelfSvcUuid(),
-            fpi::SvcUuid());
+            fpi::SvcUuid(),
+            DLT_VER_INVALID, 0, 0);
         fpi::UpdateSvcMapMsgPtr updateMsg = boost::make_shared<fpi::UpdateSvcMapMsg>(); 
         updateMsg->updates.push_back(*svcInfo);
         fds::serializeFdspMsg(*updateMsg, buf);

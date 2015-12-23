@@ -90,8 +90,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     ScstTarget* scst_target;
     BlockOperations::shared_ptr scstOps;
 
-    size_t resp_needed;
-
     scst_user_get_cmd cmd {};
     scst_user_reply_cmd fast_reply {};
     uint32_t logical_block_size;

@@ -144,6 +144,7 @@ enum ResourceState {
   Unknown,
   Loading, /* resource is loading or in the middle of creation */
   Created, /* resource has been created */
+  Syncing, /* resource is being synced */
   Active,  /* resource activated - ready to use */
   Offline, /* resource is offline - will come back later */
   MarkedForDeletion, /* resource will be deleted soon. */
@@ -402,6 +403,25 @@ enum  FDSPMsgTypeId {
   CtrlNotifyTxStateRspMsgTypeId;
   StartRefScanMsgTypeId;
 
+  /* VolumeGroup messages */
+  VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
+  SetVolumeGroupCoordinatorMsgTypeId;
+  AddToVolumeGroupCtrlMsgTypeId;
+  AddToVolumeGroupRespCtrlMsgTypeId;
+  VolumeStateUpdateInfoCtrlMsgTypeId;
+  GetVolumeStateCtrlMsgTypeId;
+  /* BEGIN Volumegroup test messages.  Will be removed */
+  CreateVolumeMsgTypeId;
+  StartTxMsgTypeId;
+  UpdateTxMsgTypeId;
+  CommitTxMsgTypeId;
+  PullActiveTxsMsgTypeId;
+  PullActiveTxsRespMsgTypeId; 
+  PullCommitLogEntriesMsgTypeId;
+  PullCommitLogEntriesRespMsgTypeId;
+  QosFunctionTypeId;
+  /* END Volumegroup test messages.  Will be removed */
+
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
@@ -428,11 +448,14 @@ enum ServiceStatus {
     SVC_STATUS_ADDED        = 0x0005;
     SVC_STATUS_STARTED      = 0x0006;
     SVC_STATUS_STOPPED      = 0x0007;
+    SVC_STATUS_REMOVED      = 0x0008;
 }
 
 /* ------------------------------------------------------------
    SvcLayer Types
    ------------------------------------------------------------*/
+
+typedef i64 ReplicaId
 
 /*
  * This message header is owned, controlled and set by the net service layer.
@@ -446,27 +469,33 @@ struct AsyncHdr {
   /**  */
   3: required i64               msg_src_id;
   /** Sender's Uuid */
-  4: required SvcUuid    msg_src_uuid;
+  4: required SvcUuid           msg_src_uuid;
   /** Destination Uuid */
-  5: required SvcUuid    msg_dst_uuid;
+  5: required SvcUuid           msg_dst_uuid;
   /**  */
   6: required i32               msg_code;
   /**  */
   7: optional i64               dlt_version = 0;
+  /* Replica id.  Made part of AsyncHdr for convenience */
+  8: optional ReplicaId         replicaId = 0;
+  /* Replica version.  Made part of AsyncHdr for convenience */
+  9: optional i32               replicaVersion = 0;
+  /* Header specific for payload */
+  10: optional binary           payloadHdr;
   /**  */
-  8: i64                        rqSendStartTs;
+  11: i64                       rqSendStartTs;
   /**  */
-  9: i64                        rqSendEndTs;
+  12: i64                       rqSendEndTs;
   /**  */
-  10:i64                        rqRcvdTs;
+  13:i64                        rqRcvdTs;
   /**  */
-  11:i64                        rqHndlrTs;
+  14:i64                        rqHndlrTs;
   /**  */
-  12:i64                        rspSerStartTs;
+  15:i64                        rspSerStartTs;
   /**  */
-  13:i64                        rspSendStartTs;
+  16:i64                        rspSendStartTs;
   /**  */
-  14:i64                        rspRcvdTs;
+  17:i64                        rspRcvdTs;
 }
 
 

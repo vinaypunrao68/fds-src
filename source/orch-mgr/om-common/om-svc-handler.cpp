@@ -669,6 +669,17 @@ void OmSvcHandler<DataStoreT>::healthReportUnreachable( fpi::FDSP_MgrIdType &svc
         */
         if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
+            if ( (msg->healthReport.serviceInfo.svc_status == fpi::SVC_STATUS_REMOVED) &&
+                 ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) ) {
+
+                // It is important that SMs and DMs stay in removed state for correct
+                // handling if interruptions occur before commit of the DLT or DMT.
+                // If the svc is in REMOVED state, it has been stopped and is already INACTIVE
+                LOGDEBUG << "Service:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+                         << std::dec << " in REMOVED state, will not change state to INACTIVE";
+                return;
+            }
+
             auto domain = OM_NodeDomainMod::om_local_domain();
             NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
             Error reportError(msg->healthReport.statusCode);

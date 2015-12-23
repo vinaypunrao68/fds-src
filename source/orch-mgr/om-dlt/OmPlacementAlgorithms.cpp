@@ -55,7 +55,7 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
     // remaining tokens (so they add up to total number of tokens)
     // to first set of nodes in the node map
     LOGDEBUG << "Allocated token_count " << token_count
-             << "tokens, will finish allocatating total " << numTokens;
+             << "tokens, will finish allocating total " << numTokens;
     node_it = cm->cbegin_sm();
     while (token_count < numTokens) {
         fds_verify(node_it != cm->cend_sm());
@@ -159,6 +159,7 @@ PlacementDiff::PlacementDiff(const PlacementMetricsPtr& newPlacement,
     for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
         TokenList node_l1_toks;
         NodeUuid l1_uuid = *cit;
+
         curDlt->getTokens(&node_l1_toks, l1_uuid, 0);
         new_toks = newPlacement->tokens(l1_uuid);
         old_toks = node_l1_toks.size();

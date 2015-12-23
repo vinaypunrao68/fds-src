@@ -29,3 +29,4 @@ fds_ssh_password=passwd
 fds_ft_common_enable_multi_om_support=true
 fds_om_host_count=3
 fds_only_install=yes
+install_fdsconsole=yes
