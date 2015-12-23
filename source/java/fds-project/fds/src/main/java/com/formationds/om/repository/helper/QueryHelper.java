@@ -375,7 +375,7 @@ public class QueryHelper {
  * 
  * THIS IS ALSO IN ListVolumes.java
  */                        
-                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
                             String volumeId = "";

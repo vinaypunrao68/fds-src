@@ -214,7 +214,7 @@ var en_US = {
         tt_priority: 'Volume priority',
         
         title_volumes_by_type: 'Usage by Connector Type',
-        title_volumes_by_size: 'NUmber of Volumes by Connector Type',
+        title_volumes_by_size: 'Number of Volumes by Connector Type',
         
         iscsi: {
             l_incoming_users: 'Incoming Credentials'
