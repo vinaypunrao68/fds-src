@@ -288,29 +288,8 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
     Error err(ERR_OK);
     auto uniqueId = std::make_pair(srcUuid, volId);
-    if (deltaBlobDescMsg->volume_group_mode) {
-        SCOPEDREAD(migrDestLock);
-        DmMigrationDest::shared_ptr destination = getMigrationDest(uniqueId);
-        migrationCb descCb = deltaBlobDescReq->localCb;
-        if (destination == nullptr) {
-            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-                    << "Unable to find destination for volume " << volId;
-            return ERR_NOT_FOUND;
-        }
-        err = destination->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
-        LOGDEBUG << "Total size migrated: " << dataManager->counters->totalSizeOfDataMigrated.value();
 
-        if (err == ERR_NOT_READY) {
-            LOGDEBUG << "Blobs descriptor not applied yet.";
-            // This means that the blobs have not been applied yet. Override this to ERR_OK.
-            err = ERR_OK;
-        } else if (!err.ok()) {
-            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-                << " Error applying blob descriptor " << err;
-            dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
-            // TODO cleanup
-        }
-    } else {
+    {
         SCOPEDREAD(migrExecutorLock);
         DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
         migrationCb descCb = deltaBlobDescReq->localCb;
@@ -357,25 +336,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     fds_volid_t volId(deltaBlobsMsg->volume_id);
     NodeUuid srcUuid(deltaBlobReq->srcUuid);
     auto uniqueId = std::make_pair(srcUuid, volId);
-    if (deltaBlobsMsg->volume_group_mode) {
-        SCOPEDREAD(migrDestLock);
-        DmMigrationDest::shared_ptr destination = getMigrationDest(uniqueId);
-        if (destination == nullptr) {
-            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-                    << " Unable to find executor for volume " << volId;
-            return ERR_NOT_FOUND;
-        }
-        LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
-        err = destination->processDeltaBlobs(deltaBlobsMsg);
-        LOGDEBUG << "Total size migrated: " << dataManager->counters->totalSizeOfDataMigrated.value();
-
-        if (!err.ok()) {
-            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-                << " Processing deltaBlobs failed " << err;
-            dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
-            // TODO - clean up
-        }
-    } else {
+    {
         SCOPEDREAD(migrExecutorLock);
         DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
         if (executor == nullptr) {
@@ -518,55 +479,6 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
         // Non-blocking call
         startMigrationStopWatch();
         client->run();
-    }
-    return err;
-}
-
-Error
-DmMigrationMgr::createMigrationSource(NodeUuid &destDmUuid,
-                                      const NodeUuid& mySvcUuid,
-                                      fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                      migrationCb cleanUp)
-{
-    Error err(ERR_OK);
-    auto fds_volid = fds_volid_t(filterSet->volumeId);
-    auto search = srcMap.find(std::make_pair(destDmUuid, fds_volid));
-    DmMigrationSrc::shared_ptr source = nullptr;
-    if (search != srcMap.end()) {
-        LOGERROR << "migrationid: " << filterSet->DMT_version
-            << " Source received request for destination node: " << destDmUuid
-            << " volume " << filterSet->volumeId << " but it already exists";
-        err = ERR_DUPLICATE;
-    } else {
-        /**
-         * Create a new instance of client and start it.
-         */
-    	auto uniqueId = std::make_pair(destDmUuid, fds_volid);
-        {
-        	SCOPEDWRITE(migrSrcLock);
-            LOGNORMAL << "migrationid: " << filterSet->DMT_version
-                << "Creating migration source for node: "
-                << destDmUuid << " volume ID# " << fds_volid;
-            source = DmMigrationSrc::shared_ptr(
-                         new DmMigrationSrc(dataManager,
-                                            mySvcUuid,
-                                            destDmUuid,
-                                            filterSet->DMT_version,
-                                            filterSet,
-                                            NULL,
-//                                            std::bind(&DmMigrationMgr::migrationSourceDoneCb,
-//                                               this,
-//                                               std::placeholders::_1,
-//                                               filterSet->DMT_version,
-//                                               std::placeholders::_2),
-                                            cleanUp,
-                                            maxNumBlobs,
-                                            maxNumBlobDesc));
-            srcMap[uniqueId] = source;
-       }
-        // Non-blocking call
-        startMigrationStopWatch();
-        source->run();
     }
     return err;
 }
@@ -1078,104 +990,4 @@ DmMigrationMgr::stopMigrationStopWatch()
 	    migrationStopWatch.reset();
 	}
 }
-
-Error
-DmMigrationMgr::startMigration(NodeUuid& srcDmUuid,
-                               fpi::FDSP_VolumeDescType &vol,
-                               int64_t migrationId,
-                               migrationCb doneCb)
-{
-    Error err(ERR_OK);
-
-    err = createMigrationDest(srcDmUuid, vol, migrationId, doneCb);
-
-    if (!err.ok()) {
-        LOGERROR << "Error starting migration for Node: " << srcDmUuid << " volume: " << vol.vol_name;
-        return err;
-    }
-
-    fds_volid_t volId(vol.volUUID);
-    auto uniqueId = std::make_pair(srcDmUuid, volId);
-    SCOPEDREAD(migrSrcLock);
-    auto dest = getMigrationDest(uniqueId);
-    // TODO(Neil) need to have error handling
-
-    return err;
-}
-
-Error
-DmMigrationMgr::startMigrationSource(DmRequest *dmRequest)
-{
-    Error err(ERR_OK);
-    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
-    DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
-    NodeUuid destDmUuid(typedRequest->destNodeUuid);
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
-    migrationCb cleanupCb = typedRequest->localCb;
-
-    LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volumeId;
-
-    err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
-
-    return (err);
-}
-
-Error
-DmMigrationMgr::createMigrationDest(NodeUuid &srcDmUuid,
-                                    fpi::FDSP_VolumeDescType &vol,
-                                    int64_t migrationId,
-                                    migrationCb doneCb)
-{
-    Error err(ERR_OK);
-    SCOPEDWRITE(migrDestLock);
-    auto uniqueId = std::make_pair(srcDmUuid, fds_volid_t(vol.volUUID));
-    auto search = destMap.find(uniqueId);
-    if (search != destMap.end()) {
-        LOGMIGRATE << "migrationid: " << migrationId
-            << " Migration v2 for node " << srcDmUuid
-            << " volume " << vol.vol_name << " is a duplicated request.";
-        err = ERR_DUPLICATE;
-    } else {
-        /**
-         * Create a new instance of migration Destination
-         */
-        LOGMIGRATE << "migrationid: " << migrationId
-            << "Creating migration v2 instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
-            << " name=" << vol.vol_name;
-
-        destMap.emplace(uniqueId,
-                       DmMigrationDest::unique_ptr(
-                            new DmMigrationDest(migrationId,
-                                                dataManager,
-                                                srcDmUuid,
-                                                vol,
-                                                deltaBlobTimeout,
-                                                doneCb)));
-    }
-    return (err);
-}
-
-DmMigrationDest::shared_ptr
-DmMigrationMgr::getMigrationDest(std::pair<NodeUuid, fds_volid_t> uniqueId)
-{
-    auto search = destMap.find(uniqueId);
-    if (search == destMap.end()) {
-        return nullptr;
-    } else {
-        return search->second;
-    }
-}
-
-DmMigrationSrc::shared_ptr
-DmMigrationMgr::getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId)
-{
-   auto search = srcMap.find(uniqueId);
-   if (search == srcMap.end()) {
-       return nullptr;
-   } else {
-       return search->second;
-   }
-}
-
 }  // namespace fds

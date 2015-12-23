@@ -21,18 +21,13 @@ public:
                     NodeUuid &_srcDmUuid,
                     fpi::FDSP_VolumeDescType& _volDesc,
                     uint32_t _timeout,
-                    migrationCb cbToCoordinator) :
+                    DmMigrationExecutorDoneCb cleanUp) :
         DmMigrationExecutor(_dm,
                             _srcDmUuid,
                             _volDesc,
                             _migrId,
                             false,
-                            std::bind(&DmMigrationDest::staticMigrationStatusToSrc,
-                                      this,
-                                      std::placeholders::_1,
-                                      std::placeholders::_2,
-                                      std::placeholders::_3,
-                                      cbToCoordinator),
+                            cleanUp,
                             _timeout) {}
     ~DmMigrationDest() {}
 

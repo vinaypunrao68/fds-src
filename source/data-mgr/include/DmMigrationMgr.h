@@ -455,44 +455,6 @@ class DmMigrationMgr {
     std::atomic<bool> timerStarted;
     util::StopWatch migrationStopWatch;
 
-
-    /**
-     *  Version 2 of source and destinations
-     */
-    Error createMigrationSource(NodeUuid &destDmUuid,
-                                const NodeUuid& MySvcUuid,
-                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr rvmp,
-                                migrationCb cleanUp);
-
-    Error createMigrationDest(NodeUuid &srcDmUuid,
-                              fpi::FDSP_VolumeDescType &vol,
-                              int64_t migrationId,
-                              migrationCb doneCb);
-
-    /**
-     * Source side DM:
-     * Map of ongoing migration client instances index'ed by vol ID (uniqueKey)
-     */
-    DmMigrationSrcMap srcMap;
-
-   /**
-     * Destination side DM:
-     * Map of ongoing migration executor instances index'ed by vol ID (uniqueKey)
-     */
-    DmMigrationDestMap destMap;
-
-    /**
-     * Locks for the above maps
-     */
-    fds_rwlock migrSrcLock;
-    fds_rwlock migrDestLock;
-
-    // Get a destination ptr
-    DmMigrationDest::shared_ptr getMigrationDest(std::pair<NodeUuid, fds_volid_t> uniqueId);
-
-    // Get a source ptr
-    DmMigrationSrc::shared_ptr getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId);
-
 };  // DmMigrationMgr
 }  // namespace fds
 

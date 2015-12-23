@@ -15,7 +15,8 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        VolumeDesc* desc)
               : fwd_state(VFORWARD_STATE_NONE),
                 dmVolQueue(0),
-                dataManager(nullptr)
+                dataManager(nullptr),
+                cbToVGMgr(NULL)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -107,9 +108,10 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                  migrationCb doneCb) {
     Error err(ERR_OK);
     fds_assert(migrationDest == nullptr);
-
+    cbToVGMgr = doneCb;
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                 get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
+
 
     // DataMgr *nonConstDm = dataManager;
 
@@ -118,7 +120,12 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                             srcDmUuid,
                                             vol,
                                             deltaBlobTimeout,
-                                            doneCb));
+                                            std::bind(&VolumeMeta::cleanUpMigrationDestination,
+                                                      this,
+                                                      std::placeholders::_1,
+                                                      std::placeholders::_2,
+                                                      std::placeholders::_3,
+                                                      migrationId)));
 
     // TODO : once processInitialBlobFilterSet has been fixed to be
     // iterative, then we won't block here.
@@ -214,6 +221,24 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             migrationSrcMap.erase(search);
         }
     }
+}
+
+void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
+                                             fds_volid_t volId,
+                                             const Error &err,
+                                             int64_t migrationId) {
+
+    /** volId and srcNodeUuid is there for formality */
+    fds_assert(volId == vol_desc->volUUID);
+    if (!err.ok()) {
+        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
+            " with error: " << err;
+    } else {
+        LOGMIGRATE << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
+            " with error: " << err;
+    }
+
+    migrationDest.reset();
 }
 
 }  // namespace fds

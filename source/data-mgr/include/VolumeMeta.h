@@ -26,6 +26,11 @@ namespace fds {
 using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
 using migrationCb = std::function<void(const Error& e)>;
 using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
+using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
+							                    fds_volid_t volumeId,
+							                    const Error& error)>;
+
+
 class VolumeMeta : public HasLogger {
  public:
     /**
@@ -159,6 +164,19 @@ class VolumeMeta : public HasLogger {
                                 const Error &err,
                                 const NodeUuid destDmUuid,
                                 int64_t migrationid);
+
+    /**
+     * Internally cleans up the destination
+     */
+    void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
+                                     fds_volid_t volId,
+                                     const Error &err,
+                                     int64_t migrationid);
+
+    /**
+     * Stores the hook for Callback to the volume group manager
+     */
+    migrationCb cbToVGMgr;
 };
 
 }  // namespace fds
