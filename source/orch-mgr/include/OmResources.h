@@ -22,6 +22,7 @@
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
+#include <DltDmtUtil.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -1119,6 +1120,7 @@ class OM_NodeDomainMod : public Module
     void clearShutdownList();
     bool isNodeShuttingDown(int64_t uuid);
 
+    void removeNodeComplete(NodeUuid uuid);
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1137,6 +1139,8 @@ class OM_NodeDomainMod : public Module
                                      std::vector<fpi::SvcInfo>* smSvcs,
                                      std::vector<fpi::SvcInfo>* dmSvcs );
     void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
+    void isAnySvcPendingRemoval( std::vector<fpi::SvcInfo>* removedSvcs );
+    void handlePendingSvcRemoval( std::vector<fpi::SvcInfo> removedSvcs );
     
 
     fds_bool_t                    om_test_mode;
