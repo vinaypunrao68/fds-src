@@ -1,0 +1,51 @@
+1. clean install, platform changes, boot-activate, waitforlog ==OK
+2. create volume 1 2 3 ==OK
+3. get conn, auth token, load verifiable data ==OK
+We are doing verifiable IO on volume1
+let's not create volume2, because we are not verifying that IO anywhere else and both are of same type
+
+4. wait , check verifiable data
+5. close conn
+6. run IO vol3 , wait for 30 sec to finish
+
+#Restart data persistance wil graceful shutdown
+q
+8. graceful restart, 60 sec wait to sync
+9. get conn, check verifiable obj
+10. again run IO on volume3 suing trafficgen and then wait for 30 sec
+
+11. kill random service except OM node
+12. 10 sec wait to verify all nodes are up
+
+13. Let trafficgen finish, wait for 120 sec
+14. check s3 TestS3CheckVerifiableObject on vol1
+15. wait again 30 sec scenario_startio_prewait2 *******************
+16. get s3 conn, checkverifiable OBJ
+
+17. volume 3trafficgen, 30 sec wait****************
+18. kill AM service on node1
+19. verify all nodes are up
+20. 120 sec to allow trafficgen to finish***********
+13. TestS3verifiable obj on volume1
+
+#Restart data persistance with ungracful domain shutdown
+14. Domain kill
+15. domain boot-up
+16. get auth ,get conn, TestS3CheckVerifiableObject, closeconn
+
+
+17. vol3 trafficgen, 30 wait
+18. kill-noverify domain, 20 wait for domain down, verify down
+19. boot , 60 to settle
+20. get conn, TestS3CheckVerifiableObject
+
+21. volume3 IO trafficgen, 30 sec wait
+22. kill service, verify all nodes are up, 120 wait
+23. TestS3CheckVerifiableObject, 30 sec
+24, get conn and again TestS3CheckVerifiableObject
+
+25. vol3 IO, 30 sec wait
+
+26. kill AM on random node, and then again check all services are up
+27. allow domain 120 sec wait, s3 verifiable obj
+28. kill uninst
