@@ -54,7 +54,10 @@ class MigrationClient {
     typedef std::unique_ptr<MigrationClient> unique_ptr;
     typedef std::shared_ptr<MigrationClient> shared_ptr;
 
-    /**
+    typedef std::function<void(leveldb::Iterator *, leveldb::DB *, std::string &, leveldb::CopyEnv *)> continueWorkFn;
+
+
+  /**
      * A simple routine to snapshot metadata associated with the token.
      */
     Error migClientSnapshotMetaData();
@@ -107,7 +110,8 @@ class MigrationClient {
      * Callback from the QoS
      */
     void migClientReadObjDeltaSetCb(const Error& error,
-                                    SmIoReadObjDeltaSetReq *req);
+                                    SmIoReadObjDeltaSetReq *req,
+                                    continueWorkFn nextWork);
 
     /**
      * Will set forwarding flag to true
@@ -131,6 +135,17 @@ class MigrationClient {
     void waitForIOReqsCompletion(fds_uint64_t executorId);
 
   private:
+    /*
+     * Builds delta sets until a levelDB iterator is exhausted.
+     * Takes a levelDB iterator pointer as a parameter. If this is nullptr we'll assume we were in error and delete
+     * the iterator.
+     */
+    void buildDeltaSetWorker(leveldb::Iterator *iterDB,
+                             leveldb::DB *db,
+                             std::string &firstPhaseSnapDir,
+                             leveldb::CopyEnv *env);
+
+
     /* Verify that set of DLT tokens belong to the same SM token.
      */
     bool migClientVerifyDestination(fds_token_id dltToken,
@@ -140,7 +155,7 @@ class MigrationClient {
      */
     void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                                     fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
-                              fds_bool_t lastSet);
+                              fds_bool_t lastSet, continueWorkFn nextWork);
 
     void fwdPutObjectCb(SmIoPutObjectReq* putReq,
                         EPSvcRequest* svcReq,

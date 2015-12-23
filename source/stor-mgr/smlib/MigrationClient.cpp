@@ -252,7 +252,8 @@ MigrationClient::migClientSnapshotMetaData()
 
 void
 MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
-                                            SmIoReadObjDeltaSetReq *req)
+                                            SmIoReadObjDeltaSetReq *req,
+                                            continueWorkFn nextWork)
 {
     fds_verify(NULL != req);
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -261,6 +262,10 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                << " executorID=" << std::hex << req->executorId << std::dec
                << " DeltSetSize=" << req->deltaSet.size()
                << " lastSet=" << (req->lastSet ? "TRUE" : "FALSE");
+
+
+    // Fire the code to execute the next delta set builder
+    nextWork();
 
     // Finish tracking IO request.
     trackIOReqs.finishTrackIOReqs();
@@ -276,7 +281,7 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
 void
 MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                                             fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
-                                      fds_bool_t lastSet)
+                                      fds_bool_t lastSet, continueWorkFn nextWork)
 {
     Error err(ERR_OK);
 
@@ -296,7 +301,8 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                 &MigrationClient::migClientReadObjDeltaSetCb,
                                 this,
                                 std::placeholders::_1,
-                                std::placeholders::_2);
+                                std::placeholders::_2,
+                                nextWork);
 
     std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>>::iterator itFirst, itLast;
     itFirst = objMetaDataSet.begin();
@@ -315,29 +321,26 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
     fds_verify(err.ok());
 }
 
-/* TODO(Gurpreet): Propogate error to Token Migration Manager
- */
-void
-MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
-                                               SmIoSnapshotObjectDB* snapRequest,
-                                               std::string &snapDir,
-                                               leveldb::CopyEnv *env)
-{
-    // First phase snapshot directory
-    firstPhaseSnapshotDir = snapDir;
+void MigrationClient::buildDeltaSetWorker(leveldb::Iterator *iterDB,
+                                          leveldb::DB *dbFromFirstSnap,
+                                          std::string &firstPhaseSnapshotDir,
+                                          leveldb::CopyEnv *env) {
 
-    // on error, set error state (abort migration)
-    if (!error.ok()) {
-        // This will set the ClientState to MC_ERROR
-        handleMigrationError(error);
-    }
+    // If we hit this the iterator is no longer valid, so we've finished our work
+    if (!iterDB->Valid()) {
+        delete iterDB;
+        delete dbFromFirstSnap;
 
-    if (getMigClientState() == MC_ERROR) {
-        LOGMIGRATE << "Migration Client in error state, not processing snapshot";
-        // already in error state, don't do anything
-        if (env) {
+        /* If this is a one phase migration(For ex: SM resync)
+         * We no longer need this snapshot.
+         * Delete the snapshot directory and files.
+         */
+        if (onePhaseMigration && env) {
             env->DeleteDir(firstPhaseSnapshotDir);
         }
+
+        setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
+
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -352,29 +355,11 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
      */
     std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
-    /* Setup db Options and create leveldb from the snapshot.
-     */
-    leveldb::DB* dbFromFirstSnap;
-    leveldb::Options options;
-    leveldb::ReadOptions read_options;
-
-    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
-    if (!status.ok()) {
-        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
-                   << "status " << status.ToString();
-        if (env) {
-            env->DeleteDir(firstPhaseSnapshotDir);
-        }
-        // Finish tracking IO request.
-        trackIOReqs.finishTrackIOReqs();
-        return;
-    }
-
-    leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
-
     /* Iterate through level db and filter against the objectFilterSet.
      */
-    for (iterDB->SeekToFirst(); iterDB->Valid(); iterDB->Next()) {
+    for (fds_uint64_t i = 0;
+         iterDB->Valid(), i < maxDeltaSetSize;
+         i++, iterDB->Next()) {
 
         ObjectID objId(iterDB->key().ToString());
 
@@ -431,14 +416,14 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
              */
             if (!objMetaDataPtr->isObjCorrupted() && (objMetaDataPtr->getRefCnt() > 0UL)) {
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Selecting object " << objMetaDataPtr->logString();
+                            << ": Selecting object " << objMetaDataPtr->logString();
                 objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
                 if (objMetaDataPtr->isObjCorrupted()) {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 } else {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": skipping object: " << objMetaDataPtr->logString();
+                                << ": skipping object: " << objMetaDataPtr->logString();
                 }
             }
 
@@ -474,43 +459,75 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                  */
                 if (!objMetaDataPtr->isObjCorrupted()) {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": Found in filter set with object state change: "
-                               << objMetaDataPtr->logString();
+                                << ": Found in filter set with object state change: "
+                                << objMetaDataPtr->logString();
                     objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_OVERWRITE);
                 } else {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
             }
         }
-
-        /* If the size of the object data set is greater than the max
-         * size, then add metadata set to be read.
-         */
-        if (objMetaDataSet.size() >= maxDeltaSetSize) {
-            migClientAddMetaData(objMetaDataSet, false);
-            objMetaDataSet.clear();
-            fds_verify(0 == objMetaDataSet.size());
-        }
     }
 
+    continueWorkFn nextStep = std::bind(&MigrationClient::buildDeltaSetWorker, this, iterDB,
+                                        dbFromFirstSnap, &firstPhaseSnapshotDir, env);
+
+    // This is the last message if iterDB is no longer valid
     /* The last message can be empty. */
-    migClientAddMetaData(objMetaDataSet, true);
+    migClientAddMetaData(objMetaDataSet, (!iterDB->Valid()), nextStep);
+}
 
-    delete iterDB;
-    delete dbFromFirstSnap;
+/* TODO(Gurpreet): Propogate error to Token Migration Manager
+ */
+void
+MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
+                                               SmIoSnapshotObjectDB* snapRequest,
+                                               std::string &snapDir,
+                                               leveldb::CopyEnv *env)
+{
+    // First phase snapshot directory
+    firstPhaseSnapshotDir = snapDir;
 
-    /* If this is a one phase migration(For ex: SM resync)
-     * We no longer need this snapshot.
-     * Delete the snapshot directory and files.
-     */
-    if (onePhaseMigration && env) {
-        env->DeleteDir(firstPhaseSnapshotDir);
+    // on error, set error state (abort migration)
+    if (!error.ok()) {
+        // This will set the ClientState to MC_ERROR
+        handleMigrationError(error);
     }
 
-    setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
+    if (getMigClientState() == MC_ERROR) {
+        LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+        // already in error state, don't do anything
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+        }
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+        return;
+    }
 
-    // Finish tracking IO request.
-    trackIOReqs.finishTrackIOReqs();
+    /* Setup db Options and create leveldb from the snapshot.
+     */
+    leveldb::DB* dbFromFirstSnap;
+    leveldb::Options options;
+    leveldb::ReadOptions read_options;
+
+    leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+    if (!status.ok()) {
+        LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
+                   << "status " << status.ToString();
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+        }
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+        return;
+    }
+
+    leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
+    iterDB->SeekToFirst();
+
+    // This will build the delta set and call the next method w/ "resume method" bound
+    buildDeltaSetWorker(iterDB, dbFromFirstSnap, firstPhaseSnapshotDir, env);
 }
 
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
@@ -966,5 +983,4 @@ MigrationClient::waitForIOReqsCompletion(fds_uint64_t executorId)
     LOGMIGRATE << "No more pending IO requests: "
                << "ExecutorID=" << std::hex << executorId << std::dec;
 }
-
 }  // namespace fds
