@@ -89,7 +89,7 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                 
                 //handle the tooltip
                 if ( angular.isFunction( $scope.tooltip ) ){
-                    $scope.tooltipText = $scope.tooltip( d, i, j );
+                    $scope.tooltipText = $scope.tooltip( d.data, i, j );
                     var el = $( $element[0] ).find( '.tooltip-placeholder' );
                     el.empty();
                     var ttEl = $('<div/>').html( $scope.tooltipText ).contents();
@@ -143,15 +143,7 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                     .append( 'path' )
                     .attr( 'class', 'wedge' )
                     .attr( 'd', arc )
-                    .attr( 'fill', function( d, i, j ){
-                    
-                        if ( angular.isFunction( $scope.colors ) ){
-                            return $scope.colors( d, i );
-                        }
-                        else {
-                            return $scope.colors[ i % $scope.colors.length ];
-                        }
-                    })
+                    .attr( 'fill', 'black' )
                     .on( 'mouseover', wedgeSelected )
                     .on( 'mouseleave', wedgeDeselected );
             };
@@ -167,6 +159,15 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                 
                 $wedges.selectAll( '.wedge' )
                     .data( pied($scope.data) )
+                    .attr( 'fill', function( d, i ){
+                    
+                        if ( angular.isFunction( $scope.colors ) ){
+                            return $scope.colors( d.data, i );
+                        }
+                        else {
+                            return $scope.colors[ i % $scope.colors.length ];
+                        }
+                    })
                     .transition()
                     .duration( 500 )
                     .attrTween( 'd', arcTween );
@@ -184,6 +185,16 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                 var pathNumber = $svg.selectAll( 'path' )[0].length;
                 
                 if ( pathNumber < newVal.length ){
+                    
+                    var laidOut = pied( newVal );
+                    
+                    // checking to make sure we're not zeroed out
+                    for ( var lo = 0; lo < laidOut.length; lo ++ ){
+                        if ( isNaN( laidOut[lo].startAngle ) || isNaN( laidOut[lo].endAngle ) ){
+                            return;
+                        }
+                    }
+                    
                     createPaths();
                     
                     lastPie = [];
