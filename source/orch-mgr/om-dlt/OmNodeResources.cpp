@@ -1229,8 +1229,9 @@ OM_PmAgent::send_add_service
     Error err(ERR_OK);
 
     // We only do addService from 'discovered' state or 'node up' state
-    if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
-        (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+    if ( (node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
+         (node_state() != FDS_ProtocolInterface::FDS_Node_Up) &&
+         (node_state() != FDS_ProtocolInterface::FDS_Node_Standby) ) {
         LOGERROR << "Node is in invalid state";
         return Error(ERR_INVALID_ARG);
     }

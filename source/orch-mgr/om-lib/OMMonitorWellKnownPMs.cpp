@@ -91,7 +91,7 @@ namespace fds
 
                                     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
 
-                                    if (domain->om_local_domain_up()) {
+                                    if ( !domain->isDomainShuttingDown() ) {
                                         handleRetryOnInactive(svcUuid);
                                     } else {
                                         auto curTime         = std::chrono::system_clock::now().time_since_epoch();
@@ -242,7 +242,7 @@ namespace fds
                 if ( pm != NULL ) {
                     pm->set_node_state(fpi::FDS_Node_Up);
                 } else {
-                    LOGWARN << "Unable to retrieve PM node agent, could not set node to down";
+                    LOGWARN << "Unable to retrieve PM node agent, could not set node to up";
                 }
 
             }
