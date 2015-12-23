@@ -67,9 +67,9 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         $scope.volumesByType = [
             { name: 'NFS', value: nfs_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
-            { name: 'iSCSI', value: iscsi_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
-            { name: 'Object', value: object_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
-            { name: 'Block', value: block_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) }
+            { name: 'iSCSI', value: iscsi_count, percentage: buildPercentage( iscsi_count, $scope.volumes.length ) },
+            { name: 'Object', value: object_count, percentage: buildPercentage( object_count, $scope.volumes.length ) },
+            { name: 'Block', value: block_count, percentage: buildPercentage( block_count, $scope.volumes.length ) }
         ];
     };
     
