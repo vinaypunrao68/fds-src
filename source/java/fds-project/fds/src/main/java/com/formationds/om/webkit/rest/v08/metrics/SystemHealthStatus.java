@@ -329,13 +329,18 @@ public class SystemHealthStatus implements RequestHandler {
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();
 
+        // This value will be in MB!!
         Double systemCapacity = 0D;
         try {
         	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
         } catch (TException te) {
         	throw new IllegalStateException("Failed to retrieve system capacity", te);
         }
+        
+        // switch to bytes for now
+        Long systemCapacityInBytes = SizeUnit.MB.toBytes( systemCapacity.longValue() ).longValue();
 
+        // This number will be in bytes!!!
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal( metricsRepository
                                .sumPhysicalBytes() );
@@ -346,8 +351,8 @@ public class SystemHealthStatus implements RequestHandler {
                                                                   StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
-        CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacity);
-        CapacityToFull timeToFull = qh.toFull(series.get(0), systemCapacity);
+        CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacityInBytes.doubleValue() );
+        CapacityToFull timeToFull = qh.toFull(series.get(0), systemCapacityInBytes.doubleValue() );
 
         Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
 
