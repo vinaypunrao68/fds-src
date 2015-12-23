@@ -1789,10 +1789,16 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
               << " stop sm ? " << stop_sm
               << " stop dm ? " << stop_dm
               << " " << error;
+
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fds_mutex::scoped_lock l(dbNodeInfoLock);
 
-    if ( error.ok() ) {
+    // Now that we allow unreachable(down) nodes to be removed, it is
+    // possible that OM receives a req invocation error. In this case
+    // allow rest of the clean up to happen
+    if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
+        
+        LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
         if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
              change_service_state( configDB,

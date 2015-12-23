@@ -233,6 +233,18 @@ namespace fds
                                           uuid.svc_uuid,
                                           fpi::SVC_STATUS_ACTIVE,
                                           false);
+
+                OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
+                OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
+
+                auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(uuid.svc_uuid));
+
+                if ( pm != NULL ) {
+                    pm->set_node_state(fpi::FDS_Node_Up);
+                } else {
+                    LOGWARN << "Unable to retrieve PM node agent, could not set node to down";
+                }
+
             }
         }
     }
@@ -300,11 +312,21 @@ namespace fds
 
         // Update service state in the configDB, svclayer Map
         {
-        fds_mutex::scoped_lock l(dbLock);
-        fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                  svcUuid.svc_uuid,
-                                  fpi::SVC_STATUS_INACTIVE,
-                                  false);
+            fds_mutex::scoped_lock l(dbLock);
+            fds::change_service_state(gl_orch_mgr->getConfigDB(),
+                                      svcUuid.svc_uuid,
+                                      fpi::SVC_STATUS_INACTIVE,
+                                      false);
+
+            OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
+            OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(NodeUuid(svcUuid.svc_uuid)));
+            if ( pm != NULL ) {
+                pm->set_node_state(fpi::FDS_Node_Down);
+            } else {
+                LOGWARN << "Unable to retrieve PM node agent, could not set node to down";
+            }
+
         }
         auto iter = wellKnownPMsMap.find(svcUuid);
         if (iter != wellKnownPMsMap.end()) {
