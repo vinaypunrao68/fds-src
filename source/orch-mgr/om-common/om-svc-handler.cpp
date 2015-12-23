@@ -311,6 +311,27 @@ void OmSvcHandler<DataStoreT>::getAllVolumeDescriptors(fpi::GetAllVolumeDescript
 }
 
 template <class DataStoreT>
+fpi::OMSvcClientPtr OmSvcHandler<DataStoreT>::createOMSvcClient(const std::string& strIPAddress,
+    const int32_t& port) {
+
+    fpi::OMSvcClientPtr pOmClient;
+    int retryCount = SvcMgr::MAX_CONN_RETRIES;
+    try {
+        LOGNOTIFY << "Connecting to OM[" << strIPAddress << ":" << port <<
+                "] with max retries of [" << retryCount << "]";
+        // Creates and connects
+        pOmClient = allocRpcClient<fpi::OMSvcClient>(strIPAddress, port, retryCount);
+    } catch (std::exception &e) {
+        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
+            << ".  ip: "  << strIPAddress << " port: " << port;
+    } catch (...) {
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. ip: "
+            << strIPAddress << " port: " << port;
+    }
+    return pOmClient;
+}
+
+template <class DataStoreT>
 void OmSvcHandler<DataStoreT>::getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_Type>& _return,
          boost::shared_ptr< ::FDS_ProtocolInterface::FDSP_MgrIdType>& svctype,
          boost::shared_ptr<int32_t>& localDomainId) {
@@ -350,14 +371,21 @@ void OmSvcHandler<DataStoreT>::getSvcEndpoints(std::vector<fpi::FDSP_Node_Info_T
             throw fpi::SvcLookupException();
         }
     } else {
-        // Ask a remote OM
+        // Ask remote service domain. Per Tinius as of 12/22/2015, the system
+        // design moving forward allows for OM services in different service
+        // domains to communicate using RPC.
         const std::vector<fpi::FDSP_RegisterNodeType>& omNodes = ld.getOMNodes();
-        if (omNodes.size() > 0) {
-            auto omNode = omNodes[0];
+        for (size_t i = 0; i < omNodes.size(); ++i) {
+            auto omNode = omNodes[i];
             std::string ip = fds::net::ipAddr2String(omNode.ip_lo_addr);
             int32_t port = omNode.control_port;
             try {
-                EpInvokeRpc(fpi::OMSvcClient, getSvcEndpoints, ip, port, _return, svctype, localDomainId);
+                auto pOMClient = createOMSvcClient(ip, port);
+                if (!pOMClient) {
+                    continue;
+                }
+                pOMClient->getSvcEndpoints(_return, svctype, localDomainId);
+                break;
             }
             catch (std::exception& e) {
                 throw fpi::SvcLookupException();

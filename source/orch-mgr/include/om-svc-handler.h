@@ -142,6 +142,13 @@ namespace fds {
 
       std::pair<int64_t, int32_t> lastHeardResp;
 
+      /**
+       * @details
+       * Enables xUnit override to supply fake/mock client object
+       */
+      virtual fpi::OMSvcClientPtr createOMSvcClient(const std::string& strIPAddress,
+        const int32_t& port);
+
     private:
       void init_svc_event_handlers();
       void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
