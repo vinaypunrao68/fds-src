@@ -80,7 +80,6 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, verbosity=0)
     runner = testcases.TestMgt.FDSTestRunner(output=log_dir, verbosity=0,
                                              fds_logger=logging.getLogger())
-    runner.run(test_suite)
     testResult = runner.run(test_suite)
     log = logging.getLogger()
     if not testResult.wasSuccessful():
