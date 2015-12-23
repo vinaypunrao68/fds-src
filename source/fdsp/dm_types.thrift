@@ -150,3 +150,27 @@ struct DMBlobDescListDiff {
   1: string                     vol_blob_name,
   2: string                     vol_blob_desc;
 }
+
+/**
+ * Structure for commit log contents
+ */
+struct DMCommitLogTx {
+  1: i64                blob_tx_id;
+  2: string             blob_name;
+  3: i32                blob_mode;
+  4: i64                started;
+  5: i64                committed;
+  6: bool               blob_delete;
+  7: bool               blob_expunge;
+  8: bool               snapshot;
+  9: FDSP_BlobObjectList blob_obj_list;
+ 10: FDSP_MetaDataList  meta_data_list;
+ 11: binary             cat_write_batch;
+ 12: i64                blob_version;
+ 13: i64                blob_size;
+ 14: i64                dmt_version;
+ /* New fields for volume grouping */
+ 15: i64                lastOpId;
+ /* Current coordinator commit id */
+ 16: i64                lastCommitId;
+}

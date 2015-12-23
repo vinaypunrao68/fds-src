@@ -111,4 +111,7 @@ class RootContext(Context):
     Currently it is a dummy.. Later all shared functionality will be here.
     '''
     def get_context_name(self):
-        return "fds"
+        if self.config.isDebugTool():
+            return "fds.debug"
+        else:
+            return "fds"

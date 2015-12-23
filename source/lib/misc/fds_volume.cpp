@@ -301,6 +301,10 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
         for (auto const& ini : vol.iscsiSettings.initiators) {
             os << ini.wwn_mask << " ";
         }
+        os << "} incoming users { ";
+        for (auto const& cred : vol.iscsiSettings.incomingUsers) {
+            os << cred.name << " ";
+        }
         os << "}";
     }
     return os << " ]";
