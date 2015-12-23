@@ -96,13 +96,6 @@ class VolumeMeta : public HasLogger {
      */
     void finishForwarding();
 
-    inline bool isActive() const {
-        return vol_desc->state == fpi::Active;
-    }
-
-    inline bool isSyncing() const {
-        return vol_desc->state == fpi::Syncing;
-    }
 
     VolumeDesc *vol_desc;
 
@@ -115,7 +108,14 @@ class VolumeMeta : public HasLogger {
  private:
     sequence_id_t sequence_id;
     fds_mutex sequence_lock;
+    /* Operation id. Every update/commit operation against volume should have this id.
+     * This id should be sequential.
+     */
     int64_t opId;
+    /* Version of the volume.  As volume goes up/down this incremented.  This id
+     * persisted to disk as well
+     */
+    int32_t version;
  public:
     /*
      * Default constructor should NOT be called
@@ -135,6 +135,13 @@ class VolumeMeta : public HasLogger {
     sequence_id_t getSequenceId();
     inline void setOpId(const int64_t &id) { opId = id; }
     inline const int64_t& getOpId() const { return opId; }
+    inline fpi::ResourceState getState() const { return vol_desc->state; }
+    inline void setState(const fpi::ResourceState &state) { vol_desc->state = state; }
+    inline bool isActive() const { return vol_desc->state == fpi::Active; }
+    inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
+    inline int64_t getId() const { return vol_desc->volUUID.get(); }
+    inline int32_t getVersion() const { return version; }
+    inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
 
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);

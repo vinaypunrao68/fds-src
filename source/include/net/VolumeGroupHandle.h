@@ -101,7 +101,6 @@ struct VolumeReplicaHandle {
 std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h);
 
 using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
-using StatusCb = std::function<void(const Error&)>;
 
 /**
 * @brief Base class for group requests that are related to VolumeGrouping
