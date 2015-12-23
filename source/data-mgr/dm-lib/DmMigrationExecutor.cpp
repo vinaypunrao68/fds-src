@@ -21,8 +21,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr* _dataMgr,
                                          int64_t migrationId,
 										 const fds_bool_t& _autoIncrement,
 										 DmMigrationExecutorDoneCb _callback,
-                                         uint32_t _timeout,
-                                         bool _volumeGroupMode)
+                                         uint32_t _timeout)
 	: DmMigrationBase(migrationId, _dataMgr),
       srcDmSvcUuid(_srcDmUuid),
       volDesc(_volDesc),
@@ -35,8 +34,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr* _dataMgr,
       txStateIsMigrated(true),
       lastUpdateFromClientTsSec_(util::getTimeStampSeconds()),
       deltaBlobsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
-      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this)),
-      volumeGroupMode(_volumeGroupMode)
+      deltaBlobDescsSeqNum(seqTimer,timerInterval,std::bind(&fds::DmMigrationExecutor::sequenceTimeoutHandler, this))
 {
     volumeUuid = volDesc.volUUID;
 
@@ -129,7 +127,7 @@ DmMigrationExecutor::shouldAutoExecuteNext()
 }
 
 Error
-DmMigrationExecutor::processInitialBlobFilterSet(bool volumeGroupMode)
+DmMigrationExecutor::processInitialBlobFilterSet()
 {
 	Error err(ERR_OK);
 	LOGMIGRATE << logString() << "starting migration for VolDesc: " << volDesc;

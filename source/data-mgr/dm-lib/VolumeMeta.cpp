@@ -120,7 +120,100 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                             deltaBlobTimeout,
                                             doneCb));
 
+    // TODO : once processInitialBlobFilterSet has been fixed to be
+    // iterative, then we won't block here.
+    err = migrationDest->start();
+
     return err;
+}
+
+Error VolumeMeta::ServeMigration(DmRequest *dmRequest) {
+    Error err(ERR_OK);
+    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
+    DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
+    NodeUuid destDmUuid(typedRequest->destNodeUuid);
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
+    migrationCb cleanupCb = typedRequest->localCb;
+
+    LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
+        <<" received msg for volume " << migReqMsg->volumeId;
+
+    err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+
+    return err;
+}
+
+Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
+                                        const NodeUuid &mySvcUuid,
+                                        fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
+                                        migrationCb cleanup) {
+    Error err(ERR_OK);
+    auto maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                           get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
+    auto maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
+                              get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+
+
+    auto fds_volid = fds_volid_t(filterSet->volumeId);
+    fds_verify(fds_volid == vol_desc->GetID());
+
+    auto search = migrationSrcMap.find(destDmUuid);
+    if (search != migrationSrcMap.end()) {
+        LOGERROR << "migrationid: " << filterSet->DMT_version
+            << " Source received request for destination node: " << destDmUuid
+            << " volume " << filterSet->volumeId << " but it already exists";
+        err = ERR_DUPLICATE;
+    } else {
+        DmMigrationSrc::shared_ptr source;
+        {
+            SCOPEDWRITE(migrationSrcMapLock);
+            source = DmMigrationSrc::shared_ptr(
+                    new DmMigrationSrc(dataManager,
+                                       mySvcUuid,
+                                       destDmUuid,
+                                       filterSet->DMT_version,
+                                       filterSet,
+                                       std::bind(&VolumeMeta::cleanUpMigrationSource,
+                                                 this,
+                                                 std::placeholders::_1,
+                                                 std::placeholders::_2,
+                                                 destDmUuid,
+                                                 filterSet->DMT_version), // TODO for cleanup
+                                       cleanup,
+                                       maxNumBlobs,
+                                       maxNumBlobDesc));
+        }
+        source->run();
+    }
+    return err;
+}
+
+void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
+                                        const Error &err,
+                                        const NodeUuid destDmUuid,
+                                        int64_t migrationId) {
+
+    if (!err.ok()) {
+        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
+            " with error: " << err;
+    } else {
+        LOGMIGRATE << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
+            " with error: " << err;
+
+    }
+    DmMigrationSrc::shared_ptr source;
+    {
+        SCOPEDWRITE(migrationSrcMapLock);
+        auto search = migrationSrcMap.find(destDmUuid);
+        if (search == migrationSrcMap.end()) {
+            LOGERROR << "Volume " << volId << " Unable to find entry " << destDmUuid;
+            return;
+        } else {
+            source = search->second;
+            source->finish();
+            migrationSrcMap.erase(search);
+        }
+    }
 }
 
 }  // namespace fds

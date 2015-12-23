@@ -14,7 +14,7 @@ DmMigrationDest::start()
             << " starting Destination blob diff for volume: " << volumeUuid;
 
     // true - volumeGroupMode
-    processInitialBlobFilterSet(true);
+    processInitialBlobFilterSet();
 
     return err;
 }

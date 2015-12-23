@@ -10,8 +10,7 @@ namespace fds {
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg);
 
-DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
-                                     DataMgr* _dataMgr,
+DmMigrationClient::DmMigrationClient(DataMgr* _dataMgr,
                                      const NodeUuid& _myUuid,
                                      NodeUuid& _destDmUuid,
                                      int64_t migrationId,
@@ -19,10 +18,9 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
                                      DmMigrationClientDoneHandler _handle,
                                      migrationCb _cleanup,
                                      uint64_t _maxDeltaBlobs,
-                                     uint64_t _maxDeltaBlobDescs,
-                                     bool _volumeGroupMode)
+                                     uint64_t _maxDeltaBlobDescs)
     : DmMigrationBase(migrationId, _dataMgr),
-      DmReqHandler(_DmReqHandle), migrDoneHandler(_handle),
+      migrDoneHandler(_handle),
       mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid),
 	  ribfsm(_ribfsm),
@@ -32,8 +30,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 	  forwardingIO(false),
 	  snapshotTaken(false),
 	  abortFlag(false),
-	  cleanUp(_cleanup),
-	  volumeGroupMode(_volumeGroupMode)
+	  cleanUp(_cleanup)
 {
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);

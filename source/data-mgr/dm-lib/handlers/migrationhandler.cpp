@@ -127,7 +127,10 @@ void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 
     if (dataManager.features.isVolumegroupingEnabled()) {
-        helper.err = dataManager.dmMigrationMgr->startMigrationSource(dmRequest);
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        // Volume Group handle says that this guy is the source. It must have volMeta.
+        fds_assert(volMeta != nullptr);
+        volMeta->ServeMigration(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
     }

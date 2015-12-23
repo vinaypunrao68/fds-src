@@ -1056,7 +1056,7 @@ int DataMgr::mod_init(SysParams const *const param)
     /**
      * Instantiate migration manager.
      */
-    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, this));
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this));
     
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
     refCountMgr.reset(new refcount::RefCountManager(this));

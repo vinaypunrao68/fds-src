@@ -13,7 +13,6 @@
 namespace fds {
 
 // Forward declaration.
-class DmIoReqHandler;
 class DataMgr;
 
 /**
@@ -26,8 +25,7 @@ using incrementCountFunc = std::function<void()>;
 
 class DmMigrationClient : public DmMigrationBase {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
-            DataMgr* _dataMgr,
+    explicit DmMigrationClient(DataMgr* _dataMgr,
             const NodeUuid& _myUuid,
             NodeUuid& _destDmUuid,
             int64_t migrationId,
@@ -35,8 +33,7 @@ class DmMigrationClient : public DmMigrationBase {
             DmMigrationClientDoneHandler _handle,
             migrationCb _cleanup,
             uint64_t _maxDeltaBlobs,
-            uint64_t _maxDeltaBlobDesc,
-            bool _volumeGroupMode);
+            uint64_t _maxDeltaBlobDesc);
     ~DmMigrationClient();
 
     /**
@@ -118,8 +115,6 @@ class DmMigrationClient : public DmMigrationBase {
     void finish();
 
  protected:
-    DmIoReqHandler* DmReqHandler;
-
     /**
      * local svc uuid
      */

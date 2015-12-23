@@ -33,8 +33,7 @@ public:
                                       std::placeholders::_2,
                                       std::placeholders::_3,
                                       cbToCoordinator),
-                            _timeout,
-                            true) {}
+                            _timeout) {}
     ~DmMigrationDest() {}
 
     void staticMigrationStatusToSrc(NodeUuid srcNodeUuid,

@@ -16,9 +16,6 @@
 
 namespace fds {
 
-// Forward declaration
-class DmIoReqHandler;
-
 class DmMigrationMgr {
 	using DmMigrationExecMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationClient::shared_ptr>;
@@ -26,7 +23,7 @@ class DmMigrationMgr {
     using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
 
   public:
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr* _dataMgr);
+    explicit DmMigrationMgr(DataMgr* _dataMgr);
     ~DmMigrationMgr();
 
     void mod_shutdown();
@@ -260,7 +257,6 @@ class DmMigrationMgr {
     Error startMigrationSource(DmRequest *dmRequest);
 
   private:
-    DmIoReqHandler* DmReqHandler;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> clientState;
@@ -410,12 +406,6 @@ class DmMigrationMgr {
                                int64_t migrationId,
                                const Error &result);
 
-    void migrationClientDoneCbInternal(fds_volid_t uniqueId,
-                                       int64_t migrationId,
-                                       const Error &result,
-                                       bool volumeGroupMode);
-
-
 
     /**
      * For debugging
@@ -502,9 +492,6 @@ class DmMigrationMgr {
 
     // Get a source ptr
     DmMigrationSrc::shared_ptr getMigrationSrc(std::pair<NodeUuid, fds_volid_t> uniqueId);
-
-    // Simply prints out msgs for now
-    void migrationSourceDoneCb(fds_volid_t uniqueId, int64_t migrationId, const Error &result);
 
 };  // DmMigrationMgr
 }  // namespace fds

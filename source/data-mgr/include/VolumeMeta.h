@@ -23,8 +23,9 @@
 
 namespace fds {
 
-using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
+using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
 using migrationCb = std::function<void(const Error& e)>;
+using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
 class VolumeMeta : public HasLogger {
  public:
     /**
@@ -119,18 +120,19 @@ class VolumeMeta : public HasLogger {
      * DM Migration related
      */
  public:
-    void createMigrationClient(DmRequest *dmRequest);
-
-
     Error startMigration(NodeUuid& srcDmUuid,
                          fpi::FDSP_VolumeDescType &vol,
                          int64_t migrationId,
                          migrationCb doneCb);
+
+    Error ServeMigration(DmRequest *dmRequest);
+
  private:
     /**
      * This volume could be a source of migration to multiple nodes.
      */
     DmMigrationSrcMap migrationSrcMap;
+    fds_rwlock migrationSrcMapLock;
 
     /**
      * This volume can only be a destination to one node
@@ -141,6 +143,22 @@ class VolumeMeta : public HasLogger {
      * DataMgr ptr
      */
     DataMgr *dataManager;
+
+    /**
+     * Internally create a source and runs it
+     */
+    Error createMigrationSource(NodeUuid destDmUuid,
+                                const NodeUuid &mySvcUuid,
+                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
+                                migrationCb cleanup);
+
+    /**
+     * Internally cleans up a source
+     */
+    void cleanUpMigrationSource(fds_volid_t volId,
+                                const Error &err,
+                                const NodeUuid destDmUuid,
+                                int64_t migrationid);
 };
 
 }  // namespace fds

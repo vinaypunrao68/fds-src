@@ -8,9 +8,8 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr *_dataMgr)
-: DmReqHandler(DmReqHandle),
-    dataManager(_dataMgr),
+DmMigrationMgr::DmMigrationMgr(DataMgr *_dataMgr)
+:   dataManager(_dataMgr),
     OmStartMigrCb(nullptr),
     maxConcurrency(1),
     firedMigrations(0),
@@ -126,8 +125,7 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
                                                               std::placeholders::_2,
                                                               migrationId,
                                                               std::placeholders::_3),
-                                                    deltaBlobTimeout,
-                                                    false)));
+                                                    deltaBlobTimeout)));
     }
     return err;
 }
@@ -502,8 +500,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
                 << "Creating migration client for node: "
                 << destDmUuid << " volume ID# " << fds_volid;
             client = DmMigrationClient::shared_ptr(
-                         new DmMigrationClient(DmReqHandler,
-                                               dataManager,
+                         new DmMigrationClient(dataManager,
                                                mySvcUuid,
                                                destDmUuid,
                                                filterSet->DMT_version,
@@ -515,8 +512,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
                                                          std::placeholders::_2),
                                                cleanUp,
                                                maxNumBlobs,
-                                               maxNumBlobDesc,
-                                               false));
+                                               maxNumBlobDesc));
             clientMap[uniqueId] = client;
        }
         // Non-blocking call
@@ -552,21 +548,20 @@ DmMigrationMgr::createMigrationSource(NodeUuid &destDmUuid,
                 << "Creating migration source for node: "
                 << destDmUuid << " volume ID# " << fds_volid;
             source = DmMigrationSrc::shared_ptr(
-                         new DmMigrationSrc(DmReqHandler,
-                                            dataManager,
+                         new DmMigrationSrc(dataManager,
                                             mySvcUuid,
                                             destDmUuid,
                                             filterSet->DMT_version,
                                             filterSet,
-                                            std::bind(&DmMigrationMgr::migrationSourceDoneCb,
-                                               this,
-                                               std::placeholders::_1,
-                                               filterSet->DMT_version,
-                                               std::placeholders::_2),
+                                            NULL,
+//                                            std::bind(&DmMigrationMgr::migrationSourceDoneCb,
+//                                               this,
+//                                               std::placeholders::_1,
+//                                               filterSet->DMT_version,
+//                                               std::placeholders::_2),
                                             cleanUp,
                                             maxNumBlobs,
-                                            maxNumBlobDesc,
-                                            true));
+                                            maxNumBlobDesc));
             srcMap[uniqueId] = source;
        }
         // Non-blocking call
@@ -617,29 +612,13 @@ DmMigrationMgr::migrationExecutorDoneCb(NodeUuid srcNode,
 void
 DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, int64_t migrationId, const Error &result)
 {
-    migrationClientDoneCbInternal(uniqueId, migrationId, result, false);
-}
-
-void
-DmMigrationMgr::migrationClientDoneCbInternal(fds_volid_t uniqueId, int64_t migrationId, const Error &result, bool vgm)
-{
-    auto name = vgm ? "Source" : "Client";
     if (!result.OK()) {
         LOGERROR << "migrationid: " << migrationId
-            << " Volume=" << uniqueId << " failed migration " << name << " with error: " << result;
-        if (!vgm) {
+            << " Volume=" << uniqueId << " failed migration client with error: " << result;
             abortMigration();
-        }
     } else {
-    	LOGMIGRATE << "migrationid: " << migrationId <<
-            name << " done with volume " << uniqueId;
+    	LOGMIGRATE << "migrationid: " << migrationId << " client done with volume " << uniqueId;
     }
-}
-
-void
-DmMigrationMgr::migrationSourceDoneCb(fds_volid_t uniqueId, int64_t migrationId, const Error &result)
-{
-    migrationClientDoneCbInternal(uniqueId, migrationId, result, true);
 }
 
 fds_bool_t

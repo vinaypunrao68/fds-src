@@ -16,8 +16,6 @@ namespace fds {
 
 class DmMigrationSrc : public DmMigrationClient {
 public:
-    //using DmMigrationBase::DmMigrationBase;
-    // DmMigrationSrc() : DmMigrationClient() {}
     using DmMigrationClient::DmMigrationClient;
     ~DmMigrationSrc() {}
     typedef std::shared_ptr<DmMigrationSrc> shared_ptr;
