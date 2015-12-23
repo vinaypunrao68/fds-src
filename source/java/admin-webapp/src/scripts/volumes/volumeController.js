@@ -48,18 +48,28 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         var totalSize = block_size + nfs_size + iscsi_size + object_size;
         
+        var buildPercentage = function( size, total ){
+            var perc = ( size / total * 100 ).toFixed( 0 );
+            
+            if ( isNaN( perc ) ){
+                perc = 0;
+            }
+            
+            return perc;
+        };
+        
         $scope.volumesBySize = [
-            { name: 'NFS', value: nfs_size, printable: $byte_converter.convertBytesToString( nfs_size ), percentage: ( nfs_size / totalSize * 100 ).toFixed( 0 ) },
-            { name: 'iSCSI', value: iscsi_size, printable: $byte_converter.convertBytesToString( iscsi_size ), percentage: ( iscsi_size / totalSize * 100 ).toFixed( 0 ) },
-            { name: 'Object', value: object_size, printable: $byte_converter.convertBytesToString( object_size ), percentage: ( object_size / totalSize * 100 ).toFixed( 0 ) },
-            { name: 'Block', value: block_size, printable: $byte_converter.convertBytesToString( block_size ), percentage: ( block_size / totalSize * 100 ).toFixed( 0 ) }
+            { name: 'NFS', value: nfs_size, printable: $byte_converter.convertBytesToString( nfs_size ), percentage: buildPercentage( nfs_size, totalSize ) },
+            { name: 'iSCSI', value: iscsi_size, printable: $byte_converter.convertBytesToString( iscsi_size ), percentage: buildPercentage( nfs_size, totalSize ) },
+            { name: 'Object', value: object_size, printable: $byte_converter.convertBytesToString( object_size ), percentage: buildPercentage( nfs_size, totalSize ) },
+            { name: 'Block', value: block_size, printable: $byte_converter.convertBytesToString( block_size ), percentage: buildPercentage( nfs_size, totalSize ) }
         ];
         
         $scope.volumesByType = [
-            { name: 'NFS', value: nfs_count, percentage: (nfs_count / $scope.volumes.length * 100).toFixed( 0 ) },
-            { name: 'iSCSI', value: iscsi_count, percentage: (iscsi_count / $scope.volumes.length * 100).toFixed( 0 )  },
-            { name: 'Object', value: object_count, percentage: (object_count / $scope.volumes.length * 100).toFixed( 0 )  },
-            { name: 'Block', value: block_count, percentage: (block_count / $scope.volumes.length * 100).toFixed( 0 )  }
+            { name: 'NFS', value: nfs_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
+            { name: 'iSCSI', value: iscsi_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
+            { name: 'Object', value: object_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
+            { name: 'Block', value: block_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) }
         ];
     };
     

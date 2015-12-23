@@ -138,6 +138,7 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                 
                 // clean
                 $wedges.selectAll( '.wedge' ).remove();
+                $wedges.selectAll( '.empty' ).remove();
                 
                 $paths = $wedges.selectAll( '.wedge' ).data( pied($scope.data) ).enter()
                     .append( 'path' )
@@ -191,6 +192,12 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                     // checking to make sure we're not zeroed out
                     for ( var lo = 0; lo < laidOut.length; lo ++ ){
                         if ( isNaN( laidOut[lo].startAngle ) || isNaN( laidOut[lo].endAngle ) ){
+                            // yup, we're all zeros or otherwise bad data.  draw the gray donut.
+                            $wedges.append( 'path' )
+                                .attr( 'fill', '#DDDDDD' )
+                                .attr( 'class', 'empty' )
+                                .attr( 'd', d3.svg.arc().innerRadius( 0 ).outerRadius( radius ).startAngle( 0 ).endAngle( Math.PI * 2 ) );
+                            
                             return;
                         }
                     }
