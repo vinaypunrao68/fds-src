@@ -298,14 +298,14 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
 }
 
 void
-BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& requestId) {
+BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type const& requestId) {
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
     auto seqId = requestId.seq;
 
-    LOGDEBUG << "Reponse for updateBlobOnce, "
-             << error << ", handle " << handle
-             << " seqId " << seqId;
+    LOGDEBUG << "Reponse for updateBlobOnce, " << error
+             << ", handle 0x" << std::hex << handle
+             << " seqId " << std::dec << seqId;
 
     {
         std::lock_guard<std::mutex> l(respLock);
@@ -398,7 +398,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
             fds_panic("Missing response vector for update!");
         }
         handle_type next_handle;
-        std::tie(update_queued, next_handle) = sector_map.pop(offset);
+        std::tie(update_queued, next_handle) = sector_map.pop(offset, nullptr == last_chained);
         // Leave queued_handle pointing to the last handle
         if (update_queued) {
             queued_handle = next_handle;
