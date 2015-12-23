@@ -105,6 +105,7 @@ var en_US = {
         l_firebreak: 'Firebreak',
         l_performance: 'Performance',
         l_health: 'System Health',
+        l_used: 'Used',
         
         l_gets: 'GET requests',
         l_ssd_gets: 'GET request from flash',
