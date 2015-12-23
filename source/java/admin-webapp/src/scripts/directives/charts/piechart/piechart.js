@@ -145,6 +145,8 @@ angular.module( 'charts' ).directive( 'pieChart', function(){
                     .attr( 'class', 'wedge' )
                     .attr( 'd', arc )
                     .attr( 'fill', 'black' )
+                    .attr( 'stroke', 'white' )
+                    .attr( 'stroke-width', 2 )
                     .on( 'mouseover', wedgeSelected )
                     .on( 'mouseleave', wedgeDeselected );
             };
