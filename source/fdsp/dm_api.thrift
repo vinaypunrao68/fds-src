@@ -542,7 +542,6 @@ struct CtrlNotifyDeltaBlobsMsg {
   /* list of <offset, oid> in give volume
    */
   5: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
-  6: bool                    volume_group_mode;
 }
 
 struct CtrlNotifyDeltaBlobsRspMsg {
@@ -573,7 +572,6 @@ struct CtrlNotifyDeltaBlobDescMsg {
    * empty blob descriptor  for delete operation
    */
   5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
-  6: bool                    volume_group_mode;
 }
 
 /**
@@ -700,18 +698,6 @@ struct CtrlNotifyGetActiveTxMsg {
  */
 struct CtrlNotifyGetActiveTxRspMsg {
     1: map<i64, dm_types.DMCommitLogTx> activeTxMap;
-}
-
-/**
- * Since the original initialBlobFilterMsg was ack'ed, this is the actual
- * result returned.
- */
-struct CtrlNotifyPeerSrcDmStaticDone {
-    1: i64      result;
-    2: i64      volume_id;
-}
-
-struct CtrlNotifyPeerSrcDmStaticDoneRsp {
 }
 
 /* ------------------------------------------------------------

@@ -31,11 +31,6 @@ public:
                             _timeout) {}
     ~DmMigrationDest() {}
 
-    void staticMigrationStatusToSrc(NodeUuid srcNodeUuid,
-                                    fds_volid_t volumeId,
-                                    const Error &result,
-                                    migrationCb cbToCoordinator);
-
     /**
      * Wraps around processInitialBlobFilterSet, now done in a volume
      * specific context.
