@@ -47,8 +47,7 @@ public class GetVolumeTypes
         if ( volumeTypes == null )
         {
             volumeTypes = new ArrayList<>( );
-            volumeTypes.add(
-                new VolumeSettingsBlock( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ) ) );
+
             volumeTypes.add( new VolumeSettingsObject( ) );
             volumeTypes.add(
                 new VolumeSettingsISCSI( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ),

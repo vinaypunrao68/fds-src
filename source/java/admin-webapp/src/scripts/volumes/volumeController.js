@@ -18,11 +18,9 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         var nfs_count = 0;
         var iscsi_count = 0;
         var object_count = 0;
-        var block_count = 0;
         var nfs_size = 0;
         var iscsi_size = 0;
         var object_size = 0;
-        var block_size = 0;
         
         for( var i = 0; i < $scope.volumes.length; i++ ){
             var volume = $scope.volumes[i];
@@ -40,13 +38,9 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
                 object_count++;
                 object_size += usage;
             }
-            else if ( volume.settings.type === 'BLOCK' ){
-                block_count++;
-                block_size += usage;
-            }
         }
         
-        var totalSize = block_size + nfs_size + iscsi_size + object_size;
+        var totalSize = nfs_size + iscsi_size + object_size;
         
         var buildPercentage = function( size, total ){
             var perc = ( size / total * 100 ).toFixed( 0 );
@@ -61,15 +55,13 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         $scope.volumesBySize = [
             { name: 'NFS', value: nfs_size, printable: $byte_converter.convertBytesToString( nfs_size ), percentage: buildPercentage( nfs_size, totalSize ) },
             { name: 'iSCSI', value: iscsi_size, printable: $byte_converter.convertBytesToString( iscsi_size ), percentage: buildPercentage( iscsi_size, totalSize ) },
-            { name: 'Object', value: object_size, printable: $byte_converter.convertBytesToString( object_size ), percentage: buildPercentage( object_size, totalSize ) },
-            { name: 'Block', value: block_size, printable: $byte_converter.convertBytesToString( block_size ), percentage: buildPercentage( block_size, totalSize ) }
+            { name: 'Object', value: object_size, printable: $byte_converter.convertBytesToString( object_size ), percentage: buildPercentage( object_size, totalSize ) }
         ];
         
         $scope.volumesByType = [
             { name: 'NFS', value: nfs_count, percentage: buildPercentage( nfs_count, $scope.volumes.length ) },
             { name: 'iSCSI', value: iscsi_count, percentage: buildPercentage( iscsi_count, $scope.volumes.length ) },
-            { name: 'Object', value: object_count, percentage: buildPercentage( object_count, $scope.volumes.length ) },
-            { name: 'Block', value: block_count, percentage: buildPercentage( block_count, $scope.volumes.length ) }
+            { name: 'Object', value: object_count, percentage: buildPercentage( object_count, $scope.volumes.length ) }
         ];
     };
     
@@ -98,9 +90,6 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         }
         else if ( entry.name.toLowerCase() === 'object' ){
             color = '#489AE1';
-        }
-        else if ( entry.name.toLowerCase() === 'block' ){
-            color = '#ABD3F5';
         }
         
         return color;

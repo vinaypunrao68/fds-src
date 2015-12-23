@@ -213,8 +213,8 @@ var en_US = {
         tt_firebreak: 'Firebreak status over the past 24 hours',
         tt_priority: 'Volume priority',
         
-        title_volumes_by_type: 'Volume distribution by connector type',
-        title_volumes_by_size: 'Volume size distribution by connector type',
+        title_volumes_by_type: 'Usage by Connector Type',
+        title_volumes_by_size: 'NUmber of Volumes by Connector Type',
         
         iscsi: {
             l_incoming_users: 'Incoming Credentials'
