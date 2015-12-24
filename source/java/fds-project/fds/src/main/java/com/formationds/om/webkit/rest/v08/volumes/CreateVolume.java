@@ -11,6 +11,7 @@ import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
@@ -26,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -143,8 +145,8 @@ public class CreateVolume
 
         VolumeDescriptor vd = getConfigApi( ).statVolume( domainName, internalVolume.getName( ) );
 
-        List<Volume> volumes = ExternalModelConverter.convertToExternalVolumes(
-            Arrays.asList( vd ) );
+        List<Volume> volumes =
+            ExternalModelConverter.convertToExternalVolumes( Collections.singletonList( vd ) );
         Volume myVolume = null;
 
         for ( Volume volume : volumes )
@@ -225,7 +227,6 @@ public class CreateVolume
         for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy( )
                                                     .getSnapshotPolicies( ) )
         {
-
             createEndpoint.createSnapshotPolicy( externalVolume.getId( ), policy );
         }
     }
