@@ -436,6 +436,11 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
 
+    if (dataManager_.features.isVolumegroupingEnabled()) {
+        commitBlobTxWork(volId, blobName, commitLog, txDesc, seq_id, cb);
+        return ERR_OK;
+    }
+
     opSynchronizer_.scheduleOnHashKey(std::hash<std::string>()(blobName),
                                       std::bind(&DmTimeVolCatalog::commitBlobTxWork,
                                                 this,
