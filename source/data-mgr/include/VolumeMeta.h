@@ -134,6 +134,7 @@ class VolumeMeta : public HasLogger {
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
     inline void setOpId(const int64_t &id) { opId = id; }
+    inline void incrementOpId() { ++opId; }
     inline const int64_t& getOpId() const { return opId; }
     inline fpi::ResourceState getState() const { return vol_desc->state; }
     inline void setState(const fpi::ResourceState &state) { vol_desc->state = state; }
