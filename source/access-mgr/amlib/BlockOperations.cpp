@@ -327,12 +327,11 @@ BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type con
     drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
 
     // respond to all chained requests FIRST
-    auto chain_it = resp->chained_responses.find(seqId);
-    if (resp->chained_responses.end() != chain_it) {
-        for (auto chained_resp : chain_it->second) {
-            if (chained_resp->handleWriteResponse(error)) {
-                finishResponse(chained_resp);
-            }
+    std::deque<BlockTask*> chained_responses;
+    resp->getChain(seqId, chained_responses);
+    for (auto chained_resp : chained_responses) {
+        if (chained_resp->handleWriteResponse(error)) {
+            finishResponse(chained_resp);
         }
     }
 
@@ -407,7 +406,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
 
     // Update the blob if we have updates to make
     if (nullptr != last_chained) {
-        last_chained->chained_responses[queued_handle.seq].swap(chain);
+        last_chained->setChain(queued_handle.seq, std::move(chain));
         auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
         auto off = boost::make_shared<apis::ObjectOffset>();
         off->value = offset;
