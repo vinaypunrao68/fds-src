@@ -9,6 +9,7 @@
 #include <fdsp/volumegroup_types.h>
 #include <fdsp/dm_api_types.h>
 #include <net/volumegroup_extensions.h>
+#include <boost/circular_buffer.hpp>
 
 #define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb) \
     if (state_ != fpi::ResourceState::Active) { \
@@ -168,6 +169,7 @@ struct VolumeGroupHandleListener {
 struct VolumeGroupHandle : HasModuleProvider {
     using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
+    using WriteOpsBuffer                = boost::circular_buffer<std::pair<fpi::FDSPMsgTypeId, StringPtr>>;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
@@ -207,7 +209,7 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const int32_t &replicaVersion,
                                       const fpi::VolumeIoHdr &hdr,
                                       const fpi::FDSPMsgTypeId &msgTypeId,
-                                      const bool mutationReq,
+                                      const bool writeReq,
                                       const Error &inStatus,
                                       Error &outStatus,
                                       uint8_t &successAcks);
@@ -230,16 +232,24 @@ struct VolumeGroupHandle : HasModuleProvider {
 
  protected:
     template<class MsgT, class ReqT>
-    SHPTR<ReqT> invokeCommon_(const fpi::FDSPMsgTypeId &msgTypeId,
-                              SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+    SHPTR<ReqT> invokeCommon_(bool writeReq,
+                              const fpi::FDSPMsgTypeId &msgTypeId,
+                              SHPTR<MsgT> &msg,
+                              const VolumeResponseCb &cb) {
 #ifdef IOHEADER_SUPPORTED
         /* Update the header in the message */
         setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
 #endif
 
+        auto payload = serializeFdspMsg(*msg);
+
+        if (writeReq && writeOpsBuffer_) {
+            writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
+        }
+
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<ReqT>(this);
-        req->setPayloadBuf(msgTypeId, serializeFdspMsg(*msg));
+        req->setPayloadBuf(msgTypeId, payload);
 #ifdef IOHEADER_SUPPORTED
         req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
         LOGTRACE << fds::logString(req->volumeIoHdr_);
@@ -247,8 +257,11 @@ struct VolumeGroupHandle : HasModuleProvider {
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
+
         return req;
     }
+    bool replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid, const int64_t fromOpId);
+    void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_();
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
@@ -258,6 +271,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
                                     const fpi::ResourceState &targetState,
+                                    const int64_t &opId,
                                     const Error &e,
                                     const std::string &context);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
@@ -279,11 +293,11 @@ struct VolumeGroupHandle : HasModuleProvider {
     int64_t                             opSeqNo_;
     int64_t                             commitNo_;
     uint64_t                            dmtVersion_;
-    // TDOO(Rao): Need the state of the replica group.  Based on the state accept/reject
-    // io
+    std::unique_ptr<WriteOpsBuffer>     writeOpsBuffer_;
+
+    static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
     friend class VolumeGroupBroadcastRequest;
-    
 };
 
 template<class MsgT>
@@ -293,7 +307,7 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
-        invokeCommon_<MsgT, VolumeGroupFailoverRequest>(msgTypeId, msg, cb);
+        invokeCommon_<MsgT, VolumeGroupFailoverRequest>(false, msgTypeId, msg, cb);
     });
 }
 
@@ -304,7 +318,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
         opSeqNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
+        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
     });
 }
 
@@ -316,7 +330,7 @@ void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         opSeqNo_++;
         commitNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
+        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
     });
 }
 
