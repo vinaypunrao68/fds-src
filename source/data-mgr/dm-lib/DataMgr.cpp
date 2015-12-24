@@ -729,6 +729,15 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }else{
             volmeta->setSequenceId(seq_id);
         }
+        /* Set version */
+        int32_t version;
+        err = timeVolCat_->queryIface()->getVersion(vol_uuid, version);
+        if (!err.ok()) {
+            LOGERROR << "Failed to get version for volume id: "
+                << std::hex << vol_uuid << std::dec;
+            return err;
+        }
+        volmeta->setVersion(version);
     }
 
     /*

@@ -142,6 +142,7 @@ class VolumeMeta : public HasLogger {
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
     inline int64_t getId() const { return vol_desc->volUUID.get(); }
     inline int32_t getVersion() const { return version; }
+    inline void setVersion(int32_t version) { this->version = version; }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
 
 
