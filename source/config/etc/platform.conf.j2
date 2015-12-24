@@ -126,30 +126,19 @@ fds: {
         redis_host = "{{ om_ip }}"
         redis_port = {{ redis_port }}
 
-        /* Don't spawn any service daemon */
-        auto_start_services = true
-
-        /* Disk types, hints file.  Relative to fds-root */
-        disk_hints_path_file = "dev/disk-hints.conf"
+        service_management: {
+            /* If a service restarts flap_count times in flap_timeout seconds, PM will stop restarting the service and notify the OM */
+            flap_count   = 5
+            flap_timeout = 300  /* in seconds */
+        }
 
         /* Force disk simulation_mode (enable Feature Toggle first) */
         /* true=simuation mode, false=auto detection */
         force_disk_simulation = {{ force_disk_simulation }}
 
-        /* Graphite is enabled or not */
-        enable_graphite = {{ metrics_enabled }}
-
         disk_sim: {
-            ssd_count = 4
-            hdd_count = 4
-        }
-
-        graphite: {
-            /* Graphite server ip */
-            ip = "{{ metricsdb_ip }}"
-            /* Graphite server port */
-            port = 2003
-            period = 5
+            ssd_count = 2
+            hdd_count = 10
         }
 
         capabilities: {
@@ -166,12 +155,14 @@ fds: {
                 reserved_space = 0.20
             }
         }
+
         threadpool: {
             num_threads = 10
 
             /* Use lock free threadpool  */
             use_lftp = true
         }
+
         /* Internal testing related info */
         testing: {
             standalone = false
@@ -180,6 +171,7 @@ fds: {
             node_iops_max  = 100000
             node_iops_min  = 60000
         }
+
         /* Service layer stanza */
         svc: {
             lftp: {
@@ -192,6 +184,17 @@ fds: {
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
+        }
+
+        /* Graphite is enabled or not */
+        enable_graphite = {{ metrics_enabled }}
+
+        graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
         }
     }
 
