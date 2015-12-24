@@ -298,14 +298,14 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
 }
 
 void
-BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& requestId) {
+BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type const& requestId) {
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
     auto seqId = requestId.seq;
 
-    LOGDEBUG << "Reponse for updateBlobOnce, "
-             << error << ", handle " << handle
-             << " seqId " << seqId;
+    LOGDEBUG << "Reponse for updateBlobOnce, " << error
+             << ", handle 0x" << std::hex << handle
+             << " seqId " << std::dec << seqId;
 
     {
         std::lock_guard<std::mutex> l(respLock);
@@ -327,12 +327,11 @@ BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& 
     drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
 
     // respond to all chained requests FIRST
-    auto chain_it = resp->chained_responses.find(seqId);
-    if (resp->chained_responses.end() != chain_it) {
-        for (auto chained_resp : chain_it->second) {
-            if (chained_resp->handleWriteResponse(error)) {
-                finishResponse(chained_resp);
-            }
+    std::deque<BlockTask*> chained_responses;
+    resp->getChain(seqId, chained_responses);
+    for (auto chained_resp : chained_responses) {
+        if (chained_resp->handleWriteResponse(error)) {
+            finishResponse(chained_resp);
         }
     }
 
@@ -398,7 +397,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
             fds_panic("Missing response vector for update!");
         }
         handle_type next_handle;
-        std::tie(update_queued, next_handle) = sector_map.pop(offset);
+        std::tie(update_queued, next_handle) = sector_map.pop(offset, nullptr == last_chained);
         // Leave queued_handle pointing to the last handle
         if (update_queued) {
             queued_handle = next_handle;
@@ -407,7 +406,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
 
     // Update the blob if we have updates to make
     if (nullptr != last_chained) {
-        last_chained->chained_responses[queued_handle.seq].swap(chain);
+        last_chained->setChain(queued_handle.seq, std::move(chain));
         auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
         auto off = boost::make_shared<apis::ObjectOffset>();
         off->value = offset;
