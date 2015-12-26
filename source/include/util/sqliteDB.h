@@ -34,10 +34,11 @@ class SqliteDB {
         bool getTextValues(const std::string &query,
                            std::set<std::string> &valueSet);
         inline void logOnError(const int &errorCode,
-                               const std::string &msg) {
+                               const std::string &msg, const std::string& query) {
             if (errorCode != SQLITE_OK) {
-                LOGERROR << msg << " Error code: " << errorCode
-                         << " " << sqlite3_errmsg(db);
+                LOGERROR << msg << " code:" << errorCode
+                         << " dbmsg:" << sqlite3_errmsg(db)
+                         << " query:" << query;
             }
         }
         int dropDB();

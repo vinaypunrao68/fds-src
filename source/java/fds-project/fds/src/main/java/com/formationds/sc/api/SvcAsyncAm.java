@@ -99,7 +99,8 @@ public class SvcAsyncAm implements AsyncAm {
             return sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
                 long srcTxId = svc.allocateNewTxId();
                 long dstTxId = svc.allocateNewTxId();
-                RenameBlobMsg renameBlobMsg = new RenameBlobMsg(volumeDescriptor.getVolUUID(), sourceBlobName, destinationBlobName, dm.getDmtVersion(), srcTxId, dstTxId, seq.getSequenceId());
+		long opId = 0;
+                RenameBlobMsg renameBlobMsg = new RenameBlobMsg(volumeDescriptor.getVolUUID(), sourceBlobName, destinationBlobName, dm.getDmtVersion(), srcTxId, dstTxId, opId, seq.getSequenceId());
 
                 // FIXME: there's probably a cleaner way to extract the blob descriptor from here
                 return dm.renameBlob(renameBlobMsg).thenAccept(result -> {
@@ -137,9 +138,10 @@ public class SvcAsyncAm implements AsyncAm {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
             long txId = svc.allocateNewTxId();
+	    long opId = 0;
 
             return fdsChannels.dmWrite(volumeDescriptor.getVolUUID(), dm -> {
-                StartBlobTxMsg startBlobTxMsg = new StartBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, blobMode, txId, dm.getDmtVersion());
+                StartBlobTxMsg startBlobTxMsg = new StartBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, blobMode, opId, txId, dm.getDmtVersion());
                 return CompletableFutureUtility.voidFutureOf(dm.startBlobTx(startBlobTxMsg));
             }).thenApply(_null -> new TxDescriptor(txId))
                     .whenComplete(CompletableFutureUtility.trace("txBegin"));
@@ -152,9 +154,10 @@ public class SvcAsyncAm implements AsyncAm {
     public CompletableFuture<Void> commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+	    long opId = 0;
 
             return sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
-                        CommitBlobTxMsg commitBlobTxMsg = new CommitBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, txDescriptor.txId, dm.getDmtVersion(), seq.getSequenceId());
+                        CommitBlobTxMsg commitBlobTxMsg = new CommitBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, opId, txDescriptor.txId, dm.getDmtVersion(), seq.getSequenceId());
                         return dm.commitBlobTx(commitBlobTxMsg);
             });
         } catch(Exception e) {
@@ -166,8 +169,9 @@ public class SvcAsyncAm implements AsyncAm {
     public CompletableFuture<Void> abortBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+	    long opId = 0;
             return sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
-                        AbortBlobTxMsg abortBlobTxMsg = new AbortBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, txDescriptor.txId);
+                        AbortBlobTxMsg abortBlobTxMsg = new AbortBlobTxMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, opId, txDescriptor.txId);
                         return dm.abortBlobTx(abortBlobTxMsg);
                     });
         } catch(Exception e) {
@@ -196,9 +200,10 @@ public class SvcAsyncAm implements AsyncAm {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
             List<FDSP_MetaDataPair> metadataPairs = buildMetadataPairList(metadata);
+	    long opId = 0;
 
             return sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
-                SetBlobMetaDataMsg setBlobMetaDataMsg = new SetBlobMetaDataMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, metadataPairs, txDescriptor.txId);
+                SetBlobMetaDataMsg setBlobMetaDataMsg = new SetBlobMetaDataMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, metadataPairs, opId, txDescriptor.txId);
                 return dm.setBlobMetaData(setBlobMetaDataMsg);
             });
         } catch(Exception e) {
@@ -210,6 +215,7 @@ public class SvcAsyncAm implements AsyncAm {
     public CompletableFuture<Void> updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDescriptor, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+	    long opId = 0;
             checkPutParameters(volumeDescriptor, bytes, length);
 
             CompletableFuture<List<FDSP_BlobObjectInfo>> smPut = putObject(volumeDescriptor.getVolUUID(), bytes)
@@ -217,7 +223,7 @@ public class SvcAsyncAm implements AsyncAm {
 
             return sequencedDmWrite(volumeDescriptor, (dm, seq) ->
                 smPut.thenCompose(objList -> {
-                    UpdateCatalogMsg updateCatalogMsg = new UpdateCatalogMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, txDescriptor.txId, objList);
+                    UpdateCatalogMsg updateCatalogMsg = new UpdateCatalogMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, opId, txDescriptor.txId, objList);
                     return dm.updateCatalog(updateCatalogMsg);
                 }));
         } catch(Exception e) {
@@ -229,6 +235,7 @@ public class SvcAsyncAm implements AsyncAm {
     public CompletableFuture<Void> updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset offset, Map<String, String> metadata) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+	    long opId = 0;
             checkPutParameters(volumeDescriptor, bytes, length);
             List<FDSP_MetaDataPair> metadataPairs = buildMetadataPairList(metadata);
             CompletableFuture<List<FDSP_BlobObjectInfo>> smPut = putObject(volumeDescriptor.getVolUUID(), bytes)
@@ -238,7 +245,7 @@ public class SvcAsyncAm implements AsyncAm {
             return sequencedDmWrite(volumeDescriptor, (dm, seq) ->
                     smPut.thenCompose(lst -> {
                         UpdateCatalogOnceMsg updateCatalogOnceMsg =
-                                new UpdateCatalogOnceMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, blobMode, dm.getDmtVersion(), txId, lst, metadataPairs, seq.getSequenceId());
+                                new UpdateCatalogOnceMsg(volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER, blobMode, dm.getDmtVersion(), opId, txId, lst, metadataPairs, seq.getSequenceId());
                         return dm.updateCatalogOnce(updateCatalogOnceMsg);
                     }));
         } catch(Exception e) {
@@ -250,11 +257,12 @@ public class SvcAsyncAm implements AsyncAm {
     public CompletableFuture<Void> deleteBlob(String domainName, String volumeName, String blobName) {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
+	    long opId = 0;
 
             return startBlobTx(domainName, volumeName, blobName, 0)
                     .thenCompose(txId ->
                         sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
-                            DeleteBlobMsg deleteMsg = new DeleteBlobMsg(txId.txId, volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER);
+                            DeleteBlobMsg deleteMsg = new DeleteBlobMsg(txId.txId, opId, volumeDescriptor.getVolUUID(), blobName, BLOB_VERSION_PLACEHOLDER);
                             return dm.deleteBlob(deleteMsg);
                         }).thenCompose(_null -> commitBlobTx(domainName, volumeName, blobName, txId))
                             .whenComplete((r, ex) -> { if(ex != null) abortBlobTx(domainName, volumeName, blobName, txId); })
@@ -280,9 +288,10 @@ public class SvcAsyncAm implements AsyncAm {
         try {
             FDSP_VolumeDescType volumeDescriptor = getVolumeDescriptor(volumeName);
             List<FDSP_MetaDataPair> pairs = buildMetadataPairList(metadata);
+	    long opId = 0;
 
             return sequencedDmWrite(volumeDescriptor, (dm, seq) -> {
-                SetVolumeMetadataMsg msg = new SetVolumeMetadataMsg(volumeDescriptor.getVolUUID(), pairs, seq.getSequenceId());
+                SetVolumeMetadataMsg msg = new SetVolumeMetadataMsg(volumeDescriptor.getVolUUID(), pairs, opId, seq.getSequenceId());
                 return dm.setVolumeMetadata(msg);
             });
         } catch(Exception e) {

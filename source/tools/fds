@@ -67,6 +67,7 @@ TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
 TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
 TESTS["restart"]="SimpleRestartTest.ini"
 TESTS["smoke"]="BuildSmokeTest_onpr.ini"
+TESTS["unit"]="unit tests"
 
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
@@ -669,8 +670,32 @@ function clean() {
     cleanBinDirs
 }
 
+function runUnitTests() {
+    local TEMPTESTFILE=/tmp/gtests.${EUID}
+    loginfo "running all jenkins unit tests"
+    sed -e "s|Build/linux-x86_64.debug/tests/||g" -e 's|./config|/fds|g' ${SOURCEDIR}/cit/gtest_ut > $TEMPTESTFILE
+    awk -v td="${TESTDIR}"  '{
+       print ""
+       print "------------------------------------"
+       print "RUNNING TEST - ", $0
+       print "------------------------------------"
+       k=system("sudo "td"/"$0)
+       if (k!=0) {
+           print "************************************"
+           print "\btest FAILED with status:",k,":",$0
+           print "************************************"
+       }
+    }' $TEMPTESTFILE
+}
+
 function runTest() {
     local testname=$1
+    if [[ $testname == unit* ]]; then
+        runUnitTests
+        return
+    fi
+
+
     local TESTSUITEDIR=${SOURCEDIR}/test/testsuites
 
     if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
@@ -678,6 +703,9 @@ function runTest() {
         (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
         logerror "no matching tests for [$testname]"
+        logwarn  "should be one of : "
+        echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
+
     fi
 }
 

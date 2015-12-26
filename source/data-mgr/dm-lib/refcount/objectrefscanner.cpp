@@ -147,9 +147,14 @@ void ObjectRefScanMgr::mod_startup() {
     auto config = MODULEPROVIDER()->get_conf_helper();
     timeBasedEnabled = dataMgr->features.isExpungeEnabled();
             // config.get<bool>("objectrefscan.timebased", false);
-    scanIntervalSec = std::chrono::seconds(config.get<int>("objectrefscan.interval",
-                                                           172800 /* 2 days */));
+    scanIntervalSec = std::chrono::seconds(
+        util::getSecondsFromHumanTime(
+            config.get<std::string>("objectrefscan.interval", "1d")));
     maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);
+
+    LOGNORMAL << "refscanner [enabled:" << (timeBasedEnabled?"true":"false") <<"]"
+              << " [interval:" << scanIntervalSec.count() << " s]"
+              << " [scancount:" << maxEntriesToScan << "]";
 
     /* Only if enabled is set we start timer based scanning */
     if (timeBasedEnabled) {
@@ -169,7 +174,7 @@ void ObjectRefScanMgr::mod_startup() {
                                      }));
         timer->schedule(scanTask, scanIntervalSec);
     } else {
-        LOGNORMAL << "auto refscan not enabled : [objectrefscan.timebased]";
+        LOGNORMAL << "auto refscan not enabled";
     }
 }
 

@@ -369,6 +369,9 @@ DmMigrationExecutor::applyQueuedBlobDescs()
      * process all queued blob descriptors.
      */
     for (auto & blobDescPair : blobDescList) {
+        // update TS to reflect that we are actively processing buffered messages
+        lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
+
     	fpi::CtrlNotifyDeltaBlobDescMsgPtr blobDescMsg = std::get<0>(blobDescPair);
     	migrationCb ackDescriptor = std::get<1>(blobDescPair);
         LOGMIGRATE << logString() << "Applying queued blob descriptor for volume="
@@ -441,6 +444,9 @@ DmMigrationExecutor::testStaticMigrationComplete() {
         /* Send any buffered Forwarded messages to qos controller under system
            volume tag */
         for (const auto &msg : forwardedMsgs) {
+            // update TS to reflect that we are actively processing buffered messages
+            lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
+
             msgHandler.addToQueue(msg);
         }
 
@@ -471,6 +477,8 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
         }
         delete dmReq;
     };
+
+    lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
 
     fds_scoped_lock lock(progressLock);
     switch (migrationProgress) {

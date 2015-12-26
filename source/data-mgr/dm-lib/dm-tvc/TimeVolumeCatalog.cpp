@@ -621,7 +621,7 @@ Error
 DmTimeVolCatalog::migrateDescriptor(fds_volid_t volId,
                                     const std::string& blobName,
                                     const std::string& blobData) {
-    return volcat->migrateDescriptor(volId, blobName, blobData);
+    return volcat->migrateDescriptor(volId, blobName, blobData, *dataManager_.getVolumeMeta(volId, false));
 }
 
 float_t

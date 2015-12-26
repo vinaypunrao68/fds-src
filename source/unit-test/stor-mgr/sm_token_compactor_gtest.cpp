@@ -68,6 +68,7 @@ class TestReqHandler: public SmIoReqHandler {
     }
 
     void removeObjectDB() {
+        odb->closeAndDestroy();
         delete odb;
         odb = NULL;
         fds_uint32_t countZero = 0;
@@ -264,6 +265,7 @@ SmTokenCompactorTest::SetUp() {
 
 void
 SmTokenCompactorTest::TearDown() {
+    dataStore->removeObjectDB();
 }
 
 ObjMetaData::ptr
