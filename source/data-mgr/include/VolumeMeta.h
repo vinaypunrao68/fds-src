@@ -159,10 +159,9 @@ class VolumeMeta : public HasLogger {
  public:
     Error startMigration(NodeUuid& srcDmUuid,
                          fpi::FDSP_VolumeDescType &vol,
-                         int64_t migrationId,
                          migrationCb doneCb);
 
-    Error ServeMigration(DmRequest *dmRequest);
+    Error serveMigration(DmRequest *dmRequest);
 
  private:
     /**
@@ -194,16 +193,14 @@ class VolumeMeta : public HasLogger {
      */
     void cleanUpMigrationSource(fds_volid_t volId,
                                 const Error &err,
-                                const NodeUuid destDmUuid,
-                                int64_t migrationid);
+                                const NodeUuid destDmUuid);
 
     /**
      * Internally cleans up the destination
      */
     void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                      fds_volid_t volId,
-                                     const Error &err,
-                                     int64_t migrationid);
+                                     const Error &err);
 
     /**
      * Stores the hook for Callback to the volume group manager

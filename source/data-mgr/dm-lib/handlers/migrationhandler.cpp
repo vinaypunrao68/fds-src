@@ -130,7 +130,7 @@ void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         // Volume Group handle says that this guy is the source. It must have volMeta.
         fds_assert(volMeta != nullptr);
-        volMeta->ServeMigration(dmRequest);
+        volMeta->serveMigration(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
     }

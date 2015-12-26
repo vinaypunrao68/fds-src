@@ -104,7 +104,6 @@ sequence_id_t VolumeMeta::getSequenceId(){
 
 Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                  fpi::FDSP_VolumeDescType &vol,
-                                 int64_t migrationId,
                                  migrationCb doneCb) {
     Error err(ERR_OK);
     fds_assert(migrationDest == nullptr);
@@ -115,7 +114,8 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
 
     // DataMgr *nonConstDm = dataManager;
 
-    migrationDest.reset(new DmMigrationDest(migrationId,
+    auto dummyId = 0;
+    migrationDest.reset(new DmMigrationDest(dummyId,
                                             dataManager,
                                             srcDmUuid,
                                             vol,
@@ -124,8 +124,7 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                                       this,
                                                       std::placeholders::_1,
                                                       std::placeholders::_2,
-                                                      std::placeholders::_3,
-                                                      migrationId)));
+                                                      std::placeholders::_3)));
 
     // TODO : once processInitialBlobFilterSet has been fixed to be
     // iterative, then we won't block here.
@@ -134,7 +133,7 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
     return err;
 }
 
-Error VolumeMeta::ServeMigration(DmRequest *dmRequest) {
+Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
@@ -184,11 +183,11 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                                  this,
                                                  std::placeholders::_1,
                                                  std::placeholders::_2,
-                                                 destDmUuid,
-                                                 filterSet->DMT_version), // TODO for cleanup
+                                                 destDmUuid),
                                        cleanup,
                                        maxNumBlobs,
                                        maxNumBlobDesc));
+            migrationSrcMap.insert(std::make_pair(destDmUuid, source));
         }
         source->run();
     }
@@ -197,14 +196,13 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
 
 void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
                                         const Error &err,
-                                        const NodeUuid destDmUuid,
-                                        int64_t migrationId) {
+                                        const NodeUuid destDmUuid) {
 
     if (!err.ok()) {
         LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
             " with error: " << err;
     } else {
-        LOGMIGRATE << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
+        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
             " with error: " << err;
 
     }
@@ -225,8 +223,7 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
 
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                              fds_volid_t volId,
-                                             const Error &err,
-                                             int64_t migrationId) {
+                                             const Error &err) {
 
     /** volId and srcNodeUuid is there for formality */
     fds_assert(volId == vol_desc->volUUID);
@@ -234,7 +231,7 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
         LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
             " with error: " << err;
     } else {
-        LOGMIGRATE << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
+        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
             " with error: " << err;
     }
 
@@ -242,3 +239,4 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
 }
 
 }  // namespace fds
+
