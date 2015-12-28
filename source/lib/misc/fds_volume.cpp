@@ -324,7 +324,11 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
             os << cred.name << " ";
         }
         os << "}";
+    } else if ( fpi::FDSP_VOL_NFS_TYPE == vol.volType ) {
+        os << " clients: { " << vol.nfsSettings.client << " } ";
+        os << " options: { " << vol.nfsSettings.options << " }";
     }
+
     return os << " ]";
 }
 

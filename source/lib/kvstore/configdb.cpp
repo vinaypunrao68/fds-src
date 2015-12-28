@@ -1115,6 +1115,11 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             auto nfs = boost::make_shared<fpi::NfsOption>( );
             fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), nfs );
             vol.nfsSettings = *nfs;
+
+            LOGDEBUG << "NFS["
+                     << " clients == " << vol.nfsSettings.client
+                     << " options == " << vol.nfsSettings.options
+                     << " ]";
         }
 
         return true;
