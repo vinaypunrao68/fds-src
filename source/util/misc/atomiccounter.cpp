@@ -25,5 +25,10 @@ uint64_t AtomicCounter::decr(const uint64_t v) {
 void AtomicCounter::set(const uint64_t v) {
     value.store(v, std::memory_order_relaxed);
 }
+
+bool AtomicCounter::compareAndSet(uint64_t expected, uint64_t desired) {
+    return value.atomic_compare_exchange_strong(&expected, desired);
+}
+
 }  // namespace util
 }  // namespace fds
