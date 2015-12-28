@@ -881,10 +881,12 @@ void StatStreamTimerTask::runTimerTask() {
 
             if (logLocal) {
                 /**
-                 * We have local logging hard-coded to 1 minute and 1 hour.
+                 * We have local logging hard-coded to 1 minute and 1 hour. We recognize which
+                 * we are working with by checking whether the sample frequency is set to the
+                 * smallest allowed value.
                  */
                 statStreamAggr_.writeStatsLog(volDataPoint, volId,
-                        60 == reg_->sample_freq_seconds);
+                        (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds));
             }
             dataPoints.push_back(volDataPoint);
         }
