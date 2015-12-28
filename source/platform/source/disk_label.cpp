@@ -301,11 +301,17 @@ namespace fds
     bool DiskLabel::dsk_label_write(PmDiskInventory::pointer inv)
     {
         int    sect_sz;
+        ssize_t ret;
 
         sect_sz = dsk_label_sect_sz();
         fds_verify(dl_label != NULL);
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
-        return dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        ret = dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        if (inv->dsk_need_simulation())
+        { // if we are in simulation mode dsk_write is not going to write a label, so ignore its return value
+            return true;
+        }
+        return ret;
     }
 }  // namespace fds
