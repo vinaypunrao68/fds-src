@@ -1137,19 +1137,23 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
         /*
          * OK, if we leave this defaulted to 'false' we will never create snapshot policies
-         * which I believe isn't what we want. Because all volumescreated will not have snapshot
+         * which I believe isn't what we want. Because all volumes created will not have snapshot
          * policies so if or when this feature is enabled, set to true, these volumes will fail
          * because not snapshot policy exists.
          *
+         * We just don't want to add it to the scheduler.
+         *
          * P. Tinius 12/23/2015 changed:
          *  if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
-         *
-         *  ADDED: log message below.
          */
-        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+        if ( configDB->createSnapshotPolicy( *policy ) )
+        {
+            LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule;
+            if ( om->enableSnapshotSchedule )
+            {
+                om->snapshotMgr->addPolicy( *policy );
+            }
 
-        if (configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
         return -1;
