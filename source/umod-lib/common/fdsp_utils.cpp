@@ -15,29 +15,31 @@
 
 using boost::replace_all;
 /**
- * NOTE : use this declaration in your cpp along with includes outside fds namsepace
+ * NOTE : use this declaration in your cpp along with includes outside fds namespace
  * like DECL_EXTERN_OUTPUT_FUNCS(ActiveObjectsMsg);
  */
 
+using boss = boost::log::formatting_ostream;
+
 #define DEFINE_OUTPUT_FUNCS(MSGTYPE)                                    \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg); \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE* msg) { \
+    boss& operator<<(boss& out, const fpi::MSGTYPE &msg);               \
+    boss& operator<<(boss& out, const fpi::MSGTYPE* msg) {              \
         if (msg) out << (*msg);                                         \
         else out << "[ " #MSGTYPE " msg is NULL ]";                     \
         return out;                                                     \
     }                                                                   \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const SHPTR<fpi::MSGTYPE> &msg) { \
+    boss& operator<<(boss& out, const SHPTR<fpi::MSGTYPE> &msg) {       \
         if (msg.get()) out << (*msg);                                   \
         else out << "[ " #MSGTYPE " msg is NULL ]";                     \
         return out;                                                     \
     }                                                                   \
     std::string logString(const fpi::MSGTYPE &msg) {                    \
-        boost::log::formatting_ostream oss;                             \
+        boss oss;                                                       \
         std::string s; oss.attach(s);                                   \
         oss << msg;                                                     \
         return oss.str();                                               \
     }                                                                   \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg)
+    boss& operator<<(boss& out, const fpi::MSGTYPE &msg)
 
 namespace fds {
 
@@ -402,6 +404,14 @@ DEFINE_OUTPUT_FUNCS(ActiveObjectsMsg) {
 
 DEFINE_OUTPUT_FUNCS(SvcUuid) {
     out << SvcMgr::mapToSvcUuidAndName(msg);
+    return out;
+}
+
+DEFINE_OUTPUT_FUNCS(GenericCommandMsg) {
+    out << "["
+        << " command:" << msg.command
+        << " args:" << msg.arg
+        << "]";
     return out;
 }
 
