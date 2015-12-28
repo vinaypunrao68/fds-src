@@ -116,10 +116,9 @@ namespace fds
     //
     bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
     {
-        bool         ret = false;
+        bool         ret = false, need_to_relabel = false;
         int          valid_labels = 0;
         ChainIter    iter;
-        ChainList    upgrade;
 
         DiskLabel   *label, *master, *curr, *chk;
 
@@ -162,20 +161,13 @@ namespace fds
             label = dl_labels.chain_iter_current<DiskLabel>(iter);
 
             // Simple, no quorum scheme for now.
-            if (label->dsk_label_valid(this))
+            if (label->dsk_label_valid())
             {
                 dl_valid_labels++;
                 GLOGDEBUG << label->dl_owner;
-
-                if (master == NULL)
-                {
-                    master = label;
-                }
             }else {
-                chk = dl_labels.chain_iter_rm_current<DiskLabel>(&iter);
-                fds_verify(chk == label);
-
-                upgrade.chain_add_back(&label->dl_link);
+                need_to_relabel = true;
+                GLOGDEBUG << "Found invalid label on disk " << label->dl_owner;
             }
         }
 
@@ -184,63 +176,60 @@ namespace fds
 
         if (dl_valid_labels > 0)
         {
-            ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
-        }
-
-        if (master == NULL)
-        {
-            fds_verify(dl_valid_labels == 0);
-            fds_verify(upgrade.chain_empty_list() == false);
-            fds_verify(dl_labels.chain_empty_list() == true);
-
-            label = upgrade.chain_peek_front<DiskLabel>();
-            label->dsk_label_generate(&upgrade, dl_total_disks);
-
-            /* We need full list to generate the label.  Remove label out of the list. */
-            chk = upgrade.chain_rm_front<DiskLabel>();
-            fds_verify(chk == label);
-        }else {
-            label = master;
-        }
-        dl_mtx.unlock();
-
-        if ((master == NULL) && (creat == true))
-        {
-            fds_verify(label != NULL);
-            label->dsk_label_write(inv, this);
-
-            valid_labels++;                                 // local
-            master = label;
+           ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
         }
 
         if (inv->dsk_need_simulation() == true)
         {
-            LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
+           LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
         }else {
-            LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
+           LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
         }
 
-        for (; 1; valid_labels++)                          // local
+        if (need_to_relabel && creat)
+        {   // if there are some unlabeled disks, invalidate and re-label everything
+            LOGNORMAL << "Found unlabeled disk(s), re-labeling all disks";
+            dl_valid_labels = 0;
+        }
+
+        // Now iterate over all of the disks, relabel if needed and write to disk-map
+        if (creat)
         {
-            curr = upgrade.chain_rm_front<DiskLabel>();
-
-            if (curr == NULL)
-            {
-                GLOGDEBUG << "breaking";
-                break;
+           chain_foreach(&dl_labels, iter)
+           {
+              label = dl_labels.chain_iter_current<DiskLabel>(iter);
+              bool is_good_disk = true;
+              if (need_to_relabel)
+              {
+                 if (master == NULL)
+                 {
+                    label->dsk_label_generate(&dl_labels, dl_total_disks);
+                    master = label;
+                 }
+                 else
+                 {
+                    label->dsk_label_clone(master);
+                 }
+                 is_good_disk = label->dsk_label_write(inv);
+                 if (is_good_disk)
+                 {
+                     valid_labels++;
+                 }
+                 else
+                 {
+                     LOGWARN << "Failed writing label to disk "
+                             << label->dl_owner << ". Skipping disk.";
+                 }
+              }
+              if (is_good_disk)
+              {
+                  dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index);
+              }
             }
-
-            if (creat == true)
-            {
-                GLOGDEBUG << "writing label" ;
-                curr->dsk_label_clone(master);
-                curr->dsk_label_write(inv, this);
-            }
-            delete curr;
         }
 
         dl_valid_labels += valid_labels;                    // rhs:local
-
+        dl_mtx.unlock();
 #if 0
 
         /* It's the bug here, master is still chained to the list. */
@@ -274,7 +263,7 @@ namespace fds
         {
             char const *const    name = disk->rs_get_name();
 
-            if (0 == strcmp(name, "/dev/sda"))
+            if (0 == strcmp(name, "/dev/sda")) //TODO: identify OS devices
             {
                 return;
             }

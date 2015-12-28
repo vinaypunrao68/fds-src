@@ -82,7 +82,7 @@ namespace fds
     // dsk_label_valid
     // ---------------
     //
-    bool DiskLabel::dsk_label_valid(DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_valid()
     {
         ResourceUUID    disk_uuid, node_uuid;
 
@@ -97,10 +97,6 @@ namespace fds
         if ((dl_disk_uuids->dl_disk_rec.dl_magic == MAGIC_DSK_UUID_REC) &&
             (disk_uuid.uuid_get_val() != 0) && (node_uuid.uuid_get_val() != 0))
         {
-            if (mgr != NULL)
-            {
-                mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-            }
             return true;
         }
         return false;
@@ -293,7 +289,7 @@ namespace fds
         dl_label      = reinterpret_cast<dlabel_hdr_t *>(buf);
         dl_disk_uuids = reinterpret_cast<dlabel_disk_uuid_t *>(dl_label + 1);
 
-        if (dsk_label_valid(NULL) == false)
+        if (dsk_label_valid() == false)
         {
             memset(buf, 0, DL_PAGE_SZ);
         }
@@ -302,7 +298,7 @@ namespace fds
     // dsk_label_write
     // ---------------
     //
-    void DiskLabel::dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_write(PmDiskInventory::pointer inv)
     {
         int    sect_sz;
 
@@ -310,7 +306,6 @@ namespace fds
         fds_verify(dl_label != NULL);
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
-        mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-        dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        return dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
     }
 }  // namespace fds

@@ -233,6 +233,8 @@ namespace fds
             uuid    = fds_get_uuid64(get_uuid());
             rs_uuid = ResourceUUID(uuid);
             dsk_label->dsk_label_save_my_uuid(rs_uuid);
+            LOGNORMAL << "Generated a new uuid " << rs_uuid.uuid_get_val()
+                      << " for " << rs_name << std::dec;
         }else {
             LOGNORMAL << "Read uuid " << std::hex << rs_uuid.uuid_get_val()
                       << " from " << rs_name << std::dec;
