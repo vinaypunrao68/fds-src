@@ -215,11 +215,12 @@ void ScstDevice::execCompleteCmd() {
     LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
 
     auto it = repliedResponses.find(cmd.cmd_h);
-    fds_assert(repliedResponses.end() != it);
+    if (repliedResponses.end() != it) {
+        repliedResponses.erase(it);
+    }
     if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
         free((void*)cmd.on_free_cmd.pbuf);
     }
-    repliedResponses.erase(it);
     fastReply(); // Setup the reply for the next ioctl
 }
 
