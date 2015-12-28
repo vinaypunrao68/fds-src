@@ -907,25 +907,10 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             case apis::BLOCK:
                 break;
             case apis::ISCSI:
-            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ]";
-//            for ( auto lun : *volumeSettings.iscsiTarget.luns ) {
-//                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
-//            }
-//
-            LOGDEBUG << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ]";
-//            for ( auto initiator : *volumeSettings->iscsiASettungs ) {
-//                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
-//            }
-//
-            LOGDEBUG << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ]";
-//            for ( auto credentials : *volumeSettings.iscsiTarget.incomingUsers ) {
-//                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
-//            }
-//
-            LOGDEBUG << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
-//            for ( auto credentials : *volumeSettings.iscsiTarget.outgoingUsers ) {
-//                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
-//            }
+            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ] "
+                     << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ] "
+                     << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ] "
+                     << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
                 break;
             case apis::NFS:
                 break;
@@ -944,6 +929,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
+
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
@@ -979,7 +965,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         if (vol) {
             return vol->rs_get_uuid().uuid_get_val();
         } else {
-            LOGWARN << "Unable to get volume info for vol:" << *volumeName;
+            LOGWARN << "The specified volume " << *volumeName << " was not found.";
             return 0;
         }
     }
@@ -1149,7 +1135,20 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
+        /*
+         * OK, if we leave this defaulted to 'false' we will never create snapshot policies
+         * which I believe isn't what we want. Because all volumescreated will not have snapshot
+         * policies so if or when this feature is enabled, set to true, these volumes will fail
+         * because not snapshot policy exists.
+         *
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
+         *
+         *  ADDED: log message below.
+         */
+        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+
+        if (configDB->createSnapshotPolicy(*policy)) {
             om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
@@ -1162,10 +1161,15 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        if (om->enableSnapshotSchedule) {
-            configDB->deleteSnapshotPolicy(*id);
-            om->snapshotMgr->removePolicy(*id);
-        }
+        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+        /*
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableSnapshotSchedule) {
+         *
+         *  ADDED: log message below.
+         */
+        configDB->deleteSnapshotPolicy(*id);
+        om->snapshotMgr->removePolicy(*id);
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,

@@ -21,6 +21,8 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
+import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -473,46 +475,54 @@ public class ExternalModelConverter {
 
             extSettings = new VolumeSettingsBlock( capacity, blockSize );
         } else if ( settings.getVolumeType().equals( VolumeType.ISCSI ) ) {
-            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
-            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
-
+            IScsiTarget iscsi = null;
             if( internalVolume.getPolicy().getIscsiTarget() == null ||
-                !internalVolume.getPolicy().getIscsiTarget().getLuns().isEmpty() )
+                internalVolume.getPolicy().getIscsiTarget().isSetLuns() )
             {
-                extSettings = new VolumeSettingsISCSI.Builder( )
-                    .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
-                    .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
-                    .withUnit( SizeUnit.B )
-                    .withTarget( new Target.Builder().withLun( new LUN.Builder().withLun( internalVolume.getName() )
-                                                                                .build() )
-                                                     .build() )
-                    .build();
+                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
+                if( optional.isPresent( ) )
+                {
+                    final VolumeDesc desc = optional.get( );
+                    if( desc.settings( ).getIscsiTarget() != null &&
+                        desc.settings( ).getIscsiTarget().isSetLuns( ) )
+                    {
+                        iscsi = desc.settings().getIscsiTarget();
+                    }
+                }
             }
             else
             {
+                iscsi = internalVolume.getPolicy( ).getIscsiTarget();
+            }
+
+            if( iscsi != null )
+            {
+                Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+                Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+
                 extSettings = new VolumeSettingsISCSI.Builder( )
-                    .withCapacity( Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B ) )
-                    .withBlockSize( Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B ) )
+                    .withCapacity( capacity )
+                    .withBlockSize( blockSize )
                     .withUnit( SizeUnit.B )
                     .withTarget(
                         new Target.Builder( )
-                            .withLuns( convertToExternalLUN( internalVolume.getPolicy( )
-                                                                           .getIscsiTarget( )
-                                                                           .getLuns( ) ) )
-                                .withIncomingUsers( convertToExternalIncomingUser(
-                                    internalVolume.getPolicy( )
-                                                  .getIscsiTarget( )
-                                                  .getIncomingUsers( ) ) )
-                            .withOutgoingUsers( convertToExternalOutgoingUser(
-                                internalVolume.getPolicy( )
-                                              .getIscsiTarget( )
-                                              .getOutgoingUsers( ) ) )
+                            .withLuns( convertToExternalLUN( iscsi.getLuns( ) ) )
+                            .withInitiators( convertToExternalInitiators( iscsi.getInitiators() ) )
+                            .withIncomingUsers( convertToExternalIncomingUser( iscsi.getIncomingUsers( ) ) )
+                            .withOutgoingUsers( convertToExternalOutgoingUser( iscsi.getOutgoingUsers( ) ) )
                             .build( ) )
                     .build( );
             }
+            else
+            {
+                logger.warn( "The iSCSI volume is missing mandatory attributes, skipping volume {}:{}",
+                             extName,
+                             volumeId );
+            }
+
         } else if ( settings.getVolumeType().equals( VolumeType.NFS ) ) {
-            Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
-            Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+            Size blockSize = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             // TODO populate NFS options and ipFilters
 
@@ -770,13 +780,12 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.ISCSI );
-            if( iscsiSettings.getTarget() == null || iscsiSettings.getTarget().getLuns().isEmpty() )
+            if( iscsiSettings.getTarget() == null ||
+                iscsiSettings.getTarget().getLuns().isEmpty() )
             {
-                final IScsiTarget iscsiTarget =
-                    new IScsiTarget( ).setLuns(
-                        Collections.singletonList(
-                            new LogicalUnitNumber( externalVolume.getName( ),
-                                                   "rw" ) ) );
+                logger.warn( "The volume is missing a set of mandatory attributes, skipping volume {}:{}",
+                             externalVolume.getName(),
+                             externalVolume.getId() );
             }
             else
             {
