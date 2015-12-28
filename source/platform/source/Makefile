@@ -7,6 +7,7 @@ user_incl_dir  :=                                \
 
 platform_cpp  :=                        \
                  platform_manager.cpp   \
+                 flap_detector.cpp      \
                  svc_handler.cpp        \
                  file_system_table.cpp  \
                  valgrind.cpp           \

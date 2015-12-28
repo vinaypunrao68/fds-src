@@ -45,23 +45,30 @@ public class PlatformModelConverter
     Map<FDSP_Node_Info_Type,Service> pms = new HashMap<>();
     for( FDSP_Node_Info_Type internalService : nodeInfoTypes )
     {
-
-      Service externalService = convertToExternalService( internalService );
-      if (externalService.getType().equals( ServiceType.PM ) ) {
-          pms.put(internalService, externalService);
-      }
-
-      List<Service> likeServiceList
-              = services.get( externalService.getType( ) );
-
-      if( likeServiceList == null )
+      Optional<ServiceType> optType =
+          convertToExternalServiceType( internalService.getNode_type( ) );
+      if( optType.isPresent() )
       {
-        likeServiceList = new ArrayList<>( );
+
+        Service externalService = convertToExternalService( internalService );
+        if ( externalService.getType( )
+                            .equals( ServiceType.PM ) )
+        {
+          pms.put( internalService, externalService );
+        }
+
+        List<Service> likeServiceList
+            = services.get( externalService.getType( ) );
+
+        if ( likeServiceList == null )
+        {
+          likeServiceList = new ArrayList<>( );
+        }
+
+        likeServiceList.add( externalService );
+
+        services.put( externalService.getType( ), likeServiceList );
       }
-
-      likeServiceList.add( externalService );
-
-      services.put( externalService.getType( ), likeServiceList );
     }
 
     Map.Entry<FDSP_Node_Info_Type, Service> pm;

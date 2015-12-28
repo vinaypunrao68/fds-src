@@ -368,7 +368,7 @@ void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-        p->updateBlobResp(e, requestId);
+        p->updateBlobOnceResp(e, requestId);
     };
 
     // Quick check, if these don't match reject!
