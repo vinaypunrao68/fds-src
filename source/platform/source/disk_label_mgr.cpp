@@ -176,14 +176,14 @@ namespace fds
 
         if (dl_valid_labels > 0)
         {
-           ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
+            ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
         }
 
         if (inv->dsk_need_simulation() == true)
         {
-           LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
+            LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
         }else {
-           LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
+            LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
         }
 
         if (need_to_relabel && creat)
@@ -195,36 +195,36 @@ namespace fds
         // Now iterate over all of the disks, relabel if needed and write to disk-map
         if (creat)
         {
-           chain_foreach(&dl_labels, iter)
-           {
-              label = dl_labels.chain_iter_current<DiskLabel>(iter);
-              bool is_good_disk = true;
-              if (need_to_relabel)
-              {
-                 if (master == NULL)
-                 {
-                    label->dsk_label_generate(&dl_labels, dl_total_disks);
-                    master = label;
-                 }
-                 else
-                 {
-                    label->dsk_label_clone(master);
-                 }
-                 is_good_disk = label->dsk_label_write(inv);
-                 if (is_good_disk)
-                 {
-                     valid_labels++;
-                 }
-                 else
-                 {
-                     LOGWARN << "Failed writing label to disk "
+            chain_foreach(&dl_labels, iter)
+            {
+                label = dl_labels.chain_iter_current<DiskLabel>(iter);
+                bool is_good_disk = true;
+                if (need_to_relabel)
+                {
+                    if (master == NULL)
+                    {
+                        label->dsk_label_generate(&dl_labels, dl_total_disks);
+                        master = label;
+                    }
+                    else
+                    {
+                        label->dsk_label_clone(master);
+                    }
+                    is_good_disk = label->dsk_label_write(inv);
+                    if (is_good_disk)
+                    {
+                        valid_labels++;
+                    }
+                    else
+                    {
+                        LOGWARN << "Failed writing label to disk "
                              << label->dl_owner << ". Skipping disk.";
-                 }
-              }
-              if (is_good_disk)
-              {
-                  dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index);
-              }
+                    }
+                }
+                if (is_good_disk)
+                {
+                    dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index);
+                }
             }
         }
 
