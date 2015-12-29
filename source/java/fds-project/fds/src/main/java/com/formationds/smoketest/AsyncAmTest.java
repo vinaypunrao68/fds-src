@@ -9,22 +9,14 @@ import com.formationds.sc.SvcState;
 import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.xdi.*;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
-import org.junit.*;
 import org.joda.time.Duration;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 
 import javax.security.auth.Subject;
 import java.io.OutputStream;
@@ -36,7 +28,7 @@ import java.util.stream.IntStream;
 import static org.junit.Assert.*;
 
 
-//@Ignore
+@Ignore
 public class AsyncAmTest extends BaseAmTest {
     private static final boolean USE_SVC_IMPL = false;
     public static final int NFS_EXPORT_ID = 42;
