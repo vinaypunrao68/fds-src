@@ -2,8 +2,8 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_BUFFER_REPLAY_H_
-#define SOURCE_INCLUDE_BUFFER_REPLAY_H_
+#ifndef SOURCE_INCLUDE_BUFFERREPLAY_H_
+#define SOURCE_INCLUDE_BUFFERREPLAY_H_
 
 #include <memory>
 #include <concurrency/Mutex.h>
@@ -19,6 +19,7 @@ using StringPtr = boost::shared_ptr<std::string>;
  * - Once replay is started further bufffering is only allowed until replay catched up
  *   with buffered ops.  Once replay is caught up futher buffering calls will result
  *   in ERR_UNAVAILABLE
+ * - Both reads and writes to the buffer file are protected by lock
  */
 struct BufferReplay {
     enum Progress {
@@ -29,7 +30,7 @@ struct BufferReplay {
         COMPLETE,
     };
     using ProgressCb = std::function<void (Progress status)>;
-    using ReplayCb = std::function<void (std::list<StringPtr>&)>;
+    using ReplayCb = std::function<void (int64_t, std::list<StringPtr>&)>;
 
     explicit BufferReplay(const std::string &bufferFileName,
                           int32_t maxReplayCnt,
@@ -39,20 +40,21 @@ struct BufferReplay {
     void abort();
     Error buffer(const StringPtr &s);
     void startReplay();
-    void notifyOpReplayed();
+    void notifyOpsReplayed(int32_t cnt = 1);
     Progress getProgress();
-    inline void setProgressCb(const StatusCb &cb) {
+    inline void setProgressCb(const ProgressCb& cb) {
         progressCb_ = cb;
     }
-    inline void setReplayCb(const ReplayCb& cb) {
+    inline void setReplayOpsCb(const ReplayCb& cb) {
         replayOpsCb_ = cb;
     }
  protected:
     void replayWork_();
 
-    fds_mutex                                   bufferLock_;
+    fds_mutex                                   lock_;
     fds_threadpool                              *threadpool_;
     std::string                                 bufferFileName_;
+    int32_t                                     writefd_;
     std::unique_ptr<serialize::Serializer>      serializer_;
     std::unique_ptr<serialize::Deserializer>    deserializer_;
     int64_t                                     nBufferedOps_;
@@ -65,4 +67,4 @@ struct BufferReplay {
 };
 } // namespace fds
 
-#endif  // SOURCE_INCLUDE_BUFFER_REPLAY_H_
+#endif  // SOURCE_INCLUDE_BUFFERREPLAY_H_

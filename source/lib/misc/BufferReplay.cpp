@@ -1,6 +1,10 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <concurrency/ThreadPool.h>
 #include <BufferReplay.h>
 
@@ -12,6 +16,7 @@ BufferReplay::BufferReplay(const std::string &bufferFileName,
 {
     threadpool_ = threadpool;
     bufferFileName_ = bufferFileName;
+    writefd_ = -1;
     nBufferedOps_ = 0;
     nReplayOpsIssued_ = 0;
     nOutstandingReplayOps_ = 0;
@@ -21,11 +26,22 @@ BufferReplay::BufferReplay(const std::string &bufferFileName,
 
 BufferReplay::~BufferReplay()
 {
+    if (writefd_ >= 0) {
+        close(writefd_);
+    }
 }
 
 Error BufferReplay::init()
 {
-    serializer_.reset(serialize::getFileSerializer(bufferFileName_));
+    writefd_ = open(bufferFileName_.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
+               S_IRUSR | S_IWUSR | S_IRGRP);
+    if (writefd_ < 0) {
+        LOGERROR << "Failed to open/ create file: '" << bufferFileName_ << "' errno: '"
+                << errno << "'";
+        return ERR_DISK_WRITE_FAILED;
+    }
+    /* Using fd based because by default thrift opens in append mode */
+    serializer_.reset(serialize::getFileSerializer(writefd_));
     if (!serializer_) {
         GLOGWARN << "Failed to init serializer at: " << bufferFileName_;
         return ERR_INVALID;
@@ -36,14 +52,16 @@ Error BufferReplay::init()
         GLOGWARN << "Failed to init deserializer at: " << bufferFileName_;
         return ERR_INVALID;
     }
+
     progress_ = BUFFERING;
+
     return ERR_OK;
 }
 
 void BufferReplay::abort()
 {
     {
-        fds_mutex::scoped_lock l(bufferLock_);
+        fds_mutex::scoped_lock l(lock_);
         progress_ = ABORTED;
     }
     progressCb_(ABORTED);
@@ -51,7 +69,7 @@ void BufferReplay::abort()
 
 Error BufferReplay::buffer(const StringPtr &s)
 {
-    fds_mutex::scoped_lock l(bufferLock_);
+    fds_mutex::scoped_lock l(lock_);
     if (progress_ == ABORTED) {
         return ERR_ABORTED;
     } else if (progress_ == REPLAY_CAUGHTUP) {
@@ -70,7 +88,8 @@ Error BufferReplay::buffer(const StringPtr &s)
 void BufferReplay::startReplay()
 {
     {
-        fds_mutex::scoped_lock l(bufferLock_);
+        fds_mutex::scoped_lock l(lock_);
+        if (progress_ == ABORTED) return;
         progress_ = BUFFERING_REPLAYING;
     }
     threadpool_->schedule(&BufferReplay::replayWork_, this);
@@ -78,20 +97,18 @@ void BufferReplay::startReplay()
 
 BufferReplay::Progress BufferReplay::getProgress()
 {
-    fds_mutex::scoped_lock l(bufferLock_);
+    fds_mutex::scoped_lock l(lock_);
     return progress_;
 }
 
-void BufferReplay::notifyOpReplayed()
+void BufferReplay::notifyOpsReplayed(int32_t cnt)
 {
     {
-        fds_mutex::scoped_lock l(bufferLock_);
-        if (progress_ == ABORTED) {
-            return;
-        }
-        fds_assert(nOutstandingReplayOps_ > 0);
+        fds_mutex::scoped_lock l(lock_);
+        if (progress_ == ABORTED) return;
         fds_assert(progress_ == BUFFERING_REPLAYING || progress_  == REPLAY_CAUGHTUP);
-        nOutstandingReplayOps_--;
+        nOutstandingReplayOps_ -= cnt;
+        fds_assert(nOutstandingReplayOps_ >= 0);
         if (nOutstandingReplayOps_ == 0 &&
             progress_ == REPLAY_CAUGHTUP) {
             progress_ = COMPLETE;
@@ -111,11 +128,11 @@ void BufferReplay::notifyOpReplayed()
 void BufferReplay::replayWork_()
 {
     Error err(ERR_OK);
-
+    int64_t replayIdx;
     std::list<StringPtr> replayList;
     {
         /* Read few entries */
-        fds_mutex::scoped_lock l(bufferLock_);
+        fds_mutex::scoped_lock l(lock_);
         if (progress_ == ABORTED) return;
         while (nReplayOpsIssued_ + static_cast<int32_t>(replayList.size()) < nBufferedOps_ &&
                static_cast<int32_t>(replayList.size()) < maxReplayCnt_) {
@@ -131,6 +148,7 @@ void BufferReplay::replayWork_()
             replayList.emplace_back(std::move(s));
         }
         fds_assert(nOutstandingReplayOps_  == 0);
+        replayIdx = nReplayOpsIssued_;
         nOutstandingReplayOps_ = replayList.size();
         nReplayOpsIssued_ += nOutstandingReplayOps_;
     }
@@ -141,13 +159,13 @@ void BufferReplay::replayWork_()
     }
 
     /* Send for replay */
-    replayOpsCb_(replayList);
+    replayOpsCb_(replayIdx, replayList);
     
     /* Check if replay's been caughtup with buffering.  Once replay's been caught up
      * we disallow further buffering
      */
     {
-        fds_mutex::scoped_lock l(bufferLock_);
+        fds_mutex::scoped_lock l(lock_);
         if (progress_ == ABORTED) return;
         if (nReplayOpsIssued_ == nBufferedOps_) {
             progress_ = REPLAY_CAUGHTUP;
