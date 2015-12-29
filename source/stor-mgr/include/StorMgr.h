@@ -78,8 +78,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
-     /// Manager of persistent object storage
-     ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      MigrationMgr::unique_ptr migrationMgr;
 
@@ -207,6 +205,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     SmQosCtrl  *qosCtrl;
     net::FileTransferService::ptr fileTransfer;
     SHPTR<sm::Counters> counters;
+    /// Manager of persistent object storage
+     ObjectStore::unique_ptr objectStore;
+
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()

@@ -4,17 +4,19 @@
 
 package com.formationds.client.v08.model.nfs;
 
+import org.dcache.nfs.InetAddressMatcher;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import static com.google.common.net.InetAddresses.forString;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
+import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * @author ptinius
@@ -22,145 +24,180 @@ import static org.junit.Assert.assertFalse;
 public class NfsClientsTest
 {
     @Test( expected = IllegalArgumentException.class )
-    public void testInvalidSpecWithName( )
+    public void testInvalidNameWithMask( )
         throws UnknownHostException
     {
-        NfsClients.forPattern( "www.formationds.com/24" );
+        new NfsClients( "www.formationds.com/24" );
     }
 
     @Test( expected = IllegalArgumentException.class )
-    public void testInvalidSpecWithTooManySlashes( )
+    public void testInvalidNameWithTooManySlashes( )
         throws UnknownHostException
     {
-        NfsClients.forPattern( "1.1.1.1/24/25" );
+        new NfsClients( "1.1.1.1/24/25" );
     }
 
     @Test( expected = IllegalArgumentException.class )
-    public void testInvalidSpecWithNegMask( )
+    public void testInvalidIpWithNegMask( )
         throws UnknownHostException
     {
-        NfsClients.forPattern( "1.1.1.1/-7" );
+        new NfsClients( "1.1.1.1/-7" );
     }
 
-    @Test( expected = IllegalArgumentException.class )
-    public void testInvalidSpecWithTooBigMaskV4( )
-        throws UnknownHostException
-    {
-        NfsClients.forPattern( "1.1.1.1/33" );
-    }
 
     @Test( expected = IllegalArgumentException.class )
-    public void testInvalidSpecWithTooBigMaskV6( )
+    public void testInvalidIpWithTooBigMaskV4( )
         throws UnknownHostException
     {
-        NfsClients.forPattern( "fe80::3FF:F00D:BAD:F00D/129" );
+        new NfsClients( "1.1.1.1/33" );
+    }
+
+
+    @Test( expected = IllegalArgumentException.class )
+    public void testInvalidIpWithTooBigMaskV6( )
+        throws UnknownHostException
+    {
+        new NfsClients( "fe80::3FF:F00D:BAD:F00D/129" );
     }
 
     @Test
     public void testForIpString( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "fe80::0:0:0:0/70" );
-        assertEquals( NfsClients.IpAddressMatcher.class, ipMatcher.getClass( ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "fe80::0:0:0:0/70" );
+        assertEquals( InetAddressMatcher.IpAddressMatcher.class, ipMatcher.getClass( ) );
     }
+
 
     @Test
     public void testForRegexpBigString( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "a*.b.c" );
-        assertEquals( NfsClients.RegexpNameMatcher.class, ipMatcher.getClass( ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "a*.b.c" );
+        assertEquals( InetAddressMatcher.RegexpNameMatcher.class, ipMatcher.getClass( ) );
     }
+
 
     @Test
     public void testForRegexpSmallString( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "a.b?.c" );
-        assertEquals( NfsClients.RegexpNameMatcher.class, ipMatcher.getClass( ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "a.b?.c" );
+        assertEquals( InetAddressMatcher.RegexpNameMatcher.class, ipMatcher.getClass( ) );
     }
+
 
     @Test
     public void testForHostString( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "www.google.com" );
-        assertEquals( NfsClients.HostNameMatcher.class, ipMatcher.getClass( ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.google.com" );
+        assertEquals( InetAddressMatcher.HostNameMatcher.class, ipMatcher.getClass( ) );
     }
+
 
     @Test
     public void testIpV6SuccessfulIpNetMatching( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "fe80::0:0:0:0/70" );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "fe80::0:0:0:0/70" );
         assertTrue( "Failed to match host with netmask.",
                     ipMatcher.apply( forString( "fe80::3FF:F00D:BAD:F00D" ) ) );
     }
+
 
     @Test
     public void testIpV4SuccessfulIpNetMatching( )
         throws UnknownHostException
     {
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "1.1.1.1/16" );
-
-
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "1.1.1.1/16" );
         assertTrue( "Failed to match host with netmask.",
                     ipMatcher.apply( forString( "1.1.2.3" ) ) );
     }
+
 
     @Test
     public void testDomainWildcart1( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "www.*.com" );
-        assertTrue( "failed to match host by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.*.com" );
+        assertTrue( "failed to match host by domain", ipMatcher.match( addr ) );
     }
+
 
     @Test
     public void testDomainWildcart2( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "www.f*.com" );
-        assertTrue( "failed to match host by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.f*.com" );
+        assertTrue( "failed to match host by domain", ipMatcher.match( addr ) );
     }
+
 
     @Test
     public void testDomainWildcartNoMatch( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "www.e*.com" );
-        assertFalse( "incorrect host matched by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.b*.com" );
+        assertFalse( "incorrect host matched by domain", ipMatcher.match( addr ) );
     }
+
 
     @Test
     public void testDomainOneChar( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "ww?.formationds.com" );
-        assertTrue( "failed to match host by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "ww?.formationds.com" );
+        assertTrue( "failed to match host by domain", ipMatcher.match( addr ) );
     }
+
 
     @Test
     public void testDomainOneCharNoMatch( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "www1.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "ww?.formationds.com" );
-        assertFalse( "incorrect host matched by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "ww?.formationds.com" );
+        assertFalse( "incorrect host matched by domain", ipMatcher.match( addr ) );
     }
+
+
+    @Test
+    @Ignore
+    public void testDomainMatch( )
+        throws UnknownHostException
+    {
+        InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1" );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.formationds.com" );
+        assertTrue( "failed to match host by domain", ipMatcher.match( addr ) );
+    }
+
+
+    @Test
+    @Ignore
+    public void testDomainMatchMultipleIPs( )
+        throws UnknownHostException
+    {
+        InetAddress addr = mockInetAddress( "www.formationds.com", "1.1.1.1",
+                                            "fe80::3FF:F00D:BAD:F00D" );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.formationds.com" );
+        assertTrue( "failed to match host by domain", ipMatcher.match( addr ) );
+    }
+
 
     @Test
     public void testDomainNoMatch( )
         throws UnknownHostException
     {
         InetAddress addr = mockInetAddress( "ww1.formationds.com", "1.1.1.1" );
-        NfsClients.NfsClientMatcher ipMatcher = NfsClients.forPattern( "www.formationds.com" );
-        assertFalse( "incorrect host matched by domain", ipMatcher.matcher( addr ) );
+        InetAddressMatcher ipMatcher = InetAddressMatcher.forPattern( "www.formationds.com" );
+        assertFalse( "incorrect host matched by domain", ipMatcher.match( addr ) );
     }
+
 
     private InetAddress mockInetAddress( String dnsName, String... ips )
         throws UnknownHostException
@@ -171,4 +208,5 @@ public class NfsClientsTest
 
         return mockedAddress;
     }
+
 }

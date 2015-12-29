@@ -52,6 +52,12 @@ public class NfsOptions
             sb.append( "ro" );
         }
 
+        if( builder.async )
+        {
+            sb.append( "," )
+              .append( "async" );
+        }
+
         sb.append( "," )
           .append( builder._withAcl ? "acl" : "noacl" )
           .append( "," )

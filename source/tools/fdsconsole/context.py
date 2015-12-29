@@ -101,17 +101,3 @@ class ContextInfo:
 
     def get_method_names(self, level = helpers.AccessLevel.ADMIN):
         return [item for item, value in self.methods.items() if value <= level]
-
-class RootContext(Context):
-
-    def __init(self, *args):
-        Context.__init__(self, *args)
-    '''
-    This is the first context ..
-    Currently it is a dummy.. Later all shared functionality will be here.
-    '''
-    def get_context_name(self):
-        if self.config.isDebugTool():
-            return "fds.debug"
-        else:
-            return "fds"

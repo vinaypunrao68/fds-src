@@ -1442,8 +1442,8 @@ AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
         std::lock_guard<std::mutex> g(tx_map_lock);
         auto it = tx_map_barrier.find(blob_id);
         if (tx_map_barrier.end() == it) {
-            GLOGERROR << "Woah, missing map entry!";
-            fds_assert(false);
+            // Probably already implicitly aborted
+            GLOGDEBUG << "Woah, missing map entry!";
             return;
         }
         GLOGDEBUG << "Draining any needed pending tx's";

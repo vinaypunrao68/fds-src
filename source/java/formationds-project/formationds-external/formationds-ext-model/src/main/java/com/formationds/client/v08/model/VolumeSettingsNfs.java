@@ -35,7 +35,7 @@ public class VolumeSettingsNfs
         private String clients = "*";
         public Builder withClient( final NfsClients clients )
         {
-            this.clients = clients.getPattern();
+            this.clients = clients.getClientPattern();
             return this;
         }
 
@@ -72,7 +72,7 @@ public class VolumeSettingsNfs
 
         setMaxObjectSize( maxObjectSize );
         this.options = options.getOptions();
-        this.clients = clients.getPattern();
+        this.clients = clients.getClientPattern();
 
         this.type = VolumeType.NFS;
     }
