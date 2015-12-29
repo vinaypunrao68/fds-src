@@ -38,11 +38,15 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -305,11 +309,16 @@ public class SystemHealthStatus implements RequestHandler {
         // TODO: for capacity time-to-full we need enough history to calculate the regression
         // This was previously querying from 0 for all possible datapoints.  I think reducing to
         // the last 30 days is sufficient, but will need to validate that.
-        DateRange range = DateRange.last( 30L, TimeUnit.DAYS );
+        Instant now = Instant.now();
+        Instant then = now.minus( 30L, ChronoUnit.DAYS );
+        
+        DateRange range = DateRange.between( then.getEpochSecond(), now.getEpochSecond() );
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesType(Metrics.PBYTES)
                 .withRange(range)
                 .build();
+        
+        query.setColumns( new ArrayList<String>() );
 
         final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
                                                                              .getMetricsRepository();
@@ -320,13 +329,18 @@ public class SystemHealthStatus implements RequestHandler {
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();
 
+        // This value will be in MB!!
         Double systemCapacity = 0D;
         try {
         	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
         } catch (TException te) {
         	throw new IllegalStateException("Failed to retrieve system capacity", te);
         }
+        
+        // switch to bytes for now
+        Long systemCapacityInBytes = SizeUnit.MB.toBytes( systemCapacity.longValue() ).longValue();
 
+        // This number will be in bytes!!!
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal( metricsRepository
                                .sumPhysicalBytes() );
@@ -337,8 +351,8 @@ public class SystemHealthStatus implements RequestHandler {
                                                                   StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
-        CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacity);
-        CapacityToFull timeToFull = qh.toFull(series.get(0), systemCapacity);
+        CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacityInBytes.doubleValue() );
+        CapacityToFull timeToFull = qh.toFull(series.get(0), systemCapacityInBytes.doubleValue() );
 
         Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
 

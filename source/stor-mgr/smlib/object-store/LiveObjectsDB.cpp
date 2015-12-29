@@ -41,11 +41,11 @@ Error LiveObjectsDB::createLiveObjectsTblAndIdx() {
     }
 
     query = "create table if not exists tokentbl"
-            " (smtoken integer, timestamp integer"
-            " primary key(smtoken))";
+            " (smtoken integer,diskid integer, timestamp integer,"
+            " primary key(smtoken, diskid))";
 
     if (db->execute(query)) {
-        LOGERROR << "Failed to create tokenlbl";
+        LOGERROR << "Failed to create tokentbl";
         return ERR_INVALID;
     }
 
@@ -237,31 +237,45 @@ Error LiveObjectsDB::findMinTimeStamp(const fds_token_id &smToken, TimeStamp &ts
     return ERR_OK;
 }
 
-Error LiveObjectsDB::setTokenStartTime(const fds_token_id &smToken, TimeStamp &ts) {
+Error LiveObjectsDB::setTokenStartTime(const fds_token_id &smToken, fds_uint16_t diskid, TimeStamp &ts) {
     SCOPEDREAD(lock);
     if (!db) { return ERR_INVALID; }
     std::string query = util::strformat("insert or replace into tokentbl "
-                                        "(smtoken, timestamp) "
-                                        "values (%ld, %ld)",
-                                        smToken, ts);
+                                        "(smtoken, diskid, timestamp) "
+                                        "values (%ld, %d, %ld)",
+                                        smToken, diskid, ts);
 
-    if (db->execute(query.c_str())) {
+    if (db->execute(query)) {
         LOGERROR << "failed: " << query;
         return ERR_INVALID;
     }
     return ERR_OK;
 }
 
-TimeStamp LiveObjectsDB::getTokenStartTime(const fds_token_id &smToken) {
+TimeStamp LiveObjectsDB::getTokenStartTime(const fds_token_id &smToken, fds_uint16_t diskid) {
     SCOPEDREAD(lock);
     if (!db) { return 0; }
     TimeStamp ts;
-    std::string query = util::strformat("select timestamp from tokentbl where smtoken=%ld", smToken);
-    if (!(db->getIntValue(query.c_str(), ts))) {
+    std::string query = util::strformat("select timestamp from tokentbl where smtoken=%ld and diskid=%d", smToken, diskid);
+    if (!(db->getIntValue(query, ts))) {
         LOGERROR << "failed: " << query;
         return 0;
     }
     return ts;
+}
+
+bool LiveObjectsDB::hasNewObjectSets(const fds_token_id &smToken, fds_uint16_t diskid) {
+    TimeStamp lastStartTime = getTokenStartTime(smToken, diskid);
+
+    if (lastStartTime == 0) return true;
+
+    std::string query = util::strformat("select count(*) from liveobjectstbl where smtoken=%ld and timestamp>=%ld", smToken, lastStartTime);
+    fds_uint64_t count = 0;
+    if (!(db->getIntValue(query, count))) {
+        LOGERROR << "failed: " << query;
+        return false;
+    }
+    return count > 0;
 }
 
 } // end namespace fds

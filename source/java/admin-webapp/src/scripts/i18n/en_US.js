@@ -105,6 +105,7 @@ var en_US = {
         l_firebreak: 'Firebreak',
         l_performance: 'Performance',
         l_health: 'System Health',
+        l_used: 'Used',
         
         l_gets: 'GET requests',
         l_ssd_gets: 'GET request from flash',
@@ -198,6 +199,7 @@ var en_US = {
         l_timeline_settings: 'Timeline Settings',
         l_tiering: 'Tiering',
         l_volume_name: 'Volume Name',
+        l_virtual_capacity: 'Virtual capacity',
         f_priority: 'Priority:',
         th_capacity: 'Capacity Used',
         th_capacity_limit: 'Capacity Limit',
@@ -211,6 +213,9 @@ var en_US = {
         tt_size: 'The capacity consumed for the volume',
         tt_firebreak: 'Firebreak status over the past 24 hours',
         tt_priority: 'Volume priority',
+        
+        title_volumes_by_size: 'Usage by Connector Type',
+        title_volumes_by_type: 'Number of Volumes by Connector Type',
         
         iscsi: {
             l_incoming_users: 'Incoming Credentials'

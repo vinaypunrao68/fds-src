@@ -233,6 +233,10 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                                                  timestamp,
                                                  STAT_DM_CUR_TOTAL_OBJECTS,
                                                  total_objects);
+
+        total_bytes = 0;
+        total_blobs = 0;
+        total_objects = 0;
     }
 
     /*

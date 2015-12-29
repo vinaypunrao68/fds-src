@@ -121,6 +121,10 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     // Utility functions to build Inquiry Pages...etc
     size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
 
+    void deferredReply() {
+        cmd.preply = 0ull;
+    }
+
     void fastReply() {
         fast_reply.cmd_h = cmd.cmd_h;
         fast_reply.subcode = cmd.subcode;
