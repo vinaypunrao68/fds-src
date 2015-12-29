@@ -41,14 +41,14 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
                           get<int32_t>("fds.dm.testing.test_delay_start"));
 
-    /* 5 miutes for idle timeout */
-    idleTimeoutSecs = 300;
+    /* 3 hours for idle timeout */
+    idleTimeoutSecs = 3*3600;
     auto timer = MODULEPROVIDER()->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
         MODULEPROVIDER()->proc_thrpool()->schedule(
             &DmMigrationMgr::migrationIdleTimeoutCheck, this);
-            
+
     };
     auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(*timer, task));
     timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
@@ -106,7 +106,7 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
         /**
          * Create a new instance of migration Executor
          */
-        LOGMIGRATE << "migrationid: " << migrationId 
+        LOGMIGRATE << "migrationid: " << migrationId
             << "Creating migration instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
             << " name=" << vol.vol_name;
 
@@ -196,7 +196,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               abortMigration(); return (ERR_NOT_READY););
 
     waitForMigrationBatchToFinish(MIGR_EXECUTOR);
-    
+
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
