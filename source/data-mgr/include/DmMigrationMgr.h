@@ -23,7 +23,7 @@ class DmMigrationMgr {
     using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
 
   public:
-    explicit DmMigrationMgr(DataMgr* _dataMgr);
+    explicit DmMigrationMgr(DataMgr &_dataMgr);
     ~DmMigrationMgr();
 
     void mod_shutdown();
@@ -262,7 +262,7 @@ class DmMigrationMgr {
     std::atomic<MigrationState> clientState;
     std::atomic<MigrationState> executorState;
 
-    DataMgr *dataManager;
+    DataMgr &dataManager;
 
     /** check if the feature is enabled or not.
      */

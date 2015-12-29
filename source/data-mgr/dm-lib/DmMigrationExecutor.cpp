@@ -15,7 +15,7 @@
 
 namespace fds {
 
-DmMigrationExecutor::DmMigrationExecutor(DataMgr* _dataMgr,
+DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
     							 	 	 const NodeUuid& _srcDmUuid,
 	 	 								 fpi::FDSP_VolumeDescType& _volDesc,
                                          int64_t migrationId,
@@ -29,7 +29,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr* _dataMgr,
       migrDoneCb(_callback),
 	  timerInterval(_timeout),
 	  seqTimer(MODULEPROVIDER()->getTimer()),
-      msgHandler(*_dataMgr),
+      msgHandler(_dataMgr),
       migrationProgress(INIT),
       txStateIsMigrated(true),
       lastUpdateFromClientTsSec_(util::getTimeStampSeconds()),
@@ -67,8 +67,8 @@ DmMigrationExecutor::startMigration()
      *
      * So, for now, we should just check for the existence of the volume.
      */
-	auto prefixStr = dataMgr->getPrefix();
-    err = dataMgr->addVolume(prefixStr + std::to_string(volumeUuid.get()),
+	auto prefixStr = dataMgr.getPrefix();
+    err = dataMgr.addVolume(prefixStr + std::to_string(volumeUuid.get()),
                             volumeUuid,
                             &volDesc);
 
@@ -89,7 +89,7 @@ DmMigrationExecutor::startMigration()
     	 * First do a StopDequeue on the volume
     	 */
     	LOGMIGRATE << logString() << "Stopping De-queing IO for volume " << volumeUuid;
-    	dataMgr->qosCtrl->stopDequeue(volumeUuid);
+    	dataMgr.qosCtrl->stopDequeue(volumeUuid);
     	// Note: in error cases, abortMigration() gets called, as well as resumeIO().
 
     	/**
@@ -142,7 +142,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     /**
      * Get the list of <blobid, seqnum> for a volume associted with this executor.
      */
-    err = dataMgr->timeVolCat_->queryIface()->getAllBlobsWithSequenceId(fds_volid_t(volumeUuid),
+    err = dataMgr.timeVolCat_->queryIface()->getAllBlobsWithSequenceId(fds_volid_t(volumeUuid),
                                                                        filterSet->blobFilterMap,
                                                                        NULL);
     if (!err.ok()) {
@@ -156,7 +156,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     auto asyncInitialBlobSetReq = gSvcRequestPool->newEPSvcRequest(srcDmSvcUuid.toSvcUuid());
     asyncInitialBlobSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyInitialBlobFilterSetMsg), filterSet);
-    // asyncInitialBlobSetReq->setTimeoutMs(dataMgr->dmMigrationMgr->getTimeoutValue());
+    // asyncInitialBlobSetReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     // A hack because g++ doesn't like a bind within a macro that does bind
     // These asyncMsgFailed/Passed actually goes to DmMigrationBase and then re-routes
     std::function<void()> abortBind = std::bind(&DmMigrationExecutor::asyncMsgFailed, this);
@@ -185,7 +185,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
                << " lastmsgseqid=" << msg->last_msg_seq_id
                << " numofblobdesc=" << msg->blob_desc_list.size();
 
-    dataMgr->counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
+    dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
     lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
     /**
      * Check if all blob offset is applied.  if applyBlobDescList is still
@@ -261,7 +261,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
          */
 
     	// keep stats
-        dataMgr->counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
+        dataMgr.counters->totalSizeOfDataMigrated.incr(sizeOfData(msg));
 
         for (auto & blobObj : msg->blob_obj_list) {
             /**
@@ -280,7 +280,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
              * This should really be directly called, since it's not query iface.
              * Will clean it up later.
              */
-            err = dataMgr->timeVolCat_->queryIface()->putObject(fds_volid_t(volumeUuid),
+            err = dataMgr.timeVolCat_->queryIface()->putObject(fds_volid_t(volumeUuid),
                                                                blobObj.blob_name,
                                                                blobList);
             if (!err.ok()) {
@@ -328,7 +328,7 @@ DmMigrationExecutor::applyBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPtr& msg)
                    << std::hex << volumeUuid << std::dec
                    << ", blob_name=" << desc.vol_blob_name;
 
-        err = dataMgr->timeVolCat_->migrateDescriptor(fds_volid_t(volumeUuid),
+        err = dataMgr.timeVolCat_->migrateDescriptor(fds_volid_t(volumeUuid),
                                                      desc.vol_blob_name,
                                                      desc.vol_blob_desc);
         if (!err.ok()) {
@@ -397,7 +397,7 @@ DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     Error err;
 
     DmCommitLog::ptr commitLog;
-    err = dataMgr->timeVolCat_->getCommitlog(volumeUuid, commitLog);
+    err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
 
     if (!err.ok()) {
         LOGERROR << logString() << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
@@ -513,14 +513,14 @@ DmMigrationExecutor::finishActiveMigration()
 	fds_scoped_lock lock(progressLock);
 
     // watermark should only ever need to be checked on a resync, but good to filter regardless
-    dataMgr->dmMigrationMgr->setDmtWatermark(volumeUuid, dmtVersion);
+    dataMgr.dmMigrationMgr->setDmtWatermark(volumeUuid, dmtVersion);
 
 	migrationProgress = MIGRATION_COMPLETE;
     LOGMIGRATE << logString() << "Applying forwards is complete and resuming IO for volume: " << volumeUuid;
-	dataMgr->qosCtrl->resumeIOs(volumeUuid);
+	dataMgr.qosCtrl->resumeIOs(volumeUuid);
 
-	dataMgr->counters->totalVolumesReceivedMigration.incr(1);
-	dataMgr->counters->numberOfActiveMigrExecutors.decr(1);
+	dataMgr.counters->totalVolumesReceivedMigration.incr(1);
+	dataMgr.counters->numberOfActiveMigrExecutors.decr(1);
 
 	return ERR_OK;
 }
@@ -528,7 +528,7 @@ DmMigrationExecutor::finishActiveMigration()
 void
 DmMigrationExecutor::routeAbortMigration()
 {
-    dataMgr->dmMigrationMgr->abortMigration();
+    dataMgr.dmMigrationMgr->abortMigration();
 }
 
 void
@@ -539,7 +539,7 @@ DmMigrationExecutor::abortMigration()
 	 * Prior to "unblocking" the volume, let's set the state to error because
 	 * we are in an inconsistent state halfway through migration.
 	 */
-	auto volumeMeta = dataMgr->getVolumeMeta(volumeUuid, false);
+	auto volumeMeta = dataMgr.getVolumeMeta(volumeUuid, false);
     if (volumeMeta) {
         volumeMeta->vol_desc->setState(fpi::ResourceState::InError);
         LOGERROR << logString() << "Aborting migration: Setting volume state for " << volumeUuid
@@ -550,7 +550,7 @@ DmMigrationExecutor::abortMigration()
     fds_scoped_lock lock(progressLock);
     if (migrationProgress != INIT) {
         // We should only resume something if we've stopped it.
-        dataMgr->qosCtrl->resumeIOs(volumeUuid);
+        dataMgr.qosCtrl->resumeIOs(volumeUuid);
     }
     if (migrationProgress != MIGRATION_ABORTED) {
         migrationProgress = MIGRATION_ABORTED;
@@ -568,7 +568,7 @@ bool DmMigrationExecutor::isMigrationIdle(const util::TimeStamp& curTsSec) const
      */
     if (migrationProgress == STATICMIGRATION_IN_PROGRESS &&
         curTsSec > lastUpdateFromClientTsSec_ &&
-        (curTsSec - lastUpdateFromClientTsSec_) > dataMgr->dmMigrationMgr->getIdleTimeout()) {
+        (curTsSec - lastUpdateFromClientTsSec_) > dataMgr.dmMigrationMgr->getIdleTimeout()) {
         return true;
     }
     return false;

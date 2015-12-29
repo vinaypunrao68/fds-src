@@ -25,7 +25,7 @@ using incrementCountFunc = std::function<void()>;
 
 class DmMigrationClient : public DmMigrationBase {
   public:
-    explicit DmMigrationClient(DataMgr* _dataMgr,
+    explicit DmMigrationClient(DataMgr& _dataMgr,
             const NodeUuid& _myUuid,
             NodeUuid& _destDmUuid,
             int64_t migrationId,

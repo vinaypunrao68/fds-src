@@ -8,7 +8,7 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DataMgr *_dataMgr)
+DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
 :   dataManager(_dataMgr),
     OmStartMigrCb(nullptr),
     maxConcurrency(1),
@@ -203,10 +203,10 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         return err;
     }
 
-    dataManager->counters->clearMigrationCounters();
-    dataManager->counters->migrationLastRun.set(util::getTimeStampSeconds());
-    dataManager->counters->totalVolumesToBeMigrated.set(migrationMsg->migrations.size());
-    dataManager->counters->migrationDMTVersion.set(migrationMsg->DMT_version);
+    dataManager.counters->clearMigrationCounters();
+    dataManager.counters->migrationLastRun.set(util::getTimeStampSeconds());
+    dataManager.counters->totalVolumesToBeMigrated.set(migrationMsg->migrations.size());
+    dataManager.counters->migrationDMTVersion.set(migrationMsg->DMT_version);
 
     // Store DMT version for debugging
     DMT_version = migrationMsg->DMT_version;
@@ -311,7 +311,7 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
         }
 
         err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
-        LOGDEBUG << "Total size migrated: " << dataManager->counters->totalSizeOfDataMigrated.value();
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
         if (err == ERR_NOT_READY) {
             LOGDEBUG << "Blobs descriptor not applied yet.";
@@ -356,7 +356,7 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
         }
         LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
         err = executor->processDeltaBlobs(deltaBlobsMsg);
-        LOGDEBUG << "Total size migrated: " << dataManager->counters->totalSizeOfDataMigrated.value();
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
         if (!err.ok()) {
             LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
@@ -641,7 +641,7 @@ DmMigrationMgr::finishActiveMigration(MigrationRole role, int64_t migrationId)
 			 */
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 
-			dataManager->counters->totalVolumesSentMigration.incr(clientMap.size());
+			dataManager.counters->totalVolumesSentMigration.incr(clientMap.size());
 			clearClients();
 			LOGNORMAL << "migrationid: " << migrationId
                 << "Migration clients cleared and state reset";
@@ -775,7 +775,7 @@ DmMigrationMgr::abortMigrationReal()
 			}
 			std::lock_guard<std::mutex> lk(migrationBatchMutex);
 			fds_verify(migrationAborted);
-			dataManager->counters->totalMigrationsAborted.incr(1);
+			dataManager.counters->totalMigrationsAborted.incr(1);
 			clearClients();
 			clearExecutors();
 		}
@@ -896,7 +896,7 @@ DmMigrationMgr::clearClients() {
         }
     }
     clientMap.clear();
-	dataManager->counters->numberOfActiveMigrClients.set(0);
+	dataManager.counters->numberOfActiveMigrClients.set(0);
 
 	stopMigrationStopWatch();
 	dumpStats();
@@ -919,7 +919,7 @@ DmMigrationMgr::clearExecutors() {
         }
     }
 	executorMap.clear();
-	dataManager->counters->numberOfActiveMigrExecutors.set(0);
+	dataManager.counters->numberOfActiveMigrExecutors.set(0);
 
 	stopMigrationStopWatch();
 	dumpStats();
@@ -927,7 +927,7 @@ DmMigrationMgr::clearExecutors() {
 
 void
 DmMigrationMgr::dumpStats() {
-    dm::Counters* c = dataManager->counters;
+    dm::Counters* c = dataManager.counters;
 
     LOGNORMAL << "========================================================";
     LOGNORMAL << "Migration Statistics:";
@@ -973,7 +973,7 @@ DmMigrationMgr::startMigrationStopWatch()
     if (!std::atomic_compare_exchange_strong(&timerStarted, &notYetStarted, true)) {
         // First guy. start timer
         migrationStopWatch.reset();
-        dataManager->counters->timeSpentForCurrentMigration.set(0);
+        dataManager.counters->timeSpentForCurrentMigration.set(0);
         migrationStopWatch.start();
     }
 }
@@ -985,8 +985,8 @@ DmMigrationMgr::stopMigrationStopWatch()
 
  	if (std::atomic_compare_exchange_strong(&timerStarted, &expected, false)) {
 	    // Time in seconds
-	    dataManager->counters->timeSpentForCurrentMigration.set(migrationStopWatch.getElapsedNanos()/(1000.0*100*100*100));
-	    dataManager->counters->timeSpentForAllMigrations.incr(dataManager->counters->timeSpentForCurrentMigration.value());
+	    dataManager.counters->timeSpentForCurrentMigration.set(migrationStopWatch.getElapsedNanos()/(1000.0*100*100*100));
+	    dataManager.counters->timeSpentForAllMigrations.incr(dataManager.counters->timeSpentForCurrentMigration.value());
 	    migrationStopWatch.reset();
 	}
 }

@@ -134,12 +134,9 @@ class VolumeMeta : public HasLogger {
     VolumeMeta();
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               VolumeDesc *v_desc);
-    VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,
                fds_log* _dm_log,
                VolumeDesc *v_desc,
-               DataMgr *_dm);
+               DataMgr &_dm);
     ~VolumeMeta();
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
@@ -176,9 +173,9 @@ class VolumeMeta : public HasLogger {
     DmMigrationDest::unique_ptr migrationDest;
 
     /**
-     * DataMgr ptr
+     * DataMgr reference
      */
-    DataMgr *dataManager;
+    DataMgr &dataManager;
 
     /**
      * Internally create a source and runs it

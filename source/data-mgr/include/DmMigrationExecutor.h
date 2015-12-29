@@ -24,7 +24,7 @@ typedef std::function<void (NodeUuid srcNodeUuid,
 
 class DmMigrationExecutor : public DmMigrationBase {
   public:
-    explicit DmMigrationExecutor(DataMgr* _dataMgr,
+    explicit DmMigrationExecutor(DataMgr &_dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
                                  int64_t migrationId,

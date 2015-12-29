@@ -10,6 +10,7 @@
 
 namespace fds {
 
+#if 0
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_volid_t _uuid,
                        VolumeDesc* desc)
@@ -30,16 +31,28 @@ VolumeMeta::VolumeMeta(const std::string& _name,
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
 }
+#endif
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_volid_t _uuid,
                        fds_log* _dm_log,
                        VolumeDesc* _desc,
-                       DataMgr* _dm)
-        : VolumeMeta(_name, _uuid, _desc) {
+                       DataMgr &_dm)
+          : fwd_state(VFORWARD_STATE_NONE),
+            dmVolQueue(0),
+            dataManager(_dm),
+            cbToVGMgr(NULL) {
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+
+    vol_mtx = new fds_mutex("Volume Meta Mutex");
+    vol_desc = new VolumeDesc(_name, _uuid);
+    dmCopyVolumeDesc(vol_desc, _desc);
+
+    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
-    dataManager = _dm;
 }
 
 VolumeMeta::~VolumeMeta() {

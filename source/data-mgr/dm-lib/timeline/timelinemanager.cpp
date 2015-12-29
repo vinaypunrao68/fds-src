@@ -113,7 +113,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
                                                         snapId,
                                                         GetLog(),
                                                         desc,
-                                                        dm);
+                                                        *dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
