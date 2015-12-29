@@ -27,7 +27,7 @@ void AtomicCounter::set(const uint64_t v) {
 }
 
 bool AtomicCounter::compareAndSet(uint64_t expected, uint64_t desired) {
-    return value.atomic_compare_exchange_strong(&expected, desired);
+    return std::atomic_compare_exchange_strong(&value, &expected, desired);
 }
 
 }  // namespace util
