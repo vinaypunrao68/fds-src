@@ -104,18 +104,6 @@ void RefCountManager::FileTransferContext::tokenDone(fds_token_id token, fpi::Sv
         ++currentToken;
         if (!processNextToken()) {
             LOGNORMAL << "refscan and file transfers complete";
-            // now send a done message to SM
-            auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-            std::vector<fpi::SvcInfo> services;
-            svcMgr->getSvcMap(services);
-            fpi::GenericCommandMsgPtr msg(new fpi::GenericCommandMsg());
-            msg->command="refscan.done";
-            for (const auto& service : services) {
-                if (service.svc_type != fpi::FDSP_STOR_MGR) continue;
-                auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(service.svc_id.svc_uuid);
-                request->setPayload(FDSP_MSG_TYPEID(fpi::GenericCommandMsg), msg);
-                request->invoke();
-            }
         }
     }
 }

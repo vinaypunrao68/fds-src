@@ -46,7 +46,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
     DECL_ASYNC_HANDLER(getObject              , GetObjectMsg);
     DECL_ASYNC_HANDLER(putObject              , PutObjectMsg);
     DECL_ASYNC_HANDLER(deleteObject           , DeleteObjectMsg);

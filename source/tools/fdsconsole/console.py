@@ -18,8 +18,6 @@ from tabulate import tabulate
 import sys
 from contexts.svchelper import ServiceMap
 # import needed contexts
-
-from contexts import root
 from contexts import domain
 from contexts import volume
 from contexts import snapshot
@@ -76,7 +74,7 @@ class FDSConsole(cmd.Cmd):
         ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            self.set_root_context(root.RootContext(self.config))
+            self.set_root_context(context.RootContext(self.config))
 
     def get_access_level(self):
         if self.debugTool:
@@ -85,7 +83,7 @@ class FDSConsole(cmd.Cmd):
             return AccessLevel.ADMIN
 
     def set_root_context(self, ctx):
-        if not isinstance(ctx, context.ContextInfo):
+        if isinstance(ctx, context.Context):
             ctx = context.ContextInfo(ctx)
         self.root = ctx
         self.set_context(ctx)

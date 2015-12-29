@@ -225,8 +225,6 @@ enum  FDSPMsgTypeId {
   NullMsgTypeId                             = 10;
   EmptyMsgTypeId                            = 11;
   StatStreamMsgTypeId                       = 12;
-  GenericCommandMsgTypeId                   = 13;
-  GenericCommandRespMsgTypeId               = 14;
 
   /** File Transfer **/
   FileTransferMsgTypeId                     = 900;

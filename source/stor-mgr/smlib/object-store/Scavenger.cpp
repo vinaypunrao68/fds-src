@@ -725,8 +725,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
 
     // get all tokens that SM owns and that reside on this disk
     SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
-    ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
-    
+
     // add tokens to tokenDb that we need to compact
     for (SmTokenSet::const_iterator cit = diskToks.cbegin();
          cit != diskToks.cend();
@@ -735,25 +734,11 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
 
         if (g_fdsprocess->get_fds_config()->\
             get<bool>("fds.feature_toggle.common.periodic_expunge", false)){
-            /**
-             * Evaluate all bloom filters for this particular SM token.
-             * and calculate SM token threshold.
-             */
-
-            bool fHasNewObjects = true;
-            if (storMgr) {
-                fHasNewObjects = storMgr->objectStore->liveObjectsTable->hasNewObjectSets(*cit, disk_id);
-            }
-
-            if (!fHasNewObjects) {
-                LOGDEBUG << "no new object sets to process for disk:" << disk_id << " token:"<< *cit;
-            } else {
-                if (storMgr) {
-                    TimeStamp now = util::getTimeStampSeconds() * 1000 * 1000 * 1000;
-                    storMgr->objectStore->liveObjectsTable->setTokenStartTime(*cit, disk_id, now);
-                }
-                persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
-            }
+        /**
+         * Evaluate all bloom filters for this particular SM token.
+         * and calculate SM token threshold.
+         */
+            persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
         } else {
             persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
         }

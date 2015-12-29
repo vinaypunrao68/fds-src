@@ -60,9 +60,8 @@ class LiveObjectsDB {
                            const std::set<fds_volid_t> &volumes,
                            TimeStamp ts=0);
 
-    Error setTokenStartTime(const fds_token_id &smToken, fds_uint16_t diskid,TimeStamp &ts);
-    TimeStamp getTokenStartTime(const fds_token_id &smToken, fds_uint16_t diskid);
-    bool hasNewObjectSets(const fds_token_id &smToken, fds_uint16_t diskid);
+    Error setTokenStartTime(const fds_token_id &smToken, TimeStamp &ts);
+    TimeStamp getTokenStartTime(const fds_token_id &smToken);
     void dropDB();
     ~LiveObjectsDB() { }
 };

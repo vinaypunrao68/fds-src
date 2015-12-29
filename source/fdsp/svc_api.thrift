@@ -133,16 +133,6 @@ struct UpdateSvcMapMsg {
   1: required list<svc_types.SvcInfo>       updates;
 }
 
-struct GenericCommandMsg {
-  1: string command;
-  2: string arg;
-}
-
-struct GenericCommandRespMsg {
-  1: string data;
-}
-
-
 /* ------------------------------------------------------------
    Common Services
    ------------------------------------------------------------*/
