@@ -868,7 +868,7 @@ DiskScavenger::getProgress(fds_uint32_t *toksCompacting,
     }
     *toksCompacting = tokenDb.size();
     *toksFinished = count;
-    LOGNORMAL << "disk:" << disk_id << " progress: " << *toksCompacting
+    LOGNORMAL << "Disk:" << disk_id << " progress: " << *toksCompacting
               << " total tokens compacting, " << *toksFinished
               << " total tokens finished compaction";
 }
@@ -876,13 +876,18 @@ DiskScavenger::getProgress(fds_uint32_t *toksCompacting,
 void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) {
     fds_token_id tok_id;
     fds_bool_t finished = false;
+
     ScavState curState = std::atomic_load(&state);
-    
-    LOGNORMAL << "compaction done for token:" << token_id
+    if (curState == SCAV_STATE_IDLE) {
+        LOGWARN << "Unexpected callback for token: " << token_id
+                << " with error: " << error;
+        return;
+    }
+
+    LOGNOTIFY << "Compaction done for token:" << token_id
               << " disk:" << disk_id << " verify:" << verifyData
-              << " result:" << error;
-    
-    fds_verify(curState != SCAV_STATE_IDLE);
+              << " error: " << error;
+
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->compactorRunning.decr();
     if (curState == SCAV_STATE_STOPPING) {
         // Scavenger was asked to stop, so not compacting any more tokens
@@ -912,7 +917,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         noPersistScavStats = false;
         ScavState expectState = SCAV_STATE_INPROG;
         if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
-            LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;
+            LOGNOTIFY << "Scavenger process finished for disk_id " << disk_id;
             if (done_evt_handler) {
                 done_evt_handler(disk_id, Error(ERR_OK));
             }
@@ -920,7 +925,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         } else {
             expectState = SCAV_STATE_STOPPING;
             if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
-                LOGNORMAL << "Scavenger was stopped, but scavenging process completed for "
+                LOGNOTIFY << "Scavenger was stopped, but scavenging process completed for "
                           << "disk id " << disk_id;
             }
         }
