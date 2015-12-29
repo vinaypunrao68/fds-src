@@ -109,7 +109,7 @@ public class TransactionalIo {
     }
 
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
-        List<BlobMetadata> mds = io.scan(domain, volume, blobNamePrefix);
+        Collection<BlobMetadata> mds = io.scan(domain, volume, blobNamePrefix);
         List<T> result = new ArrayList<>(mds.size());
         for (BlobMetadata meta : mds) {
             result.add(mapper.map(meta.getBlobName(), Optional.of(meta.getMetadata())));

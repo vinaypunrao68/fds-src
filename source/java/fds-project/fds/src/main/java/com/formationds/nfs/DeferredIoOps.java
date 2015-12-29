@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 public class DeferredIoOps implements IoOps {
@@ -110,24 +111,35 @@ public class DeferredIoOps implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
-        List<BlobMetadata> results = io.scan(domain, volume, blobNamePrefix);
-        for (int i = 0; i < results.size(); i++) {
-            BlobMetadata m = results.get(i);
-            MetaKey key = new MetaKey(domain, volume, m.getBlobName());
-            final int offset = i;
-            metadataCache.lock(key, c -> {
-                if (c.containsKey(key)) {
-                    results.set(offset, new BlobMetadata(key.blobName, c.get(key).value));
-                } else {
-                    c.put(key, new CacheEntry<>(m.getMetadata(), false));
-                }
-                return null;
-            });
-        }
-        return results;
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+        Map<MetaKey, BlobMetadata> fromAm = io.scan(domain, volume, blobNamePrefix)
+                .stream()
+                .collect(Collectors.toMap(bm -> new MetaKey(domain, volume, bm.getBlobName()), bm -> bm));
+
+        MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
+        Map<MetaKey, BlobMetadata> fromCache = metadataCache.lock(prefix, c -> scanCache(domain, volume, blobNamePrefix));
+        fromAm.putAll(fromCache);
+        return fromAm.values();
     }
 
+    private Map<MetaKey, BlobMetadata> scanCache(String domain, String volume, String blobNamePrefix) throws IOException {
+        MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
+        Map<MetaKey, BlobMetadata> results = new HashMap<>();
+
+        return metadataCache.lock(prefix, c -> {
+            SortedMap<MetaKey, CacheEntry<Map<String, String>>> tailmap = c.tailMap(prefix);
+            Iterator<MetaKey> iterator = tailmap.keySet().iterator();
+            while (iterator.hasNext()) {
+                MetaKey next = iterator.next();
+                if (next.beginsWith(prefix)) {
+                    results.put(next, new BlobMetadata(next.blobName, c.get(next).value));
+                } else {
+                    break;
+                }
+            }
+            return results;
+        });
+    }
 
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {

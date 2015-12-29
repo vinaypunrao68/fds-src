@@ -99,7 +99,7 @@ public class InodeMap {
 
     public Inode create(InodeMetadata metadata, long exportId) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
-        Inode inode = doUpdate(metadata, exportId, false);
+        Inode inode = doUpdate(metadata, exportId, true);
         usedFiles.increment(volumeName);
         return inode;
     }
