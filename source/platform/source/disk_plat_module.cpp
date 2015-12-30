@@ -13,8 +13,8 @@
 namespace fds
 {
 
-static const fds_uint32_t MAX_POLL_EVENTS = 1024;
-static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
+static constexpr fds_uint32_t MAX_POLL_EVENTS = 1024;
+static constexpr fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
 
 // -----------------------------------------------------------------------------------
 // Disk Platform Module
