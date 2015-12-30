@@ -212,34 +212,36 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
     switch ( volDesc->volType )
     {
         case fpi::FDSP_VOL_BLKDEV_TYPE:
-            LOGDEBUG << "BLOCK volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::BLOCK;
             volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
+
+            LOGDEBUG << "BLOCK volume found [ " << volDescriptor.name << " ]";
             break;
         case fpi::FDSP_VOL_ISCSI_TYPE:
-            LOGDEBUG << "iSCSI volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::ISCSI;
             volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.iscsiTarget = volDesc->iscsiSettings;
 
-            LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
-                     << " Initiator count [ " << iscsi.initiators.size() << " ]"
-                     << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
-                     << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+            LOGDEBUG << "iSCSI volume found [ " << volDescriptor.name << " ]"
+                     << " LUN count [ " << volDescriptor.policy.iscsiTarget.luns.size() << " ]"
+                     << " Initiator count [ " << volDescriptor.policy.iscsiTarget.initiators.size() << " ]"
+                     << " Incoming Users count [ " << volDescriptor.policy.iscsiTarget.incomingUsers.size() << " ]"
+                     << " Outgoing Users count [ " << volDescriptor.policy.iscsiTarget.outgoingUsers.size() << " ]";
             break;
         case fpi::FDSP_VOL_S3_TYPE:
-            LOGDEBUG << "OBJECT volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::OBJECT;
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+
+            LOGDEBUG << "OBJECT volume found [ " << volDescriptor.name << " ]";
             break;
         case fpi::FDSP_VOL_NFS_TYPE:
-            LOGDEBUG << "NFS volume found [ " << volDescriptor.name << " ]";
             volDescriptor.policy.volumeType = apis::NFS;
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
             volDescriptor.policy.nfsOptions = volDesc->nfsSettings;
-            
-            LOGDEBUG << "NFS:: [ " << volDescriptor.policy.nfsOptions.client << " ] "
-                     << "[ " << volDescriptor.policy.nfsOptions.options << " ]";
+
+            LOGDEBUG << "NFS volume found [ " << volDescriptor.name << " ]"
+                     << " [ " << volDescriptor.policy.nfsOptions.client << " ]"
+                     << " [ " << volDescriptor.policy.nfsOptions.options << " ]";
             break;
         default:
             LOGWARN << "Unsupported volume type " << volDesc->volType;
