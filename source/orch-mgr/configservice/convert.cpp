@@ -99,6 +99,8 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
             LOGDEBUG << "Found NFS volume Type";
             request->vol_info.volType = fpi::FDSP_VOL_NFS_TYPE;
             request->vol_info.nfs = volSettings.nfsOptions;
+            LOGDEBUG << "NFS:: [ " << request->vol_info.nfs.client << " ] "
+                     << "[ " << request->vol_info.nfs.options << " ]";
             break;
         case apis::BLOCK:
             LOGDEBUG << "Found BLOCK volume Type";
@@ -109,6 +111,29 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
             LOGDEBUG << "Found iSCSI volume Type";
             request->vol_info.volType = fpi::FDSP_VOL_ISCSI_TYPE;
             request->vol_info.iscsi = volSettings.iscsiTarget;
+            LOGDEBUG << "LUN count [ " << request->vol_info.iscsi.luns.size() << " ]";
+            for ( auto lun : request->vol_info.iscsi.luns )
+            {
+                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
+            }
+
+            LOGDEBUG << "Initiator count [ " << request->vol_info.iscsi.initiators.size() << " ]";
+            for ( auto initiator : request->vol_info.iscsi.initiators )
+            {
+                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
+            }
+
+            LOGDEBUG << "Incoming Users count [ " << request->vol_info.iscsi.incomingUsers.size() << " ]";
+            for ( auto credentials : request->vol_info.iscsi.incomingUsers )
+            {
+                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
+            }
+
+            LOGDEBUG << "Outgoing Users count [ " << request->vol_info.iscsi.outgoingUsers.size() << " ]";
+            for ( auto credentials : request->vol_info.iscsi.outgoingUsers )
+            {
+                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
+            }
             break;
         default:
             std::stringstream errMsg;
@@ -197,29 +222,10 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
             volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.iscsiTarget = volDesc->iscsiSettings;
 
-            LOGDEBUG << "LUN count [ " << volDescriptor.policy.iscsiTarget.luns.size() << " ]";
-            for ( auto lun : volDescriptor.policy.iscsiTarget.luns )
-            {
-                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
-            }
-
-            LOGDEBUG << "Initiator count [ " << volDescriptor.policy.iscsiTarget.initiators.size() << " ]";
-            for ( auto initiator : volDescriptor.policy.iscsiTarget.initiators )
-            {
-                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
-            }
-
-            LOGDEBUG << "Incoming Users count [ " << volDescriptor.policy.iscsiTarget.incomingUsers.size() << " ]";
-            for ( auto credentials : volDescriptor.policy.iscsiTarget.incomingUsers )
-            {
-                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
-            }
-
-            LOGDEBUG << "Outgoing Users count [ " << volDescriptor.policy.iscsiTarget.outgoingUsers.size() << " ]";
-            for ( auto credentials : volDescriptor.policy.iscsiTarget.outgoingUsers )
-            {
-                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
-            }
+            LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                     << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                     << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                     << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
             break;
         case fpi::FDSP_VOL_S3_TYPE:
             LOGDEBUG << "OBJECT volume found [ " << volDescriptor.name << " ]";
@@ -231,6 +237,9 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
             volDescriptor.policy.volumeType = apis::NFS;
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
             volDescriptor.policy.nfsOptions = volDesc->nfsSettings;
+            
+            LOGDEBUG << "NFS:: [ " << volDescriptor.policy.nfsOptions.client << " ] "
+                     << "[ " << volDescriptor.policy.nfsOptions.options << " ]";
             break;
         default:
             LOGWARN << "Unsupported volume type " << volDesc->volType;
