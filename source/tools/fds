@@ -265,7 +265,9 @@ function startApp() {
 
                 if [[ $name == "om" ]]; then
                     loginfo "waiting for om rest interface to initialize ..."
-                    waitForPort 7443
+                    if !(waitForPort 7443); then
+                        logerror "port 7443 is not showing up .. rest interface not ready"
+                    fi
                 fi
             else
                 logwarn "$(boldblue ${name}) ... already running"
