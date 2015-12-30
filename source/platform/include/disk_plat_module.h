@@ -17,13 +17,13 @@ namespace fds
      * Main module controlling disk/storage HW inventory.
      */
 
-    const ssize_t fd_count = 2; // udev and inotify
-    const ssize_t fd_udev_idx = 0;
-    const ssize_t fd_inotify_idx = 1;
-
     class DiskPlatModule : public Module
     {
         protected:
+            static const ssize_t FD_COUNT = 2; // udev and inotify
+            static const ssize_t FD_UDEV_IDX = 0;
+            static const ssize_t FD_INOTIFY_IDX = 1;
+
             PmDiskInventory::pointer    dsk_devices;
             PmDiskInventory::pointer    dsk_inuse;
             struct udev                *dsk_ctrl;
@@ -32,7 +32,7 @@ namespace fds
             FileDiskInventory          *dsk_sim;
             DiskLabelMgr               *label_manager;
             DiskCapabilitiesMgr        *capabilities_manager;
-            struct pollfd               pollfds[fd_count];
+            struct pollfd               pollfds[FD_COUNT];
 
             void dsk_discover_mount_pts();
             void scan_and_discover_disks();

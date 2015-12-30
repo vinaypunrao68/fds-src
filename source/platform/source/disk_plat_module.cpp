@@ -68,18 +68,18 @@ void DiskPlatModule::mod_startup()
     // enumeration or there is a chance of lost events.
     udev_monitor_enable_receiving(dsk_mon);
     // Setup the struct that poll will monitor
-    pollfds[fd_udev_idx].fd = udev_monitor_get_fd(dsk_mon);
-    pollfds[fd_udev_idx].events = POLLIN;
-    pollfds[fd_udev_idx].revents = 0;
+    pollfds[FD_UDEV_IDX].fd = udev_monitor_get_fd(dsk_mon);
+    pollfds[FD_UDEV_IDX].events = POLLIN;
+    pollfds[FD_UDEV_IDX].revents = 0;
 
     int fd = inotify_init();
     if (fd < 0)
     {
         LOGWARN << "Error initializing inotify " << errno;
     }
-    pollfds[fd_inotify_idx].fd = fd;
-    pollfds[fd_inotify_idx].events = POLLIN;
-    pollfds[fd_inotify_idx].revents = 0;
+    pollfds[FD_INOTIFY_IDX].fd = fd;
+    pollfds[FD_INOTIFY_IDX].events = POLLIN;
+    pollfds[FD_INOTIFY_IDX].revents = 0;
     int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE);
     if (wd < 0)
     {
@@ -95,7 +95,7 @@ void DiskPlatModule::scan_and_discover_disks()
     dsk_discover_mount_pts();
 
     if ((dsk_devices->disk_read_label(label_manager, false) == true) ||
-            (dsk_devices->dsk_need_simulation() == false))
+        (dsk_devices->dsk_need_simulation() == false))
     {
         /* Contains valid disk label or real HW inventory */
         dsk_inuse = dsk_devices;
@@ -301,9 +301,10 @@ void DiskPlatModule::dsk_monitor_hotplug()
     int len;
     bool do_rescan = false;
     // Make the call to poll to determine if there is something to read or not
-    while (poll(pollfds, fd_count, -1) > 0)
+    while (poll(pollfds, FD_COUNT, -1) > 0)
     {
-        if (pollfds[fd_udev_idx].revents > 0) {
+        if (pollfds[FD_UDEV_IDX].revents > 0)
+        {
             struct udev_device   *dev = udev_monitor_receive_device(dsk_mon);
 
             if (dev)
@@ -317,10 +318,10 @@ void DiskPlatModule::dsk_monitor_hotplug()
                 LOGWARN << "No device from umod_monitor_receive_device. An error occurred.\n";
             }
         }
-        else if (pollfds[fd_inotify_idx].revents > 0)
+        else if (pollfds[FD_INOTIFY_IDX].revents > 0)
         {
             LOGDEBUG << "Received an inotify event";
-            len = read(pollfds[fd_inotify_idx].fd, buffer, BUF_LEN);
+            len = read(pollfds[FD_INOTIFY_IDX].fd, buffer, BUF_LEN);
             if (len < 0)
             {
                 LOGWARN << "Failed to read inotify event, error= '" << errno << "'";
