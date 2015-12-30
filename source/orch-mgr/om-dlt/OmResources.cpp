@@ -3022,6 +3022,9 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
+    ClusterMap *cmMod =  om->om_clusmap_mod();
+    // For volume grouping mode, we support only 1 version of DMT atm.
+    static bool volumeGroupDMTFired = false;
 
     if (dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
@@ -3034,6 +3037,16 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
+    } else {
+        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                        get<uint32_t>("fds.dm.dm_cluster_size", 1));
+        if (!volumeGroupDMTFired &&
+                cmMod->getNumMembers(fpi::FDSP_DATA_MGR) == dmClusterSize) {
+            LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
+                    << " DMs. Calculating DMT now.";
+            dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
+            volumeGroupDMTFired = true;
+        }
     }
 }
 void
