@@ -30,7 +30,7 @@ void SetVolumeMetadataHandler::handleRequest(
     LOGTRACE << "Received a set volume metadata request for volume "
              << volId;
 
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);

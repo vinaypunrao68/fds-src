@@ -34,7 +34,7 @@ void UpdateCatalogOnceHandler::handleRequest(
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
