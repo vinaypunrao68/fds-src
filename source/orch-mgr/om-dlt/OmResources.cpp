@@ -2016,33 +2016,68 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
       fpi::SvcUuid pmSvcUuid;
       pmSvcUuid.svc_uuid = node_uuid.uuid_get_val();
 
-      /*
-       * if a PM registers, whe should always send a start for each service 
-       * within the configdb, no matter what the state is. Since we can't 
-       * guarantee that the persisted state is correct.
-       *
-       * error on the side of being safe, send starts.
-       */
-
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Access Manager";
-          startAM = true;
+          if (domainRestart)
+          {
+              startAM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Access Manager";
+                  startAM = true;
+
+              }
+          }
+
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Data Manager";
-          startDM = true;
+          if (domainRestart)
+          {
+              startDM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Data Manager";
+                  startDM = true;
+
+              }
+          }
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Storage Manager";
-          startSM = true;
+          if (domainRestart)
+          {
+              startSM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Storage Manager";
+                  startSM = true;
+
+              }
+          }
       }
 
       if ( startAM || startDM || startSM )
@@ -2067,6 +2102,12 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
           else
           {
               bool startNode     = true;
+
+              LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                       << " start request with startSM:" << startSM
+                       << " startDM:" << startDM
+                       << " startAM:" << startAM;
+
               local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
       }
@@ -2813,6 +2854,10 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     if (om_local_domain_up()) {
         if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            LOGNOTIFY << "Node uuid:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " has finished registering, update DLT now";
+
             om_dlt_update_cluster();
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Check if this is a re-registration of an existing DM executor
@@ -2820,6 +2865,9 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
 
             // Send the DMT to DMs.
+            LOGNOTIFY << "Node uuid:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " has finished registering, update DMT now";
             om_dmt_update_cluster(fPrevRegistered);
             if (fPrevRegistered) {
                 om_locDomain->om_bcast_vol_list(newNode);
@@ -2887,6 +2935,9 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             }
         }
         if (om_local_domain_up()) {
+            LOGNOTIFY << "Node uuid:" << std::hex << node_uuid.uuid_get_val()
+                     << std::dec << " ,SM service is being removed";
+
             om_dlt_update_cluster();
         }
     }
@@ -2910,6 +2961,8 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
         }
 
         if (om_local_domain_up()) {
+            LOGNOTIFY << "Node uuid:" << std::hex << node_uuid.uuid_get_val()
+                     << std::dec << " ,DM service is being removed";
             om_dmt_update_cluster();
         }
     }
@@ -3007,6 +3060,7 @@ OM_NodeDomainMod::om_shutdown_domain()
 
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
+    LOGNOTIFY << "Attempt to update DMT";
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
@@ -3014,7 +3068,9 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
     	LOGDEBUG << "Domain module dmResync case";
     }
+
     if (!dmtMod->volumeGrpMode()) {
+        LOGNOTIFY << "Will raise DmtDeploy event";
         // Legacy mode - every node down and up event drives the state machine
         dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
         // in case there are no volume acknowledge to wait
@@ -3037,6 +3093,7 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
  */
 void
 OM_NodeDomainMod::om_dlt_update_cluster() {
+    LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
 
@@ -3114,6 +3171,9 @@ OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
             if (svcType == fpi::FDSP_STOR_MGR)
             {
                 // this is SM -- notify DLT state machine
+                LOGNOTIFY << "SM:" << std::hex
+                          << svcUuid.uuid_get_val() << std::dec << " up.";
+
                 om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)

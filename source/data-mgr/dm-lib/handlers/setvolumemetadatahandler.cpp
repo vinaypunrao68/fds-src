@@ -48,6 +48,8 @@ void SetVolumeMetadataHandler::handleRequest(
 void SetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetVolumeMetaData* typedRequest = static_cast<DmIoSetVolumeMetaData*>(dmRequest);
+    
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     helper.err = dataManager.timeVolCat_->setVolumeMetadata(typedRequest->getVolId(),
                                                             typedRequest->msg->metadataList, typedRequest->msg->sequence_id);

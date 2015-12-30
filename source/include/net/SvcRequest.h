@@ -352,6 +352,7 @@ struct EPSvcRequest : SvcRequestIf {
     ~EPSvcRequest();
 
     virtual void invoke() override;
+    void invokeDirect();
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 

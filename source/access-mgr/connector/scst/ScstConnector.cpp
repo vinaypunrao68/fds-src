@@ -54,10 +54,7 @@ void ScstConnector::stop() {
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
-    // TODO(bszmyd): Tue 08 Dec 2015 02:40:23 PM MST
-    // Block volumes have the first low order bit set today, this
-    // should be more explicit
-    if ((1 == volDesc.volType || 3 == volDesc.volType)
+    if ((fpi::FDSP_VOL_BLKDEV_TYPE == volDesc.volType || fpi::FDSP_VOL_ISCSI_TYPE == volDesc.volType)
         && !volDesc.isSnapshot()
         && instance_) {
         instance_->addTarget(volDesc);
@@ -144,10 +141,7 @@ ScstConnector::discoverTargets() {
     amProc->getVolumes(volumes);
 
     for (auto const& vol : volumes) {
-        // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
-        // This is a magic value from thrift that i don't want to include
-        // headers from
-        if ((1 != vol.volType && 3 != vol.volType)
+        if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
             || vol.isSnapshot()) continue;
         GLOGNORMAL << "Adding target for volume: " << vol;
         addTarget(vol);

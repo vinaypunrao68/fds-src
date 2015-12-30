@@ -79,18 +79,6 @@ public class ListVolumes implements RequestHandler {
         String domain = "";
         List<VolumeDescriptor> rawVolumes = getConfigApi().listVolumes( domain );
 
-        for( VolumeDescriptor descriptor : rawVolumes )
-        {
-            logger.trace( "volume [ {} ] type [ {} ] state [ {} ]",
-                          descriptor.getName(),
-                          descriptor.getPolicy().getVolumeType(),
-                          descriptor.getState() );
-            if( descriptor.getPolicy().getVolumeType().equals( VolumeType.ISCSI ) )
-            {
-                logger.trace( "iSCSI::{}", descriptor.getPolicy().getIscsiTarget() );
-            }
-        }
-
         // filter the results to things you can see and get rid of system volumes
         rawVolumes = rawVolumes.stream()
                                .filter( descriptor -> {
