@@ -3,7 +3,6 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.VolumeSettings;
-import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsISCSI;
 import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
@@ -53,7 +52,7 @@ public class GetVolumeTypes
                 new VolumeSettingsISCSI( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ),
                                          new Target( new ArrayList<>( ),
                                                      new ArrayList<>( ) ) ) );
-            volumeTypes.add( new VolumeSettingsNfs( new Size( BigDecimal.valueOf( 10 ), SizeUnit.GB ),
+            volumeTypes.add( new VolumeSettingsNfs( new Size( BigDecimal.valueOf( 1 ), SizeUnit.MB ),
                                                     "", "" ) );
         }
 
