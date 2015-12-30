@@ -182,6 +182,8 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     desc = NULL;
     if (vol != NULL) {
         desc = vol->vol_get_properties();
+
+        LOGDEBUG << *desc;
     }
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     switch (cmd_type) {
@@ -237,9 +239,12 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     default:
         fds_panic("Unknown vol cmd type");
     }
-    if (!vol) {
+
+    if (!vol)
+    {
         vol = VolumeInfo::pointer(new VolumeInfo(0));  // create dummy to avoid issues
     }
+
     EPSvcRequestRespCb cb = std::bind( &OM_NodeAgent::om_send_vol_cmd_resp,
                                        this,
                                        vol,
@@ -249,11 +254,13 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                                        std::placeholders::_3 );
     req->onResponseCb(cb);
     req->invoke();
-    if (desc != NULL) {
-        LOGDEBUG << log << desc->volUUID << " " << desc->name
-                 << " to node " << get_node_name() << std::hex
-                 << ", uuid " << get_uuid().uuid_get_val() << std::dec;
-    } else {
+    if (desc != NULL)
+    {
+        LOGDEBUG << log << " [ " << desc->volUUID << " ] [ " << desc->name << " ] to [ " << get_node_name() << " ] "
+                 << std::hex << " uuid [ " << get_uuid().uuid_get_val() << std::dec << " ]";
+    }
+    else
+    {
 
         /*
          * TODO Tinius 02/11/2015
