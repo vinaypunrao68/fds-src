@@ -16,6 +16,11 @@ using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
+template <class F>
+auto wrapper(F &&f) -> decltype(f) {
+    return f;
+}
+
 struct BufferReplayTest : BaseTestFixture {
     void SetUp() override;
     void progressCb(BufferReplay::Progress status);
@@ -83,6 +88,30 @@ TEST_F(BufferReplayTest, test1) {
     ASSERT_TRUE(opsReplayed == static_cast<int32_t>(numops));
 }
 
+TEST_F(BufferReplayTest, reject_after_catchup) {
+    uint32_t numOps = 1024;
+    for (uint32_t i = 0; i < numOps; i++) {
+        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
+        ASSERT_TRUE(e == ERR_OK);
+    }
+
+    br->startReplay();
+
+    Error e = ERR_OK;
+    for (uint32_t i = 0; i < numOps * 4; i++) {
+        std::this_thread::sleep_for(std::chrono::microseconds(2));
+        e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
+        if (e != ERR_OK) {
+            break;
+        }
+    }
+    ASSERT_TRUE(e == ERR_UNAVAILABLE);
+    ASSERT_TRUE(reportedProgress == BufferReplay::REPLAY_CAUGHTUP ||
+                reportedProgress == BufferReplay::COMPLETE);
+    donewaiter.await();
+}
+
+
 TEST_F(BufferReplayTest, prereplay_abort) {
     Error e = br->buffer(std::make_pair(0, stringCache->itemAt(0)));
     ASSERT_TRUE(e == ERR_OK);
@@ -110,28 +139,6 @@ TEST_F(BufferReplayTest, postreplay_abort) {
 
     donewaiter.await();
     ASSERT_TRUE(reportedProgress == BufferReplay::ABORTED);
-}
-
-TEST_F(BufferReplayTest, reject_after_catchup) {
-    uint32_t numOps = 1024;
-    for (uint32_t i = 0; i < numOps; i++) {
-        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
-        ASSERT_TRUE(e == ERR_OK);
-    }
-
-    br->startReplay();
-
-    Error e = ERR_OK;
-    for (uint32_t i = 0; i < numOps * 4; i++) {
-        std::this_thread::sleep_for(std::chrono::microseconds(2));
-        e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
-        if (e != ERR_OK) {
-            break;
-        }
-    }
-    ASSERT_TRUE(e == ERR_UNAVAILABLE);
-    ASSERT_TRUE(reportedProgress == BufferReplay::REPLAY_CAUGHTUP ||
-                reportedProgress == BufferReplay::COMPLETE);
 }
 
 

@@ -22,6 +22,8 @@
 
 namespace fds {
 
+struct EPSvcRequest;
+
 class VolumeMeta : public HasLogger {
  public:
     /**
@@ -123,12 +125,19 @@ class VolumeMeta : public HasLogger {
     inline int32_t getVersion() const { return version; }
     inline void setVersion(int32_t version) { this->version = version; }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
+    std::string logString() const;
 
     static inline bool isReplayOp(const std::string &payloadHdr) {
         return payloadHdr == "replay"; 
     }
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
+
+    std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
+    makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
+
+    StatusCb makeSynchronized(const StatusCb &f);
+
     /*
      * per volume queue
      */

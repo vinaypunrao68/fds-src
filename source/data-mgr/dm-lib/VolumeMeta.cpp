@@ -7,6 +7,7 @@
 #include <VolumeMeta.h>
 #include <fds_process.h>
 #include <util/timeutils.h>
+#include <net/SvcRequest.h>
 
 namespace fds {
 
@@ -94,6 +95,31 @@ sequence_id_t VolumeMeta::getSequenceId(){
     fds_mutex::scoped_lock l(sequence_lock);
 
     return sequence_id;
+}
+
+std::string VolumeMeta::logString() const
+{
+    std::stringstream ss;
+    ss << " ["
+        << "volid: " << vol_desc->volUUID
+        << " opid: " << getOpId()
+        << " sequenceid: " << sequence_id
+        << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()))
+        << "] ";
+    return ss.str();
+}
+
+EPSvcRequestRespCb
+VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
+{
+    // TODO(Rao): create qos function cb
+    return f;
+}
+
+StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
+{
+    // TODO(Rao): create qos function cb
+    return f;
 }
 
 }  // namespace fds

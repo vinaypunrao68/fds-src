@@ -10,6 +10,8 @@
 
 namespace fds {
 
+constexpr const char* const BufferReplay::progressStr[];
+
 BufferReplay::BufferReplay(const std::string &bufferFileName,
                            int32_t maxReplayCnt,
                            fds_threadpool *threadpool)
@@ -60,11 +62,13 @@ Error BufferReplay::init()
 
 void BufferReplay::abort()
 {
+    bool doCb = false;
     {
         fds_mutex::scoped_lock l(lock_);
         progress_ = ABORTED;
+        doCb = (nOutstandingReplayOps_ == 0);
     }
-    progressCb_(ABORTED);
+    if (doCb) progressCb_(ABORTED);
 }
 
 Error BufferReplay::buffer(const BufferReplay::Op &op)
@@ -93,6 +97,7 @@ void BufferReplay::startReplay()
         if (progress_ == ABORTED) return;
         progress_ = BUFFERING_REPLAYING;
     }
+    replayWorkPosted_  = true;      // lock protection isn't required
     threadpool_->schedule(&BufferReplay::replayWork_, this);
 }
 
@@ -104,26 +109,43 @@ BufferReplay::Progress BufferReplay::getProgress()
 
 void BufferReplay::notifyOpsReplayed(int32_t cnt)
 {
-    {
+    do {
         fds_mutex::scoped_lock l(lock_);
-        if (progress_ == ABORTED) return;
-        fds_assert(progress_ == BUFFERING_REPLAYING || progress_  == REPLAY_CAUGHTUP);
         nOutstandingReplayOps_ -= cnt;
         fds_assert(nOutstandingReplayOps_ >= 0);
+        
+        if (progress_ == ABORTED) break;
+
+        fds_assert(progress_ == BUFFERING_REPLAYING || progress_  == REPLAY_CAUGHTUP);
         if (nOutstandingReplayOps_ == 0 &&
             progress_ == REPLAY_CAUGHTUP) {
+            /* Replayed all the ops */
             progress_ = COMPLETE;
         }
-    }
+    } while (false);
 
+    /* Do any necessary callbacks outside the lock
+     * When we ABORTED/COMPLETED notify the client so that appropriate cleanups
+     * can take place 
+     */
     if (nOutstandingReplayOps_ == 0) {  // lock protection not required
-        if (progress_ == COMPLETE) {
+        if (progress_ == ABORTED) {
+           progressCb_(ABORTED); 
+           return;
+        } else if (progress_ == COMPLETE) {
            progressCb_(COMPLETE); 
            return;
         }
-        /* schedule next batch for replay */
+        /* Still have more to replay.  schedule next batch for replay */
+        replayWorkPosted_ = true;           // lock protection not required
         threadpool_->schedule(&BufferReplay::replayWork_, this);
     }
+}
+
+int32_t BufferReplay::getOutstandingReplayOpsCnt()
+{
+    fds_mutex::scoped_lock l(lock_);
+    return nOutstandingReplayOps_;
 }
 
 void BufferReplay::replayWork_()
@@ -132,9 +154,16 @@ void BufferReplay::replayWork_()
     int64_t replayIdx;
     std::list<Op> replayList;
     {
-        /* Read few entries */
         fds_mutex::scoped_lock l(lock_);
-        if (progress_ == ABORTED) return;
+
+        replayWorkPosted_ = false;
+        /* It's possible we received an abort while replayWork_ is schedule on threadpool */
+        if (progress_ == ABORTED)  {
+            progressCb_(ABORTED);
+            return;
+        }
+
+        /* Read few entries */
         while (nReplayOpsIssued_ + static_cast<int32_t>(replayList.size()) < nBufferedOps_ &&
                static_cast<int32_t>(replayList.size()) < maxReplayCnt_) {
             OpType opType;
@@ -147,10 +176,12 @@ void BufferReplay::replayWork_()
                 fds_assert(!"Failed to deserialize");
                 err = ERR_DISK_READ_FAILED;
                 progress_ = ABORTED;
+                replayList.clear();
                 break;
             }
             replayList.emplace_back(std::make_pair(opType, std::move(s)));
         }
+        /* Op accounting */
         fds_assert(nOutstandingReplayOps_  == 0);
         replayIdx = nReplayOpsIssued_;
         nOutstandingReplayOps_ = replayList.size();
@@ -158,6 +189,7 @@ void BufferReplay::replayWork_()
     }
 
     if (!err.ok()) {
+        fds_assert(nOutstandingReplayOps_ == 0);
         progressCb_(ABORTED);
         return;
     }
@@ -179,6 +211,16 @@ void BufferReplay::replayWork_()
     if (progress_ == REPLAY_CAUGHTUP) {
         progressCb_(REPLAY_CAUGHTUP);
     }
+}
+
+std::string BufferReplay::logString() const
+{
+    std::stringstream ss;
+    ss << " BufferReplay progress:  " << progressStr[static_cast<int>(progress_)]
+        << " nBuffered: " << nBufferedOps_
+        << " nReplayOpsIssued: " << nReplayOpsIssued_
+        << " nOutstandingReplayOps: " << nOutstandingReplayOps_;
+    return ss.str();
 }
 
 }  // namespace fds
