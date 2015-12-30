@@ -311,6 +311,18 @@ void EPSvcRequest::invoke() {
 }
 
 /**
+* @brief Invoke without any synchronization.  Use it when calling from already
+* synchronized context
+*/
+void EPSvcRequest::invokeDirect()
+{
+    if (!respCb_) {
+        fireAndForget_ = true;
+    }
+    invokeWork_();
+}
+
+/**
 * @brief Worker function for doing the invocation work
 * NOTE this function is executed on SvcMgr::taskExecutor_ for synchronization
 */

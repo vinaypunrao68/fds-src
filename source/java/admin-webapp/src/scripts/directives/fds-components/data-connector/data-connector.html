@@ -5,10 +5,10 @@
     </div>
 
     <div class="volume-gray-container block-settings" ng-show="volumeType.capacity">
-        <div style="color: black;" translate>volumes.l_size_limit</div>
+        <div style="color: black;" translate>volumes.l_virtual_capacity</div>
         <div class="flex">
-            <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false"></spinner>
-            <fui-dropdown skinny="true" background-color="white" border="#CCCCCC" color="black" items="sizes" selected="_selectedUnit"></fui-dropdown>
+            <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false" enable="enable"></spinner>
+            <fui-dropdown skinny="true" background-color="white" border="#CCCCCC" color="black" items="sizes" selected="_selectedUnit" enabled="enable"></fui-dropdown>
         </div>
     </div>
     
@@ -26,6 +26,8 @@
             <fds-checkbox ng-model="_root_squash" label="{{ 'volumes.nfs.l_root_squash' | translate }}"></fds-checkbox>
         </div>
         <div style="color: black;" translate>volumes.nfs.l_ip_filters</div>
-        <fds-text-list ng-model="_ip_filters" placeholder="{{ 'volumes.nfs.l_ip_filter' | translate }}" add-label="{{ 'volumes.nfs.l_add_filter' | translate }}"></fds-text-list>
+        <div class="fds-clients-text">
+            <fui-input style="display: inline-block" ng-model="_clients" type="text" placeholder="{{ 'volumes.nfs.l_ip_filter' | translate }}"></fui-input>
+        </div>
     </div>
 </div>

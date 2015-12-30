@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,7 +120,7 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         String operationName = "AM.volumeContents";
         String description = "volume=" + volume + ", prefix=" + blobNamePrefix;
 

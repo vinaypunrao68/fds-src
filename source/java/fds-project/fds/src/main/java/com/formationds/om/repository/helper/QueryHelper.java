@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
@@ -35,7 +36,7 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.SizeUnit;
+
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -166,8 +167,9 @@ public class QueryHelper {
                 if ( authorizer.userFor( token ).isIsFdsAdmin() ){
                 	
 	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
+                	Long capacityInMb = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
+                	
+	                final Double systemCapacity = SizeUnit.MB.toBytes( capacityInMb ).doubleValue();
 //		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
 	                
 	                TotalCapacity totalCap = new TotalCapacity();
@@ -375,7 +377,7 @@ public class QueryHelper {
  * 
  * THIS IS ALSO IN ListVolumes.java
  */                        
-                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
                             String volumeId = "";

@@ -241,8 +241,8 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 
         // Add blob objects from tx to object cache
         for (const auto &object : txDesc->stagedBlobObjects) {
-            LOGTRACE << "Cache insert object data for " << object.first;
-            LOGTRACE << "Cache insert object data length " << object.second->size();
+            LOGTRACE << "Cache insert object data for " << object.first
+                     << " of length " << object.second->size();
             object_cache.add(txDesc->volId, object.first, object.second);
         }
     }

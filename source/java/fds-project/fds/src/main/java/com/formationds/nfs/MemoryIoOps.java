@@ -86,7 +86,7 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         List<BlobMetadata> result = metadataCache.keySet()
                 .stream()
                 .filter(k -> k.blobName.startsWith(blobNamePrefix))

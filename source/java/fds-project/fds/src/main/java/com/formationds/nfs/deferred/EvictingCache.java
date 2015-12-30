@@ -6,18 +6,13 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class EvictingCache<TKey, TValue> {
     private final Cache<TKey, CacheEntry<TValue>> cache;
     private Cache<TKey, Object> locks;
+    private TraversableView traversableView;
     private Evictor<TKey, CacheEntry<TValue>> evictor;
     private String name;
     private final BlockingDeque<Exception> exceptions;
@@ -26,6 +21,7 @@ public class EvictingCache<TKey, TValue> {
         this.evictor = evictor;
         this.name = name;
         exceptions = new LinkedBlockingDeque<>();
+        traversableView = new TraversableView();
 
         cache = CacheBuilder.newBuilder()
                 .maximumSize(maxSize)
@@ -44,6 +40,7 @@ public class EvictingCache<TKey, TValue> {
                             }
                         }
                     }
+                    traversableView.evict((TKey) notification.getKey());
                 }).build();
 
         locks = CacheBuilder.newBuilder()
@@ -68,7 +65,7 @@ public class EvictingCache<TKey, TValue> {
         thread.start();
     }
 
-    public <T> T lock(TKey key, IoFunction<Map<TKey, CacheEntry<TValue>>, T> f) throws IOException {
+    public <T> T lock(TKey key, IoFunction<SortedMap<TKey, CacheEntry<TValue>>, T> f) throws IOException {
         bubbleExceptions();
         Object lockObj = null;
         try {
@@ -77,7 +74,7 @@ public class EvictingCache<TKey, TValue> {
             throw new IOException(e);
         }
         synchronized (lockObj) {
-            return f.apply(this.cache.asMap());
+            return f.apply(this.traversableView);
         }
     }
 
@@ -107,4 +104,108 @@ public class EvictingCache<TKey, TValue> {
             });
         }
     }
+
+
+    class TraversableView implements SortedMap<TKey, CacheEntry<TValue>> {
+        private NavigableMap<TKey, CacheEntry<TValue>> inner = new ConcurrentSkipListMap<>();
+
+        @Override
+        public int size() {
+            return inner.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return inner.isEmpty();
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return inner.containsKey(key);
+        }
+
+        @Override
+        public boolean containsValue(Object value) {
+            return inner.containsValue(value);
+        }
+
+        @Override
+        public CacheEntry<TValue> get(Object key) {
+            return inner.get(key);
+        }
+
+        @Override
+        public CacheEntry<TValue> put(TKey key, CacheEntry<TValue> value) {
+            cache.put(key, value);
+            return inner.put(key, value);
+        }
+
+        @Override
+        public CacheEntry<TValue> remove(Object key) {
+            cache.asMap().remove(key);
+            return inner.remove(key);
+        }
+
+        CacheEntry<TValue> evict(Object key) {
+            return inner.remove(key);
+        }
+
+        @Override
+        public void putAll(Map<? extends TKey, ? extends CacheEntry<TValue>> m) {
+            cache.putAll(m);
+            inner.putAll(m);
+        }
+
+        @Override
+        public void clear() {
+            cache.asMap().clear();
+            inner.clear();
+        }
+
+        @Override
+        public Comparator<? super TKey> comparator() {
+            return inner.comparator();
+        }
+
+        @Override
+        public SortedMap<TKey, CacheEntry<TValue>> subMap(TKey fromKey, TKey toKey) {
+            return inner.subMap(fromKey, toKey);
+        }
+
+        @Override
+        public SortedMap<TKey, CacheEntry<TValue>> headMap(TKey toKey) {
+            return inner.headMap(toKey);
+        }
+
+        @Override
+        public SortedMap<TKey, CacheEntry<TValue>> tailMap(TKey fromKey) {
+            return inner.tailMap(fromKey);
+        }
+
+        @Override
+        public TKey firstKey() {
+            return inner.firstKey();
+        }
+
+        @Override
+        public TKey lastKey() {
+            return inner.lastKey();
+        }
+
+        @Override
+        public Set<TKey> keySet() {
+            return inner.keySet();
+        }
+
+        @Override
+        public Collection<CacheEntry<TValue>> values() {
+            return inner.values();
+        }
+
+        @Override
+        public Set<Entry<TKey, CacheEntry<TValue>>> entrySet() {
+            return inner.entrySet();
+        }
+    }
 }
+

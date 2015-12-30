@@ -50,6 +50,61 @@
         return; \
     }
 
+#define VOLUME_IO_VERSION_CHECK(io, helper)
+
+/* Ensure IO is ordered */
+#define ENSURE_IO_ORDER(io, helper) \
+do { \
+    if (!dataManager.features.isVolumegroupingEnabled()) { \
+        break; \
+    } \
+    auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
+    if (io->opId != volMeta->getOpId()+1) { \
+        fds_assert(!"opid mismatch"); \
+        LOGWARN << "OpId mismatch.  Current opId: " \
+            << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        helper.err = ERR_IO_OPID_MISMATCH; \
+        return; \
+    } \
+} while (false)
+
+#if 0
+// TODO(Rao): Remove when not needed
+#define QUICKSYNC_BUFFERIO_CHECK(io, helper, syncCtx) \
+    do { \
+    if (syncCtx->bufferIo) { \
+        if (syncCtx->bufferedIo.size() == 0) { \
+            syncCtx->startingBufferOpId = io->opId; \
+        } \
+        /* Ensure buffered io also comes in order */ \
+        if (io->opId != \
+            syncCtx->startingBufferOpId + static_cast<int64_t>(syncCtx->bufferedIo.size())) { \
+            fds_assert(!"opid mismatch"); \
+            helper.err = ERR_IO_OPID_MISMATCH; \
+            return; \
+        } \
+        syncCtx->bufferedIo.push_back(io); \
+        helper.err = ERR_OK; \
+        return; \
+    } \
+    } while (false)
+
+#define IO_ORDER_ACTIONS(io, helper) \
+    do { \
+    auto volMeta = getVolumeMeta(io->getVolId()); \
+    fds_verify(volMeta != nullptr); \
+    if (volMeta->isActive()) { \
+        VOLUME_IO_VERSION_CHECK(io, helper); \
+        ENSURE_IO_ORDER(io, helper); \
+    } else if (volMeta->isSyncing()) { \
+        VOLUME_IO_VERSION_CHECK(io, helper); \
+        QUICKSYNC_BUFFERIO_CHECK(io, helper, volMeta->syncCtx); \
+        ENSURE_IO_ORDER(io, helper); \
+    } \
+    } while (false);
+#endif
+
+
 namespace fds {
 
 struct DataMgr;

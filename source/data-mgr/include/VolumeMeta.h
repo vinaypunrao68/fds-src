@@ -21,6 +21,28 @@
 
 namespace fds {
 
+#if 0
+// TODO(Rao): Enable when ready
+/**
+* @brief Holds syncing related data
+*/
+struct SyncContext {
+    SyncContext()
+    : bufferIo(false),
+    startingBufferOpId(0)
+    {
+    }
+    fpi::SvcUuid                            syncPeer;
+    bool                                    bufferIo;
+    int64_t                                 startingBufferOpId; 
+    /* Active IO that's been buffered while active transaction are copied from the sync peer */
+    std::list<VolumeIoBasePtr>              bufferedIo;
+    /* Commits that are buffered during sync */
+    // VolumeCommitLog                         bufferCommitLog;
+};
+using SyncContextPtr = std::unique_ptr<SyncContext>;
+#endif
+
 class VolumeMeta : public HasLogger {
  public:
     /**
@@ -74,6 +96,14 @@ class VolumeMeta : public HasLogger {
      */
     void finishForwarding();
 
+    inline bool isActive() const {
+        return vol_desc->state == fpi::Active;
+    }
+
+    inline bool isSyncing() const {
+        return vol_desc->state == fpi::Syncing;
+    }
+
     VolumeDesc *vol_desc;
 
     /**
@@ -85,10 +115,8 @@ class VolumeMeta : public HasLogger {
  private:
     sequence_id_t sequence_id;
     fds_mutex sequence_lock;
+    int64_t opId;
  public:
-    void setSequenceId(sequence_id_t seq_id);
-    sequence_id_t getSequenceId();
-
     /*
      * Default constructor should NOT be called
      * directly. It is needed for STL data struct
@@ -103,6 +131,11 @@ class VolumeMeta : public HasLogger {
                fds_log* _dm_log,
                VolumeDesc *v_desc);
     ~VolumeMeta();
+    void setSequenceId(sequence_id_t seq_id);
+    sequence_id_t getSequenceId();
+    inline void setOpId(const int64_t &id) { opId = id; }
+    inline const int64_t& getOpId() const { return opId; }
+
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
     /*
