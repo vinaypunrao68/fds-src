@@ -80,7 +80,7 @@ void DiskPlatModule::mod_startup()
     pollfds[FD_INOTIFY_IDX].fd = fd;
     pollfds[FD_INOTIFY_IDX].events = POLLIN;
     pollfds[FD_INOTIFY_IDX].revents = 0;
-    int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE);
+    int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE | IN_OPEN);
     if (wd < 0)
     {
         LOGWARN << "Error adding a watch for inotify " << errno;
@@ -299,10 +299,10 @@ void DiskPlatModule::dsk_monitor_hotplug()
 {
     char buffer[BUF_LEN] = {0};
     int len;
-    bool do_rescan = false;
     // Make the call to poll to determine if there is something to read or not
     while (poll(pollfds, FD_COUNT, -1) > 0)
     {
+        bool do_rescan = false;
         if (pollfds[FD_UDEV_IDX].revents > 0)
         {
             struct udev_device   *dev = udev_monitor_receive_device(dsk_mon);

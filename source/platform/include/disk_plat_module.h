@@ -20,9 +20,9 @@ namespace fds
     class DiskPlatModule : public Module
     {
         protected:
-            static const ssize_t FD_COUNT = 2; // udev and inotify
-            static const ssize_t FD_UDEV_IDX = 0;
-            static const ssize_t FD_INOTIFY_IDX = 1;
+            static constexpr ssize_t FD_COUNT = 2; // udev and inotify
+            static constexpr ssize_t FD_UDEV_IDX = 0;
+            static constexpr ssize_t FD_INOTIFY_IDX = 1;
 
             PmDiskInventory::pointer    dsk_devices;
             PmDiskInventory::pointer    dsk_inuse;
