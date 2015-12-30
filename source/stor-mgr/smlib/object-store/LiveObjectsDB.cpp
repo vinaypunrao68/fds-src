@@ -215,6 +215,7 @@ bool LiveObjectsDB::haveAllObjectSets(const fds_token_id &smToken,const std::set
         if (volcount > 0) oss << ",";
     }
     oss<<") and smtoken in (select smtoken where smtoken=" << smToken <<" and timestamp>=" << ts << ")";
+    LOGDEBUG << oss.str();
     count = 0;
     if (!(db->getIntValue(oss.str(), count))) {
         LOGERROR << "Failed in query : " << oss.str();
@@ -270,6 +271,7 @@ bool LiveObjectsDB::hasNewObjectSets(const fds_token_id &smToken, fds_uint16_t d
     if (lastStartTime == 0) return true;
 
     std::string query = util::strformat("select count(*) from liveobjectstbl where smtoken=%ld and timestamp>=%ld", smToken, lastStartTime);
+    LOGDEBUG << query;
     fds_uint64_t count = 0;
     if (!(db->getIntValue(query, count))) {
         LOGERROR << "failed: " << query;
