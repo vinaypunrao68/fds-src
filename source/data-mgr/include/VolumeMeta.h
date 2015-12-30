@@ -18,30 +18,9 @@
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
+#include <VolumeInitializer.h>
 
 namespace fds {
-
-#if 0
-// TODO(Rao): Enable when ready
-/**
-* @brief Holds syncing related data
-*/
-struct SyncContext {
-    SyncContext()
-    : bufferIo(false),
-    startingBufferOpId(0)
-    {
-    }
-    fpi::SvcUuid                            syncPeer;
-    bool                                    bufferIo;
-    int64_t                                 startingBufferOpId; 
-    /* Active IO that's been buffered while active transaction are copied from the sync peer */
-    std::list<VolumeIoBasePtr>              bufferedIo;
-    /* Commits that are buffered during sync */
-    // VolumeCommitLog                         bufferCommitLog;
-};
-using SyncContextPtr = std::unique_ptr<SyncContext>;
-#endif
 
 class VolumeMeta : public HasLogger {
  public:
@@ -145,12 +124,16 @@ class VolumeMeta : public HasLogger {
     inline void setVersion(int32_t version) { this->version = version; }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
 
+    static inline bool isReplayOp(const std::string &payloadHdr) {
+        return payloadHdr == "replay"; 
+    }
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
     /*
      * per volume queue
      */
     boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+    VolumeInitializerPtr                   initializer;
 };
 
 }  // namespace fds

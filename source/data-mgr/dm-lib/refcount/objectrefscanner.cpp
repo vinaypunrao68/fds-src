@@ -3,8 +3,8 @@
  */
 #include <sstream>
 #include <lib/Catalog.h>
-#include <refcount/objectrefscanner.h>
 #include <DataMgr.h>
+#include <refcount/objectrefscanner.h>
 #include <counters.h>
 #include <boost/filesystem.hpp>
 

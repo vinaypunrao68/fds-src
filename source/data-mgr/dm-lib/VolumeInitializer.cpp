@@ -1,6 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
-#include <VolumeSyncRunner.h>
+#include <VolumeInitializer.h>
 #include <VolumeMeta.h>
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
@@ -8,7 +8,19 @@
 namespace fds {
 
 template <class T>
-void SyncProtocolRunner<T>::run()
+ReplicaInitializer<T>::ReplicaInitializer(CommonModuleProviderIf *provider, T *replica)
+: HasModuleProvider(provider),
+  replica_(replica)
+{
+}
+
+template <class T>
+ReplicaInitializer<T>::~ReplicaInitializer()
+{
+}
+
+template <class T>
+void ReplicaInitializer<T>::run()
 {
     // TODO(Rao): Invoking these callbacks in the context of qos
     notifyCoordinator([this](EPSvcRequest*,
@@ -53,19 +65,14 @@ void SyncProtocolRunner<T>::run()
     });
 }
 
-struct VolumeSyncRunner : SyncProtocolRunner<VolumeMeta> {
-    using SyncProtocolRunner<VolumeMeta>::SyncProtocolRunner;
+template <class T>
+Error ReplicaInitializer<T>::tryAndBufferIo(const StringPtr &iobuf)
+{
+    fds_assert(replica_->getState() == fpi::Syncing);
+    return bufferReplay_->buffer(iobuf);
+}
 
-    void notifyCoordinator(const EPSvcRequestRespCb &cb) override;
-    void copyActiveStateFromPeer(const StatusCb &cb) override; 
-    void doQucikSyncWithPeer(const StatusCb &cb) override;
-    void doStaticMigrationWithPeer(const StatusCb &cb) override;
-    void replayBufferedIo(const StatusCb &cb) override;
-    void abort() override;
-    void complete(const Error &e, const std::string &context) override;
-};
-
-void VolumeSyncRunner::notifyCoordinator(const EPSvcRequestRespCb &cb)
+void VolumeInitializer::notifyCoordinator(const EPSvcRequestRespCb &cb)
 {
     auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
     msg->targetState = replica_->getState();
@@ -85,31 +92,31 @@ void VolumeSyncRunner::notifyCoordinator(const EPSvcRequestRespCb &cb)
     req->invoke();
 }
 
-void VolumeSyncRunner::copyActiveStateFromPeer(const StatusCb &cb)
+void VolumeInitializer::copyActiveStateFromPeer(const StatusCb &cb)
 {
     // TODO(Neil): Please fill this
 }
 
-void VolumeSyncRunner::doQucikSyncWithPeer(const StatusCb &cb)
+void VolumeInitializer::doQucikSyncWithPeer(const StatusCb &cb)
 {
 }
 
-void VolumeSyncRunner::doStaticMigrationWithPeer(const StatusCb &cb)
+void VolumeInitializer::doStaticMigrationWithPeer(const StatusCb &cb)
 {
     // TODO(Neil/James): Please fill this
 }
 
-void VolumeSyncRunner::replayBufferedIo(const StatusCb &cb)
+void VolumeInitializer::replayBufferedIo(const StatusCb &cb)
 {
     // TODO(Rao):
 }
 
-void VolumeSyncRunner::abort()
+void VolumeInitializer::abort()
 {
     // TODO(Rao):
 }
 
-void VolumeSyncRunner::complete(const Error &e, const std::string &context)
+void VolumeInitializer::complete(const Error &e, const std::string &context)
 {
     // TODO(Rao):
 }
