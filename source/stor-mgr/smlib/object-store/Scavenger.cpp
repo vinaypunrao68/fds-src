@@ -883,7 +883,6 @@ DiskScavenger::getProgress(fds_uint32_t *toksCompacting,
 
 void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) {
     fds_token_id tok_id;
-    fds_bool_t finished = false;
 
     ScavState curState = std::atomic_load(&state);
     if (curState == SCAV_STATE_IDLE) {
