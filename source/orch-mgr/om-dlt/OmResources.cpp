@@ -2016,33 +2016,68 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
       fpi::SvcUuid pmSvcUuid;
       pmSvcUuid.svc_uuid = node_uuid.uuid_get_val();
 
-      /*
-       * if a PM registers, whe should always send a start for each service 
-       * within the configdb, no matter what the state is. Since we can't 
-       * guarantee that the persisted state is correct.
-       *
-       * error on the side of being safe, send starts.
-       */
-
       if ( services.am.uuid_get_type() == fpi::FDSP_ACCESS_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Access Manager";
-          startAM = true;
+          if (domainRestart)
+          {
+              startAM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Access Manager";
+                  startAM = true;
+
+              }
+          }
+
       }
 
       if ( services.dm.uuid_get_type() == fpi::FDSP_DATA_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Data Manager";
-          startDM = true;
+          if (domainRestart)
+          {
+              startDM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Data Manager";
+                  startDM = true;
+
+              }
+          }
       }
 
       if ( services.sm.uuid_get_type() == fpi::FDSP_STOR_MGR )
       {
-          LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
-                   << " found Storage Manager";
-          startSM = true;
+          if (domainRestart)
+          {
+              startSM = true;
+
+          } else {
+
+              fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
+              fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
+
+              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
+
+                  LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                           << " found Storage Manager";
+                  startSM = true;
+
+              }
+          }
       }
 
       if ( startAM || startDM || startSM )
@@ -2067,6 +2102,12 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
           else
           {
               bool startNode     = true;
+
+              LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
+                       << " start request with startSM:" << startSM
+                       << " startDM:" << startDM
+                       << " startAM:" << startAM;
+
               local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
       }
