@@ -3046,6 +3046,9 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
             volumeGroupDMTFired = true;
+        } else {
+            LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired
+                    << " size: " << cmMod->getNumMembers(fpi::FDSP_DATA_MGR) << "/" << dmClusterSize;
         }
     }
 }
