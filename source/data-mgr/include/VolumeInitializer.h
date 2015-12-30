@@ -48,8 +48,10 @@ struct ReplicaInitializer : HasModuleProvider {
     virtual void run();
     virtual void complete(const Error &e, const std::string &context) = 0;
 
-    virtual Error tryAndBufferIo(const StringPtr &iobuf);
+    virtual Error tryAndBufferIo(const BufferReplay::Op &op);
  protected:
+    void enableWriteOpsBuffering_();
+
     Progress                                progress_;
     T                                       *replica_;
     fpi::SvcUuid                            syncPeer_;

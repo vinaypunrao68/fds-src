@@ -95,7 +95,8 @@ Error Handler::preEnqueueWriteOpHandling(const fds_volid_t &volId,
         return ERR_OK;
     } else if (volMeta->isSyncing()) {
         if (!volMeta->isReplayOp(hdr->payloadHdr))  {
-            Error e = volMeta->initializer->tryAndBufferIo(payload);
+            Error e = volMeta->initializer->tryAndBufferIo(
+                std::make_pair(hdr->msg_type_id, payload));
             if (e.ok()) {
                 return ERR_WRITE_OP_BUFFERED;
             } else if (e == ERR_UNAVAILABLE) {

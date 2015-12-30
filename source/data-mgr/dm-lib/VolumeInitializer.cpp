@@ -7,6 +7,8 @@
 
 namespace fds {
 
+#define volSynchronized(func) func
+
 template <class T>
 ReplicaInitializer<T>::ReplicaInitializer(CommonModuleProviderIf *provider, T *replica)
 : HasModuleProvider(provider),
@@ -35,6 +37,7 @@ void ReplicaInitializer<T>::run()
                complete(e, "Failed to copy active state");
                return;
            }
+           enableWriteOpsBuffering_();
            replica_->setState(fpi::ResourceState::Syncing);
            /* Notify coordinator we are in syncing state.  From this point
             * we will receive actio io.  Active io will be buffered to disk
@@ -66,10 +69,31 @@ void ReplicaInitializer<T>::run()
 }
 
 template <class T>
-Error ReplicaInitializer<T>::tryAndBufferIo(const StringPtr &iobuf)
+Error ReplicaInitializer<T>::tryAndBufferIo(const BufferReplay::Op &op)
 {
     fds_assert(replica_->getState() == fpi::Syncing);
-    return bufferReplay_->buffer(iobuf);
+
+    return bufferReplay_->buffer(op);
+}
+
+template <class T>
+void ReplicaInitializer<T>::enableWriteOpsBuffering_()
+{
+    bufferReplay_.reset(new BufferReplay("buffered_writes",
+                                         512,  /* Replay batch size */
+                                         MODULEPROVIDER()->proc_thrpool()));
+#if 0
+    bufferReplay_->setProgressCb(volSynchronized([this](BufferReplay::Progress progress) {
+        // TODO(Rao): Exit checks
+        LOGNOTIFY << replica->logString() << " BufferReplay progress: " << progress;
+        if (progress == BufferReplay::COMPLETE) {
+            complete(ERR_OK, "BufferReplay progress callback");
+        } else if (progress == BufferReplay::ABORTED) {
+            complete(ERR_ABORTED, "BufferReplay progress callback");
+        }
+    }));
+#endif
+    // TODO(Rao): op callbacks
 }
 
 void VolumeInitializer::notifyCoordinator(const EPSvcRequestRespCb &cb)
@@ -108,7 +132,7 @@ void VolumeInitializer::doStaticMigrationWithPeer(const StatusCb &cb)
 
 void VolumeInitializer::replayBufferedIo(const StatusCb &cb)
 {
-    // TODO(Rao):
+    bufferReplay_->startReplay();
 }
 
 void VolumeInitializer::abort()

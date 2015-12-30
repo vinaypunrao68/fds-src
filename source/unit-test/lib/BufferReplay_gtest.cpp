@@ -19,7 +19,7 @@ using namespace fds;  // NOLINT
 struct BufferReplayTest : BaseTestFixture {
     void SetUp() override;
     void progressCb(BufferReplay::Progress status);
-    void replayOpsCb(int64_t idx, std::list<StringPtr>& ops);
+    void replayOpsCb(int64_t idx, std::list<BufferReplay::Op>& ops);
 
     int32_t maxOpsToReplay{4};
     BufferReplay::Progress reportedProgress;
@@ -55,14 +55,14 @@ void BufferReplayTest::progressCb(BufferReplay::Progress status)
     }
 }
 
-void BufferReplayTest::replayOpsCb(int64_t replayIdx, std::list<StringPtr>& ops)
+void BufferReplayTest::replayOpsCb(int64_t replayIdx, std::list<BufferReplay::Op>& ops)
 {
     opsReplayed += ops.size();
     ASSERT_TRUE(static_cast<int32_t>(ops.size()) <= maxOpsToReplay);
 
     /* Ensure replayed ops are what they are supposed to be */
     for (const auto &op : ops) {
-        ASSERT_TRUE(*op == *(stringCache->itemAt(replayIdx)));
+        ASSERT_TRUE(*(op.second) == *(stringCache->itemAt(replayIdx)));
         replayIdx++;
     }
 
@@ -74,7 +74,7 @@ void BufferReplayTest::replayOpsCb(int64_t replayIdx, std::list<StringPtr>& ops)
 TEST_F(BufferReplayTest, test1) {
     uint32_t numops = this->getArg<uint32_t>("numops");
     for (uint32_t i = 0; i < numops; i++) {
-        Error e = br->buffer(stringCache->itemAt(i));
+        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
         ASSERT_TRUE(e == ERR_OK);
     }
     br->startReplay();
@@ -84,12 +84,12 @@ TEST_F(BufferReplayTest, test1) {
 }
 
 TEST_F(BufferReplayTest, prereplay_abort) {
-    Error e = br->buffer(stringCache->itemAt(0));
+    Error e = br->buffer(std::make_pair(0, stringCache->itemAt(0)));
     ASSERT_TRUE(e == ERR_OK);
 
     br->abort();
 
-    e = br->buffer(stringCache->itemAt(1));
+    e = br->buffer(std::make_pair(1, stringCache->itemAt(1)));
     ASSERT_TRUE(e != ERR_OK);
 
     br->startReplay();
@@ -98,14 +98,14 @@ TEST_F(BufferReplayTest, prereplay_abort) {
 }
 
 TEST_F(BufferReplayTest, postreplay_abort) {
-    Error e = br->buffer(stringCache->itemAt(0));
+    Error e = br->buffer(std::make_pair(0, stringCache->itemAt(0)));
     ASSERT_TRUE(e == ERR_OK);
 
     br->startReplay();
 
     br->abort();
 
-    e = br->buffer(stringCache->itemAt(1));
+    e = br->buffer(std::make_pair(1, stringCache->itemAt(1)));
     ASSERT_TRUE(e != ERR_OK);
 
     donewaiter.await();
@@ -115,7 +115,7 @@ TEST_F(BufferReplayTest, postreplay_abort) {
 TEST_F(BufferReplayTest, reject_after_catchup) {
     uint32_t numOps = 1024;
     for (uint32_t i = 0; i < numOps; i++) {
-        Error e = br->buffer(stringCache->itemAt(i));
+        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
         ASSERT_TRUE(e == ERR_OK);
     }
 
@@ -124,7 +124,7 @@ TEST_F(BufferReplayTest, reject_after_catchup) {
     Error e = ERR_OK;
     for (uint32_t i = 0; i < numOps * 4; i++) {
         std::this_thread::sleep_for(std::chrono::microseconds(2));
-        e = br->buffer(stringCache->itemAt(i));
+        e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
         if (e != ERR_OK) {
             break;
         }

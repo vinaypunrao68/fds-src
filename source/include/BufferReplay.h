@@ -22,6 +22,8 @@ using StringPtr = boost::shared_ptr<std::string>;
  * - Both reads and writes to the buffer file are protected by lock
  */
 struct BufferReplay {
+    using OpType = int32_t;
+    using Op = std::pair<OpType, StringPtr>;
     enum Progress {
         BUFFERING,
         BUFFERING_REPLAYING,
@@ -30,7 +32,7 @@ struct BufferReplay {
         COMPLETE,
     };
     using ProgressCb = std::function<void (Progress status)>;
-    using ReplayCb = std::function<void (int64_t, std::list<StringPtr>&)>;
+    using ReplayCb = std::function<void (int64_t, std::list<Op>&)>;
 
     explicit BufferReplay(const std::string &bufferFileName,
                           int32_t maxReplayCnt,
@@ -38,7 +40,7 @@ struct BufferReplay {
     virtual ~BufferReplay();
     Error init();
     void abort();
-    Error buffer(const StringPtr &s);
+    Error buffer(const Op &op);
     void startReplay();
     void notifyOpsReplayed(int32_t cnt = 1);
     Progress getProgress();

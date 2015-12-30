@@ -67,17 +67,18 @@ void BufferReplay::abort()
     progressCb_(ABORTED);
 }
 
-Error BufferReplay::buffer(const StringPtr &s)
+Error BufferReplay::buffer(const BufferReplay::Op &op)
 {
     fds_mutex::scoped_lock l(lock_);
     if (progress_ == ABORTED) {
         return ERR_ABORTED;
-    } else if (progress_ == REPLAY_CAUGHTUP) {
+    } else if (progress_ == REPLAY_CAUGHTUP || progress_ == COMPLETE) {
         return ERR_UNAVAILABLE;
     }
 
-    auto ret = serializer_->writeString(*s);
-    if (ret < s->size()) {
+    serializer_->writeI32(op.first);
+    auto ret = serializer_->writeString(*(op.second));
+    if (ret < op.second->size()) {
         progress_  = ABORTED;
         return ERR_DISK_WRITE_FAILED;
     }
@@ -129,14 +130,17 @@ void BufferReplay::replayWork_()
 {
     Error err(ERR_OK);
     int64_t replayIdx;
-    std::list<StringPtr> replayList;
+    std::list<Op> replayList;
     {
         /* Read few entries */
         fds_mutex::scoped_lock l(lock_);
         if (progress_ == ABORTED) return;
         while (nReplayOpsIssued_ + static_cast<int32_t>(replayList.size()) < nBufferedOps_ &&
                static_cast<int32_t>(replayList.size()) < maxReplayCnt_) {
+            OpType opType;
             StringPtr s = MAKE_SHARED<std::string>();
+
+            deserializer_->readI32(opType);
             auto ret = deserializer_->readString(*s);
             if (ret < 0) {
                 GLOGWARN << "Failed to deserialize: " << bufferFileName_;
@@ -145,7 +149,7 @@ void BufferReplay::replayWork_()
                 progress_ = ABORTED;
                 break;
             }
-            replayList.emplace_back(std::move(s));
+            replayList.emplace_back(std::make_pair(opType, std::move(s)));
         }
         fds_assert(nOutstandingReplayOps_  == 0);
         replayIdx = nReplayOpsIssued_;
