@@ -73,14 +73,23 @@ static void add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDesc
     vec.push_back(voldesc);
 }
 
+template<class DataStoreT>
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
+
+  private:
+
+    // The objects used here are the OM's snapshot manager and policy manager.
     OrchMgr* om;
-    kvstore::ConfigDB* configDB;
+    DataStoreT* configDB;
+
+    /**
+     * FEATURE TOGGLE: enable subscriptions (async replication)
+     * Mon Dec 28 16:51:58 MST 2015
+     */
+    bool enable_subscriptions_ { false };
 
   public:
-    explicit ConfigurationServiceHandler(OrchMgr* om) : om(om) {
-        configDB = om->getConfigDB();
-    }
+    explicit ConfigurationServiceHandler(OrchMgr* om);
 
     void apiException(std::string message, fpi::ErrorCode code = fpi::INTERNAL_SERVER_ERROR) {
         LOGERROR << "exception: " << message;
@@ -101,15 +110,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
      * Use this to detmerine whether we are the Master Domain as some commands
      * may only be executed in the Master Domain.
      */
-    void checkMasterDomain() {
-        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        if (!domain->om_master_domain()) {
-            LOGERROR << "Exception: Local Domain not Master.";
-            fpi::NotMasterDomain e;
-            e.message = "Local Domain not Master.";
-            throw e;
-        }
-    }
+    void checkMasterDomain();
 
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
@@ -224,7 +225,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         checkMasterDomain();
 
-        auto ret = om->getConfigDB()->getLocalDomains(localDomains);
+        auto ret = configDB->getLocalDomains(localDomains);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             LOGERROR << "Some issue with retrieving all local domains for the global domain.";
@@ -240,39 +241,40 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
-/**
- * Interface version V07.
- *
- * List the currently defined Local Domains.
- *
- * @param _return - Output vecotor of current Local Domains.
- *
- * @return void.
- */
-void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::shared_ptr<int32_t>& ignore) {
-    std::vector<LocalDomain> localDomains;
+    /**
+     * Interface version V07.
+     *
+     * List the currently defined Local Domains.
+     *
+     * @param _return - Output vecotor of current Local Domains.
+     *
+     * @return void.
+     */
+    void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::shared_ptr<int32_t>& ignore) {
+        std::vector<LocalDomain> localDomains;
 
-    checkMasterDomain();
+        checkMasterDomain();
 
-    auto ret = om->getConfigDB()->getLocalDomains(localDomains);
+        auto ret = configDB->getLocalDomains(localDomains);
 
-    if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
-        LOGERROR << "Some issue with retrieving all local domains for the global domain.";
-        apiException("Error retrieving all local domains for the global domain.");
-    } else {
-        _return.clear();
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all local domains for the global domain.";
+            apiException("Error retrieving all local domains for the global domain.");
+        } else {
+            _return.clear();
 
-        for (std::size_t i = 0; i < localDomains.size(); i++) {
-            apis::LocalDomainDescriptorV07 localDomainDescriptorV07;
+            for (std::size_t i = 0; i < localDomains.size(); i++) {
+                apis::LocalDomainDescriptorV07 localDomainDescriptorV07;
 
-            localDomainDescriptorV07.id = localDomains[i].getID();
-            localDomainDescriptorV07.name = localDomains[i].getName();
-            localDomainDescriptorV07.site = localDomains[i].getSite();
+                localDomainDescriptorV07.id = localDomains[i].getID();
+                localDomainDescriptorV07.name = localDomains[i].getName();
+                localDomainDescriptorV07.site = localDomains[i].getSite();
 
-            _return.push_back(localDomainDescriptorV07);
+                _return.push_back(localDomainDescriptorV07);
+            }
         }
     }
-}
+
     /**
     * Rename the given Local Domain.
     *
@@ -1440,12 +1442,12 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         snapshot.volumeId = *volumeId;
         snapshot.snapshotId = *snapshotId;
-        if (!om->getConfigDB()->getSnapshot(snapshot)) {
+        if (!configDB->getSnapshot(snapshot)) {
             apiException(util::strformat("snapshot not found for [vol:%ld] - [snap:%ld]",*volumeId, *snapshotId));
         }
         snapshot.state = fpi::ResourceState::MarkedForDeletion;
         // mark the snapshot for deletion
-        om->getConfigDB()->updateSnapshot(snapshot);
+        configDB->updateSnapshot(snapshot);
 
         volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
@@ -1477,6 +1479,11 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                                boost::shared_ptr<int64_t>& intervalSize) {
         checkMasterDomain();
 
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error creating subscription [" + *name + "].");
+        }
+
         Subscription subscription(name.get()->c_str(),
                                   *tenantID,
                                   *primaryDomainID,
@@ -1485,7 +1492,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                                   apis::SubscriptionType(*subType),
                                   apis::SubscriptionScheduleType(*schedType),
                                   *intervalSize);
-        fds_subid_t id = om->getConfigDB()->putSubscription(subscription);
+        fds_subid_t id = configDB->putSubscription(subscription);
 
         if (id == invalid_sub_id) {
             LOGERROR << "Some issue in subscription creation: " << *name;
@@ -1512,7 +1519,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             LOGERROR << "Some issue with retrieving all subscriptions for the global domain.";
@@ -1543,7 +1550,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string tenantIDStr = std::to_string(*tenantID);
@@ -1577,7 +1584,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
@@ -1613,7 +1620,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
@@ -1651,7 +1658,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
@@ -1687,7 +1694,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
@@ -1726,7 +1733,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string primaryVolumeIDStr = std::to_string(*primaryVolumeID);
@@ -1761,7 +1768,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscriptions(subscriptions);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string replicaVolumeIDStr = std::to_string(*replicaVolumeID);
@@ -1802,7 +1809,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscription(*subName, *tenantID, subscription);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscription(*subName, *tenantID, subscription);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string tenantIDStr = std::to_string(*tenantID);
@@ -1835,7 +1842,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         checkMasterDomain();
 
-        kvstore::ConfigDB::ReturnType ret = om->getConfigDB()->getSubscription(*subID, subscription);
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscription(*subID, subscription);
 
         if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
             std::string subIDStr = std::to_string(*subID);
@@ -1871,7 +1878,12 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         Subscription::makeSubscription(subscription, *subMods);
         std::string tenantIDStr = std::to_string(subscription.getTenantID());
 
-        auto ret = om->getConfigDB()->updateSubscription(subscription);
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error updating subscription [" + subscription.getName() + "].");
+        }
+
+        auto ret = configDB->updateSubscription(subscription);
 
         if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
             LOGNOTIFY << "Subscription update succeded. " << tenantIDStr << ": " << subscription.getName();
@@ -1920,13 +1932,18 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         std::string tenantIDStr = std::to_string(*tenantID);
 
-        auto subID = om->getConfigDB()->getSubscriptionId(*subName, *tenantID);
+        auto subID = configDB->getSubscriptionId(*subName, *tenantID);
+
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error deleting subscription [" + *subName + "].");
+        }
 
         if (subID == invalid_sub_id) {
             LOGERROR << "Some issue with retrieving subscription ID for [" << *subName << "] and tenant [" << tenantIDStr << "].";
             apiException("Error retrieving subscription ID for [" + *subName + "] and tenant [" + tenantIDStr + "].");
         } else {
-            auto ret = om->getConfigDB()->deleteSubscription(subID);
+            auto ret = configDB->deleteSubscription(subID);
 
             if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
                 LOGNOTIFY << "Subscription delete succeded for subscription named [" << *subName <<
@@ -1977,7 +1994,12 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         std::string subIDStr = std::to_string(*subID);
 
-        auto ret = om->getConfigDB()->deleteSubscription(*subID);
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error deleting subscription ID [" + subIDStr + "].");
+        }
+
+        auto ret = configDB->deleteSubscription(*subID);
 
         if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
             LOGNOTIFY << "Subscription delete succeded for subscription ID [" << subIDStr << "].";
@@ -2007,7 +2029,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     void getAllNodeInfo(std::vector< ::FDS_ProtocolInterface::SvcInfo> & _return) {
 
         std::vector<fpi::SvcInfo> svcInfos;
-        bool success = om->getConfigDB()->getSvcMap( svcInfos );
+        bool success = configDB->getSvcMap( svcInfos );
         if (success && svcInfos.size() > 0) {
 
             for (fpi::SvcInfo svcInfo : svcInfos) {
@@ -2056,7 +2078,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     int64_t getDiskCapacityTotal() {
         int64_t total = 0;
         std::vector<fpi::SvcInfo> svcInfos;
-        bool success = om->getConfigDB()->getSvcMap( svcInfos );
+        bool success = configDB->getSvcMap( svcInfos );
         if (success && svcInfos.size() > 0) {
 
             for (fpi::SvcInfo svcInfo : svcInfos) {
@@ -2074,7 +2096,46 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         return -1;
     };
 
+    void setConfigDB(DataStoreT* pDataStore) {
+        configDB = pDataStore;
+    };
 };
+
+template <>
+ConfigurationServiceHandler<kvstore::ConfigDB>::ConfigurationServiceHandler(OrchMgr* om)
+ : om(om) {
+
+    configDB = om->getConfigDB();
+    enable_subscriptions_ = MODULEPROVIDER()->get_conf_helper().get<bool>("fds."
+        "feature_toggle.common.enable_subscriptions", false);
+}
+
+template <>
+void ConfigurationServiceHandler<kvstore::ConfigDB>::checkMasterDomain() {
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    if (!domain->om_master_domain()) {
+        LOGERROR << "Exception: Local Domain not Master.";
+        fpi::NotMasterDomain e;
+        e.message = "Local Domain not Master.";
+        throw e;
+    }
+}
+
+template <class DataStoreT>
+ConfigurationServiceHandler<DataStoreT>::ConfigurationServiceHandler(OrchMgr* om)
+ : om(om) {
+
+    enable_subscriptions_ = MODULEPROVIDER()->get_conf_helper().get<bool>("fds."
+        "feature_toggle.common.enable_subscriptions", false);
+}
+
+template <class DataStoreT>
+void ConfigurationServiceHandler<DataStoreT>::checkMasterDomain() {
+    return;
+}
+
+// Explicit template instantiation
+template class ConfigurationServiceHandler<kvstore::ConfigDB>;
 }  // namespace apis
 
 std::thread* runConfigService(OrchMgr* om) {
@@ -2088,8 +2149,8 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TProtocolFactory> protocolFactory(
         new TBinaryProtocolFactory( ) );  //NOLINT
 
-    boost::shared_ptr<apis::ConfigurationServiceHandler> handler(
-        new apis::ConfigurationServiceHandler( om ) ); // NOLINT
+    boost::shared_ptr<apis::ConfigurationServiceHandler<kvstore::ConfigDB> > handler(
+        new apis::ConfigurationServiceHandler<kvstore::ConfigDB>( om ) ); // NOLINT
     boost::shared_ptr<TProcessor> processor(
         new apis::ConfigurationServiceProcessor( handler ) ); // NOLINT
 
