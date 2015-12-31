@@ -1,6 +1,10 @@
 package com.formationds.nfs;
 
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeType;
+import com.formationds.protocol.NfsOption;
 import com.formationds.xdi.XdiConfigurationApi;
+import com.google.common.base.Joiner;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.dcache.nfs.ExportFile;
@@ -19,25 +23,20 @@ public class DynamicExports implements ExportResolver {
     private static final Logger LOG = Logger.getLogger(DynamicExports.class);
     public static final String EXPORTS = "./.exports";
     private XdiConfigurationApi config;
-    private Set<String> knownVolumes;
     private Map<String, Integer> exportsByName;
     private Map<Integer, String> exportsById;
     private ExportFile exportFile;
 
     public DynamicExports(XdiConfigurationApi config) {
         this.config = config;
-        knownVolumes = new HashSet<>();
     }
 
-    // TODO/CAVEAT: right now all non-system volumes are exported, will be fixed when we
-    // add an NFS volume type.
     private synchronized void refreshOnce() throws IOException {
-        Set<String> exportableVolumes = null;
+        Set<VolumeDescriptor> exportableVolumes = null;
         try {
             exportableVolumes = config.listVolumes(BlockyVfs.DOMAIN)
                     .stream()
-                    .filter(v -> !v.getName().startsWith("SYSTEM_VOLUME"))
-                    .map(v -> v.getName())
+                    .filter(vd -> vd.getPolicy().getVolumeType().equals(VolumeType.NFS))
                     .collect(Collectors.toSet());
         } catch (TException e) {
             throw new IOException(e);
@@ -45,15 +44,11 @@ public class DynamicExports implements ExportResolver {
 
         Path path = Paths.get(EXPORTS);
 
-        if (knownVolumes.equals(exportableVolumes) && Files.exists(path)) {
-            return;
-        }
-
         Files.deleteIfExists(path);
         PrintStream pw = new PrintStream(new FileOutputStream(EXPORTS));
-        exportableVolumes.forEach(v -> pw.println("/" + v + " *(rw,no_root_squash,acl)"));
+        exportableVolumes.forEach(vd -> pw.println(buildExportOptions(vd)));
         pw.close();
-        knownVolumes = new HashSet<>(exportableVolumes);
+
         if (exportFile == null) {
             exportFile = new ExportFile(new File(EXPORTS));
         }
@@ -64,6 +59,23 @@ public class DynamicExports implements ExportResolver {
             int id = exportsByName.get(exportName);
             exportsById.put(id, exportName);
         }
+    }
+
+    private String buildExportOptions(VolumeDescriptor vd) {
+        NfsOption nfsOptions = vd.getPolicy().getNfsOptions();
+        String optionsClause = nfsOptions.getOptions();
+        // Remove the yet-unsupported async option
+        StringTokenizer tokenizer = new StringTokenizer(optionsClause, ",", false);
+        Set<String> options = new HashSet<>();
+        options.add("rw");
+        while (tokenizer.hasMoreTokens()) {
+            String token = tokenizer.nextToken();
+            if (!token.contains("sync")) {
+                options.add(token);
+            }
+        }
+        optionsClause = "/" + vd.getName() + " " + nfsOptions.getClient() + "(" + Joiner.on(",").join(options) + ")";
+        return optionsClause;
     }
 
     private Map<String, Integer> exportIds(ExportFile exportFile) {

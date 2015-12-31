@@ -95,7 +95,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         return parallel(
                 () -> inodeMap.create(metadata, parent.exportIndex()),
                 () -> inodeMap.update(parent.exportIndex(), updatedParent),
-                () -> inodeIndex.index(parent.exportIndex(), false, metadata),
+                () -> inodeIndex.index(parent.exportIndex(), true, metadata),
                 () -> inodeIndex.index(parent.exportIndex(), true, updatedParent));
     }
 
@@ -177,7 +177,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
         inodeMap.update(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParentMetadata);
-        inodeIndex.index(parent.exportIndex(), false, updatedLinkMetadata);
+        inodeIndex.index(parent.exportIndex(), true, updatedLinkMetadata);
         return link;
     }
 
@@ -240,7 +240,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
                 () -> inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination),
                 () -> inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName),
                 () -> inodeIndex.index(source.exportIndex(), true, updatedSource),
-                () -> inodeIndex.index(source.exportIndex(), false, updatedLink),
+                () -> inodeIndex.index(source.exportIndex(), true, updatedLink),
                 () -> inodeIndex.index(source.exportIndex(), true, updatedDestination));
 
         return true;
