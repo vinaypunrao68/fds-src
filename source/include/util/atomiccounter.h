@@ -15,6 +15,7 @@ struct AtomicCounter {
     uint64_t incr(const uint64_t v = 1);
     uint64_t decr(const uint64_t v = 1);
     void set(const uint64_t v);
+    bool compareAndSet(uint64_t expected, uint64_t desired);
     AtomicCounter(const AtomicCounter& c);
   protected:
     std::atomic<uint64_t> value;

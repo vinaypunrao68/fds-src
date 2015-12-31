@@ -322,7 +322,7 @@ void ScavControl::startScavengeProcess()
         return;
     }
 
-    LOGNORMAL << "Starting Scavenger cycle";
+    LOGNORMAL << "Scavenger cycle - Started";
     fds_mutex::scoped_lock l(scav_lock);
     // start first max_disks_compacting disk scavengers
     fds_uint32_t count = 0;
@@ -385,6 +385,14 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
     if (nextDiskToCompact == SM_INVALID_DISK_ID) {
         LOGDEBUG << "No more disks to compact";
+        bool allDone = true;
+        for (const auto& scav : diskScavTbl) {
+            allDone = allDone && (scav.second->getState() == DiskScavenger::SCAV_STATE_IDLE);
+            if (!allDone) break;
+        }
+        if (allDone) {
+            LOGNORMAL << "Scavenger cycle - Done";
+        }
         return;
     }
     DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
@@ -573,7 +581,7 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
           persistStoreGcHandler(persist_store),
           done_evt_handler(nullptr),
           tier(_tier),
-          dataStoreReqHandler(data_store),     
+          dataStoreReqHandler(data_store),
           noPersistScavStats(noPersistStateScavStats),
           scav_policy()  // default policy
 {
@@ -726,7 +734,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
     // get all tokens that SM owns and that reside on this disk
     SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
     ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
-    
+
     // add tokens to tokenDb that we need to compact
     for (SmTokenSet::const_iterator cit = diskToks.cbegin();
          cit != diskToks.cend();
@@ -799,7 +807,7 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
     // get list of tokens for this tier/disk from persistent layer
     findTokensToCompact(token_reclaim_threshold);
     if (tokenDb.size() == 0) {
-        LOGNORMAL << "no tokens to compact on disk:" << disk_id << " tier:" << tier;
+        LOGDEBUG << "no tokens to compact on disk:" << disk_id << " tier:" << tier;
         std::atomic_exchange(&state, SCAV_STATE_IDLE);
         OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
         return ERR_NOT_FOUND;
@@ -868,21 +876,25 @@ DiskScavenger::getProgress(fds_uint32_t *toksCompacting,
     }
     *toksCompacting = tokenDb.size();
     *toksFinished = count;
-    LOGNORMAL << "disk:" << disk_id << " progress: " << *toksCompacting
+    LOGNORMAL << "Disk:" << disk_id << " progress: " << *toksCompacting
               << " total tokens compacting, " << *toksFinished
               << " total tokens finished compaction";
 }
 
 void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) {
     fds_token_id tok_id;
-    fds_bool_t finished = false;
+
     ScavState curState = std::atomic_load(&state);
-    
-    LOGNORMAL << "compaction done for token:" << token_id
+    if (curState == SCAV_STATE_IDLE) {
+        LOGWARN << "Unexpected callback for token: " << token_id
+                << " with error: " << error;
+        return;
+    }
+
+    LOGNOTIFY << "Compaction done for token:" << token_id
               << " disk:" << disk_id << " verify:" << verifyData
-              << " result:" << error;
-    
-    fds_verify(curState != SCAV_STATE_IDLE);
+              << " error: " << error;
+
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->compactorRunning.decr();
     if (curState == SCAV_STATE_STOPPING) {
         // Scavenger was asked to stop, so not compacting any more tokens
@@ -896,9 +908,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     // compacting other tokens in the disk.
     for (fds_uint32_t i = 0; i < scav_policy.proc_max_tokens; ++i) {
         if (tok_compactor_vec[i]->isIdle()) {
-            fds_bool_t found = getNextCompactToken(&tok_id);
-            if (!found) {
-                finished = true;
+            if (!getNextCompactToken(&tok_id)) {
                 break;
             }
             tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, verifyData,
@@ -908,11 +918,17 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
          }
     }
 
+    fds_bool_t finished = true;
+    for (fds_uint32_t i = 0; i < scav_policy.proc_max_tokens; ++i) {
+        finished = (finished && tok_compactor_vec[i]->isIdle());
+        if (!finished) break;
+    }
+
     if (finished) {
         noPersistScavStats = false;
         ScavState expectState = SCAV_STATE_INPROG;
         if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
-            LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;
+            LOGNOTIFY << "Scavenger process finished for disk_id " << disk_id;
             if (done_evt_handler) {
                 done_evt_handler(disk_id, Error(ERR_OK));
             }
@@ -920,7 +936,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         } else {
             expectState = SCAV_STATE_STOPPING;
             if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
-                LOGNORMAL << "Scavenger was stopped, but scavenging process completed for "
+                LOGNOTIFY << "Scavenger was stopped, but scavenging process completed for "
                           << "disk id " << disk_id;
             }
         }

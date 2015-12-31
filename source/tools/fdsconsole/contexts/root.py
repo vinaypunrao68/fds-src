@@ -3,7 +3,6 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
-import sqlite3
 import tabulate
 
 class RootContext(Context):
@@ -25,6 +24,7 @@ class RootContext(Context):
     @arg('--token', help= "token id", default=None, type=long)
     @arg('--disk', help= "disk id", default=None, type=long)
     def expungedb(self,volume=None, token=None, disk=None):
+        import sqlite3
         filename = "{}/user-repo/liveobj.db".format(self.config.getFdsRoot())
 
         if not os.path.exists(filename):
