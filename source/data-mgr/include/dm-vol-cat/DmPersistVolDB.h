@@ -132,7 +132,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     /**
     * @brief  Reads the version from file and returns it.  Making it file based 
-    * because for now because when we copy leveldb not additional work is required
+    * because for now when we copy leveldb no additional work is required
     * to not copy version.
     */
     int32_t getVersion() override;

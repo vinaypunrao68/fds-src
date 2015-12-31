@@ -23,7 +23,7 @@ BufferReplay::BufferReplay(const std::string &bufferFileName,
     nReplayOpsIssued_ = 0;
     nOutstandingReplayOps_ = 0;
     maxReplayCnt_ = maxReplayCnt;
-    progress_ = ABORTED;
+    progress_ = IDLE;
 }
 
 BufferReplay::~BufferReplay()

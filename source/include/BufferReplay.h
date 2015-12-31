@@ -28,14 +28,21 @@ struct BufferReplay {
     using OpType = int32_t;
     using Op = std::pair<OpType, StringPtr>;
     enum Progress {
+        IDLE = 0,
         BUFFERING,
         BUFFERING_REPLAYING,
         REPLAY_CAUGHTUP,
         ABORTED,
         COMPLETE,
     };
-    static const constexpr char* const progressStr[] = 
-               { "BUFFERING", "BUFFERING_REPLAYING", "REPLAY_CAUGHTUP", "ABORTED","COMPLETE" };
+    static const constexpr char* const progressStr[] = {
+        "IDLE",
+        "BUFFERING",
+        "BUFFERING_REPLAYING",
+        "REPLAY_CAUGHTUP",
+        "ABORTED",
+        "COMPLETE"
+    };
     using ProgressCb = std::function<void (Progress status)>;
     using ReplayCb = std::function<void (int64_t, std::list<Op>&)>;
 
@@ -128,10 +135,15 @@ struct BufferReplay {
     int32_t                                     writefd_;
     std::unique_ptr<serialize::Serializer>      serializer_;
     std::unique_ptr<serialize::Deserializer>    deserializer_;
+    /* Total # of ops buffered to file */
     int64_t                                     nBufferedOps_;
+    /* Total # of ops read and sent for replay */
     int64_t                                     nReplayOpsIssued_;
+    /* # of ops outstanding to be acked back from replay for the current replay batch */
     int32_t                                     nOutstandingReplayOps_;
+    /* Whether replayWork_ is posted on threadpool or not */
     bool                                        replayWorkPosted_;
+    /* Replay batch size */
     int32_t                                     maxReplayCnt_;
     ProgressCb                                  progressCb_;
     ReplayCb                                    replayOpsCb_;
