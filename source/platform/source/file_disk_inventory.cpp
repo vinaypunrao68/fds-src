@@ -25,8 +25,9 @@ namespace fds
 
     FileDiskInventory::~FileDiskInventory()
     {
-        dsk_prev_inv.chain_transfer(&dsk_files);
         dsk_discovery_done();
+        dsk_curr_inv.chain_transfer(&dsk_files);
+        clear_inventory();
     }
 
     // dsk_mount_all
