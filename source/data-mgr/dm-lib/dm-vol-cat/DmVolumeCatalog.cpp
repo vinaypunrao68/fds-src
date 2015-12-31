@@ -16,6 +16,8 @@
 #include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
+#include <VolumeMeta.h>
+
 #define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
         auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
         if (seq_ev_a >= seq_ev_b) { \
@@ -893,7 +895,8 @@ Error DmVolumeCatalog::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
 
 Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
                                          const std::string& blobName,
-                                         const std::string& blobData){
+                                         const std::string& blobData,
+                                         VolumeMeta& volMeta){
     GET_VOL_N_CHECK_DELETED(volId);
     Error err;
     bool fTruncate = true;
@@ -949,6 +952,8 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
     BlobMetaDesc newBlob;
     err = newBlob.loadSerialized(blobData);
+
+    volMeta.setSequenceId(newBlob.desc.sequence_id);
 
     if (!err.ok()) {
         LOGERROR << "Failed to deserialize migrated blob: " << blobName

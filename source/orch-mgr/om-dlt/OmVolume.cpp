@@ -790,28 +790,30 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 {
     VolumeDesc *pVol;
 
-    pVol               = vol_properties;
-    pkt->vol_name      = pVol->name;
-    pkt->volUUID       = pVol->volUUID.get();
-    pkt->tennantId     = pVol->tennantId;
-    pkt->localDomainId = pVol->localDomainId;
+    pVol                        = vol_properties;
 
-    pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
-    pkt->capacity      = pVol->capacity;
-    pkt->volType       = pVol->volType;
+    pkt->vol_name               = pVol->name;
+    pkt->volUUID                = pVol->volUUID.get();
+    pkt->tennantId              = pVol->tennantId;
+    pkt->localDomainId          = pVol->localDomainId;
 
-    pkt->volPolicyId   = pVol->volPolicyId;
-    pkt->iops_throttle = pVol->iops_throttle;
-    pkt->iops_assured  = pVol->iops_assured;
-    pkt->rel_prio      = pVol->relativePrio;
+    pkt->maxObjSizeInBytes      = pVol->maxObjSizeInBytes;
+    pkt->capacity               = pVol->capacity;
+    pkt->volType                = pVol->volType;
 
-    pkt->mediaPolicy   = pVol->mediaPolicy;
-    pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->srcVolumeId = pVol->srcVolumeId.get();
+    pkt->volPolicyId            = pVol->volPolicyId;
+    pkt->iops_throttle          = pVol->iops_throttle;
+    pkt->iops_assured           = pVol->iops_assured;
+    pkt->rel_prio               = pVol->relativePrio;
+
+    pkt->mediaPolicy            = pVol->mediaPolicy;
+    pkt->fSnapshot              = pVol->fSnapshot;
+    pkt->srcVolumeId            = pVol->srcVolumeId.get();
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
-    pkt->timelineTime = pVol->timelineTime;
-    pkt->state        = pVol->getState();
-    pkt->iscsi        = pVol->iscsiSettings;
+    pkt->timelineTime           = pVol->timelineTime;
+    pkt->state                  = pVol->getState();
+    pkt->iscsi                  = pVol->iscsiSettings;
+    pkt->nfs                    = pVol->nfsSettings;
 }
 
 // vol_fmt_message

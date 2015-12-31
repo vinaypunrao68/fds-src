@@ -6,5 +6,17 @@
 
 namespace fds {
 
+Error
+DmMigrationDest::start()
+{
+    Error err(ERR_OK);
+    LOGMIGRATE << "migrationid: " << migrationId
+            << " starting Destination blob diff for volume: " << volumeUuid;
 
+    // true - volumeGroupMode
+    processInitialBlobFilterSet();
+
+    return err;
 }
+
+} // namespace fds

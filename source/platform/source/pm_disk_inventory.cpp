@@ -29,9 +29,8 @@ namespace fds
         delete dsk_partition;
 
         // Setup conditions as if all disks are gone after the discovery.
-        dsk_prev_inv.chain_transfer(&dsk_curr_inv);
-        dsk_prev_inv.chain_transfer(&dsk_discovery);
         dsk_discovery_done();
+        clear_inventory();
     }
 
     // rs_new
@@ -86,13 +85,11 @@ namespace fds
     void PmDiskInventory::dsk_discovery_begin()
     {
         LOGNORMAL << "Begin disk discovery...";
-        rs_mtx.lock();
 
-        if (dsk_prev_inv.chain_empty_list() && dsk_discovery.chain_empty_list())
-        {
-            dsk_prev_inv.chain_transfer(&dsk_curr_inv);
-            fds_assert(dsk_curr_inv.chain_empty_list());
-        }
+        fds_assert(dsk_discovery.chain_empty_list());
+        clear_inventory();
+
+        rs_mtx.lock();
         dsk_qualify_cnt = 0;
         rs_mtx.unlock();
     }
@@ -171,30 +168,14 @@ namespace fds
     //
     void PmDiskInventory::dsk_discovery_done()
     {
-        ChainList             rm;
         PmDiskObj::pointer    disk;
 
         rs_mtx.lock();
-        // Anything left over in the prev inventory list are phantom devices.
         dsk_curr_inv.chain_transfer(&dsk_discovery);
-        rm.chain_transfer(&dsk_prev_inv);
 
-        fds_assert(dsk_prev_inv.chain_empty_list());
         fds_assert(dsk_discovery.chain_empty_list());
         rs_mtx.unlock();
 
-        while (1)
-        {
-            disk = rm.chain_rm_front<PmDiskObj>();
-
-            if (disk == NULL)
-            {
-                break;
-            }
-            dsk_discovery_remove(disk);
-            disk = NULL;  // free the disk obj when refcnt = 0
-        }
-        fds_assert(rm.chain_empty_list());
         LOGNORMAL << "End disk discovery...";
     }
 
@@ -307,5 +288,21 @@ namespace fds
         dsk_foreach(&op);
 
         return mgr->dsk_reconcile_label(this, creat);
+    }
+
+    void PmDiskInventory::clear_inventory()
+    {
+        PmDiskObj::pointer    disk;
+
+        while (1)
+        {
+            disk = dsk_curr_inv.chain_rm_front<PmDiskObj>();
+
+            if (disk == NULL)
+            {
+                break;
+            }
+            dsk_discovery_remove(disk);
+        }
     }
 }  // namespace fds

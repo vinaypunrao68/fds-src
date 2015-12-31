@@ -1,4 +1,4 @@
-ddescribe( 'Test the data connector controller', function(){
+describe( 'Test the data connector controller', function(){
     
     var $dc, $scope, $mock_dc_api, $iso_scope;
     
@@ -38,8 +38,8 @@ ddescribe( 'Test the data connector controller', function(){
                     },
                     {
                         type: 'NFS',
-                        options: [],
-                        filters: []
+                        options: '',
+                        clients:''
                     }
                 ];
                 
@@ -134,20 +134,18 @@ ddescribe( 'Test the data connector controller', function(){
     it( 'should put values into the correct JSON location for NFS', function(){
         
         $iso_scope.volumeType = $mock_dc_api.types[3];
-        $iso_scope._ip_filters = ['123.456.789', '111.111.111'];
         $iso_scope._acls = true;
         $iso_scope._root_squash = false;
         $iso_scope._async = true;
+        $iso_scope._clients = '123.*.789';
         $iso_scope.$apply();
         
         $iso_scope.refreshSelection();
         
-        expect( $iso_scope.volumeType.filters.length ).toBe( 2 );
-        expect( $iso_scope.volumeType.filters[0].pattern.value ).toBe( '123.456.789' );
-        expect( $iso_scope.volumeType.filters[1].pattern.value ).toBe( '111.111.111' );
-        expect( $iso_scope.volumeType.options.length ).toBe( 3 );
-        expect( $iso_scope.volumeType.options[0].name ).toBe( 'acls' );
-        expect( $iso_scope.volumeType.options[1].name ).toBe( 'async' );
-        expect( $iso_scope.volumeType.options[2].name ).toBe( 'squash' );
+        expect( $iso_scope.volumeType.clients ).toBe( '123.*.789' );
+        expect( $iso_scope.volumeType.options.split( ',' ).length ).toBe( 3 );
+        expect( $iso_scope.volumeType.options ).toContain( 'acl' );
+        expect( $iso_scope.volumeType.options ).toContain( 'async' );
+        expect( $iso_scope.volumeType.options ).toContain( 'no_root_squash' );
     });
 });

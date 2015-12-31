@@ -4,7 +4,7 @@ import com.formationds.apis.ObjectOffset;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,7 +21,7 @@ public interface IoOps {
 
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException;
 
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException;
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException;
 
     public void flush() throws IOException;
 }

@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
+#include <sys/inotify.h>
 #include <libudev.h>
 #include <mntent.h>
 
@@ -11,6 +12,10 @@
 
 namespace fds
 {
+
+static constexpr fds_uint32_t MAX_POLL_EVENTS = 1024;
+static constexpr fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
+
 // -----------------------------------------------------------------------------------
 // Disk Platform Module
 // -----------------------------------------------------------------------------------
@@ -63,25 +68,43 @@ void DiskPlatModule::mod_startup()
     // enumeration or there is a chance of lost events.
     udev_monitor_enable_receiving(dsk_mon);
     // Setup the struct that poll will monitor
-    pollfds[0].fd = udev_monitor_get_fd(dsk_mon);
-    pollfds[0].events = POLLIN;
-    pollfds[0].revents = 0;
+    pollfds[FD_UDEV_IDX].fd = udev_monitor_get_fd(dsk_mon);
+    pollfds[FD_UDEV_IDX].events = POLLIN;
+    pollfds[FD_UDEV_IDX].revents = 0;
 
+    int fd = inotify_init();
+    if (fd < 0)
+    {
+        LOGWARN << "Error initializing inotify " << errno;
+    }
+    pollfds[FD_INOTIFY_IDX].fd = fd;
+    pollfds[FD_INOTIFY_IDX].events = POLLIN;
+    pollfds[FD_INOTIFY_IDX].revents = 0;
+    int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE | IN_OPEN);
+    if (wd < 0)
+    {
+        LOGWARN << "Error adding a watch for inotify " << errno;
+    }
+
+    scan_and_discover_disks();
+}
+
+void DiskPlatModule::scan_and_discover_disks()
+{
     dsk_rescan();
     dsk_discover_mount_pts();
 
     if ((dsk_devices->disk_read_label(label_manager, false) == true) ||
         (dsk_devices->dsk_need_simulation() == false))
     {
-        label_manager->clear();
         /* Contains valid disk label or real HW inventory */
         dsk_inuse = dsk_devices;
     }else {
-        label_manager->clear();
         const FdsRootDir   *dir = g_fdsprocess->proc_fdsroot();
         dsk_sim   = new FileDiskInventory(dir->dir_dev().c_str());
         dsk_inuse = dsk_sim;
     }
+    label_manager->clear();
 
     dsk_inuse->dsk_admit_all();
     dsk_inuse->dsk_mount_all();
@@ -95,6 +118,7 @@ void DiskPlatModule::mod_startup()
 
     dsk_inuse->disk_read_capabilities(capabilities_manager);
     dsk_inuse->disk_read_label(label_manager, true);
+    label_manager->clear();
 }
 
 // dsk_discover_mount_pts
@@ -273,20 +297,58 @@ void DiskPlatModule::dsk_rescan()
 // ---------------
 void DiskPlatModule::dsk_monitor_hotplug()
 {
+    char buffer[BUF_LEN] = {0};
+    int len;
     // Make the call to poll to determine if there is something to read or not
-    while (poll(pollfds, 1, 0) > 0)
+    while (poll(pollfds, FD_COUNT, -1) > 0)
     {
-        struct udev_device   *dev = udev_monitor_receive_device(dsk_mon);
-
-        if (dev)
+        bool do_rescan = false;
+        if (pollfds[FD_UDEV_IDX].revents > 0)
         {
-            LOGDEBUG << "Received hotplug event: " << udev_device_get_action(dev)
+            struct udev_device   *dev = udev_monitor_receive_device(dsk_mon);
+
+            if (dev)
+            {
+                LOGDEBUG << "Received hotplug event: " << udev_device_get_action(dev)
                      << " from device @" << udev_device_get_devnode(dev)
                      << ", " << udev_device_get_subsystem(dev) << ", "
                      << udev_device_get_devtype(dev) << "\n";
-            // TODO(brian): determine how we should handle the events (log them for now??)
-        }else {
-            LOGWARN << "No device from umod_monitor_receive_device. An error occurred.\n";
+                // TODO(brian): determine how we should handle the events (log them for now??)
+            }else {
+                LOGWARN << "No device from umod_monitor_receive_device. An error occurred.\n";
+            }
+        }
+        else if (pollfds[FD_INOTIFY_IDX].revents > 0)
+        {
+            LOGDEBUG << "Received an inotify event";
+            len = read(pollfds[FD_INOTIFY_IDX].fd, buffer, BUF_LEN);
+            if (len < 0)
+            {
+                LOGWARN << "Failed to read inotify event, error= '" << errno << "'";
+            }
+            else
+            {
+                for (char * p = buffer; p < buffer + len; )
+                {
+                    struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
+                    LOGDEBUG << "Received an inotify event " << event->name;
+                    if (strcmp(event->name, "adddisk") == 0) {
+                        do_rescan = true;
+                        break;
+                    }
+                    p += sizeof(struct inotify_event) + event->len;
+                }
+            }
+        }
+        else
+        { // should never happen
+            LOGWARN << "poll call returned with no event";
+        }
+
+        if (do_rescan)
+        {
+            LOGNORMAL "Triggering disk rescan";
+            scan_and_discover_disks();
         }
     }
 }

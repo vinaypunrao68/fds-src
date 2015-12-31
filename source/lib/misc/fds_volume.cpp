@@ -297,16 +297,34 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
        << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second;
 
     if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
-        os << " masks: { ";
+        os << " luns: { ";
+        for (auto const& lun : vol.iscsiSettings.luns) {
+            os << lun.name << ":" << lun.access << " ";
+        }
+        os << "}";
+
+        os << " incoming users: { ";
+        for (auto const& iuser : vol.iscsiSettings.incomingUsers) {
+            os << iuser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " outgoing users: { ";
+        for (auto const& ouser : vol.iscsiSettings.outgoingUsers) {
+            os << ouser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " initiators: { ";
         for (auto const& ini : vol.iscsiSettings.initiators) {
             os << ini.wwn_mask << " ";
         }
-        os << "} incoming users { ";
-        for (auto const& cred : vol.iscsiSettings.incomingUsers) {
-            os << cred.name << " ";
-        }
         os << "}";
+    } else if ( fpi::FDSP_VOL_NFS_TYPE == vol.volType ) {
+        os << " clients: { " << vol.nfsSettings.client << " } ";
+        os << " options: { " << vol.nfsSettings.options << " }";
     }
+
     return os << " ]";
 }
 

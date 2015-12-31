@@ -1604,12 +1604,12 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
  * (Including all system volumes).
  */
 bool
-ObjectStore::haveAllObjectSets() const {
+ObjectStore::haveAllObjectSets(TimeStamp after) const {
     auto volList = volumeTbl->getVolList();
     std::set<fds_volid_t> volumes(volList.begin(), volList.end());
 
     for (auto i = 0 ; i < 256 ; i++) {
-        if (liveObjectsTable->haveAllObjectSets(i, volumes)) return true;
+        if (liveObjectsTable->haveAllObjectSets(i, volumes, after)) return true;
     }
     LOGDEBUG << "all objects not found for any token";
     return false;

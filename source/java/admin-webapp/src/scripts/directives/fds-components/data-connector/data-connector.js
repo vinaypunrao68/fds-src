@@ -8,14 +8,21 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         scope: { volumeType: '=ngModel', editable: '@', enable: '=?'},
         controller: function( $scope, $data_connector_api ){
             
+            var SYNC = 'sync';
+            var ASYNC = 'async';
+            var ACLS = 'acl';
+            var NO_ACLS = 'noacl';
+            var ROOT_SQUASH = 'root_squash';
+            var NO_ROOT_SQUASH = 'no_root_squash';
+            
             $scope.sizes = [{name: 'MB'}, {name:'GB'}, {name:'TB'},{name:'PB'}];
             $scope.types = [];
             $scope._selectedSize = 10;
             $scope._selectedUnit = $scope.sizes[1];
             $scope._acls = false;
             $scope._root_squash = false;
-            $scope._async = false;
-            $scope._ip_filters = [];
+            $scope._async = true;
+            $scope._clients = '';
 
             var findUnit = function(){
 
@@ -51,40 +58,48 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
                 
                 // this is the NFS ip filters
-                if ( angular.isDefined( $scope.volumeType.filters )){
-                    
-                    $scope.volumeType.filters = [];
-                    
-                    for ( var fI = 0; fI < $scope._ip_filters.length; fI++ ){
-                        $scope.volumeType.filters.push( { 'pattern': { 'value': $scope._ip_filters[fI] }, 'mode': 'ALLOW' } );
-                    }
+                if ( angular.isDefined( $scope.volumeType.clients )){
+                    $scope.volumeType.clients = $scope._clients;
                 }
                 
                 // this is the NFS options
                 if ( angular.isDefined( $scope.volumeType.options ) ){
                     
-                    $scope.volumeType.options = [];
+                    var optionList = [];
                     
-                    if ( $scope._acls === false ){
-                        $scope.volumeType.options.push( $scope.get_option( 'no_acls' ) );
+                    if ( $scope._acls === true ){
+                        optionList.push( ACLS );
                     }
                     else {
-                        $scope.volumeType.options.push( $scope.get_option( 'acls' ) );
+                        optionList.push( NO_ACLS );
                     }
                     
                     if ( $scope._async === false ){
-                        $scope.volumeType.options.push( $scope.get_option( 'sync' ) );
+                        optionList.push( SYNC );
                     }
                     else {
-                        $scope.volumeType.options.push( $scope.get_option( 'async' ) );
+                        optionList.push( ASYNC );
                     }
                     
                     if ( $scope._root_squash === false ){
-                        $scope.volumeType.options.push( $scope.get_option( 'squash' ) );
+                        optionList.push( NO_ROOT_SQUASH );
                     }
                     else {
-                        $scope.volumeType.options.push( $scope.get_option( 'squash_all' ) );
+                        optionList.push( ROOT_SQUASH );
                     }
+                    
+                    var str = '';
+                    
+                    for ( var i = 0; i < optionList.length; i++ ){
+                        
+                        str += optionList[i];
+                        
+                        if ( (i+1) != optionList.length ){
+                            str += ',';
+                        }
+                    }
+                    
+                    $scope.volumeType.options = str;
                 }
             };
             
@@ -100,7 +115,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope.$on( 'fds::refresh', $scope.refreshSelection );
             
             $scope.$watch( 'volumeType', function( newVal ){
-                
+            
                 if ( !angular.isDefined( newVal ) || !angular.isDefined( newVal.type ) ){
                     $scope.volumeType = $scope.types[1];
                     return;
@@ -124,44 +139,36 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 }
                 
                 // this means it's NFS
-                if ( angular.isDefined( $scope.volumeType.filters ) && 
-                    $scope.volumeType.filters.length > 0 ){
-                    
-                    for ( var i = 0; i < $scope.volumeType.filters.length; i++ ){
-                        var filter = $scope.volumeType.filters[i];
-                        
-                        // the UI does not show the DENY portions yet.
-                        if ( filter.mode !== 'ALLOW' ){
-                            continue;
-                        }
-                        
-                        $scope._ip_filters.push( filter.pattern.value );
-                    }
+                if ( angular.isDefined( $scope.volumeType.clients ) && $scope.volumeType.clients.trim() !== '' ){
+
+                    $scope._clients = $scope.volumeType.clients;
                 }
                 
                 // this is the NFS options
                 if ( angular.isDefined( $scope.volumeType.options ) ){
                     
-                    for ( var oI = 0; oI < $scope.volumeType.options.length; oI++ ){
+                    var optionList = $scope.volumeType.options.split( ',' );
+
+                    for ( var oI = 0; oI < optionList.length; oI++ ){
                         
-                        var opt = $scope.volumeType.options[oI];
+                        var opt = optionList[oI];
                         
-                        if ( opt.name === 'sync' ){
+                        if ( opt === SYNC ){
                             $scope._async = false;
                         }
-                        else if ( opt.name === 'async' ){
+                        else if ( opt === ASYNC ){
                             $scope._async = true;
                         }
-                        else if ( opt.name === 'squash' ){
+                        else if ( opt === ROOT_SQUASH ){
                             $scope._root_squash = true;
                         }
-                        else if ( opt.name === 'squash_all' ){
+                        else if ( opt === NO_ROOT_SQUASH ){
                             $scope._root_squash = false;
                         }
-                        else if ( opt.name === 'acl' ){
+                        else if ( opt === ACLS ){
                             $scope._acls = true;
                         }
-                        else if ( opt.name === 'no_acl' ){
+                        else if ( opt === NO_ACLS ){
                             $scope._acls = false;
                         }
                     }

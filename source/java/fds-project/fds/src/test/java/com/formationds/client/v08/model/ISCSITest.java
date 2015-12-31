@@ -7,6 +7,8 @@ package com.formationds.client.v08.model;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
+import com.formationds.client.v08.model.iscsi.Credentials;
+import com.formationds.client.v08.model.iscsi.Initiator;
 import com.formationds.client.v08.model.iscsi.LUN;
 import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -30,6 +32,9 @@ public class ISCSITest
                                                  .withLun( "volume1" )
                                                  .withAccessType( LUN.AccessType.RW )
                                                  .build() )
+                                .withIncomingUser( new Credentials( "Iuser1", "Ipasswd1" ) )
+                                .withOutgoingUser( new Credentials( "Ouser1", "Opasswd1" ) )
+                                .withInitiator( new Initiator( "iqn.2010-07.com.example:node1" ) )
                                 .build( );
 
         final VolumeSettingsISCSI settings =

@@ -20,15 +20,23 @@ public:
                     DataMgr &_dm,
                     NodeUuid &_srcDmUuid,
                     fpi::FDSP_VolumeDescType& _volDesc,
-                    uint32_t _timeout) :
+                    uint32_t _timeout,
+                    DmMigrationExecutorDoneCb cleanUp) :
         DmMigrationExecutor(_dm,
                             _srcDmUuid,
                             _volDesc,
                             _migrId,
                             false,
-                            NULL,
+                            cleanUp,
                             _timeout) {}
     ~DmMigrationDest() {}
+
+    /**
+     * Wraps around processInitialBlobFilterSet, now done in a volume
+     * specific context.
+     */
+    Error start();
+
     typedef std::shared_ptr<DmMigrationDest> shared_ptr;
     typedef std::unique_ptr<DmMigrationDest> unique_ptr;
 private:

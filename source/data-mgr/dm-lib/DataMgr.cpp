@@ -233,6 +233,10 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                                                  timestamp,
                                                  STAT_DM_CUR_TOTAL_OBJECTS,
                                                  total_objects);
+
+        total_bytes = 0;
+        total_blobs = 0;
+        total_objects = 0;
     }
 
     /*
@@ -647,7 +651,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    VolumeMeta *volmeta = new VolumeMeta(vol_name, vol_uuid, GetLog(), vdesc);
+    VolumeMeta *volmeta = new VolumeMeta(vol_name, vol_uuid, GetLog(), vdesc, *this);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -1065,7 +1069,7 @@ int DataMgr::mod_init(SysParams const *const param)
     /**
      * Instantiate migration manager.
      */
-    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(this, *this));
+    dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
     
     fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
     refCountMgr.reset(new refcount::RefCountManager(this));
