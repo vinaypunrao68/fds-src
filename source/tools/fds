@@ -187,17 +187,8 @@ function setupFdsDirs() {
 }
 
 function activate() {
-    local actapps
-    if [[ -z $(getAppPid am) ]]; then actapps="${actapps}am,"; fi
-    if [[ -z $(getAppPid dm) ]]; then actapps="${actapps}dm,"; fi
-    if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
-    if [[ -n $actapps ]]; then
-        # Bao: wait for platformd before activate
-        sleep 14
-
-        logwarn "asking OM to accept all discovered nodes..."
-	(cd ${TOOLSDIR}; /usr/bin/python fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
-    fi
+    logwarn "asking OM to accept all discovered nodes..."
+    (cd ${TOOLSDIR}; /usr/bin/python ./fdsconsole.py set host localhost ; /usr/bin/python ./fdsconsole.py domain activateServices local dm,sm,am)
 }
 
 function startApp() {
@@ -272,6 +263,12 @@ function startApp() {
                     tail ${BINDIR}/${name}.out
                 fi
 
+                if [[ $name == "om" ]]; then
+                    loginfo "waiting for om rest interface to initialize ..."
+                    if !(waitForPort 7443); then
+                        logerror "port 7443 is not showing up .. rest interface not ready"
+                    fi
+                fi
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -508,6 +505,35 @@ function waitForApp() {
         return 1
     else
         return 0
+    fi
+}
+
+function waitForPort() {
+    local port=$1
+    local maxcount=30
+    local waittime=1
+    if [[ $# -ge 2 ]] ; then
+        maxcount=$2
+    fi
+
+    if [[ $# -ge 3 ]] ; then
+       waittime=$3
+    fi
+
+    local count=0
+    echo -n "... waiting for port:[$(boldblue $port)] to come up: "
+    lpid=""
+    while [[ $count -lt $maxcount ]] && !(nc -z localhost $port); do
+        echo -n "."
+        (( count++ ))
+        sleep ${waittime}s ;
+    done
+    echo
+
+    if (nc -z localhost $port); then
+        return 0
+    else
+        return 1
     fi
 }
 

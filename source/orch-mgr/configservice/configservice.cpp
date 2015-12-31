@@ -907,12 +907,15 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             case apis::BLOCK:
                 break;
             case apis::ISCSI:
-            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ] "
-                     << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ] "
-                     << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ] "
-                     << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
+                LOGDEBUG << "iSCSI:: "
+                         << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ] "
+                         << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ] "
+                         << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ] "
+                         << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
                 break;
             case apis::NFS:
+                LOGDEBUG << "NFS:: [ " << volumeSettings->nfsOptions.client << " ] "
+                         << "[ " << volumeSettings->nfsOptions.options << " ]";
                 break;
             case apis::OBJECT:
                 break;
@@ -1048,7 +1051,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT found" , fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT FOUND" , fpi::MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -1066,14 +1069,29 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                      << " [ " << vol->vol_get_name() << " ] type [ " << vol->vol_get_properties()->volType
                      << " ] state [ " << vol->vol_get_properties()->getStateName() << " ] ";
 
-                if (!vol->vol_get_properties()->isSnapshot()) {
-                    if (vol->getState() == fpi::Active) {
-                        VolumeDescriptor volDescriptor;
-                        convert::getVolumeDescriptor(volDescriptor, vol);
-                        vec.push_back(volDescriptor);
+            if (!vol->vol_get_properties()->isSnapshot()) {
+                if (vol->getState() == fpi::Active) {
+                    VolumeDescriptor volDescriptor;
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+
+                    if ( volDescriptor.policy.volumeType == apis::ISCSI )
+                    {
+                        FDS_ProtocolInterface::IScsiTarget iscsi = volDescriptor.policy.iscsiTarget;
+                        LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+                    }
+                    else if (volDescriptor.policy.volumeType == apis::NFS )
+                    {
+                        FDS_ProtocolInterface::NfsOption nfs = volDescriptor.policy.nfsOptions;
+                        LOGDEBUG << "NFS:: [ " << nfs.client << " ] "
+                                 << "[ " << nfs.options << " ]";
                     }
                 }
-            });
+            }
+        });
     }
 
     void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, boost::shared_ptr<int32_t>& ignore) {
@@ -1137,19 +1155,23 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
         /*
          * OK, if we leave this defaulted to 'false' we will never create snapshot policies
-         * which I believe isn't what we want. Because all volumescreated will not have snapshot
+         * which I believe isn't what we want. Because all volumes created will not have snapshot
          * policies so if or when this feature is enabled, set to true, these volumes will fail
          * because not snapshot policy exists.
          *
+         * We just don't want to add it to the scheduler.
+         *
          * P. Tinius 12/23/2015 changed:
          *  if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
-         *
-         *  ADDED: log message below.
          */
-        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+        if ( configDB->createSnapshotPolicy( *policy ) )
+        {
+            LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule;
+            if ( om->enableSnapshotSchedule )
+            {
+                om->snapshotMgr->addPolicy( *policy );
+            }
 
-        if (configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr->addPolicy(*policy);
             return policy->id;
         }
         return -1;

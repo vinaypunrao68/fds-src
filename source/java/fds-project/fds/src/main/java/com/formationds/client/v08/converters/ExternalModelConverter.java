@@ -12,6 +12,7 @@ import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.Initiator;
 import com.formationds.client.v08.model.iscsi.LUN;
 import com.formationds.client.v08.model.iscsi.Target;
+import com.formationds.client.v08.model.nfs.NfsClients;
 import com.formationds.client.v08.model.nfs.NfsOptions;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
@@ -36,15 +37,19 @@ import com.formationds.protocol.svc.types.FDSP_VolType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
 import com.formationds.util.thrift.ConfigurationApi;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.formationds.client.v08.model.nfs.NfsClients.*;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
@@ -520,18 +525,62 @@ public class ExternalModelConverter {
                              volumeId );
             }
 
-        } else if ( settings.getVolumeType().equals( VolumeType.NFS ) ) {
-            Size blockSize = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
-            Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+        } else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
+        {
+            NfsOption nfsOptions = null;
+            if ( !internalVolume.getPolicy( )
+                                .isSetNfsOptions( ) ||
+                 !internalVolume.getPolicy( )
+                                .getNfsOptions( )
+                                .isSetOptions( ) ||
+                 !internalVolume.getPolicy( )
+                                .getNfsOptions( )
+                                .isSetClient( ) )
+            {
+                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
+                if( optional.isPresent( ) )
+                {
+                    final VolumeDesc desc = optional.get( );
+                    if( desc.settings( ).getNfsOptions() != null )
+                    {
+                        nfsOptions = desc.settings().getNfsOptions( );
+                    }
+                }
+            }
+            else
+            {
+                nfsOptions = internalVolume.getPolicy( )
+                                           .getNfsOptions( );
+            }
 
-            // TODO populate NFS options and ipFilters
+            if( nfsOptions != null )
+            {
+                Size blockSize = Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B );
+                Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
 
-            extSettings = new VolumeSettingsNfs.Builder()
-                                               .withOptions( new NfsOptions.Builder().build() )
-                                               .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
-                                               .build();
-            // TODO finish
-
+                try
+                {
+                    extSettings = new VolumeSettingsNfs.Builder()
+                        .withOptions( convertToExternalNfsOptions( nfsOptions ) )
+                        .withClient( convertToExternalNfsClients( nfsOptions ) )
+                        .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+                        .build();
+                }
+                catch ( UnknownHostException e )
+                {
+                    logger.warn( "The NFS volume conversion failed {}, skipping volume {}:{}",
+                                 e.getMessage(),
+                                 extName,
+                                 volumeId );
+                    logger.debug( e.getMessage(), e );
+                }
+            }
+            else
+            {
+                logger.warn( "The NFS volume is missing mandatory attributes, skipping volume {}:{}",
+                             extName,
+                             volumeId );
+            }
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
             Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
@@ -605,6 +654,34 @@ public class ExternalModelConverter {
         options.setClient( client );
 
         return options;
+    }
+
+    public static NfsOptions convertToExternalNfsOptions( final NfsOption options )
+    {
+        final List<String> listOfOptions =
+            Arrays.asList( StringUtils.split( options.getOptions(), "," ) );
+
+        final NfsOptions.Builder[] builder = { new NfsOptions.Builder( ) };
+        listOfOptions.stream()
+                     .forEach( ( option ) -> {
+                        switch( option )
+                        {
+                            case "ro":builder[ 0 ] = builder[ 0 ].ro( ); break;
+                            case "rw":builder[ 0 ] = builder[ 0 ].rw( ); break;
+                            case "acl":builder[ 0 ] = builder[ 0 ].withAcl( ); break;
+                            case "async":builder[ 0 ] = builder[ 0 ].async( ); break;
+                            case "root_squash":builder[ 0 ] = builder[ 0 ].withRootSquash( ); break;
+                            case "no_root_squash":builder[ 0 ] = builder[ 0 ].allSquash( ); break;
+                        }
+                    });
+
+        return builder[ 0 ].build( );
+    }
+
+    public static NfsClients convertToExternalNfsClients( final NfsOption options )
+        throws UnknownHostException
+    {
+        return new NfsClients( options.getClient() );
     }
 
     public static List<LogicalUnitNumber> convertToInternalLogicalUnitNumber( final List<LUN> luns )
@@ -783,9 +860,10 @@ public class ExternalModelConverter {
             if( iscsiSettings.getTarget() == null ||
                 iscsiSettings.getTarget().getLuns().isEmpty() )
             {
-                logger.warn( "The volume is missing a set of mandatory attributes, skipping volume {}:{}",
-                             externalVolume.getName(),
-                             externalVolume.getId() );
+                throw new IllegalArgumentException(
+                    String.format( "The iSCSI volume is missing mandatory attributes, skipping volume %s:%s",
+                                   externalVolume.getName(),
+                                   externalVolume.getId() ) );
             }
             else
             {
@@ -865,7 +943,7 @@ public class ExternalModelConverter {
             final NfsOption options = new NfsOption( );
             if( nfsSettings.getOptions() == null || nfsSettings.getOptions().isEmpty() )
             {
-                options.setOptions( "" );
+                options.setOptions( "rw,sync,no_acl,no_all_squash,no_root_squash" );
             }
             else
             {

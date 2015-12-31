@@ -42,6 +42,21 @@
       <version>1.10.8</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>nfs4j-core</artifactId>
+      <version>0.10.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>nfs4j-core</artifactId>
+      <version>0.10.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.dcache</groupId>
+      <artifactId>nfs4j-core</artifactId>
+      <version>0.10.2</version>
+    </dependency>
   </dependencies>
 
 </project>
