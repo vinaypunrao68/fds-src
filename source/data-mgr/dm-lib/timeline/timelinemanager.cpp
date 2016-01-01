@@ -112,7 +112,8 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
                                                         snapId,
                                                         GetLog(),
-                                                        desc);
+                                                        desc,
+                                                        *dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {

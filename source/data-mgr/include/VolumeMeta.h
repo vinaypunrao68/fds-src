@@ -18,8 +18,17 @@
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
+#include <DmMigrationDest.h>
+#include <DmMigrationSrc.h>
 
 namespace fds {
+
+using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
+using migrationCb = std::function<void(const Error& e)>;
+using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
+using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
+							                    fds_volid_t volumeId,
+							                    const Error& error)>;
 
 #if 0
 // TODO(Rao): Enable when ready
@@ -125,11 +134,9 @@ class VolumeMeta : public HasLogger {
     VolumeMeta();
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               VolumeDesc *v_desc);
-    VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,
                fds_log* _dm_log,
-               VolumeDesc *v_desc);
+               VolumeDesc *v_desc,
+               DataMgr &_dm);
     ~VolumeMeta();
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
@@ -142,6 +149,60 @@ class VolumeMeta : public HasLogger {
      * per volume queue
      */
     boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+
+    /**
+     * DM Migration related
+     */
+ public:
+    Error startMigration(NodeUuid& srcDmUuid,
+                         fpi::FDSP_VolumeDescType &vol,
+                         migrationCb doneCb);
+
+    Error serveMigration(DmRequest *dmRequest);
+
+ private:
+    /**
+     * This volume could be a source of migration to multiple nodes.
+     */
+    DmMigrationSrcMap migrationSrcMap;
+    fds_rwlock migrationSrcMapLock;
+
+    /**
+     * This volume can only be a destination to one node
+     */
+    DmMigrationDest::unique_ptr migrationDest;
+
+    /**
+     * DataMgr reference
+     */
+    DataMgr &dataManager;
+
+    /**
+     * Internally create a source and runs it
+     */
+    Error createMigrationSource(NodeUuid destDmUuid,
+                                const NodeUuid &mySvcUuid,
+                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
+                                migrationCb cleanup);
+
+    /**
+     * Internally cleans up a source
+     */
+    void cleanUpMigrationSource(fds_volid_t volId,
+                                const Error &err,
+                                const NodeUuid destDmUuid);
+
+    /**
+     * Internally cleans up the destination
+     */
+    void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
+                                     fds_volid_t volId,
+                                     const Error &err);
+
+    /**
+     * Stores the hook for Callback to the volume group manager
+     */
+    migrationCb cbToVGMgr;
 };
 
 }  // namespace fds
