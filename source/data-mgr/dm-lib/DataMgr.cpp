@@ -1694,7 +1694,8 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-            threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
+                serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                                  std::bind(&DataMgr::handleDmFunctor, parentDm, io));
             break;
         default:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";

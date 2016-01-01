@@ -106,6 +106,7 @@ class VolumeMeta : public HasLogger {
      * persisted to disk as well
      */
     int32_t version;
+
  public:
     /*
      * Default constructor should NOT be called

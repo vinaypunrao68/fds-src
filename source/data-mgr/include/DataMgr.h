@@ -377,6 +377,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         fds_verify(num > 0);
         _numOfPrimary = num;
     }
+    inline FDS_QoSControl* getQosCtrl() const { return qosCtrl; }
 
     /**
      * Migration mgr for managing DM migrations

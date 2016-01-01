@@ -8,6 +8,7 @@
 #include <fds_process.h>
 #include <util/timeutils.h>
 #include <net/SvcRequest.h>
+#include <DataMgr.h>
 
 namespace fds {
 
@@ -107,14 +108,32 @@ std::string VolumeMeta::logString() const
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 {
-    // TODO(Rao): create qos function cb
-    return f;
+    auto qosCtrl = dataManager.getQosCtrl();
+    fds_volid_t volId(getId());
+    auto newCb = [f, qosCtrl, volId](EPSvcRequest* req, const Error &e, StringPtr payload) {
+        auto ioReq = new DmFunctor(volId, std::bind(f, req, e, payload));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
 }
 
 StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
 {
-    // TODO(Rao): create qos function cb
-    return f;
+    auto qosCtrl = dataManager.getQosCtrl();
+    fds_volid_t volId(getId());
+    auto newCb = [f, qosCtrl, volId](const Error &e) {
+        auto ioReq = new DmFunctor(volId, std::bind(f, e));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
 }
 
 Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
