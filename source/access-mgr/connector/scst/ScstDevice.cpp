@@ -48,6 +48,7 @@ extern "C" {
 }
 
 #include "connector/scst/ScstTask.h"
+#include "connector/scst/ScstInquiry.h"
 
 /// Some useful constants for us
 /// ******************************************
@@ -57,7 +58,7 @@ static constexpr size_t Gi = Ki * Mi;
 static constexpr ssize_t max_block_size = 8 * Mi;
 /// ******************************************
 
-static uint8_t const ieee_oui[] = { 0x88, 0xA0, 0x84 };
+static uint32_t const ieee_oui = 0x88A084;
 static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
 
 static constexpr bool ensure(bool b)
@@ -67,6 +68,7 @@ namespace fds
 {
 
 ScstDevice::ScstDevice(std::string const& vol_name,
+                       uint64_t const volume_id,
                        ScstTarget* target,
                        std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
@@ -74,10 +76,9 @@ ScstDevice::ScstDevice(std::string const& vol_name,
           scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_name),
           logical_block_size(512ul),
-          readyResponses(4000)
+          readyResponses(4000),
+          inquiry_handler(new InquiryHandler())
 {
-    // When we are first up, the serial number is just spaces.
-    snprintf(serial_number, sizeof(serial_number), "%16.0lX", 0ul);
     {
         FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
         standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
@@ -86,6 +87,8 @@ ScstDevice::ScstDevice(std::string const& vol_name,
         FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
         logical_block_size = conf.get<uint32_t>("default_block_size", logical_block_size);
     }
+
+    setupInquiryPages(volume_id);
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
@@ -125,6 +128,45 @@ ScstDevice::ScstDevice(std::string const& vol_name,
 
     GLOGNORMAL << "New SCST device [" << volumeName
                << "] BlockSize[" << logical_block_size << "]";
+}
+
+void ScstDevice::setupInquiryPages(uint64_t const volume_id)
+{
+    // Setup the standard inquiry page
+    auto inquiry = inquiry_handler->getStandardInquiry();
+    inquiry &= PeripheralType::DirectAccess;
+    inquiry.setVendorId("FDS");
+    inquiry.setProductId("FormationOne");
+    inquiry.setRevision("BETA");
+    inquiry_handler->setStandardInquiry(inquiry);
+
+    // Write the Serial Number (0x80) Page
+    char serial_number[17];
+    snprintf(serial_number, sizeof(serial_number), "%.16lX", volume_id);
+    VPDPage serial_page;
+    serial_page.writePage(0x80, serial_number, 16);
+    inquiry_handler->addVPDPage(serial_page);
+
+    // Build our device identification descriptors
+    DescriptorBuilder builder;
+    builder &= VendorSpecificIdentifier(volumeName);
+    builder &= T10Designator("FDS");
+    builder &= NAADesignator(ieee_oui, volume_id);
+
+    // Write the Device Identification (0x83) Page
+    VPDPage device_id_page;
+    device_id_page &= PeripheralType::DirectAccess;
+    device_id_page.writePage(0x83, builder.data(), builder.length());
+    inquiry_handler->addVPDPage(device_id_page);
+
+    // Write the Extended Inquiry (0x86) Page
+    ExtVPDParameters evpd_parameters;
+    evpd_parameters &= ExtVPDParameters::HeadAttrSupport;
+    evpd_parameters &= ExtVPDParameters::SimpleAttrSupport;
+    evpd_parameters &= ExtVPDParameters::OrderedAttrSupport;
+    VPDPage evpd_page;
+    evpd_page.writePage(0x86, &evpd_parameters, sizeof(ExtVPDParameters));
+    inquiry_handler->addVPDPage(evpd_page);
 }
 
 void
@@ -291,12 +333,13 @@ void ScstDevice::execUserCmd() {
     // We may need to allocate a buffer for SCST, if we do and fail we'll need
     // to clean it up rather than expect a release command for it
     auto buffer = (uint8_t*)scsi_cmd.pbuf;
+    size_t buflen = scsi_cmd.bufflen;
     if (!buffer && 0 < scsi_cmd.alloc_len) {
         ensure(0 == posix_memalign((void**)&buffer, sysconf(_SC_PAGESIZE), scsi_cmd.alloc_len));
         memset((void*) buffer, 0x00, scsi_cmd.alloc_len);
-        task->setResponseBuffer(buffer, false);
+        task->setResponseBuffer(buffer, buflen, false);
     } else {
-        task->setResponseBuffer(buffer, true);
+        task->setResponseBuffer(buffer, buflen, true);
     }
 
     // Poor man's goto
@@ -346,151 +389,16 @@ void ScstDevice::execUserCmd() {
         }
     case INQUIRY:
         {
-            size_t buflen = scsi_cmd.bufflen;
-            size_t param_cursor = 0ull;
-            if (buflen < 4) {
-                continue;
-            }
-            bzero(buffer, buflen);
+            memset(buffer, '\0', buflen);
 
-            buffer[0] = TYPE_DISK;
-            param_cursor +=2;
             // Check EVPD bit
             if (scsi_cmd.cdb[1] & 0x01) {
                 auto& page = scsi_cmd.cdb[2];
                 LOGTRACE << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
-                switch (page) {
-                case 0x00: // Supported pages
-                    /* |                                 PAGE                                  |*/
-                    /* |                                LENGTH                                 |*/
-                    /* |                              (PAGE CODE)                              |*/
-                    /* |                              (   ...   )                              |*/
-                    static uint8_t const supported_page_header [] = {
-                        0,
-                        4,
-                        0x00,   // This Page
-                        0x80,   // Unit Serial
-                        0x83,   // Vendor ID Page
-                        0x86,   // Extended VPD
-                    };
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor],
-                               supported_page_header,
-                               std::min(buflen - param_cursor, sizeof(supported_page_header)));
-                    }
-                    param_cursor += sizeof(supported_page_header);
-                    break;
-                case 0x80: // Unit Serial
-                    /* |                                 PAGE                                  |*/
-                    /* |                                LENGTH                                 |*/
-                    /* |                                SERIAL                                 |*/
-                    /* |                                NUMBER                                 |*/
-                    /* |                                 ...                                   |*/
-                    static uint8_t const serial_number_header [] = {
-                        0,
-                        16
-                    };
-                    memcpy(&buffer[param_cursor], serial_number_header, sizeof(serial_number_header));
-                    param_cursor += sizeof(serial_number_header);
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor], serial_number, std::min(buflen - param_cursor, sizeof(serial_number) - 1));
-                    }
-                    param_cursor += sizeof(serial_number) - 1;
-                    break;
-                case 0x83: // Device ID
-                    param_cursor += inquiry_page_dev_id(param_cursor, buflen, buffer);
-                    break;;
-                case 0x86: // Extended VPD
-                    /* /-------------------------------------------------------------------------\
-                     * |                                   PAGE                                  |
-                     * |                                  LENGTH                                 |
-                     * | ACTIVE MICROCODE  |            SPT           | GRD_CHK| APP_CHK| REF_CHK|
-                     * |       resv        |UASK_SUP|GROUPSUP|PRIORSUP|HEAD_SUP| ORD_SUP|SIMP_SUP|
-                     * |                 resv                | WU_SUP | CRD_SUP| NV_SUP | V_SUP  |
-                     * |            resv            |P_II_SUP|           resv           | LUICLR |
-                     * |            resv            | R_SUP  |           resv           |  CBCS  |
-                     * |                 resv                | MULTI I_T NEXUS MICROCODE DOWNLOAD|
-                     * |                            EXTENDED SELF-TEST                           |
-                     * |                            COMPLETION MINUTES                           |
-                     * | POA_SUP | HRA_SUP | VSA_SUP|                    resv                    |
-                     * |                         MAX SENSE DATA LENGTH                           |
-                     * \_________________________________________________________________________/
-                     */
-                    static uint8_t const extended_vpd [] = {
-                        0,
-                        60,
-                        0b00000000,
-                        0b00000111,
-                        0b00000000,
-                        0b00000000,
-                        0b00000000,
-                        0x00,
-                        0,
-                        0,
-                        0b00000000,
-                        0
-                    };
-                    if (param_cursor < buflen) {
-                        memcpy(&buffer[param_cursor],
-                               extended_vpd,
-                               std::min(buflen - param_cursor, sizeof(extended_vpd)));
-                    }
-                    param_cursor += 62;
-                    break;;
-                default:
-                    LOGDEBUG << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
-                    task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                    continue;
-                }
-                buffer[1] = page; // Identity of the page we're returning
-                task->setResponseLength(std::min(buflen, param_cursor));
+                inquiry_handler->writeVPDPage(task, page);
             } else {
                 LOGTRACE << "Standard inquiry requested.";
-                /* /-----------------------------------------------------------------------\
-                 * |                                VERSION                                |
-                 * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
-                 * |                          ADDITIONAL LENGTH                            |
-                 * |  SCCS  |  ACC   |      TPGS       |  3PC   |      resv       | PRTECT |
-                 * |  obsl  | ENCSVC | vendor | MULTIP |  obsl  |  resv  |  resv  | ADDR16 |
-                 * |  obsl  |  resv  | WBUS16 |  SYNC  |  obsl  |  resv  | CMDQUE | vendor |
-                 * \_______________________________________________________________________/
-                 */
-                static uint8_t const standard_inquiry_header[] = {
-                    0x06      , // SPC-4
-                    0b00010010, // SAM-5
-                    31        ,
-                    0b00000000,
-                    0b00010000,
-                    0b00000010
-                };
-                static uint8_t const product_id[]  = { 'F', 'o', 'r', 'm', 'a', 't', 'i', 'o',
-                                                       'n', 'O', 'n', 'e', ' ', ' ', ' ', ' ' };
-
-                // Copy the fixed standard inquiry header above
-                memcpy(&buffer[param_cursor],
-                       standard_inquiry_header,
-                       std::min(buflen - param_cursor, sizeof(standard_inquiry_header)));
-                param_cursor += sizeof(standard_inquiry_header);
-
-                // Conditionally fill out the additional vendor/device id
-                if (param_cursor < buflen) {
-                    memcpy(&buffer[param_cursor],
-                           vendor_name,
-                           std::min(buflen - param_cursor, sizeof(vendor_name)));
-                }
-                param_cursor += sizeof(vendor_name);
-                if (param_cursor < buflen) {
-                    memcpy(&buffer[param_cursor],
-                           product_id,
-                           std::min(buflen - param_cursor, sizeof(product_id)));
-                }
-                param_cursor += sizeof(product_id);
-                if (param_cursor < buflen) {
-                    memcpy(&buffer[param_cursor], "BETA", std::min(buflen - param_cursor, 4ul));
-                }
-                param_cursor += 4;
-
-                task->setResponseLength(std::min(buflen, param_cursor));
+                inquiry_handler->writeStandardInquiry(task);
             }
         }
         break;
@@ -513,12 +421,11 @@ void ScstDevice::execUserCmd() {
                 continue;
             }
 
-            size_t buflen = scsi_cmd.bufflen;
             if (buflen < 4) {
                 // Too small to even calculate the mode data length
                 continue;
             }
-            bzero(buffer, buflen);
+            memset(buffer, '\0', buflen);
 
             size_t param_cursor = 0ull;
             if (MODE_SENSE == op_code) {
@@ -804,91 +711,6 @@ void ScstDevice::execUserCmd() {
     deferredReply();
 }
 
-size_t
-ScstDevice::inquiry_page_dev_id(size_t cursor, size_t const buflen, uint8_t* buffer) const {
-    /* |                                 PAGE                                  |*/
-    /* |                                LENGTH                                 |*/
-    auto len_cursor = cursor; // We'll come back and fill this out when we know
-    cursor += 2;
-
-    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-    /* |                                 resv                                  |*/
-    /* |                          DESIGNATOR LENGTH                            |*/
-    uint8_t vendor_specific_id [] = {
-        0x52,       // iSCSI / ASCII
-        0b00000000, // LUN assoc / Vendor Specifc
-        0,
-        0           // ID Length
-    };
-    if (cursor < buflen) {
-        vendor_specific_id[3] = volumeName.size();
-        memcpy(&buffer[cursor],
-               vendor_specific_id,
-               std::min(buflen - cursor, sizeof(vendor_specific_id)));
-    }
-    cursor += sizeof(vendor_specific_id);
-    if (cursor < buflen) {
-        memcpy(&buffer[cursor],
-               volumeName.c_str(),
-               std::min(buflen - cursor, volumeName.size()));
-    }
-    cursor += volumeName.size();
-
-    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-    /* |                                 resv                                  |*/
-    /* |                          DESIGNATOR LENGTH                            |*/
-    uint8_t t10_vendor_id [] = {
-        0x52,       // iSCSI / ASCII
-        0b00000001, // LUN assoc / T10 Vendor ID
-        0,
-        0           // ID Length
-    };
-
-    if (cursor < buflen) {
-        t10_vendor_id[3] = sizeof(vendor_name);
-        memcpy(&buffer[cursor], t10_vendor_id, std::min(buflen - cursor, sizeof(t10_vendor_id)));
-    }
-    cursor += sizeof(t10_vendor_id);
-    if (cursor < buflen) {
-        memcpy(&buffer[cursor],
-               vendor_name,
-               std::min(buflen - cursor, sizeof(vendor_name)));
-    }
-    cursor += sizeof(vendor_name);
-
-    /* |        PROTOCOL IDENTIFIER        |              CODE SET             |*/
-    /* |  PIV   |  resv  |   ASSOCIATION   |           DESIGNATOR TYPE         |*/
-    /* |                                 resv                                  |*/
-    /* |                          DESIGNATOR LENGTH                            |*/
-    uint8_t naa_vendor_id [] = {
-        0x51,       // iSCSI / Binary
-        0b00000011, // LUN assoc / NAA
-        0,
-        8           // ID Length
-    };
-
-    if (cursor < buflen) {
-        memcpy(&buffer[cursor], naa_vendor_id, std::min(buflen - cursor, sizeof(naa_vendor_id)));
-    }
-    cursor += sizeof(naa_vendor_id);
-    if (cursor < buflen + 8) {
-        // Write Company_Id
-        buffer[cursor] = ((0x5) << 4) | (ieee_oui[0] >> 4);
-        buffer[cursor+1] = (ieee_oui[0] << 4) | (ieee_oui[1] >> 4);
-        buffer[cursor+2] = (ieee_oui[1] << 4) | (ieee_oui[2] >> 4);
-        buffer[cursor+3] = (ieee_oui[2] << 4);
-        // Write Vendor Specific_Id
-        *reinterpret_cast<uint32_t*>(&buffer[cursor+4]) = htobe32((uint32_t)volume_id);
-    }
-    cursor += 8;
-
-    *reinterpret_cast<uint16_t*>(&buffer[len_cursor]) = htobe16(cursor - len_cursor - 2);
-
-    return cursor;
-}
-
 void
 ScstDevice::getAndRespond() {
     cmd.preply = 0ull;
@@ -1036,11 +858,8 @@ ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     if (volDesc) {
         volume_size = (volDesc->capacity * Mi);
         physical_block_size = volDesc->maxObjSizeInBytes;
-        volume_id = volDesc->GetID().get();
-        snprintf(serial_number, sizeof(serial_number), "%.16lX", volume_id);
         LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
-            << "B and object size: 0x" << physical_block_size
-            << "B with serial: " << serial_number;
+            << "B and object size: 0x" << physical_block_size;
     }
 }
 

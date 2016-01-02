@@ -57,7 +57,7 @@ struct ScstTarget
 
     std::string targetName() const { return target_name; }
 
-    void addDevice(std::string const& volume_name);
+    void addDevice(std::string const& volume_name, uint64_t const volume_id);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
     void setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials);

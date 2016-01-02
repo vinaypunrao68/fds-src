@@ -163,7 +163,7 @@ ScstTarget::ScstTarget(std::string const& name,
 ScstTarget::~ScstTarget() = default;
 
 void
-ScstTarget::addDevice(std::string const& volume_name) {
+ScstTarget::addDevice(std::string const& volume_name, uint64_t const volume_id) {
     std::unique_lock<std::mutex> l(deviceLock);
 
     // Check if we have a device with this name already
@@ -192,7 +192,7 @@ ScstTarget::addDevice(std::string const& volume_name) {
 
     ScstDevice* device = nullptr;
     try {
-    device = new ScstDevice(volume_name, this, processor);
+    device = new ScstDevice(volume_name, volume_id, this, processor);
     } catch (ScstError& e) {
         return;
     }

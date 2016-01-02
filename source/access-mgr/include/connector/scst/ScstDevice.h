@@ -43,9 +43,11 @@ namespace fds
 struct AmProcessor;
 struct ScstTarget;
 struct ScstTask;
+struct InquiryHandler;
 
 struct ScstDevice : public BlockOperations::ResponseIFace {
     ScstDevice(std::string const& vol_name,
+               uint64_t const vol_id,
                ScstTarget* target,
                std::shared_ptr<AmProcessor> processor);
     ScstDevice(ScstDevice const& rhs) = delete;
@@ -83,8 +85,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     std::string const volumeName;
     int scstDev {-1};
     size_t volume_size {0};
-    char serial_number[17];
-    uint64_t volume_id {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;
@@ -105,6 +105,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     /** Indicates to ev loop if it's safe to handle events on this connection */
     bool processing_ {false};
 
+    void setupInquiryPages(uint64_t const volume_id);
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
@@ -119,7 +120,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     void execParseCmd();
 
     // Utility functions to build Inquiry Pages...etc
-    size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
+    unique<InquiryHandler> inquiry_handler;
 
     void deferredReply() {
         cmd.preply = 0ull;

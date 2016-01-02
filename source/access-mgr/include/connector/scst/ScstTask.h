@@ -43,8 +43,8 @@ struct ScstTask : public BlockTask {
     inline void checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq);
     inline void reservationConflict();
 
-    inline void setResponseBuffer(uint8_t* buf, bool const cached_buffer);
-    inline void setResponseLength(size_t const buf_len);
+    inline void setResponseBuffer(uint8_t* buf, size_t const buflen, bool const cached_buffer);
+    inline void setResponseLength(size_t const buflen);
 
     void setResult(int32_t result)
     { reply.result = result; }
@@ -56,6 +56,9 @@ struct ScstTask : public BlockTask {
     uint8_t* getResponseBuffer() const
     { return (uint8_t*)reply.exec_reply.pbuf; }
 
+    size_t getResponseBufferLen() const
+    { return buf_len; }
+
     uint32_t getSubcode() const { return reply.subcode; }
 
   private:
@@ -64,6 +67,9 @@ struct ScstTask : public BlockTask {
 
     // Sense buffer for check conditions
     uint8_t sense_buffer[18] {};
+
+    // Buffer length for response data
+    size_t buf_len {0};
 
     // If the buffer is known to SCST
     bool buffer_in_sgv {false};
@@ -91,15 +97,16 @@ ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const asc
 }
 
 void
-ScstTask::setResponseBuffer(uint8_t* buf, bool const cached_buffer)
+ScstTask::setResponseBuffer(uint8_t* buf, size_t const buflen, bool const cached_buffer)
 {
     buffer_in_sgv = cached_buffer;
+    buf_len = buflen;
     reply.exec_reply.pbuf = (unsigned long)buf;
 }
 
 void
-ScstTask::setResponseLength(size_t const buf_len) {
-    reply.exec_reply.resp_data_len = buf_len;
+ScstTask::setResponseLength(size_t const length) {
+    reply.exec_reply.resp_data_len = length;
 }
 
 }  // namespace fds
