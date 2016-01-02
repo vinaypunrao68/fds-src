@@ -113,17 +113,6 @@ template <class T>
 void ReplicaInitializer<T>::run()
 {
     setProgress_(CONTACT_COORDINATOR);
-#if 0
-    auto f = replica_->makeSynchronized([this](EPSvcRequest*,
-                                               const Error &e,
-                                               StringPtr) {
-        if (e != ERR_OK) {
-            complete_(e, "Coordinator rejected at loading state");
-            return;
-        }
-    });
-    notifyCoordinator_(f);
-#endif
 
     notifyCoordinator_(replica_->makeSynchronized([this](EPSvcRequest*,
                                                     const Error &e,
@@ -188,7 +177,7 @@ void ReplicaInitializer<T>::startBuffering_()
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
     /* Callback to get the progress of replay */
-    bufferReplay_->setProgressCb(replica_->makeSynchronized([this](BufferReplay::Progress progress) {
+    bufferReplay_->setProgressCb(replica_->synchronizedProgressCb([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
         LOGNOTIFY << replica_->logString() << " BufferReplay progress: " << progress;
         if (progress == BufferReplay::REPLAY_CAUGHTUP) {

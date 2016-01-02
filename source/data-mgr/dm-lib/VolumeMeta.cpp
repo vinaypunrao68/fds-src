@@ -111,6 +111,7 @@ std::string VolumeMeta::logString() const
     return ss.str();
 }
 
+
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 {
@@ -133,6 +134,21 @@ StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
     fds_volid_t volId(getId());
     auto newCb = [f, qosCtrl, volId](const Error &e) {
         auto ioReq = new DmFunctor(volId, std::bind(f, e));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
+}
+
+BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::ProgressCb &f)
+{
+    auto qosCtrl = dataManager->getQosCtrl();
+    fds_volid_t volId(getId());
+    auto newCb = [f, qosCtrl, volId](BufferReplay::Progress status) {
+        auto ioReq = new DmFunctor(volId, std::bind(f, status));
         auto err = qosCtrl->enqueueIO(volId, ioReq);
         if (err != ERR_OK) {
             GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;

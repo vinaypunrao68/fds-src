@@ -83,6 +83,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
 
     StatusCb makeSynchronized(const StatusCb &f);
+    BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
 
 
     /**
