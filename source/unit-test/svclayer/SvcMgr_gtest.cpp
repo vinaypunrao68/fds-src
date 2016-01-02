@@ -13,7 +13,7 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
-#include <FakeSvcDomain.hpp>
+#include <testlib/FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

@@ -19,7 +19,7 @@
 #include <testlib/TestFixtures.h>
 #include <util/fiu_util.h>
 #include <SvcMgrModuleProvider.hpp>
-#include <FakeSvcDomain.hpp>
+#include <testlib/FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -88,7 +88,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcDomain::INVALID_SVCUUID);
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcFactory::INVALID_SVCUUID);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(svcStatusWaiter.cb);
