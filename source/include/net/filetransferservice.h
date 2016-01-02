@@ -58,7 +58,7 @@ struct FileTransferService : HasLogger {
     };
 
 
-    explicit FileTransferService(const std::string& destDir, SvcMgr* svcMgr = NULL);
+    explicit FileTransferService(const std::string& destDir, SvcMgr* svcMgr);
     bool send(const fpi::SvcUuid &svcId,
               const std::string& srcFile,
               const std::string& destFile,

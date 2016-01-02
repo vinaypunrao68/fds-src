@@ -393,7 +393,7 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
 
 std::string DataMgr::getSnapDirBase() const
 {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     return root->dir_user_repo_dm();
 }
 
@@ -770,7 +770,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
-        const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
         const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid.get());
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
@@ -1001,8 +1001,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-        : Module("dm"),
-          modProvider_(modProvider)
+    : HasModuleProvider(modProvider),
+    Module("dm")
 {
     // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
@@ -1013,7 +1013,7 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     initHandlers();
-    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
+    standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
     shuttingDown = false;
@@ -1028,9 +1028,9 @@ int DataMgr::mod_init(SysParams const *const param)
                                                                           this));
 
     // qos threadpool config
-    qosThreadCount = modProvider_->get_fds_config()->\
+    qosThreadCount = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
-    qosOutstandingTasks = modProvider_->get_fds_config()->\
+    qosOutstandingTasks = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_outstanding_io", 20);
 
     // If we're in test mode, don't daemonize.
@@ -1038,36 +1038,36 @@ int DataMgr::mod_init(SysParams const *const param)
     // not to override test_mode
 
     // Set testing related members
-    testUturnAll = modProvider_->get_fds_config()->\
+    testUturnAll = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_all", false);
-    testUturnStartTx = modProvider_->get_fds_config()->\
+    testUturnStartTx = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_starttx", false);
-    testUturnUpdateCat = modProvider_->get_fds_config()->\
+    testUturnUpdateCat = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_updatecat", false);
-    testUturnSetMeta   = modProvider_->get_fds_config()->\
+    testUturnSetMeta   = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
+    features.setTimelineEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setVolumeTokensEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.volume_open_support", false));
 
-    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setExpungeEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.periodic_expunge", false));
 
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
-    features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setSerializeReqsEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.dm.req_serialization", true));
 
-    features.setVolumegroupingEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_volumegrouping", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -1085,7 +1085,7 @@ int DataMgr::mod_init(SysParams const *const param)
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
     
-    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+    fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
 }
@@ -1155,7 +1155,7 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
+    useTestMode = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
         features.setTestModeEnabled(true);
@@ -1171,7 +1171,7 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     auto diskIOPsMin = standalone ? 60*1000 :
             atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
@@ -1202,7 +1202,8 @@ void DataMgr::mod_enable_service() {
 
 
     // create time volume catalog
-    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog("DM Time Volume Catalog",
+    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog(MODULEPROVIDER(),
+                                                             "DM Time Volume Catalog",
                                                              *qosCtrl->threadPool,
                                                              *this));
 
@@ -1211,8 +1212,9 @@ void DataMgr::mod_enable_service() {
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
     statStreamAggr_ =
-            StatStreamAggregator::ptr(new StatStreamAggregator("DM Stat Stream Aggregator",
-                                                               modProvider_->get_fds_config(),
+            StatStreamAggregator::ptr(new StatStreamAggregator(MODULEPROVIDER(),
+                                                               "DM Stat Stream Aggregator",
+                                                               MODULEPROVIDER()->get_fds_config(),
                                                                *this));
 
     // enable collection of local stats in DM
@@ -1751,8 +1753,7 @@ DataMgr::dmQosCtrl::~dmQosCtrl() {
 
 namespace dmutil {
 
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(),
@@ -1764,20 +1765,17 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 }
 
 // location of all snapshots for a volume
-std::string getSnapshotDir(fds_volid_t volId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/snapshot",
                            root->dir_user_repo_dm().c_str(), volId);
 }
 
-std::string getVolumeMetaDir(fds_volid_t volId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/volumemeta",
                            root->dir_user_repo_dm().c_str(), volId);
 }
 
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(), volId.get(), snapId);
@@ -1798,14 +1796,12 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) 
     std::sort(vecVolumes.begin(), vecVolumes.end());
 }
 
-std::string getTimelineDBPath() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getTimelineDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     return util::strformat("%s/timeline.db", dmDir.c_str());
 }
 
-std::string getExpungeDBPath() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getExpungeDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_user_repo_dm();
     return util::strformat("%s/expunge.ldb", dmDir.c_str());
 }

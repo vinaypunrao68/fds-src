@@ -21,7 +21,7 @@ struct DataMgr;
  * delete requests to the SM.
  */
 struct ExpungeDB {
-    ExpungeDB();
+    explicit ExpungeDB(const FdsRootDir* root);
     uint32_t increment(fds_volid_t volId, const ObjectID &objId);
     uint32_t decrement(fds_volid_t volId, const ObjectID &objId);
     uint32_t getExpungeCount(fds_volid_t volId, const ObjectID &objId);

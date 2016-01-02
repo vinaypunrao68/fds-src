@@ -24,7 +24,7 @@ struct JournalFileInfo {
 class TimelineDB : public HasLogger {
   public:
     TimelineDB();
-    Error open();
+    Error open(const FdsRootDir *root);
     Error addJournalFile(fds_volid_t volId,
                          TimeStamp startTime, const std::string& journalFile);
     Error removeJournalFile(fds_volid_t volId, const std::string& journalFile);
