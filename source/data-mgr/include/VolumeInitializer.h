@@ -64,10 +64,12 @@ struct ReplicaInitializer : HasModuleProvider,
     void abort();
     Error tryAndBufferIo(const BufferReplay::Op &op);
 
+#if 0
     template <class F>
     F makeSynchronized(F &&f) {
         return replica_->makeSynchronized(std::forward<F>(f));
     }
+#endif
     std::string logString() const;
 
  protected:
@@ -87,6 +89,8 @@ struct ReplicaInitializer : HasModuleProvider,
     std::unique_ptr<BufferReplay>           bufferReplay_;
     Error                                   completionError_;
 };
+template <class T>
+constexpr const char* const ReplicaInitializer<T>::progressStr[];
 
 struct VolumeMeta;
 using VolumeInitializer = ReplicaInitializer<VolumeMeta>;
@@ -109,7 +113,19 @@ template <class T>
 void ReplicaInitializer<T>::run()
 {
     setProgress_(CONTACT_COORDINATOR);
-    notifyCoordinator_(makeSynchronized([this](EPSvcRequest*,
+#if 0
+    auto f = replica_->makeSynchronized([this](EPSvcRequest*,
+                                               const Error &e,
+                                               StringPtr) {
+        if (e != ERR_OK) {
+            complete_(e, "Coordinator rejected at loading state");
+            return;
+        }
+    });
+    notifyCoordinator_(f);
+#endif
+
+    notifyCoordinator_(replica_->makeSynchronized([this](EPSvcRequest*,
                                                     const Error &e,
                                                     StringPtr) {
         ABORT_CHECK();
@@ -118,7 +134,7 @@ void ReplicaInitializer<T>::run()
             complete_(e, "Coordinator rejected at loading state");
             return;
         }
-        copyActiveStateFromPeer_(makeSynchronized([this](const Error &e) {
+        copyActiveStateFromPeer_(replica_->makeSynchronized([this](const Error &e) {
            ABORT_CHECK();
            /* After active tx state is copied from the peer */
            if (e != ERR_OK) {
@@ -131,7 +147,7 @@ void ReplicaInitializer<T>::run()
             * we will receive actio io.  Active io will be buffered to disk
             */
            notifyCoordinator_();
-           doQucikSyncWithPeer_(makeSynchronized([this](const Error &e) {
+           doQucikSyncWithPeer_(replica_->makeSynchronized([this](const Error &e) {
                ABORT_CHECK();
                auto replayBufferedIoWork = [this](const Error &e) {
                    ABORT_CHECK();
@@ -146,7 +162,7 @@ void ReplicaInitializer<T>::run()
                    startReplay_();
                };
                if (e == ERR_QUICKSYNC_NOT_POSSIBLE) {
-                   doStaticMigrationWithPeer_(makeSynchronized(replayBufferedIoWork));
+                   doStaticMigrationWithPeer_(replica_->makeSynchronized(replayBufferedIoWork));
                    return;
                }
                replayBufferedIoWork(e);
@@ -172,7 +188,7 @@ void ReplicaInitializer<T>::startBuffering_()
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
     /* Callback to get the progress of replay */
-    bufferReplay_->setProgressCb(makeSynchronized([this](BufferReplay::Progress progress) {
+    bufferReplay_->setProgressCb(replica_->makeSynchronized([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
         LOGNOTIFY << replica_->logString() << " BufferReplay progress: " << progress;
         if (progress == BufferReplay::REPLAY_CAUGHTUP) {
@@ -194,7 +210,7 @@ void ReplicaInitializer<T>::startBuffering_()
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {
             auto req = requestMgr->newEPSvcRequest(selfUuid);
-            req->setPayloadBuf(op.first, op.second);
+            req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.first), op.second);
             req->onResponseCb([this](EPSvcRequest*,
                                      const Error &e,
                                      StringPtr) {
