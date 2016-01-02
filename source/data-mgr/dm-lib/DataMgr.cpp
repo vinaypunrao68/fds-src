@@ -651,7 +651,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    VolumeMeta *volmeta = new VolumeMeta(vol_name, vol_uuid, GetLog(), vdesc, *this);
+    VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
+                                         vol_name,
+                                         vol_uuid,
+                                         GetLog(),
+                                         vdesc,
+                                         this);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -686,15 +691,25 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            if (features.isVolumegroupingEnabled()) {
-                volmeta->vol_desc->setState(fpi::Syncing);
-                fSyncRequired = true;
+            if (features.isVolumegroupingEnabled() &&
+                !(vdesc->isSnapshot())) {
+                if (volmeta->isCoordinatorSet()) {
+                    /* Coordinator is set. We can go through sync protocol */
+                    volmeta->setState(fpi::Loading);
+                    volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
+                    fSyncRequired = true;
+                } else {
+                    /* Coordinator isn't available yet.  We wait until coordinator tries to
+                     * do an open
+                     */
+                    volmeta->setState(fpi::Offline);
+                }
             } else {
-                volmeta->vol_desc->setState(fpi::Active);
+                volmeta->setState(fpi::Active);
             }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
-            volmeta->vol_desc->setState(fpi::InError);
+            volmeta->setState(fpi::InError);
         }
 
         // we registered queue and shadow queue if needed
@@ -765,8 +780,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         timelineMgr->loadSnapshot(vol_uuid);
     }
     if (fSyncRequired) {
-        // TODO(Rao): Include the version
-        runSyncProtocol(0, *vdesc);
+        volmeta->initializer->run();
     }
 
     return err;

@@ -9,19 +9,22 @@
 #include <util/timeutils.h>
 #include <net/SvcRequest.h>
 #include <DataMgr.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 
-VolumeMeta::VolumeMeta(const std::string& _name,
+VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
+                       const std::string& _name,
                        fds_volid_t _uuid,
                        fds_log* _dm_log,
                        VolumeDesc* _desc,
-                       DataMgr &_dm)
-          : fwd_state(VFORWARD_STATE_NONE),
+                       DataMgr *_dm)
+          : HasModuleProvider(modProvider),
+            fwd_state(VFORWARD_STATE_NONE),
             dmVolQueue(0),
             dataManager(_dm),
             cbToVGMgr(NULL) {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
     vol_desc = new VolumeDesc(_name, _uuid);
@@ -32,6 +35,9 @@ VolumeMeta::VolumeMeta(const std::string& _name,
 
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
+
+    opId = VolumeGroupConstants::OPSTARTID;
+    version = VolumeGroupConstants::VERSION_INVALID;
 }
 
 VolumeMeta::~VolumeMeta() {
@@ -108,7 +114,7 @@ std::string VolumeMeta::logString() const
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 {
-    auto qosCtrl = dataManager.getQosCtrl();
+    auto qosCtrl = dataManager->getQosCtrl();
     fds_volid_t volId(getId());
     auto newCb = [f, qosCtrl, volId](EPSvcRequest* req, const Error &e, StringPtr payload) {
         auto ioReq = new DmFunctor(volId, std::bind(f, req, e, payload));
@@ -123,7 +129,7 @@ VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 
 StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
 {
-    auto qosCtrl = dataManager.getQosCtrl();
+    auto qosCtrl = dataManager->getQosCtrl();
     fds_volid_t volId(getId());
     auto newCb = [f, qosCtrl, volId](const Error &e) {
         auto ioReq = new DmFunctor(volId, std::bind(f, e));
@@ -150,7 +156,7 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
 
     auto dummyId = 0;
     migrationDest.reset(new DmMigrationDest(dummyId,
-                                            dataManager,
+                                            *dataManager,
                                             srcDmUuid,
                                             vol,
                                             deltaBlobTimeout,
@@ -208,7 +214,7 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
         {
             SCOPEDWRITE(migrationSrcMapLock);
             source = DmMigrationSrc::shared_ptr(
-                    new DmMigrationSrc(dataManager,
+                    new DmMigrationSrc(*dataManager,
                                        mySvcUuid,
                                        destDmUuid,
                                        filterSet->DMT_version,
