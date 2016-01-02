@@ -337,6 +337,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error putObject(fds_volid_t volId, const std::string & blobName, const BlobObjList & objs);
 
+    Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

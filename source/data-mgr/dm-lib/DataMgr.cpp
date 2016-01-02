@@ -733,6 +733,15 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }else{
             volmeta->setSequenceId(seq_id);
         }
+        /* Set version */
+        int32_t version;
+        err = timeVolCat_->queryIface()->getVersion(vol_uuid, version);
+        if (!err.ok()) {
+            LOGERROR << "Failed to get version for volume id: "
+                << std::hex << vol_uuid << std::dec;
+            return err;
+        }
+        volmeta->setVersion(version);
     }
 
     /*
@@ -1603,6 +1612,13 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                  io);
             break;
         case FDS_RENAME_BLOB:
+            if (parentDm->features.isVolumegroupingEnabled()) {
+                serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                                  std::bind(&dm::Handler::handleQueueItem,
+                                                            parentDm->handlers.at(io->io_type),
+                                                            io));
+                break;
+            }
             // If serialization is enabled, serialize on both keys,
             // otherwise just schedule directly.
             if ((parentDm->features.isSerializeReqsEnabled())) {
@@ -1636,6 +1652,13 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
+            if (parentDm->features.isVolumegroupingEnabled()) {
+                serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                                  std::bind(&dm::Handler::handleQueueItem,
+                                                            parentDm->handlers.at(io->io_type),
+                                                            io));
+                break;
+            }
             // If serialization in enabled, serialize on the key
             // otherwise just schedule directly.
             // Note: We avoid this serialization in the block connector
@@ -1661,6 +1684,9 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             }
             break;
         case FDS_DM_FWD_CAT_UPD:
+            if (parentDm->features.isVolumegroupingEnabled()) {
+                fds_panic("Not supported");
+            }
             /* Forwarded IO during migration needs to synchronized on blob id */
             serialExecutor->scheduleOnHashKey(keyHash(key),
                                               std::bind(&dm::Handler::handleQueueItem,

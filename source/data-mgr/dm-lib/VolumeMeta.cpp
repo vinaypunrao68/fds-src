@@ -7,31 +7,9 @@
 #include <VolumeMeta.h>
 #include <fds_process.h>
 #include <util/timeutils.h>
+#include <net/SvcRequest.h>
 
 namespace fds {
-
-#if 0
-VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_volid_t _uuid,
-                       VolumeDesc* desc)
-              : fwd_state(VFORWARD_STATE_NONE),
-                dmVolQueue(0),
-                dataManager(nullptr),
-                cbToVGMgr(NULL)
-{
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-
-    vol_mtx = new fds_mutex("Volume Meta Mutex");
-    vol_desc = new VolumeDesc(_name, _uuid);
-    dmCopyVolumeDesc(vol_desc, desc);
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
-
-    // this should be overwritten when volume add triggers read of the persisted value
-    sequence_id = 0;
-}
-#endif
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_volid_t _uuid,
@@ -114,6 +92,30 @@ sequence_id_t VolumeMeta::getSequenceId(){
     return sequence_id;
 }
 
+std::string VolumeMeta::logString() const
+{
+    std::stringstream ss;
+    ss << " ["
+        << "volid: " << vol_desc->volUUID
+        << " opid: " << getOpId()
+        << " sequenceid: " << sequence_id
+        << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()))
+        << "] ";
+    return ss.str();
+}
+
+EPSvcRequestRespCb
+VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
+{
+    // TODO(Rao): create qos function cb
+    return f;
+}
+
+StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
+{
+    // TODO(Rao): create qos function cb
+    return f;
+}
 
 Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
                                  fpi::FDSP_VolumeDescType &vol,

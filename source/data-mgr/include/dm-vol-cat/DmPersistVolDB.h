@@ -130,7 +130,16 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
         return catalog_.get();
     }
 
+    /**
+    * @brief  Reads the version from file and returns it.  Making it file based 
+    * because for now when we copy leveldb no additional work is required
+    * to not copy version.
+    */
+    int32_t getVersion() override;
+    void setVersion(int32_t version) override;
+
   private:
+    std::string getVersionFile_();
     // methods
 
     // vars

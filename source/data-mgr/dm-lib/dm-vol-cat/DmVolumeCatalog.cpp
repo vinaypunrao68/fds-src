@@ -1051,4 +1051,11 @@ Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const
     return ERR_OK;
 }
 
+Error DmVolumeCatalog::getVersion(fds_volid_t volId, int32_t &version)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    version = vol->getVersion();
+    return ERR_OK;
+}
+
 }  // namespace fds
