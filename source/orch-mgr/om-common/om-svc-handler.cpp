@@ -61,6 +61,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::NotifyHealthReport, notifyServiceRestart);
     REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
     REGISTER_FDSP_MSG_HANDLER(fpi::SvcStateChangeResp, svcStateChangeResp);
+    REGISTER_FDSP_MSG_HANDLER(fpi::SetVolumeGroupCoordinatorMsg, setVolumeGroupCoordinator);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -637,5 +638,27 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
             << " state: " << msg->healthReport.serviceState
             << " error: " << msg->healthReport.statusCode << " not implemented yet.";
 }
+
+void
+OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                        boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
+{
+    fds_volid_t volId(msg->volumeId);
+	OM_Module *om = OM_Module::om_singleton();
+	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
+	OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+
+    auto volumePtr = volumes->get_volume(volId);
+    if (volumePtr == nullptr) {
+        LOGERROR << "Unable to find volume " << volId;
+        return;
+    }
+    auto volDescPtr = volumePtr->vol_get_properties();
+    fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
+    volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
+    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+}
+
 
 }  //  namespace fds

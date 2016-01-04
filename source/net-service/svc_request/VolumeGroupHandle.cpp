@@ -185,7 +185,8 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
         }
         
         /* Send a message to OM requesting to be coordinator for the group */
-        auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_();
+        fds_volid_t volId(msg->volume_id);
+        auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_(volId);
         setCoordinatorreq->onResponseCb([this, clientCb](EPSvcRequest*,
                                                          const Error& e,
                                                          StringPtr) {
@@ -247,11 +248,12 @@ std::string VolumeGroupHandle::logString() const
 }
 
 EPSvcRequestPtr
-VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
+VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_(fds_volid_t volId)
 {
     auto msg = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorMsg>();
     assign(msg->coordinator.id, groupId_);
     msg->coordinator.version = version_;
+    msg->volumeId = volId.v;
     auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
     auto req = requestMgr_->newEPSvcRequest(omUuid);
     req->setTaskExecutorId(groupId_);
