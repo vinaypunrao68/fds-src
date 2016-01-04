@@ -187,6 +187,7 @@ class VolumeCatalogQueryIface {
     virtual Error putObject(fds_volid_t volId,
                             const std::string & blobName,
                             const BlobObjList & objs) = 0;
+    virtual Error getVersion(fds_volid_t volId, int32_t &version) = 0;
 };
 
 }  // namespace fds

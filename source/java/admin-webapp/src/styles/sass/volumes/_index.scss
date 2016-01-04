@@ -16,6 +16,29 @@
     .new_volume {
         margin-right: 5px;
     }
+    
+    .legend-box {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+        border-style: solid;
+        margin: 4px;
+    }
+    
+    .legend-data {
+        margin-top: 4px;
+        line-height: 1.2;
+        color: $text_very_light_color;
+    }
+    
+    .chart-title {
+        color: $default_text_color;
+    }
+    
+    .space-out-center {
+        @include display-flex();
+        @include justify-content( space-around );
+    }
 }
 
 .create-panel.volumes {

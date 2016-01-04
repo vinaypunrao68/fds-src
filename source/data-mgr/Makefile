@@ -14,13 +14,20 @@ user_fds_ar_libs  := \
     fds-dsk-mgnt \
     fds-fdsp
 
+# boost_chrono and rabbitmq are used in the SimpleAmqpClient library
+# The SimpleAmqpClient is used in the statsclient library
 user_non_fds_libs := \
+    statsclient \
+    SimpleAmqpClient \
+    rabbitmq \
     jemalloc \
     leveldb \
     ssl \
     crypto \
     pcrecpp \
-    sqlite3
+    sqlite3 \
+    boost_chrono \
+    boost_system
 
 user_bin_exe      := DataMgr DmChecker
 DataMgr           := dm-main.cpp

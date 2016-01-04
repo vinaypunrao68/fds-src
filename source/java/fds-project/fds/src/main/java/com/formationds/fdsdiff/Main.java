@@ -43,10 +43,10 @@ public final class Main
     public static final int EXIT_FAILURE;
     public static final int EXIT_COMMAND_LINE_ERROR;
     public static final int EXIT_NO_MATCH;
-    
+
     /**
      * Program entry point.
-     * 
+     *
      * @param args Command-line arguments.
      */
     public static void main(String[] args)
@@ -55,13 +55,16 @@ public final class Main
         Logger logger = null;
         try
         {
-            if (args == null) throw new NullArgumentException("args");
-            
+            if (args == null)
+            {
+                throw new NullArgumentException("args");
+            }
+
             logger = Config.Defaults.getLogger();
-            
+
             Config config = new Config(args);
             logger = config.getLogger();
-            
+
             if (config.isHelpNeeded())
             {
                 config.showHelp();
@@ -87,10 +90,10 @@ public final class Main
             }
             result = 1;
         }
-        
+
         System.exit(result);
     }
-    
+
     static
     {
         EXIT_SUCCESS = 0;
@@ -98,7 +101,7 @@ public final class Main
         EXIT_COMMAND_LINE_ERROR = 2;
         EXIT_NO_MATCH = 3;
     }
-    
+
     /**
      * Prevent instantiation.
      */
@@ -106,15 +109,21 @@ public final class Main
     {
         throw new UnsupportedOperationException("Trying to instantiate a utility class.");
     }
-    
+
     private static int _execPrimaryPath(Config config, Logger logger)
             throws IOException, RuntimeException, ParseException, ExecutionException, ConfigurationException
     {
-        if (config == null) throw new NullArgumentException("config");
-        if (logger == null) throw new NullArgumentException("logger");
-        
+        if (config == null)
+        {
+            throw new NullArgumentException("config");
+        }
+        if (logger == null)
+        {
+            throw new NullArgumentException("logger");
+        }
+
         ComparisonDataFormat format = config.getComparisonDataFormat();
-        
+
         Optional<Path> inputAPath = config.getInputAPath();
         Optional<Path> inputBPath = config.getInputBPath();
         Optional<Path> outputAPath = config.getOutputAPath();
@@ -168,13 +177,13 @@ public final class Main
                 aContentWrapper = Optional.of(_getSystemContent(endpointA, logger, format));
             }
             SystemContent aContent = aContentWrapper.get();
-            
+
             // Spit out the content if requested.
             if (outputAPath.isPresent())
             {
                 _outputContent(outputAPath.get(), aContent, gson);
             }
-            
+
             // "B" content is optional.
             if (!bContentWrapper.isPresent())
             {
@@ -195,12 +204,12 @@ public final class Main
             if (bContentWrapper.isPresent())
             {
                 SystemContent bContent = bContentWrapper.get();
-                
+
                 if (outputBPath.isPresent())
                 {
                     _outputContent(outputBPath.get(), bContent, gson);
                 }
-                
+
                 if (aContent.equals(bContentWrapper.get()))
                 {
                     return EXIT_SUCCESS;
@@ -223,22 +232,40 @@ public final class Main
             }
         }
     }
-    
+
     private static void _outputContent(Appendable writer, SystemContent content, Gson gson)
     {
-        if (writer == null) throw new NullArgumentException("writer");
-        if (content == null) throw new NullArgumentException("content");
-        if (gson == null) throw new NullArgumentException("gson");
-        
+        if (writer == null)
+        {
+            throw new NullArgumentException("writer");
+        }
+        if (content == null)
+        {
+            throw new NullArgumentException("content");
+        }
+        if (gson == null)
+        {
+            throw new NullArgumentException("gson");
+        }
+
         gson.toJson(content, writer);
     }
-    
+
     private static void _outputContent(Path path, SystemContent content, Gson gson) throws IOException
     {
-        if (path == null) throw new NullArgumentException("path");
-        if (content == null) throw new NullArgumentException("content");
-        if (gson == null) throw new NullArgumentException("gson");
-        
+        if (path == null)
+        {
+            throw new NullArgumentException("path");
+        }
+        if (content == null)
+        {
+            throw new NullArgumentException("content");
+        }
+        if (gson == null)
+        {
+            throw new NullArgumentException("gson");
+        }
+
         try (BufferedWriter writer = Files.newBufferedWriter(path,
                                                              StandardCharsets.UTF_8,
                                                              StandardOpenOption.CREATE,
@@ -247,17 +274,17 @@ public final class Main
             _outputContent(writer, content, gson);
         }
     }
-    
+
     private static void _outputContent(SystemContent content, Gson gson) throws IOException
     {
         _outputContent(System.out, content, gson);
     }
-    
+
     private static ObjectManifest.Builder<?, ?> _getBasicBuilderSupplier()
     {
         return new BasicObjectManifest.ConcreteBuilder();
     }
-    
+
     private static Supplier<ObjectManifest.Builder<?, ?>> _getBuilderSupplier(
             ComparisonDataFormat format)
     {
@@ -270,12 +297,12 @@ public final class Main
         default: throw new IllegalArgumentException(format + " not recognized.");
         }
     }
-    
+
     private static ObjectManifest.Builder<?, ?> _getExtendedBuilderSupplier()
     {
         return new ExtendedObjectManifest.ConcreteBuilder();
     }
-    
+
     private static ObjectManifest.Builder<?, ?> _getFullBuilderSupplier()
     {
         return new FullObjectManifest.ConcreteBuilder();
@@ -284,42 +311,51 @@ public final class Main
     private static SystemContent _getSystemContent(Path serializedComparisonFile,
                                                    Gson gson) throws IOException
     {
-        if (serializedComparisonFile == null) throw new NullArgumentException(
-                "serializedComparisonFile");
-        
+        if (serializedComparisonFile == null)
+        {
+            throw new NullArgumentException(
+                    "serializedComparisonFile");
+        }
+
         try (BufferedReader reader = Files.newBufferedReader(serializedComparisonFile))
         {
             return gson.fromJson(reader, SystemContent.class);
         }
     }
-    
+
     private static SystemContent _getSystemContent(Endpoint endpoint,
                                                    Logger logger,
                                                    ComparisonDataFormat format)
             throws ExecutionException, IOException
     {
-        if (endpoint == null) throw new NullArgumentException("endpoint");
-        if (logger == null) throw new NullArgumentException("logger");
-        
+        if (endpoint == null)
+        {
+            throw new NullArgumentException("endpoint");
+        }
+        if (logger == null)
+        {
+            throw new NullArgumentException("logger");
+        }
+
         SystemContent content = new SystemContent();
-        
+
         // FIXME: Log operations should be configurable.
         GetSystemConfigWorkload getSystemConfig = new GetSystemConfigWorkload(content);
         try (WorkloadContext context = getSystemConfig.newContext(logger))
         {
             getSystemConfig.runOn(endpoint, context);
-            
+
             // Now gather individual volume contents.
             for (VolumeWrapper volumeWrapper : content.getVolumes())
             {
                 String volumeName = volumeWrapper.getVolume().getName();
-                
+
                 // First just get object names.
                 Consumer<String> objectNameSetter = content.getVolumeObjectNameAdder(volumeWrapper);
                 GetVolumeObjectsWorkload getVolumeObjects =
                         new GetVolumeObjectsWorkload(volumeName, objectNameSetter);
                 getVolumeObjects.runOn(endpoint, context);
-                
+
                 // Now fill in the details (minimal doesn't have any details).
                 if (format != ComparisonDataFormat.MINIMAL)
                 {
@@ -331,7 +367,7 @@ public final class Main
                     getObjectsDetails.runOn(endpoint, context);
                 }
             }
-            
+
             return content;
         }
     }

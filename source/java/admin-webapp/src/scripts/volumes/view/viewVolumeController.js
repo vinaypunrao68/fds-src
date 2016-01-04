@@ -141,10 +141,24 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return '';
         }
         
+        if ( $scope.thisVolume.settings.type == 'ISCSI' ){
+            return 'iSCSI';
+        }
+        
         var firstLetter = $scope.thisVolume.settings.type.substr( 0, 1 ).toUpperCase();
         var theRest = $scope.thisVolume.settings.type.substr( 1 ).toLowerCase();
         
         return firstLetter + theRest;
+    };
+    
+    $scope.getAllocatedSize = function(){
+        
+        if ( angular.isDefined( $scope.thisVolume.settings ) && angular.isDefined( $scope.thisVolume.settings.capacity ) ){
+            var sizeString = $byte_converter.convertBytesToString( $scope.thisVolume.settings.capacity.value, 0 );
+            return sizeString;
+        }
+        
+        return '';
     };
 
     $scope.formatDate = function( ms ){
@@ -451,8 +465,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $scope.snapshots = data;
             initTimeline();
         });
-
-//        $scope.dataConnector = $scope.thisVolume.data_connector;
 
         $volume_api.getQosPolicyPresets( function( presets ){
             

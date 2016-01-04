@@ -28,7 +28,7 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -49,6 +49,8 @@ void DeleteBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 void DeleteBlobHandler::handleQueueItem(DmRequest *dmRequest) {
     QueueHelper helper(dataManager, dmRequest);  // this will call the callback
     DmIoDeleteBlob *request = static_cast<DmIoDeleteBlob*>(dmRequest);
+
+    ENSURE_IO_ORDER(request, helper);
 
     LOGDEBUG << " volid:" << request->volId
              << " blob:" << request->message->blob_name

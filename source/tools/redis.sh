@@ -96,7 +96,6 @@ function init() {
     if [[ -n $port ]]; then
         REDISPORT=$port
     fi
-    makeRedisDirs
 
     # get the redis version
     versinfo=($(redis-server -v | awk '{print $3}' |cut -b 3-|sed -e 's/\./ /g'))
@@ -247,12 +246,15 @@ esac
 init
 
 case "${CMD}" in
-    start) startRedis;;
+    start) 
+        makeRedisDirs
+        startRedis;;
     stop) stopRedis ;;
     status) statusRedis ;;
     clean) cleanRedis;;
     restart) 
         stopRedis
+        makeRedisDirs
         startRedis ;;
     *) usageRedis ;;
 esac

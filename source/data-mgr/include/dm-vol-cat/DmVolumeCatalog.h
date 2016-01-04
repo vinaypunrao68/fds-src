@@ -20,6 +20,7 @@
 #include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
+    class VolumeMeta;
 
 struct DmVolumeSummary {
     typedef boost::shared_ptr<DmVolumeSummary> ptr;
@@ -294,7 +295,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error migrateDescriptor(fds_volid_t volId,
                             const std::string& blobName,
-                            const std::string& blobData);
+                            const std::string& blobData,
+                            VolumeMeta& volMeta);
 
     /**
      * Get total matadata size for a volume
@@ -335,6 +337,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error putObject(fds_volid_t volId, const std::string & blobName, const BlobObjList & objs);
 
+    Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

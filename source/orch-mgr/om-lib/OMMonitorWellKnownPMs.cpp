@@ -88,8 +88,19 @@ namespace fds
                                     // This thread set the PM to down(in the configDB) when it
                                     // didn't hear a heartbeat back.
                                     // However, svc layer still thinks it's active, so attempt retry
-                                    handleRetryOnInactive(svcUuid);
 
+                                    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+
+                                    if ( !domain->isDomainShuttingDown() ) {
+                                        handleRetryOnInactive(svcUuid);
+                                    } else {
+                                        auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                                        double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                                        updateKnownPMsMap(svcUuid, timeInMinutes, false );
+
+                                        LOGNOTIFY << "Domain is down, reset last heard times, will not re-check PM heartbeats";
+                                    }
                                 } else {
                                     Error err = handleActiveEntry(svcUuid);
 
@@ -143,7 +154,6 @@ namespace fds
         )
     {
         cleanUpOldState(svcUuid, updateSvcState);
-
 
         SCOPEDWRITE(pmMapLock);
 
@@ -223,6 +233,18 @@ namespace fds
                                           uuid.svc_uuid,
                                           fpi::SVC_STATUS_ACTIVE,
                                           false);
+
+                OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
+                OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
+
+                auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(uuid.svc_uuid));
+
+                if ( pm != NULL ) {
+                    pm->set_node_state(fpi::FDS_Node_Up);
+                } else {
+                    LOGWARN << "Unable to retrieve PM node agent, could not set node to up";
+                }
+
             }
         }
     }
@@ -285,13 +307,26 @@ namespace fds
         fpi::SvcUuid svcUuid
         )
     {
+		LOGDEBUG << "Handling stale PM entry:"
+                 << std::hex << svcUuid.svc_uuid << std::dec;
+
         // Update service state in the configDB, svclayer Map
         {
-        fds_mutex::scoped_lock l(dbLock);
-        fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                  svcUuid.svc_uuid,
-                                  fpi::SVC_STATUS_INACTIVE,
-                                  false);
+            fds_mutex::scoped_lock l(dbLock);
+            fds::change_service_state(gl_orch_mgr->getConfigDB(),
+                                      svcUuid.svc_uuid,
+                                      fpi::SVC_STATUS_INACTIVE,
+                                      false);
+
+            OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
+            OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(NodeUuid(svcUuid.svc_uuid)));
+            if ( pm != NULL ) {
+                pm->set_node_state(fpi::FDS_Node_Down);
+            } else {
+                LOGWARN << "Unable to retrieve PM node agent, could not set node to down";
+            }
+
         }
         auto iter = wellKnownPMsMap.find(svcUuid);
         if (iter != wellKnownPMsMap.end()) {

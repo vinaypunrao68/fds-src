@@ -31,7 +31,7 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -73,6 +73,9 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
+
     // This isn't the _real_ request, do not confuse QoS
     helper.ioIsMarkedAsDone = true;
 

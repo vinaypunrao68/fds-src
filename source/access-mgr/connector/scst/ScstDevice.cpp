@@ -215,11 +215,12 @@ void ScstDevice::execCompleteCmd() {
     LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
 
     auto it = repliedResponses.find(cmd.cmd_h);
-    fds_assert(repliedResponses.end() != it);
+    if (repliedResponses.end() != it) {
+        repliedResponses.erase(it);
+    }
     if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
         free((void*)cmd.on_free_cmd.pbuf);
     }
-    repliedResponses.erase(it);
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -274,7 +275,8 @@ ScstDevice::execSessionCmd() {
     if (attaching) {
         auto volName = boost::make_shared<std::string>(volumeName);
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        return scstOps->init(volName, amProcessor, task); // Defer
+        scstOps->init(volName, amProcessor, task); // Defer
+        return deferredReply();
     } else {
         scstOps->detachVolume();
     }
@@ -365,10 +367,11 @@ void ScstDevice::execUserCmd() {
                     /* |                              (   ...   )                              |*/
                     static uint8_t const supported_page_header [] = {
                         0,
-                        3,
+                        4,
                         0x00,   // This Page
                         0x80,   // Unit Serial
                         0x83,   // Vendor ID Page
+                        0x86,   // Extended VPD
                     };
                     if (param_cursor < buflen) {
                         memcpy(&buffer[param_cursor],
@@ -718,7 +721,8 @@ void ScstDevice::execUserCmd() {
 
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
-            return scstOps->read(task);
+            scstOps->read(task);
+            return deferredReply();
         }
         break;
     case READ_CAPACITY:     // READ_CAPACITY(10)
@@ -771,7 +775,8 @@ void ScstDevice::execUserCmd() {
             task->setWrite(offset, scsi_cmd.bufflen);
             // Right now our API expects the data in a boost shared_ptr :(
             auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
-            return scstOps->write(buffer, task);
+            scstOps->write(buffer, task);
+            return deferredReply();
         }
         break;
     case RESERVE:
@@ -796,6 +801,7 @@ void ScstDevice::execUserCmd() {
     }
     } while (false);
     readyResponses.push(task);
+    deferredReply();
 }
 
 size_t
@@ -909,7 +915,6 @@ ScstDevice::getAndRespond() {
         res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
         } while ((0 > res) && (EINTR == errno));
 
-        cmd.preply = 0ull;
         if (0 != res) {
             switch (errno) {
             case ENOTTY:
@@ -922,6 +927,7 @@ ScstDevice::getAndRespond() {
             case EAGAIN:
                 // If we still have responses, keep replying
                 if (!readyResponses.empty()) {
+                    deferredReply();
                     continue;
                 }
             default:

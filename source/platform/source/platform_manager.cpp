@@ -28,7 +28,6 @@ extern "C"
 #include "disk_plat_module.h"
 #include <util/stringutils.h>
 
-#include <fdsp/svc_types_types.h>
 #include <fdsp/health_monitoring_api_types.h>
 
 #include "fds_module_provider.h"
@@ -64,7 +63,9 @@ namespace fds
             fdsConfig = new FdsConfigAccessor (g_fdsprocess->get_conf_helper());
             rootDir = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
             loadRedisKeyId();
-            m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get <std::string> ("redis_host","localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
+            m_db = new kvstore::PlatformDB (m_nodeRedisKeyId, rootDir, fdsConfig->get <std::string> ("redis_host", "localhost"), fdsConfig->get <int> ("redis_port", 6379), 1);
+
+            m_serviceFlapDetector = new FlapDetector (fdsConfig->get_abs <uint32_t> ("fds.pm.service_management.flap_count", 0), fdsConfig->get_abs <uint32_t> ("fds.pm.service_management.flap_timeout", 0));
 
             int napTime = 1;
 
@@ -529,6 +530,13 @@ namespace fds
                 return;
             }
 
+            if (m_serviceFlapDetector->isServiceFlapping (procIndex))
+            {
+                // Flap detector handles error logging.
+                notifyOmServiceStateChange (procIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
+                return;
+            }
+
             if (JAVA_AM == procIndex)
             {
                 command = m_javaXdiJavaCmd;
@@ -609,13 +617,6 @@ namespace fds
             m_db->setNodeInfo (m_nodeInfo);
         }
 
-
-/*
- 10: pm_types.pmServiceStateTypeId  bareAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 11: pm_types.pmServiceStateTypeId  javaAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 12: pm_types.pmServiceStateTypeId  dmState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
- 13: pm_types.pmServiceStateTypeId  smState     = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
-*/
         void PlatformManager::updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState)
         {
             switch (processType)
@@ -721,6 +722,8 @@ namespace fds
 
             // TODO(DJN): check for pid < 2 here and error
 
+            m_serviceFlapDetector->removeService (procIndex);
+
             if (orphanChildProcess)
             {
                 rc = kill (pid, SIGKILL);
@@ -732,7 +735,6 @@ namespace fds
             }
             else
             {
-
                 rc = kill (pid, SIGTERM);
 
                 if (rc < 0)
@@ -762,7 +764,6 @@ namespace fds
             m_appPidMap.erase (mapIter);
             updateNodeInfoDbPid (procIndex, EMPTY_PID);
         }
-
 
         // plf_start_node_services
         // -----------------------
@@ -1220,7 +1221,9 @@ namespace fds
                 // We don't have real disks
                 diskCapability.disk_capacity = 0x7ffff;
                 diskCapability.ssd_capacity = 0x10000;
-            } else {
+            }
+            else
+            {
 
                 // Calculate aggregate iops with both HDD and SDD
                 diskCapability.node_iops_max  = (hdd_iops_max * disk_counts.first);
@@ -1306,7 +1309,6 @@ namespace fds
                     pid_t   pid;
                     std::string procName;
 
-
                     for (auto mapIter = m_appPidMap.begin(); m_appPidMap.end() != mapIter;)
                     {
                         orphanAlive = true;
@@ -1340,7 +1342,7 @@ namespace fds
                                 stopProcess (JAVA_AM);
                             }
 
-                            notifyOmAProcessDied (procName, appIndex, mapIter->second);
+                            notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             m_appPidMap.erase (mapIter++);
                             updateNodeInfoDbPid (appIndex, EMPTY_PID);
 
@@ -1375,8 +1377,10 @@ namespace fds
             }
         }
 
-        void PlatformManager::notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid)
+        void PlatformManager::notifyOmServiceStateChange (int const appIndex, pid_t const procPid, FDS_ProtocolInterface::HealthState state, std::string const message)
         {
+            std::string procName = getProcName (appIndex);
+
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
 
@@ -1421,12 +1425,12 @@ namespace fds
 
             if (nullptr == serviceRecord)
             {
-                LOGERROR << "Unable to find a service map record for a process that exited unexpectedly.";
+                LOGERROR << "Unable to find a service map record for a process that platformd wished to send a Health Report on behalf of.";
                 return;
             }
 
             std::ostringstream textualContent;
-            textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") unexpectedly exited.";
+            textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") " << message << ".";
 
             fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
 
@@ -1434,7 +1438,7 @@ namespace fds
             message->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
             message->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
             message->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
-            message->healthReport.serviceState = fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT;
+            message->healthReport.serviceState = state;
             message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             message->healthReport.statusInfo = textualContent.str();
 
@@ -1453,9 +1457,11 @@ namespace fds
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
             childMonitorThread.detach();
 
+            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
+
             while (1)
             {
-                sleep (999);   /* we'll do hotplug uevent thread in here */
+                dpm->dsk_monitor_hotplug();
             }
         }
     }  // namespace pm

@@ -148,7 +148,7 @@ namespace fds
 
             int  dsk_label_sect_sz();
             int  dsk_fill_disk_uuids(ChainList *labels);
-            bool dsk_label_valid(DiskLabelMgr *mgr = NULL);
+            bool dsk_label_valid();
             void dsk_label_init_header(dlabel_hdr_t *hdr);
             void dsk_label_init_uuids(int dsk_cnt);
             void dsk_label_comp_checksum(dlabel_hdr_t *hdr);
@@ -168,7 +168,7 @@ namespace fds
             virtual void dsk_label_generate(ChainList *labels, int dsk_cnt);
             virtual void dsk_label_clone(DiskLabel *master);
             virtual void dsk_label_read();
-            virtual void dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr);
+            virtual bool dsk_label_write(PmDiskInventory::pointer inv);
     };
 }  // namespace fds
 

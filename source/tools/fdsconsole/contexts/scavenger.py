@@ -4,7 +4,6 @@ from svc_types.ttypes import FDSPMsgTypeId
 import platformservice
 from platformservice import *
 import FdspUtils
-import humanize
 
 class ScavengerContext(Context):
     def __init__(self, *args):
@@ -112,6 +111,7 @@ class ScavengerContext(Context):
             for uuid in self.config.getServiceApi().getServiceIds(sm):
                 numsvcs += 1
                 cntrs = ServiceMap.client(uuid).getCounters('*')
+                helpers.addHumanInfo(cntrs)
                 keys=cntrs.keys()
                 totalobjects =0
                 deletedobjects=0
@@ -124,14 +124,10 @@ class ScavengerContext(Context):
                         elif key.endswith('.deleted'):
                             deletedobjects += cntrs[key]
                 data = []
-                gcstart='not yet'
-                key = 'sm.scavenger.start.timestamp'
-                if key in cntrs and cntrs[key] > 0:
-                    gcstart='{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))
 
                 cluster_totalobjects += totalobjects
                 cluster_deletedobjects += deletedobjects
-                data.append(('gc.start',gcstart))
+                data.append(('gc.start',cntrs.get('sm.scavenger.start.timestamp.human','not yet')))
 
                 if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running +=1
                 if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running +=1
@@ -155,12 +151,10 @@ class ScavengerContext(Context):
                 for uuid in self.config.getServiceApi().getServiceIds('dm'):
                     cntrs = ServiceMap.client(uuid).getCounters('*')
                     keys=cntrs.keys()
+                    helpers.addHumanInfo(cntrs)
                     data = []
-                    key='dm.refscan.lastrun.timestamp'
-                    if key in cntrs and cntrs[key] > 0:
-                        data.append(('dm.refscan.lastrun', '{} ago'.format(humanize.naturaldelta(time.time()-int(cntrs[key])))))
-                    else:
-                        data.append(('dm.refscan.lastrun', 'not yet'))
+
+                    data.append(('dm.refscan.lastrun',cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')))
                     data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
                     data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
                     data.append(('dm.refscan.running', cntrs.get('dm.refscan.running',0)))

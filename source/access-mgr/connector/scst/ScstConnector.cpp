@@ -31,6 +31,8 @@ extern "C" {
 
 namespace fds {
 
+static constexpr size_t minimum_chap_password_len {12};
+
 // The singleton
 std::unique_ptr<ScstConnector> ScstConnector::instance_ {nullptr};
 
@@ -52,10 +54,7 @@ void ScstConnector::stop() {
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
-    // TODO(bszmyd): Tue 08 Dec 2015 02:40:23 PM MST
-    // Block volumes have the first low order bit set today, this
-    // should be more explicit
-    if ((1 == volDesc.volType || 3 == volDesc.volType)
+    if ((fpi::FDSP_VOL_BLKDEV_TYPE == volDesc.volType || fpi::FDSP_VOL_ISCSI_TYPE == volDesc.volType)
         && !volDesc.isSnapshot()
         && instance_) {
         instance_->addTarget(volDesc);
@@ -82,13 +81,33 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
       target = it->second.get();
     }
 
-    // Setup some things like initiator masking
+    // Setup initiator masking
     std::vector<std::string> initiator_list;
     for (auto const& ini : volDesc.iscsiSettings.initiators) {
         GLOGDEBUG << "Initiator mask: " << ini.wwn_mask;
         initiator_list.emplace_back(ini.wwn_mask);
     }
     target->setInitiatorMasking(initiator_list);
+
+    // Setup CHAP
+    std::unordered_map<std::string, std::string> credentials;
+    for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
+        if (minimum_chap_password_len > cred.passwd.size()) {
+            GLOGWARN << "User: [" << cred.name
+                     << "] has an undersized password of length: [" << cred.passwd.size()
+                     << "] where the minimum length is " << minimum_chap_password_len;
+            continue;
+        }
+        auto it = credentials.end();
+        bool happened;
+        std::tie(it, happened) = credentials.emplace(cred.name, cred.passwd);
+        if (!happened) {
+            GLOGWARN << "Duplicate user: [" << cred.name << "]";
+            continue;
+        }
+    }
+    target->setCHAPCreds(credentials);
+
     target->enable();
 }
 
@@ -122,11 +141,9 @@ ScstConnector::discoverTargets() {
     amProc->getVolumes(volumes);
 
     for (auto const& vol : volumes) {
-        // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
-        // This is a magic value from thrift that i don't want to include
-        // headers from
-        if ((1 != vol.volType && 3 != vol.volType)
+        if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
             || vol.isSnapshot()) continue;
+        GLOGNORMAL << "Adding target for volume: " << vol;
         addTarget(vol);
     }
 }

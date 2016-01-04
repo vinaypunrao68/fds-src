@@ -61,6 +61,7 @@ class DmRequest : public FDS_IOType {
     blob_version_t blob_version;
     std::string session_uuid;
     BlobTxId::const_ptr blobTxId;
+    int64_t             opId;
     std::function<void(const Error &e, DmRequest *dmRequest)> cb = NULL;
     std::function<void(DmRequest * req)> proc = NULL;
 
@@ -111,6 +112,12 @@ class DmRequest : public FDS_IOType {
 
     BlobTxId::const_ptr getBlobTxId() const {
         return blobTxId;
+    }
+    void setOpId(const int64_t &id) {
+        opId = id;
+    }
+    int64_t getOpId() const {
+        return opId;
     }
 
     // Why is this not a ostream operator?

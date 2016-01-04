@@ -20,7 +20,7 @@ using migrationCb = std::function<void(const Error& e)>;
  */
 class DmMigrationBase {
 public:
-    DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr);
+    DmMigrationBase(int64_t migrationId, DataMgr &_dataMgr);
 	virtual ~DmMigrationBase() {}
     /**
      * Response handler - no-op for OK, otherwise fail migration.

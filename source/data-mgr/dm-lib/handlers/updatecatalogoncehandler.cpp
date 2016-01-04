@@ -34,7 +34,7 @@ void UpdateCatalogOnceHandler::handleRequest(
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -75,6 +75,8 @@ void UpdateCatalogOnceHandler::handleRequest(
 void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     // Start the transaction
     helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
@@ -161,7 +163,7 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
-    if (dmRequest) {
+    if (e.ok() && dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
         // Potential meta list corruption here... reopen FS-3355
         // commitOnceReq->dump_meta();

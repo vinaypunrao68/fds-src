@@ -4,7 +4,7 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
         restrict: 'E',
         replace: true,
         transclude: false,
-        scope: { value: '=', min: '=', max: '=', step: '=?', showButtons: '@' },
+        scope: { value: '=', min: '=', max: '=', step: '=?', showButtons: '@', enable: '=?' },
         templateUrl: 'scripts/directives/widgets/spinner/spinner.html',
         controller: function( $scope, $timeout, $interval ){
 
@@ -16,6 +16,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             
             if ( !angular.isDefined( $scope.step ) ){
                 $scope.step = 1;
+            }
+            
+            if ( !angular.isDefined( $scope.enable ) ){
+                $scope.enable = true;
             }
 
             var cancelAutoPress = function(){
@@ -60,6 +64,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             $scope.incrementDown = function(){
 
+                if ( $scope.enable === false ){
+                    return;
+                }
+                
                 $scope.upPressed = true;
 
                 $timeout( function(){
@@ -73,6 +81,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             $scope.decrementDown = function(){
 
+                if ( $scope.enable === false ){
+                    return;
+                }
+                
                 $scope.downPressed = true;
 
                 $timeout( function(){
@@ -86,6 +98,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             $scope.incrementUp = function(){
 
+                if ( $scope.enable === false ){
+                    return;
+                }
+                
                 $scope.upPressed = false;
 
                 cancelAutoPress();
@@ -93,6 +109,10 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
 
             $scope.decrementUp = function(){
 
+                if ( $scope.enable === false ){
+                    return;
+                }
+                
                 $scope.downPressed = false;
 
                 cancelAutoPress();
@@ -146,6 +166,11 @@ angular.module( 'form-directives' ).directive( 'spinner', function(){
             };
             
             $scope.keyPressed = function( $event ){
+                
+                if ( $scope.enable === false ){
+                    return;
+                }
+                
                 if ( $event.keyCode === 38 ){
                     $scope.increment();
                 }

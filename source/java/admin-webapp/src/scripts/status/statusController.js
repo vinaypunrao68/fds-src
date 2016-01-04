@@ -103,9 +103,16 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
+        var percentage = ( capacityUsed / totalCapacity * 100 ).toFixed( 0 );
         
-        $scope.capacityItems = [{number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
-            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        if ( isNaN( percentage ) ){
+            percentage = 0;
+        }
+        
+        $scope.capacityItems = [
+            {number: percentage, description: '(' + $byte_converter.convertBytesToString( capacityUsed ) + ' / ' + $byte_converter.convertBytesToString( totalCapacity ) + ')', suffix: '% ' + $filter( 'translate' )( 'status.l_used' ) + '  '},
+            {number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'}
+        ];
         
         if ( angular.isDefined( secondsToFull )){
             

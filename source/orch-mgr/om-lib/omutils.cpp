@@ -101,6 +101,7 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -130,6 +131,7 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
