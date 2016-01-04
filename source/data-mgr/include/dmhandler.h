@@ -50,6 +50,31 @@
         return; \
     }
 
+#define VOLUME_IO_VERSION_CHECK(io, helper)
+
+/* Ensure IO is ordered */
+#define ENSURE_IO_ORDER(io, helper) \
+do { \
+    if (!dataManager.features.isVolumegroupingEnabled()) { \
+        break; \
+    } \
+    auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
+    if (io->opId != volMeta->getOpId()+1) { \
+        fds_assert(!"opid mismatch"); \
+        LOGWARN << "OpId mismatch.  Current opId: " \
+            << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        helper.err = ERR_IO_OPID_MISMATCH; \
+        return; \
+    } \
+    /* Ideally we should increment this op id after write makes it to commit log \
+     * In the current code base commit log is modified for non-coordinator issued \
+     * io as well.  This makes it difficult do it there.  Since OpId is only \
+     * in memory state and during resync/restarts is discarded, incrementing here \
+     * should be ok \
+     */ \
+    volMeta->incrementOpId(); \
+} while (false)
+
 namespace fds {
 
 struct DataMgr;
@@ -88,6 +113,10 @@ struct Handler: HasLogger {
     // do not need queuing
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
+    Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const fpi::AsyncHdrPtr &hdr,
+                                    const SHPTR<std::string> &payload);
+
     virtual ~Handler();
 protected:
     DataMgr& dataManager;

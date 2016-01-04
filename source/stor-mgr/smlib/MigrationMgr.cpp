@@ -595,10 +595,14 @@ MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
                              << " for the DLT token " << dltToken << " returning error";
                     return false;
                 }
+                NodeUuid executorNodeUuid(executorSmUuid);
+
+                if (cit->first == executorNodeUuid) {
+                    return false;
+                }
 
                 // see if it has higher responsibility for the DLT token
                 DltTokenGroupPtr smGroup = dlt->getNodes(dltToken);
-                NodeUuid executorNodeUuid(executorSmUuid);
                 // see which SM we find first
                 for (uint i = 0; i < smGroup->getLength(); ++i) {
                     if (smGroup->get(i) == executorNodeUuid) {
@@ -1212,9 +1216,9 @@ MigrationMgr::handleDltClose(const DLT* dlt,
 }
 
 void
-MigrationMgr::notifyDltUpdate(const DLT *dlt,
-                              fds_uint32_t bitsPerDltToken,
-                              const NodeUuid& mySvcUuid)
+MigrationMgr::makeTokensAvailable(const DLT *dlt,
+                                  fds_uint32_t bitsPerDltToken,
+                                  const NodeUuid& mySvcUuid)
 {
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);

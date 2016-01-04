@@ -3,6 +3,37 @@
     <!-- Real stuff -->
     <div class="volumecontainer">
 
+        <div class="space-out-center" ng-hide="volumes.length === 0">
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_size</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesBySize" pie-property="value" tooltip="sizeTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesBySize">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ sizeTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_type</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesByType" pie-property="value" tooltip="countTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesByType">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ countTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="volumes">
             <span>{{name}}</span>
             <span class="header pull-left" style="margin-right: 24px;" translate>volumes.title</span>
@@ -72,7 +103,7 @@
                             </td>
 
                             <td class="consume">
-                                {{getCapacityString( volume.status.currentUsage ) }}
+                                {{getCapacityString( volume ) }}
                             </td>
                             
                             <td class="firebreak">

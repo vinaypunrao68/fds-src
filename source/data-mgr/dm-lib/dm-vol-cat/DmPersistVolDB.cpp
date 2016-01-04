@@ -16,6 +16,7 @@
 #include "catalogKeys/CatalogKeyType.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
 #include "leveldb/db.h"
+#include <util/stringutils.h>
 #include "util/timeutils.h"
 #include "util/path.h"
 #include "fds_module.h"
@@ -136,6 +137,13 @@ Error DmPersistVolDB::activate() {
     VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
     if (ERR_OK != putVolumeMetaDesc(volMetaDesc)) {
         return ERR_DM_VOL_NOT_ACTIVATED;
+    }
+
+    /* Update version */
+    if (!snapshot_) {
+        int32_t version = getVersion();
+        version++;
+        setVersion(version);
     }
 
     activated_ = true;
@@ -727,5 +735,31 @@ void DmPersistVolDB::getObjectIds(const uint32_t &maxObjs,
             objects.push_back(ObjectID(dbItr->value().ToString()));
         }
     }
+}
+
+int32_t DmPersistVolDB::getVersion()
+{
+    int32_t version;
+    std::ifstream in(getVersionFile_());
+    if (!in.is_open()) {
+        return 0;
+    }
+    in >> version;
+    in.close();
+    return version;
+}
+
+void DmPersistVolDB::setVersion(int32_t version)
+{
+    std::ofstream out(getVersionFile_());
+    out << version;
+    out.close();
+}
+
+std::string DmPersistVolDB::getVersionFile_()
+{
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    return util::strformat("%s/%ld/version",
+                           root->dir_sys_repo_dm().c_str(), srcVolId_.get());
 }
 }  // namespace fds

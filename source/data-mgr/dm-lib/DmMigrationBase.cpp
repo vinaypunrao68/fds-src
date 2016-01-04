@@ -7,7 +7,7 @@
 
 namespace fds {
 
-DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr)
+DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr &_dataMgr)
 : dataMgr(_dataMgr)
 {
     this->migrationId = migrationId;
@@ -50,7 +50,7 @@ void DmMigrationBase::asyncMsgFailed()
     dataMgr.counters->numberOfOutstandingIOs.decr(1);
     LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
     LOGERROR << logString() << " Async migration message failed, aborting";
-    dataMgr.dmMigrationMgr->abortMigration();
+    routeAbortMigration();
 }
 
 void DmMigrationBase::asyncMsgIssued()

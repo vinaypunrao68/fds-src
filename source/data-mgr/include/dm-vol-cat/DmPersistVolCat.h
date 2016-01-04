@@ -188,6 +188,9 @@ class DmPersistVolCat {
 
     virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
 
+    virtual int32_t getVersion() = 0;
+    virtual void setVersion(int32_t version) = 0;
+
   protected:
     // vars
     fds_volid_t volId_;

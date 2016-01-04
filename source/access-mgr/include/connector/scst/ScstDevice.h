@@ -90,8 +90,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     ScstTarget* scst_target;
     BlockOperations::shared_ptr scstOps;
 
-    size_t resp_needed;
-
     scst_user_get_cmd cmd {};
     scst_user_reply_cmd fast_reply {};
     uint32_t logical_block_size;
@@ -122,6 +120,10 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     // Utility functions to build Inquiry Pages...etc
     size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
+
+    void deferredReply() {
+        cmd.preply = 0ull;
+    }
 
     void fastReply() {
         fast_reply.cmd_h = cmd.cmd_h;

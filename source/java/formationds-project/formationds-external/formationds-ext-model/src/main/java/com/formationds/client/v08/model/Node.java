@@ -59,6 +59,49 @@ public class Node extends AbstractResource<Long> {
         }
     }
 
+    public static class NodeCapacity {
+        private final Size ssd;
+        private final Size hdd;
+        private final Size total;
+
+        public NodeCapacity( final Size ssd, final Size hdd, final Size total )
+        {
+            this.ssd = ssd;
+            this.hdd = hdd;
+            this.total = total;
+        }
+
+        public Size getSSD( )
+        {
+            return ssd;
+        }
+
+        public Size getHDD( )
+        {
+            return hdd;
+        }
+
+        public Size getTotal( )
+        {
+            return total;
+        }
+
+        @Override
+        public boolean equals( Object o ) {
+            if ( this == o ) { return true; }
+            if ( !(o instanceof NodeCapacity) ) { return false; }
+            final NodeCapacity nodeCapacity = (NodeCapacity) o;
+            return Objects.equals( ssd, nodeCapacity.ssd ) &&
+                   Objects.equals( hdd, nodeCapacity.hdd ) &&
+                   Objects.equals( total, nodeCapacity.total );
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash( ssd, hdd, total );
+        }
+    }
+
     /**
      * A node may be addressed by one or both of an IPv4 or IPv6 address.
      */

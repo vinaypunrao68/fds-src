@@ -215,29 +215,48 @@ void ScstDevice::execCompleteCmd() {
     LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
 
     auto it = repliedResponses.find(cmd.cmd_h);
-    fds_assert(repliedResponses.end() != it);
+    if (repliedResponses.end() != it) {
+        repliedResponses.erase(it);
+    }
     if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
         free((void*)cmd.on_free_cmd.pbuf);
     }
-    repliedResponses.erase(it);
     fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDevice::execParseCmd() {
-    LOGDEBUG << "Need parsing help.";
+    LOGWARN << "Need parsing help.";
     fds_panic("Should not be here!");
-    auto task = new ScstTask(cmd.cmd_h, SCST_USER_PARSE);
-    readyResponses.push(task);
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDevice::execTaskMgmtCmd() {
     auto& tmf_cmd = cmd.tm_cmd;
-    LOGIO << "Task Management request: [0x" << std::hex << tmf_cmd.fn
-          << "] on [" << volumeName << "]";
-
+    auto done = (SCST_USER_TASK_MGMT_DONE == cmd.subcode) ? true : false;
     if (SCST_TARGET_RESET == tmf_cmd.fn) {
+        LOGNOTIFY << "Target Reset request:"
+                  << " [0x" << std::hex << tmf_cmd.fn
+                  << "] on [" << volumeName << "]"
+                  << " " << (done ? "Done." : "Received.");
+    } else {
+        LOGIO << "Task Management request:"
+              << " [0x" << std::hex << tmf_cmd.fn
+              << "] on [" << volumeName << "]"
+              << " " << (done ? "Done." : "Received.");
+    }
+
+    if (done) {
         // Reset the reservation if we get a target reset
-        reservation_session_id = invalid_session_id;
+        switch (tmf_cmd.fn) {
+        case SCST_TARGET_RESET:
+        case SCST_LUN_RESET:
+        case SCST_PR_ABORT_ALL:
+            {
+                reservation_session_id = invalid_session_id;
+            }
+        default:
+            break;;
+        }
     }
 
     fastReply(); // Setup the reply for the next ioctl
@@ -256,7 +275,8 @@ ScstDevice::execSessionCmd() {
     if (attaching) {
         auto volName = boost::make_shared<std::string>(volumeName);
         auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        return scstOps->init(volName, amProcessor, task); // Defer
+        scstOps->init(volName, amProcessor, task); // Defer
+        return deferredReply();
     } else {
         scstOps->detachVolume();
     }
@@ -338,7 +358,7 @@ void ScstDevice::execUserCmd() {
             // Check EVPD bit
             if (scsi_cmd.cdb[1] & 0x01) {
                 auto& page = scsi_cmd.cdb[2];
-                LOGDEBUG << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
+                LOGTRACE << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
                 switch (page) {
                 case 0x00: // Supported pages
                     /* |                                 PAGE                                  |*/
@@ -347,10 +367,11 @@ void ScstDevice::execUserCmd() {
                     /* |                              (   ...   )                              |*/
                     static uint8_t const supported_page_header [] = {
                         0,
-                        3,
+                        4,
                         0x00,   // This Page
                         0x80,   // Unit Serial
                         0x83,   // Vendor ID Page
+                        0x86,   // Extended VPD
                     };
                     if (param_cursor < buflen) {
                         memcpy(&buffer[param_cursor],
@@ -379,15 +400,52 @@ void ScstDevice::execUserCmd() {
                 case 0x83: // Device ID
                     param_cursor += inquiry_page_dev_id(param_cursor, buflen, buffer);
                     break;;
+                case 0x86: // Extended VPD
+                    /* /-------------------------------------------------------------------------\
+                     * |                                   PAGE                                  |
+                     * |                                  LENGTH                                 |
+                     * | ACTIVE MICROCODE  |            SPT           | GRD_CHK| APP_CHK| REF_CHK|
+                     * |       resv        |UASK_SUP|GROUPSUP|PRIORSUP|HEAD_SUP| ORD_SUP|SIMP_SUP|
+                     * |                 resv                | WU_SUP | CRD_SUP| NV_SUP | V_SUP  |
+                     * |            resv            |P_II_SUP|           resv           | LUICLR |
+                     * |            resv            | R_SUP  |           resv           |  CBCS  |
+                     * |                 resv                | MULTI I_T NEXUS MICROCODE DOWNLOAD|
+                     * |                            EXTENDED SELF-TEST                           |
+                     * |                            COMPLETION MINUTES                           |
+                     * | POA_SUP | HRA_SUP | VSA_SUP|                    resv                    |
+                     * |                         MAX SENSE DATA LENGTH                           |
+                     * \_________________________________________________________________________/
+                     */
+                    static uint8_t const extended_vpd [] = {
+                        0,
+                        60,
+                        0b00000000,
+                        0b00000111,
+                        0b00000000,
+                        0b00000000,
+                        0b00000000,
+                        0x00,
+                        0,
+                        0,
+                        0b00000000,
+                        0
+                    };
+                    if (param_cursor < buflen) {
+                        memcpy(&buffer[param_cursor],
+                               extended_vpd,
+                               std::min(buflen - param_cursor, sizeof(extended_vpd)));
+                    }
+                    param_cursor += 62;
+                    break;;
                 default:
-                    LOGERROR << "Request for unsupported page code.";
+                    LOGDEBUG << "Request for unsupported vpd page. [0x" << std::hex << page << "]";
                     task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                     continue;
                 }
                 buffer[1] = page; // Identity of the page we're returning
                 task->setResponseLength(std::min(buflen, param_cursor));
             } else {
-                LOGDEBUG << "Standard inquiry requested.";
+                LOGTRACE << "Standard inquiry requested.";
                 /* /-----------------------------------------------------------------------\
                  * |                                VERSION                                |
                  * |  resv  |  resv  |  NACA  | HISUP  |           DATA FORMAT             |
@@ -443,7 +501,7 @@ void ScstDevice::execUserCmd() {
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
             uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
             uint8_t& subpage = scsi_cmd.cdb[3];
-            LOGDEBUG << "Mode Sense: "
+            LOGTRACE << "Mode Sense: "
                      << " dbd[" << std::hex << dbd
                      << "] pc[" << std::hex << (uint32_t)pc
                      << "] page_code[" << (uint32_t)page_code
@@ -621,6 +679,7 @@ void ScstDevice::execUserCmd() {
                 param_cursor += 12;
                 break;;
             default:
+                LOGDEBUG << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
                 task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
                 continue;
             }
@@ -662,13 +721,14 @@ void ScstDevice::execUserCmd() {
 
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
-            return scstOps->read(task);
+            scstOps->read(task);
+            return deferredReply();
         }
         break;
     case READ_CAPACITY:     // READ_CAPACITY(10)
     case READ_CAPACITY_16:
         {
-            LOGDEBUG << "Read Capacity received.";
+            LOGTRACE << "Read Capacity received.";
             uint64_t num_blocks = volume_size / logical_block_size;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
@@ -715,7 +775,8 @@ void ScstDevice::execUserCmd() {
             task->setWrite(offset, scsi_cmd.bufflen);
             // Right now our API expects the data in a boost shared_ptr :(
             auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
-            return scstOps->write(buffer, task);
+            scstOps->write(buffer, task);
+            return deferredReply();
         }
         break;
     case RESERVE:
@@ -727,7 +788,7 @@ void ScstDevice::execUserCmd() {
             LOGIO << "Releasing device [" << volumeName << "]";
             reservation_session_id = invalid_session_id;
         } else {
-            LOGNOTIFY << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
+            LOGTRACE << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
         }
         break;
     default:
@@ -740,6 +801,7 @@ void ScstDevice::execUserCmd() {
     }
     } while (false);
     readyResponses.push(task);
+    deferredReply();
 }
 
 size_t
@@ -842,11 +904,17 @@ ScstDevice::getAndRespond() {
         int res = 0;
         cmd.cmd_h = 0x00;
         cmd.subcode = 0x00;
+        if (0 != cmd.preply) {
+            auto const& reply = *reinterpret_cast<scst_user_reply_cmd*>(cmd.preply);
+            LOGTRACE << "Responding to: "
+                     << "[0x" << std::hex << reply.cmd_h
+                     << "] sc [0x" << reply.subcode
+                     << "] result [0x" << reply.result << "]";
+        }
         do { // Make sure and finish the ioctl
         res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
         } while ((0 > res) && (EINTR == errno));
 
-        cmd.preply = 0ull;
         if (0 != res) {
             switch (errno) {
             case ENOTTY:
@@ -859,6 +927,7 @@ ScstDevice::getAndRespond() {
             case EAGAIN:
                 // If we still have responses, keep replying
                 if (!readyResponses.empty()) {
+                    deferredReply();
                     continue;
                 }
             default:

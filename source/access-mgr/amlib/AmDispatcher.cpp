@@ -240,12 +240,11 @@ AmDispatcher::getVolumes(std::vector<VolumeDesc>& volumes) {
     fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
     if (err.ok()) {
-        // Transform the vector of CtrlNotifyAdd to one of VolumeDescs
-        std::transform(list.volumeList.begin(),
-                       list.volumeList.end(),
-                       std::back_inserter(volumes),
-                       [] (fpi::CtrlNotifyVolAdd const& c) -> VolumeDesc
-                           { return VolumeDesc(c.vol_desc); });
+        for (auto const& volume : list.volumeList) {
+            if (fpi::Active == volume.vol_desc.state) {
+                volumes.emplace_back(volume.vol_desc);
+            }
+        }
     }
 }
 
@@ -1443,8 +1442,8 @@ AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
         std::lock_guard<std::mutex> g(tx_map_lock);
         auto it = tx_map_barrier.find(blob_id);
         if (tx_map_barrier.end() == it) {
-            GLOGERROR << "Woah, missing map entry!";
-            fds_assert(false);
+            // Probably already implicitly aborted
+            GLOGDEBUG << "Woah, missing map entry!";
             return;
         }
         GLOGDEBUG << "Draining any needed pending tx's";

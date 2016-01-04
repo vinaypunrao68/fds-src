@@ -24,7 +24,7 @@ typedef std::function<void (NodeUuid srcNodeUuid,
 
 class DmMigrationExecutor : public DmMigrationBase {
   public:
-    explicit DmMigrationExecutor(DataMgr& _dataMgr,
+    explicit DmMigrationExecutor(DataMgr &_dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
                                  int64_t migrationId,
@@ -104,6 +104,11 @@ class DmMigrationExecutor : public DmMigrationBase {
     Error finishActiveMigration();
 
     /**
+     * Overrides the base and routes to the mgr
+     */
+    void routeAbortMigration() override;
+
+    /**
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
     void abortMigration();
@@ -119,7 +124,8 @@ class DmMigrationExecutor : public DmMigrationBase {
     inline util::TimeStamp getLastUpdateFromClientTsSec() const {
         return lastUpdateFromClientTsSec_;
     }
-  private:
+
+  protected:
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;

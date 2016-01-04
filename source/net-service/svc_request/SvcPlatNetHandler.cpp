@@ -24,6 +24,9 @@
 #include <fdsp/svc_api_types.h>
 
 namespace fds {
+
+thread_local StringPtr PlatNetSvcHandler::threadLocalPayloadBuf;
+
 PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 : HasModuleProvider(provider),
 Module("PlatNetSvcHandler")
@@ -84,6 +87,12 @@ void PlatNetSvcHandler::setHandlerState(PlatNetSvcHandler::State newState)
 void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *taskExecutor)
 {
     taskExecutor_ = taskExecutor;
+}
+
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
 }
 
 /**

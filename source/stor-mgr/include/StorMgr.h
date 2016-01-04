@@ -78,8 +78,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
-     /// Manager of persistent object storage
-     ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      MigrationMgr::unique_ptr migrationMgr;
 
@@ -136,9 +134,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                            << ", qos threads " << _max_thrds;
 
                  // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
+                 // TODO(Rao): Make bypass_dispatcher configurable
                  dispatcher = new QoSWFQDispatcher(this,
                                                    parentSm->totalRate,
                                                    parentSm->qosOutNum,
+                                                   false,
                                                    log);
                  // dispatcher = new QoSHTBDispatcher(this, log, 150);
 
@@ -205,6 +205,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
     SmQosCtrl  *qosCtrl;
     net::FileTransferService::ptr fileTransfer;
     SHPTR<sm::Counters> counters;
+    /// Manager of persistent object storage
+     ObjectStore::unique_ptr objectStore;
+
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()

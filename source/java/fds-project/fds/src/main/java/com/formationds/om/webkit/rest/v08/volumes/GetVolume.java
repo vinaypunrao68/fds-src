@@ -3,22 +3,21 @@
  */
 package com.formationds.om.webkit.rest.v08.volumes;
 
-import java.util.List;
-import java.util.Map;
-
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.Map;
 
 public class GetVolume  implements RequestHandler {
 	
@@ -67,7 +66,7 @@ public class GetVolume  implements RequestHandler {
 			}
 		}
 		
-		throw new ApiException( "Volume cound not be located", ErrorCode.MISSING_RESOURCE );
+		throw new ApiException( "Volume could not be located", ErrorCode.MISSING_RESOURCE );
 	}
 	
 	private Authorizer getAuthorizer(){

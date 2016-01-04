@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <deque>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -123,16 +124,20 @@ struct BlockTask {
                           uint32_t seqId,
                           const fpi::ErrorCode& err);
 
-    int64_t handle;
+    void getChain(uint32_t const seqId, std::deque<BlockTask*>& chain);
+    void setChain(uint32_t const seqId, std::deque<BlockTask*>&& chain);
 
-    // These are the responses we are also in charge of responding to, in order
-    // with ourselves being last.
-    std::unordered_map<uint32_t, std::deque<BlockTask*>> chained_responses;
+    int64_t handle;
 
   private:
     BlockOp operation {OTHER};
     std::atomic_uint doneCount {0};
     uint32_t objCount {1};
+
+    // These are the responses we are also in charge of responding to, in order
+    // with ourselves being last.
+    std::unordered_map<uint32_t, std::deque<BlockTask*>> chained_responses;
+    std::mutex chain_lock;
 
     // error of the operation
     fpi::ErrorCode opError {fpi::OK};

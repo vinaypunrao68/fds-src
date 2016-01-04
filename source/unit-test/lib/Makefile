@@ -26,7 +26,7 @@ user_incl_dir     := \
 user_build_dir    := \
     dlt
 
-user_cpp_flags    := 
+user_cpp_flags    :=
 user_cpp          :=  \
     fds_timer_test.cpp \
     fds_config_test.cpp \
@@ -47,8 +47,9 @@ user_cpp          :=  \
     qos_tokbucket_gtest.cpp \
     s3utils_gtest.cpp \
     fds_panic.cpp \
-	bitset_gtest.cpp \
-	rs_container_ut.cpp
+    bitset_gtest.cpp \
+    rs_container_ut.cpp \
+    BufferReplay_gtest.cpp
 
 
 user_cc           :=
@@ -84,8 +85,9 @@ user_bin_exe      := \
     qos_tokbucket_gtest \
     s3utils_gtest \
     fds_panic \
-	bitset_gtest \
-	rs_container_ut
+    bitset_gtest \
+    rs_container_ut \
+    BufferReplay_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -108,5 +110,5 @@ qos_tokbucket_gtest            := qos_tokbucket_gtest.cpp
 fds_panic                      := fds_panic.cpp
 bitset_gtest				   := bitset_gtest.cpp
 rs_container_ut                := rs_container_ut.cpp
-
+BufferReplay_gtest	       := BufferReplay_gtest.cpp
 include $(topdir)/Makefile.incl

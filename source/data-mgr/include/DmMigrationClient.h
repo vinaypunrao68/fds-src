@@ -6,11 +6,13 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 
 #include <dmhandler.h>
+#include <DmMigrationBase.h>
+#include <lib/Catalog.h>
+#include "dm-tvc/CommitLog.h"
 
 namespace fds {
 
 // Forward declaration.
-class DmIoReqHandler;
 class DataMgr;
 
 /**
@@ -23,8 +25,7 @@ using incrementCountFunc = std::function<void()>;
 
 class DmMigrationClient : public DmMigrationBase {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
-            DataMgr& _dataMgr,
+    explicit DmMigrationClient(DataMgr& _dataMgr,
             const NodeUuid& _myUuid,
             NodeUuid& _destDmUuid,
             int64_t migrationId,
@@ -102,15 +103,18 @@ class DmMigrationClient : public DmMigrationBase {
                                std::vector<std::string>& delete_list,
                                const fds_bool_t &abortFlag);
 
+    /**
+     * Overrides the base and routes to the mgr
+     */
+    void routeAbortMigration() override;
+
     // Called by MigrationMgr to clean up any ongoing residue due to migration
     void abortMigration();
 
     // Wait for the run thread to rejoin
     void finish();
 
- private:
-    DmIoReqHandler* DmReqHandler;
-
+ protected:
     /**
      * local svc uuid
      */
@@ -232,6 +236,8 @@ class DmMigrationClient : public DmMigrationBase {
 
     // Removes the DmIoRequests
 	migrationCb cleanUp;
+
+	bool volumeGroupMode;
 };  // DmMigrationClient
 
 

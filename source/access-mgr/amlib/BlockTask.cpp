@@ -85,4 +85,19 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
     return std::make_pair(fpi::OK, fauxBytes);
 }
 
+void
+BlockTask::getChain(uint32_t const seqId, std::deque<BlockTask*>& chain) {
+    std::lock_guard<std::mutex> g(chain_lock);
+    auto it = chained_responses.find(seqId);
+    if (chained_responses.end() != it) {
+        chain.swap(it->second);
+    }
+}
+
+void
+BlockTask::setChain(uint32_t const seqId, std::deque<BlockTask*>&& chain) {
+    std::lock_guard<std::mutex> g(chain_lock);
+    chained_responses[seqId].swap(chain);
+}
+
 }  // namespace fds

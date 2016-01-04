@@ -8,16 +8,16 @@
 
 namespace fds {
 
-DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
-: DmReqHandler(DmReqHandle),
-    dataManager(_dataMgr),
+DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
+:   dataManager(_dataMgr),
     OmStartMigrCb(nullptr),
     maxConcurrency(1),
     firedMigrations(0),
     mit(NULL),
     DMT_version(DMT_VER_INVALID),
     migrationAborted(false),
-    timerStarted(false)
+    timerStarted(false),
+    abort_thread(NULL)
 {
     maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
                                   get<int>("fds.dm.migration.migration_max_concurrency"));
@@ -40,14 +40,14 @@ DmMigrationMgr::DmMigrationMgr(DmIoReqHandler *DmReqHandle, DataMgr& _dataMgr)
     delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
                           get<int32_t>("fds.dm.testing.test_delay_start"));
 
-    /* 5 miutes for idle timeout */
-    idleTimeoutSecs = 300;
+    /* 3 hours for idle timeout */
+    idleTimeoutSecs = 3*3600;
     auto timer = MODULEPROVIDER()->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
         MODULEPROVIDER()->proc_thrpool()->schedule(
             &DmMigrationMgr::migrationIdleTimeoutCheck, this);
-            
+
     };
     auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(*timer, task));
     timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
@@ -105,7 +105,7 @@ DmMigrationMgr::createMigrationExecutor(const NodeUuid& srcDmUuid,
         /**
          * Create a new instance of migration Executor
          */
-        LOGMIGRATE << "migrationid: " << migrationId 
+        LOGMIGRATE << "migrationid: " << migrationId
             << "Creating migration instance for node " << srcDmUuid << " volume id=: " << vol.volUUID
             << " name=" << vol.vol_name;
 
@@ -195,7 +195,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
               abortMigration(); return (ERR_NOT_READY););
 
     waitForMigrationBatchToFinish(MIGR_EXECUTOR);
-    
+
     // For now, only node addition is supported.
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -286,40 +286,43 @@ DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
     fds_volid_t volId(deltaBlobDescMsg->volume_id);
     NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
-    auto uniqueId = std::make_pair(srcUuid, volId);
-    SCOPEDREAD(migrExecutorLock);
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     Error err(ERR_OK);
-    migrationCb descCb = deltaBlobDescReq->localCb;
+    auto uniqueId = std::make_pair(srcUuid, volId);
 
-    if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "migrationid: " << deltaBlobDescMsg->DMT_version
-                << " Unable to find executor for volume " << volId
-                << " during migration abort";
-    	} else {
-			LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-                << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// TODO - need to clean migrationAborted up. Avoid assert for now
-			// fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
+    {
+        SCOPEDREAD(migrExecutorLock);
+        DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+        migrationCb descCb = deltaBlobDescReq->localCb;
 
-    err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
-    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+        if (executor == nullptr) {
+            if (isMigrationAborted()) {
+                LOGMIGRATE << "migrationid: " << deltaBlobDescMsg->DMT_version
+                    << " Unable to find executor for volume " << volId
+                    << " during migration abort";
+            } else {
+                LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                    << "Unable to find executor for volume " << volId;
+                // this is an race cond error that needs to be fixed in dev env.
+                // Only panic in debug build.
+                // TODO - need to clean migrationAborted up. Avoid assert for now
+                // fds_assert(0);
+            }
+            return ERR_NOT_FOUND;
+        }
 
-    if (err == ERR_NOT_READY) {
-    	LOGDEBUG << "Blobs descriptor not applied yet.";
-    	// This means that the blobs have not been applied yet. Override this to ERR_OK.
-    	err = ERR_OK;
-    } else if (!err.ok()) {
-    	LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
-            << " Error applying blob descriptor " << err;
-    	dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
-    	abortMigration();
+        err = executor->processDeltaBlobDescs(deltaBlobDescMsg, descCb);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+
+        if (err == ERR_NOT_READY) {
+            LOGDEBUG << "Blobs descriptor not applied yet.";
+            // This means that the blobs have not been applied yet. Override this to ERR_OK.
+            err = ERR_OK;
+        } else if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobDescMsg->DMT_version
+                << " Error applying blob descriptor " << err;
+            dumpDmIoMigrationDeltaBlobDesc(deltaBlobDescReq);
+            abortMigration();
+        }
     }
 
     return err;
@@ -333,32 +336,34 @@ DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     fds_volid_t volId(deltaBlobsMsg->volume_id);
     NodeUuid srcUuid(deltaBlobReq->srcUuid);
     auto uniqueId = std::make_pair(srcUuid, volId);
-    SCOPEDREAD(migrExecutorLock);
-    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
-    if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "migrationid: " << deltaBlobsMsg->DMT_version
-                << " Unable to find executor for volume " << volId
-                << " during migration abort";
-    	} else {
-			LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-                << " Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// TODO - need to clean migrationAborted up. Avoid assert for now
-			// fds_assert(0);
-    	}
-        return ERR_NOT_FOUND;
-    }
-    LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
-    err = executor->processDeltaBlobs(deltaBlobsMsg);
-    LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
+    {
+        SCOPEDREAD(migrExecutorLock);
+        DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+        if (executor == nullptr) {
+            if (isMigrationAborted()) {
+                LOGMIGRATE << "migrationid: " << deltaBlobsMsg->DMT_version
+                    << " Unable to find executor for volume " << volId
+                    << " during migration abort";
+            } else {
+                LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                    << " Unable to find executor for volume " << volId;
+                // this is an race cond error that needs to be fixed in dev env.
+                // Only panic in debug build.
+                // TODO - need to clean migrationAborted up. Avoid assert for now
+                // fds_assert(0);
+            }
+            return ERR_NOT_FOUND;
+        }
+        LOGMIGRATE << "Size of deltaBlobMsg in bytes is: " << sizeOfData(deltaBlobsMsg);
+        err = executor->processDeltaBlobs(deltaBlobsMsg);
+        LOGDEBUG << "Total size migrated: " << dataManager.counters->totalSizeOfDataMigrated.value();
 
-    if (!err.ok()) {
-    	LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
-            << " Processing deltaBlobs failed " << err;
-    	dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
-    	abortMigration();
+        if (!err.ok()) {
+            LOGERROR << "migrationid: " << deltaBlobsMsg->DMT_version
+                << " Processing deltaBlobs failed " << err;
+            dumpDmIoMigrationDeltaBlobs(deltaBlobsMsg);
+            abortMigration();
+        }
     }
 
     return err;
@@ -456,8 +461,7 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
                 << "Creating migration client for node: "
                 << destDmUuid << " volume ID# " << fds_volid;
             client = DmMigrationClient::shared_ptr(
-                         new DmMigrationClient(DmReqHandler,
-                                               dataManager,
+                         new DmMigrationClient(dataManager,
                                                mySvcUuid,
                                                destDmUuid,
                                                filterSet->DMT_version,
@@ -523,10 +527,9 @@ DmMigrationMgr::migrationClientDoneCb(fds_volid_t uniqueId, int64_t migrationId,
     if (!result.OK()) {
         LOGERROR << "migrationid: " << migrationId
             << " Volume=" << uniqueId << " failed migration client with error: " << result;
-        abortMigration();
+            abortMigration();
     } else {
-    	LOGMIGRATE << "migrationid: " << migrationId
-            << " Client done with volume " << uniqueId;
+    	LOGMIGRATE << "migrationid: " << migrationId << " client done with volume " << uniqueId;
     }
 }
 

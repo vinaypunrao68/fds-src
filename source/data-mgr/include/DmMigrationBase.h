@@ -20,7 +20,7 @@ using migrationCb = std::function<void(const Error& e)>;
  */
 class DmMigrationBase {
 public:
-    DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr);
+    DmMigrationBase(int64_t migrationId, DataMgr &_dataMgr);
 	virtual ~DmMigrationBase() {}
     /**
      * Response handler - no-op for OK, otherwise fail migration.
@@ -36,6 +36,14 @@ public:
     void asyncMsgFailed();
     void asyncMsgIssued();
     void waitForAsyncMsgs();
+
+    /**
+     * The class inherited from this must override this to route the correct
+     * behavior of the abort migration.
+     * (v1.0) Client and executors - call the mgr's abort
+     * (v2.0) Dest and source - handle the abort per volume
+     */
+    virtual void routeAbortMigration() = 0;
 
 protected:
     /* Id to identify migration. For now this can be the dmt version */

@@ -61,7 +61,12 @@ void AccessMgr::mod_enable_service()
      * and DLT information. At this time, we've already done the registration
      * with the OM so anything here is post-registration.
      */
-    if (!asyncServer && amProcessor->haveTables()) {
+    if (!asyncServer) {
+        // Pretty useless till we have the tables, just keep retrying I guess.
+        while (!amProcessor->haveTables()) {
+            LOGWARN << "Failed to get the distribution tables...will try again.";
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
         LOGNOTIFY << "Enabling services ";
         initilizeConnectors();
     }

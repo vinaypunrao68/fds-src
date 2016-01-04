@@ -569,7 +569,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         return ERR_NOT_FOUND;
     }
 
-    std::string node_root = svcmgr->getSvcProperty<std::string>(
+    std::string node_root = svcmgr->getSvcProperty(
         svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
@@ -881,10 +881,12 @@ void StatStreamTimerTask::runTimerTask() {
 
             if (logLocal) {
                 /**
-                 * We have local logging hard-coded to 1 minute and 1 hour.
+                 * We have local logging hard-coded to 1 minute and 1 hour. We recognize which
+                 * we are working with by checking whether the sample frequency is set to the
+                 * smallest allowed value.
                  */
                 statStreamAggr_.writeStatsLog(volDataPoint, volId,
-                        60 == reg_->sample_freq_seconds);
+                        (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds));
             }
             dataPoints.push_back(volDataPoint);
         }

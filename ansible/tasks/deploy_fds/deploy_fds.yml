@@ -23,6 +23,9 @@
 
 - include: install_fds.yml
 
+- include: install_fdsconsole.yml
+  when: install_fdsconsole is defined and install_fdsconsole == "yes"
+
 - include: set_node_num.yml
 
 - include: post_install_setup.yml

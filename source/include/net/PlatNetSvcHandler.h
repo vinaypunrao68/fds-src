@@ -20,10 +20,12 @@
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
         DBG(fiu_do_on("svc.dropincoming."#FDSPMsgT, return;)); \
+        PlatNetSvcHandler::threadLocalPayloadBuf = payloadBuf; \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
         SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
+        PlatNetSvcHandler::threadLocalPayloadBuf = nullptr; \
     }
 
 // get the global service request handler
@@ -96,6 +98,8 @@ struct PlatNetSvcHandler : HasModuleProvider,
 
     void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
+    void updateHandler(const fpi::FDSPMsgTypeId msgId, const FdspMsgHandler &handler);
+
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                    const std::string& payload) override;
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
@@ -147,18 +151,6 @@ struct PlatNetSvcHandler : HasModuleProvider,
         fds::serializeFdspMsg(payload, respBuf);
         this->sendAsyncResp_(reqHdr, msgTypeId, respBuf);
     }
-
-    // protected:
-    /* Typically whether registration with OM is complete or not.  When
-     * registration isn't complete all incoming async requests get queued up
-     */
-    using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
-    std::atomic<State> handlerState_;
-    std::list<AsyncReqPair> deferredReqs_; 
-
-    /* Request handlers */
-    std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
-    SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
 
 
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
@@ -214,6 +206,21 @@ struct PlatNetSvcHandler : HasModuleProvider,
                    fpi::GetSvcStatusMsgPtr &statusMsg);
     virtual void updateSvcMap(fpi::AsyncHdrPtr &header,
                               fpi::UpdateSvcMapMsgPtr &svcMapMsg);
+
+    // protected:
+    /* Typically whether registration with OM is complete or not.  When
+     * registration isn't complete all incoming async requests get queued up
+     */
+    using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
+    std::atomic<State> handlerState_;
+    std::list<AsyncReqPair> deferredReqs_; 
+
+    /* Request handlers */
+    std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
+    SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
+
+    /* Incoming request message payload buffer */
+    static thread_local StringPtr threadLocalPayloadBuf;
 };
 
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;

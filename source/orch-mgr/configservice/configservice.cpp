@@ -907,27 +907,15 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
             case apis::BLOCK:
                 break;
             case apis::ISCSI:
-            LOGDEBUG << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ]";
-//            for ( auto lun : *volumeSettings.iscsiTarget.luns ) {
-//                LOGDEBUG << "name [ " << lun.name << " ] access [ " << lun.access << " ]";
-//            }
-//
-            LOGDEBUG << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ]";
-//            for ( auto initiator : *volumeSettings->iscsiASettungs ) {
-//                LOGDEBUG << "wwn mask [ " << initiator.wwn_mask << " ]";
-//            }
-//
-            LOGDEBUG << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ]";
-//            for ( auto credentials : *volumeSettings.iscsiTarget.incomingUsers ) {
-//                LOGDEBUG << "incoming user [ " << credentials.name << " ] password [ ****** ]";
-//            }
-//
-            LOGDEBUG << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
-//            for ( auto credentials : *volumeSettings.iscsiTarget.outgoingUsers ) {
-//                LOGDEBUG << "outgoing user [ " << credentials.name << " ] password [ ****** ]";
-//            }
+                LOGDEBUG << "iSCSI:: "
+                         << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ] "
+                         << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ] "
+                         << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ] "
+                         << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
                 break;
             case apis::NFS:
+                LOGDEBUG << "NFS:: [ " << volumeSettings->nfsOptions.client << " ] "
+                         << "[ " << volumeSettings->nfsOptions.options << " ]";
                 break;
             case apis::OBJECT:
                 break;
@@ -944,6 +932,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
+
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
@@ -979,7 +968,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         if (vol) {
             return vol->rs_get_uuid().uuid_get_val();
         } else {
-            LOGWARN << "Unable to get volume info for vol:" << *volumeName;
+            LOGWARN << "The specified volume " << *volumeName << " was not found.";
             return 0;
         }
     }
@@ -1062,7 +1051,7 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT found" , fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT FOUND" , fpi::MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -1080,14 +1069,29 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
                      << " [ " << vol->vol_get_name() << " ] type [ " << vol->vol_get_properties()->volType
                      << " ] state [ " << vol->vol_get_properties()->getStateName() << " ] ";
 
-                if (!vol->vol_get_properties()->isSnapshot()) {
-                    if (vol->getState() == fpi::Active) {
-                        VolumeDescriptor volDescriptor;
-                        convert::getVolumeDescriptor(volDescriptor, vol);
-                        vec.push_back(volDescriptor);
+            if (!vol->vol_get_properties()->isSnapshot()) {
+                if (vol->getState() == fpi::Active) {
+                    VolumeDescriptor volDescriptor;
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+
+                    if ( volDescriptor.policy.volumeType == apis::ISCSI )
+                    {
+                        FDS_ProtocolInterface::IScsiTarget iscsi = volDescriptor.policy.iscsiTarget;
+                        LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+                    }
+                    else if (volDescriptor.policy.volumeType == apis::NFS )
+                    {
+                        FDS_ProtocolInterface::NfsOption nfs = volDescriptor.policy.nfsOptions;
+                        LOGDEBUG << "NFS:: [ " << nfs.client << " ] "
+                                 << "[ " << nfs.options << " ]";
                     }
                 }
-            });
+            }
+        });
     }
 
     void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, boost::shared_ptr<int32_t>& ignore) {
@@ -1149,8 +1153,25 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr->addPolicy(*policy);
+        /*
+         * OK, if we leave this defaulted to 'false' we will never create snapshot policies
+         * which I believe isn't what we want. Because all volumes created will not have snapshot
+         * policies so if or when this feature is enabled, set to true, these volumes will fail
+         * because not snapshot policy exists.
+         *
+         * We just don't want to add it to the scheduler.
+         *
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
+         */
+        if ( configDB->createSnapshotPolicy( *policy ) )
+        {
+            LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule;
+            if ( om->enableSnapshotSchedule )
+            {
+                om->snapshotMgr->addPolicy( *policy );
+            }
+
             return policy->id;
         }
         return -1;
@@ -1162,10 +1183,15 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        if (om->enableSnapshotSchedule) {
-            configDB->deleteSnapshotPolicy(*id);
-            om->snapshotMgr->removePolicy(*id);
-        }
+        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+        /*
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableSnapshotSchedule) {
+         *
+         *  ADDED: log message below.
+         */
+        configDB->deleteSnapshotPolicy(*id);
+        om->snapshotMgr->removePolicy(*id);
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,

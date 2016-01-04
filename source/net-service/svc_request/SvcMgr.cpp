@@ -342,6 +342,12 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local requests */
+        svcRequestHandler_->asyncReqt(header, payload);
+        return;
+    }
+
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
         if (!getSvcHandle_(svcUuid, svcHandle)) {
@@ -362,6 +368,12 @@ void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
 {
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
+
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local responses */
+        svcRequestHandler_->asyncResp(header, payload);
+        return;
+    }
 
     do {
         fds_scoped_lock lock(svcHandleMapLock_);

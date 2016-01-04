@@ -8,21 +8,22 @@
 #include <fds_error.h>
 #include <DmMigrationExecutor.h>
 #include <DmMigrationClient.h>
+#include <DmMigrationDest.h>
+#include <DmMigrationSrc.h>
 #include <condition_variable>
 #include <MigrationUtility.h>
 #include <counters.h>
 
 namespace fds {
 
-// Forward declaration
-class DmIoReqHandler;
-
 class DmMigrationMgr {
 	using DmMigrationExecMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationExecutor::shared_ptr>;
     using DmMigrationClientMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationClient::shared_ptr>;
+	using DmMigrationDestMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationDest::shared_ptr>;
+    using DmMigrationSrcMap = std::map<std::pair<NodeUuid, fds_volid_t>, DmMigrationSrc::shared_ptr>;
 
   public:
-    explicit DmMigrationMgr(DmIoReqHandler* DmReqHandle, DataMgr& _dataMgr);
+    explicit DmMigrationMgr(DataMgr &_dataMgr);
     ~DmMigrationMgr();
 
     void mod_shutdown();
@@ -240,15 +241,28 @@ class DmMigrationMgr {
     inline uint32_t getIdleTimeout() {
         return idleTimeoutSecs;
     }
-  protected:
+
+    /**
+     * Version 2: Uses volume group coordinator for peer migration.
+     * This is the hook to start a migration.
+     */
+    Error startMigration(NodeUuid& srcDmUuid,
+                         fpi::FDSP_VolumeDescType &vol,
+                         int64_t migrationId,
+                         migrationCb doneCb);
+
+    /**
+     * Not to be called by anyone else but internally by handler.
+     */
+    Error startMigrationSource(DmRequest *dmRequest);
+
   private:
-    DmIoReqHandler* DmReqHandler;
     fds_rwlock migrExecutorLock;
     fds_rwlock migrClientLock;
     std::atomic<MigrationState> clientState;
     std::atomic<MigrationState> executorState;
 
-    DataMgr& dataManager;
+    DataMgr &dataManager;
 
     /** check if the feature is enabled or not.
      */
@@ -388,7 +402,10 @@ class DmMigrationMgr {
      * Source side DM:
      * Callback for migrationClient.
      */
-    void migrationClientDoneCb(fds_volid_t uniqueId, int64_t migrationId, const Error &result);
+    void migrationClientDoneCb(fds_volid_t uniqueId,
+                               int64_t migrationId,
+                               const Error &result);
+
 
     /**
      * For debugging
