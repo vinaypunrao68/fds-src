@@ -91,12 +91,14 @@
         - libboost-timer1.54-dev
         - libboost-thread1.54-dev
         - libboost-regex1.54-dev
+        - libboost-chrono1.54-dev
         - libboost1.54
         - libboost-log1.54
         - libboost-program-options1.54
         - libboost-timer1.54
         - libboost-thread1.54
         - libboost-regex1.54
+        - libboost-chrono1.54
 
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
@@ -177,6 +179,7 @@
         - libboost-test1.55-dev
         - libboost-regex1.55-dev
         - libboost-filesystem1.55-dev
+        - libboost-chrono1.55-dev
         - libical-dev
         - libical1
         - libleveldb-dev
