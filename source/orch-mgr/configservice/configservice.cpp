@@ -2122,6 +2122,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return -1;
     };
 
+    /**
+     * @details
+     * In production flows, the data store is passed to the constructor.
+     * Use this to set a fake data store when testing in isolation.
+     */
     void setConfigDB(DataStoreT* pDataStore) {
         configDB = pDataStore;
     };
@@ -2132,8 +2137,11 @@ ConfigurationServiceHandler<kvstore::ConfigDB>::ConfigurationServiceHandler(Orch
  : om(om) {
 
     configDB = om->getConfigDB();
-    enable_subscriptions_ = MODULEPROVIDER()->get_conf_helper().get<bool>("fds."
-        "feature_toggle.common.enable_subscriptions", false);
+    // The module provider might not supply the base path we want,
+    // so make our own config access. This is libConfig data, not
+    // to be confused with FDS configuration (platform.conf).
+    FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
+    enable_subscriptions_ = configAccess.get<bool>("common.enable_subscriptions", false);
 }
 
 template <>
@@ -2150,9 +2158,11 @@ void ConfigurationServiceHandler<kvstore::ConfigDB>::checkMasterDomain() {
 template <class DataStoreT>
 ConfigurationServiceHandler<DataStoreT>::ConfigurationServiceHandler(OrchMgr* om)
  : om(om) {
-
-    enable_subscriptions_ = MODULEPROVIDER()->get_conf_helper().get<bool>("fds."
-        "feature_toggle.common.enable_subscriptions", false);
+    // The module provider might not supply the base path we want,
+    // so make our own config access. This is libConfig data, not
+    // to be confused with FDS configuration (platform.conf).
+    FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
+    enable_subscriptions_ = configAccess.get<bool>("common.enable_subscriptions", false);
 }
 
 template <class DataStoreT>

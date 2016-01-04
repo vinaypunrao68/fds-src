@@ -48,8 +48,13 @@ public:
 FakeProcess::FakeProcess() : FdsProcess() {
 
     g_fdsprocess = this;
+
+    // Dependency on global logger
+    std::string strPath = "/fds/";
+    FdsProcess::proc_root = new FdsRootDir(strPath);
+
     boost::shared_ptr<FdsConfig> config(new FdsConfig());
-    configAccess_.init(config, "");
+    configAccess_.init(config, "fds.");
 
     // We are not going to create a sig handler thread, so without
     // the following the parent destructor waits indefinitely.
@@ -317,10 +322,17 @@ public:
 } // namespace fds
 
 TEST(CreateSubscription, FeatureToggle) {
-
+    // FDS process depends on global logger. This dependency prevents true
+    // isolation testing.
+    // Initialize logging (logptr, g_fdslog).
+    // Host volume must have permissions in /fds to log test.
+    fds::fds_log *temp_log = new fds::fds_log("fds", "logs");
+    temp_log->setSeverityFilter(
+        fds::fds_log::getLevelFromName("DEBUG"));
+    fds::g_fdslog = temp_log;
+    GLOGNORMAL << "configservice_gtest";
     // Supplies the configuration datastore
     fds::FakeProcess fakeProcess;
-
     // Fake subscription data
     fds::FakeDataStore dataStore;
 
@@ -347,6 +359,11 @@ TEST(CreateSubscription, FeatureToggle) {
     // Now turn on the feature toggle
     boost::shared_ptr<fds::FdsConfig> config = fakeProcess.get_fds_config();
     config->set("fds.feature_toggle.common.enable_subscriptions", true);
+
+    // Verify feature enabled
+    fds::FdsConfigAccessor configAccess(config, "fds.feature_toggle.");
+    bool result = configAccess.get<bool>("common.enable_subscriptions", false);
+    EXPECT_EQ(result, true);
 
     // Yes, that global orchMgr is nullptr. Look out!
     fds::apis::ConfigurationServiceHandler<fds::FakeDataStore> uut1(fds::orchMgr);
