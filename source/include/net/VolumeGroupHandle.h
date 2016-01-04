@@ -263,7 +263,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     bool replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_();
-    EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_(fds_volid_t volId);
+    EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
     void broadcastGroupInfo_();
