@@ -1034,7 +1034,7 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
+    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
     /**
