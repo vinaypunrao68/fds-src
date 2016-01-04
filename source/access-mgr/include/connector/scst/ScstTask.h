@@ -42,6 +42,7 @@ struct ScstTask : public BlockTask {
     /** SCSI Setters */
     inline void checkCondition(uint8_t const key, uint8_t const asc, uint8_t const ascq);
     inline void reservationConflict();
+    inline bool wasCheckCondition() const;
 
     inline void setResponseBuffer(uint8_t* buf, size_t const buflen, bool const cached_buffer);
     inline void setResponseLength(size_t const buflen);
@@ -94,6 +95,12 @@ ScstTask::checkCondition(uint8_t const key, uint8_t const asc, uint8_t const asc
     reply.exec_reply.status = SAM_STAT_CHECK_CONDITION;
     reply.exec_reply.sense_len = 18;
     reply.exec_reply.psense_buffer = (unsigned long)&sense_buffer;
+}
+
+bool
+ScstTask::wasCheckCondition() const
+{
+    return (SAM_STAT_CHECK_CONDITION == reply.exec_reply.status);
 }
 
 void

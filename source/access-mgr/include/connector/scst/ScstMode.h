@@ -166,6 +166,38 @@ struct __attribute__((__packed__)) ControlModePage {
 };
 static_assert(12 == sizeof(ControlModePage), "Size of ControlModePage has changed!");
 
+struct __attribute__((__packed__)) ReadWriteRecoveryPage {
+    enum AutoWriteReassign : bool { NoAutomaticReassignWrite, AutomaticReassignWrite };
+    enum AutoReadReassign : bool { NoAutomaticReassignRead, AutomaticReassignRead };
+    enum EarlyRecovery : bool { SafeRecovery, ExpedientRecovery };
+    enum DataTerminate : bool { NoTerminationOnRecovery, TerminateOnRecovery };
+    enum DisableCorrection : bool { CorrectionAllowed, CorrectionPrevented };
+    enum PostError : bool { NotifyReadRecovery, IgnoreReadRecovery };
+    enum ReadContinuous : bool { DelayOnTransferOk, NoDelayOnTransfer };
+    enum TransferBlock : bool { NoPseudoDataOnError, PseudoDataOnError };
+
+    ReadWriteRecoveryPage();
+
+    void operator &=(AutoWriteReassign const auto_reassign) { _awre = to_underlying(auto_reassign); }
+    void operator &=(AutoReadReassign const auto_reassign) { _arre = to_underlying(auto_reassign); }
+    void operator &=(DataTerminate const data_terminate) { _dte = to_underlying(data_terminate); }
+    void operator &=(DisableCorrection const disable_correction) { _dcr = to_underlying(disable_correction); }
+    void operator &=(EarlyRecovery const early_recovery) { _eer = to_underlying(early_recovery); }
+    void operator &=(PostError const post_error) { _per = to_underlying(post_error); }
+    void operator &=(ReadContinuous const read_continuous) { _rc = to_underlying(read_continuous); }
+    void operator &=(TransferBlock const transfer_block) { _tb = to_underlying(transfer_block); }
+
+    PageHeader _header;
+    uint8_t _dcr : 1, _dte : 1, _per : 1, _eer : 1, _rc : 1, _tb : 1, _arre : 1, _awre : 1;
+    uint8_t _read_retry_count;
+    uint8_t _obsolete[3];
+    uint8_t _mmc6_restricted : 2, : 5, _lbpere : 1;
+    uint8_t _write_retry_count;
+    uint8_t _reserved;
+    uint16_t _recovery_time_limit;
+};
+static_assert(12 == sizeof(ReadWriteRecoveryPage), "Size of ReadWriteRecoveryPage has changed!");
+
 struct __attribute__((__packed__)) BlockDescriptor {
     BlockDescriptor() { std::memset(this, '\0', sizeof(BlockDescriptor)); }
 
@@ -186,13 +218,13 @@ struct ModeHandler {
 
   template<typename ModePage>
   void addModePage(ModePage && page);
-  void writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code);
-  void writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code);
+  void writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
+  void writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
 
   void setBlockDescriptor(size_t const lba_count, size_t const lba_size);
 
  private:
-  void writeToBuffer(ScstTask* task, void* src, size_t const len);
+  size_t writePage(ScstTask* task, size_t& offset, uint8_t const page_code) const;
 
   BlockDescriptor _block_descriptor;
   std::map<uint8_t, std::vector<uint8_t>> mode_pages;

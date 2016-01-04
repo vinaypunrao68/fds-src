@@ -48,6 +48,13 @@ ControlModePage::ControlModePage()
     _header._length = sizeof(ControlModePage) - 2;
 }
 
+ReadWriteRecoveryPage::ReadWriteRecoveryPage()
+{
+    std::memset(this, '\0', sizeof(ReadWriteRecoveryPage));
+    _header._page_code = 0x01;
+    _header._length = sizeof(ControlModePage) - 2;
+}
+
 ModeHandler::ModeHandler()
 {
 }
@@ -58,14 +65,34 @@ void ModeHandler::setBlockDescriptor(size_t const lba_count, size_t const lba_si
     *reinterpret_cast<uint32_t*>(&_block_descriptor._reserved) = htobe32(lba_size);
 }
 
-void ModeHandler::writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code)
+size_t ModeHandler::writePage(ScstTask* task, size_t& offset, uint8_t const page_code) const
 {
-    auto it = mode_pages.find(page_code);
-    if (mode_pages.end() == it) {
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-        return;
+    auto buffer = task->getResponseBuffer();
+    // Find where we left off before being called
+    auto to_write = task->getResponseBufferLen();
+    to_write -= std::min(to_write, offset);
+    size_t written = 0;
+    bool found_page = false;
+
+    // Find page(s) that we want to write
+    for (auto const& page_pair : mode_pages) {
+        if (page_pair.first == page_code || 0x3f == page_code) {
+            found_page = true;
+            auto& page = page_pair.second;
+            // Write the page
+            auto writing = std::min(to_write - written, page.size());
+            memcpy(buffer + offset, page.data(), writing);
+            offset += page.size(); written += writing;
+        }
     }
-    auto& page = it->second;
+    if (!found_page) {
+        task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
+    }
+    return written;
+}
+
+void ModeHandler::writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const
+{
     auto buffer = task->getResponseBuffer();
     auto to_write = task->getResponseBufferLen();
     size_t writing = 0;
@@ -73,36 +100,29 @@ void ModeHandler::writeModeParameters6(ScstTask* task, bool const block_descript
 
     Mode6Header header;
     written = sizeof(Mode6Header); // Skip header till end
+    to_write -= std::min(to_write, written);
 
     // Write the Block Descriptor if requested
     if (block_descriptor) {
         header._block_descriptor_length = sizeof(BlockDescriptor);
         writing = std::min(to_write, sizeof(BlockDescriptor));
         memcpy(buffer + written, &_block_descriptor, writing);
-        written += writing; to_write -= writing;
+        written += sizeof(BlockDescriptor); to_write -= writing;
     }
 
-    // Write the page
-    writing = std::min(to_write, page.size());
-    memcpy(buffer + written, page.data(), writing);
-    written += writing; to_write -= writing;
+    to_write -= writePage(task, written, page_code);
+    if (task->wasCheckCondition()) return;
 
     // Finally write the header
     header._header._data_length = written - 1;
     writing = std::min(task->getResponseBufferLen(), sizeof(Mode6Header));
     memcpy(buffer, &header, writing);
 
-    task->setResponseLength(written);
+    task->setResponseLength(task->getResponseBufferLen() - to_write);
 }
 
-void ModeHandler::writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code)
+void ModeHandler::writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const
 {
-    auto it = mode_pages.find(page_code);
-    if (mode_pages.end() == it) {
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-        return;
-    }
-    auto& page = it->second;
     auto buffer = task->getResponseBuffer();
     auto to_write = task->getResponseBufferLen();
     size_t writing = 0;
@@ -110,27 +130,26 @@ void ModeHandler::writeModeParameters10(ScstTask* task, bool const block_descrip
 
     Mode10Header header;
     written = sizeof(Mode10Header); // Skip header till end
+    to_write -= std::min(to_write, written);
 
     // Write the Block Descriptor if requested
     if (block_descriptor) {
-        header._block_descriptor_length = sizeof(BlockDescriptor);
+        header._block_descriptor_length = htobe16(sizeof(BlockDescriptor));
         writing = std::min(to_write, sizeof(BlockDescriptor));
         memcpy(buffer + written, &_block_descriptor, writing);
-        written += writing; to_write -= writing;
+        written += sizeof(BlockDescriptor); to_write -= writing;
     }
 
-    // Write the page
-    writing = std::min(to_write, page.size());
-    memcpy(buffer + written, page.data(), writing);
-    written += writing; to_write -= writing;
+    to_write -= writePage(task, written, page_code);
+    if (task->wasCheckCondition()) return;
 
     // Finally write the header
     header._data_length_hi = (written - 2) >> 8;
     header._header._data_length = written - 2;
-    writing = std::min(task->getResponseBufferLen(), sizeof(Mode6Header));
+    writing = std::min(task->getResponseBufferLen(), sizeof(Mode10Header));
     memcpy(buffer, &header, writing);
 
-    task->setResponseLength(written);
+    task->setResponseLength(task->getResponseBufferLen() - to_write);
 }
 
 }  // namespace fds

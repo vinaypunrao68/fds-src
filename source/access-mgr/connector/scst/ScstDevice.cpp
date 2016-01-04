@@ -93,24 +93,7 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
     volume_size = (vol_desc.capacity * Mi);
     physical_block_size = vol_desc.maxObjSizeInBytes;
 
-    mode_handler->setBlockDescriptor((volume_size / logical_block_size), logical_block_size);
-
-    CachingModePage caching_page;
-    caching_page &= CachingModePage::DiscontinuityNoTrunc;
-    caching_page &= CachingModePage::SegmentSize;
-    caching_page &= CachingModePage::SegmentSizeInBlocks;
-    uint32_t blocks_per_object = physical_block_size / logical_block_size;
-    caching_page.setPrefetches(blocks_per_object, blocks_per_object, blocks_per_object, UINT64_MAX);
-    mode_handler->addModePage(caching_page);
-
-    ControlModePage control_page;
-    control_page &= ControlModePage::DefaultProtectionDisabled;
-    control_page &= ControlModePage::FixedFormatSense;
-    control_page &= ControlModePage::UnrestrictedCommandOrdering;
-    control_page &= ControlModePage::NoUAOnRelease;
-    control_page &= ControlModePage::AbortStatusOnTMF;
-    control_page &= ControlModePage::SingleTaskSet;
-    mode_handler->addModePage(control_page);
+    setupModePages(logical_block_size, physical_block_size, volume_size);
 
     setupInquiryPages(vol_desc.volUUID.get());
 
@@ -152,6 +135,34 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
 
     GLOGNORMAL << "New SCST device [" << volumeName
                << "] BlockSize[" << logical_block_size << "]";
+}
+
+void ScstDevice::setupModePages(size_t const lba_size, size_t const pba_size, size_t const volume_size)
+{
+    mode_handler->setBlockDescriptor((volume_size / lba_size), lba_size);
+
+    CachingModePage caching_page;
+    caching_page &= CachingModePage::DiscontinuityNoTrunc;
+    caching_page &= CachingModePage::SegmentSize;
+    caching_page &= CachingModePage::SegmentSizeInBlocks;
+    uint32_t blocks_per_object = pba_size / lba_size;
+    caching_page.setPrefetches(blocks_per_object, blocks_per_object, blocks_per_object, UINT64_MAX);
+    mode_handler->addModePage(caching_page);
+
+    ControlModePage control_page;
+    control_page &= ControlModePage::DefaultProtectionDisabled;
+    control_page &= ControlModePage::FixedFormatSense;
+    control_page &= ControlModePage::UnrestrictedCommandOrdering;
+    control_page &= ControlModePage::NoUAOnRelease;
+    control_page &= ControlModePage::AbortStatusOnTMF;
+    control_page &= ControlModePage::SingleTaskSet;
+    mode_handler->addModePage(control_page);
+
+    ReadWriteRecoveryPage recovery_page;
+    recovery_page &= ReadWriteRecoveryPage::IgnoreReadRecovery;
+    recovery_page &= ReadWriteRecoveryPage::TerminateOnRecovery;
+    recovery_page &= ReadWriteRecoveryPage::CorrectionPrevented;
+    mode_handler->addModePage(recovery_page);
 }
 
 void ScstDevice::setupInquiryPages(uint64_t const volume_id)
@@ -445,141 +456,13 @@ void ScstDevice::execUserCmd() {
                 continue;
             }
 
-            if (buflen < 4) {
-                // Too small to even calculate the mode data length
-                continue;
-            }
             memset(buffer, '\0', buflen);
 
-            size_t param_cursor = 0ull;
             if (MODE_SENSE == op_code) {
-                buffer[1] = TYPE_DISK;  // Block device type
-                buffer[2] = 0b00000000; // Device specific params
-                param_cursor = 4;
+                mode_handler->writeModeParameters6(task, !dbd, page_code);
             } else {
-                buffer[2] = TYPE_DISK;  // Block device type
-                buffer[3] = 0b00000000; // Device specific params
-                buffer[4] = 0b00000000; // LLBA disabled
-                param_cursor = 8;
+                mode_handler->writeModeParameters10(task, !dbd, page_code);
             }
-
-            // Append block descriptor if enabled
-            if ((param_cursor + 8 <= buflen) && !dbd) {
-                buffer[param_cursor - 1] = 0x08; // Set descriptor size
-                uint64_t num_blocks = volume_size / logical_block_size;
-                // Number of LBAs (or 0xFFFFFFFF if bigger than 4GiB)
-                *reinterpret_cast<uint32_t*>(&buffer[param_cursor]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
-                *reinterpret_cast<uint32_t*>(&buffer[param_cursor+4]) = htobe32(logical_block_size);
-            }
-            param_cursor += 8;
-
-            // Add pages that were requested
-            switch (page_code) {
-            case 0x3F: // ALL pages please
-            case 0x01: // Read-Write Error Recovery Page
-                if (param_cursor + 12 <= buflen) {
-                    /* /-----------------------------------------------------------------------\
-                     * |   PS   |  SPF   |                      PAGE CODE                      |
-                     * |                              PAGE LENGTH                              |
-                     * |  AWRE  |  ARRE  |   TB   |   RC   |  EER   |  PER   |  DTE   |  DCR   |
-                     * |                            READ RETRY COUNT                           |
-                     * |                                  obsl                                 |
-                     * |                                  obsl                                 |
-                     * |                                  obsl                                 |
-                     * | LBPERE |                    resv                    |      MMC-6      |
-                     * |                           WRITE RETRY COUNT                           |
-                     * |                                  resv                                 |
-                     * |                           RECOVERY.........                           |
-                     * |                           ........TIME LIMIT                          |
-                     * \_______________________________________________________________________/
-                     */
-                    static uint8_t const error_recovery_page [] = {
-                        0b00000001,
-                        0x0A,
-                        0b00000111,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0b00000000,
-                        0,
-                        0,
-                        0,
-                        0,
-                    };
-                    LOGTRACE << "Adding r/w error recovery page.";
-                    memcpy(&buffer[param_cursor], error_recovery_page, sizeof(error_recovery_page));
-                }
-                param_cursor += 12;
-                if (0x3F != page_code) break;;
-            case 0x02: // Disconnect-Reconnect Page
-                if (param_cursor + 16 <= buflen) {
-                    /* /-----------------------------------------------------------------------\
-                     * |   PS   |  SPF   |                      PAGE CODE                      |
-                     * |                              PAGE LENGTH                              |
-                     * |                           BUFFER FULL RATIO                           |
-                     * |                           BUFFER EMPTY RATIO                          |
-                     * |                           BUS INACTIVITY....                          |
-                     * |                           .............LIMIT                          |
-                     * |                           DISCONNECT........                          |
-                     * |                           ........TIME LIMIT                          |
-                     * |                           CONNECT...........                          |
-                     * |                           ........TIME LIMIT                          |
-                     * |                           MAXIMUM...........                          |
-                     * |                           ........BURST SIZE                          |
-                     * |  EMDP  |     FAIR ARBITRATION    |  DIMM  |            DTDC           |
-                     * |                                  resv                                 |
-                     * |                           FIRST.............                          |
-                     * |                           ........BURST SIZE                          |
-                     * \_______________________________________________________________________/
-                     */
-                    static uint8_t const disc_reconnect_page [] = {
-                        0x02,
-                        0x0E,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0b00000000,
-                        0,
-                        0,
-                        0,
-                    };
-                    LOGTRACE << "Adding disconnect-reconnect page.";
-                    memcpy(&buffer[param_cursor], disc_reconnect_page, sizeof(disc_reconnect_page));
-                }
-                param_cursor += 16;
-                if (0x3F != page_code) break;;
-            case 0x08: // Caching Mode Page
-            case 0x0A: // Control Mode Page
-                {
-                    if (MODE_SENSE == op_code) {
-                        mode_handler->writeModeParameters6(task, !dbd, page_code);
-                    } else {
-                        mode_handler->writeModeParameters10(task, !dbd, page_code);
-                    }
-                    continue;
-                }
-                break;;
-            default:
-                LOGDEBUG << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                continue;
-            }
-
-            // Set data length
-            if (MODE_SENSE == op_code) {
-                buffer[0] = std::min(param_cursor - 1, (size_t)UINT8_MAX);
-            } else {
-                *reinterpret_cast<uint16_t*>(&buffer[0]) = htobe16(std::min(param_cursor - 2, (size_t)UINT16_MAX));
-            }
-            task->setResponseLength(std::min(buflen, param_cursor));
         }
         break;
     case READ_6:

@@ -105,7 +105,6 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     /** Indicates to ev loop if it's safe to handle events on this connection */
     bool processing_ {false};
 
-    void setupInquiryPages(uint64_t const volume_id);
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);
@@ -121,9 +120,11 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     // Utility functions to build Inquiry Pages...etc
     unique<InquiryHandler> inquiry_handler;
+    void setupModePages(size_t const lba_size, size_t const pba_size, size_t const volume_size);
 
     // Utility functions to build Mode Pages...etc
     unique<ModeHandler> mode_handler;
+    void setupInquiryPages(uint64_t const volume_id);
 
     void deferredReply() {
         cmd.preply = 0ull;
