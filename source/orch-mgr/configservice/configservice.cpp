@@ -73,6 +73,12 @@ static void add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDesc
     vec.push_back(voldesc);
 }
 
+/**
+ * @details
+ * Templated so that dependency injection can be used to substitute
+ * a fake data store for kvstore::ConfigDB. Enables unit testing with
+ * no cross-process dependency on the data store.
+ */
 template<class DataStoreT>
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
