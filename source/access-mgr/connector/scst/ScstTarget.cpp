@@ -30,7 +30,7 @@ extern "C" {
 
 #include <ev++.h>
 
-#include "connector/scst/ScstDevice.h"
+#include "connector/scst/ScstDisk.h"
 #include "connector/scst/ScstCommon.h"
 #include "util/Log.h"
 
@@ -192,7 +192,7 @@ ScstTarget::addDevice(VolumeDesc const& vol_desc) {
 
     ScstDevice* device = nullptr;
     try {
-    device = new ScstDevice(vol_desc, this, processor);
+    device = new ScstDisk(vol_desc, this, processor);
     } catch (ScstError& e) {
         return;
     }

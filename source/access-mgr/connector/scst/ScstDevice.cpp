@@ -24,7 +24,6 @@
 #include <type_traits>
 
 extern "C" {
-#include <endian.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/uio.h>
@@ -51,14 +50,6 @@ extern "C" {
 #include "connector/scst/ScstMode.h"
 #include "connector/scst/ScstInquiry.h"
 
-/// Some useful constants for us
-/// ******************************************
-static constexpr size_t Ki = 1024;
-static constexpr size_t Mi = Ki * Ki;
-static constexpr size_t Gi = Ki * Mi;
-static constexpr ssize_t max_block_size = 8 * Mi;
-/// ******************************************
-
 static uint32_t const ieee_oui = 0x88A084;
 static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
 
@@ -75,7 +66,6 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
           scst_target(target),
           scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_desc.name),
-          logical_block_size(512ul),
           readyResponses(4000),
           inquiry_handler(new InquiryHandler()),
           mode_handler(new ModeHandler())
@@ -84,30 +74,22 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
         FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
         standalone_mode = config.get_abs<bool>("fds.am.testing.standalone", false);
     }
-    {
-        FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
-        logical_block_size = conf.get<uint32_t>("default_block_size", logical_block_size);
-    }
 
-    // capacity is in MB
-    volume_size = (vol_desc.capacity * Mi);
-    physical_block_size = vol_desc.maxObjSizeInBytes;
-
-    setupModePages(logical_block_size, physical_block_size, volume_size);
-
+    setupModePages();
     setupInquiryPages(vol_desc.volUUID.get());
+}
 
+void ScstDevice::registerDevice(uint8_t const device_type, uint32_t const logical_block_size) {
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
         throw ScstError::scst_not_found;
     }
 
-    // XXX(bszmyd): Fri 11 Sep 2015 08:25:48 AM MDT
     // REGISTER a device
     scst_user_dev_desc scst_descriptor {
         (unsigned long)DEV_USER_VERSION, // Constant
         (unsigned long)"GPL",       // License string
-        TYPE_DISK,                  // Device type
+        device_type,                  // Device type
         1, 0, 0, 0,                 // SGV enabled
         {                           // SCST options
                 SCST_USER_PARSE_STANDARD,                   // parse type
@@ -137,18 +119,8 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
                << "] BlockSize[" << logical_block_size << "]";
 }
 
-void ScstDevice::setupModePages(size_t const lba_size, size_t const pba_size, size_t const volume_size)
+void ScstDevice::setupModePages()
 {
-    mode_handler->setBlockDescriptor((volume_size / lba_size), lba_size);
-
-    CachingModePage caching_page;
-    caching_page &= CachingModePage::DiscontinuityNoTrunc;
-    caching_page &= CachingModePage::SegmentSize;
-    caching_page &= CachingModePage::SegmentSizeInBlocks;
-    uint32_t blocks_per_object = pba_size / lba_size;
-    caching_page.setPrefetches(blocks_per_object, blocks_per_object, blocks_per_object, UINT64_MAX);
-    mode_handler->addModePage(caching_page);
-
     ControlModePage control_page;
     control_page &= ControlModePage::DefaultProtectionDisabled;
     control_page &= ControlModePage::FixedFormatSense;
@@ -157,19 +129,12 @@ void ScstDevice::setupModePages(size_t const lba_size, size_t const pba_size, si
     control_page &= ControlModePage::AbortStatusOnTMF;
     control_page &= ControlModePage::SingleTaskSet;
     mode_handler->addModePage(control_page);
-
-    ReadWriteRecoveryPage recovery_page;
-    recovery_page &= ReadWriteRecoveryPage::IgnoreReadRecovery;
-    recovery_page &= ReadWriteRecoveryPage::TerminateOnRecovery;
-    recovery_page &= ReadWriteRecoveryPage::CorrectionPrevented;
-    mode_handler->addModePage(recovery_page);
 }
 
 void ScstDevice::setupInquiryPages(uint64_t const volume_id)
 {
     // Setup the standard inquiry page
     auto inquiry = inquiry_handler->getStandardInquiry();
-    inquiry &= PeripheralType::DirectAccess;
     inquiry.setVendorId("FDS");
     inquiry.setProductId("FormationOne");
     inquiry.setRevision("BETA");
@@ -190,7 +155,6 @@ void ScstDevice::setupInquiryPages(uint64_t const volume_id)
 
     // Write the Device Identification (0x83) Page
     VPDPage device_id_page;
-    device_id_page &= PeripheralType::DirectAccess;
     device_id_page.writePage(0x83, builder.data(), builder.length());
     inquiry_handler->addVPDPage(device_id_page);
 
@@ -379,11 +343,6 @@ void ScstDevice::execUserCmd() {
 
     // Poor man's goto
     do {
-    if (0 == volume_size) {
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_not_ready));
-        continue;
-    }
-
     // These commands do not require a reservation if one exists
     bool ignore_res = false;
     switch (op_code) {
@@ -408,20 +367,6 @@ void ScstDevice::execUserCmd() {
     case TEST_UNIT_READY:
         LOGTRACE << "Test Unit Ready received.";
         break;
-    case FORMAT_UNIT:
-        {
-            LOGTRACE << "Format Unit received.";
-            bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
-            bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
-
-            // Mutually exclusive (and not supported)
-            if (fmtdata || fmtpinfo) {
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                continue;
-            }
-            // Nothing to do as we don't support data patterns...done!
-            break;
-        }
     case INQUIRY:
         {
             memset(buffer, '\0', buflen);
@@ -465,92 +410,6 @@ void ScstDevice::execUserCmd() {
             }
         }
         break;
-    case READ_6:
-    case READ_10:
-    case READ_12:
-    case READ_16:
-        {
-            // If we are anything but READ_6 read the PR and FUA bits
-            bool fua = false;
-            uint8_t rdprotect = 0x00;
-            if (READ_6 != op_code) {
-                rdprotect = (0x07 & (scsi_cmd.cdb[1] >> 5));
-                fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
-            }
-
-            LOGIO << "Read received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)rdprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
-
-            // We do not support rdprotect data
-            if (0x00 != rdprotect) {
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                continue;
-            }
-
-            uint64_t offset = scsi_cmd.lba * logical_block_size;
-            task->setRead(offset, scsi_cmd.bufflen);
-            scstOps->read(task);
-            return deferredReply();
-        }
-        break;
-    case READ_CAPACITY:     // READ_CAPACITY(10)
-    case READ_CAPACITY_16:
-        {
-            LOGTRACE << "Read Capacity received.";
-            uint64_t num_blocks = volume_size / logical_block_size;
-            uint32_t blocks_per_object = physical_block_size / logical_block_size;
-
-            if (READ_CAPACITY == op_code) {
-                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
-                *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
-                task->setResponseLength(8);
-            } else {
-                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
-                *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
-                // Number of logic blocks per object as a power of 2
-                buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
-                task->setResponseLength(32);
-            }
-        }
-        break;
-    case WRITE_6:
-    case WRITE_10:
-    case WRITE_12:
-    case WRITE_16:
-        {
-            // If we are anything but READ_6 read the PR and FUA bits
-            bool fua = false;
-            uint8_t wrprotect = 0x00;
-            if (WRITE_6 != op_code) {
-                wrprotect = (0x07 & (scsi_cmd.cdb[1] >> 5));
-                fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
-            }
-
-            LOGIO << "Write received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)wrprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
-
-            // We do not support wrprotect data
-            if (0x00 != wrprotect) {
-                task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_field_in_cdb));
-                continue;
-            }
-
-            uint64_t offset = scsi_cmd.lba * logical_block_size;
-            task->setWrite(offset, scsi_cmd.bufflen);
-            // Right now our API expects the data in a boost shared_ptr :(
-            auto buffer = boost::make_shared<std::string>((char*) scsi_cmd.pbuf, scsi_cmd.bufflen);
-            scstOps->write(buffer, task);
-            return deferredReply();
-        }
-        break;
     case RESERVE:
         LOGIO << "Reserving device [" << volumeName << "]";
         reservation_session_id = scsi_cmd.sess_h;
@@ -564,12 +423,9 @@ void ScstDevice::execUserCmd() {
         }
         break;
     default:
-        LOGNOTIFY << "Unsupported SCSI command received " << std::hex
-            << "OPCode [0x" << (uint32_t)(op_code)
-            << "] CDB length [" << std::dec << scsi_cmd.cdb_len
-            << "]";
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
-        break;
+        // See if this is a device specific command
+        execDeviceCmd(task);
+        return;
     }
     } while (false);
     readyResponses.push(task);
@@ -688,29 +544,13 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
 void
 ScstDevice::respondTask(BlockTask* response) {
     auto scst_response = static_cast<ScstTask*>(response);
-    if (scst_response->isRead()) {
-        if (fpi::OK != scst_response->getError()) {
-            scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
-        } else {
-            auto buffer = scst_response->getResponseBuffer();
-            fds_uint32_t i = 0, context = 0;
-            boost::shared_ptr<std::string> buf = scst_response->getNextReadBuffer(context);
-            while (buf != NULL) {
-                memcpy(buffer + i, buf->c_str(), buf->length());
-                i += buf->length();
-                buf = scst_response->getNextReadBuffer(context);
-            }
-            scst_response->setResponseLength(i);
-        }
+    if (scst_response->isRead() || scst_response->isWrite()) {
+        respondDeviceTask(scst_response);
     } else if (fpi::OK != scst_response->getError()) {
-        if (scst_response->isWrite()) {
-            scst_response->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
-        } else {
-            scst_response->setResult(scst_response->getError());
-        }
+        scst_response->setResult(scst_response->getError());
     }
 
-    // add to quueue
+    // add to queue
     readyResponses.push(scst_response);
 
     // We have something to write, so poke the loop
@@ -719,8 +559,7 @@ ScstDevice::respondTask(BlockTask* response) {
 
 void
 ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
-              << "B and object size: 0x" << physical_block_size;
+    LOGNORMAL << "Attached to volume: " << volDesc->name;
 }
 
 }  // namespace fds
