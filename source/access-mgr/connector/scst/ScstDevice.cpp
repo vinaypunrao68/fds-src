@@ -48,6 +48,7 @@ extern "C" {
 }
 
 #include "connector/scst/ScstTask.h"
+#include "connector/scst/ScstMode.h"
 #include "connector/scst/ScstInquiry.h"
 
 /// Some useful constants for us
@@ -67,17 +68,17 @@ static constexpr bool ensure(bool b)
 namespace fds
 {
 
-ScstDevice::ScstDevice(std::string const& vol_name,
-                       uint64_t const volume_id,
+ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
                        ScstTarget* target,
                        std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           scst_target(target),
           scstOps(boost::make_shared<BlockOperations>(this)),
-          volumeName(vol_name),
+          volumeName(vol_desc.name),
           logical_block_size(512ul),
           readyResponses(4000),
-          inquiry_handler(new InquiryHandler())
+          inquiry_handler(new InquiryHandler()),
+          mode_handler(new ModeHandler())
 {
     {
         FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
@@ -88,7 +89,30 @@ ScstDevice::ScstDevice(std::string const& vol_name,
         logical_block_size = conf.get<uint32_t>("default_block_size", logical_block_size);
     }
 
-    setupInquiryPages(volume_id);
+    // capacity is in MB
+    volume_size = (vol_desc.capacity * Mi);
+    physical_block_size = vol_desc.maxObjSizeInBytes;
+
+    mode_handler->setBlockDescriptor((volume_size / logical_block_size), logical_block_size);
+
+    CachingModePage caching_page;
+    caching_page &= CachingModePage::DiscontinuityNoTrunc;
+    caching_page &= CachingModePage::SegmentSize;
+    caching_page &= CachingModePage::SegmentSizeInBlocks;
+    uint32_t blocks_per_object = physical_block_size / logical_block_size;
+    caching_page.setPrefetches(blocks_per_object, blocks_per_object, blocks_per_object, UINT64_MAX);
+    mode_handler->addModePage(caching_page);
+
+    ControlModePage control_page;
+    control_page &= ControlModePage::DefaultProtectionDisabled;
+    control_page &= ControlModePage::FixedFormatSense;
+    control_page &= ControlModePage::UnrestrictedCommandOrdering;
+    control_page &= ControlModePage::NoUAOnRelease;
+    control_page &= ControlModePage::AbortStatusOnTMF;
+    control_page &= ControlModePage::SingleTaskSet;
+    mode_handler->addModePage(control_page);
+
+    setupInquiryPages(vol_desc.volUUID.get());
 
     // Open the SCST user device
     if (0 > (scstDev = openScst())) {
@@ -533,57 +557,15 @@ void ScstDevice::execUserCmd() {
                 param_cursor += 16;
                 if (0x3F != page_code) break;;
             case 0x08: // Caching Mode Page
-                if (param_cursor + 20 <= buflen) {
-                    LOGTRACE << "Adding caching page.";
-                    uint32_t blocks_per_object = physical_block_size / logical_block_size;
-                    buffer[param_cursor]        = 0x08;
-                    buffer[param_cursor + 1]    = 0x12;
-                    buffer[param_cursor + 2]    = 0b00011000;
-                    auto prefetch_size = htobe16(std::min(blocks_per_object, (uint32_t)UINT16_MAX));
-                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 6]) = prefetch_size;
-                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 8]) = prefetch_size;
-                    *reinterpret_cast<uint32_t*>(&buffer[param_cursor + 10]) = prefetch_size;
-                    buffer[param_cursor + 12]   = 0b01000000;
-                    buffer[param_cursor + 14]   = 0xFF;
-                    buffer[param_cursor + 15]   = 0xFF;
-                }
-                param_cursor += 20;
-                if (0x3F != page_code) break;;
             case 0x0A: // Control Mode Page
-                if (param_cursor + 12 <= buflen) {
-                    /* /-----------------------------------------------------------------------\
-                     * |   PS   |  SPF   |                      PAGE CODE                      |
-                     * |                              PAGE LENGTH                              |
-                     * |            TST           |TMF_ONLY| DPICZ  |D_SENSE | GLTSD  |  RLEC  |
-                     * |       QUEUE ALG MODIFIER          |  NUAR  |      QERR       |  obsl  |
-                     * |   VS   |  RAC   | UA_INTLCK_CTRL  |  SWP   |           obsl           |
-                     * |  ATO   |  TAS   | ATMPE  |  RWWP  |  resv  |      AUTOLOAD MODE       |
-                     * |                                  obsl                                 |
-                     * |                                  obsl                                 |
-                     * |                           BUSY TIMEOUT......                          |
-                     * |                           ............PERIOD                          |
-                     * |                           EXTENDED SELF TEST                          |
-                     * |                           ...COMPLETION TIME                          |
-                     * \_______________________________________________________________________/
-                     */
-                    static uint8_t const control_page [] = {
-                        0x0A,
-                        0x0A,
-                        0b00000000,
-                        0b00011000,
-                        0b00000000,
-                        0b01000000,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
-                    };
-                    LOGTRACE << "Adding control page.";
-                    memcpy(&buffer[param_cursor], control_page, sizeof(control_page));
+                {
+                    if (MODE_SENSE == op_code) {
+                        mode_handler->writeModeParameters6(task, !dbd, page_code);
+                    } else {
+                        mode_handler->writeModeParameters10(task, !dbd, page_code);
+                    }
+                    continue;
                 }
-                param_cursor += 12;
                 break;;
             default:
                 LOGDEBUG << "Request for unsupported page code. [0x" << std::hex << page_code << "]";
@@ -854,13 +836,8 @@ ScstDevice::respondTask(BlockTask* response) {
 
 void
 ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    // capacity is in MB
-    if (volDesc) {
-        volume_size = (volDesc->capacity * Mi);
-        physical_block_size = volDesc->maxObjSizeInBytes;
-        LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
-            << "B and object size: 0x" << physical_block_size;
-    }
+    LOGNORMAL << "Attached to volume with capacity: 0x" << std::hex << volume_size
+              << "B and object size: 0x" << physical_block_size;
 }
 
 }  // namespace fds

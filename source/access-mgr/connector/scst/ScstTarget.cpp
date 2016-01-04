@@ -163,12 +163,12 @@ ScstTarget::ScstTarget(std::string const& name,
 ScstTarget::~ScstTarget() = default;
 
 void
-ScstTarget::addDevice(std::string const& volume_name, uint64_t const volume_id) {
+ScstTarget::addDevice(VolumeDesc const& vol_desc) {
     std::unique_lock<std::mutex> l(deviceLock);
 
     // Check if we have a device with this name already
-    if (device_map.end() != device_map.find(volume_name)) {
-        GLOGDEBUG << "Already have a device for volume: [" << volume_name << "]";
+    if (device_map.end() != device_map.find(vol_desc.name)) {
+        GLOGDEBUG << "Already have a device for volume: [" << vol_desc.name << "]";
         return;
     }
 
@@ -187,18 +187,18 @@ ScstTarget::addDevice(std::string const& volume_name, uint64_t const volume_id) 
         return;
     }
     int32_t lun_number = std::distance(lun_table.begin(), lun_it);
-    GLOGDEBUG << "Mapping [" << volume_name
+    GLOGDEBUG << "Mapping [" << vol_desc.name
               << "] to LUN [" << lun_number << "]";
 
     ScstDevice* device = nullptr;
     try {
-    device = new ScstDevice(volume_name, volume_id, this, processor);
+    device = new ScstDevice(vol_desc, this, processor);
     } catch (ScstError& e) {
         return;
     }
 
     lun_it->reset(device);
-    device_map[volume_name] = lun_it;
+    device_map[vol_desc.name] = lun_it;
 
     devicesToStart.push_back(lun_number);
     asyncWatcher->send();

@@ -27,18 +27,13 @@ extern "C" {
 }
 #include <map>
 #include <string>
-#include <type_traits>
 #include <vector>
+
+#include "connector/scst/ScstScsiCommon.h"
 
 namespace fds { 
 
 struct ScstTask;
-
-template<typename E>
-constexpr auto to_underlying(E e) -> typename std::underlying_type<E>::type 
-{
-   return static_cast<typename std::underlying_type<E>::type>(e);
-}
 
 enum struct PeripheralQualifer : uint8_t
 {
@@ -212,11 +207,11 @@ void DescriptorBuilder::operator &=(Desc && descriptor)
 {
     static_assert(4 < sizeof(Desc), "Refusing to add designators smaller than 4 bytes.");
     auto raw_descriptor = reinterpret_cast<uint8_t*>(&descriptor);
-    size_t length = raw_descriptor[3];
-    if ((sizeof(descriptor) - 4) < length ) return; // Refuse to read into out-of-bounds memory
+    size_t length = raw_descriptor[3] + 4;
+    if (sizeof(descriptor) < length ) return; // Refuse to read into out-of-bounds memory
     auto old_length = _descriptor_list.size();
-    _descriptor_list.resize(old_length + sizeof(descriptor));
-    memcpy(&_descriptor_list[old_length], &descriptor, sizeof(descriptor));
+    _descriptor_list.resize(old_length + length);
+    memcpy(&_descriptor_list[old_length], &descriptor, length);
 }
 
 struct __attribute__((__packed__)) StandardInquiry {

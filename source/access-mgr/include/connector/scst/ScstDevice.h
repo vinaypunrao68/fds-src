@@ -44,10 +44,10 @@ struct AmProcessor;
 struct ScstTarget;
 struct ScstTask;
 struct InquiryHandler;
+struct ModeHandler;
 
 struct ScstDevice : public BlockOperations::ResponseIFace {
-    ScstDevice(std::string const& vol_name,
-               uint64_t const vol_id,
+    ScstDevice(VolumeDesc const& vol_desc,
                ScstTarget* target,
                std::shared_ptr<AmProcessor> processor);
     ScstDevice(ScstDevice const& rhs) = delete;
@@ -121,6 +121,9 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     // Utility functions to build Inquiry Pages...etc
     unique<InquiryHandler> inquiry_handler;
+
+    // Utility functions to build Mode Pages...etc
+    unique<ModeHandler> mode_handler;
 
     void deferredReply() {
         cmd.preply = 0ull;
