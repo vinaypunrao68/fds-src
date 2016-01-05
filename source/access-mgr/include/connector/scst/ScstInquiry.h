@@ -232,8 +232,6 @@ struct __attribute__((__packed__)) StandardInquiry {
 
     StandardInquiry();
 
-    uint8_t rf() const { return _header._response_format; }
-
     void operator &=(ACC const access_controller) { _header._acc = to_underlying(access_controller); }
     void operator &=(CmdQue const command_management) { _header._cmdque = to_underlying(command_management); }
     void operator &=(EncServ const enclosure_service) { _header._encserv = to_underlying(enclosure_service); }

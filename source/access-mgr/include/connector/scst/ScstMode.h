@@ -233,7 +233,7 @@ struct ModeHandler {
 template<typename ModePage>
 void ModeHandler::addModePage(ModePage && page)
 {
-    static_assert(2 < sizeof(2), "Refusing to add pages smaller than 2 bytes.");
+    static_assert(2 < sizeof(ModePage), "Refusing to add pages smaller than 2 bytes.");
     auto raw_descriptor = reinterpret_cast<uint8_t*>(&page);
     uint8_t page_code = raw_descriptor[0] & 0x3F;
     size_t length = raw_descriptor[1] + 2;
