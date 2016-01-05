@@ -535,7 +535,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -551,12 +551,33 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);
     }
     deleteMount(tempMountDir);
+}
+
+bool
+SmSuperblockMgr::isDiskAlive(DiskId& diskId) {
+    std::string tempMountDir = MODULEPROVIDER()->proc_fdsroot()->\
+                               dir_fds_etc() + "testDevMount";
+    FdsRootDir::fds_mkdir(tempMountDir.c_str());
+    umount2(tempMountDir.c_str(), MNT_FORCE);
+
+    LOGNORMAL << "Do disk check for disk = " << diskId;
+    if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                     diskDevMap[diskId],
+                                     tempMountDir)) {
+        LOGWARN << "Disk with diskId = " << diskId << " is unaccessible";
+        markDiskBad(diskId);
+        diskMap.erase(diskId);
+        return false;
+    }
+
+    deleteMount(tempMountDir);
+    return true;
 }
 
 /*

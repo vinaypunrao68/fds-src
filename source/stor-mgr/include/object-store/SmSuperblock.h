@@ -346,6 +346,9 @@ class SmSuperblockMgr {
      */
     fds_uint64_t getDLTVersion();
 
+    // check for disk state.
+    bool isDiskAlive(DiskId& diskId);
+
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmSuperblockMgr& sbMgr);

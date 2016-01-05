@@ -171,6 +171,9 @@ class SmDiskMap : public Module, public boost::noncopyable {
      */
     void removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier);
 
+    // check for disk status.
+    bool isDiskAlive(DiskId& diskId);
+
     /**
      * Module methods
      */

@@ -63,6 +63,11 @@ int SmDiskMap::mod_init(SysParams const *const param) {
     return 0;
 }
 
+bool
+SmDiskMap::isDiskAlive(DiskId& diskId) {
+    return superblock->isDiskAlive(diskId);
+}
+
 void
 SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) {
     /**

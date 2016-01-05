@@ -197,8 +197,8 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
         OnlineDiskFailureFnObj fnObj;
         void operator()(fds_uint16_t diskId,
                         size_t events) const {
-            LOGERROR << "Disk " << diskId << " on tier " << tier
-                     << " saw too many errors; declaring disk failed";
+            LOGWARN  << "Disk " << diskId << " on tier " << tier
+                     << " saw too many IO errors; will check for disk state";
             /**
              * This callback will be called when the timer expires and
              * the number of events fed is greater than a given threshhold.
@@ -253,6 +253,11 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
         LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        return ERR_OK;
+    }
+
+    if (diskMap->isDiskAlive(diskId)) {
+        LOGDEBUG << "Disk with diskId = " << diskId << " accessible. Ignoring IO failure event.";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
