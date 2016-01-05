@@ -302,12 +302,10 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
-        req->setPayload(msgTypeId, *msg);
+        req->setPayload(msgTypeId, msg);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
-
-        return req;
     });
 }
 

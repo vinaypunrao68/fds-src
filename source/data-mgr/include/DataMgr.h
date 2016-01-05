@@ -188,7 +188,6 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
     boost::shared_ptr<timeline::TimelineManager> timelineMgr;
     boost::shared_ptr<ExpungeManager> expungeMgr;
-    fds_threadpool  lowPriorityTasks;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
