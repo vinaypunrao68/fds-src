@@ -75,7 +75,10 @@ class DmCommitLog : public Module {
     typedef boost::shared_ptr<const DmCommitLog> const_ptr;
 
     // ctor & dtor
-    DmCommitLog(const std::string &modName, const fds_volid_t volId, const fds_uint32_t objSize);
+    DmCommitLog(const FdsRootDir* root,
+                const std::string &modName,
+                const fds_volid_t volId,
+                const fds_uint32_t objSize);
     ~DmCommitLog();
 
     // module overrides

@@ -13,14 +13,13 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
-#include <FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <testlib/TestFixtures.h>
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
-#include <FakeSvcDomain.hpp>
+#include <testlib/FakeSvcDomain.hpp>
 
 using ::testing::AtLeast;
 using ::testing::Return;
