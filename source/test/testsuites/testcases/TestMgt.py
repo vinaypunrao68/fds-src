@@ -288,18 +288,31 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                             suite.addTest(TestFDSSysMgt.TestNodeStart(node=node))
 
                         if (action.count("reboot") > 0):
-                            suite.addTest(TestFDSSysMgt.TestNodeReboot(node=node))
+                            # Verify the section.
+                            if ('service' not in scenario.nd_conf_dict) or \
+                                    ('logentry' not in scenario.nd_conf_dict) or \
+                                    ('maxwait' not in scenario.nd_conf_dict):
+                                log.error("Scenario section %s is missing one of 'fds_node', 'service', 'logentry' or 'maxwait'"
+                                          %(scenario.nd_conf_dict['scenario-name']))
+                                raise Exception
+                            found = False
+                            for node in scenario.cfg_sect_nodes:
+                                if '[' + node.nd_conf_dict['node-name'] + ']' == script:
+                                    found = True
+                                    maxwait = int(scenario.nd_conf_dict['maxwait'])
+                                    suite.addTest(TestFDSSysVerify.TestNodeReboot(node=node,
+                                                                                  service=scenario.nd_conf_dict['service'],
+                                                                                  logentry=scenario.nd_conf_dict['logentry']))
+                                    suite.addTest(TestFDSSysVerify.TestRebootVerify(node=node,
+                                                                                    service=scenario.nd_conf_dict['service'],
+                                                                                    logentry=scenario.nd_conf_dict['logentry'],
+                                                                                    maxwait=maxwait))
+                                    break
 
-                        break
-
-                if found:
-                    # Give the node some time to initialize if requested.
-                    if 'delay_wait' in scenario.nd_conf_dict:
-                        suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
-                else:
-                    log.error("Node not found for scenario '%s'" %
-                              (scenario.nd_conf_dict['scenario-name']))
-                    raise Exception
+                            if not found:
+                                log.error("Node not found for scenario '%s'" %
+                                          (scenario.nd_conf_dict['scenario-name']))
+                                raise Exception
 
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0) or (action.count("shutdown") > 0):
             # Shutdown the node according to the specified action.
@@ -403,7 +416,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             node = None
             fdsNodes = None
 
-        #The expect_failure is added here to allow test scenario to test adding service to 
+        #The expect_failure is added here to allow test scenario to test adding service to
         #a node that already has the same existing service running
         if "expect_failure" in scenario.nd_conf_dict:
             expect_to_fail = bool(scenario.nd_conf_dict['expect_failure'])
@@ -964,7 +977,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 param_names.append(key[4:])
                 params.append(value)
 
-        if len(param_names) > 0: 
+        if len(param_names) > 0:
             # Build parameter dictionary.
             kwargs = dict(zip(param_names, params))
             testcase = str_to_obj(script.strip('[]'))(**kwargs)

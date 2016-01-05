@@ -19,6 +19,8 @@ import time
 import re
 from fabric.contrib.files import *
 from fabric.context_managers import cd
+from StringIO import StringIO
+from fabric.api import get
 
 def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
@@ -324,7 +326,7 @@ class TestDMChecker(TestCase.FDSTestCase):
                                                 (bin_dir), return_stdin=True)
 
         if status != 0:
-            self.log.error("DM Static Migration failed") 
+            self.log.error("DM Static Migration failed")
             return False
         return True
 
@@ -576,7 +578,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     if self.atleastcount is not None and occurrencesFound > self.atleastcount:
                         # Found minimum count of log entries, we're good to go
                         break
-                        
+
                 if occurrencesFound > self.passedOccurrences:
                     # Found too many.
                     break
@@ -762,6 +764,105 @@ class TestCanonMatch(TestCase.FDSTestCase):
             return True
         else:
             self.log.error("Canon match failed.")
+            return False
+
+
+# This class contains the attributes and methods to test
+# rebooting node (I.e. node shuts down and comes back up again)
+class TestNodeReboot(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeReboot,
+                                             "Reboot a node")
+
+        self.passedNode = node
+        self.passedService = service
+        self.passedLogentry = logentry
+
+    def test_NodeReboot(self):
+        """
+        Test Case:
+        Attempt to reboot a given node.
+        """
+        env.user = 'root'
+        env.password = 'passwd'
+        env.host_string = self.passedNode.nd_conf_dict['ip']
+        internal_ip = run("hostname")
+        # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
+        sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+
+        with cd('/fds/var/logs'):
+            files = run('ls').split()
+        log_files = [item for item in files if item.startswith(self.passedService)]
+
+        global before_reboot_log_entries
+        before_reboot_log_entries = 0
+        sftp = self.passedNode.nd_agent.env_ssh_clnt.open_sftp()
+        for log_file in log_files:
+            found, occurrences = fileSearch("/fds/var/logs/" + log_file, self.passedLogentry, 1, sftp)
+            before_reboot_log_entries = occurrences + before_reboot_log_entries
+
+        self.log.info("The system is going down for reboot NOW! sleep for 2 mins")
+        run('reboot')
+        time.sleep(120)
+        return True
+
+
+# This class contains the attributes and methods to verify if node is in good state for IO after reboot
+# by confirming passed log entry count has increased after reboot.
+
+class TestRebootVerify(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, maxwait=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RebootVerify,
+                                             "Verify node state after reboot")
+
+        self.passedNode = node
+        self.passedService = service
+        self.passedLogentry = logentry
+        self.passedMaxwait = maxwait
+
+    def test_RebootVerify(self):
+        env.user = 'root'
+        env.password = 'passwd'
+        env.host_string = self.passedNode.nd_conf_dict['ip']
+        internal_ip = run("hostname")
+
+        wait_for_log_time = self.passedMaxwait  # It's in minutes
+        after_reboot_log_entries = 0
+
+        with cd('/fds/var/logs'):
+            files = run('ls').split()
+
+        log_files = [item for item in files if item.startswith(self.passedService)]
+
+        fd = StringIO()
+
+        #Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
+        # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
+        for i in range(0, wait_for_log_time * 2):
+            for log_file in log_files:
+                get('/fds/var/logs/' + log_file, fd)
+                content = fd.getvalue()
+                search_lines = content.split('\n')
+                for line in search_lines:
+                    if self.passedLogentry in line:
+                        after_reboot_log_entries = after_reboot_log_entries + 1
+
+                        if not (after_reboot_log_entries > before_reboot_log_entries):
+                            continue
+                        else:
+                            self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
+                                          " after reboot: %d ."
+                                          % (self.passedLogentry, before_reboot_log_entries, after_reboot_log_entries))
+                            return True
+            time.sleep(30)
+
+        if not (after_reboot_log_entries > before_reboot_log_entries):
+            self.log.error('Waited for %s minutes on node %s after reboot, still `%` count didnt increase'
+                           % (wait_for_log_time, internal_ip, self.passedLogentry))
             return False
 
 
