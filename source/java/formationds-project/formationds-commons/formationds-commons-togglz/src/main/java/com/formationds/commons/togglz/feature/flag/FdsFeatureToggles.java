@@ -25,7 +25,10 @@ public enum FdsFeatureToggles implements Feature {
     REST_07( "fds.feature_toggle.om.rest_07_feature" ),
 
     @Label( "Enable old firebreak query behavior." )
-    FS_2660_METRIC_FIREBREAK_EVENT_QUERY( "fds.feature_toggle.om.fs_2660_metric_firebreak_event_query" );
+    FS_2660_METRIC_FIREBREAK_EVENT_QUERY( "fds.feature_toggle.om.fs_2660_metric_firebreak_event_query" ),
+
+    @Label( "Are we using the new super block?, i.e. partition scheme" )
+    NEW_SUPERBLOCK( "fds.feature_toggle.pm.use_new_superblock" );
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}
