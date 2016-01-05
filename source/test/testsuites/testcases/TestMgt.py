@@ -288,6 +288,10 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                             suite.addTest(TestFDSSysMgt.TestNodeStart(node=node))
 
                         if (action.count("reboot") > 0):
+                            for node in scenario.cfg_sect_nodes:
+                                if 'om' in node.nd_conf_dict:
+                                    om_node = node
+
                             # Verify the section.
                             if ('service' not in scenario.nd_conf_dict) or \
                                     ('logentry' not in scenario.nd_conf_dict) or \
@@ -295,6 +299,9 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                 log.error("Scenario section %s is missing one of 'fds_node', 'service', 'logentry' or 'maxwait'"
                                           %(scenario.nd_conf_dict['scenario-name']))
                                 raise Exception
+                            service_list = scenario.nd_conf_dict['service'].split(',')
+                            logentry_list = scenario.nd_conf_dict['logentry'].split(',')
+                            assert len(service_list) == len(logentry_list)
                             found = False
                             for node in scenario.cfg_sect_nodes:
                                 if '[' + node.nd_conf_dict['node-name'] + ']' == script:
@@ -302,11 +309,16 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                     maxwait = int(scenario.nd_conf_dict['maxwait'])
                                     suite.addTest(TestFDSSysVerify.TestNodeReboot(node=node,
                                                                                   service=scenario.nd_conf_dict['service'],
-                                                                                  logentry=scenario.nd_conf_dict['logentry']))
-                                    suite.addTest(TestFDSSysVerify.TestRebootVerify(node=node,
-                                                                                    service=scenario.nd_conf_dict['service'],
-                                                                                    logentry=scenario.nd_conf_dict['logentry'],
-                                                                                    maxwait=maxwait))
+                                                                                  logentry=scenario.nd_conf_dict['logentry'],
+                                                                                  om_node=om_node))
+                                    # verify each passed log entry count has increased after reboot
+                                    for index, log_entry in enumerate(logentry_list):
+                                        if service_list[index]== 'om':
+                                            node = om_node
+                                        suite.addTest(TestFDSSysVerify.TestRebootVerify(node=node,
+                                                                                        service=service_list[index],
+                                                                                        logentry=log_entry,
+                                                                                        maxwait=maxwait))
                                     break
 
                             if not found:

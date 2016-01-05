@@ -21,6 +21,8 @@ from fabric.contrib.files import *
 from fabric.context_managers import cd
 from StringIO import StringIO
 from fabric.api import get
+from fdslib.TestUtils import disconnect_fabric
+from fdslib.TestUtils import connect_fabric
 
 def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
@@ -770,7 +772,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # rebooting node (I.e. node shuts down and comes back up again)
 class TestNodeReboot(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, om_node= None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NodeReboot,
@@ -779,33 +781,33 @@ class TestNodeReboot(TestCase.FDSTestCase):
         self.passedNode = node
         self.passedService = service
         self.passedLogentry = logentry
+        self.passedOMnode = om_node
 
     def test_NodeReboot(self):
         """
         Test Case:
         Attempt to reboot a given node.
         """
-        env.user = 'root'
-        env.password = 'passwd'
-        env.host_string = self.passedNode.nd_conf_dict['ip']
-        internal_ip = run("hostname")
-        # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
-        sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+        service_list= self.passedService.split(',')
+        log_entry_list = self.passedLogentry.split(',')
 
-        with cd('/fds/var/logs'):
-            files = run('ls').split()
-        log_files = [item for item in files if item.startswith(self.passedService)]
+        dict_log_count = {}
+        global pre_reboot_count
+        pre_reboot_count = {}
 
-        global before_reboot_log_entries
-        before_reboot_log_entries = 0
-        sftp = self.passedNode.nd_agent.env_ssh_clnt.open_sftp()
-        for log_file in log_files:
-            found, occurrences = fileSearch("/fds/var/logs/" + log_file, self.passedLogentry, 1, sftp)
-            before_reboot_log_entries = occurrences + before_reboot_log_entries
+        for idx, log_entry in enumerate(log_entry_list):
+            # If service is OM then search OM logs on om node
+            node = self.passedOMnode if service_list[idx] == 'om' else self.passedNode
+            val = count_remote_logs(node, service_list[idx], log_entry)
+            dict_log_count[log_entry] = val
+        pre_reboot_count = dict_log_count
 
-        self.log.info("The system is going down for reboot NOW! sleep for 2 mins")
+        self.log.info("Log counts before reboot: %s" %dict_log_count)
+        self.log.info("%s is going down for reboot NOW!" % self.passedNode.nd_conf_dict['ip'])
+        connect_fabric(self.passedNode.nd_conf_dict['ip'])
         run('reboot')
         time.sleep(120)
+        disconnect_fabric(self.passedNode.nd_conf_dict['ip'])
         return True
 
 
@@ -825,46 +827,51 @@ class TestRebootVerify(TestCase.FDSTestCase):
         self.passedMaxwait = maxwait
 
     def test_RebootVerify(self):
-        env.user = 'root'
-        env.password = 'passwd'
-        env.host_string = self.passedNode.nd_conf_dict['ip']
-        internal_ip = run("hostname")
-
+        node_ip = self.passedNode.nd_conf_dict['ip']
+        connect_fabric(node_ip)
         wait_for_log_time = self.passedMaxwait  # It's in minutes
-        after_reboot_log_entries = 0
 
-        with cd('/fds/var/logs'):
-            files = run('ls').split()
-
-        log_files = [item for item in files if item.startswith(self.passedService)]
-
-        fd = StringIO()
-
-        #Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
+        # Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
         # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
         for i in range(0, wait_for_log_time * 2):
-            for log_file in log_files:
-                get('/fds/var/logs/' + log_file, fd)
-                content = fd.getvalue()
-                search_lines = content.split('\n')
-                for line in search_lines:
-                    if self.passedLogentry in line:
-                        after_reboot_log_entries = after_reboot_log_entries + 1
-
-                        if not (after_reboot_log_entries > before_reboot_log_entries):
-                            continue
-                        else:
-                            self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
+            post_reboot_log_entries = count_remote_logs(self.passedNode, self.passedService,self.passedLogentry)
+            if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
+                continue
+            else:
+                self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
                                           " after reboot: %d ."
-                                          % (self.passedLogentry, before_reboot_log_entries, after_reboot_log_entries))
-                            return True
+                                          % (self.passedLogentry, pre_reboot_count[self.passedLogentry], post_reboot_log_entries))
+                return True
+            # For every retry set count to zero
+            post_reboot_log_entries = 0
+            #TODO: pooja dont hard code sleep. FS-4279
             time.sleep(30)
 
-        if not (after_reboot_log_entries > before_reboot_log_entries):
-            self.log.error('Waited for %s minutes on node %s after reboot, still `%` count didnt increase'
-                           % (wait_for_log_time, internal_ip, self.passedLogentry))
+        if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
+            self.log.error("Waited for %s minutes on node %s after reboot, still '%' count didnt increase"
+                           % (wait_for_log_time, node_ip, self.passedLogentry))
             return False
 
+
+def count_remote_logs(node, service, log_entry):
+    connect_fabric(node.nd_conf_dict['ip'])
+    with cd('/fds/var/logs'):
+        files = run('ls').split()
+    log_files = [item for item in files if item.startswith(service+'.log')]
+
+    log_counts = 0
+    io = StringIO()
+    for log_file in log_files:
+        get('/fds/var/logs/' + log_file, io)
+        content = io.getvalue()
+        search_lines = content.split('\n')
+        for line in search_lines:
+            if log_entry in line:
+                log_counts += 1
+                io.truncate(0)
+
+    disconnect_fabric(node.nd_conf_dict['ip'])
+    return log_counts
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
