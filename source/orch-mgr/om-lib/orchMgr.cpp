@@ -27,7 +27,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
       ctrl_port_num(0),
       test_mode(false),
       deleteScheduler(this),
-      enableSnapshotSchedule(true)
+      enableTimeline(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
@@ -48,9 +48,9 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
     init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
                                                  "fds.om.", "om.log", omVec);
 
-    enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.om.enable_snapshot_schedule", true);
-    if (enableSnapshotSchedule) {
+    enableTimeline = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_timeline", true);
+    if (enableTimeline) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
@@ -139,7 +139,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableSnapshotSchedule ) 
+    if ( enableTimeline ) 
     {
         snapshotMgr->init();
     }
@@ -576,7 +576,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableSnapshotSchedule) {
+    if (enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 
