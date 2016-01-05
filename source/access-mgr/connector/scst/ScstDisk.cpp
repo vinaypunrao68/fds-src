@@ -1,8 +1,8 @@
 /*
  * ScstDisk.cpp
  *
- * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
- * Copyright (c) 2015, Formation Data Systems
+ * Copyright (c) 2016, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2016, Formation Data Systems
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -100,6 +100,8 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     auto buffer = task->getResponseBuffer();
     size_t buflen = task->getResponseBufferLen();
 
+    deferredReply(); // All tasks respond on response queue
+
     // Poor man's goto
     do {
     if (0 == volume_size) {
@@ -151,7 +153,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
             scstOps->read(task);
-            return deferredReply();
+            return;
         }
         break;
     case READ_CAPACITY:     // READ_CAPACITY(10)
@@ -207,7 +209,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
             // Right now our API expects the data in a boost shared_ptr :(
             auto write_buffer = boost::make_shared<std::string>((char*) buffer, buflen);
             scstOps->write(write_buffer, task);
-            return deferredReply();
+            return;
         }
         break;
     default:
@@ -220,7 +222,6 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     }
     } while (false);
     readyResponses.push(task);
-    deferredReply();
 }
 
 void

@@ -1,8 +1,8 @@
 /*
  * scst/ScstMode.cpp
  *
- * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
- * Copyright (c) 2015, Formation Data Systems
+ * Copyright (c) 2016, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2016, Formation Data Systems
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above

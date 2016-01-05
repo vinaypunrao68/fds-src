@@ -1,8 +1,8 @@
 /*
  * scst/ScstInquiry.h
  *
- * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
- * Copyright (c) 2015, Formation Data Systems
+ * Copyright (c) 2016, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2016, Formation Data Systems
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -146,60 +146,60 @@ struct __attribute__((__packed__)) DesignatorHeader {
 #endif
 
 struct __attribute__((__packed__)) VPDPage {
-  uint8_t getPageCode() const { return _header._page_code; }
-  size_t getParamLength() const { return be16toh(_header._page_length); }
-  void writePage(uint8_t const page_code, void const* params, size_t const len);
+    uint8_t getPageCode() const { return _header._page_code; }
+    size_t getParamLength() const { return be16toh(_header._page_length); }
+    void writePage(uint8_t const page_code, void const* params, size_t const len);
 
-  void operator &=(PeripheralQualifer const qualifier) { _header._peripheral._qualifier = to_underlying(qualifier); }
-  void operator &=(PeripheralType const device_type) { _header._peripheral._device_type = to_underlying(device_type); }
+    void operator &=(PeripheralQualifer const qualifier) { _header._peripheral._qualifier = to_underlying(qualifier); }
+    void operator &=(PeripheralType const device_type) { _header._peripheral._device_type = to_underlying(device_type); }
 
- private:
-  VPDHeader _header;
-  uint8_t _parameters[60];
+   private:
+    VPDHeader _header;
+    uint8_t _parameters[60];
 };
 static_assert(64 == sizeof(VPDPage), "Size of VPDPage has changed!");
 
 struct __attribute__((__packed__)) NAADesignator {
-  NAADesignator();
-  NAADesignator(uint32_t const company_id, uint64_t const vendor_id); 
-
- private:
-  DesignatorHeader _header;
-  uint8_t _hi_company_id : 4, _naa : 4;
-  uint16_t _mid_company_id;
-  uint8_t _hi_vendor_id : 4, _low_company_id : 4;
-  uint32_t _low_vendor_id;
+    NAADesignator();
+    NAADesignator(uint32_t const company_id, uint64_t const vendor_id); 
+  
+   private:
+    DesignatorHeader _header;
+    uint8_t _hi_company_id : 4, _naa : 4;
+    uint16_t _mid_company_id;
+    uint8_t _hi_vendor_id : 4, _low_company_id : 4;
+    uint32_t _low_vendor_id;
 };
 static_assert(12 == sizeof(NAADesignator), "Size of NAADesignator has changed!");
 
 struct __attribute__((__packed__)) T10Designator {
-  T10Designator();
-  explicit T10Designator(std::string const& vendor_id);
-
- private:
-  DesignatorHeader _header;
-  uint8_t _t10_vendor_id[8];
+    T10Designator();
+    explicit T10Designator(std::string const& vendor_id);
+  
+   private:
+    DesignatorHeader _header;
+    uint8_t _t10_vendor_id[8];
 };
 static_assert(12 == sizeof(T10Designator), "Size of T10Designator has changed!");
 
 struct __attribute__((__packed__)) VendorSpecificIdentifier {
-  VendorSpecificIdentifier();
-  explicit VendorSpecificIdentifier(std::string const& id);
-
- private:
-  DesignatorHeader _header;
-  uint8_t _id[32] {};
+    VendorSpecificIdentifier();
+    explicit VendorSpecificIdentifier(std::string const& id);
+  
+   private:
+    DesignatorHeader _header;
+    uint8_t _id[32] {};
 };
 static_assert(36 == sizeof(VendorSpecificIdentifier), "Size of VendorSpecificIdentifier has changed!");
 
 struct DescriptorBuilder {
-  template<typename Desc>
-  void operator &=(Desc && descriptor);
-  uint8_t const* data() const { return _descriptor_list.data(); }
-  size_t length() const { return _descriptor_list.size(); }
-
- private:
-  std::vector<uint8_t> _descriptor_list;
+    template<typename Desc>
+    void operator &=(Desc && descriptor);
+    uint8_t const* data() const { return _descriptor_list.data(); }
+    size_t length() const { return _descriptor_list.size(); }
+  
+   private:
+    std::vector<uint8_t> _descriptor_list;
 };
 
 template<typename Desc>
@@ -255,33 +255,33 @@ struct __attribute__((__packed__)) StandardInquiry {
     void setVendorId(std::string const & vendor_id);
 
  private:
-  static constexpr size_t t10_vendor_length = 8;
-  static constexpr size_t product_id_length = 16;
-  static constexpr size_t product_rev_length = 4;
+    static constexpr size_t t10_vendor_length = 8;
+    static constexpr size_t product_id_length = 16;
+    static constexpr size_t product_rev_length = 4;
 
-  StdInqHeader _header;
+    StdInqHeader _header;
 
-  char _t10_vendor_id[t10_vendor_length];
-  char _product_identification[product_id_length];
-  char _product_revision_level[product_rev_length];
+    char _t10_vendor_id[t10_vendor_length];
+    char _product_identification[product_id_length];
+    char _product_revision_level[product_rev_length];
 };
 static_assert(36 == sizeof(StandardInquiry), "Size of StandardInquiry has changed!");
 
 struct InquiryHandler {
-  InquiryHandler();
-
-  StandardInquiry getStandardInquiry() const { return standard_inquiry; }
-  void setStandardInquiry(StandardInquiry const inquiry) { standard_inquiry = inquiry; }
-  void writeStandardInquiry(ScstTask* task);
-
-  void addVPDPage(VPDPage page);
-  void writeVPDPage(ScstTask* task, uint8_t const page_code);
-
- private:
-  void writeToBuffer(ScstTask* task, void* src, size_t const len);
-
-  StandardInquiry standard_inquiry;
-  std::map<uint8_t, VPDPage> vpd_pages;
+    InquiryHandler();
+  
+    StandardInquiry getStandardInquiry() const { return standard_inquiry; }
+    void setStandardInquiry(StandardInquiry const inquiry) { standard_inquiry = inquiry; }
+    void writeStandardInquiry(ScstTask* task);
+  
+    void addVPDPage(VPDPage page);
+    void writeVPDPage(ScstTask* task, uint8_t const page_code);
+  
+   private:
+    void writeToBuffer(ScstTask* task, void* src, size_t const len);
+  
+    StandardInquiry standard_inquiry;
+    std::map<uint8_t, VPDPage> vpd_pages;
 };
 
 }  // namespace fds

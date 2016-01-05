@@ -1,8 +1,8 @@
 /*
  * scst/ScstDisk.h
  *
- * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
- * Copyright (c) 2015, Formation Data Systems
+ * Copyright (c) 2016, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2016, Formation Data Systems
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,22 +20,9 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTDISK_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTDISK_H_
 
-#include <array>
-#include <atomic>
 #include <memory>
-#include <string>
-#include <utility>
-#include <boost/shared_ptr.hpp>
-#include <boost/lockfree/queue.hpp>
 
-#include "connector/scst/ScstCommon.h"
-#include "connector/scst/scst_user.h"
-
-#undef COPY
 #include "connector/scst/ScstDevice.h"
-
-
-struct scst_user_get_cmd;
 
 namespace fds
 {
@@ -43,8 +30,6 @@ namespace fds
 struct AmProcessor;
 struct ScstTarget;
 struct ScstTask;
-struct InquiryHandler;
-struct ModeHandler;
 
 struct ScstDisk : public ScstDevice {
     ScstDisk(VolumeDesc const& vol_desc, ScstTarget* target, std::shared_ptr<AmProcessor> processor);

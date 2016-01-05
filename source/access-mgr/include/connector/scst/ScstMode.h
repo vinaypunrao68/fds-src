@@ -1,8 +1,8 @@
 /*
  * scst/ScstInquiry.h
  *
- * Copyright (c) 2015, Brian Szmyd <szmyd@formationds.com>
- * Copyright (c) 2015, Formation Data Systems
+ * Copyright (c) 2016, Brian Szmyd <szmyd@formationds.com>
+ * Copyright (c) 2016, Formation Data Systems
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -214,20 +214,20 @@ static_assert(8 == sizeof(BlockDescriptor), "Size of BlockDescriptor has changed
 #endif
 
 struct ModeHandler {
-  ModeHandler();
+    ModeHandler();
 
-  template<typename ModePage>
-  void addModePage(ModePage && page);
-  void writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
-  void writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
+    template<typename ModePage>
+    void addModePage(ModePage && page);
+    void writeModeParameters6(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
+    void writeModeParameters10(ScstTask* task, bool const block_descriptor, uint8_t const page_code) const;
 
-  void setBlockDescriptor(size_t const lba_count, size_t const lba_size);
+    void setBlockDescriptor(size_t const lba_count, size_t const lba_size);
 
- private:
-  size_t writePage(ScstTask* task, size_t& offset, uint8_t const page_code) const;
+   private:
+    size_t writePage(ScstTask* task, size_t& offset, uint8_t const page_code) const;
 
-  BlockDescriptor _block_descriptor;
-  std::map<uint8_t, std::vector<uint8_t>> mode_pages;
+    BlockDescriptor _block_descriptor;
+    std::map<uint8_t, std::vector<uint8_t>> mode_pages;
 };
 
 template<typename ModePage>
