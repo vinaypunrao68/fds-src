@@ -168,6 +168,10 @@ class OM_DMTMod : public Module
     /**
      * The following are used for volume group mode, where we will
      * only calculate a DMT if a minimal DM cluster count is met.
+     * Since these methods are called only by the timer in a sequential
+     * fashion, we shouldn't run into race condition.
+     * NOTE: If these are to be used outside of the timer schedule context, then
+     * locks/atomics may be needed.
      */
     inline bool volumeGrpMode() {
         return volume_grp_mode;
