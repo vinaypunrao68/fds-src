@@ -2823,7 +2823,11 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
             LOGDEBUG << "Firing reregister event for DM node " << uuid;
             dmtMod->dmt_deploy_event(DmtUpEvt(uuid));
 
-            // Send the DMT to DMs.
+            // If it's a new DM, add to the DM cluster quorum count
+            if (!fPrevRegistered) {
+                dmtMod->addWaitingDMs();
+            }
+            // Send the DMT to DMs. If volume group mode, then make sure quorum is met
             LOGNOTIFY << "Node uuid:"
                       << std::hex << uuid.uuid_get_val() << std::dec
                       << " has finished registering, update DMT now";
@@ -2854,6 +2858,11 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 {
     TRACEFUNC;
     Error err(ERR_OK);
+
+    // For volume group mode, in case a DM cluster batch is being made
+    // need the following for book-keeping.
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
 
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
@@ -2920,6 +2929,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
         }
 
         if (om_local_domain_up()) {
+            dmtMod->removeWaitingDMs();
             LOGNOTIFY << "Node uuid:" << std::hex << node_uuid.uuid_get_val()
                      << std::dec << " ,DM service is being removed";
             om_dmt_update_cluster();
@@ -3022,9 +3032,10 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
-    ClusterMap *cmMod =  om->om_clusmap_mod();
+    // ClusterMap *cmMod =  om->om_clusmap_mod();
     // For volume grouping mode, we support only 1 version of DMT atm.
     static bool volumeGroupDMTFired = false;
+    uint32_t awaitingDMs = dmtMod->getWaitingDMs();
 
     if (dmPrevRegistered) {
     	// At least one node is being resync'ed w/ potentially >0 added/removed DMs
@@ -3040,15 +3051,17 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                         get<uint32_t>("fds.dm.dm_cluster_size", 1));
-        if (!volumeGroupDMTFired &&
-                cmMod->getNumMembers(fpi::FDSP_DATA_MGR) == dmClusterSize) {
+        if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
+            // in case there are no volume acknowledge to wait
+            dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
             volumeGroupDMTFired = true;
+            dmtMod->clearWaitingDMs();
         } else {
             LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired
-                    << " size: " << cmMod->getNumMembers(fpi::FDSP_DATA_MGR) << "/" << dmClusterSize;
+                    << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }
 }
