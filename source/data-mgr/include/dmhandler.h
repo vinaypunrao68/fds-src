@@ -19,11 +19,11 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler(), \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler(), \
             FDSPMsgT, func)
 
 #define DM_SEND_ASYNC_RESP(...) \
-    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
+    dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
 #define HANDLE_INVALID_TX_ID_VAL(val) \
     if (BlobTxId::txIdInvalid == (val)) { \

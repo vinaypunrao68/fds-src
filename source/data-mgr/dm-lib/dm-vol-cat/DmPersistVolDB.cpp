@@ -52,7 +52,7 @@ Error status2error(leveldb::Status s){
 DmPersistVolDB::~DmPersistVolDB() {
     catalog_.reset();
     if (deleted_) {
-        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
                 root->dir_sys_repo_dm()) + std::to_string(srcVolId_.get()) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
@@ -67,7 +67,7 @@ uint64_t DmPersistVolDB::getNumInMemorySnapshots() {
 }
 
 Error DmPersistVolDB::activate() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
@@ -758,7 +758,7 @@ void DmPersistVolDB::setVersion(int32_t version)
 
 std::string DmPersistVolDB::getVersionFile_()
 {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     return util::strformat("%s/%ld/version",
                            root->dir_sys_repo_dm().c_str(), srcVolId_.get());
 }

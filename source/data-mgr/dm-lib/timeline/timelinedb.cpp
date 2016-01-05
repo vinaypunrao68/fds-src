@@ -36,8 +36,7 @@ namespace fds { namespace timeline {
 TimelineDB::TimelineDB() {
 }
 
-Error TimelineDB::open() {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+Error TimelineDB::open(const FdsRootDir *root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     root->fds_mkdir(dmDir.c_str());
     std::string dbFile = util::strformat("%s/timeline.db", dmDir.c_str());

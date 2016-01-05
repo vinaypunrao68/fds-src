@@ -857,16 +857,25 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.ISCSI );
-            if( iscsiSettings.getTarget() == null ||
-                iscsiSettings.getTarget().getLuns().isEmpty() )
+            if( iscsiSettings.getTarget() == null )
             {
                 throw new IllegalArgumentException(
-                    String.format( "The iSCSI volume is missing mandatory attributes, skipping volume %s:%s",
+                    String.format( "The iSCSI volume is missing mandatory target, skipping volume %s:%s",
                                    externalVolume.getName(),
                                    externalVolume.getId() ) );
             }
             else
             {
+                if( iscsiSettings.getTarget().getLuns().isEmpty() )
+                {
+                    iscsiSettings.getTarget()
+                                 .getLuns()
+                                 .add( new LUN.Builder()
+                                              .withLun( externalVolume.getName() )
+                                              .withAccessType( LUN.AccessType.RW )
+                                              .build() );
+                }
+
                 final IScsiTarget iscsiTarget =
                     new IScsiTarget( ).setLuns(
                         convertToInternalLogicalUnitNumber(

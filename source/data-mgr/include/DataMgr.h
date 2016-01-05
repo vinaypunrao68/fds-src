@@ -70,11 +70,9 @@ struct Counters;
 }
 class DMSvcHandler;
 class DmMigrationMgr;
-struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
+struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
-    /* Common module provider */
-    CommonModuleProviderIf *modProvider_;
     /*
      * TODO: Move to STD shared or unique pointers. That's
      * safer.
@@ -377,6 +375,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         fds_verify(num > 0);
         _numOfPrimary = num;
     }
+    inline FDS_QoSControl* getQosCtrl() const { return qosCtrl; }
 
     /**
      * Migration mgr for managing DM migrations
@@ -444,12 +443,13 @@ class CloseDMTTimerTask : public FdsTimerTask {
 
 namespace dmutil {
 // location of volume
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+std::string getVolumeDir(const FdsRootDir* root,
+                         fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 
 // location of all snapshots for a volume
-std::string getSnapshotDir(fds_volid_t volId);
-std::string getVolumeMetaDir(fds_volid_t volId);
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
+std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId);
+std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId);
+std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
 
 /**
 * @brief Returns list of volume id in dm catalog under FdsRootDir root
@@ -459,8 +459,8 @@ std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_i
 */
 void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
-std::string getTimelineDBPath();
-std::string getExpungeDBPath();
+std::string getTimelineDBPath(const FdsRootDir* root);
+std::string getExpungeDBPath(const FdsRootDir* root);
 }  // namespace dmutil
 
 }  // namespace fds

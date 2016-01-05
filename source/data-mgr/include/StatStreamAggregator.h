@@ -204,12 +204,13 @@ class StatHelper {
  * There is a separate registration for volume or set of volumes to start
  * pushing them to requester AM.
  */
-class StatStreamAggregator : public Module {
+class StatStreamAggregator : public HasModuleProvider, Module {
   public:
     typedef std::unordered_map<fds_uint32_t, fpi::StatStreamRegistrationMsgPtr>
             StatStreamRegistrationMap_t;
 
-    StatStreamAggregator(char const* const name,
+    StatStreamAggregator(CommonModuleProviderIf *modProvider,
+                         char const* const name,
                          boost::shared_ptr<FdsConfig> fds_config,
                          DataMgr& dataManager);
     ~StatStreamAggregator();
