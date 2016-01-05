@@ -1962,14 +1962,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                 boost::shared_ptr<bool>& dematerialize) {
         checkMasterDomain();
 
-        std::string tenantIDStr = std::to_string(*tenantID);
-
-        auto subID = configDB->getSubscriptionId(*subName, *tenantID);
-
         if (!enable_subscriptions_) {
             LOGERROR << "Subscriptions feature disabled.";
             apiException("Error deleting subscription [" + *subName + "].");
         }
+
+        std::string tenantIDStr = std::to_string(*tenantID);
+
+        auto subID = configDB->getSubscriptionId(*subName, *tenantID);
 
         if (subID == invalid_sub_id) {
             LOGERROR << "Some issue with retrieving subscription ID for [" << *subName << "] and tenant [" << tenantIDStr << "].";
@@ -2129,12 +2129,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     };
 
     /**
+     * @brief Not for use in production code!
      * @details
      * In production flows, the data store is passed to the constructor.
      * Use this to set a fake data store when testing in isolation.
      */
     void setConfigDB(DataStoreT* pDataStore) {
-        configDB = pDataStore;
+        if (!configDB) {
+            configDB = pDataStore;
+        }
     };
 };
 
