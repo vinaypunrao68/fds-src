@@ -103,12 +103,16 @@ public class PlatformModelConverter
     address = new NodeAddress( ipv4, ipv6 );
 
     SvcInfo PM = loadNodeSvcInfo(nodeId);
-    Size diskCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                 .getOrDefault( "disk_capacity", "0" ) ),
-                                 SizeUnit.B );
-    Size ssdCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                .getOrDefault( "ssd_capacity", "0" ) ),
-                                SizeUnit.B );
+    Size diskCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                       .getOrDefault( "disk_capacity", "0" ) ),
+                                     SizeUnit.GB );
+    Size ssdCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                      .getOrDefault( "ssd_capacity", "0" ) ),
+                                    SizeUnit.GB );
+
+    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.B ), SizeUnit.B );
+    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.B ), SizeUnit.B );
+
     return new Node( nodeId, address, state, diskCapacity, ssdCapacity, services );
   }
 
