@@ -177,6 +177,9 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
         }
 
         try {
+            /* In the increase version # and reset replica handles and look up the group
+             * from DMT
+             */
             resetGroup_();
         } catch (const Exception &e) {
             LOGWARN << logString() << " - Failed to get nodes from DMT";
@@ -444,16 +447,16 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
         }
 
         if (outStatus == ERR_OK) {
-#ifdef IOHEADER_SUPPORTED
             /* Do opid sequence checks only for requests that mutate state on replica */
             if (writeReq) {
                 fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
+                volumeHandle->appliedOpId = hdr.opId;
+#ifdef COMMITID_SUPPORTED
                 fds_verify(volumeHandle->appliedCommitId == hdr.commitId ||
                            volumeHandle->appliedCommitId+1 == hdr.commitId);
-                volumeHandle->appliedOpId = hdr.opId;
                 volumeHandle->appliedCommitId = hdr.commitId;
-            }
 #endif
+            }
             if (volumeHandle->isFunctional()) {
                 successAcks++;
             }
@@ -555,13 +558,22 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
          */
         toggleWriteOpsBuffering_(true);
     } else if (VolumeReplicaHandle::isSyncing(targetState)) {
+        /* We expect the replica version to always go up */
         if (replicaVersion != VolumeGroupConstants::VERSION_START &&
             replicaVersion <= volumeHandle->version) {
             fds_assert(!"Invalid version");
             return ERR_INVALID_VOLUME_VERSION;
         }
-        replayFromWriteOpsBuffer_(volumeHandle->svcUuid, opId+1);
-        toggleWriteOpsBuffering_(true);
+        if (writeOpsBuffer_) {
+            /* Replica has/will get to active state upto opId, we will replay
+             * range [opId+1, opSeqNo_]
+             */
+            replayFromWriteOpsBuffer_(volumeHandle->svcUuid, opId+1);
+            toggleWriteOpsBuffering_(false);
+        }
+        /* Transition to sync state.  From this point Replica will receive
+         * write ops from opSeqNo_.
+         */
         volumeHandle->setInfo(replicaVersion, targetState, opSeqNo_, commitNo_);
     } else if (VolumeReplicaHandle::isNonFunctional(targetState)) {
         volumeHandle->setState(targetState);
@@ -624,14 +636,6 @@ void VolumeGroupHandle::setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo)
     }
 }
 
-void VolumeGroupHandle::setVolumeIoHdr_(fpi::VolumeIoHdr &hdr)
-{
-    hdr.version = version_;
-    hdr.groupId = groupId_;
-    hdr.opId =  opSeqNo_;
-    hdr.commitId = commitNo_;
-}
-
 VolumeGroupHandle::VolumeReplicaHandleItr
 VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid)
 {
@@ -676,9 +680,7 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
 std::string VolumeGroupRequest::logString()
 {
     std::stringstream ss;
-#ifdef IOHEADER_SUPPORTED
-    ss << volumeIoHdr_;
-#endif
+    // ss << volumeIoHdr_;
     return ss.str();
 }
 

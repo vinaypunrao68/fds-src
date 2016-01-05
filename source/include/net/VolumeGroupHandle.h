@@ -231,34 +231,29 @@ struct VolumeGroupHandle : HasModuleProvider {
 
  protected:
     template<class MsgT, class ReqT>
-    SHPTR<ReqT> invokeCommon_(bool writeReq,
-                              const fpi::FDSPMsgTypeId &msgTypeId,
+    SHPTR<ReqT> sendWriteReq_(const fpi::FDSPMsgTypeId &msgTypeId,
                               SHPTR<MsgT> &msg,
                               const VolumeResponseCb &cb) {
-#ifdef IOHEADER_SUPPORTED
-        /* Update the header in the message */
-        setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
-#endif
-
-        auto payload = serializeFdspMsg(*msg);
-
-        if (writeReq && writeOpsBuffer_) {
-            writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
-        }
-
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<ReqT>(this);
+        /* First update opId in message bound for volume and cache the same opid in the
+         * request
+         */
+        msg->opId = opSeqNo_;
+        req->volumeIoHdr_.opId = msg->opId;
+        // TODO(Rao): Set commit/sequence id once enabled
+        auto payload = serializeFdspMsg(*msg);
+        if (writeOpsBuffer_) {
+            writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
+        }
         req->setPayloadBuf(msgTypeId, payload);
-#ifdef IOHEADER_SUPPORTED
-        req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
-        LOGTRACE << fds::logString(req->volumeIoHdr_);
-#endif
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
 
         return req;
     }
+
     bool replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_();
@@ -275,7 +270,6 @@ struct VolumeGroupHandle : HasModuleProvider {
                                     const std::string &context);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
-    void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
     VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
 
@@ -306,7 +300,14 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
-        invokeCommon_<MsgT, VolumeGroupFailoverRequest>(false, msgTypeId, msg, cb);
+        /* Create a request and send */
+        auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
+        req->setPayload(msgTypeId, *msg);
+        req->responseCb_ = cb;
+        req->setTaskExecutorId(groupId_);
+        req->invoke();
+
+        return req;
     });
 }
 
@@ -317,7 +318,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
         opSeqNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
+        sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }
 
@@ -329,7 +330,7 @@ void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         opSeqNo_++;
         commitNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
+        sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }
 
