@@ -415,16 +415,18 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                              const fpi::FDSPMsgTypeId &msgTypeId,
                                              const bool writeReq,
                                              const Error &inStatus,
-                                             Error &outStatus,
                                              uint8_t &successAcks)
 {
     ASSERT_SYNCHRONIZED();
     GROUPHANDLE_FUNCTIONAL_CHECK();
 
-    outStatus = inStatus;
-
-    LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
-        << fds::logString(hdr) << inStatus;
+    if (inStatus != ERR_OK) {
+        LOGWARN << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+            << fds::logString(hdr) << inStatus;
+    } else {
+        LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+            << fds::logString(hdr) << inStatus;
+    }
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
 
@@ -440,6 +442,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     if (volumeHandle->isFunctional() ||
         volumeHandle->isSyncing()) {
+        Error outStatus = inStatus;
         /* Check with listener if we should consider the incoming error to be not an error */
         if (inStatus != ERR_OK && 
             (listener_ && !listener_->isError(msgTypeId, inStatus))) {
@@ -724,33 +727,29 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     }
     epReq->completeReq(header->msg_code, header, payload);
 
-    Error outStatus = ERR_OK;
+    /* Have coordinator handle the response */
     groupHandle_->handleVolumeResponse(header->msg_src_uuid,
                                        header->replicaVersion,
                                        volumeIoHdr_,
                                        msgTypeId_,
                                        true,
                                        header->msg_code,
-                                       outStatus,
                                        nSuccessAcked_);
     if (nSuccessAcked_ == groupHandle_->getQuorumCnt() &&
         responseCb_) {
+        /* Met the quorum count */
         responseCb_(ERR_OK, payload); 
         responseCb_ = 0;
-    }
-    if (outStatus != ERR_OK) {
-        GLOGWARN << logString() << " " << fds::logString(*header)
-            << " outstatus: " << outStatus;
     }
     ++nAcked_;
     if (nAcked_ == epReqs_.size()) {
         if (responseCb_) {
-            /* All replicas have failed..return error code from last replica */
-            responseCb_(header->msg_code, payload);
+            /* Haven't met the quorum count */
+            responseCb_(ERR_SVC_REQUEST_FAILED, payload);
             responseCb_ = 0;
-            complete(header->msg_code);
+            complete(ERR_SVC_REQUEST_FAILED);
         } else {
-            /* Atleast one replica succeeded */
+            /* We've already met the quorum and responded to client.  Just complete with ok */
             complete(ERR_OK);
         }
     }
@@ -796,27 +795,28 @@ void VolumeGroupFailoverRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     ++nAcked_;
     fds_assert(nAcked_ <= groupHandle_->size());
 
-    Error outStatus = ERR_OK;
+    /* Have coordinator handle the response */
     groupHandle_->handleVolumeResponse(header->msg_src_uuid,
                                        header->replicaVersion,
                                        volumeIoHdr_,
                                        msgTypeId_,
                                        false,
                                        header->msg_code,
-                                       outStatus,
                                        nSuccessAcked_);
     if (nSuccessAcked_ == 1) {
+        /* Atleast one replica succeeded */
+        fds_assert(groupHandle_->isFunctional());
         responseCb_(ERR_OK, payload); 
         responseCb_ = 0;
-        /* Atleast one replica succeeded */
         complete(ERR_OK);
     } else {
-        GLOGWARN << logString() << " " << fds::logString(*header)
-            << " outstatus: " << outStatus;
         if (groupHandle_->isFunctional()) {
             /* Try against another replica */
             invokeWork_();
         } else {
+            /* All replicas have failed..return error */
+            responseCb_(ERR_SVC_REQUEST_FAILED, payload); 
+            responseCb_ = 0;
             complete(ERR_SVC_REQUEST_FAILED);
         }
     }

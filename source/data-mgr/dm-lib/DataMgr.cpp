@@ -1417,6 +1417,9 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+    if (features.isVolumegroupingEnabled()) {
+        return true;
+    }
     return (_amIPrimaryImpl(volUuid, false));
 }
 

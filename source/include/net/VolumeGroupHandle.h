@@ -210,7 +210,6 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const fpi::FDSPMsgTypeId &msgTypeId,
                                       const bool writeReq,
                                       const Error &inStatus,
-                                      Error &outStatus,
                                       uint8_t &successAcks);
 
     std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();

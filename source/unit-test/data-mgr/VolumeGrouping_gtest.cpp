@@ -10,6 +10,7 @@
 #include <testlib/TestOm.hpp>
 #include <testlib/TestDm.hpp>
 #include <testlib/ProcessHandle.hpp>
+#include <testlib/SvcMsgFactory.h>
 #include <net/VolumeGroupHandle.h>
 
 using ::testing::AtLeast;
@@ -31,6 +32,29 @@ struct TestAm : SvcProcess {
         shutdownGate_.waitUntilOpened();
         return 0;
     }
+};
+
+struct Waiter : concurrency::TaskStatus {
+    using concurrency::TaskStatus::TaskStatus;
+    void doneWith(const Error &e) {
+        if (error == ERR_OK) {
+            error = e;
+        }
+        done();
+    }
+    void reset(uint32_t numTasks) {
+        error = ERR_OK;
+        concurrency::TaskStatus::reset(numTasks);
+    }
+    Error awaitResult() {
+        await();
+        return error;
+    }
+    Error awaitResult(ulong timeout) {
+        await(timeout);
+        return error;
+    }
+    Error error;
 };
 
 struct DmGroupFixture : BaseTestFixture {
@@ -73,7 +97,8 @@ struct DmGroupFixture : BaseTestFixture {
             "--fds.pm.platform_uuid=2048",
             "--fds.pm.platform_port=9850",
             "--fds.dm.threadpool.num_threads=3",
-            "--fds.dm.qos.default_qos_threads=3"
+            "--fds.dm.qos.default_qos_threads=3",
+            "--fds.feature_toggle.common.enable_volumegrouping=true"
         });
         // dmHandles[1].start("dm" , "/fds/node2", 2064, 9860);
         // dmHandles[2].start("dm" , "/fds/node3", 2080, 9870);
@@ -116,6 +141,42 @@ struct DmGroupFixture : BaseTestFixture {
         vdesc->qosQueueId = invalid_vol_id;
         return vdesc;
     }
+    void openVolume(VolumeGroupHandle &v, Waiter &waiter)
+    {
+        waiter.reset(1);
+        v.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
+               [&waiter](const Error &e) {
+                   waiter.doneWith(e);
+               });
+    }
+    void sendUpdateOnceMsg(VolumeGroupHandle &v,
+                           const std::string &blobName,
+                           int64_t txId,
+                           Waiter &waiter)
+    {
+        auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName); 
+        updateMsg->txId = txId;
+        waiter.reset(1);
+        v.sendWriteMsg<fpi::UpdateCatalogOnceMsg>(
+            FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
+            updateMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
+    void sendQueryCatalogMsg(VolumeGroupHandle &v,
+                             const std::string &blobName,
+                             Waiter &waiter)
+    {
+        auto queryMsg= SvcMsgFactory::newQueryCatalogMsg(v.getGroupId(), blobName, 0);
+        waiter.reset(1);
+        v.sendReadMsg<fpi::QueryCatalogMsg>(
+            FDSP_MSG_TYPEID(fpi::QueryCatalogMsg),
+            queryMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
 
     OmHandle                omHandle;
     AmHandle                amHandle;
@@ -123,7 +184,7 @@ struct DmGroupFixture : BaseTestFixture {
 };
 
 TEST_F(DmGroupFixture, basicio) {
-    concurrency::TaskStatus waiter;
+    Waiter waiter(0);
     fds_volid_t v1Id(10);
 
     /* Create a DM group */
@@ -131,12 +192,8 @@ TEST_F(DmGroupFixture, basicio) {
     VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
 
     /* Open the group without DMT.  Open should fail */
-    v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
-                ASSERT_TRUE(e != ERR_OK);
-                waiter.done();
-            });
-    waiter.await();
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
     /* Add DMT */
     std::string dmtData;
@@ -150,29 +207,27 @@ TEST_F(DmGroupFixture, basicio) {
     ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
-    waiter.reset(1);
-    v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
-                ASSERT_TRUE(e == ERR_VOL_NOT_FOUND);
-                waiter.done();
-            });
-    waiter.await();
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOL_NOT_FOUND);
 
     /* Add volume to DM */
     auto v1Desc = generateVolume(v1Id);
     e = dmHandle1.proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
+    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
 
     /* Now open should succeed */
-    waiter.reset(1);
-    v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
-                ASSERT_TRUE(e == ERR_OK);
-                waiter.done();
-            });
-    waiter.await();
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+
 
     /* Do some io. After Io is done, every volume replica must have same state */
+    std::string blobName = "blob1";
+    sendUpdateOnceMsg(v1, blobName, 1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    sendQueryCatalogMsg(v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Bring a dm down */
     /* Do more IO.  IO should succeed */
