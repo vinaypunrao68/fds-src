@@ -110,8 +110,8 @@ public class PlatformModelConverter
                                                       .getOrDefault( "ssd_capacity", "0" ) ),
                                     SizeUnit.GB );
 
-    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.B ), SizeUnit.B );
-    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.B ), SizeUnit.B );
+    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
 
     return new Node( nodeId, address, state, diskCapacity, ssdCapacity, services );
   }
