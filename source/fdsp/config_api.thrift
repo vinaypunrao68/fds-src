@@ -587,7 +587,7 @@ service ConfigurationService {
 
   /* Subscription Management */
 
-  /**
+  /*
    * These APIs are only valid within the context of the Master Domain.
    */
 
@@ -619,7 +619,7 @@ service ConfigurationService {
     throws (1: common.ApiException e,
             2: common.NotMasterDomain notMasterDomain);
 
-  /**
+  /*
    * List subscriptions.
    *
    * Several different ways to list subscriptions thought to be useful
