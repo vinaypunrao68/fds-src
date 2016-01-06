@@ -25,8 +25,9 @@ namespace fds
 
     FileDiskInventory::~FileDiskInventory()
     {
-        dsk_prev_inv.chain_transfer(&dsk_files);
         dsk_discovery_done();
+        dsk_curr_inv.chain_transfer(&dsk_files);
+        clear_inventory();
     }
 
     // dsk_mount_all
@@ -103,13 +104,13 @@ namespace fds
     // disk_read_label
     // --------------
     //
-    bool FileDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
+    void FileDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr)
     {
         DiskLabelOp    op(DISK_LABEL_READ, mgr);
 
         dsk_foreach(&op, &dsk_files, dsk_count);
 
-        return mgr->dsk_reconcile_label(this, creat);
+        mgr->dsk_reconcile_label(dsk_need_simulation());
     }
 
     // dsk_do_partition

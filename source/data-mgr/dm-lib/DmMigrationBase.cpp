@@ -7,7 +7,7 @@
 
 namespace fds {
 
-DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr)
+DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr &_dataMgr)
 : dataMgr(_dataMgr)
 {
     this->migrationId = migrationId;

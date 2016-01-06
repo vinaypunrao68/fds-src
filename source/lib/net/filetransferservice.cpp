@@ -118,7 +118,6 @@ FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svc
     GLOGNORMAL << "file transfer dest dir : " << destDir;
 
     // register handlers
-    if (svcMgr == NULL) svcMgr = MODULEPROVIDER()->getSvcMgr();
     successSent = new SimpleNumericCounter("filetransfer.success", svcMgr->getSvcRequestCntrs());
     failSent = new SimpleNumericCounter("filetransfer.failed", svcMgr->getSvcRequestCntrs());
     inProgressSent = new SimpleNumericCounter("filetransfer.inprogress", svcMgr->getSvcRequestCntrs());

@@ -36,8 +36,7 @@ namespace fds { namespace timeline {
 TimelineDB::TimelineDB() {
 }
 
-Error TimelineDB::open() {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+Error TimelineDB::open(const FdsRootDir *root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     root->fds_mkdir(dmDir.c_str());
     std::string dbFile = util::strformat("%s/timeline.db", dmDir.c_str());
@@ -246,6 +245,33 @@ Error TimelineDB::getInt(const std::string& sql, fds_uint64_t& data) {
     return err;
 }
 
+Error TimelineDB::getIntList(const std::string& sql, std::vector<fds_uint64_t>& data) {
+    char *zErrMsg = 0;
+    int  rc;
+    Error err(ERR_OK);
+    sqlite3_stmt * stmt;
+    const char * pzTail;
+
+    rc = sqlite3_prepare(db, sql.c_str(), -1, &stmt, &pzTail);
+    CHECK_DB_CODE("unable to prepare statement");
+    do {
+        rc = sqlite3_step(stmt);
+        switch (rc) {
+            case SQLITE_ROW:
+                data.push_back(sqlite3_column_int64(stmt, 0));
+                break;
+            case SQLITE_DONE:
+                break;
+            default:
+                err = ERR_INVALID;
+                LOGERROR << "unknown return code : " << rc << " : " << sqlite3_errmsg(db);
+        }
+    } while (rc == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+    return err;
+}
+
+
 Error TimelineDB::removeVolume(fds_volid_t volId) {
     DECLARE_DB_VARS();
     sql = util::strformat("delete from snapshottbl where volid=%ld", volId.get());
@@ -257,6 +283,18 @@ Error TimelineDB::removeVolume(fds_volid_t volId) {
     CHECK_SQL_CODE("unable to remove volume from journal tbl");
 
     return ERR_OK;
+}
+
+Error TimelineDB::getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds) {
+    DECLARE_DB_VARS();
+    sql = util::strformat("select snapshotid from snapshottbl where volid=%ld order by snapshotid asc", volId.get());
+    std::vector<fds_uint64_t> vecIds;
+    Error err = getIntList(sql, vecIds);
+    vecVolIds.reserve(vecIds.size());
+    for (const auto& id : vecIds) {
+        vecVolIds.push_back(fds_volid_t(id));
+    }
+    return err;
 }
 
 Error TimelineDB::close() {

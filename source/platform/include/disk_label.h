@@ -168,7 +168,7 @@ namespace fds
             virtual void dsk_label_generate(ChainList *labels, int dsk_cnt);
             virtual void dsk_label_clone(DiskLabel *master);
             virtual void dsk_label_read();
-            virtual bool dsk_label_write(PmDiskInventory::pointer inv);
+            virtual bool dsk_label_write(bool dsk_need_simulation);
     };
 }  // namespace fds
 

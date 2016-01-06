@@ -19,11 +19,11 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler(), \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler(), \
             FDSPMsgT, func)
 
 #define DM_SEND_ASYNC_RESP(...) \
-    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
+    dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
 #define HANDLE_INVALID_TX_ID_VAL(val) \
     if (BlobTxId::txIdInvalid == (val)) { \
@@ -66,44 +66,14 @@ do { \
         helper.err = ERR_IO_OPID_MISMATCH; \
         return; \
     } \
+    /* Ideally we should increment this op id after write makes it to commit log \
+     * In the current code base commit log is modified for non-coordinator issued \
+     * io as well.  This makes it difficult do it there.  Since OpId is only \
+     * in memory state and during resync/restarts is discarded, incrementing here \
+     * should be ok \
+     */ \
+    volMeta->incrementOpId(); \
 } while (false)
-
-#if 0
-// TODO(Rao): Remove when not needed
-#define QUICKSYNC_BUFFERIO_CHECK(io, helper, syncCtx) \
-    do { \
-    if (syncCtx->bufferIo) { \
-        if (syncCtx->bufferedIo.size() == 0) { \
-            syncCtx->startingBufferOpId = io->opId; \
-        } \
-        /* Ensure buffered io also comes in order */ \
-        if (io->opId != \
-            syncCtx->startingBufferOpId + static_cast<int64_t>(syncCtx->bufferedIo.size())) { \
-            fds_assert(!"opid mismatch"); \
-            helper.err = ERR_IO_OPID_MISMATCH; \
-            return; \
-        } \
-        syncCtx->bufferedIo.push_back(io); \
-        helper.err = ERR_OK; \
-        return; \
-    } \
-    } while (false)
-
-#define IO_ORDER_ACTIONS(io, helper) \
-    do { \
-    auto volMeta = getVolumeMeta(io->getVolId()); \
-    fds_verify(volMeta != nullptr); \
-    if (volMeta->isActive()) { \
-        VOLUME_IO_VERSION_CHECK(io, helper); \
-        ENSURE_IO_ORDER(io, helper); \
-    } else if (volMeta->isSyncing()) { \
-        VOLUME_IO_VERSION_CHECK(io, helper); \
-        QUICKSYNC_BUFFERIO_CHECK(io, helper, volMeta->syncCtx); \
-        ENSURE_IO_ORDER(io, helper); \
-    } \
-    } while (false);
-#endif
-
 
 namespace fds {
 
@@ -143,6 +113,10 @@ struct Handler: HasLogger {
     // do not need queuing
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
+    Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const fpi::AsyncHdrPtr &hdr,
+                                    const SHPTR<std::string> &payload);
+
     virtual ~Handler();
 protected:
     DataMgr& dataManager;

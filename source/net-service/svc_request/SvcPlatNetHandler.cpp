@@ -24,6 +24,9 @@
 #include <fdsp/svc_api_types.h>
 
 namespace fds {
+
+thread_local StringPtr PlatNetSvcHandler::threadLocalPayloadBuf;
+
 PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 : HasModuleProvider(provider),
 Module("PlatNetSvcHandler")

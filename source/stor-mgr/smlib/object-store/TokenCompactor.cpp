@@ -157,6 +157,12 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
     // and processed
+    tcStateType cur_state = std::atomic_load(&state);
+    if (cur_state != TCSTATE_IN_PROGRESS) {
+        LOGERROR << "Failed to enqueue copy objs request. TC not in valid state.";
+        err = ERR_SM_TC_INVALID_STATE;
+        return err;
+    }
     err = data_store->enqueueMsg(FdsSysTaskQueueId, copy_req);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue copy objs request, error " << err;
@@ -265,7 +271,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
                 if (!err.ok()) {
                     // TODO(anna): most likely queue is full, we need to save the
                     // work and try again later
-                    fds_assert(false);
 
                     // cleanup
                     delete it;
@@ -285,7 +290,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
         if (!err.ok()) {
             // TODO(anna): most likely queue is full, we need to save the
             // work and try again later
-            fds_assert(false);
 
             // cleanup
             delete it;
@@ -318,7 +322,6 @@ void TokenCompactor::objsCompactedCb(const Error& error,
 
     // we must be in IN_PROGRESS state
     tcStateType cur_state = std::atomic_load(&state);
-    fds_assert(cur_state == TCSTATE_IN_PROGRESS);
 
     if (!error.ok() ||
         cur_state != TCSTATE_IN_PROGRESS ||
@@ -378,53 +381,26 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
               LOGDEBUG << "sm.tc.fail.compaction fault point enabled";\
               if (err.ok()) { err = ERR_NOT_FOUND; }\
               fiu_disable("sm.tc.fail.compaction"));
-    LOGNORMAL << "Finished compaction for token:" << token_id
-              << " disk:" << cur_disk_id
-              << " tier:" << cur_tier
-              << " verify:" << verifyData
-              << " tc state:" << state
-              << " error:" << err;
 
     tcStateType expect = TCSTATE_IN_PROGRESS;
-    tcStateType new_state = err.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
-    if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
-        // set token compactor state to idle -- scavenger can use this TokenCompactor
-        // for a new compaction job
-        std::atomic_exchange(&state, TCSTATE_IDLE);
-
-        // notify the requester about the completion
-        if (done_evt_handler) {
-            done_evt_handler(token_id, Error(ERR_SM_TC_INVALID_STATE));
+    tcStateType new_state = TCSTATE_IDLE;
+    if (std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
+        LOGNORMAL << "Finished compaction for token:" << token_id
+                  << " disk:" << cur_disk_id
+                  << " tier:" << cur_tier
+                  << " verify:" << verifyData
+                  << " tc state:" << state
+                  << " error:" << err;
+        if (err.ok()) {
+            // tell persistent layer we are done copying -- remove the old file
+            persistGcHandler->notifyEndGc(token_id, cur_tier);
         }
-
-        return err;
-    }
-
-    if (!err.ok()) {
-        // set token compactor state to idle -- scavenger can use this TokenCompactor
-        // for a new compaction job
-        std::atomic_exchange(&state, TCSTATE_IDLE);
 
         // notify the requester about the completion
         if (done_evt_handler) {
             done_evt_handler(token_id, err);
         }
-
-        return err;
     }
-
-    // tell persistent layer we are done copying -- remove the old file
-    persistGcHandler->notifyEndGc(token_id, cur_tier);
-
-    // set token compactor state to idle -- scavenger can use this TokenCompactor
-    // for a new compaction job
-    std::atomic_exchange(&state, TCSTATE_IDLE);
-
-    // notify the requester about the completion
-    if (done_evt_handler) {
-        done_evt_handler(token_id, Error(ERR_OK));
-    }
-
     return err;
 }
 

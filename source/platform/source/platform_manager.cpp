@@ -1457,9 +1457,11 @@ namespace fds
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
             childMonitorThread.detach();
 
+            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
+
             while (1)
             {
-                sleep (999);   /* we'll do hotplug uevent thread in here */
+                dpm->dsk_monitor_hotplug();
             }
         }
     }  // namespace pm

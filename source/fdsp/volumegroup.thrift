@@ -63,9 +63,10 @@ struct AddToVolumeGroupRespCtrlMsg {
     1: required VolumeGroupInfo		group;
 }
 
-/* Message sent from Coordinator to OM to register the coordinator */
+/* Message sent from Coordinator to OM to register the coordinator for a vol */
 struct SetVolumeGroupCoordinatorMsg {
     1: VolumeGroupCoordinatorInfo	coordinator;
+    2: i64                          volumeId;
 }
 
 /* BEGIN exposed for testing.  Will be removed */

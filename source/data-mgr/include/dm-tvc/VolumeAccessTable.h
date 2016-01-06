@@ -41,7 +41,7 @@ struct DmVolumeAccessEntry {
  * Structure used by the TvC to prevent multi-access to a volume.
  */
 struct DmVolumeAccessTable {
-    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid);
+    DmVolumeAccessTable(fds_volid_t const vol_uuid, const FdsTimerPtr &timer);
     DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
     DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
     ~DmVolumeAccessTable() = default;
@@ -65,11 +65,6 @@ struct DmVolumeAccessTable {
 
     bool cached { false };
     std::mutex lock;
-
-    /**
-     * A timer to expire tokens
-     */
-    static boost::shared_ptr<FdsTimer> getTimer();
 
     boost::shared_ptr<FdsTimer> timer;
 };

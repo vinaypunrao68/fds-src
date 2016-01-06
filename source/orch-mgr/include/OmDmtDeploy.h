@@ -166,10 +166,33 @@ class OM_DMTMod : public Module
     ~OM_DMTMod();
 
     /**
-     * Whether or not to do legacy mode or volumeGroupMode
+     * The following are used for volume group mode, where we will
+     * only calculate a DMT if a minimal DM cluster count is met.
+     * Since these methods are called only by the timer in a sequential
+     * fashion, we shouldn't run into race condition.
+     * NOTE: If these are to be used outside of the timer schedule context, then
+     * locks/atomics may be needed.
      */
     inline bool volumeGrpMode() {
         return volume_grp_mode;
+    }
+
+    inline void addWaitingDMs() {
+        ++waitingDMs;
+    }
+
+    inline void removeWaitingDMs() {
+        if (waitingDMs > 0) {
+            --waitingDMs;
+        }
+    }
+
+    inline uint32_t getWaitingDMs() {
+        return waitingDMs;
+    }
+
+    inline void clearWaitingDMs() {
+        waitingDMs = 0;
     }
 
     /**
@@ -204,6 +227,8 @@ class OM_DMTMod : public Module
     fds_mutex       fsm_lock;
     // Toggles for service replica mode
     bool            volume_grp_mode;
+    // Batch add for dm cluster
+    uint32_t        waitingDMs;
 };
 
 extern OM_DMTMod             gl_OMDmtMod;

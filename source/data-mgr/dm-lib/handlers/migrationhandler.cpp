@@ -98,9 +98,6 @@ DmMigrationBlobFilterHandler::DmMigrationBlobFilterHandler(DataMgr& dataManager)
     if (!dataManager.features.isTestModeEnabled()) {
         REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyInitialBlobFilterSetMsg, handleRequest);
     }
-    if (dataManager.features.isVolumegroupingEnabled()) {
-
-    }
 }
 
 void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -108,15 +105,16 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     NodeUuid tmpUuid;
+    fds_volid_t volId = (dataManager.features.isVolumegroupingEnabled()) ? FdsDmSysTaskId : fds_volid_t(message->volumeId);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoResyncInitialBlob(FdsDmSysTaskId, message, tmpUuid);
+    auto dmReq = new DmIoResyncInitialBlob(volId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
     dmReq->localCb = std::bind(&DmMigrationBlobFilterHandler::handleResponseCleanUp,
                                 this,
                                 std::placeholders::_1,
                                 dmReq);
 
-    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
 
     addToQueue(dmReq);
@@ -128,7 +126,14 @@ void DmMigrationBlobFilterHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
 
-    helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        // Volume Group handle says that this guy is the source. It must have volMeta.
+        fds_assert(volMeta != nullptr);
+        volMeta->serveMigration(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->startMigrationClient(dmRequest);
+    }
 }
 
 void DmMigrationBlobFilterHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -165,7 +170,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 								asyncHdr,
 								std::placeholders::_1);
 
-    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOBDESC);
 
     addToQueue(dmReq);
@@ -262,7 +267,7 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
-    fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
+    // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_TX_STATE);
 
     LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)
