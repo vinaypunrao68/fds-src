@@ -19,13 +19,14 @@
                         <sort-helper ng-model="sortPredicate" value="node_name">{{ 'system.th_node_name' | translate }}</sort-helper>
                     </th>
                     
-                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'hddCapacity' ) !== -1 }" tool-tip text="{{ 'system.tt_node_hdd_capacity' | translate }}">
-                        <sort-helper ng-model="sortPredicate" value="hddCapacity">{{ 'system.th_node_hdd_capacity' | translate }}</sort-helper>
-                    </th>     
-                    
                     <th ng-class="{ 'selected' : sortPredicate.indexOf( 'ssdCapacity' ) !== -1 }" tool-tip text="{{ 'system.tt_node_ssd_capacity' | translate }}">
                         <sort-helper ng-model="sortPredicate" value="ssdCapacity">{{ 'system.th_node_ssd_capacity' | translate }}</sort-helper>
                     </th>  
+                    
+                    <th ng-class="{ 'selected' : sortPredicate.indexOf( 'hddCapacity' ) !== -1 }" tool-tip text="{{ 'system.tt_node_hdd_capacity' | translate }}">
+                        <sort-helper ng-model="sortPredicate" value="hddCapacity">{{ 'system.th_node_hdd_capacity' | translate }}</sort-helper>
+                    </th>     
+                
 <!--
                     <th><div translate>system.th_site</div></th>
                     <th><div translate>system.th_local_domain</div></th>
@@ -57,8 +58,8 @@
                         <td>{{node.site}}</td>
                         <td>{{node.domain}}</td>
 -->
-                        <td class="hdd-capacity">{{ getByteString( node.hddCapacity.value, node.hddCapacity.unit ) }}</td>
                         <td class="ssd-capacity">{{ getByteString( node.ssdCapacity.value, node.ssdCapacity.unit ) }}</td>
+                        <td class="hdd-capacity">{{ getByteString( node.hddCapacity.value, node.hddCapacity.unit ) }}</td>
                         
                         <td class="process-cell process-width ams"><span class="{{getStatus( node.serviceMap.AM )}}"></span></td>
                         <td class="process-cell process-width pms"><span class="{{getStatus( node.serviceMap.PM )}}"></span></td>
