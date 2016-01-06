@@ -278,16 +278,16 @@ namespace fds
         return true;
     }
 
-    // disk_read_label
+    // disk_reconcile_label
     // --------------
     //
-    bool PmDiskInventory::disk_read_label(DiskLabelMgr *mgr, bool creat)
+    void PmDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr)
     {
         DiskLabelOp    op(DISK_LABEL_READ, mgr);
 
         dsk_foreach(&op);
 
-        return mgr->dsk_reconcile_label(this, creat);
+        mgr->dsk_reconcile_label(dsk_need_simulation());
     }
 
     void PmDiskInventory::clear_inventory()

@@ -5,6 +5,16 @@ user_build_dir    := refcount timeline dm-tvc dm-vol-cat handlers archive checke
 
 user_fds_ar_libs := fds-lib
 
+# boost_chrono and rabbitmq are used in the SimpleAmqpClient library
+# The SimpleAmqpClient is used in the statsclient library
+user_non_fds_libs := \
+    statsclient \
+    SimpleAmqpClient \
+    rabbitmq \
+    ssl \
+    boost_chrono \
+    boost_system
+
 # TODO: remove this once we have correct placement of header API.
 #
 user_incl_dir     := $(topdir) ../include

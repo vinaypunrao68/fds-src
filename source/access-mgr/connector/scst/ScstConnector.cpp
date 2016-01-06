@@ -76,7 +76,7 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
     if (targets_.end() == it) {
         target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
         targets_[volDesc.name].reset(target);
-        target->addDevice(volDesc.name);
+        target->addDevice(volDesc);
     } else {
       target = it->second.get();
     }

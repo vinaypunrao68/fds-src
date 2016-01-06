@@ -329,7 +329,13 @@ public class SystemHealthStatus implements RequestHandler {
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();
 
-        // This value will be in MB!!
+        /*
+         * NOTE!!
+         *
+         * With the old partitioning scheme the capacity is reported in MB.
+         *
+         * With the new partitioning scheme the capacity is reported in GB.
+         */
         Double systemCapacity = 0D;
         try {
         	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
@@ -338,7 +344,17 @@ public class SystemHealthStatus implements RequestHandler {
         }
         
         // switch to bytes for now
-        Long systemCapacityInBytes = SizeUnit.MB.toBytes( systemCapacity.longValue() ).longValue();
+        Long systemCapacityInBytes;
+        if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive() )
+        {
+            systemCapacityInBytes = SizeUnit.GB.toBytes( systemCapacity.longValue( ) )
+                                               .longValue( );
+        }
+        else
+        {
+            systemCapacityInBytes = SizeUnit.MB.toBytes( systemCapacity.longValue( ) )
+                                               .longValue( );
+        }
 
         // This number will be in bytes!!!
         final CapacityConsumed consumed = new CapacityConsumed();
