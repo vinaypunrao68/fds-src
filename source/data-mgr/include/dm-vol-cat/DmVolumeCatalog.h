@@ -44,8 +44,10 @@ typedef std::unordered_map<fds_volid_t, DmVolumeSummary::ptr> DmVolumeSummaryMap
  * uses two sub-modules: persistent layer and a cache that
  * sits on top of persistent layer
  */
-class DmVolumeCatalog : public Module, public HasLogger,
-        public VolumeCatalogQueryIface {
+class DmVolumeCatalog : public HasModuleProvider,
+    public Module,
+    public HasLogger,
+    public VolumeCatalogQueryIface {
   public:
     typedef boost::shared_ptr<DmVolumeCatalog> ptr;
     typedef boost::shared_ptr<const DmVolumeCatalog> const_ptr;
@@ -65,7 +67,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     }
 
     // ctor and dtor
-    explicit DmVolumeCatalog(char const * const name);
+    explicit DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                             char const * const name);
     ~DmVolumeCatalog();
 
     // Methods

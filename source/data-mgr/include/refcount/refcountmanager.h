@@ -34,6 +34,7 @@ struct RefCountManager : Module {
   protected:
     SHPTR<ObjectRefScanMgr> scanner;
     DataMgr* dm;
+    SvcMgr* svcMgr;
 
     struct FileTransferContext {
         RefCountManager *refCountManager;

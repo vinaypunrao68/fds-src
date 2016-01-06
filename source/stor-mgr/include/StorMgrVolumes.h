@@ -159,12 +159,13 @@ class StorMgrVolumeTable : public HasLogger {
      Error deregisterVolume(fds_volid_t vol_uuid);
      StorMgrVolume* getVolume(fds_volid_t vol_uuid);
 
-     std::list<fds_volid_t> getVolList() {
+     std::list<fds_volid_t> getVolList(bool fNoSnapshots = false) {
          std::list<fds_volid_t> volIds;
          map_rwlock.read_lock();
          for (volume_map_t::const_iterator cit = volume_map.cbegin();
               cit != volume_map.cend();
               cit++) {
+             if (fNoSnapshots && cit->second->isSnapshot()) continue;
              volIds.push_back((*cit).first);
          }
          map_rwlock.read_unlock();
