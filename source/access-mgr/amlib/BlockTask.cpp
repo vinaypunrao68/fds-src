@@ -10,8 +10,7 @@ namespace fds
 {
 
 void
-BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                              uint32_t len) {
+BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers, uint32_t len) {
     static boost::shared_ptr<std::string> const empty_buffer =
         boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
 
@@ -55,7 +54,7 @@ BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffe
 std::pair<fpi::ErrorCode, boost::shared_ptr<std::string>>
 BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
                                  uint32_t len,
-                                 uint32_t seqId,
+                                 sequence_type seqId,
                                  const fpi::ErrorCode& err) {
     if (fpi::OK != err && fpi::MISSING_RESOURCE != err) {
         opError = err;
@@ -86,7 +85,7 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
 }
 
 void
-BlockTask::getChain(uint32_t const seqId, std::deque<BlockTask*>& chain) {
+BlockTask::getChain(sequence_type const seqId, std::deque<BlockTask*>& chain) {
     std::lock_guard<std::mutex> g(chain_lock);
     auto it = chained_responses.find(seqId);
     if (chained_responses.end() != it) {
@@ -95,7 +94,7 @@ BlockTask::getChain(uint32_t const seqId, std::deque<BlockTask*>& chain) {
 }
 
 void
-BlockTask::setChain(uint32_t const seqId, std::deque<BlockTask*>&& chain) {
+BlockTask::setChain(sequence_type const seqId, std::deque<BlockTask*>&& chain) {
     std::lock_guard<std::mutex> g(chain_lock);
     chained_responses[seqId].swap(chain);
 }

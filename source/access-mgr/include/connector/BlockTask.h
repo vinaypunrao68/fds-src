@@ -29,6 +29,8 @@ namespace fpi = FDS_ProtocolInterface;
 struct BlockTask {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
+    using sequence_type = uint32_t;
+    using time_point = std::chrono::system_clock::time_point;
 
     /// What type of task is this
     enum BlockOp {
@@ -38,13 +40,16 @@ struct BlockTask {
     };
 
     explicit BlockTask(uint64_t hdl) :
-        handle(hdl)
+        handle(hdl),
+        cmd_expire_time(std::chrono::system_clock::now() + std::chrono::seconds(600))
     {
         bufVec.reserve(objCount);
         offVec.reserve(objCount);
     }
 
     ~BlockTask() {}
+
+    void abort() { aborted = true; }
 
     /// Setup task params
     void setRead(uint64_t const off, uint32_t const bytes) {
@@ -78,8 +83,8 @@ struct BlockTask {
     void setMaxObjectSize(uint32_t const size) { maxObjectSizeInBytes = size; };
 
     /// Sub-task operations
-    uint64_t getOffset(uint32_t const seqId) const          { return offVec[seqId]; }
-    buffer_ptr_type getBuffer(uint32_t const seqId) const   { return bufVec[seqId]; }
+    uint64_t getOffset(sequence_type const seqId) const          { return offVec[seqId]; }
+    buffer_ptr_type getBuffer(sequence_type const seqId) const   { return bufVec[seqId]; }
 
     /// Buffer operations
     buffer_ptr_type getNextReadBuffer(uint32_t& context) {
@@ -89,7 +94,7 @@ struct BlockTask {
         return bufVec[context++];
     }
 
-    void keepBufferForWrite(uint32_t const seqId,
+    void keepBufferForWrite(sequence_type const seqId,
                             uint64_t const objectOff,
                             buffer_ptr_type& buf) {
         bufVec.emplace_back(buf);
@@ -121,11 +126,12 @@ struct BlockTask {
     std::pair<fpi::ErrorCode, buffer_ptr_type>
         handleRMWResponse(buffer_ptr_type const& retBuf,
                           uint32_t len,
-                          uint32_t seqId,
+                          sequence_type seqId,
                           const fpi::ErrorCode& err);
 
-    void getChain(uint32_t const seqId, std::deque<BlockTask*>& chain);
-    void setChain(uint32_t const seqId, std::deque<BlockTask*>&& chain);
+    void getChain(sequence_type const seqId, std::deque<BlockTask*>& chain);
+    void setChain(sequence_type const seqId, std::deque<BlockTask*>&& chain);
+    bool shouldRetry() const { return (!aborted && (cmd_expire_time > std::chrono::system_clock::now())); }
 
     int64_t handle;
 
@@ -133,10 +139,12 @@ struct BlockTask {
     BlockOp operation {OTHER};
     std::atomic_uint doneCount {0};
     uint32_t objCount {1};
+    time_point const cmd_expire_time;
+    bool aborted { false };
 
     // These are the responses we are also in charge of responding to, in order
     // with ourselves being last.
-    std::unordered_map<uint32_t, std::deque<BlockTask*>> chained_responses;
+    std::unordered_map<sequence_type, std::deque<BlockTask*>> chained_responses;
     std::mutex chain_lock;
 
     // error of the operation
