@@ -34,7 +34,7 @@ public class DynamicExports implements ExportResolver {
     private synchronized void refreshOnce() throws IOException {
         Set<VolumeDescriptor> exportableVolumes = null;
         try {
-            exportableVolumes = config.listVolumes(BlockyVfs.DOMAIN)
+            exportableVolumes = config.listVolumes(XdiVfs.DOMAIN)
                     .stream()
                     .filter(vd -> vd.getPolicy().getVolumeType().equals(VolumeType.NFS))
                     .collect(Collectors.toSet());
@@ -129,7 +129,7 @@ public class DynamicExports implements ExportResolver {
     @Override
     public int objectSize(String volume) {
         try {
-            return config.statVolume(BlockyVfs.DOMAIN, volume).getPolicy().getMaxObjectSizeInBytes();
+            return config.statVolume(XdiVfs.DOMAIN, volume).getPolicy().getMaxObjectSizeInBytes();
         } catch (TException e) {
             LOG.error("config.statVolume(" + volume + ") failed", e);
             throw new RuntimeException(e);
