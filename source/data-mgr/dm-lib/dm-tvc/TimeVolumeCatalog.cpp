@@ -176,7 +176,8 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fpi::SvcUuid const& client_uuid,
                              fds_int64_t& token,
                              fpi::VolumeAccessMode const& mode,
-                             sequence_id_t& sequence_id) {
+                             sequence_id_t& sequence_id,
+                             int32_t &version) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -196,7 +197,9 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         }
     }
 
-    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
+    auto volumeMeta = dataManager_.getVolumeMeta(volId, false);
+    sequence_id = volumeMeta->getSequenceId();
+    version = volumeMeta->getVersion();
 
     return err;
 }
