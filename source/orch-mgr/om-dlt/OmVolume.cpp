@@ -1168,6 +1168,30 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->getSrcVolumeId(),
                                                    volDesc->volUUID);
+    } else {
+        // remove the snapshots for this vol from the OM datastructures
+        // the actual snapshots would have been removed from the DM during vol delete
+        std::vector<fpi::Snapshot> vecSnapshots;
+        gl_orch_mgr->getConfigDB()->listSnapshots(vecSnapshots, volDesc->volUUID);
+        LOGNORMAL << "removing [" << vecSnapshots.size() << "] snapshots after deleting vol:" << volDesc->volUUID;
+        for (const auto& snapshot : vecSnapshots) {
+            LOGNORMAL << "removing snapshot:" << snapshot.snapshotId;
+            if (gl_orch_mgr->enableTimeline) {
+                // remove from snap delete scheduler
+                gl_orch_mgr->snapshotMgr->deleteScheduler->removeVolume(fds_volid_t(snapshot.snapshotId));
+            }
+            // remove from config db
+            gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->volUUID, fds_volid_t(snapshot.snapshotId));
+
+            // remove from OM data structure
+            auto resource = rs_get_resource(snapshot.snapshotId);
+            if (resource == NULL) {
+                LOGWARN << "rs ptr NULL for snapshot:" << snapshot.snapshotId << " of vol:" << volDesc->volUUID;
+            } else {
+                rs_unregister(resource);
+                rs_free_resource(resource);
+            }
+        }
     }
     // Nothing to do for volume in config db ..
     // as it should have been marked as Deleted already..
@@ -1176,7 +1200,6 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     rs_unregister(vol);
     rs_free_resource(vol);
 }
-
 
 // get_volume
 // ---------
