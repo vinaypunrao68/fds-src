@@ -28,7 +28,8 @@ struct DmVolumeAccessTable;
  * to happen in a transactional context and provides interfaces
  * for historical information to be queried.
  */
-class DmTimeVolCatalog : public Module, boost::noncopyable {
+class DmTimeVolCatalog : public HasModuleProvider,
+                         Module, boost::noncopyable {
   private:
     DataMgr& dataManager_;
 
@@ -110,7 +111,10 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp, DataMgr& dataManager);
+    DmTimeVolCatalog(CommonModuleProviderIf *modProvider,
+                     const std::string &modName,
+                     fds_threadpool &tp,
+                     DataMgr& dataManager);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;

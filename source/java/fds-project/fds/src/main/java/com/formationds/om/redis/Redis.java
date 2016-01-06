@@ -333,6 +333,8 @@ public class Redis
                                           SvcLayerSerializer.deserialize(
                                               NodeInfo.class,
                                               ByteBuffer.wrap( serialized.getBytes( ) ) );
+
+                                      System.out.println( "NODE::" + nodeInfo[ 0 ].toString() );
                                   }
                                   catch ( SvcLayerSerializationProvider.SerializationException e )
                                   {
@@ -340,7 +342,9 @@ public class Redis
                                           String.format( "The specified key '%s' encountered a de-serialization failure", key );
                                       logger.warn( warning, e );
 
-                                      logger.trace( "{}::'[]'", key, serialized );
+                                      logger.trace( "{}::'{}'", key, serialized );
+
+                                      e.printStackTrace();
                                   }
                               }
                           } );
@@ -354,13 +358,14 @@ public class Redis
         final Redis redis = new Redis( "10.2.10.171" );
 
 //        System.out.println( "PMs::" + redis.getPMSvcInfos() );
+//        System.out.println( "SVCINFOS::" + redis.getSvcInfos() );
 //        System.out.println( "NODEs::" + redis.getNodes() );
-//        System.out.println( redis.getPMNodeCapacity() );
-        System.out.println( "VOLUMES::" );
-        for( VolumeDesc desc : redis.listVolumes() )
-        {
-            System.out.println( "" + desc );
-        }
+        System.out.println( redis.getPMNodeCapacity() );
+//        System.out.println( "VOLUMES::" );
+//        for( VolumeDesc desc : redis.listVolumes() )
+//        {
+//            System.out.println( "" + desc );
+//        }
 //          System.out.println( redis.getVolume( 11L ) );
     }
 }

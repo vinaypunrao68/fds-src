@@ -19,7 +19,7 @@ DMExplorer::DMExplorer(int argc,
 }
 
 Error DMExplorer::loadVolume(fds_volid_t volumeUuid) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = proc_fdsroot();
     std::string volDir = util::strformat("%s/%ld",
                                          root->dir_sys_repo_dm().c_str(),
                                          volumeUuid.get());
@@ -28,7 +28,7 @@ Error DMExplorer::loadVolume(fds_volid_t volumeUuid) {
         return ERR_VOL_NOT_FOUND;
     }
 
-    volCat = boost::make_shared<DmVolumeCatalog>("DM checker");
+    volCat = boost::make_shared<DmVolumeCatalog>(this, "DM checker");
     volDesc = boost::make_shared<VolumeDesc>(std::to_string(volumeUuid.get()), volumeUuid);
     // TODO(Andrew): We're just making up a max object size because the catalog add
     // is going to expect it. For basic blob traversal, it's not used so doesn't matter.
@@ -190,7 +190,7 @@ Error DMExplorer::listBlobsWithObject(std::string strObjId) {
 }
 
 void DMExplorer::getVolumeIds(std::vector<fds_volid_t>& vecVolumes) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = proc_fdsroot();
     dmutil::getVolumeIds(root, vecVolumes);
 }
 

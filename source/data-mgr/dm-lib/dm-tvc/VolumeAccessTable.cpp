@@ -10,16 +10,10 @@
 namespace fds
 {
 
-boost::shared_ptr<FdsTimer>
-DmVolumeAccessTable::getTimer() {
-    auto timer = MODULEPROVIDER()->getTimer();
-    return timer;
-}
-
-DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
+DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid, const FdsTimerPtr &_timer)
     : access_map(),
       random_generator(vol_uuid.get()),
-      timer(DmVolumeAccessTable::getTimer())
+      timer(_timer)
 { }
 
 Error

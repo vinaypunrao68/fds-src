@@ -144,7 +144,7 @@ class OrchMgr: public SvcProcess {
 
     std::unique_ptr<OMMonitorWellKnownPMs> omMonitor;
     DeleteScheduler deleteScheduler;
-    fds_bool_t      enableSnapshotSchedule;
+    fds_bool_t      enableTimeline;
     boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
 };
 

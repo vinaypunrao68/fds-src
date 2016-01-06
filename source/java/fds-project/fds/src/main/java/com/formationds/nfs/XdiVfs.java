@@ -22,18 +22,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class BlockyVfs implements VirtualFileSystem, AclCheckable {
-    private static final Logger LOG = Logger.getLogger(BlockyVfs.class);
+public class XdiVfs implements VirtualFileSystem, AclCheckable {
+    private static final Logger LOG = Logger.getLogger(XdiVfs.class);
     private InodeMap inodeMap;
     private PersistentCounter allocator;
     private InodeIndex inodeIndex;
     private ExportResolver exportResolver;
     private SimpleIdMap idMap;
-    private ExecutorService executor;
     private Chunker chunker;
     private final Counters counters;
 
@@ -41,7 +37,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
 
-    public BlockyVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
+    public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
         IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
             ops = new DeferredIoOps(ops, counters);
@@ -54,7 +50,6 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         inodeIndex = new SimpleInodeIndex(txs, resolver);
         idMap = new SimpleIdMap();
         chunker = new Chunker(txs);
-        executor = Executors.newCachedThreadPool();
         this.counters = counters;
     }
 
@@ -92,11 +87,11 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
-        return parallel(
-                () -> inodeMap.create(metadata, parent.exportIndex()),
-                () -> inodeMap.update(parent.exportIndex(), updatedParent),
-                () -> inodeIndex.index(parent.exportIndex(), false, metadata),
-                () -> inodeIndex.index(parent.exportIndex(), true, updatedParent));
+        Inode createdInode = inodeMap.create(metadata, parent.exportIndex(), true);
+        inodeMap.update(parent.exportIndex(), true, updatedParent);
+        inodeIndex.index(parent.exportIndex(), true, metadata);
+        inodeIndex.index(parent.exportIndex(), true, updatedParent);
+        return createdInode;
     }
 
     @Override
@@ -141,7 +136,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode(exportId));
             if (!statResult.isPresent()) {
                 LOG.debug("Creating export root for volume " + path);
-                Inode inode = inodeMap.create(inodeMetadata, exportId);
+                Inode inode = inodeMap.create(inodeMetadata, exportId, false);
                 inodeIndex.index(exportId, false, inodeMetadata);
                 return inode;
             } else {
@@ -175,9 +170,9 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updatedParentMetadata = parentMetadata.get().withUpdatedTimestamps();
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
-        inodeMap.update(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
+        inodeMap.update(parent.exportIndex(), true, updatedParentMetadata, updatedLinkMetadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParentMetadata);
-        inodeIndex.index(parent.exportIndex(), false, updatedLinkMetadata);
+        inodeIndex.index(parent.exportIndex(), true, updatedLinkMetadata);
         return link;
     }
 
@@ -236,12 +231,11 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
 
-        parallel(() -> null,
-                () -> inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination),
-                () -> inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName),
-                () -> inodeIndex.index(source.exportIndex(), true, updatedSource),
-                () -> inodeIndex.index(source.exportIndex(), false, updatedLink),
-                () -> inodeIndex.index(source.exportIndex(), true, updatedDestination));
+        inodeMap.update(source.exportIndex(), true, updatedSource, updatedLink, updatedDestination);
+        inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName);
+        inodeIndex.index(source.exportIndex(), true, updatedSource);
+        inodeIndex.index(source.exportIndex(), true, updatedLink);
+        inodeIndex.index(source.exportIndex(), true, updatedDestination);
 
         return true;
     }
@@ -307,11 +301,11 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
             inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
             inodeIndex.remove(parentInode.exportIndex(), updatedLink);
         } else {
-            inodeMap.update(parentInode.exportIndex(), updatedLink);
+            inodeMap.update(parentInode.exportIndex(), true, updatedLink);
             inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
         }
 
-        inodeMap.update(parentInode.exportIndex(), updatedParent);
+        inodeMap.update(parentInode.exportIndex(), true, updatedParent);
         inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
     }
 
@@ -377,10 +371,8 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
         }
 
         InodeMetadata updated = metadata.get().update(stat);
-
-        parallel(() -> null,
-                () -> inodeMap.update(inode.exportIndex(), updated),
-                () -> inodeIndex.index(inode.exportIndex(), true, updated));
+        inodeMap.update(inode.exportIndex(), true, updated);
+        inodeIndex.index(inode.exportIndex(), true, updated);
         LOG.debug("SETATTR " + exportResolver.volumeName(inode.exportIndex()) + "." + Joiner.on(",").join(updated.getLinks().values()) + ", mode=" + Integer.toOctalString(updated.getMode()));
     }
 
@@ -406,7 +398,7 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updated = metadata.get().withNfsAces(acl);
 
-        inodeMap.update(inode.exportIndex(), updated);
+        inodeMap.update(inode.exportIndex(), true, updated);
         inodeIndex.index(inode.exportIndex(), true, updated);
     }
 
@@ -447,42 +439,5 @@ public class BlockyVfs implements VirtualFileSystem, AclCheckable {
 
     private interface IoSupplier<T> {
         public T execute() throws IOException;
-    }
-
-    private <T> T parallel(IoSupplier<T> supplier, IoAction... actions) throws IOException {
-        List<IOException> exceptions = new ArrayList<>();
-        List<T> result = new ArrayList<>(1);
-        CountDownLatch latch = new CountDownLatch(actions.length + 1);
-        executor.execute(() -> {
-            try {
-                result.add(supplier.execute());
-            } catch (IOException e) {
-                exceptions.add(e);
-            } finally {
-                latch.countDown();
-            }
-        });
-        for (IoAction action : actions) {
-            executor.execute(() -> {
-                try {
-                    action.execute();
-                } catch (IOException e) {
-                    exceptions.add(e);
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            LOG.error("Interrupted while awaiting completion of parallel IO", e);
-            throw new IOException(e);
-        }
-        if (exceptions.size() != 0) {
-            throw exceptions.get(0);
-        }
-
-        return result.get(0);
     }
 }

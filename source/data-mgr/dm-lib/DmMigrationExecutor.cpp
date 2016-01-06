@@ -28,7 +28,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 	  autoIncrement(_autoIncrement),
       migrDoneCb(_callback),
 	  timerInterval(_timeout),
-	  seqTimer(MODULEPROVIDER()->getTimer()),
+	  seqTimer(_dataMgr.getModuleProvider()->getTimer()),
       msgHandler(_dataMgr),
       migrationProgress(INIT),
       txStateIsMigrated(true),
@@ -38,7 +38,7 @@ DmMigrationExecutor::DmMigrationExecutor(DataMgr& _dataMgr,
 {
     volumeUuid = volDesc.volUUID;
 
-    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+    dmtVersion = dataMgr.getModuleProvider()->getSvcMgr()->getDMTVersion();
 
 	LOGMIGRATE << logString() << "Migration executor received for volume ID " << volDesc;
 }

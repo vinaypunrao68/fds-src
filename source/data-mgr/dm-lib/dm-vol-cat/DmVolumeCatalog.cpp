@@ -52,7 +52,10 @@
 
 namespace fds {
 
-DmVolumeCatalog::DmVolumeCatalog(char const * const name) : Module(name), expungeCb_(0) {}
+DmVolumeCatalog::DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                                 char const * const name)
+    : HasModuleProvider(modProvider),
+    Module(name), expungeCb_(0) {}
 
 DmVolumeCatalog::~DmVolumeCatalog() {}
 
@@ -80,7 +83,8 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
      * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
-        vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
+        vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                    voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
@@ -112,7 +116,7 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         volType = iter->second->getVolType();
     }
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::ostringstream oss;
     oss << root->dir_sys_repo_dm() << voldesc.srcVolumeId << "/" << voldesc.srcVolumeId
             << "_vcat.ldb";
@@ -143,7 +147,8 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
          * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
-            vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
+            vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                    voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
         /*
         } else {
