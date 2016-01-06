@@ -59,7 +59,7 @@ public class PersistentCounter {
                 Long newValue = mutator.apply(oldValue);
                 cache.put(key, newValue);
                 map.put(counterName, Long.toString(newValue));
-                io.mutateMetadata(BlockyVfs.DOMAIN, volume, counterName, map, deferrable);
+                io.mutateMetadata(XdiVfs.DOMAIN, volume, counterName, map, deferrable);
                 return newValue;
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -71,7 +71,7 @@ public class PersistentCounter {
         Key key = new Key(volume, counterName);
         Long oldValue = cache.getIfPresent(key);
         if (oldValue == null) {
-            oldValue = io.mapMetadata(BlockyVfs.DOMAIN, volume, counterName,
+            oldValue = io.mapMetadata(XdiVfs.DOMAIN, volume, counterName,
                     (blobName, metadata) -> {
                         if (!metadata.isPresent()) {
                             return startValue;
