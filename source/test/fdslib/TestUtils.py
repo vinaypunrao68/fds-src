@@ -562,7 +562,6 @@ def core_hunter_aws(self,node_ip):
     internal_ip = run("hostname")
     # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
     print("internal_ip[%s]" % internal_ip)
-    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
 
     for dir in {'/fds/bin','/corefiles'}:
         with cd(dir):
@@ -573,3 +572,16 @@ def core_hunter_aws(self,node_ip):
                     self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
                     return 0
     return 1
+
+def connect_fabric(node_ip):
+    #TODO: pooja finish fs-4280
+    env.user = 'root'
+    env.password = 'passwd'
+    env.host_string = node_ip
+    internal_ip = run("hostname")
+    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+
+def disconnect_fabric(host):
+    host = host or fabric.api.env.host_string
+    if host and host in fabric.state.connections:
+        fabric.state.connections[host].get_transport().close()
