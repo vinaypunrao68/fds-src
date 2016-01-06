@@ -626,7 +626,7 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
          cit != diskToks.cend();
          ++cit) {
         diskio::TokenStat stat;
-        persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+        persistStoreGcHandler->getSmTokenStats(disk_id, *cit, tier, &stat);
         totDeletedBytes += stat.tkn_reclaim_size;
         LOGDEBUG << "Disk id " << disk_id << " SM token " << *cit
                  << " reclaim bytes " << stat.tkn_reclaim_size;
@@ -763,7 +763,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                 persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
             }
         } else {
-            persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+            persistStoreGcHandler->getSmTokenStats(disk_id, *cit, tier, &stat);
         }
         double tot_size = stat.tkn_tot_size;
         reclaim_percent = (stat.tkn_reclaim_size / tot_size) * 100;

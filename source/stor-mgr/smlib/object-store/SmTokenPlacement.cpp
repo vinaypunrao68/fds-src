@@ -181,12 +181,16 @@ std::ostream& operator<< (std::ostream &out,
  * 1) Uniform storage capacity: since round-robin distribution, disks are of same or similiar
  *    capacity.
  */
-void
+bool
 SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
                           const std::set<fds_uint16_t>& ssds,
                           ObjectLocationTable* olt)
 {
-    fds_verify(olt);
+    fds_assert(olt);
+    if (!olt) {
+        LOGCRITICAL << "Invalid OLT. Failing SM initialization";
+        return false;
+    }
 
     // use round-robin placement of tokens over disks
     // first assign placement on HDDs
@@ -212,6 +216,7 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
             }
         }
     }
+    return true;
 }
 
 
@@ -245,22 +250,22 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
                             ObjectLocationTable* olt,
                             Error& err)
 {
-    fds_verify(olt);
+    fds_assert(olt);
+    if (!olt) {
+        LOGCRITICAL << "Invalid OLT. Failing SM initialization";
+        err = ERR_SM_SUPERBLOCK_INCONSISTENT;
+        return false;
+    }
     // there should be at least disk in the base storage.
     fds_verify(baseStorage.size() > 0);
     // should be called only if the topology has changed.
-    fds_verify(addedStorage.size() > 0 || removedStorage.size() > 0);
+    if (!(addedStorage.size() > 0 || removedStorage.size() > 0)) {
+        LOGDEBUG << "Disk topology unchanged. Ignoring recompute request."
+        err = ERR_OK;
+        return true;
+    }
 
     LOGNOTIFY << "Recomputing token placment";
-
-    // We just handle the case if the disk is removed from the storage.
-    // If the disks are added without losing any disk, for now we do nothing.
-    //
-    // TODO(Sean):  handle the case when the disks are added to the storage.
-    if (removedStorage.size() == 0) {
-        LOGNOTIFY << "Storage was added, but no missing storage.  Skipping token re-placement.";
-        return false;
-    }
 
     // Contains set for all storage for specified storage tier.
     std::set<fds_uint16_t> totalStorage;
@@ -277,9 +282,6 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
         }
     }
 
-    // We have the check to see if the removedStorage size > 0.  This assert should
-    // be removed if the system can handle adding new storage to the sm services.
-    fds_assert(removedStorage.size() > 0);
     // If storage is removed, remove from totalStorage.
     if (removedStorage.size() > 0) {
         for (auto diskId : removedStorage) {

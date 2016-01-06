@@ -87,7 +87,7 @@ std::ostream& operator<< (std::ostream &out,
  */
 class SmTokenPlacement {
   public:
-    static void compute(const std::set<fds_uint16_t>& hdds,
+    static bool compute(const std::set<fds_uint16_t>& hdds,
                         const std::set<fds_uint16_t>& ssds,
                         ObjectLocationTable* olt);
 

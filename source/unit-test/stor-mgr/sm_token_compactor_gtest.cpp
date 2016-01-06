@@ -192,14 +192,16 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
     virtual ~TestPersistStorHandler() {}
 
     // not used by TokenCompactor
-    virtual void getSmTokenStats(fds_token_id smTokId,
+    virtual void getSmTokenStats(DiskId diskId,
+                                 fds_token_id smTokId,
                                  diskio::DataTier tier,
                                  diskio::TokenStat* retStat) {
         fds_panic("should not be used by TokenCompactor");
     }
 
     //  Notify about start garbage collection for given token id 'tok_id'
-    virtual void notifyStartGc(fds_token_id smTokId,
+    virtual void notifyStartGc(DiskId diskId,
+                               fds_token_id smTokId,
                                diskio::DataTier tier) {
         GLOGNORMAL << "Will start GC for SM token " << smTokId
                    << " tier " << tier;

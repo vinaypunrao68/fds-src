@@ -716,18 +716,6 @@ ObjectStore::getObject(fds_volid_t volId,
         return nullptr;
     }
 
-    /*
-     * TODO(umesh): uncomment this when reference counting is used.
-     *
-    // If this Volume never put this object, then it should not access the object
-    if (!objMeta->isVolumeAssociated(volId)) {
-        err = ERR_NOT_FOUND;
-        LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
-                << " to object " << objId << " returning " << err;
-        return nullptr;
-    }
-    */
-
     // get object data
     boost::shared_ptr<const std::string> objData
             = dataStore->getObjectData(volId, objId, objMeta, err, &usedTier);

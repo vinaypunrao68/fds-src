@@ -225,7 +225,9 @@ SmObjectPersistDataTest::getTokenStats(fds_uint64_t* totSize,
          cit != smToks.cend();
          ++cit) {
         diskio::TokenStat stat;
-        persistData->getSmTokenStats(*cit, diskio::diskTier, &stat);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->getSmTokenStats(diskId, *cit, tier, &stat);
         GLOGDEBUG << "SM token " << *cit << " total bytes "
                   << stat.tkn_tot_size << ", reclaimable bytes "
                   << stat.tkn_reclaim_size;
@@ -420,7 +422,9 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        persistData->notifyStartGc(*cit, diskio::diskTier);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->notifyStartGc(*cit, tier);
     }
 
     // at this point new files are empty

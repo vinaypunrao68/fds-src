@@ -50,20 +50,23 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
             LOGDEBUG << "Will open token data file for SM token " << *cit
                      << ", on tier " << tierNum << ", if not opened yet.";
 
-            // get write file IDs from SM superblock and open corresponding token files
-            fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
+            // Get write file id and disk id from SM superblock.
             fds_uint16_t fileId = diskMap->superblock->getWriteFileId(*cit, tier);
+            DiskId diskId = diskMap->superblock->getDiskId(*cit, tier);
+            fds_uint64_t wkey = getWriteFileKey(diskId, tier, *cit);
+
             if (fileId == SM_INVALID_FILE_ID) {
                 // It's important that openObjectDataFiles() method is called when
                 // there is no GC running; we are disabling GC during migration
                 // and enabling after data/metadata stores open.
                 fileId = SM_INIT_FILE_ID;
             }
+
             write_synchronized(mapLock) {
                 if (writeFileIdMap.count(wkey) == 0) {
                     writeFileIdMap[wkey] = fileId;
                 } else {
-                    fds_uint64_t fkey = getFileKey(tier, *cit, writeFileIdMap[wkey]);
+                    fds_uint64_t fkey = getFileKey(diskId, tier, *cit, writeFileIdMap[wkey]);
                     fds_assert(tokFileTbl.count(fkey) > 0);
                     LOGDEBUG << "Token file already open for SM token " << *cit;
                     err = ERR_DUPLICATE;
@@ -71,8 +74,8 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
             }
 
             if (err != ERR_DUPLICATE) {
-                // actually open SM token file
-                err = openTokenFile(tier, *cit, fileId);
+                // Open SM token file
+                err = openTokenFile(diskId, tier, *cit, fileId);
                 if (!err.ok()) {
                     LOGERROR << "Failed to open File for SM token " << *cit
                              << " tier " << tier << " " << err;
@@ -82,11 +85,11 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
                 }
 
 
-                // also open old file if compaction is in progress
+                // Also open old file if compaction is in progress
                 if (diskMap->superblock->compactionInProgress(*cit, tier)) {
                     fds_uint16_t oldFileId = getShadowFileId(fileId);
-                    err = openTokenFile(tier, *cit, oldFileId);
-                    fds_verify(err.ok());
+                    err = openTokenFile(diskId, tier, *cit, oldFileId);
+                    fds_assert(err.ok());
                 }
             } else {
                 err = ERR_OK;
@@ -118,15 +121,13 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
         err = scavenger->enableScavenger(diskMap, SM_CMD_INITIATOR_USER);
         if (!err.ok()) {
             if (err == ERR_SM_GC_TEMP_DISABLED) {
-                LOGWARN << "Failed to start scavenger because a background "
-                        << "process requires scavenger not run; Scavenger will "
-                        << "enabled when the background process finishes";
+                LOGWARN << "GC is temporarily disabled.";
                 err = ERR_OK;   // ok, scavenger will be enabled later
             } else if (err == ERR_SM_GC_ENABLED) {
-                LOGNORMAL << "Scavenger already enabled, ok";
+                LOGNORMAL << "GC already enabled.";
                 err = ERR_OK;
             } else {
-                LOGERROR << "Failed to start Scavenger " << err;
+                LOGERROR << "Failed to start GC " << err;
             }
         }
     }
@@ -145,7 +146,7 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
              cit != smTokensLost.cend();
              ++cit) {
             // get write file IDs from SM superblock and close corresponding token files
-            fds_uint64_t wkey = getWriteFileIdKey(tier, *cit);
+            fds_uint64_t wkey = getWriteFileKey(diskId, tier, *cit);
             fds_uint16_t fileId = SM_INVALID_FILE_ID;
             write_synchronized(mapLock) {
                 if (writeFileIdMap.count(wkey) > 0) {
@@ -200,59 +201,75 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
 
 Error
 ObjectPersistData::writeObjectData(const ObjectID& objId,
-                                   diskio::DiskRequest* req) {
+                                   diskio::DiskRequest* diskReq) {
     Error err(ERR_OK);
+
+    diskio::DataTier tier = diskReq->getTier();
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
-    fds_uint16_t fileId = getWriteFileId(req->getTier(), smTokId);
+    DiskId diskId = smDiskMap->getDiskId(smTokId, tier);
+    fds_uint16_t fileId = getWriteFileId(diskId, tier, smTokId);
 
     if (fileId == SM_INVALID_FILE_ID) {
         return ERR_NOT_FOUND;
     }
 
-    auto iop = getTokenFile(req->getTier(), smTokId, fileId, false);
+    auto filePtr = getTokenFile(diskId, tier, smTokId, fileId, false);
 
     if (shuttingDown) {
         return ERR_NOT_READY;
-    } else if (iop == nullptr) {
+    } else if (filePtr == nullptr) {
         // most likely we don't have ownership of corresponding
         // SM token, or something went very wrong. The caller should
         // check SM token ownership
         return ERR_NOT_FOUND;
     }
 
-    err = iop->disk_write(req);
+    err = filePtr->disk_write(diskReq);
     fiu_do_on("sm.objectstore.fail.data.disk",
-              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              if (smDiskMap->getDiskId(objId, tier) == 0)
               {  err = ERR_DISK_WRITE_FAILED; });
     return err;
 }
 
 Error
 ObjectPersistData::readObjectData(const ObjectID& objId,
-                                  diskio::DiskRequest* req) {
+                                  diskio::DiskRequest* diskReq) {
     Error err(ERR_OK);
-    obj_phy_loc_t *loc = req->req_get_phy_loc();
+    diskio::DataTier tier = diskReq->getTier();
+    obj_phy_loc_t *loc = diskReq->req_get_phy_loc();
+    if (!loc) {
+        LOGERROR << "Read failed for object: " << objId
+                 << " from tier: " << tier << "."
+                 << "Invalid physical location";
+        return ERR_NOT_FOUND;
+    }
+    DiskId diskId = loc->obj_stor_loc_id;
     fds_token_id smTokId = smDiskMap->smTokenId(objId);
     fds_uint16_t fileId = loc->obj_file_id;
-    auto iop = getTokenFile(req->getTier(), smTokId,
-                            fileId, true);
+    auto filePtr = getTokenFile(diskId, tier, smTokId,
+                                fileId, true);
     if (shuttingDown) {
         return ERR_NOT_READY;
     }
 
-    fds_assert(iop);
-    if (!iop) {
+    fds_assert(filePtr);
+    if (!filePtr) {
         LOGWARN << "File persist pointer not found for sm token " << smTokId
                 << " fileId " << fileId << " object " << objId;
         return ERR_NOT_FOUND;
     }
-    err = iop->disk_read(req);
+    err = filePtr->disk_read(diskReq);
     fiu_do_on("sm.objectstore.fail.data.disk",
-              if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
+              if (!diskId)
               {  err = ERR_DISK_READ_FAILED; });
     return err;
 }
 
+/**
+ * TODO(Gurpreet): This method should not be used anymore due
+ * to the new, object sets based GC/TC expunge scheme.
+ * Remove during reconciliation cleanup.
+ */
 void
 ObjectPersistData::notifyDataDeleted(const ObjectID& objId,
                                      fds_uint32_t objSize,
@@ -269,12 +286,13 @@ ObjectPersistData::notifyDataDeleted(const ObjectID& objId,
 }
 
 void
-ObjectPersistData::notifyStartGc(fds_token_id smTokId,
+ObjectPersistData::notifyStartGc(DiskId diskId,
+                                 fds_token_id smTokId,
                                  diskio::DataTier tier) {
     Error err(ERR_OK);
     fds_uint16_t curFileId = SM_INVALID_FILE_ID;
     fds_uint16_t newFileId = SM_INVALID_FILE_ID;
-    fds_uint64_t wkey = getWriteFileIdKey(tier, smTokId);
+    fds_uint64_t wkey = getWriteFileKey(diskId, tier, smTokId);
 
     // if compaction already in progress, shadow file does not change
     if (smDiskMap->superblock->compactionInProgress(smTokId, tier)) {
@@ -296,14 +314,25 @@ ObjectPersistData::notifyStartGc(fds_token_id smTokId,
     // first persist new file ID and set compaction state
     err = smDiskMap->superblock->changeCompactionState(smTokId, tier,
                                                        true, newFileId);
-    fds_verify(err.ok());
-
+    fds_assert(err.ok());
+    // TODO(Gurpreet): Gracefully handle the error. Stopping TC
+    // for this disk.
+    if (!err.ok()) {
+        LOGERROR << "Cannot write to superblock";
+        return;
+    }
     // we shouldn't have a file with newFileId open; if it is open,
     // most likely we did not finish last GC properly
     // openTokenFile() method will verify this
     // open file we are going to write to
-    err = openTokenFile(tier, smTokId, newFileId);
-    fds_verify(err.ok());
+    err = openTokenFile(diskId, tier, smTokId, newFileId);
+    fds_assert(err.ok());
+    // TODO(Gurpreet): Gracefully handle the error. Stopping TC
+    // for this disk.
+    if (!err.ok()) {
+        LOGERROR << "Cannot open shadow file for TC";
+        return;
+    }
 
     // set new file id
     write_synchronized(mapLock) {
@@ -316,7 +345,7 @@ Error
 ObjectPersistData::notifyEndGc(fds_token_id smTokId,
                                diskio::DataTier tier) {
     Error err(ERR_OK);
-    fds_uint64_t wkey = getWriteFileIdKey(tier, smTokId);
+    fds_uint64_t wkey = getWriteFileKey(diskId, tier, smTokId);
     fds_uint16_t shadowFileId = SM_INVALID_FILE_ID;
     fds_uint16_t oldFileId = SM_INVALID_FILE_ID;
 
@@ -331,7 +360,7 @@ ObjectPersistData::notifyEndGc(fds_token_id smTokId,
         // it is up to the TokenCompactor to check that it copied all
         // non-garbage data to the shadow file
         // TODO(Anna) update below code when supporting multiple files
-        fds_uint64_t fkey = getFileKey(tier, smTokId, oldFileId);
+        fds_uint64_t fkey = getFileKey(diskId, tier, smTokId, oldFileId);
         fds_assert(tokFileTbl.count(fkey) > 0);
         if (!(tokFileTbl.count(fkey) > 0)) {
             LOGERROR << "Cannot find file key = " << std::hex << fkey
@@ -363,11 +392,11 @@ ObjectPersistData::isShadowLocation(obj_phy_loc_t* loc,
 }
 
 Error
-ObjectPersistData::openTokenFile(diskio::DataTier tier,
+ObjectPersistData::openTokenFile(DiskId diskId,
+                                 diskio::DataTier tier,
                                  fds_token_id smTokId,
                                  fds_uint16_t fileId) {
     Error err(ERR_OK);
-    fds_uint16_t diskId = smDiskMap->getDiskId(smTokId, tier);
 
     // this method expects explicit file ids
     fds_verify(fileId != SM_WRITE_FILE_ID);
@@ -382,7 +411,7 @@ ObjectPersistData::openTokenFile(diskio::DataTier tier,
     }
 
     // if we are here, params are valid
-    fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);  // key to actual persist io datastruct
+    fds_uint64_t fkey = getFileKey(diskId, tier, smTokId, fileId);  // key to actual persist io datastruct
     std::string filename = smDiskMap->getDiskPath(smTokId, tier) + "/tokenFile_"
             + std::to_string(smTokId) + "_" + std::to_string(fileId);
 
@@ -449,7 +478,7 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
                                   fds_token_id smTokId,
                                   fds_uint16_t fileId,
                                   fds_bool_t delFile) {
-    fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
+    fds_uint64_t fkey = getFileKey(diskId, tier, smTokId, fileId);
 
     // if need to close current file ID, must specify file id
     // explicitly, instead of using SM_WRITE_FILE_ID
@@ -475,13 +504,14 @@ ObjectPersistData::closeTokenFile(diskio::DataTier tier,
 }
 
 diskio::FilePersisDataIO::shared_ptr
-ObjectPersistData::getTokenFile(diskio::DataTier tier,
+ObjectPersistData::getTokenFile(DiskId diskId,
+                                diskio::DataTier tier,
                                 fds_token_id smTokId,
                                 fds_uint16_t fileId,
                                 fds_bool_t openIfNotExist) {
     diskio::FilePersisDataIO *fdesc = NULL;
     fds_verify(fileId != SM_INVALID_FILE_ID);
-    fds_uint64_t fkey = getFileKey(tier, smTokId, fileId);
+    fds_uint64_t fkey = getFileKey(diskId, tier, smTokId, fileId);
 
     read_synchronized(mapLock) {
         if (tokFileTbl.count(fkey) > 0) {
@@ -496,7 +526,7 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
     }
 
     // if we are here, file not open and we were asked to open it
-    Error err = openTokenFile(tier, smTokId, fileId);
+    Error err = openTokenFile(diskId, tier, smTokId, fileId);
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
     SCOPEDREAD(mapLock);
     fds_assert(tokFileTbl.count(fkey) > 0);
@@ -507,9 +537,10 @@ ObjectPersistData::getTokenFile(diskio::DataTier tier,
 }
 
 fds_uint16_t
-ObjectPersistData::getWriteFileId(diskio::DataTier tier,
+ObjectPersistData::getWriteFileId(DiskId diskId,
+                                  diskio::DataTier tier,
                                   fds_token_id smTokId) {
-    fds_uint64_t key = getWriteFileIdKey(tier, smTokId);
+    fds_uint64_t key = getWriteFileKey(diskId, tier, smTokId);
     SCOPEDREAD(mapLock);
     if (writeFileIdMap.count(key) > 0) {
         return writeFileIdMap[key];
@@ -519,7 +550,8 @@ ObjectPersistData::getWriteFileId(diskio::DataTier tier,
 }
 
 void
-ObjectPersistData::getSmTokenStats(fds_token_id smTokId,
+ObjectPersistData::getSmTokenStats(DiskId diskId,
+                                   fds_token_id smTokId,
                                    diskio::DataTier tier,
                                    diskio::TokenStat* retStat) {
     fds_uint16_t fileId = getWriteFileId(tier, smTokId);
