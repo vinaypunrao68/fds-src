@@ -10,6 +10,7 @@
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
 // b/c DmRequest is subclass in DataMgr and can't be forward declared
 #include <DataMgr.h>
+#include <fdsp/pm_service_types.h>
 
 namespace FDS_ProtocolInterface {
 struct CtrlNotifyDLTUpdate;
@@ -144,6 +145,8 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            const Error &err);
 
+    void diskMapChange(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                       boost::shared_ptr<fpi::NotifyDiskMapChange>& diskMapChange);
  private:
 
     DataMgr& dataManager_;

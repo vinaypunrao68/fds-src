@@ -428,6 +428,9 @@ enum  FDSPMsgTypeId {
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
   EventMessageTypeId;
+
+  /** disk-map change (sent by PM to SM and DM) */
+  NotifyDiskMapChangeTypeId;
 }
 
 /**
