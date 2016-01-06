@@ -400,7 +400,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
 // ------------------------------------------------------------------------------------
 OM_DMTMod::OM_DMTMod(char const *const name)
     : Module(name),
-      volume_grp_mode(false)
+      volume_grp_mode(false),
+      waitingDMs(0)
 {
     dmt_dply_fsm = new FSM_DplyDMT();
 }
