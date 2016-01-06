@@ -145,7 +145,7 @@ public class FdsLuceneDirectoryTest {
     @Before
     public void setUp() throws Exception {
         volumeName = UUID.randomUUID().toString();
-        config.createVolume(BlockyVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
+        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
         io = new AmOps(asyncAm, new Counters());
 //        io = new DeferredIoOps(new MemoryIoOps(), new Counters());
     }

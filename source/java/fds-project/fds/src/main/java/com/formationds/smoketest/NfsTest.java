@@ -4,9 +4,9 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.commons.Fds;
-import com.formationds.nfs.BlockyVfs;
 import com.formationds.nfs.Counters;
 import com.formationds.nfs.ExportResolver;
+import com.formationds.nfs.XdiVfs;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -51,14 +51,14 @@ public class NfsTest extends BaseAmTest {
         asyncAm.start();
         resolver = mock(ExportResolver.class);
         when(resolver.exportId(anyString())).thenReturn(0);
-        amVfs = new BlockyVfs(asyncAm, resolver, new Counters(), true, 5, Duration.standardSeconds(1));
+        amVfs = new XdiVfs(asyncAm, resolver, new Counters(), true, 5, Duration.standardSeconds(1));
     }
 
     @Before
     public void setUp() throws Exception {
         volumeName = UUID.randomUUID().toString();
         fileName = UUID.randomUUID().toString();
-        config.createVolume(BlockyVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
+        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
 
     }
 }

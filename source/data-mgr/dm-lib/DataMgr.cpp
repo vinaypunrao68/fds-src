@@ -1175,7 +1175,7 @@ void DataMgr::mod_enable_service() {
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     auto diskIOPsMin = standalone ? 60*1000 :
             atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
-                                        "node_iops_min").c_str());
+                                        "node_iops_min", "60000").c_str());
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1417,6 +1417,9 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+    if (features.isVolumegroupingEnabled()) {
+        return true;
+    }
     return (_amIPrimaryImpl(volUuid, false));
 }
 

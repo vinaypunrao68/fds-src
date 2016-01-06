@@ -25,7 +25,7 @@ using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
 
-struct VolumegroupingTest : BaseTestFixture {
+struct VolumeCoordinatorTest : BaseTestFixture {
     void setDmHandlers(const PlatNetSvcHandlerPtr &h) {
         h->updateHandler(
             FDSP_MSG_TYPEID(fpi::OpenVolumeMsg),
@@ -67,7 +67,7 @@ struct VolumegroupingTest : BaseTestFixture {
 /**
 * @brief Tests svc map update in the domain.
 */
-TEST_F(VolumegroupingTest, basicio) {
+TEST_F(VolumeCoordinatorTest, basicio) {
     concurrency::TaskStatus waiter;
     int cnt = 5;
     FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root") +
@@ -103,12 +103,13 @@ TEST_F(VolumegroupingTest, basicio) {
      * from DM semantics, for testing out coordinator this fine
      */
     auto statMsg = MAKE_SHARED<fpi::StatVolumeMsg>();
+    auto updateMsg = MAKE_SHARED<fpi::UpdateCatalogMsg>();
 
     /* Do a modify request */
     waiter.reset(1);
-    v1.sendModifyMsg<fpi::StatVolumeMsg>(
-        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-        statMsg ,
+    v1.sendModifyMsg<fpi::UpdateCatalogMsg>(
+        FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
+        updateMsg,
         [&waiter](const Error &e, StringPtr) {
             ASSERT_TRUE(e == ERR_OK);
             waiter.done();
@@ -117,9 +118,9 @@ TEST_F(VolumegroupingTest, basicio) {
 
     /* Do a write request */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::StatVolumeMsg>(
-        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-        statMsg ,
+    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+        FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
+        updateMsg,
         [&waiter](const Error &e, StringPtr) {
             ASSERT_TRUE(e == ERR_OK);
             waiter.done();
@@ -130,7 +131,7 @@ TEST_F(VolumegroupingTest, basicio) {
     waiter.reset(1);
     v1.sendReadMsg<fpi::StatVolumeMsg>(
         FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-        statMsg ,
+        statMsg,
         [&waiter](const Error &e, StringPtr) {
             ASSERT_TRUE(e == ERR_OK);
             waiter.done();
@@ -143,9 +144,9 @@ TEST_F(VolumegroupingTest, basicio) {
 
     /* Modify should succeed */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::StatVolumeMsg>(
-        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-        statMsg ,
+    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+        FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
+        updateMsg,
         [&waiter](const Error &e, StringPtr) {
             LOGNOTIFY << "Cb called";
             ASSERT_TRUE(e == ERR_OK);
@@ -174,9 +175,9 @@ TEST_F(VolumegroupingTest, basicio) {
 
     /* Modify should fail */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::StatVolumeMsg>(
-        FDSP_MSG_TYPEID(fpi::StatVolumeMsg),
-        statMsg ,
+    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+        FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
+        updateMsg,
         [&waiter](const Error &e, StringPtr) {
             ASSERT_TRUE(e != ERR_OK);
             waiter.done();
@@ -206,6 +207,6 @@ int main(int argc, char** argv) {
         ("help", "produce help message")
         ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
     g_fdslog = new fds_log("VolumeGrouping");
-    VolumegroupingTest::init(argc, argv, opts);
+    VolumeCoordinatorTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
