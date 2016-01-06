@@ -653,12 +653,13 @@ struct DmIoVolumeOpen : DmRequest {
         opReqLatencyCtx.type = PerfEventType::DM_OPEN_VOL_REQ;
     }
 
-    fds_int64_t token;
-    fpi::VolumeAccessMode access_mode;
-    sequence_id_t sequence_id;
+    fds_int64_t             token;
+    fpi::VolumeAccessMode   access_mode;
+    sequence_id_t           sequence_id;
+    int32_t                 version;
 
     // response callback
-    CbType dmio_get_volmd_resp_cb;
+    CbType                  dmio_get_volmd_resp_cb;
 };
 
 struct DmIoVolumeClose : DmRequest {
