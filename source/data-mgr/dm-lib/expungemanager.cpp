@@ -74,7 +74,7 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
     dm->timeVolCat_->queryIface()->registerExpungeObjectsCb(func);
     expungeDB.reset(new ExpungeDB(dm->getModuleProvider()->proc_fdsroot()));
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
-        new SynchronizedTaskExecutor<size_t>(dm->lowPriorityTasks));
+        new SynchronizedTaskExecutor<size_t>(*(dm->getModuleProvider()->proc_thrpool())));
 }
 
 Error ExpungeManager::expunge(fds_volid_t volId, const std::vector<ObjectID>& vecObjIds, bool force) {

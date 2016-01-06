@@ -17,6 +17,7 @@ public class NfsOptions
         public Builder withoutAcl() { _withAcl = false; return this; }
         public Builder async() { async = true; return this; }
         public Builder allSquash() { allSquash = true; return this; }
+        public Builder noAllSquash() { noAllSquash = true; return this; }
         public Builder withRootSquash() { rootSquash = true; return this; }
 
         public NfsOptions build( )
@@ -28,6 +29,7 @@ public class NfsOptions
         private boolean rw = false;
         private boolean _withAcl = false;
         private boolean allSquash = false;
+        private boolean noAllSquash = false;
         private boolean rootSquash = false;
         private boolean async = false;
     }
@@ -52,13 +54,9 @@ public class NfsOptions
             sb.append( "ro" );
         }
 
-        if( builder.async )
-        {
-            sb.append( "," )
-              .append( "async" );
-        }
-
         sb.append( "," )
+          .append( builder.async ? "async" : "sync" )
+          .append( "," )
           .append( builder._withAcl ? "acl" : "noacl" )
           .append( "," )
           .append( builder.rootSquash ? "root_squash" : "no_root_squash" );
@@ -67,6 +65,11 @@ public class NfsOptions
         {
             sb.append( "," )
               .append( "all_squash" );
+        }
+        else if( builder.noAllSquash )
+        {
+            sb.append( "," )
+              .append( "no_all_squash" );
         }
 
         this.options = sb.toString();

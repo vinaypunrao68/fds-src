@@ -9,11 +9,10 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
-import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
 import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.redis.RedisSingleton;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.NfsOption;
@@ -24,13 +23,11 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import org.apache.logging.log4j.util.StringBuilders;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -282,6 +279,33 @@ public class CreateVolume
                   .getIopsMin( ),
             volume.getQosPolicy( )
                   .getIopsMax( ) );
+
+        switch( volume.getSettings().getVolumeType() )
+        {
+            case BLOCK:
+                break;
+            case OBJECT:
+                break;
+            case SYSTEM:
+                break;
+            case ISCSI:
+                final VolumeSettingsISCSI volumeSettingsISCSI =
+                    ( VolumeSettingsISCSI ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- iSCSI(target={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsISCSI.getTarget() );
+                break;
+            case NFS:
+                final VolumeSettingsNfs volumeSettingsNfs =
+                    ( VolumeSettingsNfs ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- NFS(client={}, options={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsNfs.getClients(),
+                              volumeSettingsNfs.getOptions() );
+                break;
+        }
 
         if ( !( ( volume.getQosPolicy( )
                         .getIopsMax( ) == 0 ) ||
