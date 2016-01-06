@@ -22,9 +22,15 @@ export FDS_JAVA_HOME
 # Note that Java libs not added - jvm handles
 LD_LIBRARY_PATH=${fds_root}/lib
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+# Paths to the stats service libraries
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds/formation_one/packages/simpleamqpclient-0.7.1/libs
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds/formation_one/packages/rabbitmq-c/libs
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds/formation_one/packages/fds-stats-client-c/libs
+# Old paths for the stats service libraries
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/simpleamqpclient/libs
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rabbitmq-c/libs
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-stats-client-c/libs
+
 export LD_LIBRARY_PATH
 
 PATH=/usr/local/sbin
