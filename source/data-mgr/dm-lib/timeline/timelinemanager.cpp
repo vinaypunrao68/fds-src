@@ -65,6 +65,11 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
     return err;
 }
 
+Error TimelineManager::getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds) {
+    TIMELINE_FEATURE_CHECK();
+    return timelineDB->getSnapshotsForVolume(volId, vecVolIds);
+}
+
 Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     TIMELINE_FEATURE_CHECK();
     // get the list of snapshots.

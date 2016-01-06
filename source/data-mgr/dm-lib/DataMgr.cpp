@@ -1398,9 +1398,9 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
             return (myUuid == nodes->get(0).toSvcUuid());
         } else {
             // Anything else within number_of_primary is within primary group
-            const int numberOfPrimaryDMs = getNumOfPrimary();
+            const uint numberOfPrimaryDMs = getNumOfPrimary();
             fds_verify(numberOfPrimaryDMs > 0);
-            for (int i = 0; i < numberOfPrimaryDMs; i++) {
+            for (uint i = 0; i < numberOfPrimaryDMs && i < nodes->getLength() ; i++) {
                 if (nodes->get(i).toSvcUuid() == myUuid) {
                     return true;
                 }
