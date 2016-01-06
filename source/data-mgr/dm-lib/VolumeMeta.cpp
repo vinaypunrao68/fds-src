@@ -111,6 +111,12 @@ std::string VolumeMeta::logString() const
     return ss.str();
 }
 
+void VolumeMeta::setState(const fpi::ResourceState &state,
+                          const std::string &logCtx)
+{
+    vol_desc->state = state;
+    LOGNORMAL << logString() << logCtx;
+}
 
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)

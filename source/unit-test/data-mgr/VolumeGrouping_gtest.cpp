@@ -183,9 +183,10 @@ struct DmGroupFixture : BaseTestFixture {
     DmHandle                dmHandle1;
 };
 
-TEST_F(DmGroupFixture, basicio) {
+TEST_F(DmGroupFixture, singledm) {
     Waiter waiter(0);
     fds_volid_t v1Id(10);
+    std::string blobName = "blob1";
 
     /* Create a DM group */
     /* Create a coordinator */
@@ -215,23 +216,26 @@ TEST_F(DmGroupFixture, basicio) {
     e = dmHandle1.proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
     ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
+    /* Any IO should fail */
+    sendUpdateOnceMsg(v1, blobName, 1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
 
     /* Now open should succeed */
     openVolume(v1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
-
 
     /* Do some io. After Io is done, every volume replica must have same state */
-    std::string blobName = "blob1";
     sendUpdateOnceMsg(v1, blobName, 1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Bring a dm down */
-    /* Do more IO.  IO should succeed */
-    
+    dmHandle1.stop();
+    /* Do more IO.  IO should fail */
+    sendQueryCatalogMsg(v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 }
 
 TEST(ProcHandle, DISABLED_test1) {

@@ -131,7 +131,7 @@ void ReplicaInitializer<T>::run()
                return;
            }
            startBuffering_();
-           replica_->setState(fpi::ResourceState::Syncing);
+           replica_->setState(fpi::ResourceState::Syncing, " - VolumeInitializer:Active state copied");
            /* Notify coordinator we are in syncing state.  From this point
             * we will receive actio io.  Active io will be buffered to disk
             */
@@ -327,9 +327,9 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
     setProgress_(COMPLETE);
 
     if (completionError_ == ERR_OK) {
-        replica_->setState(fpi::ResourceState::Active);
+        replica_->setState(fpi::ResourceState::Active, context);
     } else {
-        replica_->setState(fpi::ResourceState::Offline);
+        replica_->setState(fpi::ResourceState::Offline, context);
     }
     notifyCoordinator_();
     // TODO(Rao): Notify replica so that cleanup can be done

@@ -63,7 +63,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     inline void incrementOpId() { ++opId; }
     inline const int64_t& getOpId() const { return opId; }
     inline fpi::ResourceState getState() const { return vol_desc->state; }
-    inline void setState(const fpi::ResourceState &state) { vol_desc->state = state; }
+    void setState(const fpi::ResourceState &state, const std::string &logCtx);
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
     inline int64_t getId() const { return vol_desc->volUUID.get(); }

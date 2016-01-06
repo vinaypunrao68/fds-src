@@ -30,8 +30,14 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
+    Error err;
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        err = dataManager.validateVolumeExists(volId);
+    } else {
+        err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -62,6 +68,11 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
         LOGDEBUG << "on opening vol: " << request->volId
                  << ", latest sequence was determined to be "
                  << request->sequence_id;
+        if (dataManager.features.isVolumegroupingEnabled()) {
+            auto volMeta = dataManager.getVolumeMeta(request->volId);
+            fds_verify(volMeta->getState() == fpi::Offline);
+            volMeta->setState(fpi::Loading, " - VolumeOpenHandler::handleQueueItem");
+        }
     }
 }
 

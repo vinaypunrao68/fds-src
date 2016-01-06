@@ -259,7 +259,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
-    void broadcastGroupInfo_();
+    QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
     void changeState_(const fpi::ResourceState &targetState, const std::string& logCtx);
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,

@@ -139,6 +139,13 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
 
         return ERR_OK;
     }
+    Error validateVolumeExists(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+        return ERR_OK;
+    }
 
     /**
      * Pull the volume descriptors from OM using service layer implementation.

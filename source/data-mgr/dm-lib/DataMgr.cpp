@@ -695,21 +695,21 @@ Error DataMgr::addVolume(const std::string& vol_name,
                 !(vdesc->isSnapshot())) {
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
-                    volmeta->setState(fpi::Loading);
+                    volmeta->setState(fpi::Loading, " - addVolume:coordinator set");
                     volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
                     fSyncRequired = true;
                 } else {
                     /* Coordinator isn't available yet.  We wait until coordinator tries to
                      * do an open
                      */
-                    volmeta->setState(fpi::Offline);
+                    volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
                 }
             } else {
-                volmeta->setState(fpi::Active);
+                volmeta->setState(fpi::Active, " - addVolume");
             }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
-            volmeta->setState(fpi::InError);
+            volmeta->setState(fpi::InError, " - addVolume");
         }
 
         // we registered queue and shadow queue if needed
@@ -1110,6 +1110,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
+    handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
@@ -1665,6 +1666,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_ABORT_BLOB_TX:
         case FDS_SET_VOLUME_METADATA:
         case FDS_OPEN_VOLUME:
+        case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
         case FDS_DM_RESYNC_INIT_BLOB:
