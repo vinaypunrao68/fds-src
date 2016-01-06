@@ -55,7 +55,8 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
                                                      request->client_uuid_,
                                                      request->token,
                                                      request->access_mode,
-                                                     request->sequence_id);
+                                                     request->sequence_id,
+                                                     request->version);
 
     if (helper.err.ok()) {
         LOGDEBUG << "on opening vol: " << request->volId
@@ -74,6 +75,7 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
         response.token = request->token;
         response.sequence_id = request->sequence_id;
+        response.replicaVersion = request->version;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
     delete dmRequest;

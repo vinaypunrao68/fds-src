@@ -32,6 +32,7 @@ struct JournalManager {
     void removeExpiredJournals();
   private:
     fds::DataMgr* dm;
+    int inotifyFd;
     bool fStopLogMonitoring;
 };
 }  // namespace timeline

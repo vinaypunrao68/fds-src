@@ -17,7 +17,7 @@
 #include "catalogKeys/CatalogKeyType.h"
 #include "catalogKeys/ObjectExpungeKey.h"
 #include "catalogKeys/ObjectRankKey.h"
-#include "checker/DmChecker.h"
+#include <net/PlatNetSvcHandler.h>
 #include "checker/LeveldbDiffer.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
 #include "fdsp/ConfigurationService.h"
@@ -25,6 +25,7 @@
 #include "util/stringutils.h"
 #include "DmBlobTypes.h"
 #include "fds_dmt.h"
+#include "checker/DmChecker.h"
 
 namespace fds {
 

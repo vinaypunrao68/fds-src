@@ -1,5 +1,6 @@
 /* Copyright 2015 Formation Data Systems, Inc.
  */
+#include <net/PlatNetSvcHandler.h>
 #include <checker/DmChecker.h>
 
 int main(int argc, char* argv[]) {
