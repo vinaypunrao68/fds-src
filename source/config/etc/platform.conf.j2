@@ -106,6 +106,12 @@ fds: {
                 results_suffix = ".%p.memcheck"
 	   }
         }
+
+        /* volume grouping options */
+        volume_group: {
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+            dm_cluster_size = 4
+        }
     }
 
     pm: {

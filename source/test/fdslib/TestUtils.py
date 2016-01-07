@@ -31,6 +31,7 @@ from fabric.contrib.files import *
 from fabric.context_managers import cd
 import fnmatch
 import fabric
+import fabric.network
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -562,7 +563,6 @@ def core_hunter_aws(self,node_ip):
     internal_ip = run("hostname")
     # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
     print("internal_ip[%s]" % internal_ip)
-    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
 
     for dir in {'/fds/bin','/corefiles'}:
         with cd(dir):
@@ -573,3 +573,27 @@ def core_hunter_aws(self,node_ip):
                     self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
                     return 0
     return 1
+
+def connect_fabric(self,node_ip):
+    #TODO: pooja finish fs-4280 to read use/pwd form inventory
+    env.user = 'root'
+    env.password = 'passwd'
+    env.host_string = node_ip
+    timeout_start = time.time()
+    timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
+    while time.time() < timeout_start + timeout:
+        try:
+            internal_ip = run("hostname")
+        except Exception as e:
+            # Sleep for 20 sec before retrying to connect node
+            time.sleep(20)
+            continue
+        else:
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            return True
+
+    self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
+    return False
+
+def disconnect_fabric():
+    fabric.network.disconnect_all()

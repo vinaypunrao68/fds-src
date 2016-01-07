@@ -17,7 +17,6 @@ public class VolumeSettingsNfs
 {
     public static class Builder
     {
-        private Size maxObjectSize = Size.mb( 2 );
         public Size getMaxObjectSize() { return maxObjectSize; }
         public Builder withMaxObjectSize( final Size maxObjectSize )
         {
@@ -25,17 +24,15 @@ public class VolumeSettingsNfs
             return this;
         }
 
-        private String options = "";
         public Builder withOptions( final NfsOptions options )
         {
             this.options = options.getOptions();
             return this;
         }
 
-        private String clients = "*";
         public Builder withClient( final NfsClients clients )
         {
-            this.clients = clients.getClientPattern();
+            this.clients = clients.getClient();
             return this;
         }
 
@@ -43,6 +40,10 @@ public class VolumeSettingsNfs
         {
             return new VolumeSettingsNfs( this );
         }
+
+        private Size maxObjectSize = Size.mb( 2 );
+        private String options = "";
+        private String clients = "*";
     }
 
     private final String options;
@@ -72,7 +73,7 @@ public class VolumeSettingsNfs
 
         setMaxObjectSize( maxObjectSize );
         this.options = options.getOptions();
-        this.clients = clients.getClientPattern();
+        this.clients = clients.getClient();
 
         this.type = VolumeType.NFS;
     }

@@ -529,13 +529,7 @@ public class ExternalModelConverter {
         {
             NfsOption nfsOptions = null;
             if ( !internalVolume.getPolicy( )
-                                .isSetNfsOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetClient( ) )
+                                .isSetNfsOptions( ) )
             {
                 final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
                 if( optional.isPresent( ) )
@@ -664,6 +658,7 @@ public class ExternalModelConverter {
         final NfsOptions.Builder[] builder = { new NfsOptions.Builder( ) };
         listOfOptions.stream()
                      .forEach( ( option ) -> {
+                        logger.trace( "OPTION: {}", option );
                         switch( option )
                         {
                             case "ro":builder[ 0 ] = builder[ 0 ].ro( ); break;
@@ -1071,6 +1066,7 @@ public class ExternalModelConverter {
             target.setOutgoingUsers( convertToInternalOutgoingUsers( iscsi.getTarget().getOutgoingUsers() ) );
 
             volumeType.setIscsi( target );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
         } else if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
@@ -1111,7 +1107,7 @@ public class ExternalModelConverter {
                 volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
             }
 
-            volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_NFS_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
