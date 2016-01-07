@@ -800,9 +800,9 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: update to new incarnation. After update " << logString();
     } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
         /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
         svcClient_.reset();
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: set current incarnation as down.  After update" << logString();
@@ -834,13 +834,13 @@ std::string SvcHandle::logString() const
 bool SvcHandle::isSvcDown_() const
 {
     /* NOTE: Assumes this function is invoked under lock */
-    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE;
+    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED;
 }
 
 void SvcHandle::markSvcDown_()
 {
     /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
+    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
     svcClient_.reset();
     GLOGDEBUG << logString();
 
