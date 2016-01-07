@@ -416,6 +416,16 @@ struct DmMigrationTxStateHandler : Handler {
                         Error const& e, DmRequest* dmRequest);
 };
 
+struct DmMigrationRequestTxStateHandler : Handler {
+    explicit DmMigrationRequestTxStateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
 struct SimpleHandler : Handler {
     explicit SimpleHandler(DataMgr& dataManager);
     DECL_ASYNC_HANDLER(handleStartRefScanRequest, StartRefScanMsg);

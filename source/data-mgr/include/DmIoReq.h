@@ -836,6 +836,22 @@ struct DmIoMigrationTxState : DmRequest {
 	fpi::CtrlNotifyTxStateMsgPtr txStateMsg;
 };
 
+struct DmIoMigrationRequestTxState : DmRequest {
+    explicit DmIoMigrationRequestTxState(fds_volid_t volId, const fpi::CtrlNotifyRequestTxStateMsgPtr &msg)
+            : DmRequest(volId, "", "", 0, FDS_DM_MIG_TX_STATE),
+              reqTxStateMsg(msg)
+    {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationRequestTxState& io) {
+        return out << "DmIoMigrationRequestTxState vol:"
+                   << std::hex << io.volId.get() << std::dec;
+    }
+
+	fpi::CtrlNotifyRequestTxStateMsgPtr reqTxStateMsg;
+    fpi::CtrlNotifyRequestTxStateRspMsg rspMsg;
+};
+
 struct DmFunctor : DmRequest {
     DmFunctor(const fds_volid_t &volId, const std::function<void()>& f)
     : DmRequest(volId, "", "", 0, FDS_DM_FUNCTOR),
