@@ -2363,7 +2363,7 @@ bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
     TRACKMOD();
     try {
         // check if the snapshot exists
-        if ( kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
+        if (! kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
             LOGWARN << "snapshot does not exist : " << snapshot.snapshotId
                     << " vol:" << snapshot.volumeId;
             NOMOD();
