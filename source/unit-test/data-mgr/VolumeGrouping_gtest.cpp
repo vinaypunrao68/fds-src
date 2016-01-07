@@ -62,7 +62,7 @@ struct DmGroupFixture : BaseTestFixture {
     using OmHandle = ProcessHandle<TestOm>;
     using AmHandle = ProcessHandle<TestAm>;
 
-    virtual void SetUp() override {
+    void create(int numDms) {
         int ret;
         ret = std::system("rm -rf /fds/sys-repo/dm-names/*");
         ret = std::system("rm -rf /fds/node1/sys-repo/dm-names/*");
@@ -92,16 +92,26 @@ struct DmGroupFixture : BaseTestFixture {
             "--fds.am.threadpool.num_threads=3"
         });
 
-        dmHandle1.start({"dm",
-            "--fds-root=/fds/node1",
-            "--fds.pm.platform_uuid=2048",
-            "--fds.pm.platform_port=9850",
-            "--fds.dm.threadpool.num_threads=3",
-            "--fds.dm.qos.default_qos_threads=3",
-            "--fds.feature_toggle.common.enable_volumegrouping=true"
-        });
-        // dmHandles[1].start("dm" , "/fds/node2", 2064, 9860);
-        // dmHandles[2].start("dm" , "/fds/node3", 2080, 9870);
+        int uuid = 2048;
+        int port = 9850;
+        dmGroup.resize(numDms);
+        for (int i = 0; i < numDms; i++) {
+            dmGroup[i].reset(new DmHandle);
+            std::string root = util::strformat("--fds-root=/fds/node%d", i+1);
+            std::string platformUuid = util::strformat("--fds.pm.platform_uuid=%d", uuid);
+            std::string platformPort = util::strformat("--fds.pm.platform_port=%d", port);
+            dmGroup[i]->start({"dm",
+                              root,
+                              platformUuid,
+                              platformPort,
+                              "--fds.dm.threadpool.num_threads=3",
+                              "--fds.dm.qos.default_qos_threads=3",
+                              "--fds.feature_toggle.common.enable_volumegrouping=true"
+                              });
+
+            uuid +=256;
+            port += 10;
+        }
     }
 
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {
@@ -177,13 +187,23 @@ struct DmGroupFixture : BaseTestFixture {
                 waiter.doneWith(e);
             });
     }
+    void doGroupStateCheck(fds_volid_t vId)
+    {
+        for (uint32_t i = 0; i < dmGroup.size(); i++) {
+            ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
+                        getVolumeMeta(vId)->getState() == fpi::Active);
+        }
+    }
 
     OmHandle                omHandle;
     AmHandle                amHandle;
-    DmHandle                dmHandle1;
+    std::vector<std::unique_ptr<DmHandle>> dmGroup;
 };
 
-TEST_F(DmGroupFixture, singledm) {
+TEST_F(DmGroupFixture, DISABLED_singledm) {
+    /* Start with one dm */
+    create(1);
+
     Waiter waiter(0);
     fds_volid_t v1Id(10);
     std::string blobName = "blob1";
@@ -199,7 +219,7 @@ TEST_F(DmGroupFixture, singledm) {
     /* Add DMT */
     std::string dmtData;
     auto dmt = DMT::newDMT({
-                           dmHandle1.proc->getSvcMgr()->getSelfSvcUuid(),
+                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
                            });
     dmt->getSerialized(dmtData);
     Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
@@ -213,9 +233,9 @@ TEST_F(DmGroupFixture, singledm) {
 
     /* Add volume to DM */
     auto v1Desc = generateVolume(v1Id);
-    e = dmHandle1.proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+    e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
-    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
     /* Any IO should fail */
     sendUpdateOnceMsg(v1, blobName, 1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
@@ -227,17 +247,89 @@ TEST_F(DmGroupFixture, singledm) {
     /* Do some io. After Io is done, every volume replica must have same state */
     sendUpdateOnceMsg(v1, blobName, 1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-    ASSERT_TRUE(dmHandle1.proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Bring a dm down */
-    dmHandle1.stop();
+    dmGroup[0]->stop();
     /* Do more IO.  IO should fail */
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 }
 
+TEST_F(DmGroupFixture, multidm) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+    /* Create two dms */
+    create(2);
+
+    Waiter waiter(0);
+    fds_volid_t v1Id(10);
+    std::string blobName = "blob1";
+    int64_t curTxId = 1;
+
+    /* Create a coordinator with quorum of 1*/
+    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
+
+    /* Add DMT to AM with the DM group */
+    std::string dmtData;
+    auto dmt = DMT::newDMT({
+                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
+                           dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid(),
+                           });
+    dmt->getSerialized(dmtData);
+    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                            nullptr,
+                                                                            DMT_COMMITTED);
+    ASSERT_TRUE(e == ERR_OK);
+
+    /* Open without volume being add to DM.  Open should fail */
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOL_NOT_FOUND);
+
+    /* Add volume to DM group */
+    auto v1Desc = generateVolume(v1Id);
+    for (uint32_t i = 0; i < dmGroup.size(); i++) {
+        e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+        ASSERT_TRUE(e == ERR_OK);
+        ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
+                    getVolumeMeta(v1Id)->getState() == fpi::Offline);
+    }
+    /* Any IO should fail prior open */
+    sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
+
+    /* Now open should succeed */
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Do some io. After Io is done, every volume replica must have same state */
+    for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        doGroupStateCheck(v1Id);
+    }
+
+    /* Bring a dm down */
+    dmGroup[0]->stop();
+    /* Do more IO.  IO should succeed */
+    for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
+
+    /* Bring 2nd dm down */
+    dmGroup[1]->stop();
+    /* Do more IO.  IO should fail */
+    sendQueryCatalogMsg(v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+}
+
+#if 0
 TEST(ProcHandle, DISABLED_test1) {
     ProcessHandle<TestOm>          om("om", "/fds", 1024, 7000);
     g_fdsprocess = om.proc;
@@ -245,236 +337,6 @@ TEST(ProcHandle, DISABLED_test1) {
 
     ProcessHandle<TestDm> dm1("dm" , "/fds/node1", 2048, 9850);
     dm1.stop();
-}
-
-
-#if 0
-TEST_F(ClusterFixture, DISABLED_test_quicksync)
-{
-    // Temporary hack
-    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
-    ProcessHandle<Om>          om("Om", "/fds", 1024, 7000);
-    g_fdsprocess = om.proc.get();
-    g_cntrs_mgr = om.proc->get_cntrs_mgr();
-
-    ProcessHandle<AmProcess>   am("Om", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm1("TestDm", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm2("TestDm", "/fds/node1", 2048, 9850);
-    ProcessHandle<TestDm>   dm3("TestDm", "/fds/node2", 4096, 10850);
-
-    fds_volid_t v(10);
-    fpi::VolumeGroupInfo volumeGroup;
-    volumeGroup.groupId = v.get();
-    volumeGroup.version = 0;
-    volumeGroup.functionalReplicas.push_back(dm1.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm2.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm3.proc->getSvcMgr()->getSelfSvcUuid());
-
-    ASSERT_EQ(dm1.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
-    am.proc->attachVolume(volumeGroup);
-    
-    int nPuts = 20;
-    for (int i = 0; i < nPuts; i++) {
-        concurrency::TaskStatus s(3);
-        am.proc->putBlob(v,
-                        [&s](const Error& e, StringPtr resp) {
-                        GLOGNOTIFY << "Received response: " << e;
-                        s.done();
-                        });
-        s.await();
-        if (i==10) {
-            dm2.stop();
-        }
-    }
-    sleep(7);
-
-    std::cout << "Starting sync";
-    dm2.start();
-    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
-    dm2.proc->getVolume(v)->forceQuickSync(am.proc->getSvcMgr()->getSelfSvcUuid());
-    sleep(4);
-
-    for (int i = 0; i < nPuts; i++) {
-        concurrency::TaskStatus s(3);
-        am.proc->putBlob(v,
-                        [&s](const Error& e, StringPtr resp) {
-                        GLOGNOTIFY << "Received response: " << e;
-                        s.done();
-                        });
-        s.await();
-    }
-    sleep(5);
-    GLOGNOTIFY << "Exiting from test";
-}
-
-TEST_F(ClusterFixture, testquicksync_activeio)
-{
-    // Temporary hack
-    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
-    ProcessHandle<Om>          om("Om", "/fds", 1024, 7000);
-    g_fdsprocess = om.proc.get();
-    g_cntrs_mgr = om.proc->get_cntrs_mgr();
-
-    ProcessHandle<AmProcess>   am("Om", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm1("TestDm", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm2("TestDm", "/fds/node1", 2048, 9850);
-    ProcessHandle<TestDm>   dm3("TestDm", "/fds/node2", 4096, 10850);
-
-    // g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
-
-    fds_volid_t v(10);
-    fpi::VolumeGroupInfo volumeGroup;
-    volumeGroup.groupId = v.get();
-    volumeGroup.version = 0;
-    volumeGroup.functionalReplicas.push_back(dm1.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm2.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm3.proc->getSvcMgr()->getSelfSvcUuid());
-
-    ASSERT_EQ(dm1.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
-    am.proc->attachVolume(volumeGroup);
-    
-    int nPuts = 10000;
-    int stopCnt = 10;
-    int startCnt = 1000;
-    for (int i = 0; i < nPuts; i++) {
-        concurrency::TaskStatus s(3);
-        am.proc->putBlob(v,
-                        [&s](const Error& e, StringPtr resp) {
-                        s.done();
-                        });
-        s.await();
-        if (i==stopCnt) {
-            dm2.stop();
-            GLOGNOTIFY << "Completed " << i << " reqs. Stopped dm2";
-        }
-        if (i==startCnt) {
-            GLOGNOTIFY << "Completed " << i << " reqs. Started dm2";
-            dm2.start();
-            ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
-            dm2.proc->getVolume(v)->forceQuickSync(am.proc->getSvcMgr()->getSelfSvcUuid());
-        }
-        if (i > startCnt && i % 10 == 0) {
-           std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-    }
-    GLOGNOTIFY << "Received all responses";
-
-    sleep(5);
-    dm1.stop();
-    dm3.stop();
-    am.stop();
-    om.stop();
-    dm2.stop();
-
-
-
-    GLOGNOTIFY << "Exiting from test";
-}
-TEST_F(ClusterFixture, DISABLED_test1)
-{
-    // Temporary hack
-    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
-    ProcessHandle<Om>          om("Om", "/fds", 1024, 7000);
-    g_fdsprocess = om.proc.get();
-    g_cntrs_mgr = om.proc->get_cntrs_mgr();
-
-    ProcessHandle<AmProcess>   am("Om", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm1("TestDm", "/fds", 1024, 7000);
-    ProcessHandle<TestDm>   dm2("TestDm", "/fds/node1", 2048, 9850);
-    ProcessHandle<TestDm>   dm3("TestDm", "/fds/node2", 4096, 10850);
-
-    fds_volid_t v(10);
-    fpi::VolumeGroupInfo volumeGroup;
-    volumeGroup.groupId = v.get();
-    volumeGroup.version = 0;
-    volumeGroup.functionalReplicas.push_back(dm1.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm2.proc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dm3.proc->getSvcMgr()->getSelfSvcUuid());
-
-    ASSERT_EQ(dm1.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm2.proc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dm3.proc->addVolume(v), ERR_OK);
-    am.proc->attachVolume(volumeGroup);
-    
-    int nPuts =  this->getArg<int>("puts-cnt");
-    for (int i = 0; i < nPuts; i++) {
-        concurrency::TaskStatus s(3);
-        am.proc->putBlob(v,
-                        [&s](const Error& e, StringPtr resp) {
-                        GLOGNOTIFY << "Received response: " << e;
-                        s.done();
-                        });
-        s.await();
-        if (i==10) {
-            dm2.stop();
-        }
-    }
-    sleep(5);
-    GLOGNOTIFY << "Exiting from test";
-}
-
-TEST_F(ClusterFixture, DISABLED_basic)
-{
-    omProc.reset(new Om(argc_, argv_, true));
-    std::thread t1([&] { omProc->main(); });
-    omProc->getReadyWaiter().await();
-
-    // Temporary hack
-    // TODO(Rao): Get rid of this by putting perftraceing under PERF macro
-    g_fdsprocess = omProc.get();
-    g_cntrs_mgr = omProc->get_cntrs_mgr();
-
-    dmProc.reset(new TestDm(argc_, argv_, true));
-    std::thread t2([&] { dmProc->main(); });
-    dmProc->getReadyWaiter().await();
-
-    amProc.reset(new AmProcess(argc_, argv_, true));
-    std::thread t3([&] { amProc->main(); });
-    amProc->getReadyWaiter().await();
-
-    char* args2[] = {"DmProc", "--fds-root=/fds/node1",
-                    "--fds.pm.platform_uuid=2048",
-                    "--fds.pm.platform_port=9850"};
-    dmProc2.reset(new TestDm(4, args2, true));
-    std::thread t4([&] { dmProc2->main(); });
-    dmProc2->getReadyWaiter().await();
-
-    char* args3[] = {"DmProc", "--fds-root=/fds/node2",
-                    "--fds.pm.platform_uuid=4096",
-                    "--fds.pm.platform_port=10850"};
-    dmProc3.reset(new TestDm(4, args3, true));
-    std::thread t5([&] { dmProc3->main(); });
-    dmProc3->getReadyWaiter().await();
-
-    fds_volid_t v(10);
-    fpi::VolumeGroupInfo volumeGroup;
-    volumeGroup.groupId = v.get();
-    volumeGroup.version = 0;
-    volumeGroup.functionalReplicas.push_back(dmProc->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dmProc2->getSvcMgr()->getSelfSvcUuid());
-    volumeGroup.functionalReplicas.push_back(dmProc3->getSvcMgr()->getSelfSvcUuid());
-
-    ASSERT_EQ(dmProc->addVolume(v), ERR_OK);
-    ASSERT_EQ(dmProc2->addVolume(v), ERR_OK);
-    ASSERT_EQ(dmProc3->addVolume(v), ERR_OK);
-    amProc->attachVolume(volumeGroup);
-    
-    int nPuts =  this->getArg<int>("puts-cnt");
-    for (int i = 0; i < nPuts; i++) {
-        concurrency::TaskStatus s(3);
-        amProc->putBlob(v,
-                        [&s](const Error& e, StringPtr resp) {
-                        GLOGNOTIFY << "Received response: " << e;
-                        s.done();
-                        });
-        s.await();
-    }
-    GLOGNOTIFY << "Exiting from test";
-
 }
 #endif
 
