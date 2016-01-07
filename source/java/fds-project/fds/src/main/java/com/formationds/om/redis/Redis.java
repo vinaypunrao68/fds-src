@@ -118,9 +118,6 @@ public class Redis
                                                e );
 
                                   logger.trace( "'[ " + serialized + " ]'" );
-
-                                  System.out.println( "'[ " + serialized + " ]'" );
-                                  e.printStackTrace();
                               }
                           } );
         }
@@ -335,28 +332,11 @@ public class Redis
                                           String.format( "The specified key '%s' encountered a de-serialization failure", key );
 
                                       logger.warn( warning, e );
-                                      System.out.println( "'" + key + "'::'" + serialized + "'" );
-                                      e.printStackTrace();
                                   }
                               }
                           } );
         }
 
         return nodeInfo[ 0 ];
-    }
-
-    public static void main( final String[] args )
-    {
-        final Redis redis = new Redis( "10.2.10.171" );
-
-//        System.out.println( "PMs::" + redis.getPMSvcInfos() );
-//        System.out.println( "NODEs::" + redis.getNodes() );
-//        System.out.println( redis.getPMNodeCapacity() );
-        System.out.println( "VOLUMES::" );
-        for( VolumeDesc desc : redis.listVolumes() )
-        {
-            System.out.println( "" + desc );
-        }
-//          System.out.println( redis.getVolume( 11L ) );
     }
 }

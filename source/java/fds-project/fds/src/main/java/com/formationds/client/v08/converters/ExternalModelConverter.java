@@ -660,34 +660,35 @@ public class ExternalModelConverter {
         NfsOptions.Builder builder = new NfsOptions.Builder( );
         for( final String option : listOfOptions )
         {
-            logger.trace( "NFS Option [ '{}' ]", option );
-            switch( option )
+            final String lowerCaseVersion = option.toLowerCase();
+            logger.trace( "NFS Option [ '{}' ]", lowerCaseVersion );
+            switch( lowerCaseVersion )
             {
                 case "ro":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.ro( );
                     break;
                 case "rw":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.rw( );
                     break;
                 case "acl":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.withAcl( );
                     break;
                 case "async":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.async( );
                     break;
                 case "root_squash":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.withRootSquash( );
                 case "all_squash":
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     builder = builder.allSquash( );
                     break;
                 default:
-                    logger.trace( "NFS Option Builder {}", option );
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
                     break;
             }
         }
