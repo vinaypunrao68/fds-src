@@ -190,6 +190,9 @@ class VolumeInfo : public Resource, public HasState
     inline std::string &vol_get_name() {
         return vol_properties->name;
     }
+    inline fds_volid_t vol_get_id() {
+        return volUUID;
+    }
     inline VolumeDesc *vol_get_properties() {
         return vol_properties;
     }
@@ -313,6 +316,7 @@ class VolumeContainer : public RsContainer
      * Volume functions.
      */
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
+    virtual VolumeInfo::pointer get_volume(const fds_volid_t volId);
     virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspCrtVolPtr           &creat_msg);
     virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,

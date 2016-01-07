@@ -16,7 +16,7 @@
 
 namespace fds {
 
-ExpungeDB::ExpungeDB() : db(dmutil::getExpungeDBPath()){
+ExpungeDB::ExpungeDB(const FdsRootDir* root) : db(dmutil::getExpungeDBPath(root)){
 }
 
 uint32_t ExpungeDB::increment(fds_volid_t volId, const ObjectID &objId) {
@@ -72,7 +72,7 @@ ExpungeManager::ExpungeManager(DataMgr* dm) : dm(dm) {
         efp, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     dm->timeVolCat_->queryIface()->registerExpungeObjectsCb(func);
-    expungeDB.reset(new ExpungeDB());
+    expungeDB.reset(new ExpungeDB(dm->getModuleProvider()->proc_fdsroot()));
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(dm->lowPriorityTasks));
 }
@@ -115,7 +115,7 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
     fds::assign(expReq->objId, objId);
 
     // Make RPC call
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
+    DLTManagerPtr dltMgr = dm->getModuleProvider()->getSvcMgr()->getDltManager();
     // get DLT and increment refcount so that DM will respond to
     // DLT commit of the next DMT only after all deletes with this DLT complete
     const DLT* dlt = dltMgr->getAndLockCurrentVersion();
@@ -170,7 +170,7 @@ void ExpungeManager::onDeleteResponse(fds_uint64_t dltVersion,
                 << " err:" << error;
     }
 
-    DLTManagerPtr dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
+    DLTManagerPtr dltMgr = dm->getModuleProvider()->getSvcMgr()->getDltManager();
     dltMgr->releaseVersion(dltVersion);
     taskStatus->done();
 }

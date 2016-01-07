@@ -400,7 +400,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
 // ------------------------------------------------------------------------------------
 OM_DMTMod::OM_DMTMod(char const *const name)
     : Module(name),
-      volume_grp_mode(false)
+      volume_grp_mode(false),
+      waitingDMs(0)
 {
     dmt_dply_fsm = new FSM_DplyDMT();
 }
@@ -415,7 +416,7 @@ OM_DMTMod::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
     volume_grp_mode = bool(MODULEPROVIDER()->get_fds_config()->
-                        get<bool>("fds.feature_toggle.common.enable_volumegrouping"));
+                        get<bool>("fds.feature_toggle.common.enable_volumegrouping", false));
 
     return 0;
 }

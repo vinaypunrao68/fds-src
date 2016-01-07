@@ -129,7 +129,7 @@ Error JournalManager::getJournalStartTime(const std::string &logfile,
  * The timeline directory will hold all journal files for all volumes.
  */
 void JournalManager::monitorLogs() {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
     const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
     FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());

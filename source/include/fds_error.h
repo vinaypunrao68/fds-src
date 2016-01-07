@@ -89,6 +89,10 @@ namespace fds {
     ADD(ERR_DM_INTERRUPTED,=69,"Process interrupted"), \
     ADD(ERR_INVALID_VOLUME_VERSION,= 70,"Invalid volume version"), \
     ADD(ERR_VOLUMEGROUP_DOWN,= 71,"Volume group is down"), \
+    ADD(ERR_QUICKSYNC_NOT_POSSIBLE,= 72,"Quick sync is not possible"), \
+    ADD(ERR_WRITE_OP_BUFFERED,= 73,"Write operation buffered"), \
+    ADD(ERR_UNAVAILABLE, = 74, "Resource is unavialable"),\
+    ADD(ERR_ABORTED, = 75, "Service/module aborted"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
@@ -356,6 +360,8 @@ struct Exception : std::exception {
     Error err;
     std::string message;
 };
+
+using StatusCb = std::function<void(const Error&)>;
 
 }  // namespace fds
 

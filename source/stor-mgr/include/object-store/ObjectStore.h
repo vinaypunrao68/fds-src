@@ -324,7 +324,7 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
-    bool haveAllObjectSets() const;
+    bool haveAllObjectSets(util::TimeStamp after = 0) const;
 
     void evaluateObjectSets(const fds_token_id& smToken,
                             const diskio::DataTier& tier,

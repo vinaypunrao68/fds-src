@@ -1187,6 +1187,13 @@ VolumeContainer::get_volume(const std::string& vol_name)
     return VolumeInfo::vol_cast_ptr(rs_get_resource(vol_name.c_str()));
 }
 
+VolumeInfo::pointer
+VolumeContainer::get_volume(const fds_volid_t id)
+{
+    ResourceUUID uuid(id.v);
+    return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+}
+
 //
 // Called by DMT state machine when rebalance is finished, can
 // assume that rebalance is off for all volumes. Will call

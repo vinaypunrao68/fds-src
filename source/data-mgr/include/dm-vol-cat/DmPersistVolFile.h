@@ -27,9 +27,10 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
     static const fds_uint32_t MMAP_CACHE_SIZE;
 
     // ctor & dtor
-    DmPersistVolFile(fds_volid_t volId, fds_uint32_t objSize,
-                   fds_bool_t snapshot, fds_bool_t readOnly,
-                   fds_volid_t srcVolId = invalid_vol_id);
+    DmPersistVolFile(CommonModuleProviderIf *modProvider,
+                     fds_volid_t volId, fds_uint32_t objSize,
+                     fds_bool_t snapshot, fds_bool_t readOnly,
+                     fds_volid_t srcVolId = invalid_vol_id);
     virtual ~DmPersistVolFile();
 
     // methods
@@ -92,9 +93,6 @@ class DmPersistVolFile : public HasLogger, public DmPersistVolCat {
     boost::shared_ptr<BlobMetaDesc> blobMeta_;  // cached copy
     boost::shared_ptr<serialize::Serializer> s_;
     boost::shared_ptr<serialize::Deserializer> d_;
-
-    // as the configuration will not be refreshed frequently, we can read it without lock
-    FdsConfigAccessor configHelper_;
 
     fds_mutex cacheLock_;
     fds_mutex metaLock_;

@@ -807,12 +807,20 @@ service ConfigurationService {
   /**
    * @param nodeUuid the UUID for the node to retrieve
    * @return the disk capacity for the specified node
+   *
+   * NOTE:
+   *    if using "old" partitioning scheme capacity is MB
+   *    if using "new" partitioning scheme capacity is GB
    */
   i64 getDiskCapacityNode(1: svc_types.SvcUuid nodeUuid)
     throws (1: common.ApiException e);
 
   /**
    * @return the total disk capacity of all nodes currently in the system
+   *
+   * NOTE:
+   *    if using "old" partitioning scheme capacity is MB
+   *    if using "new" partitioning scheme capacity is GB
    */
   i64 getDiskCapacityTotal() throws (1: common.ApiException e);
 

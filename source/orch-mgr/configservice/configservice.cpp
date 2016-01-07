@@ -1170,12 +1170,12 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
          * We just don't want to add it to the scheduler.
          *
          * P. Tinius 12/23/2015 changed:
-         *  if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
+         *  if (om->enableTimeline && configDB->createSnapshotPolicy(*policy)) {
          */
         if ( configDB->createSnapshotPolicy( *policy ) )
         {
-            LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule;
-            if ( om->enableSnapshotSchedule )
+            LOGDEBUG << "Snapshot Schedule is " << om->enableTimeline;
+            if ( om->enableTimeline )
             {
                 om->snapshotMgr->addPolicy( *policy );
             }
@@ -1191,10 +1191,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        LOGDEBUG << "Snapshot Schedule is " << om->enableSnapshotSchedule ? "enabled" : "disabled";
+        LOGDEBUG << "Snapshot Schedule is " << om->enableTimeline ? "enabled" : "disabled";
         /*
          * P. Tinius 12/23/2015 changed:
-         *  if (om->enableSnapshotSchedule) {
+         *  if (om->enableTimeline) {
          *
          *  ADDED: log message below.
          */
@@ -1349,6 +1349,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void restoreClone(boost::shared_ptr<int64_t>& volumeId,
                          boost::shared_ptr<int64_t>& snapshotId) {
+        apiException("restore clone - functionality NOT IMPLEMENTED");
     }
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
@@ -1360,6 +1361,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
         VolumeInfo::pointer  parentVol, vol;
+        if (!om->enableTimeline) {
+            apiException("attempting to clone volume but feature disabled");
+        }
 
         vol = volContainer->get_volume(*clonedVolumeName);
         if (vol != NULL) {
@@ -1435,6 +1439,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                         boost::shared_ptr<int64_t>& retentionTime,
                         boost::shared_ptr<int64_t>& timelineTime) {
                     // create the structure
+        if (!om->enableTimeline) {
+            apiException("attempting to create snapshot but feature disabled");
+        }
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
@@ -1460,10 +1467,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGWARN << "snapshot add failed : " << err;
             apiException(err.GetErrstr());
         }
-        // add this snapshot to the retention manager ...
-        if (om->enableSnapshotSchedule) {
-            om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
-        }
+        om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
     }
 
     void deleteSnapshot(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
@@ -1471,6 +1475,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         fpi::Snapshot snapshot;
+        if (!om->enableTimeline) {
+            apiException("attempting to delete snapshot but feature disabled");
+        }
 
         snapshot.volumeId = *volumeId;
         snapshot.snapshotId = *snapshotId;

@@ -39,7 +39,7 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     }
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -74,7 +74,7 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
-            (typedRequest->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion())) {
+            (typedRequest->dmt_version != dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion())) {
             helper.err = ERR_IO_DMT_MISMATCH;
         }
     } else {

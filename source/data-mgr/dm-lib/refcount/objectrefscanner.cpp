@@ -3,8 +3,8 @@
  */
 #include <sstream>
 #include <lib/Catalog.h>
-#include <refcount/objectrefscanner.h>
 #include <DataMgr.h>
+#include <refcount/objectrefscanner.h>
 #include <counters.h>
 #include <boost/filesystem.hpp>
 
@@ -318,7 +318,12 @@ VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_
     logStr = ss.str();
 
     scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, vId)));
-    // TODO(Rao): Add snapshots as well
+    // adding snapshots
+    std::vector<fds_volid_t> vecSnapIds;
+    Error err = m->getDataMgr()->timelineMgr->getSnapshotsForVolume(vId, vecSnapIds);
+    for (const auto& snapId : vecSnapIds) {
+        scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, snapId)));
+    }
     itr = scanners.begin();
     state = SCANNING;
 }
@@ -345,10 +350,17 @@ Error VolumeRefScannerContext::scanStep() {
 Error VolumeRefScannerContext::finishScan(const Error &e) {
     state = COMPLETE;
     completionError = e;
+    std::string errString;
+    if (!e.ok()) {
+        std::ostringstream oss;
+        oss<< " completion error:" << e;
+        errString = oss.str();
+    }
+    GLOGNOTIFY << "Finished scanning [volume:" << volId << "]"
+               << " [snapshots:" << (scanners.size() - 1) << "]"
+               << " [aggr objects scanned:" << objRefMgr->objectsScannedCntr << "]"
+               << errString;
 
-    GLOGNOTIFY << "Finished scanning volume: " << volId
-               << " completion error: " << completionError
-               << " aggr objects scanned: " << objRefMgr->objectsScannedCntr;
 
     if (e != ERR_OK) {
         /* Scan completed with an error.  Nothing more to do */
@@ -424,8 +436,13 @@ Error VolumeObjectRefScanner::scanStep() {
      * memory usage
      */
     auto bfStore = objRefMgr->getBloomFiltersStore();
+    auto bfVolId = volId;
+    auto volDesc = objRefMgr->getDataMgr()->getVolumeDesc(volId);
+    if (volDesc->isSnapshot()) {
+        bfVolId = volDesc->srcVolumeId;
+    }
     for (const auto &kv : tokenObjects) {
-        auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(volId, kv.first));
+        auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(bfVolId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
             bloomfilter->add(oid);

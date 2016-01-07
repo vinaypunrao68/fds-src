@@ -689,7 +689,7 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */
-  3: map<string, i64>      blobFilterMap;
+  3: map<string, i64>   blobFilterMap;
 }
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }
