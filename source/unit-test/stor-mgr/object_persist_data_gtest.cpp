@@ -424,7 +424,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
          ++cit) {
         diskio::DataTier tier = diskio::diskTier;
         DiskId diskId = smDiskMap->getDiskId(*cit, tier);
-        persistData->notifyStartGc(*cit, tier);
+        persistData->notifyStartGc(diskId, *cit, tier);
     }
 
     // at this point new files are empty
@@ -446,7 +446,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        persistData->notifyEndGc(*cit, diskio::diskTier);
+        persistData->notifyEndGc(diskId, *cit, diskio::diskTier);
     }
 
     // read dataset back from the new location and validate

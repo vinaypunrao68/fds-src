@@ -9,8 +9,15 @@
 namespace fds {
 
 const fds_uint8_t ObjLocationTablePoison = 0xff;
+/**
+ * Below consts are tightly coupled to tier enum
+ * Any changes to one should be made to other as well.
+ * TODO(Gurpreet): Cleanup. Remove fds_hdd_* consts
+ * from the code and use tier enum instead.
+ */
 const fds_uint16_t fds_hdd_row = 0;
 const fds_uint16_t fds_ssd_row = 1;
+const DiskId DEFAULT_DISKIDX = 0;
 
 ObjectLocationTable::ObjectLocationTable() {
     memset(this, ObjLocationTablePoison, sizeof(*this));
@@ -24,9 +31,38 @@ ObjectLocationTable::setDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        table[fds_hdd_row][smToken] = diskId;
+        table[fds_hdd_row][smToken][DEFAULT_DISKIDX] = diskId;
     } else if (tier == diskio::flashTier) {
-        table[fds_ssd_row][smToken] = diskId;
+        table[fds_ssd_row][smToken][DEFAULT_DISKIDX] = diskId;
+    } else {
+        fds_panic("Unknown tier set to object location table\n");
+    }
+}
+
+void
+ObjectLocationTable::addDiskId(fds_token_id smToken,
+                               diskio::DataTier tier,
+                               fds_uint16_t diskId) {
+    fds_verify(smToken < SMTOKEN_COUNT);
+    auto idx = DEFAULT_DISKIDX;
+    while (table[tier][smToken][idx] != SM_INVALID_DISK_ID &&
+           idx < MAX_HOST_DISKS) {
+        idx++;
+    }
+    if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Failed to add new disk: " << diskId
+                 << " for token: " << smToken
+                 << " in tier: " << tier
+                 << ".Reached disk fanout quota for SM Token.";
+        //TODO(Gurpreet): Gracefully handle the error here.
+        return;
+    }
+    // here we are explicit with translation of tier to row number
+    // if tier enum changes ....
+    if (tier == diskio::diskTier) {
+        table[fds_hdd_row][smToken][idx] = diskId;
+    } else if (tier == diskio::flashTier) {
+        table[fds_ssd_row][smToken][idx] = diskId;
     } else {
         fds_panic("Unknown tier set to object location table\n");
     }
@@ -39,12 +75,32 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        return table[fds_hdd_row][smToken];
+        return table[fds_hdd_row][smToken][DEFAULT_DISKIDX];
     } else if (tier == diskio::flashTier) {
-        return table[fds_ssd_row][smToken];
+        return table[fds_ssd_row][smToken][DEFAULT_DISKIDX];
     }
     fds_panic("Unknown tier request from object location table\n");
     return 0;
+}
+
+std::set<DiskId>
+ObjectLocationTable::getDiskIds(fds_token_id smToken,
+                                diskio::DataTier tier) const {
+    std::set<DiskId> disks;
+    if (tier == diskio::diskTier) {
+        auto idx = DEFAULT_DISKIDX;
+        while (table[fds_hdd_row][smToken][idx] != SM_INVALID_DISK_ID &&
+               idx < MAX_HOST_DISKS) {
+            disks.insert(table[fds_hdd_row][smToken][idx]);
+        }
+    } else if (tier == diskio::flashTier) {
+        auto idx = DEFAULT_DISKIDX;
+        while (table[fds_ssd_row][smToken][idx] != SM_INVALID_DISK_ID &&
+               idx < MAX_HOST_DISKS) {
+            disks.insert(table[fds_ssd_row][smToken][idx]);
+        }
+    }
+    return disks;
 }
 
 fds_bool_t
@@ -58,8 +114,10 @@ ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     fds_verify(diskId != SM_INVALID_DISK_ID);
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; ++i) {
         for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
-            if (table[i][tokId] == diskId) {
-                tokens.insert(tokId);
+            for (DiskId idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; idx++) {
+                if (table[i][tokId][idx] == diskId) {
+                    tokens.insert(tokId);
+                }
             }
         }
     }
@@ -70,6 +128,7 @@ Error
 ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
                               diskio::DataTier tier) const {
     Error err(ERR_OK);
+    /*
     // build set of disks IDs that are currently in OLT for a given tier
     // and check if OLT contains disks that are not in diskIdSet
     std::set<fds_uint16_t> oltDisks;
@@ -96,6 +155,7 @@ ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
             return ERR_SM_OLT_DISKS_INCONSISTENT;
         }
     }
+    */
     return err;
 }
 
@@ -130,8 +190,10 @@ ObjectLocationTable::getDiskSet(diskio::DataTier tier)
     }
 
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        if (SM_INVALID_DISK_ID != table[rowOffset][tok]) {
-            diskSet.insert(table[rowOffset][tok]);
+        for (DiskId idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; idx++) {
+            if (SM_INVALID_DISK_ID != table[rowOffset][tok][idx]) {
+                diskSet.insert(table[rowOffset][tok][idx]);
+            }
         }
     }
 
@@ -260,7 +322,7 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
     fds_verify(baseStorage.size() > 0);
     // should be called only if the topology has changed.
     if (!(addedStorage.size() > 0 || removedStorage.size() > 0)) {
-        LOGDEBUG << "Disk topology unchanged. Ignoring recompute request."
+        LOGDEBUG << "Disk topology unchanged. Ignoring recompute request.";
         err = ERR_OK;
         return true;
     }

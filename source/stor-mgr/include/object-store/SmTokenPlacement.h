@@ -37,8 +37,17 @@ struct __attribute__((__packed__)) ObjectLocationTable {
     void setDiskId(fds_token_id smToken,
                    diskio::DataTier tier,
                    fds_uint16_t diskId);
+    /**
+     * Add disk to existing list of disks where
+     * data is stored for this sm token.
+     */
+    void addDiskId(fds_token_id smToken,
+                   diskio::DataTier tier,
+                   fds_uint16_t diskId);
     fds_uint16_t getDiskId(fds_token_id smToken,
                            diskio::DataTier tier) const;
+    std::set<DiskId> getDiskIds(fds_token_id smToken,
+                                diskio::DataTier tier) const;
     static fds_bool_t isDiskIdValid(fds_uint16_t diskId);
 
     /* Get disk topology information from a specified tier.
@@ -67,7 +76,7 @@ struct __attribute__((__packed__)) ObjectLocationTable {
     fds_bool_t operator ==(const ObjectLocationTable& rhs) const;
 
     /// POD data
-    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
+    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT][MAX_HOST_DISKS];
 } __attribute__((aligned(OBJ_LOCATION_TABLE_SECTOR_SIZE)));
 
 static_assert((sizeof(struct ObjectLocationTable) %  OBJ_LOCATION_TABLE_SECTOR_SIZE) == 0,

@@ -81,6 +81,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
                            diskio::DataTier tier) const;
     fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier) const;
+    DiskIdSet getDiskIds(fds_token_id smTokId,
+                         diskio::DataTier tier) const;
 
     /**
      * Get the root path to disk for a given SM token and tier

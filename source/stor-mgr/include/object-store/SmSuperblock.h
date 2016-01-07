@@ -321,13 +321,16 @@ class SmSuperblockMgr {
     fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier);
 
+    DiskIdSet getDiskIds(fds_token_id smTokId,
+                         diskio::DataTier tier);
     /**
      * Returns a set of SM tokens that this SM currently owns
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens();
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
-    fds_uint16_t getWriteFileId(fds_token_id smToken,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier);
     fds_bool_t compactionInProgress(fds_token_id smToken,
                                     diskio::DataTier tier);

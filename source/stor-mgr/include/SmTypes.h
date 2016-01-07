@@ -13,7 +13,7 @@ namespace fds {
 #define SMTOKEN_MASK  0xff
 #define SMTOKEN_COUNT 256u
 #define SM_TIER_COUNT  2
-
+#define MAX_HOST_DISKS 8 // Number of disks on which a SM token's data can be distributed.
 // file ID types
 #define SM_INVALID_FILE_ID         0u
 /**

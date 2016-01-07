@@ -62,20 +62,23 @@ class SmPersistStoreHandler {
      * disk will be compacted. All new writes will be re-routed to the
      * appropriate (new) token file.
      */
-    virtual void notifyStartGc(fds_token_id smTokId,
+    virtual void notifyStartGc(DiskId diskId,
+                               fds_token_id smTokId,
                                diskio::DataTier tier) = 0;
 
     /**
      * Notify about end of garbage collection for a given token id
      * 'tok_id' and tier.
      */
-    virtual Error notifyEndGc(fds_token_id smTokId,
+    virtual Error notifyEndGc(DiskId diskId,
+                              fds_token_id smTokId,
                               diskio::DataTier tier) = 0;
 
     /**
      * Returns true if a given location is a shadow file
      */
-    virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    virtual fds_bool_t isShadowLocation(DiskId diskId,
+                                        obj_phy_loc_t* loc,
                                         fds_token_id smTokId) = 0;
 
     virtual void evaluateSMTokenObjSets(const fds_token_id &smToken,
@@ -188,11 +191,14 @@ class ObjectPersistData : public Module,
                            const obj_phy_loc_t* loc);
 
      // Implementation of SmScavengerHandler
-    void notifyStartGc(fds_token_id smTokId,
+    void notifyStartGc(DiskId diskId,
+                       fds_token_id smTokId,
                        diskio::DataTier tier);
-    Error notifyEndGc(fds_token_id smTokId,
+    Error notifyEndGc(DiskId diskId,
+                      fds_token_id smTokId,
                       diskio::DataTier tier);
-    fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    fds_bool_t isShadowLocation(DiskId diskId,
+                                obj_phy_loc_t* loc,
                                 fds_token_id smTokId);
     void getSmTokenStats(DiskId diskId,
                          fds_token_id smTokId,
@@ -225,7 +231,8 @@ class ObjectPersistData : public Module,
      * and removes associated entry from tokFileTbl
      * @param delFile true if file should be deleted
      */
-    void closeTokenFile(diskio::DataTier tier,
+    void closeTokenFile(DiskId diskId,
+                        diskio::DataTier tier,
                         fds_token_id smTokId,
                         fds_uint16_t fileId,
                         fds_bool_t delFile);

@@ -1,0 +1,20 @@
+Formation Data Systems: Formation Dynamic Storage: ?
+Build Version: <2015.10.09-4865377>	Build Mode: <Diagnostic>	Build Date: <Oct 17 2015 11:26:05>
+Linux 3.13.0-32-generic #57-Ubuntu SMP Tue Jul 15 03:51:08 UTC 2014 GNU/Linux
+
+[17.10.2015 12:46:43.012037] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Statement execution failed. Error code: 1 table testTbl has no column named filename
+[17.10.2015 12:46:43.016135] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Statement execution failed. Error code: 1 table testTbl has no column named filename
+[17.10.2015 12:46:43.019874] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Statement execution failed. Error code: 1 table testTbl has no column named filename
+[17.10.2015 12:46:43.020948] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Statement execution failed. Error code: 1 table testTbl has no column named filename
+[17.10.2015 12:46:43.021884] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Statement execution failed. Error code: 1 table testTbl has no column named filename
+[17.10.2015 12:46:43.022597] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Unable to prepare statement Error code: 1 no such column: filename
+[17.10.2015 12:46:43.022629] [error] [0x00007fb09fff9780] - [sqliteDB.cpp:50:getIntValue] - Unknown error code: 21 no such column: filename
+[17.10.2015 12:46:43.023142] [normal] [0x00007fb09d4d5700] - [fds_timer.cpp:105:runTimerThread_] - FdsTimer::  Timer thread started...
+[17.10.2015 12:46:43.024060] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Unable to prepare statement Error code: 1 no such column: filename
+[17.10.2015 12:46:43.024090] [error] [0x00007fb09fff9780] - [sqliteDB.cpp:50:getIntValue] - Unknown error code: 21 no such column: filename
+[17.10.2015 12:46:43.025487] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Unable to prepare statement Error code: 1 no such column: filename
+[17.10.2015 12:46:43.025519] [error] [0x00007fb09fff9780] - [sqliteDB.cpp:50:getIntValue] - Unknown error code: 21 no such column: filename
+[17.10.2015 12:46:43.026144] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Unable to prepare statement Error code: 1 no such column: filename
+[17.10.2015 12:46:43.026174] [error] [0x00007fb09fff9780] - [sqliteDB.cpp:50:getIntValue] - Unknown error code: 21 no such column: filename
+[17.10.2015 12:46:43.027596] [error] [0x00007fb09fff9780] - [../../include/util/sqliteDB.h:30:checkAndLog] - Unable to prepare statement Error code: 1 no such column: filename
+[17.10.2015 12:46:43.027627] [error] [0x00007fb09fff9780] - [sqliteDB.cpp:77:getTextValues] - Unknown error code: 21 no such column: filename

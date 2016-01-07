@@ -423,6 +423,12 @@ SmDiskMap::getDiskId(fds_token_id smTokId,
     return superblock->getDiskId(smTokId, tier);
 }
 
+DiskIdSet
+SmDiskMap::getDiskIds(fds_token_id smTokId,
+                     diskio::DataTier tier) const {
+    return superblock->getDiskIds(smTokId, tier);
+}
+
 std::string
 SmDiskMap::getDiskPath(fds_token_id smTokId,
                        diskio::DataTier tier) const {

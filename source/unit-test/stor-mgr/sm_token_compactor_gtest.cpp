@@ -208,7 +208,8 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
     }
 
     //  Notify about end of garbage collection for a given token id
-    virtual Error notifyEndGc(fds_token_id smTokId,
+    virtual Error notifyEndGc(DiskId diskId,
+                              fds_token_id smTokId,
                               diskio::DataTier tier) {
         GLOGNORMAL << "Will finish GC for SM token " << smTokId
                    << " tier " << tier;
@@ -216,7 +217,8 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
     }
 
      // Returns true if a given location is a shadow file
-    virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    virtual fds_bool_t isShadowLocation(DiskId diskId,
+                                        obj_phy_loc_t* loc,
                                         fds_token_id smTokId) {
         return (loc->obj_file_id == shadowFileId);
     }

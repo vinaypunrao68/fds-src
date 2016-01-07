@@ -621,21 +621,10 @@ DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
 
     // aggregate token stats for total deleted bytes
     SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
-    fds_uint64_t totDeletedBytes = 0;
-    for (SmTokenSet::const_iterator cit = diskToks.cbegin();
-         cit != diskToks.cend();
-         ++cit) {
-        diskio::TokenStat stat;
-        persistStoreGcHandler->getSmTokenStats(disk_id, *cit, tier, &stat);
-        totDeletedBytes += stat.tkn_reclaim_size;
-        LOGDEBUG << "Disk id " << disk_id << " SM token " << *cit
-                 << " reclaim bytes " << stat.tkn_reclaim_size;
-    }
 
     fds_verify(retStat);
     (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_frsize;
     (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
-    (*retStat).dsk_reclaim_size = totDeletedBytes;
     return err;
 }
 
@@ -660,7 +649,7 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
     LOGDEBUG << "Tier " << tier << " disk " << disk_id
              << " total " << disk_stat.dsk_tot_size
              << ", avail " << disk_stat.dsk_avail_size << " ("
-             << avail_percent << "%), reclaim " << disk_stat.dsk_reclaim_size;
+             << avail_percent << "%).";
 
     // Decide if we want to GC this disk and which tokens
     if (avail_percent < scav_policy.dsk_avail_threshold_1) {
@@ -747,7 +736,6 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
              * Evaluate all bloom filters for this particular SM token.
              * and calculate SM token threshold.
              */
-
             bool fHasNewObjects = true;
             if (storMgr) {
                 fHasNewObjects = storMgr->objectStore->liveObjectsTable->hasNewObjectSets(*cit, disk_id);

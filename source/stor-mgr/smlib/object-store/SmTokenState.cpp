@@ -9,6 +9,7 @@ namespace fds {
 
 const fds_uint16_t fds_hdd_row = 0;
 const fds_uint16_t fds_ssd_row = 1;
+const fds_uint16_t DEFAULT_DISKIDX = 0;
 
 ////// TokenDescTable class implementation ///////
 TokenDescTable::TokenDescTable() {
@@ -16,16 +17,17 @@ TokenDescTable::TokenDescTable() {
 }
 
 fds_bool_t
-TokenDescTable::initializeSmTokens(const SmTokenSet& smToksValid) {
+TokenDescTable::initializeSmTokens(const SmTokenLoc& tokens) {
     fds_bool_t initAtLeastOneToken = false;
     // token id is also a column index into stateTbl
-    for (SmTokenSet::const_iterator cit = smToksValid.cbegin();
-         cit != smToksValid.cend();
+    for (SmTokenSet::const_iterator cit = tokens.cbegin();
+         cit != tokens.cend();
          ++cit) {
-        if (!stateTbl[fds_hdd_row][*cit].isValid()) {
-            SmTokenDesc td(SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
-            stateTbl[fds_hdd_row][*cit] = td;
-            stateTbl[fds_ssd_row][*cit] = td;
+        if (!stateTbl[fds_hdd_row][cit->id][DEFAULT_DISKIDX].isValid()) {
+            SmTokenDesc hd(cit->hdd, SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
+            stateTbl[fds_hdd_row][cit->id][DEFAULT_DISKIDX] = hd;
+            SmTokenDesc sd(cit->ssd, SM_INIT_FILE_ID, SMTOKEN_FLAG_VALID);
+            stateTbl[fds_ssd_row][cit->id][DEFAULT_DISKIDX] = sd;
             initAtLeastOneToken = true;
         }
     }
@@ -39,10 +41,12 @@ TokenDescTable::invalidateSmTokens(const SmTokenSet& smToksInvalid) {
     for (SmTokenSet::const_iterator cit = smToksInvalid.cbegin();
          cit != smToksInvalid.cend();
          ++cit) {
-        if (stateTbl[fds_hdd_row][*cit].isValid()) {
-            stateTbl[fds_hdd_row][*cit].setInvalid();
-            stateTbl[fds_ssd_row][*cit].setInvalid();
-            tokens.insert(*cit);
+        for (auto idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; ++idx) {
+            if (stateTbl[fds_hdd_row][*cit][idx].isValid()) {
+                stateTbl[fds_hdd_row][*cit][idx].setInvalid();
+                stateTbl[fds_ssd_row][*cit][idx].setInvalid();
+                tokens.insert(*cit);
+            }
         }
     }
     return tokens;
@@ -84,10 +88,16 @@ TokenDescTable::row(diskio::DataTier tier) const {
 }
 
 fds_uint16_t
-TokenDescTable::getWriteFileId(fds_token_id smToken,
-                              diskio::DataTier tier) const {
+TokenDescTable::getWriteFileId(DiskId diskId,
+                               fds_token_id smToken,
+                               diskio::DataTier tier) const {
     fds_verify(smToken < SMTOKEN_COUNT);
-    return stateTbl[row(tier)][smToken].writeFileId;
+    auto idx = getIdx(diskId, smToken, tier);
+    if (idx >= MAX_HOST_DISKS) {
+        return SM_INVALID_FILE_ID;
+    } else {
+        return stateTbl[row(tier)][smToken][idx].writeFileId;
+    }
 }
 
 void
@@ -116,8 +126,23 @@ TokenDescTable::isCompactionInProgress(fds_token_id smToken,
 
 fds_bool_t
 TokenDescTable::isValidOnAnyTier(fds_token_id smToken) const {
-    return (stateTbl[row(diskio::diskTier)][smToken].isValid() ||
-            stateTbl[row(diskio::flashTier)][smToken].isValid());
+    return (stateTbl[row(diskio::diskTier)][smToken][DEFAULT_DISKIDX].isValid() ||
+            stateTbl[row(diskio::flashTier)][smToken][DEFAULT_DISKIDX].isValid());
+}
+
+fds_uint16_t
+TokenDescTable::getIdx(DiskId diskId,
+                       fds_token_id smToken,
+                       diskio::DataTier tier) {
+    if (diskID == SM_INVALID_DISK_ID) {
+        return MAX_HOST_DISKS;
+    }
+    for (auto idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; ++idx) {
+        if (stateTbl[tier][smToken][idx] == diskId) {
+            return idx;
+        }
+    }
+    return MAX_HOST_DISKS;
 }
 
 SmTokenSet

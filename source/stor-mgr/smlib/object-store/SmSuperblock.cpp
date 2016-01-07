@@ -422,11 +422,14 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         if (!err.ok()) {
             // if error, more logging for debugging
             for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId){
-                LOGNOTIFY << "SM token " << tokId << " must be valid? " << (smTokensOwned.count(tokId) > 0)
-                          << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
+                LOGNOTIFY << "SM token " << tokId
+                          << " must be valid? " << (smTokensOwned.count(tokId) > 0)
+                          << "; valid in superblock? "
+                          << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
             }
         }
-        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) && (dltVersion != superblockMaster.DLTVersion)) {
+        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) &&
+            (dltVersion != superblockMaster.DLTVersion)) {
             // make sure we save DLT version in superblock
             setDLTVersionLockHeld(dltVersion, true);
         }
@@ -437,8 +440,16 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         // we either already handled the update or error happened
         return err;
     }
-
-    fds_bool_t initAtLeastOne = superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
+    std::set<SmTokenLoc> tokenLocations;
+    for (auto smToken : smTokensOwned) {
+        SmTokenLoc tokenLoc;
+        tokenLoc.id = smToken;
+        tokenLoc.hdd = superblockMaster.olt.getDiskId(smTokId, diskio::diskTier);
+        tokenLoc.ssd = superblockMaster.olt.getDiskId(smTokId, diskio::flashTier);
+        tokenLocations.insert(tokenLoc);
+    }
+    fds_bool_t initAtLeastOne =
+                superblockMaster.tokTbl.initializeSmTokens(tokenLocations);
     superblockMaster.DLTVersion = dltVersion;
 
     // sync superblock
@@ -1112,11 +1123,19 @@ SmSuperblockMgr::getDiskId(fds_token_id smTokId,
     return superblockMaster.olt.getDiskId(smTokId, tier);
 }
 
+DiskIdSet
+SmSuperblockMgr::getDiskIds(fds_token_id smTokId,
+                            diskio::DataTier tier) {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.olt.getDiskIds(smTokId, tier);
+}
+
 fds_uint16_t
-SmSuperblockMgr::getWriteFileId(fds_token_id smToken,
+SmSuperblockMgr::getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
-    return superblockMaster.tokTbl.getWriteFileId(smToken, tier);
+    return superblockMaster.tokTbl.getWriteFileId(diskId, smToken, tier);
 }
 
 fds_bool_t
