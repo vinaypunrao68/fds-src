@@ -30,7 +30,7 @@
 #include "platform/node_agent.h"
 #include <net/SvcMgr.h>
 #include <net/net_utils.h>
-
+#include <counters.h>
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
 #define DEFAULT_GLB_DOMAIN_ID   (1)
@@ -145,7 +145,8 @@ class OrchMgr: public SvcProcess {
     std::unique_ptr<OMMonitorWellKnownPMs> omMonitor;
     DeleteScheduler deleteScheduler;
     fds_bool_t      enableTimeline;
-    boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
+    SHPTR<fds::snapshot::Manager> snapshotMgr;
+    SHPTR<fds::om::Counters> counters;
 };
 
 std::thread* runConfigService(OrchMgr* om);

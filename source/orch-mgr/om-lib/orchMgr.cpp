@@ -50,6 +50,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
 
     enableTimeline = MODULEPROVIDER()->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);
+    counters.reset(new fds::om::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
+
     if (enableTimeline) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
