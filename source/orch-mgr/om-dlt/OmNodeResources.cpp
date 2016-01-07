@@ -1028,9 +1028,12 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeSmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
+                // This path gets called from an unexpected exit message from the PM
+                // In this case, we want to allow for the service to be restarted
+                // in case of a PM re-registration
                 change_service_state( configDB,
                                       ( activeSmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeSmAgent = nullptr;
             }
@@ -1050,7 +1053,7 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 change_service_state( configDB,
                                       ( activeDmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeDmAgent = nullptr;
             }
@@ -1070,7 +1073,7 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 change_service_state( configDB,
                                       ( activeAmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeAmAgent = nullptr;
             }
@@ -1517,6 +1520,7 @@ OM_PmAgent::send_start_service
             if (foundSvc) {
                 // Only if this is already in the map do we change state. Otherwise
                 // it can lead to some weird behavior
+                LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
                 configDB->changeStateSvcMap(svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
             } else {
                 LOGERROR <<"StartError: could not retrieve valid svcId";
