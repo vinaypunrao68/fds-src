@@ -30,7 +30,6 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDMMigrateMeta, StartDMMetaMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
-    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyDiskMapChange, diskMapChange);
 }
 
 // notifySvcChange
@@ -459,9 +458,4 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
 }
 
-    void DMSvcHandler::diskMapChange(boost::shared_ptr<fpi::AsyncHdr>& hdr,
-            boost::shared_ptr<fpi::NotifyDiskMapChange>& diskMapChange)
-    {
-        LOGDEBUG << "Received a disk-map change notification";
-    }
 }  // namespace fds
