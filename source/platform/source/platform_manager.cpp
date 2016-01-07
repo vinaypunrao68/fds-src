@@ -1465,7 +1465,7 @@ namespace fds
                 {
                     if (smUuid.svc_uuid == 0 && vectItem.svc_type == fpi::FDSP_STOR_MGR)
                     {
-                        LOGDEBUG << "Found local SM service " << smUuid.svc_uuid;
+                        LOGDEBUG << "Found local SM service " << svcUuid.svc_uuid;
                         smUuid = svcUuid;
                         break;
                     }
