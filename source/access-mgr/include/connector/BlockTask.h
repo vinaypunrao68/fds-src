@@ -39,16 +39,10 @@ struct BlockTask {
         WRITE = 2
     };
 
-    explicit BlockTask(uint64_t hdl) :
-        handle(hdl),
-        cmd_expire_time(std::chrono::system_clock::now() + std::chrono::seconds(600))
-    {
-        bufVec.reserve(objCount);
-        offVec.reserve(objCount);
-    }
+    explicit BlockTask(uint64_t const hdl);
+    virtual ~BlockTask() = default;
 
-    ~BlockTask() {}
-
+    bool wasAborted() { return aborted; }
     void abort() { aborted = true; }
 
     /// Setup task params

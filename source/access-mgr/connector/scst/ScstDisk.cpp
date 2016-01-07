@@ -241,7 +241,7 @@ ScstDisk::respondDeviceTask(ScstTask* task) {
             task->setResponseLength(i);
         }
     } else if (fpi::OK != task->getError()) {
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+        task->checkCondition(SCST_LOAD_SENSE(scst_sense_rebuild_in_progress));
     }
 }
 
