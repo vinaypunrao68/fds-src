@@ -35,7 +35,7 @@ DmMigrationClient::DmMigrationClient(DataMgr& _dataMgr,
 	volId = fds_volid_t(_ribfsm->volumeId);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
     seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
-    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+    dmtVersion = dataMgr.getModuleProvider()->getSvcMgr()->getDMTVersion();
 }
 
 DmMigrationClient::~DmMigrationClient()

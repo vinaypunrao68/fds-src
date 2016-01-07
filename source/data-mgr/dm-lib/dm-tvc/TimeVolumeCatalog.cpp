@@ -55,16 +55,18 @@ void
 DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 }
 
-DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name,
+DmTimeVolCatalog::DmTimeVolCatalog(CommonModuleProviderIf *modProvider,
+                                   const std::string &name,
                                    fds_threadpool &tp,
                                    DataMgr& dataManager)
-        : Module(name.c_str()),
+        : HasModuleProvider(modProvider),
+          Module(name.c_str()),
           dataManager_(dataManager),
           currentState(TVC_INIT),
           opSynchronizer_(tp),
-          config_helper_(g_fdsprocess->get_conf_helper()),
+          config_helper_(MODULEPROVIDER()->get_conf_helper()),
           tp_(tp) {
-    volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
+    volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog(MODULEPROVIDER(), "DM Volume Catalog"));
 
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -103,7 +105,7 @@ DmTimeVolCatalog::mod_init(SysParams const *const p) {
 void
 DmTimeVolCatalog::mod_startup() {
     // check if mount point for volume catalog exists
-    std::string path = g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm() + "/.tempFlush";
+    std::string path = MODULEPROVIDER()->proc_fdsroot()->dir_sys_repo_dm() + "/.tempFlush";
     fds_bool_t diskTestFailure = DiskUtils::diskFileTest(path);
     if (!diskTestFailure) {
         // check if we have enough disk space
@@ -115,7 +117,7 @@ DmTimeVolCatalog::mod_startup() {
         }
     } else {
         LOGERROR << "Looks like DM sys repo mount point "
-                 << g_fdsprocess->proc_fdsroot()->dir_sys_repo_dm()
+                 << MODULEPROVIDER()->proc_fdsroot()->dir_sys_repo_dm()
                  << " is unreachable; setting DM to UNAVAILABLE state";
     }
     if (diskTestFailure) {
@@ -154,8 +156,11 @@ void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
      * on DmCommitLog so that initialization can happen outside the lock
      */
     fds_scoped_lock l(commitLogLock_);
-    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", voldesc.volUUID,
-                                                                   voldesc.maxObjSizeInBytes);
+    commitLogs_[voldesc.volUUID] =
+        boost::make_shared<DmCommitLog>(MODULEPROVIDER()->proc_fdsroot(),
+                                        "DM",
+                                        voldesc.volUUID,
+                                        voldesc.maxObjSizeInBytes);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
     commitLogs_[voldesc.volUUID]->mod_startup();
 }
@@ -171,7 +176,8 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fpi::SvcUuid const& client_uuid,
                              fds_int64_t& token,
                              fpi::VolumeAccessMode const& mode,
-                             sequence_id_t& sequence_id) {
+                             sequence_id_t& sequence_id,
+                             int32_t &version) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -181,7 +187,7 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         std::unique_lock<std::mutex> lk(accessTableLock_);
         auto it = accessTable_.find(volId);
         if (accessTable_.end() == it) {
-            auto table = new DmVolumeAccessTable(volId);
+            auto table = new DmVolumeAccessTable(volId, MODULEPROVIDER()->getTimer());
             table->getToken(client_uuid, token, mode, vol_tok_lease_time);
             accessTable_[volId].reset(table);
         } else {
@@ -191,7 +197,9 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         }
     }
 
-    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
+    auto volumeMeta = dataManager_.getVolumeMeta(volId, false);
+    sequence_id = volumeMeta->getSequenceId();
+    version = volumeMeta->getVersion();
 
     return err;
 }
@@ -349,7 +357,7 @@ DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
             }
         }
 
-        auto volDir = dmutil::getVolumeDir(volId);
+        auto volDir = dmutil::getVolumeDir(MODULEPROVIDER()->proc_fdsroot(), volId);
         const std::string rmCmd = "rm -rf  " + volDir;
         int retcode = std::system((const char *)rmCmd.c_str());
         LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
@@ -657,7 +665,7 @@ DmTimeVolCatalog::getUsedCapacityAsPct() {
               return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
 
     // Get fds root dir
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     // Get sys-repo dir
     DiskUtils::capacity_tuple cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
 

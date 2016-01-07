@@ -21,6 +21,7 @@
 #include "util/path.h"
 #include "fds_module.h"
 #include "fds_process.h"
+#include <net/volumegroup_extensions.h>
 
 #define TIMESTAMP_OP(WB) \
     const fds_uint64_t ts__ = util::getTimeStampMicros(); \
@@ -52,7 +53,7 @@ Error status2error(leveldb::Status s){
 DmPersistVolDB::~DmPersistVolDB() {
     catalog_.reset();
     if (deleted_) {
-        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
         const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
                 root->dir_sys_repo_dm()) + std::to_string(srcVolId_.get()) +
                 (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
@@ -67,7 +68,7 @@ uint64_t DmPersistVolDB::getNumInMemorySnapshots() {
 }
 
 Error DmPersistVolDB::activate() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::string catName(snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm());
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume
@@ -141,8 +142,13 @@ Error DmPersistVolDB::activate() {
 
     /* Update version */
     if (!snapshot_) {
+        /* Read, increment, and persist new version */
         int32_t version = getVersion();
-        version++;
+        if (version == VolumeGroupConstants::VERSION_INVALID) {
+            version = VolumeGroupConstants::VERSION_START;
+        } else {
+            version++;
+        }
         setVersion(version);
     }
 
@@ -742,7 +748,7 @@ int32_t DmPersistVolDB::getVersion()
     int32_t version;
     std::ifstream in(getVersionFile_());
     if (!in.is_open()) {
-        return 0;
+        return VolumeGroupConstants::VERSION_INVALID;
     }
     in >> version;
     in.close();
@@ -758,7 +764,7 @@ void DmPersistVolDB::setVersion(int32_t version)
 
 std::string DmPersistVolDB::getVersionFile_()
 {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     return util::strformat("%s/%ld/version",
                            root->dir_sys_repo_dm().c_str(), srcVolId_.get());
 }

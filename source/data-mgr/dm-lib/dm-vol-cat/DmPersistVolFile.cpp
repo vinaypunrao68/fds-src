@@ -14,15 +14,25 @@ namespace fds {
 
 const fds_uint32_t DmPersistVolFile::MMAP_CACHE_SIZE = 100;
 
-DmPersistVolFile::DmPersistVolFile(fds_volid_t volId, fds_uint32_t objSize,
+DmPersistVolFile::DmPersistVolFile(CommonModuleProviderIf *modProvider,
+                                   fds_volid_t volId,
+                                   fds_uint32_t objSize,
                    fds_bool_t snapshot, fds_bool_t readOnly,
                    fds_volid_t srcVolId /* = invalid_vol_id */)
-        : DmPersistVolCat(volId, objSize, snapshot, readOnly, fpi::FDSP_VOL_BLKDEV_TYPE,
-        srcVolId), metaFd_(-1), objFd_(-1), configHelper_(g_fdsprocess->get_conf_helper()) {
+        : DmPersistVolCat(modProvider,
+                          volId,
+                          objSize,
+                          snapshot,
+                          readOnly,
+                          fpi::FDSP_VOL_BLKDEV_TYPE,
+                          srcVolId),
+        metaFd_(-1),
+        objFd_(-1)
+{ 
     mmapCache_.reset(new SharedKvCache<fds_uint64_t, DmOIDArrayMmap>(
             std::string("DmOIDArrayMmap") + std::to_string(volId), MMAP_CACHE_SIZE));
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    auto root = MODULEPROVIDER()->proc_fdsroot();
     dirname_ = snapshot_ ? root->dir_user_repo_dm() : root->dir_sys_repo_dm();
     if (!snapshot_ && srcVolId_ == invalid_vol_id) {
         // volume

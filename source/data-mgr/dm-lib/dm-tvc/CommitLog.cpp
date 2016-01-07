@@ -72,11 +72,16 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     return bytes;
 }
 
-DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
-        const fds_uint32_t objSize) : Module(modName.c_str()), volId_(volId), objSize_(objSize),
-        started_(false) {
+DmCommitLog::DmCommitLog(const FdsRootDir* root,
+                         const std::string &modName,
+                         const fds_volid_t volId,
+                         const fds_uint32_t objSize) 
+ : Module(modName.c_str()),
+    volId_(volId),
+    objSize_(objSize),
+    started_(false)
+{
     std::ostringstream oss;
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     oss << root->dir_sys_repo_dm() << volId_;
     FdsRootDir::fds_mkdir(oss.str().c_str());
 

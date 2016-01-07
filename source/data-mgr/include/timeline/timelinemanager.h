@@ -22,6 +22,7 @@ struct TimelineManager {
     Error createSnapshot(VolumeDesc *vdesc);
     Error createClone(VolumeDesc *vdesc);
     Error removeVolume(fds_volid_t volid);
+    Error getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds);
     SHPTR<TimelineDB> getDB();
 
     bool isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId);

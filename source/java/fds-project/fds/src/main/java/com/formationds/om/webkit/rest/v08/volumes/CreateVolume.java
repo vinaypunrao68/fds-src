@@ -9,6 +9,8 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
+import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
@@ -75,12 +77,6 @@ public class CreateVolume
         if( newVolume == null )
         {
             throw new ApiException( "Badly formatted volume", ErrorCode.BAD_REQUEST );
-        }
-
-        if( newVolume.getName().matches( "(?!.*\\s)" ) )
-        {
-            throw new ApiException( "Badly formatted volume, name cannot contain spaces",
-                                    ErrorCode.BAD_REQUEST );
         }
 
         VolumeDescriptor internalVolume =
@@ -283,6 +279,33 @@ public class CreateVolume
                   .getIopsMin( ),
             volume.getQosPolicy( )
                   .getIopsMax( ) );
+
+        switch( volume.getSettings().getVolumeType() )
+        {
+            case BLOCK:
+                break;
+            case OBJECT:
+                break;
+            case SYSTEM:
+                break;
+            case ISCSI:
+                final VolumeSettingsISCSI volumeSettingsISCSI =
+                    ( VolumeSettingsISCSI ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- iSCSI(target={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsISCSI.getTarget() );
+                break;
+            case NFS:
+                final VolumeSettingsNfs volumeSettingsNfs =
+                    ( VolumeSettingsNfs ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- NFS(client={}, options={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsNfs.getClients(),
+                              volumeSettingsNfs.getOptions() );
+                break;
+        }
 
         if ( !( ( volume.getQosPolicy( )
                         .getIopsMax( ) == 0 ) ||

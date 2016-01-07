@@ -19,33 +19,34 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
     timerStarted(false),
     abort_thread(NULL)
 {
-    maxConcurrency = fds_uint32_t(MODULEPROVIDER()->get_fds_config()->
+    auto modProvider = dataManager.getModuleProvider();
+    maxConcurrency = fds_uint32_t(modProvider->get_fds_config()->
                                   get<int>("fds.dm.migration.migration_max_concurrency"));
 
-    enableMigrationFeature = bool(MODULEPROVIDER()->get_fds_config()->
+    enableMigrationFeature = bool(modProvider->get_fds_config()->
                                   get<bool>("fds.dm.migration.enable_feature"));
 
-    enableResyncFeature = bool(MODULEPROVIDER()->get_fds_config()->
+    enableResyncFeature = bool(modProvider->get_fds_config()->
                                get<bool>("fds.dm.migration.enable_resync"));
 
-    maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
+    maxNumBlobs = uint64_t(modProvider->get_fds_config()->
                            get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
 
-    maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
+    maxNumBlobDesc = uint64_t(modProvider->get_fds_config()->
                               get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 
-    deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
+    deltaBlobTimeout = uint32_t(modProvider->get_fds_config()->
                                 get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to"));
 
-    delayStart = uint32_t(MODULEPROVIDER()->get_fds_config()->
+    delayStart = uint32_t(modProvider->get_fds_config()->
                           get<int32_t>("fds.dm.testing.test_delay_start"));
 
     /* 3 hours for idle timeout */
     idleTimeoutSecs = 3*3600;
-    auto timer = MODULEPROVIDER()->getTimer();
+    auto timer = modProvider->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
-        MODULEPROVIDER()->proc_thrpool()->schedule(
+        dataManager.getModuleProvider()->proc_thrpool()->schedule(
             &DmMigrationMgr::migrationIdleTimeoutCheck, this);
 
     };
@@ -157,7 +158,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 {
     Error err(ERR_OK);
 
-    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
+    NodeUuid mySvcUuid(dataManager.getModuleProvider()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     NodeUuid destSvcUuid;
     DmIoMigration* typedRequest = static_cast<DmIoMigration*>(dmRequest);
     fpi::CtrlNotifyDMStartMigrationMsgPtr migrationMsg = typedRequest->message;
@@ -412,7 +413,7 @@ Error
 DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
 {
     Error err(ERR_OK);
-    NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
+    NodeUuid mySvcUuid(dataManager.getModuleProvider()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;

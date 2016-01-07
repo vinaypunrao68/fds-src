@@ -61,7 +61,7 @@ public class NfsServer {
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new BlockyVfs(
+        VirtualFileSystem vfs = new XdiVfs(
                 asyncAm,
                 dynamicExports,
                 counters,

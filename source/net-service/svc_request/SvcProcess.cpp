@@ -332,4 +332,11 @@ void SvcProcess::notifyServerDown(const Error &e) {
                     this);
 }
 
+void SvcProcess::updateMsgHandler(const fpi::FDSPMsgTypeId msgId,
+                                  const PlatNetSvcHandler::FdspMsgHandler &handler)
+{
+    auto reqHandler = getSvcMgr()->getSvcRequestHandler();
+    reqHandler->updateHandler(msgId, handler);
+}
+
 }  // namespace fds
