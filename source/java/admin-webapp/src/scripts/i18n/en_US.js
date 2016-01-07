@@ -206,6 +206,7 @@ var en_US = {
         th_expiration: 'Expiration',
         th_priority: 'Priority',
         th_used_limit: 'Used/Limit',
+        th_volume_usage: 'Usage',
         
         tt_volume_name: 'Volume name',
         tt_tenant_name: 'Tenant name',
