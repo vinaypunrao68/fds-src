@@ -257,7 +257,7 @@ public class PlatformModelConverter
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
-			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_STOPPED;
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_FAILED;
 			break;
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
