@@ -31,6 +31,7 @@ from fabric.contrib.files import *
 from fabric.context_managers import cd
 import fnmatch
 import fabric
+import fabric.network
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -573,15 +574,26 @@ def core_hunter_aws(self,node_ip):
                     return 0
     return 1
 
-def connect_fabric(node_ip):
-    #TODO: pooja finish fs-4280
+def connect_fabric(self,node_ip):
+    #TODO: pooja finish fs-4280 to read use/pwd form inventory
     env.user = 'root'
     env.password = 'passwd'
     env.host_string = node_ip
-    internal_ip = run("hostname")
-    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+    timeout_start = time.time()
+    timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
+    while time.time() < timeout_start + timeout:
+        try:
+            internal_ip = run("hostname")
+        except Exception as e:
+            # Sleep for 20 sec before retrying to connect node
+            time.sleep(20)
+            continue
+        else:
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            return True
 
-def disconnect_fabric(host):
-    host = host or fabric.api.env.host_string
-    if host and host in fabric.state.connections:
-        fabric.state.connections[host].get_transport().close()
+    self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
+    return False
+
+def disconnect_fabric():
+    fabric.network.disconnect_all()
