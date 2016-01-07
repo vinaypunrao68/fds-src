@@ -525,8 +525,10 @@ public class ExternalModelConverter {
                              volumeId );
             }
 
-        } else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
+        }
+        else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
         {
+            logger.trace( "NFS::SETTINGS::{}", internalVolume.getPolicy( ) );
             NfsOption nfsOptions = null;
             if ( !internalVolume.getPolicy( )
                                 .isSetNfsOptions( ) )
@@ -655,22 +657,43 @@ public class ExternalModelConverter {
         final List<String> listOfOptions =
             Arrays.asList( StringUtils.split( options.getOptions(), "," ) );
 
-        final NfsOptions.Builder[] builder = { new NfsOptions.Builder( ) };
-        listOfOptions.stream()
-                     .forEach( ( option ) -> {
-                        logger.trace( "OPTION: {}", option );
-                        switch( option )
-                        {
-                            case "ro":builder[ 0 ] = builder[ 0 ].ro( ); break;
-                            case "rw":builder[ 0 ] = builder[ 0 ].rw( ); break;
-                            case "acl":builder[ 0 ] = builder[ 0 ].withAcl( ); break;
-                            case "async":builder[ 0 ] = builder[ 0 ].async( ); break;
-                            case "root_squash":builder[ 0 ] = builder[ 0 ].withRootSquash( ); break;
-                            case "no_root_squash":builder[ 0 ] = builder[ 0 ].allSquash( ); break;
-                        }
-                    });
-
-        return builder[ 0 ].build( );
+        NfsOptions.Builder builder = new NfsOptions.Builder( );
+        for( final String option : listOfOptions )
+        {
+            logger.trace( "NFS Option [ '{}' ]", option );
+            switch( option )
+            {
+                case "ro":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.ro( );
+                    break;
+                case "rw":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.rw( );
+                    break;
+                case "acl":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.withAcl( );
+                    break;
+                case "async":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.async( );
+                    break;
+                case "root_squash":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.withRootSquash( );
+                case "all_squash":
+                    logger.trace( "NFS Option Builder {}", option );
+                    builder = builder.allSquash( );
+                    break;
+                default:
+                    logger.trace( "NFS Option Builder {}", option );
+                    break;
+            }
+        }
+        final NfsOptions nfsOptions = builder.build();
+        logger.trace( "Internal NFS Options::{} External NFS Options::{}", options, nfsOptions );
+        return nfsOptions;
     }
 
     public static NfsClients convertToExternalNfsClients( final NfsOption options )
@@ -923,7 +946,6 @@ public class ExternalModelConverter {
         else if ( externalVolume.getSettings() instanceof VolumeSettingsNfs )
         {   // NFS volume
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
-            internalSettings.setVolumeType( VolumeType.NFS );
 
             Size maxObjSize = nfsSettings.getMaxObjectSize();
 
@@ -964,6 +986,7 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setNfsOptions( options );
+            internalSettings.setVolumeType( VolumeType.NFS );
         }
         else // Object Volume
         {

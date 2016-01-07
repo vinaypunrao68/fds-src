@@ -118,6 +118,9 @@ public class Redis
                                                e );
 
                                   logger.trace( "'[ " + serialized + " ]'" );
+
+                                  System.out.println( "'[ " + serialized + " ]'" );
+                                  e.printStackTrace();
                               }
                           } );
         }
@@ -166,13 +169,13 @@ public class Redis
         return nodeInfos;
     }
 
-    public Map<Long, FDSP_AnnounceDiskCapability> getPMNodeCapacity( )
+    public Map<String, FDSP_AnnounceDiskCapability> getPMNodeCapacity( )
     {
-        final Map<Long,FDSP_AnnounceDiskCapability> nodeDiskCapacity = new HashMap<>( );
+        final Map<String,FDSP_AnnounceDiskCapability> nodeDiskCapacity = new HashMap<>( );
 
         try ( Jedis jedis = pool.getResource( ) )
         {
-            Set<String> sets = jedis.keys( "*.node.disk.capability" );
+            Set<String> sets = jedis.keys( "*.fds.node.disk.capability" );
             sets.stream( )
                 .forEach( ( p ) ->
                           {
@@ -184,16 +187,7 @@ public class Redis
                                           FDSP_AnnounceDiskCapability.class,
                                           ByteBuffer.wrap( serialized.getBytes( ) ) );
                                   final String uuidKey = p.replace( ".fds.node.disk.capability", "" );
-                                  System.out.println( "P::" + p + " UUID::" + uuidKey );
-                                  final NodeInfo nodeInfo = getPMNodeInfo( uuidKey );
-                                  if( nodeInfo != null )
-                                  {
-                                      nodeDiskCapacity.put( nodeInfo.getUuid( ), capacity );
-                                  }
-                                  else
-                                  {
-                                      logger.warn( "The specified uuid {} was not found.", uuidKey );
-                                  }
+                                  nodeDiskCapacity.put( uuidKey, capacity );
                               }
                           } );
         }
@@ -285,7 +279,7 @@ public class Redis
         return Optional.empty();
     }
 
-    protected List<Long> getVolumeIds(  final long localDomainId )
+    protected List<Long> getVolumeIds( final long localDomainId )
     {
         final List<Long> volumeIds = new ArrayList<>( );
 
@@ -326,7 +320,6 @@ public class Redis
                               final String serialized = jedis.get( p );
                               if ( serialized != null )
                               {
-                                  System.out.println( key + "::'" + serialized + "'" );
                                   try
                                   {
                                       nodeInfo[ 0 ] =
@@ -340,10 +333,9 @@ public class Redis
                                   {
                                       final String warning =
                                           String.format( "The specified key '%s' encountered a de-serialization failure", key );
+
                                       logger.warn( warning, e );
-
-                                      logger.trace( "{}::'{}'", key, serialized );
-
+                                      System.out.println( "'" + key + "'::'" + serialized + "'" );
                                       e.printStackTrace();
                                   }
                               }
@@ -358,14 +350,13 @@ public class Redis
         final Redis redis = new Redis( "10.2.10.171" );
 
 //        System.out.println( "PMs::" + redis.getPMSvcInfos() );
-//        System.out.println( "SVCINFOS::" + redis.getSvcInfos() );
 //        System.out.println( "NODEs::" + redis.getNodes() );
-        System.out.println( redis.getPMNodeCapacity() );
-//        System.out.println( "VOLUMES::" );
-//        for( VolumeDesc desc : redis.listVolumes() )
-//        {
-//            System.out.println( "" + desc );
-//        }
+//        System.out.println( redis.getPMNodeCapacity() );
+        System.out.println( "VOLUMES::" );
+        for( VolumeDesc desc : redis.listVolumes() )
+        {
+            System.out.println( "" + desc );
+        }
 //          System.out.println( redis.getVolume( 11L ) );
     }
 }
