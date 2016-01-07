@@ -9,7 +9,7 @@
 namespace fds
 {
 
-static auto const max_duration = std::chrono::seconds(20);
+static auto const max_duration = std::chrono::seconds(3);
 
 BlockTask::BlockTask(uint64_t const hdl) :
     handle(hdl),

@@ -118,6 +118,21 @@ void removeIncomingUser(std::string const& target_name,
             << " IncomingUser "         << user_name << std::endl;
 }
 
+/**
+ * Remove the given credential to the target's IncomingUser attributes
+ */
+void setQueueDepth(std::string const& target_name, uint8_t const queue_depth) {
+    GLOGDEBUG << "Setting iSCSI target queue depth [" << (uint32_t)queue_depth
+              << "] for: [" << target_name << "]";
+    std::ofstream tgt_dev(scst_iscsi_target_path + target_name + "/QueuedCommands", std::ios::out);
+    if (!tgt_dev.is_open()) {
+        GLOGERROR << "Could not set queued depth for: " << target_name;
+        return;
+    }
+    tgt_dev << (uint32_t) queue_depth << std::endl;
+}
+
+
 ScstTarget::ScstTarget(std::string const& name, 
                        size_t const followers,
                        std::weak_ptr<AmProcessor> processor) :
@@ -139,6 +154,8 @@ ScstTarget::ScstTarget(std::string const& name,
     // Add a new target for ourselves
     tgt_dev << scst_iscsi_cmd_add << " " << target_name << std::endl;
     tgt_dev.close();
+
+    setQueueDepth(target_name, 64);
 
     // Clear any mappings we might have left from before
     clearMasking();
