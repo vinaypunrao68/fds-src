@@ -86,7 +86,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // The objects used here are the OM's snapshot manager and policy manager.
     OrchMgr* om;
-    DataStoreT* configDB;
+    DataStoreT* configDB { nullptr };
 
     /**
      * FEATURE TOGGLE: enable subscriptions (async replication)
@@ -2137,6 +2137,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void setConfigDB(DataStoreT* pDataStore) {
         if (!configDB) {
             configDB = pDataStore;
+        } else {
+            throw std::logic_error("ConfigDB is already set.");
         }
     };
 };
