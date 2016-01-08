@@ -108,10 +108,13 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid,
                                                   const int64_t replayStartOpId)
 {
     fds_assert(opSeqNo_ >= static_cast<int64_t>(writeOpsBuffer_->size()));
+    /* Valid request range is a subset range of (OPSTARTID, opSeqNo_+1]
+     * NOTE: the first opid is OPSTARTID+1
+     */
     fds_assert(replayStartOpId > VolumeGroupConstants::OPSTARTID &&
                replayStartOpId <= opSeqNo_+1);
     if (replayStartOpId == opSeqNo_+1) {
-        /* There is nothing to replay */
+        /* Requester already has all the ops.  There is nothing to replay */
         return true;
     }
 
@@ -418,7 +421,7 @@ void VolumeGroupHandle::handleAddToVolumeGroupMsg(
                                         addMsg->targetState,
                                         addMsg->lastOpId,
                                         ERR_OK,
-                                        __FUNCTION__);
+                                        "AddToVolumeGroupMsg");
         respMsg->group = getGroupInfoForExternalUse_();
         cb(err, respMsg);
     });

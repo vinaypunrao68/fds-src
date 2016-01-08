@@ -54,7 +54,7 @@ struct VolumeReplicaHandle {
     }
     inline static bool isNonFunctional(const fpi::ResourceState& s)
     {
-        return s == fpi::ResourceState::Offline;
+        return s == fpi::ResourceState::Offline || s == fpi::ResourceState::Loading;
     }
     inline bool isFunctional() const {
         return isFunctional(state);
@@ -88,10 +88,13 @@ struct VolumeReplicaHandle {
     }
     inline std::string logString() const;
 
+    /* Version of the volume replica.  As volume goes up/down this # is incremented */
     int32_t                 version;
     /* Service where this replica is hosted */
     fpi::SvcUuid            svcUuid;
+    /* State of the volume replica */
     fpi::ResourceState      state;
+    /* Last error that caused this volume replica to become non-functional */
     Error                   lastError;
     /* Last succesfully applied operation id */
     int64_t                 appliedOpId;
@@ -278,13 +281,22 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
+    /* # of volume replicas that need to respond success before client is acked with success */
     uint32_t                            quorumCnt_;
+    /* State of the volume group */
     fpi::ResourceState                  state_;
+    /* ID of the volume group.  This is same as volume id */
     int64_t                             groupId_;
+    /* Version # for group handle.  This is different from VolumeReplicaHandle version # */
     fpi::VolumeGroupVersion             version_;
+    /* Every write operation is given a sequence #. The first # is OPSTARTID+1 */
     int64_t                             opSeqNo_;
+    /* Every commit operation is given a sequence #. The first # is COMMITSTARTID+1 */
     int64_t                             commitNo_;
     uint64_t                            dmtVersion_;
+    /* When buffering is enabled, every write operation up last n(buffer size)
+     * operations are buffered here
+     */
     std::unique_ptr<WriteOpsBuffer>     writeOpsBuffer_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;

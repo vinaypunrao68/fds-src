@@ -57,6 +57,16 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
+    auto volMeta = dataManager.getVolumeMeta(request->volId);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        if (volMeta->isInitializationProgress()) {
+            LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
+            fds_assert(!"sync already in progress");
+            helper.err = ERR_SYNC_INPROGRESS;
+            return;
+        }
+    }
+
     helper.err = dataManager.timeVolCat_->openVolume(request->volId,
                                                      request->client_uuid_,
                                                      request->token,
@@ -69,8 +79,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
                  << ", latest sequence was determined to be "
                  << request->sequence_id;
         if (dataManager.features.isVolumegroupingEnabled()) {
-            auto volMeta = dataManager.getVolumeMeta(request->volId);
-            fds_verify(volMeta->getState() == fpi::Offline);
+            volMeta->setCoordinatorId(request->client_uuid_);
             volMeta->setState(fpi::Loading, " - VolumeOpenHandler::handleQueueItem");
         }
     }
@@ -79,8 +88,10 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::OpenVolumeMsg>& message,
                                               Error const& e, DmRequest* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+
+    DBG(GLOGDEBUG << logString(*asyncHdr));
+
     auto response = fpi::OpenVolumeRspMsg();
     if (dmRequest) {
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
@@ -89,7 +100,10 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         response.replicaVersion = request->version;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
-    delete dmRequest;
+    if (dmRequest) {
+        delete dmRequest;
+        dmRequest = nullptr;
+    }
 }
 
 }  // namespace dm

@@ -11,6 +11,7 @@
 #include <testlib/TestDm.hpp>
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
+#include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
 
 using ::testing::AtLeast;
@@ -21,10 +22,12 @@ using namespace fds;
 struct TestAm : SvcProcess {
     TestAm(int argc, char *argv[], bool initAsModule)
     {
-        auto handler = boost::make_shared<PlatNetSvcHandler>(this);
-        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+        handler_ = MAKE_SHARED<PlatNetSvcHandler>(this);
+        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler_);
         init(argc, argv, initAsModule, "platform.conf",
-             "fds.am.", "am.log", nullptr, handler, processor);
+             "fds.am.", "am.log", nullptr, handler_, processor);
+        REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
+                                          fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
     }
     virtual int run() override
     {
@@ -32,6 +35,25 @@ struct TestAm : SvcProcess {
         shutdownGate_.waitUntilOpened();
         return 0;
     }
+    void setVolumeHandle(VolumeGroupHandle *h) {
+        vc_ = h;
+    }
+    void addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                          fpi::AddToVolumeGroupCtrlMsgPtr& addMsg)
+    {
+        fds_volid_t volId(addMsg->groupId);
+        vc_->handleAddToVolumeGroupMsg(
+            addMsg,
+            [this, asyncHdr](const Error& e,
+                             const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
+                asyncHdr->msg_code = e.GetErrno();
+                handler_->sendAsyncResp(*asyncHdr,
+                              FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
+                              *payload);
+            });
+    }
+    PlatNetSvcHandlerPtr handler_;
+    VolumeGroupHandle *vc_{nullptr};
 };
 
 struct Waiter : concurrency::TaskStatus {
@@ -211,6 +233,7 @@ TEST_F(DmGroupFixture, DISABLED_singledm) {
     /* Create a DM group */
     /* Create a coordinator */
     VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
+    amHandle.proc->setVolumeHandle(&v1);
 
     /* Open the group without DMT.  Open should fail */
     openVolume(v1, waiter);
@@ -270,6 +293,7 @@ TEST_F(DmGroupFixture, multidm) {
 
     /* Create a coordinator with quorum of 1*/
     VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
+    amHandle.proc->setVolumeHandle(&v1);
 
     /* Add DMT to AM with the DM group */
     std::string dmtData;
@@ -322,11 +346,25 @@ TEST_F(DmGroupFixture, multidm) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
+    /* Bring 1st dm up */
+    dmGroup[0]->start();
+    /* Adding the volume manually */
+    v1Desc->setCoordinatorId(amHandle.proc->getSvcMgr()->getSelfSvcUuid());
+    e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+    ASSERT_TRUE(e == ERR_OK);
+    /* Wait for sync to complete */
+    POLL_MS((dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active),
+            1000, 3000);
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+    
+
+#if 0
     /* Bring 2nd dm down */
     dmGroup[1]->stop();
     /* Do more IO.  IO should fail */
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+#endif
 }
 
 #if 0

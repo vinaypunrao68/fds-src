@@ -786,52 +786,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     return err;
 }
 
-void DataMgr::runSyncProtocol(int32_t version,
-                              const VolumeDesc &volDesc)
-{
-    /* Check if coordinator is set */
-    if (!volDesc.isCoordinatorSet()) {
-        // TODO(Rao): Become offline
-        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
-            << " Will go through sync once coordinator tries to open the volume";
-        return;
-    }
-    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::ResourceState::Syncing;
-    msg->groupId = volDesc.volUUID.get();
-    msg->replicaVersion = version;
-    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
-#ifdef IOHEADER_SUPPORTED
-    msg->lastOpId = opInfo_.appliedOpId;
-    msg->lastCommitId = opInfo_.appliedCommitId;
-#endif
-
-    /* Send message to coordinator requesting to be added to the group */
-    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
-    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    auto prevVersion = version;
-    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
-                                          const Error &e_,
-                                          StringPtr payload) {
-        // TODO(Rao): May need to do a version check here
-        // VERSION_CHECK(prevVersion, getVersion());
-        Error err = e_;
-        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
-        if (err != ERR_OK) {
-            fds_assert(!"Not handled");
-            // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err;
-            // TODO(Rao): Go into error state
-            return;
-        }
-        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
-        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
-        // TODO(Rao): Initiate migration
-    });
-    req->invoke();
-}
-
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 {
     Error err(ERR_OK);

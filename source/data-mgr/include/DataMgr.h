@@ -368,9 +368,6 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
-    // Runs sync protocol
-    void runSyncProtocol(int32_t version,
-                         const VolumeDesc &volDesc);
     /*
      * Gets and sets Number of primary DMs.
      */
