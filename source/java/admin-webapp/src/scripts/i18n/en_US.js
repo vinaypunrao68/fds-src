@@ -369,6 +369,8 @@ var en_US = {
         th_hw: 'HW',
         th_local_domain: 'Local Domain',
         th_node_name: 'Node Name',
+        th_node_hdd_capacity: 'HDD Capacity',
+        th_node_ssd_capacity: 'SSD Capacity',
         th_om: 'OM',
         th_site: 'Site',
         th_sm: 'SM',
@@ -376,6 +378,8 @@ var en_US = {
         th_ip_address: 'IP Address',
         
         tt_node_name: 'Name of the node',
+        tt_node_hdd_capacity: 'Total disk capacity of the node (HDD only)',
+        tt_node_ssd_capacity: 'Total SSD capacity of the node',
         tt_am: 'Access manager status',
         tt_dm: 'Data manager status',
         tt_om: 'Orchestration manager status',
