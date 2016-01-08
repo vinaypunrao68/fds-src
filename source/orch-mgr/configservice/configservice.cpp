@@ -1010,7 +1010,24 @@ void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::
 
     int32_t ModifyVol(FDSP_ModifyVolTypePtr& mod_vol_req) {
         Error err(ERR_OK);
-        LOGNOTIFY << "Received modify volume " << (mod_vol_req->vol_desc).vol_name;
+        LOGNOTIFY << "Received modify volume [ " << (mod_vol_req->vol_desc).vol_name << " ]"
+                  << " [ " << (mod_vol_req->vol_desc).volUUID << " ]"
+                  << " [ " << (mod_vol_req->vol_desc).volType << " ]";
+
+        if ( ( mod_vol_req->vol_desc ).volType == fpi::FDSP_VOL_ISCSI_TYPE )
+        {
+            FDS_ProtocolInterface::IScsiTarget iscsi = ( mod_vol_req->vol_desc ).iscsi;
+            LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                     << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                     << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                     << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+        }
+        else if ( ( mod_vol_req->vol_desc ).volType == fpi::FDSP_VOL_NFS_TYPE )
+        {
+            FDS_ProtocolInterface::NfsOption nfs = ( mod_vol_req->vol_desc ).nfs;
+            LOGDEBUG << "NFS:: [ " << nfs.client << " ] "
+                     << "[ " << nfs.options << " ]";
+        }
 
         try {
             // no need to check if local domain is up, because volume create

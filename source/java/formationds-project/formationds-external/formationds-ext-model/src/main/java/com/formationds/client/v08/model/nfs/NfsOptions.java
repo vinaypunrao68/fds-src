@@ -16,8 +16,8 @@ public class NfsOptions
         public Builder withAcl() { _withAcl = true; return this; }
         public Builder withoutAcl() { _withAcl = false; return this; }
         public Builder async() { async = true; return this; }
-        public Builder allSquash() { allSquash = true; return this; }
-        public Builder noAllSquash() { noAllSquash = true; return this; }
+        public Builder allSquash() { allSquash = true; noAllSquash = false; return this; }
+        public Builder noAllSquash() { noAllSquash = true; allSquash = false; return this; }
         public Builder withRootSquash() { rootSquash = true; return this; }
 
         public NfsOptions build( )
@@ -42,20 +42,14 @@ public class NfsOptions
 
         if( builder.ro && !builder.rw )
         {
-            sb.append( "ro" );
+            sb.append( "ro" ).append( "," );
         }
         else if( !builder.ro && builder.rw )
         {
-            sb.append( "rw" );
-        }
-        else
-        {
-            // The default is to disallow any request which changes the filesystem.
-            sb.append( "ro" );
+            sb.append( "rw" ).append( "," );
         }
 
-        sb.append( "," )
-          .append( builder.async ? "async" : "sync" )
+        sb.append( builder.async ? "async" : "sync" )
           .append( "," )
           .append( builder._withAcl ? "acl" : "noacl" )
           .append( "," )
@@ -76,4 +70,10 @@ public class NfsOptions
     }
 
     public String getOptions( ) { return this.options; }
+
+    @Override
+    public String toString( )
+    {
+        return getOptions();
+    }
 }
