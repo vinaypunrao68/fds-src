@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <orchMgr.h>
 #include <snapshot/scheduler.h>
 #include <util/timeutils.h>
 #include <vector>
@@ -96,6 +97,7 @@ void Scheduler::processPendingTasks() {
         } else {
             LOGWARN << "no more recurrence of this policy: " << task->policyId;
         }
+        om->counters->numSnapshotPoliciesScheduled.set(pq.size());
     }
     vecTasks.clear();
 }
@@ -103,7 +105,9 @@ void Scheduler::processPendingTasks() {
 void Scheduler::run() {
     atc::Synchronized s(monitor);
     LOGNORMAL << "snapshot scheduler started";
+    om->counters->numSnapshotPoliciesScheduled.set(pq.size());
     while (!fShutdown) {
+        om->counters->numSnapshotPoliciesScheduled.set(pq.size());
         processPendingTasks();
         dump();
         while (!fShutdown && pq.empty()) {
@@ -112,6 +116,7 @@ void Scheduler::run() {
         }
 
         while (!fShutdown && !pq.empty()) {
+            om->counters->numSnapshotPoliciesScheduled.set(pq.size());
             Task* task;
             uint64_t currTime = fds::util::getTimeStampSeconds();
             task = pq.top();

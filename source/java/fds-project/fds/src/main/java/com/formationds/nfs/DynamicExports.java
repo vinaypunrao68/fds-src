@@ -23,15 +23,42 @@ public class DynamicExports implements ExportResolver {
     private static final Logger LOG = Logger.getLogger(DynamicExports.class);
     public static final String EXPORTS = "./.exports";
     private XdiConfigurationApi config;
-    private Map<String, Integer> exportsByName;
-    private Map<Integer, String> exportsById;
-    private ExportFile exportFile;
+    private volatile Map<String, Integer> exportsByName;
+    private volatile Map<Integer, String> exportsById;
+    private final ExportFile exportFile;
 
-    public DynamicExports(XdiConfigurationApi config) {
+
+    public DynamicExports(XdiConfigurationApi config) throws IOException {
         this.config = config;
+        writeExportFile();
+        exportFile = new ExportFile(new File(EXPORTS));
+        refreshCaches();
     }
 
-    private synchronized void refreshOnce() throws IOException {
+    private void refreshOnce() throws IOException {
+        writeExportFile();
+        exportFile.rescan();
+        refreshCaches();
+    }
+
+    private void refreshCaches() {
+        Map<String, Integer> exportsByName = new HashMap<>();
+
+        exportFile.getExports().forEach(export -> {
+            String exportName = new org.apache.hadoop.fs.Path(export.getPath()).getName();
+            exportsByName.put(exportName, export.getIndex());
+        });
+
+        HashMap<Integer, String> exportsById = new HashMap<>();
+        for (String exportName : exportsByName.keySet()) {
+            int id = exportsByName.get(exportName);
+            exportsById.put(id, exportName);
+        }
+        this.exportsByName = exportsByName;
+        this.exportsById = exportsById;
+    }
+
+    private void writeExportFile() throws IOException {
         Set<VolumeDescriptor> exportableVolumes = null;
         try {
             exportableVolumes = config.listVolumes(XdiVfs.DOMAIN)
@@ -43,22 +70,10 @@ public class DynamicExports implements ExportResolver {
         }
 
         Path path = Paths.get(EXPORTS);
-
         Files.deleteIfExists(path);
         PrintStream pw = new PrintStream(new FileOutputStream(EXPORTS));
         exportableVolumes.forEach(vd -> pw.println(buildExportOptions(vd)));
         pw.close();
-
-        if (exportFile == null) {
-            exportFile = new ExportFile(new File(EXPORTS));
-        }
-        exportFile.rescan();
-        this.exportsByName = exportIds(exportFile);
-        this.exportsById = new HashMap<>();
-        for (String exportName : exportsByName.keySet()) {
-            int id = exportsByName.get(exportName);
-            exportsById.put(id, exportName);
-        }
     }
 
     private String buildExportOptions(VolumeDescriptor vd) {
@@ -76,15 +91,6 @@ public class DynamicExports implements ExportResolver {
         }
         optionsClause = "/" + vd.getName() + " " + nfsOptions.getClient() + "(" + Joiner.on(",").join(options) + ")";
         return optionsClause;
-    }
-
-    private Map<String, Integer> exportIds(ExportFile exportFile) {
-        Map<String, Integer> ids = new HashMap<>();
-        exportFile.getExports().forEach(export -> {
-            String exportName = new org.apache.hadoop.fs.Path(export.getPath()).getName();
-            ids.put(exportName, export.getIndex());
-        });
-        return ids;
     }
 
     @Override

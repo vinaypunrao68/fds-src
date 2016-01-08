@@ -584,7 +584,14 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             /*
              * change the state and update service map; then broadcast updated service map
              */
-            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE );
+            // don't mark this to inactive failed if it is already in stopped state
+            if (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) != fpi::SVC_STATUS_INACTIVE_STOPPED)
+            {
+                domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+            } else {
+                LOGWARN << "Svc:" << std::hex << uuid.uuid_get_val() << std::dec
+                        << "has been set to inactive from a previous stop request";
+            }
             domain->om_service_down( reportError, uuid, svc_type );
         }
 
