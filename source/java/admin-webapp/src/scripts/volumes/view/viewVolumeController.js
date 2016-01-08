@@ -25,9 +25,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceStats = { series: [] };
     $scope.performanceItems = [];
     $scope.capacityItems = [];
-    $scope.capacityLineStipples = [ 'none' ];
-    $scope.capacityLineColors = [ '#2486F8' ];
-    $scope.capacityColors = [ '#72AEEB' ];
+    $scope.capacityLineStipples = [ '2,2'];
+    $scope.capacityLineColors = [ '#78B5FA'];
+    $scope.capacityColors = [ '#ABD3F5'];
     $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
@@ -184,15 +184,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             }
         }
         
-        $scope.physicalLabel = getCapacityLegendText( pbyteSeries, 'volumes.view.desc_dedup_suffix' );
         $scope.logicalLabel = getCapacityLegendText( lbyteSeries, 'volumes.view.desc_logical_suffix' );
+        var lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
         
-        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        var parts = $byte_converter.convertBytesToString( lbyteTotal );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
-        $scope.capacityItems = [
-            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        $scope.capacityItems = [{number: num, description: $filter( 'translate' )( 'status.desc_logical_capacity_used' ), suffix: parts[1]}];
     };
     
     $scope.performanceReturned = function( data ){

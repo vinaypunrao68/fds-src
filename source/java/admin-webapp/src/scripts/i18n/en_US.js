@@ -121,6 +121,7 @@ var en_US = {
         desc_firebreak: 'Events in the past 24 hours',
         desc_performance: 'Transactions per Second',
         desc_capacity_used: 'Total capacity used',
+        desc_logical_capacity_used: 'Logical capacity used',
         desc_dedup_ratio: 'Deduplication ratio',
         desc_dedup_capacity: 'Deduplicated storage capacity used.',
         desc_pre_dedup_capacity: 'Logical storage capacity consumed before deduplication.',
