@@ -24,7 +24,7 @@ do
 	echo "======================================================================================================="
 	echo "$SCENARIO START TIME:  $(date)"
 	echo "Running Scenario $SCENARIO test....."
-	sudo ./ScenarioDriverSuite.py -q ./${SCENARIO}.ini -d $PASSWD --verbose -l $LOGGING --install -z $INVENTORYFILE
+	sudo ./ScenarioDriverSuite.py -q ./${SCENARIO}.ini -d $PASSWD --verbose -l $LOGGING --install -z $INVENTORYFILE --reusecluster
 	[[ $? -ne 0 ]] && echo "AWS LONG SYSTEM TEST:  $SCENARIO FAILED"
 	echo "$SCENARIO END TIME:  $(date)"
 	echo "*******************************************************************************************************"
