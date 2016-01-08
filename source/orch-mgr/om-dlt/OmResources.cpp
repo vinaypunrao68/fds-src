@@ -1529,11 +1529,11 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
-            LOGDEBUG << "OM Restart, Found ( returned ) "
-                     << pmSvcs.size() << " PMs. "
-                     << amSvcs.size() << " AMs. "
-                     << dmSvcs.size() << " DMs. "
-                     << smSvcs.size() << " SMs.";
+            LOGNOTIFY << "OM Restart, Found ( returned ) "
+                      << pmSvcs.size() << " PMs. "
+                      << amSvcs.size() << " AMs. "
+                      << dmSvcs.size() << " DMs. "
+                      << smSvcs.size() << " SMs.";
 
             spoofRegisterSvcs(pmSvcs);
 
@@ -2136,7 +2136,11 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             case fpi::FDSP_STOR_MGR:
                 error = om_handle_restart( node_uuid, reg_node_req );
                 
-                if ( error.ok() )
+                // Regardless of what the outcome of om_handle_restart
+                // is we should purge any data in node_pend_up through
+                // the splice_nodes_pend call and clear it out of the
+                // cluster map as necessary
+
                 {
                     NodeList addNodes, rmNodes;                        
                     OM_Module *om = OM_Module::om_singleton();
@@ -2575,10 +2579,14 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert( pmNodes != NULL );
          
+    SvcInfoPtr infoPtr;
     if ( ( msg->node_type == fpi::FDSP_STOR_MGR ) ||
          ( msg->node_type == fpi::FDSP_DATA_MGR ) ) 
     {
-        // for this to be successful, PM must have been registered ( spoof ).
+        // For this to be successful, PM must have been registered ( spoof )
+        // also, the activeAgent for the associated service should be NULL.
+        // A non-NULL value would indicate that regular registration has already occurred
+        // for this svc in which case we do not want to proceed
         if ( !pmNodes->check_new_service( ( msg->node_uuid ).uuid, msg->node_type ) ) 
         {
             LOGERROR << "OM Restart, cannot register ( spoof ) service " 
@@ -2588,6 +2596,21 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
                      << " ( PM is not active. )"; 
             
             return Error( ERR_NODE_NOT_ACTIVE );
+
+        } else if (getRegisteringSvc(infoPtr, uuid.uuid_get_val()) != ERR_NOT_FOUND) {
+
+            // Could be that dc_register_node has already occurred in the register path
+            // but setUpNewNode task has not started yet (which sets the active agents)
+            // The tracking vector which gets updated in om_register_service can be used to determine
+            // if a svc registration is underway. If this svc is present in the vector, return
+
+            LOGERROR << "OM Restart, cannot register ( spoof ) service "
+                     << msg->node_name
+                     << " on platform with uuid "
+                     << std::hex << ( msg->node_uuid ).uuid << std::dec
+                     << " ( svc is already (or in process of being) registered. )";
+
+           return Error( ERR_DUPLICATE ); // for want of a more accurate error code
         }
     }
         
