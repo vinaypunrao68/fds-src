@@ -7,6 +7,7 @@ import org.apache.log4j.Logger;
 import org.dcache.acl.ACE;
 import org.dcache.auth.GidPrincipal;
 import org.dcache.auth.UidPrincipal;
+import org.dcache.nfs.FsExport;
 import org.dcache.nfs.status.ExistException;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.status.NotDirException;
@@ -121,13 +122,16 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             }
 
             int exportId = (int) exportResolver.exportId(volumeName);
-            Subject unixRootUser = new Subject(
+            Subject nobodyUser = new Subject(
                     true,
-                    Sets.newHashSet(new UidPrincipal(0), new GidPrincipal(0, true)),
+                    Sets.newHashSet(
+                            new UidPrincipal(FsExport.DEFAULT_ANON_UID),
+                            new GidPrincipal(FsExport.DEFAULT_ANON_GID,
+                                    true)),
                     Sets.newHashSet(),
                     Sets.newHashSet());
 
-            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, unixRootUser, 0755, MIN_FILE_ID)
+            InodeMetadata inodeMetadata = new InodeMetadata(Stat.Type.DIRECTORY, nobodyUser, 0755, MIN_FILE_ID)
                     .withUpdatedAtime()
                     .withUpdatedCtime()
                     .withUpdatedMtime()

@@ -23,6 +23,7 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import com.google.common.base.CharMatcher;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
@@ -77,6 +78,12 @@ public class CreateVolume
         if( newVolume == null )
         {
             throw new ApiException( "Badly formatted volume", ErrorCode.BAD_REQUEST );
+        }
+
+        if( CharMatcher.WHITESPACE.matchesAnyOf( newVolume.getName() ) )
+        {
+            throw new ApiException( "Badly formatted volume, name cannot contain spaces",
+                                    ErrorCode.BAD_REQUEST );
         }
 
         VolumeDescriptor internalVolume =

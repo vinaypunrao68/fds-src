@@ -22,11 +22,13 @@ public class ExternalModelConverterTest
         throws Exception
     {
         internal.setClient( "*" );
-        internal.setOptions( new NfsOptions.Builder()
-                                           .withoutAcl()
-                                           .withRootSquash()
-                                           .build()
-                                           .getOptions() );
+        /*
+         * OPTION: 'acl'
+         * OPTION: 'no_root_squash'
+         * OPTION: 'async'
+         */
+//        internal.setOptions( "noacl,no_root_squash,async" );
+        internal.setOptions( "" );
     }
 
     @Test

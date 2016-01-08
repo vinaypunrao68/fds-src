@@ -59,6 +59,9 @@ angular.module( 'base' ).factory( '$byte_converter', [ '$filter', function( $fil
         else if ( units === service.gbStr ){
             byteVal = value * service.GB;
         }
+        else if ( units === service.tbStr ){
+            byteVal = value * service.TB;
+        }
         else if ( units === service.pbStr ){
             byteVal = value * service.PB;
         }

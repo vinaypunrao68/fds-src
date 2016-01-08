@@ -2,10 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
-/**
- *
- */
-
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol

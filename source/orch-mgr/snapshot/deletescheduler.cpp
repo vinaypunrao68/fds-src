@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <orchMgr.h>
 #include <snapshot/deletescheduler.h>
 #include <util/timeutils.h>
 namespace atc = apache::thrift::concurrency;
@@ -93,12 +94,14 @@ void DeleteScheduler::run() {
     atc::Synchronized s(monitor);
     LOGNORMAL << "snapshot delete scheduler started";
     while (!fShutdown) {
+        om->counters->numSnapshotsInDeleteQueue.set(pq.size());
         while (!fShutdown && pq.empty()) {
             LOGDEBUG << "delete q empty .. waiting.";
             monitor.waitForever();
         }
 
         while (!fShutdown && !pq.empty()) {
+            om->counters->numSnapshotsInDeleteQueue.set(pq.size());
             DeleteTask* task;
             uint64_t currentTime = fds::util::getTimeStampSeconds();
             task = pq.top();

@@ -1449,6 +1449,40 @@ namespace fds
             request->invoke();
         }
 
+        void PlatformManager::notifyDiskMapChange ()
+        {
+            fpi::SvcUuid smUuid;
+            std::vector <fpi::SvcInfo> serviceMap;
+            MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
+            // Find DM and SM on the service map
+            for (auto const &vectItem : serviceMap)
+            {
+                fpi::SvcUuid svcUuid = vectItem.svc_id.svc_uuid;
+                ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
+
+                // Check if this is an SM/DM service on this node
+                if (getNodeUUID (fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val())
+                {
+                    if (smUuid.svc_uuid == 0 && vectItem.svc_type == fpi::FDSP_STOR_MGR)
+                    {
+                        LOGDEBUG << "Found local SM service " << svcUuid.svc_uuid;
+                        smUuid = svcUuid;
+                        break;
+                    }
+                }
+            }
+            fpi::NotifyDiskMapChangePtr message (new fpi::NotifyDiskMapChange());
+
+            auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+            if (smUuid.svc_uuid != 0)
+            {
+                LOGNORMAL << "Notifying SM about a disk-map change";
+                auto smRequest = svcMgr->newEPSvcRequest (smUuid);
+                smRequest->setPayload (FDSP_MSG_TYPEID (fpi::NotifyDiskMapChange), message);
+                smRequest->invoke();
+            }
+        }
+
         void PlatformManager::run()
         {
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
@@ -1462,6 +1496,7 @@ namespace fds
             while (1)
             {
                 dpm->dsk_monitor_hotplug();
+                notifyDiskMapChange();
             }
         }
     }  // namespace pm
