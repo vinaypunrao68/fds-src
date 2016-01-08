@@ -329,6 +329,7 @@ struct AmDispatcher :
      */
     uint32_t message_timeout_default { 0 };
     uint32_t message_timeout_io { 0 };
+    uint32_t message_timeout_open { 0 };
 
     /**
      * Number of primary replicas (right now DM/SM are identical)
