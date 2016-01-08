@@ -2,9 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
-import com.formationds.protocol.NfsOption;
 import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.base.Joiner;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.dcache.nfs.ExportFile;
@@ -69,28 +67,15 @@ public class DynamicExports implements ExportResolver {
             throw new IOException(e);
         }
 
+        ExportConfigurationBuilder configBuilder = new ExportConfigurationBuilder();
         Path path = Paths.get(EXPORTS);
         Files.deleteIfExists(path);
         PrintStream pw = new PrintStream(new FileOutputStream(EXPORTS));
-        exportableVolumes.forEach(vd -> pw.println(buildExportOptions(vd)));
-        pw.close();
-    }
-
-    private String buildExportOptions(VolumeDescriptor vd) {
-        NfsOption nfsOptions = vd.getPolicy().getNfsOptions();
-        String optionsClause = nfsOptions.getOptions();
-        // Remove the yet-unsupported async option
-        StringTokenizer tokenizer = new StringTokenizer(optionsClause, ",", false);
-        Set<String> options = new HashSet<>();
-        options.add("rw");
-        while (tokenizer.hasMoreTokens()) {
-            String token = tokenizer.nextToken();
-            if (!token.contains("sync")) {
-                options.add(token);
-            }
+        for (VolumeDescriptor exportableVolume : exportableVolumes) {
+            String configEntry = configBuilder.buildConfigurationEntry(exportableVolume);
+            pw.println(configEntry);
         }
-        optionsClause = "/" + vd.getName() + " " + nfsOptions.getClient() + "(" + Joiner.on(",").join(options) + ")";
-        return optionsClause;
+        pw.close();
     }
 
     @Override

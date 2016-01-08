@@ -5,7 +5,7 @@
 
 include "svc_types.thrift"
 
-/**
+/*
  * @author    Donavan Nelson <donavan @ formationds.com>
  * @version   0.7
  * @since     2015-05-30

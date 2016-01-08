@@ -32,3 +32,10 @@ struct DeactivateServicesMsg {
  */
 struct DeactivateServicesMsgRsp {
 }
+
+/**
+ * Notify disk-map change message from PM
+ */
+struct NotifyDiskMapChange {
+}
+

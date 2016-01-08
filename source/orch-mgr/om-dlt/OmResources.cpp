@@ -2027,8 +2027,8 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
-
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Access Manager";
                   startAM = true;
@@ -2049,8 +2049,8 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
-
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Data Manager";
                   startDM = true;
@@ -2070,8 +2070,8 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if (svcStatus == fpi::SVC_STATUS_ACTIVE) {
-
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Storage Manager";
                   startSM = true;
@@ -2329,7 +2329,8 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     {
         for ( const auto svc : svcs )
         {
-            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE || isPlatformSvc( svc) )
+            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED || isPlatformSvc( svc) )
             {
                 if ( isPlatformSvc( svc ) )
                 {

@@ -91,6 +91,7 @@ fds_uint64_t getBytesFromHumanSize(const std::string& strFileSize) {
     fds_uint64_t bytes = 0;
     char *p, *end;
     bytes =  std::strtol(strFileSize.c_str(), &end, 10);
+    for ( ; end && *end && *end==' '; ++end);
     p = end;
     for ( ; *p; ++p) *p = tolower(*p);
     if (end != strFileSize.c_str()) {

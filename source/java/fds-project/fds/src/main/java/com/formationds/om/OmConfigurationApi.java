@@ -615,6 +615,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public int ModifyVol( FDSP_ModifyVolType mod_vol_req ) throws TException {
+        LOG.trace( "ModifyVol::" + mod_vol_req.toString() );
         return getConfig().ModifyVol( mod_vol_req );
     }
 
