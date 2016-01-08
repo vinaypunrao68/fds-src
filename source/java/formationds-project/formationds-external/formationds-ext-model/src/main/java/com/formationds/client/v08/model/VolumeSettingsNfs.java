@@ -41,8 +41,8 @@ public class VolumeSettingsNfs
             return new VolumeSettingsNfs( this );
         }
 
-        private Size maxObjectSize = Size.mb( 2 );
         private String options = "";
+        private Size maxObjectSize = Size.mb( 1 );
         private String clients = "*";
     }
 

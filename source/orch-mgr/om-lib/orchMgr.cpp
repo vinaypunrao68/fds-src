@@ -279,7 +279,8 @@ void OrchMgr::svcStartRetryMonitor()
             fpi::SvcInfo svcInfo;
 
             if (MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
-                if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+                if ( svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+                     svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ) {
 
                     LOGWARN <<"PM:" << std::hex << svcUuid.svc_uuid << std::dec
                              << " appears to be unreachable, will not retry services"
