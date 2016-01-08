@@ -320,6 +320,7 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     fds_verify(vol != NULL);
     GLOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
     VolumeDesc* volDesc= vol->vol_get_properties();
+    gl_orch_mgr->counters->volumesBeingCreated.incr();
     if (fpi::ResourceState::Created != volDesc->state) {
         volDesc->state = fpi::ResourceState::Loading;
     }
@@ -379,7 +380,7 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Active;
     GLOGDEBUG << "VolumeFSM VACT_CrtDone for " << volDesc->name;
-
+    gl_orch_mgr->counters->volumesBeingCreated.decr();
     // TODO(prem): store state even for volume.
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
@@ -428,7 +429,20 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
-            GLOGDEBUG << "VACT_VolOp:: modify volume";
+            GLOGDEBUG << "VACT_VolOp:: modify volume [ " << vol->vol_get_name() << " ] [ " << vol->vol_get_id() << " ]";
+            if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_NFS_TYPE )
+            {
+                GLOGDEBUG << "NFS:: CLIENT [ " << vol->vol_get_properties()->nfsSettings.client << " ] "
+                          << "OPTIONS [ " << vol->vol_get_properties()->nfsSettings.options << " ]";
+            }
+            else if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_ISCSI_TYPE )
+            {
+                GLOGDEBUG << "iSCSI:: LUN count [ " << vol->vol_get_properties()->iscsiSettings.luns.size() << " ]"
+                          << " Initiator count [ " << vol->vol_get_properties()->iscsiSettings.initiators.size() << " ]"
+                          << " Incoming Users count [ " << vol->vol_get_properties()->iscsiSettings.incomingUsers.size() << " ]"
+                          << " Outgoing Users count [ " << vol->vol_get_properties()->iscsiSettings.outgoingUsers.size() << " ]";
+            }
+
             dst.wait_for_type = om_notify_vol_mod;
             err = vol->vol_modify(evt.vdesc_ptr);
             break;
@@ -1131,6 +1145,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     }
 
     // start volume delete process
+    gl_orch_mgr->counters->volumesBeingDeleted.incr();
     vol->vol_event(VolDeleteEvt(vol->rs_get_uuid(), vol.get()));
 
     return err;
@@ -1150,6 +1165,7 @@ Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
     LOGNOTIFY << "will delete volume : " << volId << ":" << vol->vol_get_name();
 
     // start volume delete process
+    gl_orch_mgr->counters->volumesBeingDeleted.incr();
     vol->vol_event(VolDeleteEvt(uuid, vol.get()));
 
     return err;
@@ -1164,10 +1180,35 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
     fds_verify(vol != NULL);
     VolumeDesc* volDesc = vol->vol_get_properties();
+    gl_orch_mgr->counters->volumesBeingDeleted.decr();
     // remove the volume from configDB
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->getSrcVolumeId(),
                                                    volDesc->volUUID);
+    } else {
+        // remove the snapshots for this vol from the OM datastructures
+        // the actual snapshots would have been removed from the DM during vol delete
+        std::vector<fpi::Snapshot> vecSnapshots;
+        gl_orch_mgr->getConfigDB()->listSnapshots(vecSnapshots, volDesc->volUUID);
+        LOGNORMAL << "removing [" << vecSnapshots.size() << "] snapshots after deleting vol:" << volDesc->volUUID;
+        for (const auto& snapshot : vecSnapshots) {
+            LOGNORMAL << "removing snapshot:" << snapshot.snapshotId;
+            if (gl_orch_mgr->enableTimeline) {
+                // remove from snap delete scheduler
+                gl_orch_mgr->snapshotMgr->deleteScheduler->removeVolume(fds_volid_t(snapshot.snapshotId));
+            }
+            // remove from config db
+            gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->volUUID, fds_volid_t(snapshot.snapshotId));
+
+            // remove from OM data structure
+            auto resource = rs_get_resource(snapshot.snapshotId);
+            if (resource == NULL) {
+                LOGWARN << "rs ptr NULL for snapshot:" << snapshot.snapshotId << " of vol:" << volDesc->volUUID;
+            } else {
+                rs_unregister(resource);
+                rs_free_resource(resource);
+            }
+        }
     }
     // Nothing to do for volume in config db ..
     // as it should have been marked as Deleted already..
@@ -1177,7 +1218,6 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     rs_free_resource(vol);
 }
 
-
 // get_volume
 // ---------
 //
@@ -1185,6 +1225,13 @@ VolumeInfo::pointer
 VolumeContainer::get_volume(const std::string& vol_name)
 {
     return VolumeInfo::vol_cast_ptr(rs_get_resource(vol_name.c_str()));
+}
+
+VolumeInfo::pointer
+VolumeContainer::get_volume(const fds_volid_t id)
+{
+    ResourceUUID uuid(id.v);
+    return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
 }
 
 //
@@ -1283,10 +1330,36 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                   << " throttle iops " << new_desc->iops_throttle
                   << " priority " << new_desc->relativePrio;
     }
+
     if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {
         new_desc->mediaPolicy = mod_msg->vol_desc.mediaPolicy;
         LOGNOTIFY << "Modify volume " << vname
                   << " also set media policy to " << new_desc->mediaPolicy;
+    }
+
+    LOGNOTIFY << "Modify volume [ " << (mod_msg->vol_desc).vol_name << " ]"
+              << " [ " << (mod_msg->vol_desc).volUUID << " ]"
+              << " [ " << (mod_msg->vol_desc).volType << " ]";
+
+    if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_ISCSI_TYPE )
+    {
+        FDS_ProtocolInterface::IScsiTarget iscsi = ( mod_msg->vol_desc ).iscsi;
+        LOGDEBUG << "iSCSI::before LUN count [ " << iscsi.luns.size() << " ]"
+                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+        new_desc->iscsiSettings = iscsi;
+        LOGDEBUG << "iSCSI::after LUN count [ " << new_desc->iscsiSettings.luns.size() << " ]"
+                 << " Initiator count [ " << new_desc->iscsiSettings.initiators.size() << " ]"
+                 << " Incoming Users count [ " << new_desc->iscsiSettings.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << new_desc->iscsiSettings.outgoingUsers.size() << " ]";
+    }
+    else if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_NFS_TYPE )
+    {
+        FDS_ProtocolInterface::NfsOption nfs = ( mod_msg->vol_desc ).nfs;
+        LOGDEBUG << "NFS::before client [ " << nfs.client << " ] " << " option [ " << nfs.options << " ]";
+        new_desc->nfsSettings = nfs;
+        LOGDEBUG << "NFS::after client [ " << new_desc->nfsSettings.client << " ] " << " option [ " << new_desc->nfsSettings.options << " ]";
     }
 
     vol->vol_event(VolOpEvt(vol.get(),

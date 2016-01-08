@@ -36,11 +36,11 @@ Error DmPersistVolCat::syncCatalog(const NodeUuid & dmUuid) {
     std::string destIP = dmSvcInfo.ip;
 
     // Get rsync username and passwd
-    FdsConfigAccessor migrationConf(g_fdsprocess->get_fds_config(), "fds.dm.migration.");   
+    FdsConfigAccessor migrationConf(MODULEPROVIDER()->get_fds_config(), "fds.dm.migration.");   
     rsyncUser   = migrationConf.get<std::string>("rsync_username");
     rsyncPasswd = migrationConf.get<std::string>("rsync_password");
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::string snapDir = root->dir_sys_repo_dm() + getVolIdStr() + "/"
             + std::to_string(dmUuid.uuid_get_val()) + std::string("-tmpXXXXXX");
     // FdsRootDir::fds_mkdir(snapDir.c_str());

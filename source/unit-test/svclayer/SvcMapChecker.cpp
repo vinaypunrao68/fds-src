@@ -98,7 +98,8 @@ class SvcMapChecker : public SvcProcess
             LOGNORMAL << "Checking aginst " << fds::logString(svcInfo);
             std::cout << "Checking: " << svcInfo.svc_id.svc_uuid.svc_uuid << std::endl;
 
-            if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+            if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED) {
                 /* Getting svcmap should fail */
                 if (getSvcMap(svcInfo.ip, svcInfo.svc_port, svcMap) == true) {
                     LOGERROR << "Service is up.  OM thinks it's down.  OM view: "

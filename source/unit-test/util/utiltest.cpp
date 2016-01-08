@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
-
+#include <fds_defines.h>
 #include <util/timeutils.h>
 #include <util/path.h>
 
@@ -24,6 +24,9 @@ struct UtilTest : ::testing::Test {
 
 TEST_F(UtilTest, time) {
 
+    EXPECT_EQ(0, util::getSecondsFromHumanTime(""));
+    EXPECT_EQ(0, util::getSecondsFromHumanTime("   "));
+
     EXPECT_EQ(1, util::getSecondsFromHumanTime("1"));
     EXPECT_EQ(2, util::getSecondsFromHumanTime("2s"));
     EXPECT_EQ(2, util::getSecondsFromHumanTime("2 s"));
@@ -31,7 +34,7 @@ TEST_F(UtilTest, time) {
     EXPECT_EQ(2, util::getSecondsFromHumanTime("2 Sec"));
 
     EXPECT_EQ(60, util::getSecondsFromHumanTime("1m"));
-    EXPECT_EQ(3600, util::getSecondsFromHumanTime("1h"));
+    EXPECT_EQ(3600, util::getSecondsFromHumanTime("1 h"));
     EXPECT_EQ(2*86400, util::getSecondsFromHumanTime("2d"));
 
     EXPECT_EQ(30, util::getSecondsFromHumanTime("30"));
@@ -39,8 +42,33 @@ TEST_F(UtilTest, time) {
     EXPECT_EQ(210, util::getSecondsFromHumanTime("3:30"));
 }
 
+TEST_F(UtilTest, size) {
+
+    EXPECT_EQ(0, util::getBytesFromHumanSize(""));
+    EXPECT_EQ(0, util::getBytesFromHumanSize("  "));
+
+    EXPECT_EQ(1, util::getBytesFromHumanSize("1"));
+    EXPECT_EQ(2, util::getBytesFromHumanSize("2B"));
+    EXPECT_EQ(2, util::getBytesFromHumanSize("2 B"));
+    EXPECT_EQ(2, util::getBytesFromHumanSize("2 bytes"));
+    EXPECT_EQ(2, util::getBytesFromHumanSize("2 Bytes"));
+
+    EXPECT_EQ(1024, util::getBytesFromHumanSize("1K"));
+    EXPECT_EQ(1024, util::getBytesFromHumanSize("1 K"));
+    EXPECT_EQ(1024, util::getBytesFromHumanSize("1KB"));
+    EXPECT_EQ(1024, util::getBytesFromHumanSize("1 kb"));
+
+    EXPECT_EQ(3*MB, util::getBytesFromHumanSize("3 MB"));
+    EXPECT_EQ(3*MB, util::getBytesFromHumanSize("3 M"));
+    EXPECT_EQ(3*MB, util::getBytesFromHumanSize("3M"));
+    
+    EXPECT_EQ(4L*GB, util::getBytesFromHumanSize("4GB"));
+    EXPECT_EQ(4L*GB, util::getBytesFromHumanSize("4G"));
+}
+
+
 TEST_F(UtilTest, checksum) {
-    std::cout << "chksum of /tmp/Log.cpp : " << util::getFileChecksum("/tmp/Log.cpp");
+    // std::cout << "chksum of /tmp/Log.cpp : " << util::getFileChecksum("/tmp/Log.cpp");
 }
 
 int main(int argc, char** argv) {

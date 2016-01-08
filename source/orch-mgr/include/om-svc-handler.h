@@ -94,6 +94,9 @@ namespace fds {
 
       void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                               boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
+
+      void setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

@@ -31,6 +31,7 @@
 
 #include "connector/scst/ScstCommon.h"
 #include "concurrency/LeaderFollower.h"
+#include "fds_volume.h"
 
 namespace fds {
 
@@ -57,7 +58,7 @@ struct ScstTarget
 
     std::string targetName() const { return target_name; }
 
-    void addDevice(std::string const& volume_name);
+    void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
     void setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials);

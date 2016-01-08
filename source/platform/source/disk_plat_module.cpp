@@ -94,8 +94,7 @@ void DiskPlatModule::scan_and_discover_disks()
     dsk_rescan();
     dsk_discover_mount_pts();
 
-    if ((dsk_devices->disk_read_label(label_manager, false) == true) ||
-        (dsk_devices->dsk_need_simulation() == false))
+    if (dsk_devices->dsk_need_simulation() == false)
     {
         /* Contains valid disk label or real HW inventory */
         dsk_inuse = dsk_devices;
@@ -104,7 +103,6 @@ void DiskPlatModule::scan_and_discover_disks()
         dsk_sim   = new FileDiskInventory(dir->dir_dev().c_str());
         dsk_inuse = dsk_sim;
     }
-    label_manager->clear();
 
     dsk_inuse->dsk_admit_all();
     dsk_inuse->dsk_mount_all();
@@ -117,7 +115,7 @@ void DiskPlatModule::scan_and_discover_disks()
     }
 
     dsk_inuse->disk_read_capabilities(capabilities_manager);
-    dsk_inuse->disk_read_label(label_manager, true);
+    dsk_inuse->disk_reconcile_label(label_manager);
     label_manager->clear();
 }
 
@@ -349,6 +347,7 @@ void DiskPlatModule::dsk_monitor_hotplug()
         {
             LOGNORMAL "Triggering disk rescan";
             scan_and_discover_disks();
+            return; // return to caller, so it knows a rescan happened
         }
     }
 }

@@ -103,12 +103,16 @@ public class PlatformModelConverter
     address = new NodeAddress( ipv4, ipv6 );
 
     SvcInfo PM = loadNodeSvcInfo(nodeId);
-    Size diskCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                 .getOrDefault( "disk_capacity", "0" ) ),
-                                 SizeUnit.B );
-    Size ssdCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                .getOrDefault( "ssd_capacity", "0" ) ),
-                                SizeUnit.B );
+    Size diskCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                       .getOrDefault( "disk_capacity", "0" ) ),
+                                     SizeUnit.GB );
+    Size ssdCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                      .getOrDefault( "ssd_capacity", "0" ) ),
+                                    SizeUnit.GB );
+
+    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+
     return new Node( nodeId, address, state, diskCapacity, ssdCapacity, services );
   }
 
@@ -253,7 +257,7 @@ public class PlatformModelConverter
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
-			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_FAILED;
 			break;
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;

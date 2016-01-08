@@ -580,17 +580,13 @@ public class ExternalModelConverter {
                              volumeId );
             }
 
-        } else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
+        }
+        else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
         {
+            logger.trace( "NFS::SETTINGS::{}", internalVolume.getPolicy( ) );
             NfsOption nfsOptions = null;
             if ( !internalVolume.getPolicy( )
-                                .isSetNfsOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetClient( ) )
+                                .isSetNfsOptions( ) )
             {
                 final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
                 if( optional.isPresent( ) )
@@ -716,21 +712,44 @@ public class ExternalModelConverter {
         final List<String> listOfOptions =
             Arrays.asList( StringUtils.split( options.getOptions(), "," ) );
 
-        final NfsOptions.Builder[] builder = { new NfsOptions.Builder( ) };
-        listOfOptions.stream()
-                     .forEach( ( option ) -> {
-                        switch( option )
-                        {
-                            case "ro":builder[ 0 ] = builder[ 0 ].ro( ); break;
-                            case "rw":builder[ 0 ] = builder[ 0 ].rw( ); break;
-                            case "acl":builder[ 0 ] = builder[ 0 ].withAcl( ); break;
-                            case "async":builder[ 0 ] = builder[ 0 ].async( ); break;
-                            case "root_squash":builder[ 0 ] = builder[ 0 ].withRootSquash( ); break;
-                            case "no_root_squash":builder[ 0 ] = builder[ 0 ].allSquash( ); break;
-                        }
-                    });
-
-        return builder[ 0 ].build( );
+        NfsOptions.Builder builder = new NfsOptions.Builder( );
+        for( final String option : listOfOptions )
+        {
+            final String lowerCaseVersion = option.toLowerCase();
+            logger.trace( "NFS Option [ '{}' ]", lowerCaseVersion );
+            switch( lowerCaseVersion )
+            {
+                case "ro":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.ro( );
+                    break;
+                case "rw":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.rw( );
+                    break;
+                case "acl":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withAcl( );
+                    break;
+                case "async":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.async( );
+                    break;
+                case "root_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withRootSquash( );
+                case "all_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.allSquash( );
+                    break;
+                default:
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    break;
+            }
+        }
+        final NfsOptions nfsOptions = builder.build();
+        logger.trace( "Internal NFS Options::{} External NFS Options::{}", options, nfsOptions );
+        return nfsOptions;
     }
 
     public static NfsClients convertToExternalNfsClients( final NfsOption options )
@@ -912,16 +931,25 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setVolumeType( VolumeType.ISCSI );
-            if( iscsiSettings.getTarget() == null ||
-                iscsiSettings.getTarget().getLuns().isEmpty() )
+            if( iscsiSettings.getTarget() == null )
             {
                 throw new IllegalArgumentException(
-                    String.format( "The iSCSI volume is missing mandatory attributes, skipping volume %s:%s",
+                    String.format( "The iSCSI volume is missing mandatory target, skipping volume %s:%s",
                                    externalVolume.getName(),
                                    externalVolume.getId() ) );
             }
             else
             {
+                if( iscsiSettings.getTarget().getLuns().isEmpty() )
+                {
+                    iscsiSettings.getTarget()
+                                 .getLuns()
+                                 .add( new LUN.Builder()
+                                              .withLun( externalVolume.getName() )
+                                              .withAccessType( LUN.AccessType.RW )
+                                              .build() );
+                }
+
                 final IScsiTarget iscsiTarget =
                     new IScsiTarget( ).setLuns(
                         convertToInternalLogicalUnitNumber(
@@ -974,7 +1002,6 @@ public class ExternalModelConverter {
         else if ( externalVolume.getSettings() instanceof VolumeSettingsNfs )
         {   // NFS volume
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
-            internalSettings.setVolumeType( VolumeType.NFS );
 
             Size maxObjSize = nfsSettings.getMaxObjectSize();
 
@@ -1015,6 +1042,7 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setNfsOptions( options );
+            internalSettings.setVolumeType( VolumeType.NFS );
         }
         else // Object Volume
         {
@@ -1117,6 +1145,7 @@ public class ExternalModelConverter {
             target.setOutgoingUsers( convertToInternalOutgoingUsers( iscsi.getTarget().getOutgoingUsers() ) );
 
             volumeType.setIscsi( target );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
         } else if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
@@ -1157,7 +1186,7 @@ public class ExternalModelConverter {
                 volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
             }
 
-            volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_NFS_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
