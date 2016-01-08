@@ -347,6 +347,7 @@ void DiskPlatModule::dsk_monitor_hotplug()
         {
             LOGNORMAL "Triggering disk rescan";
             scan_and_discover_disks();
+            return; // return to caller, so it knows a rescan happened
         }
     }
 }

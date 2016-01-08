@@ -141,6 +141,7 @@ namespace fds
                 bool loadDiskUuidToDeviceMap();
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
+                void notifyDiskMapChange();
         };
     }  // namespace pm
 }  // namespace fds
