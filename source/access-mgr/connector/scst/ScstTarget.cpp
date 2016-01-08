@@ -26,6 +26,8 @@
 
 extern "C" {
 #include <glob.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 }
 
 #include <ev++.h>
@@ -50,6 +52,26 @@ static std::string scst_iscsi_lun_mgmt      { "/luns/mgmt" };
 static std::string scst_iscsi_host_mgmt      { "/initiators/mgmt" };
 
 using credential_map = std::unordered_map<std::string, std::string>;
+
+/**
+ * Is the target enabled
+ */
+bool
+targetEnabled(std::string const& target_name) {
+    auto path = scst_iscsi_target_path + target_name + scst_iscsi_target_enable;
+    std::ifstream scst_enable(path, std::ios::in);
+    if (scst_enable.is_open()) {
+        std::string line;
+        if (std::getline(scst_enable, line)) {
+            std::istringstream iss(line);
+            uint32_t enable_value;
+            if (iss >> enable_value) {
+                return 1 == enable_value;
+            }
+        }
+    }
+    return false;
+}
 
 /**
  * Build a map of the current users known to SCST for a given target
@@ -100,6 +122,12 @@ void addIncomingUser(std::string const& target_name,
     tgt_dev << "add_target_attribute "  << target_name
             << " IncomingUser "         << user_name
             << " "                      << password << std::endl;
+}
+
+bool groupExists(std::string const& target_name, std::string const& group_name) {
+    struct stat info;
+    auto ini_dir = scst_iscsi_target_path + target_name + scst_iscsi_ini_path + group_name;
+    return ((0 == stat(ini_dir.c_str(), &info)) && (info.st_mode & S_IFDIR));
 }
 
 /**
@@ -229,7 +257,6 @@ void ScstTarget::removeDevice(std::string const& volume_name) {
 void ScstTarget::mapDevices() {
     // Map the luns to either the security group or default group depending on
     // whether we have any assigned initiators.
-    std::lock_guard<std::mutex> g(deviceLock);
     
     // add to default group
     auto lun_mgmt_path = (ini_members.empty() ?
@@ -248,13 +275,14 @@ void ScstTarget::mapDevices() {
                  << " " << std::distance(lun_table.begin(), device.second)
                  << std::endl;
     }
+    luns_mapped = true;
 }
 
 void
 ScstTarget::clearMasking() {
     GLOGDEBUG << "Clearing initiator mask for: " << target_name;
     // Remove the security group
-    {
+    if (groupExists(target_name, "allowed")) {
         std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
                               std::ios::out);
         if (ini_mgmt.is_open()) {
@@ -265,11 +293,18 @@ ScstTarget::clearMasking() {
 }
 
 void
-ScstTarget::setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials) {
+ScstTarget::setCHAPCreds(std::unordered_map<std::string, std::string>& credentials) {
     std::unique_lock<std::mutex> l(deviceLock);
 
-    // Remove all existing IncomingUsers
+    // Remove all existing IncomingUsers if not in new creds
+    // or secret is different
     for (auto const& cred : currentIncomingUsers(target_name)) {
+        auto it = credentials.find(cred.first);
+        if ((credentials.end() != it) && (it->second == cred.second)) {
+            // Already have this login
+            credentials.erase(it);
+            continue;
+        }
         removeIncomingUser(target_name, cred.first);
     }
 
@@ -280,54 +315,58 @@ ScstTarget::setCHAPCreds(std::unordered_map<std::string, std::string> const& cre
 }
 
 void
-ScstTarget::setInitiatorMasking(std::vector<std::string> const& new_members) {
+ScstTarget::setInitiatorMasking(std::set<std::string> const& new_members) {
     std::unique_lock<std::mutex> l(deviceLock);
 
-    if (new_members.empty()) {
-        return clearMasking();
+    if ((ini_members == new_members) && luns_mapped) {
+        return;
+    } else if (new_members.empty()) {
+        clearMasking();
+    } else {
+
+        // Ensure ini group exists
+        if (!groupExists(target_name, "allowed")) {
+            std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
+                                  std::ios::out);
+            if (!ini_mgmt.is_open()) {
+                throw ScstError::scst_error;
+            }
+            ini_mgmt << "create allowed" << std::endl;
+        }
+
+        {
+            std::ofstream host_mgmt(scst_iscsi_target_path
+                                       + target_name
+                                       + scst_iscsi_ini_path
+                                       + "allowed"
+                                       + scst_iscsi_host_mgmt,
+                                   std::ios::out);
+            if (! host_mgmt.is_open()) {
+                throw ScstError::scst_error;
+            }
+            // For each ini that is no longer in the list, remove from group
+            std::vector<std::string> manip_list;
+            std::set_difference(ini_members.begin(), ini_members.end(),
+                                new_members.begin(), new_members.end(),
+                                std::inserter(manip_list, manip_list.begin()));
+
+            for (auto const& host : manip_list) {
+                host_mgmt << "del " << host << std::endl;
+            }
+            manip_list.clear();
+
+            // For each ini that is new to the list, add to the group
+            std::set_difference(new_members.begin(), new_members.end(),
+                                ini_members.begin(), ini_members.end(),
+                                std::inserter(manip_list, manip_list.begin()));
+            for (auto const& host : manip_list) {
+                host_mgmt << "add " << host << std::endl;
+            }
+
+            ini_members = new_members;
+        }
     }
-
-    // Ensure ini group exists
-    {
-        std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
-                              std::ios::out);
-        if (!ini_mgmt.is_open()) {
-            throw ScstError::scst_error;
-        }
-        ini_mgmt << "create allowed" << std::endl;
-    }
-
-    {
-        std::ofstream host_mgmt(scst_iscsi_target_path
-                                   + target_name
-                                   + scst_iscsi_ini_path
-                                   + "allowed"
-                                   + scst_iscsi_host_mgmt,
-                               std::ios::out);
-        if (! host_mgmt.is_open()) {
-            throw ScstError::scst_error;
-        }
-        // For each ini that is no longer in the list, remove from group
-        std::vector<std::string> manip_list;
-        std::set_difference(ini_members.begin(), ini_members.end(),
-                            new_members.begin(), new_members.end(),
-                            std::inserter(manip_list, manip_list.begin()));
-
-        for (auto const& host : manip_list) {
-            host_mgmt << "del " << host << std::endl;
-        }
-        manip_list.clear();
-
-        // For each ini that is new to the list, add to the group
-        std::set_difference(new_members.begin(), new_members.end(),
-                            ini_members.begin(), ini_members.end(),
-                            std::inserter(manip_list, manip_list.begin()));
-        for (auto const& host : manip_list) {
-            host_mgmt << "add " << host << std::endl;
-        }
-
-        ini_members = new_members;
-    }
+    mapDevices();
 }
 
 // Starting the devices has to happen inside the ev-loop
@@ -348,7 +387,9 @@ ScstTarget::startNewDevices() {
 
 void
 ScstTarget::toggle_state(bool const enable) {
-    GLOGDEBUG << "Toggling iSCSI target.";
+    // Do nothing if already in that state
+    if (enable == targetEnabled(target_name)) return;
+
     std::ofstream dev(scst_iscsi_target_path + target_name + scst_iscsi_target_enable,
                       std::ios::out);
     if (!dev.is_open()) {
@@ -358,14 +399,13 @@ ScstTarget::toggle_state(bool const enable) {
 
     // Enable target
     if (enable) {
-        mapDevices();
         dev << "1" << std::endl;
     } else { 
         dev << "0" << std::endl;
     }
     dev.close();
     GLOGNORMAL << "iSCSI target [" << target_name
-               << "] has been " << (enable ? "enabled" : "disabled");
+              << "] has been " << (enable ? "enabled" : "disabled");
 }
 
 void
