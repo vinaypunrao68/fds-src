@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PASSWD="dummy"mv 
+PASSWD="dummy"
 INVENTORYFILE="long_system_test"
 LOGFILE="/tmp/AwsLongSystemTest.log"
 
