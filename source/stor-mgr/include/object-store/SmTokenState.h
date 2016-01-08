@@ -19,6 +19,9 @@ struct SmTokenLoc {
     fds_token_id id;
     DiskId hdd;
     DiskId ssd;
+    bool operator <(const SmTokenLoc &rhs) const {
+        return (id < rhs.id);
+    }
 };
 
 /**
@@ -89,7 +92,7 @@ struct __attribute__((__packed__)) TokenDescTable {
      * @return true if at least one token was initialized to "valid"
      *         false if all given tokes were already valid
      */
-    fds_bool_t initializeSmTokens(const SmTokenLoc& smToksValid);
+    fds_bool_t initializeSmTokens(const std::set<SmTokenLoc>& smToksValid);
 
     /**
      * Resets given set of tokens into "invalid" state
@@ -113,19 +116,23 @@ struct __attribute__((__packed__)) TokenDescTable {
     /**
      * Sets write file id for a given sm token id and tier
      */
-    void setWriteFileId(fds_token_id smToken,
+    void setWriteFileId(DiskId diskId,
+                        fds_token_id smToken,
                         diskio::DataTier tier,
                         fds_uint16_t fileId);
-    fds_uint16_t getWriteFileId(fds_token_id smToken,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier) const;
 
     /**
      * Set/get token compaction status
      */
-    void setCompactionState(fds_token_id smToken,
+    void setCompactionState(DiskId diskId,
+                            fds_token_id smToken,
                             diskio::DataTier tier,
                             fds_bool_t inProgress);
-    fds_bool_t isCompactionInProgress(fds_token_id smToken,
+    fds_bool_t isCompactionInProgress(DiskId diskId,
+                                      fds_token_id smToken,
                                       diskio::DataTier tier) const;
 
     /**
@@ -135,7 +142,7 @@ struct __attribute__((__packed__)) TokenDescTable {
 
     fds_uint16_t getIdx(DiskId diskId,
                         fds_token_id smToken,
-                        diskio::DataTier tier);
+                        diskio::DataTier tier) const;
 
     /**
      * Get a set of SM tokens that reside on this SM

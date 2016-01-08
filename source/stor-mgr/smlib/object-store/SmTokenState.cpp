@@ -17,10 +17,10 @@ TokenDescTable::TokenDescTable() {
 }
 
 fds_bool_t
-TokenDescTable::initializeSmTokens(const SmTokenLoc& tokens) {
+TokenDescTable::initializeSmTokens(const std::set<SmTokenLoc>& tokens) {
     fds_bool_t initAtLeastOneToken = false;
     // token id is also a column index into stateTbl
-    for (SmTokenSet::const_iterator cit = tokens.cbegin();
+    for (std::set<SmTokenLoc>::const_iterator cit = tokens.cbegin();
          cit != tokens.cend();
          ++cit) {
         if (!stateTbl[fds_hdd_row][cit->id][DEFAULT_DISKIDX].isValid()) {
@@ -101,27 +101,38 @@ TokenDescTable::getWriteFileId(DiskId diskId,
 }
 
 void
-TokenDescTable::setWriteFileId(fds_token_id smToken,
+TokenDescTable::setWriteFileId(DiskId diskId,
+                               fds_token_id smToken,
                                diskio::DataTier tier,
                                fds_uint16_t fileId) {
-    stateTbl[row(tier)][smToken].writeFileId = fileId;
+    auto idx = DEFAULT_DISKIDX;
+    while (idx < MAX_HOST_DISKS &&
+           stateTbl[row(tier)][smToken][idx].diskId != SM_INVALID_DISK_ID) {
+        idx++;
+    }
+    if (idx >= MAX_HOST_DISKS) { return; }
+    stateTbl[row(tier)][smToken][idx].writeFileId = fileId;
 }
 
 void
-TokenDescTable::setCompactionState(fds_token_id smToken,
+TokenDescTable::setCompactionState(DiskId diskId,
+                                   fds_token_id smToken,
                                    diskio::DataTier tier,
                                    fds_bool_t inProgress) {
+    auto idx = getIdx(diskId, smToken, tier);
     if (inProgress) {
-        stateTbl[row(tier)][smToken].setCompacting();
+        stateTbl[row(tier)][smToken][idx].setCompacting();
     } else {
-        stateTbl[row(tier)][smToken].unsetCompacting();
+        stateTbl[row(tier)][smToken][idx].unsetCompacting();
     }
 }
 
 fds_bool_t
-TokenDescTable::isCompactionInProgress(fds_token_id smToken,
+TokenDescTable::isCompactionInProgress(DiskId diskId,
+                                       fds_token_id smToken,
                                        diskio::DataTier tier) const {
-    return stateTbl[row(tier)][smToken].isCompacting();
+    auto idx = getIdx(diskId, smToken, tier);
+    return stateTbl[row(tier)][smToken][idx].isCompacting();
 }
 
 fds_bool_t
@@ -133,12 +144,12 @@ TokenDescTable::isValidOnAnyTier(fds_token_id smToken) const {
 fds_uint16_t
 TokenDescTable::getIdx(DiskId diskId,
                        fds_token_id smToken,
-                       diskio::DataTier tier) {
-    if (diskID == SM_INVALID_DISK_ID) {
+                       diskio::DataTier tier) const {
+    if (diskId == SM_INVALID_DISK_ID) {
         return MAX_HOST_DISKS;
     }
     for (auto idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; ++idx) {
-        if (stateTbl[tier][smToken][idx] == diskId) {
+        if (stateTbl[tier][smToken][idx].diskId == diskId) {
             return idx;
         }
     }
@@ -151,8 +162,8 @@ TokenDescTable::getSmTokens() const {
     // we just need to check one tier, but the other tier
     // should have valid flag as well
     for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
-        if (stateTbl[fds_hdd_row][tokId].isValid()) {
-            fds_verify(stateTbl[fds_ssd_row][tokId].isValid());
+        if (stateTbl[fds_hdd_row][tokId][DEFAULT_DISKIDX].isValid() &&
+            stateTbl[fds_ssd_row][tokId][DEFAULT_DISKIDX].isValid()) {
             tokens.insert(tokId);
         }
     }
@@ -180,7 +191,12 @@ std::ostream& operator<< (std::ostream &out,
             out << "SSD: ";
         }
         for (fds_uint32_t j = 0; j < SMTOKEN_COUNT; ++j) {
-            out << "[" << tbl.stateTbl[i][j] << "] ";
+            for (auto idx = DEFAULT_DISKIDX;
+                 idx < MAX_HOST_DISKS; ++idx) {
+                if (tbl.stateTbl[i][j][idx].diskId != SM_INVALID_DISK_ID) {
+                    out << "[" << tbl.stateTbl[i][j][idx] << "] ";
+                }
+            }
         }
         out << "\n";
     }
@@ -189,7 +205,8 @@ std::ostream& operator<< (std::ostream &out,
 
 std::ostream& operator<< (std::ostream &out,
                           const SmTokenDesc& td) {
-    out << std::hex << td.writeFileId << std::dec << ",";
+    out << std::hex << td.writeFileId << std::dec
+        << "," << td.diskId << ",";
     if (td.tokenFlags == 0) {
         out << "{no flags}";
     } else {

@@ -332,11 +332,14 @@ class SmSuperblockMgr {
     fds_uint16_t getWriteFileId(DiskId diskId,
                                 fds_token_id smToken,
                                 diskio::DataTier tier);
-    fds_bool_t compactionInProgress(fds_token_id smToken,
+    fds_bool_t compactionInProgress(DiskId diskId,
+                                    fds_token_id smToken,
                                     diskio::DataTier tier);
-    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+    fds_bool_t compactionInProgressNoLock(DiskId diskId,
+                                          fds_token_id smToken,
                                           diskio::DataTier tier);
-    Error changeCompactionState(fds_token_id smToken,
+    Error changeCompactionState(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,
                                 fds_uint16_t newFileId);
@@ -365,7 +368,8 @@ class SmSuperblockMgr {
     bool
     checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
-    Error changeTokenCompactionState(fds_token_id smToken,
+    Error changeTokenCompactionState(DiskId diskId,
+                                     fds_token_id smToken,
                                      diskio::DataTier tier,
                                      fds_bool_t inProg,
                                      fds_uint16_t newFileId);

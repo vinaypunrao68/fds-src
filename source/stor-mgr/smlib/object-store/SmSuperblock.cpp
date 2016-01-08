@@ -444,8 +444,8 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
     for (auto smToken : smTokensOwned) {
         SmTokenLoc tokenLoc;
         tokenLoc.id = smToken;
-        tokenLoc.hdd = superblockMaster.olt.getDiskId(smTokId, diskio::diskTier);
-        tokenLoc.ssd = superblockMaster.olt.getDiskId(smTokId, diskio::flashTier);
+        tokenLoc.hdd = superblockMaster.olt.getDiskId(smToken, diskio::diskTier);
+        tokenLoc.ssd = superblockMaster.olt.getDiskId(smToken, diskio::flashTier);
         tokenLocations.insert(tokenLoc);
     }
     fds_bool_t initAtLeastOne =
@@ -648,7 +648,7 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                     metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
                                                                 diskio::flashTier);
                 }
-                changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
+                changeTokenCompactionState(removedDiskId, lostSmToken, diskio::diskTier, false, 0);
                 smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
             }
             if (diskChangeFn) {
@@ -1139,36 +1139,40 @@ SmSuperblockMgr::getWriteFileId(DiskId diskId,
 }
 
 fds_bool_t
-SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
+SmSuperblockMgr::compactionInProgress(DiskId diskId,
+                                      fds_token_id smToken,
                                       diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
-    return compactionInProgressNoLock(smToken, tier);
+    return compactionInProgressNoLock(diskId, smToken, tier);
 }
 
 fds_bool_t
-SmSuperblockMgr::compactionInProgressNoLock(fds_token_id smToken,
+SmSuperblockMgr::compactionInProgressNoLock(DiskId diskId,
+                                            fds_token_id smToken,
                                             diskio::DataTier tier) {
-    return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
+    return superblockMaster.tokTbl.isCompactionInProgress(diskId, smToken, tier);
 }
 
 Error
-SmSuperblockMgr::changeCompactionState(fds_token_id smToken,
+SmSuperblockMgr::changeCompactionState(DiskId diskId,
+                                       fds_token_id smToken,
                                        diskio::DataTier tier,
                                        fds_bool_t inProg,
                                        fds_uint16_t newFileId) {
     SCOPEDWRITE(sbLock);
-    return changeTokenCompactionState(smToken, tier, inProg, newFileId);
+    return changeTokenCompactionState(diskId, smToken, tier, inProg, newFileId);
 }
 
 Error
-SmSuperblockMgr::changeTokenCompactionState(fds_token_id smToken,
+SmSuperblockMgr::changeTokenCompactionState(DiskId diskId,
+                                            fds_token_id smToken,
                                             diskio::DataTier tier,
                                             fds_bool_t inProg,
                                             fds_uint16_t newFileId) {
     Error err(ERR_OK);
-    superblockMaster.tokTbl.setCompactionState(smToken, tier, inProg);
+    superblockMaster.tokTbl.setCompactionState(diskId, smToken, tier, inProg);
     if (inProg) {
-        superblockMaster.tokTbl.setWriteFileId(smToken, tier, newFileId);
+        superblockMaster.tokTbl.setWriteFileId(diskId, smToken, tier, newFileId);
     }
     // sync superblock
     err = syncSuperblock();

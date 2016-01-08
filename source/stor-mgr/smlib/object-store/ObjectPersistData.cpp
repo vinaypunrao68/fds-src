@@ -88,7 +88,7 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
 
 
                     // Also open old file if compaction is in progress
-                    if (diskMap->superblock->compactionInProgress(*cit, tierNum)) {
+                    if (diskMap->superblock->compactionInProgress(diskId, *cit, tierNum)) {
                         fds_uint16_t oldFileId = getShadowFileId(fileId);
                         err = openTokenFile(diskId, tierNum, *cit, oldFileId);
                         fds_assert(err.ok());
@@ -185,9 +185,9 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
 
                 bool tcInProg = false;
                 if (failedDisk) {
-                    tcInProg = smDiskMap->superblock->compactionInProgressNoLock(*cit, tierNum);
+                    tcInProg = smDiskMap->superblock->compactionInProgressNoLock(diskId, *cit, tierNum);
                 } else {
-                    tcInProg = smDiskMap->superblock->compactionInProgress(*cit, tierNum);
+                    tcInProg = smDiskMap->superblock->compactionInProgress(diskId, *cit, tierNum);
                 }
                 // also close and delete old file if compaction is in progress
                 if (tcInProg) {
@@ -308,7 +308,7 @@ ObjectPersistData::notifyStartGc(DiskId diskId,
     fds_uint64_t wkey = getWriteFileKey(diskId, tier, smTokId);
 
     // if compaction already in progress, shadow file does not change
-    if (smDiskMap->superblock->compactionInProgress(smTokId, tier)) {
+    if (smDiskMap->superblock->compactionInProgress(diskId, smTokId, tier)) {
         LOGNOTIFY << "Compaction already in progress for token " << smTokId
                   << " tier " << tier << " -- will continue";
         return;
@@ -325,7 +325,7 @@ ObjectPersistData::notifyStartGc(DiskId diskId,
     newFileId = getShadowFileId(curFileId);
 
     // first persist new file ID and set compaction state
-    err = smDiskMap->superblock->changeCompactionState(smTokId, tier,
+    err = smDiskMap->superblock->changeCompactionState(diskId, smTokId, tier,
                                                        true, newFileId);
     fds_assert(err.ok());
     // TODO(Gurpreet): Gracefully handle the error. Stopping TC
@@ -391,7 +391,7 @@ ObjectPersistData::notifyEndGc(DiskId diskId,
 
     if (err.ok()) {
         // compaction is done and we successfully deleted the old file
-        err = smDiskMap->superblock->changeCompactionState(smTokId, tier, false, 0);
+        err = smDiskMap->superblock->changeCompactionState(diskId, smTokId, tier, false, 0);
         fds_verify(err.ok());
     }
     return err;

@@ -446,7 +446,9 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        persistData->notifyEndGc(diskId, *cit, diskio::diskTier);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->notifyEndGc(diskId, *cit, tier);
     }
 
     // read dataset back from the new location and validate
