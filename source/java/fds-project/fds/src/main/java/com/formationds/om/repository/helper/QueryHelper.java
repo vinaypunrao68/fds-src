@@ -328,8 +328,8 @@ public class QueryHelper {
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
-                            .filter( ( p ) -> metrics.key()
-                                                     .equalsIgnoreCase( p.name() ) )
+                            .filter( ( p ) -> metrics.name()
+                                                     .equalsIgnoreCase( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
                                     new DatapointBuilder().withX( (double)p.getTimestamp() )
