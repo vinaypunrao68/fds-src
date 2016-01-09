@@ -22,7 +22,7 @@ namespace fds {
 static std::string logname = "smtoken_state";
 const DiskId DEFAULT_HDD_ID = 1;
 const DiskId DEFAULT_SSD_ID = 10;
-const fds_uint16_t DEFAULT_DISKIDX = 0;
+//const fds_uint16_t DEFAULT_DISKIDX = 0;
 
 std::set<SmTokenLoc> tokToLoc(SmTokenSet tokens) {
     std::set<SmTokenLoc> tokenLocations;
@@ -40,9 +40,9 @@ TEST(SmTokenState, initialize) {
     TokenDescTable tbl;
     GLOGNORMAL << "Newly allocated table must be invalid";
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        fds_uint16_t fileId = tbl.getWriteFileId(DEFAULT_DISKIDX, tok, diskio::diskTier);
+        fds_uint16_t fileId = tbl.getWriteFileId(DEFAULT_HDD_ID, tok, diskio::diskTier);
         EXPECT_EQ(fileId, SM_INVALID_FILE_ID);
-        fileId = tbl.getWriteFileId(DEFAULT_DISKIDX, tok, diskio::flashTier);
+        fileId = tbl.getWriteFileId(DEFAULT_SSD_ID, tok, diskio::flashTier);
         EXPECT_EQ(fileId, SM_INVALID_FILE_ID);
     }
     // there must be no valid tokens
@@ -68,9 +68,9 @@ TEST(SmTokenState, initialize) {
         for (SmTokenSet::const_iterator cit = toks.cbegin();
              cit != toks.cend();
              ++cit) {
-            fds_uint16_t fileId = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::diskTier);
+            fds_uint16_t fileId = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
             EXPECT_EQ(fileId, SM_INIT_FILE_ID);
-            fileId = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::flashTier);
+            fileId = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
             EXPECT_EQ(fileId, SM_INIT_FILE_ID);
         }
         SmTokenSet retTokSet = tbl.getSmTokens();
@@ -91,12 +91,12 @@ TEST(SmTokenState, update) {
          cit != tokSet.cend();
          ++cit) {
         fds_uint16_t fileId = 0x0012;
-        tokTbl.setWriteFileId(DEFAULT_DISKIDX,  *cit, diskio::diskTier, fileId);
-        tokTbl.setCompactionState(DEFAULT_DISKIDX, *cit, diskio::diskTier, true);
+        tokTbl.setWriteFileId(DEFAULT_HDD_ID,  *cit, diskio::diskTier, fileId);
+        tokTbl.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, true);
 
-        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::diskTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(fileId, fid);
-        EXPECT_TRUE(tokTbl.isCompactionInProgress(DEFAULT_DISKIDX,*cit, diskio::diskTier));
+        EXPECT_TRUE(tokTbl.isCompactionInProgress(DEFAULT_HDD_ID,*cit, diskio::diskTier));
     }
     GLOGNORMAL << "Every other token has 0x0012 fileId and compaction flag -- "
                << tokTbl;
@@ -122,11 +122,11 @@ TEST(SmTokenState, comparison) {
     // change first token
     SmTokenSet::const_iterator cit = tokSet.cbegin();
     EXPECT_TRUE(cit != tokSet.cend());
-    tokTbl2.setCompactionState(DEFAULT_DISKIDX, *cit, diskio::diskTier, true);
+    tokTbl2.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, true);
     EXPECT_FALSE(tokTbl == tokTbl2);
 
     // change it back
-    tokTbl2.setCompactionState(DEFAULT_DISKIDX, *cit, diskio::diskTier, false);
+    tokTbl2.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, false);
     EXPECT_TRUE(tokTbl == tokTbl2);
 }
 
@@ -149,12 +149,12 @@ TEST(SmTokenState, invalidate) {
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
          ++cit) {
-        tokTbl.setWriteFileId(DEFAULT_DISKIDX, *cit, diskio::flashTier, flashFileId);
-        tokTbl.setWriteFileId(DEFAULT_DISKIDX, *cit, diskio::diskTier, diskFileId);
+        tokTbl.setWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier, flashFileId);
+        tokTbl.setWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier, diskFileId);
 
-        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::flashTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
         EXPECT_EQ(flashFileId, fid);
-        fid = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::diskTier);
+        fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(diskFileId, fid);
     }
     GLOGNORMAL << "Every 3rd token on flash has 0x0042 fileId and on-hdd 0x0052 file id -- "
@@ -177,9 +177,9 @@ TEST(SmTokenState, invalidate) {
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
          ++cit) {
-        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::flashTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
         EXPECT_EQ(fid, SM_INVALID_FILE_ID);
-        fid = tokTbl.getWriteFileId(DEFAULT_DISKIDX, *cit, diskio::diskTier);
+        fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(fid, SM_INVALID_FILE_ID);
     }
 }

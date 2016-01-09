@@ -42,9 +42,10 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
     smDiskMap = diskMap;
     DiskIdSet ssdIds = diskMap->getDiskIds(diskio::flashTier);
 
-    for (diskio::DataTier tierNum = diskio::diskTier;
-         tierNum < diskio::maxTier;
-         tierNum = diskio::flashTier) {
+    for (fds_uint16_t tier = diskio::diskTier;
+         tier < diskio::maxTier;
+         ++tier) {
+         diskio::DataTier tierNum = static_cast<diskio::DataTier>(tier);
         for (SmTokenSet::const_iterator cit = smToks.cbegin();
              cit != smToks.cend();
              ++cit) {
@@ -100,7 +101,6 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
         }
         if (ssdIds.size() > 0) {
             // also open token files on SSDs
-            fds_assert(tierNum != diskio::flashTier);
             LOGDEBUG << "Will open token files on SSDs";
         } else {
             // no SSDs, finished opening token files
@@ -142,9 +142,10 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
     Error err(ERR_OK);
     DiskIdSet ssdIds = smDiskMap->getDiskIds(diskio::flashTier);
 
-    for (diskio::DataTier tierNum = diskio::diskTier;
-         tierNum < diskio::maxTier;
-         tierNum = diskio::flashTier) {
+    for (fds_uint16_t tier = diskio::diskTier;
+         tier < diskio::maxTier;
+         ++tier) {
+         diskio::DataTier tierNum = static_cast<diskio::DataTier>(tier);
         for (SmTokenSet::const_iterator cit = smTokensLost.cbegin();
              cit != smTokensLost.cend();
              ++cit) {
@@ -200,7 +201,6 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
         }
         if (ssdIds.size() > 0) {
             // also close token files on SSDs
-            fds_assert(tierNum != diskio::flashTier);
             LOGDEBUG << "Will close & delete token files on SSDs";
         } else {
             // no SSDs, finished closing token files

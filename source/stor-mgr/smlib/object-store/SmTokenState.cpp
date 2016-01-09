@@ -94,6 +94,9 @@ TokenDescTable::getWriteFileId(DiskId diskId,
     fds_verify(smToken < SMTOKEN_COUNT);
     auto idx = getIdx(diskId, smToken, tier);
     if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Invalid disk id: " << diskId
+                 << ".sm token: "<< smToken
+                 << " tier: " << tier;
         return SM_INVALID_FILE_ID;
     } else {
         return stateTbl[row(tier)][smToken][idx].writeFileId;
@@ -105,12 +108,13 @@ TokenDescTable::setWriteFileId(DiskId diskId,
                                fds_token_id smToken,
                                diskio::DataTier tier,
                                fds_uint16_t fileId) {
-    auto idx = DEFAULT_DISKIDX;
-    while (idx < MAX_HOST_DISKS &&
-           stateTbl[row(tier)][smToken][idx].diskId != SM_INVALID_DISK_ID) {
-        idx++;
+    auto idx = getIdx(diskId, smToken, tier);
+    if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Invalid disk id: " << diskId
+                 << ".sm token: "<< smToken
+                 << " tier: " << tier;
+        return;
     }
-    if (idx >= MAX_HOST_DISKS) { return; }
     stateTbl[row(tier)][smToken][idx].writeFileId = fileId;
 }
 
@@ -120,6 +124,12 @@ TokenDescTable::setCompactionState(DiskId diskId,
                                    diskio::DataTier tier,
                                    fds_bool_t inProgress) {
     auto idx = getIdx(diskId, smToken, tier);
+    if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Invalid disk id: " << diskId
+                 << ".sm token: "<< smToken
+                 << " tier: " << tier;
+        return;
+    }
     if (inProgress) {
         stateTbl[row(tier)][smToken][idx].setCompacting();
     } else {
@@ -132,6 +142,13 @@ TokenDescTable::isCompactionInProgress(DiskId diskId,
                                        fds_token_id smToken,
                                        diskio::DataTier tier) const {
     auto idx = getIdx(diskId, smToken, tier);
+    if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Invalid disk id: " << diskId
+                 << ".sm token: "<< smToken
+                 << " tier: " << tier;
+        return false;
+    }
+ 
     return stateTbl[row(tier)][smToken][idx].isCompacting();
 }
 

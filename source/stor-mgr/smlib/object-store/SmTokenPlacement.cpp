@@ -92,12 +92,14 @@ ObjectLocationTable::getDiskIds(fds_token_id smToken,
         while (table[fds_hdd_row][smToken][idx] != SM_INVALID_DISK_ID &&
                idx < MAX_HOST_DISKS) {
             disks.insert(table[fds_hdd_row][smToken][idx]);
+            idx++;
         }
     } else if (tier == diskio::flashTier) {
         auto idx = DEFAULT_DISKIDX;
         while (table[fds_ssd_row][smToken][idx] != SM_INVALID_DISK_ID &&
                idx < MAX_HOST_DISKS) {
             disks.insert(table[fds_ssd_row][smToken][idx]);
+            idx++;
         }
     }
     return disks;
@@ -128,7 +130,7 @@ Error
 ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
                               diskio::DataTier tier) const {
     Error err(ERR_OK);
-    /*
+ 
     // build set of disks IDs that are currently in OLT for a given tier
     // and check if OLT contains disks that are not in diskIdSet
     std::set<fds_uint16_t> oltDisks;
@@ -155,7 +157,7 @@ ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
             return ERR_SM_OLT_DISKS_INCONSISTENT;
         }
     }
-    */
+
     return err;
 }
 
