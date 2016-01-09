@@ -1038,7 +1038,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
-    
+
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
@@ -1072,6 +1072,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
     handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
+    handlers[FDS_DM_MIG_REQ_TX_STATE] = new dm::DmMigrationRequestTxStateHandler(*this);
     new dm::SimpleHandler(*this);
 }
 
@@ -1652,7 +1653,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                             parentDm->handlers.at(io->io_type),
                                                             io));
             } else {
-                LOGDEBUG << io->log_string() << " not synchronized"; 
+                LOGDEBUG << io->log_string() << " not synchronized";
                 threadPool->schedule(&dm::Handler::handleQueueItem,
                                      parentDm->handlers.at(io->io_type),
                                      io);
@@ -1688,7 +1689,7 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
         FDS_QoSControl(_max_thrds, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                                      parentDm->qosOutstandingTasks, 
+                                      parentDm->qosOutstandingTasks,
                                       false,
                                       log);
 

@@ -294,5 +294,64 @@ void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>&
 	delete dmRequest;
 }
 
+DmMigrationRequestTxStateHandler::DmMigrationRequestTxStateHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestModeEnabled()) {
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyRequestTxStateMsg, handleRequest);
+    }
+}
+
+
+void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
+                                              fpi::CtrlNotifyRequestTxStateMsgPtr& message) {
+
+    fds_volid_t volId(message->volume_id);
+
+    auto dmReq = new DmIoMigrationRequestTxState(volId, message);
+
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationRequestTxStateHandler::handleResponse, asyncHdr, message);
+
+    dmReq->rspMsg.volume_id = message->volume_id;
+    dmReq->rspMsg.migration_id = message->migration_id;
+
+    fds_verify(dmReq->io_type == FDS_DM_MIG_REQ_TX_STATE);
+
+    LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)
+               << " " << *reinterpret_cast<DmIoMigrationRequestTxState*>(dmReq);
+
+    addToQueue(dmReq);
+}
+
+void DmMigrationRequestTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
+    //helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+
+    DmCommitLog::ptr commitLog;
+    helper.err = dataManager.timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
+
+    if (!helper.err.ok()){
+        return;
+    }
+
+    helper.err = commitLog->snapshotOutstandingTx(typedRequest->rspMsg.transactions);
+
+    /* XXX: set low and high op ids */
+}
+
+void DmMigrationRequestTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest) {
+    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
+
+    asyncHdr->msg_code = e.GetErrno();
+
+	LOGMIGRATE << logString(*asyncHdr) << " sending request tx state resp with err: " << e;
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateRspMsg),
+                       typedRequest->rspMsg);
+
+	delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds
