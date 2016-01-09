@@ -273,6 +273,7 @@ typedef enum {
     FDS_DM_FUNCTOR,
     FDS_DM_VOLUMEGROUP_UPDATE,
     FDS_DM_VOLUME_IO,
+    FDS_DM_MIG_REQ_TX_STATE,
     FDS_OP_INVALID
 } fds_io_op_t;
 
