@@ -7,7 +7,6 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
-import com.formationds.apis.XdiService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
@@ -92,7 +91,6 @@ public class S3TestCase {
     public void testMount() throws Exception {
         TSocket amTransport = new TSocket("192.168.33.10", 9988);
         amTransport.open();
-        XdiService.Iface am = new XdiService.Client(new TBinaryProtocol(amTransport));
 
         String omHost = "192.168.33.10";
         TSocket omTransport = new TSocket(omHost, 9090);
