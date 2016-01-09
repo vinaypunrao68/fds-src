@@ -478,7 +478,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     int omRetries = std::numeric_limits<int32_t>::max();
     while (true) {
         try {
-            LOGNOTIFY << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
+            LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
             omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
             break;
