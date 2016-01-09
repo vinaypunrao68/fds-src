@@ -344,7 +344,10 @@ public class QueryHelper {
                             } );
             
             // get earliest data point
-            OptionalLong oLong = volumeDatapoints.stream().mapToLong( ( vdp ) -> vdp.getTimestamp() ).min();
+            OptionalLong oLong = volumeDatapoints.stream()
+            		.filter( ( p ) -> metrics.matches( p.getKey() ) )
+            		.mapToLong( ( vdp ) -> vdp.getTimestamp() )
+            		.min();
             
             if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
             	
