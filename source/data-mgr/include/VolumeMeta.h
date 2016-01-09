@@ -78,29 +78,52 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
                VolumeDesc *v_desc,
                DataMgr *_dm);
     ~VolumeMeta();
+    /**
+    * @brief Apply active transactions
+    *
+    * @param highestOpId
+    * @param txs
+    */
+    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
+
+    /**
+    * @return  Returns base directory path for the volume
+    */
     std::string getBaseDirPath() const;
+
+    /**
+    * @return Bufferfile path used in buffering operations while sync is in progress
+    */
     std::string getBufferfilePath() const;
+
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
+
     inline void setOpId(const int64_t &id) { opId = id; }
     inline void incrementOpId() { ++opId; }
     inline const int64_t& getOpId() const { return opId; }
+
     inline fpi::ResourceState getState() const { return vol_desc->state; }
     void setState(const fpi::ResourceState &state, const std::string &logCtx);
+
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
     inline bool isInitializationProgress() {
         return initializer &&
             (vol_desc->state == fpi::Loading || vol_desc->state == fpi::Syncing);
     }
+
     inline int64_t getId() const { return vol_desc->volUUID.get(); }
+
     inline int32_t getVersion() const { return version; }
     inline void setVersion(int32_t version) { this->version = version; }
+
     inline void setCoordinatorId(const fpi::SvcUuid &svcUuid) {
         vol_desc->setCoordinatorId(svcUuid);
     }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
     inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
+
     std::string logString() const;
 
     static inline bool isReplayOp(const std::string &payloadHdr) {
@@ -109,6 +132,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
+    /**
+    * @brief Returns wrapper function around f that exectues f in volume synchronized
+    * context
+    */
     std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
     makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
 

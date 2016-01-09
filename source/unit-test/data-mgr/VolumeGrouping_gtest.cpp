@@ -346,7 +346,7 @@ TEST_F(DmGroupFixture, multidm) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
-    /* Bring 1st dm up */
+    /* Bring 1st dm up again */
     dmGroup[0]->start();
     /* Adding the volume manually */
     v1Desc->setCoordinatorId(amHandle.proc->getSvcMgr()->getSelfSvcUuid());
@@ -356,6 +356,14 @@ TEST_F(DmGroupFixture, multidm) {
     POLL_MS((dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active),
             1000, 3000);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+
+    /* Do more IO.  IO should succeed */
+    for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
     
 
 #if 0

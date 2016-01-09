@@ -440,10 +440,10 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     if (inStatus != ERR_OK) {
         LOGWARN << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
-            << fds::logString(hdr) << inStatus;
+            << " opId: " << hdr.opId << " version: " << replicaVersion << inStatus;
     } else {
         LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
-            << fds::logString(hdr) << inStatus;
+            << " opId: " << hdr.opId << " version: " << replicaVersion << inStatus;
     }
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
@@ -462,7 +462,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
         volumeHandle->isSyncing()) {
         Error outStatus = inStatus;
         /* Check with listener if we should consider the incoming error to be not an error */
-        if (inStatus != ERR_OK && 
+        if (!volumeHandle->isError(inStatus) && 
             (listener_ && !listener_->isError(msgTypeId, inStatus))) {
             outStatus = ERR_OK;
         }

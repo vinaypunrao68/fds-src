@@ -99,6 +99,28 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->coordinator = pVol->coordinator;
 }
 
+Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
+                                     const std::vector<std::string> &txs)
+{
+    fds_volid_t volId = fds_volid_t(getId());
+    DmCommitLog::ptr commitLog;
+
+    auto err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
+    if (!err.ok()) {
+        return err;
+    }
+
+    commitLog->clear();
+    err = commitLog->applySerializedTxs(txs);
+    if (!err.ok()) {
+        return err;
+    }
+
+    setOpId(highestOpId);
+
+    return ERR_OK;
+}
+
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
     fds_mutex::scoped_lock l(sequence_lock);
 

@@ -86,6 +86,13 @@ struct VolumeReplicaHandle {
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
+    inline bool isError(const Error &e) {
+        if (e == ERR_OK ||
+            (isSyncing() && e == ERR_WRITE_OP_BUFFERED)) {
+            return false;
+        }
+        return true;
+    }
     inline std::string logString() const;
 
     /* Version of the volume replica.  As volume goes up/down this # is incremented */

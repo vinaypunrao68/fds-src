@@ -307,6 +307,11 @@ void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                               fpi::CtrlNotifyRequestTxStateMsgPtr& message) {
 
     fds_volid_t volId(message->volume_id);
+    Error err = dataManager.validateVolumeIsActive(volId);
+    if (!err.OK()){
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
 
     auto dmReq = new DmIoMigrationRequestTxState(volId, message);
 
@@ -326,8 +331,6 @@ void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 void DmMigrationRequestTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
-    //helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
-
     DmCommitLog::ptr commitLog;
     helper.err = dataManager.timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
 
@@ -335,19 +338,25 @@ void DmMigrationRequestTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
         return;
     }
 
+    auto volMeta = dataManager.getVolumeMeta(dmRequest->volId);
+    typedRequest->rspMsg.highest_op_id = volMeta->getOpId();
     helper.err = commitLog->snapshotOutstandingTx(typedRequest->rspMsg.transactions);
-
-    /* XXX: set low and high op ids */
 }
 
 void DmMigrationRequestTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
-                        Error const& e, DmRequest* dmRequest) {
-    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
-
+                        Error const& e, DmRequest* dmRequest)
+{
     asyncHdr->msg_code = e.GetErrno();
 
-	LOGMIGRATE << logString(*asyncHdr) << " sending request tx state resp with err: " << e;
+    DBG(LOGMIGRATE << logString(*asyncHdr) << " sending request tx state resp with err: " << e);
+    if (dmRequest == nullptr) {
+        DM_SEND_ASYNC_RESP(*asyncHdr,FDSP_MSG_TYPEID(fpi::EmptyMsg),fpi::EmptyMsg());
+        return;
+    }
+
+    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
+
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateRspMsg),
                        typedRequest->rspMsg);
 

@@ -860,7 +860,7 @@ struct DmIoMigrationTxState : DmRequest {
 
 struct DmIoMigrationRequestTxState : DmRequest {
     explicit DmIoMigrationRequestTxState(fds_volid_t volId, const fpi::CtrlNotifyRequestTxStateMsgPtr &msg)
-            : DmRequest(volId, "", "", 0, FDS_DM_MIG_TX_STATE),
+            : DmRequest(volId, "", "", 0, FDS_DM_MIG_REQ_TX_STATE),
               reqTxStateMsg(msg)
     {
     }
