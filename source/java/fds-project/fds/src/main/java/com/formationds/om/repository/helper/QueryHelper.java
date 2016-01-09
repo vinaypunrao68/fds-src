@@ -359,10 +359,14 @@ public class QueryHelper {
             	VolumeDatapoint justBefore = new VolumeDatapoint( oLong.getAsLong() - 1, volumeId, volumeName, metricKey, 0.0 );
             	VolumeDatapoint theStart = new VolumeDatapoint( dateRange.getStart(), volumeId, volumeName, metricKey, 0.0 );
             	
-	        	volumeDatapoints.add( 0, justBefore);
+            	s.setDatapoint( new DatapointBuilder().withX( (double)justBefore.getTimestamp() )
+            										  .withY( justBefore.getValue() )
+            										  .build());
 	        	
 	        	// at start time
-	        	volumeDatapoints.add( 0, theStart );
+	        	s.setDatapoint( new DatapointBuilder().withX( (double)theStart.getTimestamp() )
+	        										  .withY( theStart.getValue() )
+	        										  .build() );
             }
         	
             series.add( s );
