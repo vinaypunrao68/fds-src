@@ -6,7 +6,6 @@ package com.formationds.om.events;
 
 import static org.mockito.Mockito.*;
 
-import com.formationds.apis.XdiService;
 import com.formationds.apis.VolumeStatus;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
@@ -21,6 +20,7 @@ import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.AsyncAm;
 import com.google.gson.reflect.TypeToken;
 
 import org.junit.*;
@@ -32,9 +32,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class EventManagerTest {
 
@@ -45,7 +42,7 @@ public class EventManagerTest {
 
     static final Configuration mockedConfiguration = mock( Configuration.class );
     static final ConfigurationApi mockedConfig = mock( ConfigurationApi.class );
-    static final XdiService.Iface  mockedAMService = mock( XdiService.Iface.class );
+    static final AsyncAm  mockedAMService = mock( AsyncAm.class );
     static final MetricRepository
         metricsRepoMock = mock( MetricRepository.class );
 

@@ -15,16 +15,14 @@ import com.formationds.client.v08.model.iscsi.Target;
 import com.formationds.client.v08.model.nfs.NfsClients;
 import com.formationds.client.v08.model.nfs.NfsOptions;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
@@ -39,12 +37,7 @@ import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 import com.formationds.protocol.svc.types.FDSP_VolType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
-import com.formationds.util.Configuration;
-import com.formationds.util.ServerPortFinder;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.FakeAsyncAm;
-import com.formationds.xdi.RealAsyncAm;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -289,48 +282,21 @@ public class ExternalModelConverter {
         /**
          * But currently (01/07/2016) there seems to be some difficulty with this method.
          * Most likely, given the delay in reporting volume stats, the difficulty is in the
-         * user not waiting ong enough to see stats appear. However, should the user have to
+         * user not waiting long enough to see stats appear. However, should the user have to
          * wait for stats that are delayed a number of minutes from present to get a count
          * of bytes currently used by a volume?
-         *
-         * Since all of this will be re-written soon (or so I'm told), let's just
-         * shortcut the process and go after current usage directly. It can't hurt anything
-         * performance-wise from what I can tell. After all, in order to report the details
-         * of one volume, we generate the details for all volumes and then throw it all away
-         * except from the one volume requested.
          */
+        com.formationds.apis.VolumeStatus volumeStatus;
         try {
-            final Configuration configuration =
-                    SingletonConfiguration.instance()
-                            .getConfig();
-            ParsedConfig platformConfig = configuration.getPlatformConfig();
-
-            String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
-            boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
-
-            int pmPort = platformConfig.defaultInt( "fds.pm.platform_port", 7000 );
-
-            int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
-            int xdiServicePort = pmPort + xdiServicePortOffset;
-
-            int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 2876);
-            int amResponsePort = new ServerPortFinder().findPort("Async AM response port", pmPort + amResponsePortOffset);
-
-            XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
-
-            AsyncAm asyncAm = useFakeAm ?
-                    new FakeAsyncAm() :
-                    new RealAsyncAm(amHost, xdiServicePort, amResponsePort, xdiStaticConfig.getAmTimeout());
-            asyncAm.start();
-
-            com.formationds.apis.VolumeStatus volumeStatus = asyncAm.volumeStatus("" /* Dummy domain name. */,
-                                                                                  internalVolume.getName()).get();
-            extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+            volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
+                                                                        internalVolume.getName()).get();
         } catch (Exception e) {
             logger.error("Unknown Exception: " + e.getMessage());
             return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
+
+        extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
+        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
