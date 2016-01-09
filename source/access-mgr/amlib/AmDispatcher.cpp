@@ -76,6 +76,7 @@ AmDispatcher::start() {
     } else {
         // Set a custom time for the io messages to dm and sm
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
+        message_timeout_open = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.open_message", message_timeout_open);
         message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
         LOGNOTIFY << "AM Thrift timeout: " << message_timeout_default << " ms"
                   << " IO timeout: " << message_timeout_io  << " ms";
@@ -407,7 +408,7 @@ AmDispatcher::openVolume(AmRequest* amReq) {
 
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::openVolumeCb, amReq));
-    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb);
+    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb, message_timeout_open);
     setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
