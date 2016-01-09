@@ -293,7 +293,9 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     // TODO(Neil/James): Please fill this
     setProgress_(STATIC_MIGRATION);
 
-    STUBSTATEMENT(MODULEPROVIDER()->proc_thrpool()->schedule(cb, ERR_OK));
+    STUBSTATEMENT(scheduleTimerTask(*(MODULEPROVIDER()->getTimer()), \
+                                    std::chrono::seconds(5), \
+                                    [cb]() { cb(ERR_OK); }));
 }
 
 template <class T>

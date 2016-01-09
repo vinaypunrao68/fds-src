@@ -193,7 +193,7 @@ struct VolumeGroupHandle : HasModuleProvider {
                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
-    void sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+    void sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
@@ -339,7 +339,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 }
 
 template<class MsgT>
-void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);

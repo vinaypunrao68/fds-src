@@ -189,8 +189,38 @@ struct DmGroupFixture : BaseTestFixture {
         auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName); 
         updateMsg->txId = txId;
         waiter.reset(1);
-        v.sendWriteMsg<fpi::UpdateCatalogOnceMsg>(
+        v.sendCommitMsg<fpi::UpdateCatalogOnceMsg>(
             FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
+            updateMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
+    void sendStartBlobTxMsg(VolumeGroupHandle &v,
+                       const std::string &blobName,
+                       int64_t txId,
+                       Waiter &waiter)
+    {
+        auto startMsg = SvcMsgFactory::newStartBlobTxMsg(v.getGroupId(), blobName); 
+        startMsg->txId = txId;
+        waiter.reset(1);
+        v.sendModifyMsg<fpi::StartBlobTxMsg>(
+            FDSP_MSG_TYPEID(fpi::StartBlobTxMsg),
+            startMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
+    void sendUpdateMsg(VolumeGroupHandle &v,
+                       const std::string &blobName,
+                       int64_t txId,
+                       Waiter &waiter)
+    {
+        auto updateMsg = SvcMsgFactory::newUpdateCatalogMsg(v.getGroupId(), blobName); 
+        updateMsg->txId = txId;
+        waiter.reset(1);
+        v.sendModifyMsg<fpi::UpdateCatalogMsg>(
+            FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
             updateMsg,
             [&waiter](const Error &e, StringPtr) {
                 waiter.doneWith(e);
@@ -345,6 +375,11 @@ TEST_F(DmGroupFixture, multidm) {
         sendQueryCatalogMsg(v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
+    /* Send few more non-commit updates so that we have active Txs */
+    for (uint32_t i = 0; i < 5; i++, curTxId++) {
+        sendStartBlobTxMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
 
     /* Bring 1st dm up again */
     dmGroup[0]->start();
@@ -354,7 +389,7 @@ TEST_F(DmGroupFixture, multidm) {
     ASSERT_TRUE(e == ERR_OK);
     /* Wait for sync to complete */
     POLL_MS((dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active),
-            1000, 3000);
+            1000, 7000);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
 
     /* Do more IO.  IO should succeed */

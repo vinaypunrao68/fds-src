@@ -2721,7 +2721,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         auto timer = MODULEPROVIDER()->getTimer();
         auto task = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(
-                *timer,
                 [this, uuid, msg, newNode, fPrevRegistered] () {
                 /* Immediately post to threadpool so we don't hold up timer thread */
                 MODULEPROVIDER()->proc_thrpool()->schedule(
