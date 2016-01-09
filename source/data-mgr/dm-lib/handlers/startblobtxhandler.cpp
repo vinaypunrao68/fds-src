@@ -52,7 +52,8 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                      message->blob_name,
                                      message->blob_version,
                                      message->blob_mode,
-                                     message->dmt_version);
+                                     message->dmt_version,
+                                     message->opId);
     dmReq->cb = BIND_MSG_CALLBACK(StartBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 

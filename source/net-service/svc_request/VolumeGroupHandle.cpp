@@ -108,10 +108,13 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid,
                                                   const int64_t replayStartOpId)
 {
     fds_assert(opSeqNo_ >= static_cast<int64_t>(writeOpsBuffer_->size()));
+    /* Valid request range is a subset range of (OPSTARTID, opSeqNo_+1]
+     * NOTE: the first opid is OPSTARTID+1
+     */
     fds_assert(replayStartOpId > VolumeGroupConstants::OPSTARTID &&
                replayStartOpId <= opSeqNo_+1);
     if (replayStartOpId == opSeqNo_+1) {
-        /* There is nothing to replay */
+        /* Requester already has all the ops.  There is nothing to replay */
         return true;
     }
 
@@ -199,6 +202,7 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             clientCb(e);
             return;
            }
+           /* Send open volume against the group to prepare for open */
            auto openReq = createPreareOpenVolumeGroupMsgReq_();
            openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
                                                   const Error& e_,
@@ -217,14 +221,26 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
                  clientCb(ERR_VOLUMEGROUP_DOWN);
                  return;
              }
-             changeState_(fpi::ResourceState::Active, "Open volume");
-             broadcastGroupInfo_();
-             clientCb(ERR_OK);
-             return;
+             /* Functional group is determined.  Broadcase the group info so that functaional
+              * group members can set their state to functional
+              */
+             auto broadcastGroupReq = createBroadcastGroupInfoReq_();
+             broadcastGroupReq->onResponseCb([this, clientCb](QuorumSvcRequest*,
+                                                  const Error& e_,
+                                                  boost::shared_ptr<std::string> payload) {
+                 /* NOTE: We don't care about the returned error here.  We want to be sure
+                  * the broadcasted group information reached the group members
+                  */
+                 changeState_(fpi::ResourceState::Active, "Open volume");
+                 clientCb(ERR_OK);
+             });
+             LOGNORMAL << logString() << " - Broadcast group info";
+             broadcastGroupReq->invoke();
            });
+           LOGNORMAL << logString() << " - Prepare for open request to group";
            openReq->invoke();
         });
-        LOGNORMAL << logString() << " - Setting coordinator request to OM";
+        LOGNORMAL << logString() << " - Set coordinator request to OM";
         setCoordinatorreq->invoke();
     });
 }
@@ -356,16 +372,17 @@ void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
     }
 }
 
-void VolumeGroupHandle::broadcastGroupInfo_()
+QuorumSvcRequestPtr
+VolumeGroupHandle::createBroadcastGroupInfoReq_()
 {
     auto msg = MAKE_SHARED<fpi::VolumeGroupInfoUpdateCtrlMsg>();
     msg->group = getGroupInfoForExternalUse_();
     auto req = requestMgr_->newSvcRequest<QuorumSvcRequest>(
         getDmtVersion(),
         getAllReplicas());
+    req->setTaskExecutorId(groupId_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::VolumeGroupInfoUpdateCtrlMsg), msg);
-    /* This broadcast intentionall is fire and forget */
-    req->invoke();
+    return req;
 }
 
 void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState,
@@ -404,7 +421,7 @@ void VolumeGroupHandle::handleAddToVolumeGroupMsg(
                                         addMsg->targetState,
                                         addMsg->lastOpId,
                                         ERR_OK,
-                                        __FUNCTION__);
+                                        "AddToVolumeGroupMsg");
         respMsg->group = getGroupInfoForExternalUse_();
         cb(err, respMsg);
     });

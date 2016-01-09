@@ -50,7 +50,8 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version,
-                                      message->sequence_id);
+                                      message->sequence_id,
+                                      message->opId);
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */

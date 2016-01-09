@@ -60,9 +60,9 @@ do { \
     } \
     auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
     if (io->opId != volMeta->getOpId()+1) { \
-        fds_assert(!"opid mismatch"); \
         LOGWARN << "OpId mismatch.  Current opId: " \
             << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        fds_assert(!"opid mismatch"); \
         helper.err = ERR_IO_OPID_MISMATCH; \
         return; \
     } \
@@ -315,6 +315,18 @@ struct VolumeOpenHandler : Handler {
     void handleQueueItem(DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::OpenVolumeMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+/**
+ * Message from coordinator notifying the active state of the group
+ */
+struct VolumegroupUpdateHandler : Handler {
+    explicit VolumegroupUpdateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::VolumeGroupInfoUpdateCtrlMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         Error const& e, DmRequest* dmRequest);
 };
 

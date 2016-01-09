@@ -93,6 +93,7 @@ namespace fds {
     ADD(ERR_WRITE_OP_BUFFERED,= 73,"Write operation buffered"), \
     ADD(ERR_UNAVAILABLE, = 74, "Resource is unavialable"),\
     ADD(ERR_ABORTED, = 75, "Service/module aborted"),\
+    ADD(ERR_SYNC_INPROGRESS, = 76, "Sync is in progress"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

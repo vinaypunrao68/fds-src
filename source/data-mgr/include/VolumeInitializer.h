@@ -12,6 +12,7 @@ if (completionError_ != ERR_OK) { \
     complete_(completionError_, "Abort check"); \
     return; \
 }
+#define STUBSTATEMENT(code) code
 
 namespace fds {
 
@@ -37,7 +38,7 @@ struct ReplicaInitializer : HasModuleProvider,
     enum Progress {
         UNINIT,
         // replica state = loading
-        CONTACT_COORDINATOR,
+        CONTACT_COORDINATOR,        // Initial contact with coordinator
         COPY_ACTIVE_STATE,
         // replica state = syncing
         ENABLE_BUFFERING,
@@ -114,6 +115,7 @@ void ReplicaInitializer<T>::run()
 {
     setProgress_(CONTACT_COORDINATOR);
 
+    /* NOTE: Notify coordinator can happen outside volume synchronization context */
     notifyCoordinator_(replica_->makeSynchronized([this](EPSvcRequest*,
                                                     const Error &e,
                                                     StringPtr) {
@@ -131,7 +133,7 @@ void ReplicaInitializer<T>::run()
                return;
            }
            startBuffering_();
-           replica_->setState(fpi::ResourceState::Syncing);
+           replica_->setState(fpi::ResourceState::Syncing, " - VolumeInitializer:Active state copied");
            /* Notify coordinator we are in syncing state.  From this point
             * we will receive actio io.  Active io will be buffered to disk
             */
@@ -172,14 +174,13 @@ template <class T>
 void ReplicaInitializer<T>::startBuffering_()
 {
     setProgress_(ENABLE_BUFFERING);
-    // TODO(Rao): Set the directory
-    bufferReplay_.reset(new BufferReplay("buffered_writes",
+    bufferReplay_.reset(new BufferReplay(replica_->getBufferfilePath(),
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
     /* Callback to get the progress of replay */
     bufferReplay_->setProgressCb(replica_->synchronizedProgressCb([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
-        LOGNOTIFY << replica_->logString() << " BufferReplay progress: " << progress;
+        LOGNOTIFY << replica_->logString() << bufferReplay_->logString();
         if (progress == BufferReplay::REPLAY_CAUGHTUP) {
             // TODO(Rao): Set disable buffering on replica
         } else if (progress == BufferReplay::COMPLETE) {
@@ -241,6 +242,8 @@ void ReplicaInitializer<T>::copyActiveStateFromPeer_(const StatusCb &cb)
     fds_assert(isSynchronized_());
     // TODO(Neil): Please fill this
     setProgress_(COPY_ACTIVE_STATE);
+
+    STUBSTATEMENT(MODULEPROVIDER()->proc_thrpool()->schedule(cb, ERR_OK));
 }
 
 template <class T>
@@ -249,6 +252,8 @@ void ReplicaInitializer<T>::doQucikSyncWithPeer_(const StatusCb &cb)
     fds_assert(isSynchronized_());
     // TODO(Rao): 
     setProgress_(QUICK_SYNCING);
+
+    MODULEPROVIDER()->proc_thrpool()->schedule(cb, ERR_QUICKSYNC_NOT_POSSIBLE);
 }
 
 template <class T>
@@ -257,6 +262,8 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     fds_assert(isSynchronized_());
     // TODO(Neil/James): Please fill this
     setProgress_(STATIC_MIGRATION);
+
+    STUBSTATEMENT(MODULEPROVIDER()->proc_thrpool()->schedule(cb, ERR_OK));
 }
 
 template <class T>
@@ -307,7 +314,8 @@ void ReplicaInitializer<T>::setProgress_(Progress progress)
 template <class T>
 bool ReplicaInitializer<T>::isSynchronized_()
 {
-    return false;
+    // TODO(Rao): Implement
+    return true;
 }
 
 template <class T>
@@ -327,9 +335,9 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
     setProgress_(COMPLETE);
 
     if (completionError_ == ERR_OK) {
-        replica_->setState(fpi::ResourceState::Active);
+        replica_->setState(fpi::ResourceState::Active, context);
     } else {
-        replica_->setState(fpi::ResourceState::Offline);
+        replica_->setState(fpi::ResourceState::Offline, context);
     }
     notifyCoordinator_();
     // TODO(Rao): Notify replica so that cleanup can be done
