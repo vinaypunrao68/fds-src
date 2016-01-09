@@ -1,18 +1,13 @@
 package com.formationds.om.repository.influxdb;
 
-import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.XdiService;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.model.DateRange;
-import com.formationds.om.helper.SingletonAmAPI;
-import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.util.Configuration;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.Mock;
 
 import java.util.ArrayList;
 import java.util.List;
