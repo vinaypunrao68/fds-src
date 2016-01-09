@@ -3,9 +3,12 @@ from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 from restendpoint import *
-import md5
+import humanize
+import md5,sha
 import os
 import FdspUtils
+import binascii
+import dmtdlt
 
 class VolumeContext(Context):
     def __init__(self, *args):
@@ -22,10 +25,15 @@ class VolumeContext(Context):
         return self.config.getS3Api()
 
     def getVolumeId(self, volume):
-        if volume.isdigit():
-            return int(volume)
+        volume=str(volume)
         client = self.config.getPlatform();
+        if volume.isdigit():
+            volname = client.svcMap.omConfig().getVolumeName(int(volume))
+            if len(volname) > 0:
+                return int(volume)
         volId = client.svcMap.omConfig().getVolumeId(volume)
+        if int(volId) == 0:
+            raise Exception('invalid volume: {}'.format(volume))
         return int(volId)
 
     #--------------------------------------------------------------------------------------
@@ -357,22 +365,109 @@ class VolumeContext(Context):
     def stats(self, volname):
         'display info about no. of objects/blobs'
         data = []
-        svc = self.config.getPlatform();
         volId = self.getVolumeId(volname)
         msg = FdspUtils.newSvcMsgByTypeId('StatVolumeMsg');
         msg.volume_id = volId
-
+        dlt = self.config.getServiceApi().getDLT()
+        errors = []
         for uuid in self.config.getServiceApi().getServiceIds('dm'):
             cb = WaitedCallback();
-            svc.sendAsyncSvcReq(uuid, msg, cb)
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
 
-            if not cb.wait(30):
-                print 'async volume stats request failed : {}'.format(self.config.getServiceApi().getServiceName(uuid))
+            if not cb.wait(10):
+                errors.append('volume stats failed:{} error:{}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code if cb.header!= None else "--"))
             else:
                 #print cb.payload
-                data = []
-                data += [("numblobs",cb.payload.volumeStatus.blobCount)]
-                data += [("numobjects",cb.payload.volumeStatus.objectCount)]
-                data += [("size",cb.payload.volumeStatus.size)]
-                print ('\n{}\n stats for vol:{} @ {}\n{}'.format('-'*40, volId, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                data.append((self.config.getServiceApi().getServiceName(uuid),
+                             cb.payload.volumeStatus.blobCount,cb.payload.volumeStatus.objectCount,
+                             cb.payload.volumeStatus.size, humanize.naturalsize(cb.payload.volumeStatus.size)))
+        print ('\n{}\n stats for vol:{}\n{}'.format('-'*40, volId, '-'*40))
+        print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['dm','blobs','objects','size','size.human'])
+
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e
+        
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volname', help='-volume name')
+    @arg('blobname', help='-blob name')
+    def blobinfo(self, volname, blobname):
+        'display objects/meta in a blob'
+        data = []
+        volId = self.getVolumeId(volname)
+        dlt = self.config.getServiceApi().getDLT()
+
+        volume = ServiceMap.omConfig().statVolume("", ServiceMap.omConfig().getVolumeName(volId))
+        if volume.policy.volumeType == 0 and -1 == blobname.find(':'):
+            blobname = 'user:{}'.format(blobname)
+        errors = []
+        for uuid in self.config.getServiceApi().getServiceIds('dm'):
+            msg = FdspUtils.newSvcMsgByTypeId('QueryCatalogMsg');
+            msg.volume_id = volId
+            msg.blob_name = blobname
+            cb = WaitedCallback();
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+
+            if not cb.wait(10):
+                if cb.header.msg_code == 6:
+                    errors.append('>>> blob [{}] not found @ {}'.format(blobname, self.config.getServiceApi().getServiceName(uuid)))
+                else:
+                    errors.append('>>> blobinfo request failed : {} : error={}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code  if cb.header!= None else "--"))
+            else:
+                data=[]
+                objects=[]
+                for meta in cb.payload.meta_list:
+                    data.append((meta.key, meta.value))
+                data.append(('size', cb.payload.byteCount))
+                data.append(('num.objects', len(cb.payload.obj_list)))
+                helpers.printHeader('info from {}'.format(self.config.getServiceApi().getServiceName(uuid)))
                 print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['key','value'])
+                print
+                count = 0
+                for obj in cb.payload.obj_list:
+                    count += 1
+                    objects.append((count, binascii.b2a_hex(obj.data_obj_id.digest), obj.size, obj.offset))
+
+                print tabulate(objects, tablefmt=self.config.getTableFormat(), headers=['no','objid','size','offset'])
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('objid', help='-objectid')
+    def getobject(self, objid):
+        'get objects from sm'
+        data = []
+        dlt = self.config.getServiceApi().getDLT()
+        errors = []
+        for uuid in self.config.getServiceApi().getServiceIds('sm'):
+            msg = FdspUtils.newGetObjectMsg(1, binascii.a2b_hex(objid))
+            cb = WaitedCallback();
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+
+            if not cb.wait(10):
+                if cb.header.msg_code == 9:
+                    errors.append('obj [{}] not found @ {}'.format(objid, self.config.getServiceApi().getServiceName(uuid)))
+                else:
+                    errors.append('get object failed : {} : error={}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code  if cb.header!= None else "--"))
+                    print cb.header
+            else:
+                value = cb.payload.data_obj
+                data = []
+                data += [('objid' , objid)]
+                data += [('sha1' , sha.sha(value).hexdigest())]
+                data += [('md5sum' , md5.md5(value).hexdigest())]
+                data += [('length' , str(len(value)))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
+                helpers.printHeader('info from {}'.format(self.config.getServiceApi().getServiceName(uuid)))
+                print tabulate(data, tablefmt=self.config.getTableFormat())
+
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e
