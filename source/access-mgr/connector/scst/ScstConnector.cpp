@@ -86,7 +86,12 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     ScstTarget* target = nullptr;
     auto it = targets_.find(volDesc.name);
     if (targets_.end() == it) {
+        try {
         target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
+        } catch (ScstError& e) {
+            LOGERROR << "Target " << volDesc.name << " failed to initialize, check SCST is running.";
+            return;
+        }
         targets_[volDesc.name].reset(target);
         target->addDevice(volDesc);
     } else {
