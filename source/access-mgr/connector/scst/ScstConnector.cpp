@@ -89,7 +89,7 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
         try {
         target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
         } catch (ScstError& e) {
-            LOGERROR << "Target " << volDesc.name << " failed to initialize, check SCST is running.";
+            LOGERROR << "Failed to initialize target [" << volDesc.name << "], ensure that SCST is installed and running.";
             return;
         }
         targets_[volDesc.name].reset(target);
