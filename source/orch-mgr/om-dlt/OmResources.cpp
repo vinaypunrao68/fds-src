@@ -1854,14 +1854,14 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
         /* First check if it is present in OM's sent messages queue */
         if ( !isPlatformSvc( *svcInfo ) ) {
-            int64_t uuid = svcInfo->svc_id.svc_uuid.svc_uuid;
-            bool isPresent = gl_orch_mgr->isInSentQ(uuid);
+            NodeUuid uuid(svcInfo->svc_id.svc_uuid.svc_uuid);
+            bool isPresent = gl_orch_mgr->isInSentQ(uuid.uuid_get_base_val());
 
             if ( isPresent ) {
                 LOGDEBUG << "Received registration for svc:"
                          << std::hex << uuid << std::dec
                          << " , ahead of PM response.Remove from OM's sentMsgQueue";
-                auto item = std::make_pair(uuid, 0);
+                auto item = std::make_pair(uuid.uuid_get_base_val(), 0);
                 gl_orch_mgr->removeFromSentQ(item);
             }
         }
@@ -1956,9 +1956,18 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     }
                 }
             }
-            /*
-             * FS-1587 Tinius
-             */
+
+            // We only want to add to registering services if om_reg_node_info completed
+            // successfully which would have scheduled setupNewNode
+
+            if (svcInfo->svc_type != fpi::FDSP_PLATFORM) {
+                // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
+                // This is so that any access of the service state will return ACTIVE only after
+                // the associated service agents, uuids have been set up, and not before.
+                // Once the scheduling delay is removed, it probably makes sense to allow
+                // updates to occur here as previously done
+                addRegisteringSvc(svcInfo);
+            }
         }
         else
         {
@@ -1969,14 +1978,6 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         }
 
-        if (svcInfo->svc_type != fpi::FDSP_PLATFORM) {
-            // ConfigDB updates for AM/DM/SM will happen at the end of setUpNewNode
-            // This is so that any access of the service state will return ACTIVE only after
-            // the associated service agents, uuids have been set up, and not before.
-            // Once the scheduling delay is removed, it probably makes sense to allow
-            // updates to occur here as previously done
-            addRegisteringSvc(svcInfo);
-        }
         /*
          * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
@@ -2000,9 +2001,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
     return err;
 }
 
-void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, const NodeUuid& node_uuid)
+bool OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, const NodeUuid& node_uuid)
 {
     NodeServices services;
+    bool issuedStart = false;
+
     if ( configDB->getNodeServices( node_uuid, services ) )
     {
         LOGDEBUG << "Activating services on a well known PM UUID: "
@@ -2027,7 +2030,14 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              // If a service is INACTIVE_FAILED, it implies that svcLayer for whatever reason marked
+              // the service down. If a non-OM node or OM node restarts, we want to start the service
+              // which was presumed down. If a service is SVC_STATUS_STARTED, could be that the OM
+              // never heard back from the PM after sending a start msg, in which case we attempt a retry
+              // We will want to retry a start for all previously attempted services
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE ||
+                   svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                   svcStatus == fpi::SVC_STATUS_STARTED )
               {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Access Manager";
@@ -2049,7 +2059,9 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE ||
+                   svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                   svcStatus == fpi::SVC_STATUS_STARTED )
               {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Data Manager";
@@ -2070,7 +2082,9 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
               fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcuuid, fpi::FDSP_STOR_MGR);
               fpi::ServiceStatus svcStatus = configDB->getStateSvcMap(svcuuid.svc_uuid);
 
-              if ( svcStatus == fpi::SVC_STATUS_ACTIVE || svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED )
+              if ( svcStatus == fpi::SVC_STATUS_ACTIVE ||
+                   svcStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                   svcStatus == fpi::SVC_STATUS_STARTED )
               {
                   LOGDEBUG << "PM UUID: " << std::hex << node_uuid << std::dec
                            << " found Storage Manager";
@@ -2082,6 +2096,7 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
 
       if ( startAM || startDM || startSM )
       {
+          issuedStart = true;
           OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
 
           fpi::SvcUuid svcUuid;
@@ -2110,8 +2125,15 @@ void OM_NodeDomainMod::om_activate_known_services( const bool domainRestart, con
 
               local->om_start_service( svcUuid, svcInfoList, domainRestart, startNode );
           }
+      } else {
+          issuedStart = false;
+          LOGWARN << "There were no services in the right state to start for PM:"
+                  << std::hex << node_uuid << std::dec << ", no msg sent to PM";
       }
+
     }
+
+    return issuedStart;
 }
    
 void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
@@ -2329,8 +2351,14 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
     {
         for ( const auto svc : svcs )
         {
+            // The service statuses that must be spoofed must be
+            // the same as those that are allowed to be started in
+            // om_activate_known_services. Otherwise we risk not
+            // cleaning up the cluster map and causing a DLT/DMT propagation
             if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
-                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED || isPlatformSvc( svc) )
+                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                 svc.svc_status == fpi::SVC_STATUS_STARTED ||
+                 isPlatformSvc( svc) )
             {
                 if ( isPlatformSvc( svc ) )
                 {
