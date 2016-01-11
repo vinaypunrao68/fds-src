@@ -211,15 +211,15 @@ public class Main {
         int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
         int xdiServicePort = pmPort + xdiServicePortOffset;
 
-        int amResponsePortOffset = platformConfig.defaultInt("fds.am.am_base_response_port_offset", 2876);
-        int amResponsePort = new ServerPortFinder().findPort("Async AM response port", pmPort + amResponsePortOffset);
+        int xdiResponsePortOffset = platformConfig.defaultInt("fds.om.xdi_response_port_offset", 2988);
+        int xdiResponsePort = new ServerPortFinder().findPort("Async XDI response port", pmPort + xdiResponsePortOffset);
 
         XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
 
         boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
-                new RealAsyncAm(amHost, xdiServicePort, amResponsePort, xdiStaticConfig.getAmTimeout());
+                new RealAsyncAm(amHost, xdiServicePort, xdiResponsePort, xdiStaticConfig.getAmTimeout());
         SingletonAmAPI.instance().api( asyncAm );
 
         /*
