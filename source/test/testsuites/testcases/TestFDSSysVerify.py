@@ -186,17 +186,8 @@ def canonMatch(canon, fileToCheck):
     return True
 
 
-def areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type):
-    env.user = 'root'
-    env.password = 'passwd'
-    env.host_string = node_ip
-    internal_ip = run("hostname")
-
-    # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
-    print("internal_ip[%s]" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
-    result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
+def areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type):
+    connect_fabric(self,node_ip)
 
     with cd(dev_dir):
         drives_string = run('ls')
@@ -213,7 +204,9 @@ def areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type):
                                 token_file_size = sudo(cmd)
                                 token_file_size = int(token_file_size)
                                 if token_file_size > 0:
+                                    disconnect_fabric()
                                     return True
+    disconnect_fabric()
     return False
 
 
@@ -237,7 +230,7 @@ def areTokenFilesUpdated(self, dev_dir, media_type):
                         if token_file_size > 0:
                             return True
     else:
-        return areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type)
+        return areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type)
     return False
 
 
