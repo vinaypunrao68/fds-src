@@ -54,7 +54,7 @@ struct VolumeReplicaHandle {
     }
     inline static bool isNonFunctional(const fpi::ResourceState& s)
     {
-        return s == fpi::ResourceState::Offline;
+        return s == fpi::ResourceState::Offline || s == fpi::ResourceState::Loading;
     }
     inline bool isFunctional() const {
         return isFunctional(state);
@@ -86,12 +86,22 @@ struct VolumeReplicaHandle {
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
+    inline bool isError(const Error &e) {
+        if (e == ERR_OK ||
+            (isSyncing() && e == ERR_WRITE_OP_BUFFERED)) {
+            return false;
+        }
+        return true;
+    }
     inline std::string logString() const;
 
+    /* Version of the volume replica.  As volume goes up/down this # is incremented */
     int32_t                 version;
     /* Service where this replica is hosted */
     fpi::SvcUuid            svcUuid;
+    /* State of the volume replica */
     fpi::ResourceState      state;
+    /* Last error that caused this volume replica to become non-functional */
     Error                   lastError;
     /* Last succesfully applied operation id */
     int64_t                 appliedOpId;
@@ -183,7 +193,7 @@ struct VolumeGroupHandle : HasModuleProvider {
                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
-    void sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+    void sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
@@ -210,7 +220,6 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const fpi::FDSPMsgTypeId &msgTypeId,
                                       const bool writeReq,
                                       const Error &inStatus,
-                                      Error &outStatus,
                                       uint8_t &successAcks);
 
     std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
@@ -231,41 +240,36 @@ struct VolumeGroupHandle : HasModuleProvider {
 
  protected:
     template<class MsgT, class ReqT>
-    SHPTR<ReqT> invokeCommon_(bool writeReq,
-                              const fpi::FDSPMsgTypeId &msgTypeId,
+    SHPTR<ReqT> sendWriteReq_(const fpi::FDSPMsgTypeId &msgTypeId,
                               SHPTR<MsgT> &msg,
                               const VolumeResponseCb &cb) {
-#ifdef IOHEADER_SUPPORTED
-        /* Update the header in the message */
-        setVolumeIoHdr_(getVolumeIoHdrRef(*msg));
-#endif
-
-        auto payload = serializeFdspMsg(*msg);
-
-        if (writeReq && writeOpsBuffer_) {
-            writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
-        }
-
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<ReqT>(this);
+        /* First update opId in message bound for volume and cache the same opid in the
+         * request
+         */
+        msg->opId = opSeqNo_;
+        req->volumeIoHdr_.opId = msg->opId;
+        // TODO(Rao): Set commit/sequence id once enabled
+        auto payload = serializeFdspMsg(*msg);
+        if (writeOpsBuffer_) {
+            writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
+        }
         req->setPayloadBuf(msgTypeId, payload);
-#ifdef IOHEADER_SUPPORTED
-        req->volumeIoHdr_ = getVolumeIoHdrRef(*msg);
-        LOGTRACE << fds::logString(req->volumeIoHdr_);
-#endif
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
 
         return req;
     }
-    bool replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid, const int64_t fromOpId);
+
+    bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_();
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
-    void broadcastGroupInfo_();
+    QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
     void changeState_(const fpi::ResourceState &targetState, const std::string& logCtx);
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
@@ -275,7 +279,6 @@ struct VolumeGroupHandle : HasModuleProvider {
                                     const std::string &context);
     void setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo);
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
-    void setVolumeIoHdr_(fpi::VolumeIoHdr &hdr);
     VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
 
@@ -285,13 +288,22 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
+    /* # of volume replicas that need to respond success before client is acked with success */
     uint32_t                            quorumCnt_;
+    /* State of the volume group */
     fpi::ResourceState                  state_;
+    /* ID of the volume group.  This is same as volume id */
     int64_t                             groupId_;
+    /* Version # for group handle.  This is different from VolumeReplicaHandle version # */
     fpi::VolumeGroupVersion             version_;
+    /* Every write operation is given a sequence #. The first # is OPSTARTID+1 */
     int64_t                             opSeqNo_;
+    /* Every commit operation is given a sequence #. The first # is COMMITSTARTID+1 */
     int64_t                             commitNo_;
     uint64_t                            dmtVersion_;
+    /* When buffering is enabled, every write operation up last n(buffer size)
+     * operations are buffered here
+     */
     std::unique_ptr<WriteOpsBuffer>     writeOpsBuffer_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
@@ -306,7 +318,12 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
-        invokeCommon_<MsgT, VolumeGroupFailoverRequest>(false, msgTypeId, msg, cb);
+        /* Create a request and send */
+        auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
+        req->setPayload(msgTypeId, msg);
+        req->responseCb_ = cb;
+        req->setTaskExecutorId(groupId_);
+        req->invoke();
     });
 }
 
@@ -317,19 +334,19 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
         opSeqNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
+        sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }
 
 template<class MsgT>
-void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
         opSeqNo_++;
         commitNo_++;
-        invokeCommon_<MsgT, VolumeGroupBroadcastRequest>(true, msgTypeId, msg, cb);
+        sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }
 

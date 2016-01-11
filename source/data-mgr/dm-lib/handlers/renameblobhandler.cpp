@@ -61,7 +61,8 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
                                                                      dest_blob,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleCommitNewBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
@@ -195,7 +196,8 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
                                                                      typedRequest->blob_name,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleDeleteOldBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =

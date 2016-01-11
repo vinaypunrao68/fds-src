@@ -58,7 +58,7 @@ class DmMigrationClient : public DmMigrationBase {
      * as part of Active Migration.
      * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+    virtual fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
 
     /* Forwarding Modifiers */
     void turnOnForwarding();

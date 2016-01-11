@@ -151,16 +151,26 @@ int32_t BufferReplay::getOutstandingReplayOpsCnt()
 void BufferReplay::replayWork_()
 {
     Error err(ERR_OK);
-    int64_t replayIdx;
+    int64_t replayIdx = -1;
     std::list<Op> replayList;
-    {
+    bool complete = false;
+    do {
         fds_mutex::scoped_lock l(lock_);
 
+        fds_assert(nOutstandingReplayOps_  == 0);
+
         replayWorkPosted_ = false;
+
         /* It's possible we received an abort while replayWork_ is schedule on threadpool */
         if (progress_ == ABORTED)  {
-            progressCb_(ABORTED);
-            return;
+            err = ERR_ABORTED;
+            break;
+        }
+
+        if (nBufferedOps_ == nReplayOpsIssued_) {
+            /* Nothing more read and replay */
+            complete = true;
+            break;
         }
 
         /* Read few entries */
@@ -182,15 +192,17 @@ void BufferReplay::replayWork_()
             replayList.emplace_back(std::make_pair(opType, std::move(s)));
         }
         /* Op accounting */
-        fds_assert(nOutstandingReplayOps_  == 0);
         replayIdx = nReplayOpsIssued_;
         nOutstandingReplayOps_ = replayList.size();
         nReplayOpsIssued_ += nOutstandingReplayOps_;
-    }
+    } while (false);
 
     if (!err.ok()) {
         fds_assert(nOutstandingReplayOps_ == 0);
         progressCb_(ABORTED);
+        return;
+    } else if (complete) {
+        progressCb_(COMPLETE);
         return;
     }
 

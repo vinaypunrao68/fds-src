@@ -112,6 +112,12 @@ angular.module( 'node-management' ).factory( '$node_service', ['$http_fds', '$in
                     
                     var node = data[i];
                     
+                    // add the HDD capacity
+                    node.hddCapacity = {
+                        value: node.diskCapacity.value - node.ssdCapacity.value,
+                        unit: node.diskCapacity.unit
+                    };
+                    
                     if ( node.state === service.FDS_DISCOVERED ){
                         service.detachedNodes.push( node );
                     }

@@ -120,7 +120,8 @@ class ServiceContext(Context):
         services = self.getServiceList()
         for s in services:
             if uuid == s['uuid']:
-                return '{}:{}'.format(s['service'].lower(), s['ip'])
+                host = self.getHostFromIp(s['ip'])
+                return '{}@{}'.format(s['service'].lower(), host)
         raise Exception('unknown service : {}'.format(uuid))
 
     #--------------------------------------------------------------------------------------

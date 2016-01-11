@@ -45,7 +45,8 @@ namespace fds
                         switch ( svc.svc_status )
                         {
                             case FDS_ProtocolInterface::SVC_STATUS_INVALID:
-                            case FDS_ProtocolInterface::SVC_STATUS_INACTIVE:
+                            case FDS_ProtocolInterface::SVC_STATUS_INACTIVE_STOPPED:
+                            case FDS_ProtocolInterface::SVC_STATUS_INACTIVE_FAILED:
                             {
                                 auto mapIter = wellKnownPMsMap.find(svc.svc_id.svc_uuid);
                                 if (mapIter != wellKnownPMsMap.end()) {
@@ -82,8 +83,8 @@ namespace fds
                             default: //SVC_STATUS_ACTIVE, SVC_STATUS_DISCOVERED
                             {
 
-                                if ( gl_orch_mgr->getConfigDB()->getStateSvcMap(svcUuid.svc_uuid)
-                                     == fpi::SVC_STATUS_INACTIVE )
+                                if ( gl_orch_mgr->getConfigDB()->getStateSvcMap(svcUuid.svc_uuid)  == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                                     gl_orch_mgr->getConfigDB()->getStateSvcMap(svcUuid.svc_uuid)  == fpi::SVC_STATUS_INACTIVE_STOPPED )
                                 {
                                     // This thread set the PM to down(in the configDB) when it
                                     // didn't hear a heartbeat back.
@@ -224,8 +225,8 @@ namespace fds
         } // release generic map lock
 
         if (updateSvcState) {
-            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) )
-                    == fpi::SVC_STATUS_INACTIVE )
+            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                 (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_STOPPED )
             {
                 fds_mutex::scoped_lock l(dbLock);
                 // don't need to update svc layer, since it already knows this PM is active
@@ -315,7 +316,7 @@ namespace fds
             fds_mutex::scoped_lock l(dbLock);
             fds::change_service_state(gl_orch_mgr->getConfigDB(),
                                       svcUuid.svc_uuid,
-                                      fpi::SVC_STATUS_INACTIVE,
+                                      fpi::SVC_STATUS_INACTIVE_FAILED,
                                       false);
 
             OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();

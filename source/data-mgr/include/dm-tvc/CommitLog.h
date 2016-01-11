@@ -146,6 +146,8 @@ class DmCommitLog : public Module {
 
     Error applySerializedTxs(std::vector<std::string> transactions);
 
+    void clear();
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock txmap_lock;

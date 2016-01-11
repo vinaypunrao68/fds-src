@@ -6,15 +6,16 @@
 #include <DataMgr.h>
 #include <refcount/objectrefscanner.h>
 #include <counters.h>
+#include <util/path.h>
 #include <boost/filesystem.hpp>
 
 namespace fds { namespace refcount {
 namespace bfs = boost::filesystem;
 
-BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize)
+BloomFilterStore::BloomFilterStore(const std::string &path, uint32_t cacheSize, uint32_t bloomfilterBits)
         : basePath(path),
           maxCacheSize(cacheSize),
-          bloomfilterBits(1*MB),
+          bloomfilterBits(bloomfilterBits),
           accessCnt(1)
 {
     if (basePath[basePath.size()-1] != '/') {
@@ -160,8 +161,7 @@ void ObjectRefScanMgr::mod_startup() {
     if (timeBasedEnabled) {
         auto timer = MODULEPROVIDER()->getTimer();
         scanTask = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask(*timer,
-                                     [this] () {
+            new FdsTimerFunctionTask([this] () {
                                          auto expectedState = STOPPED;
                                          bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
                                          if (!wasStopped) {
@@ -300,7 +300,11 @@ void ObjectRefScanMgr::prescanInit()
 
     /* Init bloomfilter store */
     auto dmUserRepo = MODULEPROVIDER()->proc_fdsroot()->dir_user_repo_dm();
-    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo.c_str()), 5));
+    auto config = MODULEPROVIDER()->get_conf_helper();
+    auto bfSize = util::getBytesFromHumanSize(
+        config.get<std::string>("objectrefscan.bf_size", "1M"));
+
+    bfStore.reset(new BloomFilterStore(util::strformat("%s/bloomfilters/", dmUserRepo.c_str()), 5, bfSize));
 
     /* Scan cycle counters */
     scanCntr++;
@@ -322,6 +326,7 @@ VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_
     std::vector<fds_volid_t> vecSnapIds;
     Error err = m->getDataMgr()->timelineMgr->getSnapshotsForVolume(vId, vecSnapIds);
     for (const auto& snapId : vecSnapIds) {
+        err = m->getDataMgr()->timelineMgr->loadSnapshot(vId, snapId);
         scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, snapId)));
     }
     itr = scanners.begin();

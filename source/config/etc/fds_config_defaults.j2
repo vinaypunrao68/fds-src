@@ -80,6 +80,7 @@
    fds.am. specific entries
 #}
 {% set am_svc_io_message_timeout = fds_am_svc_io_message_timeout if fds_am_svc_io_message_timeout is defined else '25000' %}
+{% set am_svc_open_message_timeout = fds_am_svc_open_message_timeout if fds_am_svc_open_message_timeout is defined else '2500' %}
 {% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set am_cache_max_volume_data = fds_am_cache_max_volume_data if fds_am_cache_max_volume_data is defined else '400' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
@@ -128,6 +129,7 @@
    In the inventory files they all begin fds_ft_ for fds_feature_toggle_.  Internally, we strip off the fds_.
 #}
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
+{% set ft_common_enable_subscriptions             = fds_ft_common_enable_subscriptions             if fds_ft_common_enable_subscriptions             is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set ft_common_enable_valgrind      		      = fds_ft_common_enable_valgrind                  if fds_ft_common_enable_valgrind                  is defined else 'false' %}
 {% set ft_enable_timeline                         = fds_ft_enable_timeline                         if fds_ft_enable_timeline                         is defined else 'false' %}

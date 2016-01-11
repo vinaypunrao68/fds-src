@@ -20,6 +20,9 @@ public:
     ~DmMigrationSrc() {}
     typedef std::shared_ptr<DmMigrationSrc> shared_ptr;
     typedef std::unique_ptr<DmMigrationSrc> unique_ptr;
+
+    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersionIn) override;
+    void routeAbortMigration() override;
 private:
 };
 

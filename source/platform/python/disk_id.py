@@ -198,7 +198,7 @@ def discover_os_devices ():
         print "Unable to find the root file system in 'df' output.  Can not continue."
         sys.exit(1)
 
-    if "/dev/md" in root_device:
+    if "/dev/md" in root_device or "/dev/disk/by-uuid" in root_device:
         call_list = ['mdadm', '--detail', root_device]
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
         for line in output:

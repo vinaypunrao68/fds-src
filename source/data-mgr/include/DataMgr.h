@@ -139,6 +139,13 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
 
         return ERR_OK;
     }
+    Error validateVolumeExists(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+        return ERR_OK;
+    }
 
     /**
      * Pull the volume descriptors from OM using service layer implementation.
@@ -188,7 +195,6 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
     boost::shared_ptr<timeline::TimelineManager> timelineMgr;
     boost::shared_ptr<ExpungeManager> expungeMgr;
-    fds_threadpool  lowPriorityTasks;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
@@ -362,9 +368,6 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     ///
     void shutdown();
 
-    // Runs sync protocol
-    void runSyncProtocol(int32_t version,
-                         const VolumeDesc &volDesc);
     /*
      * Gets and sets Number of primary DMs.
      */

@@ -2,13 +2,17 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef USE_BOOSTBASED_TIMER
 #include <fds_globals.h>
 #include <fds_timer.h>
 #include <util/Log.h>
 
 namespace fds
 {
+FdsTimerTask::FdsTimerTask()
+{
+    state_ = TASK_STATE_UNINIT;
+}
+
 FdsTimerTask::FdsTimerTask(FdsTimer &fds_timer)
 {
     state_ = TASK_STATE_UNINIT;
@@ -28,10 +32,8 @@ std::chrono::system_clock::time_point FdsTimerTask::getExpiryTime() const {
     return expTime_;
 }
 
-FdsTimerFunctionTask::FdsTimerFunctionTask(FdsTimer &timer,
-                                           const std::function<void()> &f)
-: FdsTimerTask(timer),
-    f_(f)
+FdsTimerFunctionTask::FdsTimerFunctionTask(const std::function<void()> &f)
+: f_(f)
 {
 }
 
@@ -148,60 +150,21 @@ void FdsTimer::runTimerThread_()
 
     GLOGNORMAL << log_string() << "Timer thread exited...";
 }
-}  // namespace fds
 
-#else  // USE_BOOSTBASED_TIMER
-
-#include <string>
-#include <fds_timer.h>  // NOLINT
-namespace fds
+SHPTR<FdsTimerTask> FdsTimer::scheduleFunction(const std::chrono::seconds &time,
+                                               const std::function<void()> &f)
 {
-
-
-FdsTimerTask::FdsTimerTask(FdsTimer &fds_timer) // NOLINT
-    : timer_(fds_timer.io_service_),
-    lock_("FdsTimerTask"),
-    scheduled_(false)
-{
+    auto task = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(f));
+    schedule(task, time);
+    return task;
 }
 
-FdsTimerTask::~FdsTimerTask() { }
-
-FdsTimer::FdsTimer()
-    : work_(io_service_),
-      io_thread_(&FdsTimer::start_io_service, this)
+SHPTR<FdsTimerTask> FdsTimer::scheduledFunctionRepeated(const std::chrono::seconds &time,
+                                                       const std::function<void()> &f)
 {
-}
-
-void FdsTimer::destroy()
-{
-    io_service_.stop();
-    io_thread_.join();
-}
-
-bool FdsTimer::cancel(const FdsTimerTaskPtr& task)
-{
-    {
-        fds_mutex::scoped_lock l(task->lock_);
-        if (!task->scheduled_) {
-            return false;
-        }
-        task->scheduled_ = false;
-    }
-    /* Note, igoring the return value.  May be we shouldn't? */
-    task->timer_.cancel();
-    return true;
-}
-
-void FdsTimer::start_io_service()
-{
-    try {
-        io_service_.run();
-    } catch(const std::exception &e) {
-        FDS_PLOG_WARN(g_fdslog) << e.what();
-    }
+    auto task = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(f));
+    scheduleRepeated(task, time);
+    return task;
 }
 
 }  // namespace fds
-#endif  // USE_BOOSTBASED_TIMER
-

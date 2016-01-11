@@ -39,6 +39,8 @@ public:
 
     typedef std::shared_ptr<DmMigrationDest> shared_ptr;
     typedef std::unique_ptr<DmMigrationDest> unique_ptr;
+
+    void routeAbortMigration() override;
 private:
 };
 

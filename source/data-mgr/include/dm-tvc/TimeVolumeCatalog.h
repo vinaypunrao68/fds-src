@@ -154,7 +154,8 @@ class DmTimeVolCatalog : public HasModuleProvider,
                      fpi::SvcUuid const& client_uuid,
                      fds_int64_t& token,
                      fpi::VolumeAccessMode const& mode,
-                     sequence_id_t& sequence_id);
+                     sequence_id_t& sequence_id,
+                     int32_t &version);
 
     /**
      * Attempt to "close" this volume from a previous open

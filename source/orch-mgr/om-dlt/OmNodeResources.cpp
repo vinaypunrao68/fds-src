@@ -1028,9 +1028,12 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeSmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
+                // This path gets called from an unexpected exit message from the PM
+                // In this case, we want to allow for the service to be restarted
+                // in case of a PM re-registration
                 change_service_state( configDB,
                                       ( activeSmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeSmAgent = nullptr;
             }
@@ -1050,7 +1053,7 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 change_service_state( configDB,
                                       ( activeDmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeDmAgent = nullptr;
             }
@@ -1070,7 +1073,7 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 change_service_state( configDB,
                                       ( activeAmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE );
+                                      fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeAmAgent = nullptr;
             }
@@ -1167,7 +1170,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                 case fpi::FDS_Node_Rmvd:
                     fds::change_service_state( configDB,
                                                get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_INACTIVE );
+                                               fpi::SVC_STATUS_INACTIVE_STOPPED );
                     break;
                 case fpi::FDS_Node_Standby:
                     fds::change_service_state( configDB,
@@ -1317,7 +1320,7 @@ OM_PmAgent::send_add_service
         case fpi::FDS_Node_Rmvd:
             fds::change_service_state( configDB,
                                        get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_INACTIVE );
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
             break;
         case fpi::FDS_Node_Standby:
             fds::change_service_state( configDB,
@@ -1427,7 +1430,7 @@ OM_PmAgent::send_start_service
     fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
                                                             get_uuid().uuid_get_val() );
 
-    if ( serviceStatus == fpi::SVC_STATUS_INACTIVE ) {
+    if ( serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ) {
         // If the state is inactive, this can only mean that a previously
         // shutdown node is now being started. If valid services exist,
         //change PM state and node state to RUNNING/ACTIVE otherwise
@@ -1517,6 +1520,7 @@ OM_PmAgent::send_start_service
             if (foundSvc) {
                 // Only if this is already in the map do we change state. Otherwise
                 // it can lead to some weird behavior
+                LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
                 configDB->changeStateSvcMap(svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
             } else {
                 LOGERROR <<"StartError: could not retrieve valid svcId";
@@ -1612,7 +1616,7 @@ OM_PmAgent::send_stop_service
         LOGDEBUG << "No services present to stop, setting node to down";
         fds::change_service_state( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
@@ -1811,7 +1815,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    smSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
              activeSmAgent = nullptr;
          }
 
@@ -1819,7 +1823,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    dmSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
              activeDmAgent = nullptr;
          }
 
@@ -1827,7 +1831,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ) ) {
              change_service_state( configDB,
                                    amSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
              activeAmAgent = nullptr;
          }
     } else {
@@ -1845,7 +1849,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         LOGDEBUG << "Changing PM state to INACTIVE";
         fds::change_service_state( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
         // Also explicitly set the state to down
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         }
@@ -2400,7 +2404,7 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     fds_bool_t bret = false;
     NodeAgent::pointer agent = agent_info(pm_uuid);
     if (agent == NULL) {
-        LOGWARN << "agent for PM node does not exit";
+        LOGWARN << "Agent for PM node does not exist";
         return false;  // we must have pm node
     } else if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         // TODO(anna) for now using NodeUp state as active, review states
@@ -2408,6 +2412,9 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
         return false;  // must be in active state
     }
 
+    // The below check will end up with a value of 1 for bret if the activeAgent is NULL
+    // for the given service. And 0 if the activeAgent is not NULL.
+    // (logging this here to kill future obscurity-decoding fun)
     bret = (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
     LOGDEBUG << "Service of type " << svc_role << " on node " << std::hex
              << pm_uuid.uuid_get_val() << std::dec << " exists? " << bret;

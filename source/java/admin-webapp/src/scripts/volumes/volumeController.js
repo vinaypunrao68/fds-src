@@ -232,13 +232,8 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         var usage = volume.status.currentUsage;
         var usedStr = $byte_converter.convertBytesToString( usage.value );
-        var allocated = '';
-        
-        if ( angular.isDefined( volume.settings.capacity ) ){
-            allocated = ' / ' + $byte_converter.convertBytesToString( volume.settings.capacity.value ); 
-        }
-        
-        return usedStr + allocated;
+
+        return usedStr;
     };
     
     $scope.$on( 'fds::authentication_logout', function(){

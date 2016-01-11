@@ -1,7 +1,6 @@
 package com.formationds.om.repository.helper;
 
 import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.XdiService;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
@@ -11,6 +10,7 @@ import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.AsyncAm;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -318,7 +319,7 @@ public class FirebreakHelperTest {
 
     static final ConfigurationApi mockedConfigApi = mock( ConfigurationApi.class );
     static final Configuration    mockedConfig    = mock( Configuration.class );
-    static final XdiService.Iface mockedAMService = mock( XdiService.Iface.class );
+    static final AsyncAm mockedAMService = mock( AsyncAm.class );
 
     @BeforeClass
     static public void setUpClass() throws Exception {
@@ -327,8 +328,9 @@ public class FirebreakHelperTest {
         SingletonAmAPI.instance().api( mockedAMService );
         VolumeStatus vstat = new VolumeStatus();
         vstat.setCurrentUsageInBytes( 1024 );
-        when( mockedAMService.volumeStatus( "", "u1-ov1" ) ).thenReturn( vstat );
-        when( mockedAMService.volumeStatus( "", "u2-ov1" ) ).thenReturn( vstat );
+        CompletableFuture<VolumeStatus> vstatCF = CompletableFuture.completedFuture(vstat);
+        when( mockedAMService.volumeStatus( "", "u1-ov1" ) ).thenReturn( vstatCF );
+        when( mockedAMService.volumeStatus( "", "u2-ov1" ) ).thenReturn( vstatCF );
     }
 
     @Before
