@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Formation Data Systems, Inc.
+ * Copyright 2014-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMQOSCTRL_H_
@@ -44,6 +44,9 @@ class AmQoSCtrl :
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     Error updateQoS(int64_t const* rate, float const* throttle) override;
+    void openVolume(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void closeVolume(AmRequest *amReq) override         { enqueueRequest(amReq); }
+    void statVolume(AmRequest *amReq) override          { enqueueRequest(amReq); }
     void setVolumeMetadata(AmRequest *amReq) override   { enqueueRequest(amReq); }
     void volumeContents(AmRequest *amReq) override      { enqueueRequest(amReq); }
     void startBlobTx(AmRequest *amReq) override         { enqueueRequest(amReq); }

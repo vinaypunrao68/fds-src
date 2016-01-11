@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #include "AmQoSCtrl.h"
@@ -160,7 +160,6 @@ AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
 }
 
 void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
-    static fpi::VolumeAccessMode const default_access_mode;
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
     GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
