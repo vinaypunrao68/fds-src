@@ -44,7 +44,6 @@ HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
     auto &timer = *(MODULEPROVIDER()->getTimer());
     runTask_.reset(
         new FdsTimerFunctionTask(
-            timer,
             std::bind(&HybridTierCtrlr::run, this)));
 }
 void

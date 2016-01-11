@@ -235,7 +235,7 @@ class DmIoCommitBlobTx : public DmRequest {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
                    << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc)
-                   << " opId: " << io.opId;
+                   << " opid: " << io.opId;
     }
 
     virtual std::string log_string() const override {
@@ -293,7 +293,7 @@ class DmIoAbortBlobTx : public DmRequest {
         std::stringstream ret;
         ret << "DmIoAbortBlobTx vol "
             << std::hex << volId << std::dec
-            << " opId: " << opId;
+            << " opid: " << opId;
         return ret.str();
     }
 
@@ -328,7 +328,7 @@ class DmIoStartBlobTx : public DmRequest {
         return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name << " blob mode " << io.blob_mode
                    << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc)
-                   << " opId: " << io.opId;
+                   << " opid: " << io.opId;
     }
 
     virtual std::string log_string() const override {
@@ -427,7 +427,7 @@ class DmIoUpdateCat : public DmRequest {
     friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCat& io) {
         return out << "DmIoUpdateCat vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc)
-                   << " opId: " << io.opId;
+                   << " opid: " << io.opId;
     }
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -468,7 +468,7 @@ class DmIoUpdateCatOnce : public DmRequest {
     friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCatOnce& io) {
         return out << "DmIoUpdateCatOnce vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc)
-                   << " opId: " << io.opId;
+                   << " opid: " << io.opId;
     }
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -506,7 +506,7 @@ class DmIoSetBlobMetaData : public DmRequest {
     friend std::ostream& operator<<(std::ostream& out, const DmIoSetBlobMetaData& io) {
         return out << "DmIoSetBlobMetaData vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc)
-                   << " opId: " << io.opId;
+                   << " opid: " << io.opId;
     }
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -600,7 +600,7 @@ class DmIoRenameBlob : public DmRequest {
             << std::hex << volId << std::dec
             << " old name: " << blob_name
             << " new name: " << message->destination_blob
-            << " opId: " << opId;
+            << " opid: " << opId;
         return ret.str();
     }
     DmIoCommitBlobOnce<DmIoRenameBlob> *commitReq;
@@ -860,7 +860,7 @@ struct DmIoMigrationTxState : DmRequest {
 
 struct DmIoMigrationRequestTxState : DmRequest {
     explicit DmIoMigrationRequestTxState(fds_volid_t volId, const fpi::CtrlNotifyRequestTxStateMsgPtr &msg)
-            : DmRequest(volId, "", "", 0, FDS_DM_MIG_TX_STATE),
+            : DmRequest(volId, "", "", 0, FDS_DM_MIG_REQ_TX_STATE),
               reqTxStateMsg(msg)
     {
     }

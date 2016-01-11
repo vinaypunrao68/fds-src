@@ -1628,6 +1628,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
+        case FDS_DM_MIG_REQ_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
                 serialExecutor->scheduleOnHashKey(io->volId.get(),
                                                   std::bind(&dm::Handler::handleQueueItem,

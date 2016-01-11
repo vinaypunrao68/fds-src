@@ -189,8 +189,38 @@ struct DmGroupFixture : BaseTestFixture {
         auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName); 
         updateMsg->txId = txId;
         waiter.reset(1);
-        v.sendWriteMsg<fpi::UpdateCatalogOnceMsg>(
+        v.sendCommitMsg<fpi::UpdateCatalogOnceMsg>(
             FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
+            updateMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
+    void sendStartBlobTxMsg(VolumeGroupHandle &v,
+                       const std::string &blobName,
+                       int64_t txId,
+                       Waiter &waiter)
+    {
+        auto startMsg = SvcMsgFactory::newStartBlobTxMsg(v.getGroupId(), blobName); 
+        startMsg->txId = txId;
+        waiter.reset(1);
+        v.sendModifyMsg<fpi::StartBlobTxMsg>(
+            FDSP_MSG_TYPEID(fpi::StartBlobTxMsg),
+            startMsg,
+            [&waiter](const Error &e, StringPtr) {
+                waiter.doneWith(e);
+            });
+    }
+    void sendUpdateMsg(VolumeGroupHandle &v,
+                       const std::string &blobName,
+                       int64_t txId,
+                       Waiter &waiter)
+    {
+        auto updateMsg = SvcMsgFactory::newUpdateCatalogMsg(v.getGroupId(), blobName); 
+        updateMsg->txId = txId;
+        waiter.reset(1);
+        v.sendModifyMsg<fpi::UpdateCatalogMsg>(
+            FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
             updateMsg,
             [&waiter](const Error &e, StringPtr) {
                 waiter.doneWith(e);
@@ -345,17 +375,42 @@ TEST_F(DmGroupFixture, multidm) {
         sendQueryCatalogMsg(v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
+    /* Send few more non-commit updates so that we have active Txs */
+    for (uint32_t i = 0; i < 5; i++, curTxId++) {
+        sendStartBlobTxMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
 
-    /* Bring 1st dm up */
+    /* Bring 1st dm up again */
     dmGroup[0]->start();
     /* Adding the volume manually */
     v1Desc->setCoordinatorId(amHandle.proc->getSvcMgr()->getSelfSvcUuid());
     e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
-    /* Wait for sync to complete */
-    POLL_MS((dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active),
-            1000, 3000);
+    
+    /* Keep doing IO for maximum of 10 seconds */
+    for (uint32_t i = 0;
+         (i < 100 &&
+          dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() != fpi::Active);
+         i++, curTxId++) {
+        sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        if (i % 10 == 0) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+    /* By now sync must complete */
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+
+    /* Do more IO.  IO should succeed */
+    for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
     
 
 #if 0

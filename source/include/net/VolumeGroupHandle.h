@@ -86,6 +86,13 @@ struct VolumeReplicaHandle {
         appliedOpId = opId;
         appliedCommitId = commitId;
     }
+    inline bool isError(const Error &e) {
+        if (e == ERR_OK ||
+            (isSyncing() && e == ERR_WRITE_OP_BUFFERED)) {
+            return false;
+        }
+        return true;
+    }
     inline std::string logString() const;
 
     /* Version of the volume replica.  As volume goes up/down this # is incremented */
@@ -186,7 +193,7 @@ struct VolumeGroupHandle : HasModuleProvider {
                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
-    void sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+    void sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb);
 
     template<class MsgT>
@@ -256,7 +263,7 @@ struct VolumeGroupHandle : HasModuleProvider {
         return req;
     }
 
-    bool replayFromWriteOpsBuffer_(const fpi::SvcUuid &svcUuid, const int64_t fromOpId);
+    bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_();
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
@@ -332,7 +339,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 }
 
 template<class MsgT>
-void VolumeGroupHandle::sendWriteMsg(const fpi::FDSPMsgTypeId &msgTypeId,
+void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
