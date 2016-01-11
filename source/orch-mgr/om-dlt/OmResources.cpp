@@ -223,6 +223,24 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
         }
     };
+    struct DST_WaitShutPm : public msm::front::state<>
+    {
+        DST_WaitShutPm() : pm_acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const&, Fsm&, State&) {}
+
+        template <class Event, class FSM> void on_entry(Event const& e, FSM &f)
+        {
+            LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const& e, FSM &f)
+        {
+            LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
+        }
+
+        fds_uint32_t pm_acks_to_wait;
+    };
     struct DST_WaitShutAm : public msm::front::state<>
     {
         DST_WaitShutAm() : am_acks_to_wait(0) {}
@@ -343,6 +361,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_ShutPm
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const&, Fsm&, SrcST&, TgtST&);
+    };
     struct DACT_ShutDmSm
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -377,6 +400,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_PmShut
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const&, Fsm&, SrcST&, TgtST&);
+    };
     struct GRD_DmSmShut
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -405,9 +433,10 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         //      +--------------------+--------------+--------------------+-----------------+---------------+
         msf::Row< DST_WaitDltDmt     , DltDmtUpEvt  , DST_DomainUp       , DACT_LoadVols   , GRD_DltDmtUp  >,
         //      +--------------------+--------------+--------------------+-----------------+---------------+
-        msf::Row< DST_DomainUp       , ShutdownEvt  , DST_WaitShutAm     , DACT_ShutAm     , msf::none     >,
+        msf::Row< DST_DomainUp       , ShutdownEvt  , DST_WaitShutPm     , DACT_ShutPm     , msf::none     >,
         msf::Row< DST_DomainUp       , RegNodeEvt   , DST_DomainUp       , DACT_SendDltDmt , msf::none     >,
         //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitShutPm     , ShutAckEvt   , DST_WaitShutAm     , DACT_ShutAm     , GRD_PmShut    >,
         msf::Row< DST_WaitShutAm     , ShutAckEvt   , DST_WaitShutDmSm   , DACT_ShutDmSm   , GRD_AmShut    >,
         msf::Row< DST_WaitShutDmSm   , ShutAckEvt   , DST_WaitDeact      , DACT_DeactSvc   , GRD_DmSmShut  >,
         msf::Row< DST_WaitDeact      , DeactAckEvt  , DST_DomainShutdown , DACT_Shutdown   , GRD_DeactSvc  >,
@@ -970,6 +999,29 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     }
 }
 
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void NodeDomainFSM::DACT_ShutPm::operator()(Evt const& evt, Fsm& fsm, SrcST& src, TgtST& dst)
+{
+    LOGNOTIFY << "Will send shutdown msg to all PMs";
+    try
+    {
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        auto domainControl = domain->om_loc_domain_ctrl();
+
+        dst.pm_acks_to_wait = domainControl->om_bcast_shutdown_msg(fpi::FDSP_PLATFORM_SVC);
+        LOGDEBUG << "Will wait for acks from " << dst.pm_acks_to_wait << " PMs";
+        if (dst.pm_acks_to_wait == 0)
+        {
+            fsm.process_event(ShutAckEvt(fpi::FDSP_PLATFORM_SVC, ERR_OK));
+        }
+    }
+    catch (std::exception const& e)
+    {
+        LOGERROR << "Orch Manager encountered exception while processing FSM DACT_ShutPm :: "
+                 << e.what();
+    }
+}
+
 /**
  * GRD_AmShut
  * ------------
@@ -1018,6 +1070,40 @@ NodeDomainFSM::GRD_AmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     }
         
     return b_ret;
+}
+
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool NodeDomainFSM::GRD_PmShut::operator()(Evt const& evt, Fsm& fsm, SrcST& src, TgtST& dst)
+{
+    if (evt.error == ERR_SVC_REQUEST_TIMEOUT || evt.error == ERR_SVC_REQUEST_INVOCATION)
+    {
+        LOGWARN << "Couldn't reach PM service for Prepare for Shutdown; should be ok if service is "
+                   "actually down. Treating as a success.";
+    }
+    else if (evt != ERR_OK)
+    {
+        LOGERROR << "PM returned error to Prepare for shutdown: "
+                 << evt.error << ". We continue with shutting down anyway";
+    }
+
+    if (evt.svc_type == fpi::FDSP_PLATFORM_SVC)
+    {
+        if (src.pm_acks_to_wait > 0)
+        {
+            --src.pm_acks_to_wait;
+        }
+        if (src.pm_acks_to_wait == 0)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        LOGERROR << "Received ack from unexpected service type "
+                 << evt.svc_type << ", ignoring for now, but check why that happened";
+    }
+
+    return false;
 }
 
 /**
