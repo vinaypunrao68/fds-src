@@ -326,7 +326,7 @@ enum  FDSPMsgTypeId {
   CtrlSvcEventTypeId                        = 9000;
   CtrlTokenMigrationAbortTypeId             = 9001;
   SvcStateChangeRespTypeId                  = 9002;
-  
+
   /** SM Type Ids*/
   GetObjectMsgTypeId                        = 10000;
   GetObjectRespTypeId                       = 10001;
@@ -404,6 +404,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
   StartRefScanMsgTypeId;
+  CtrlNotifyRequestTxStateMsgTypeId;
+  CtrlNotifyRequestTxStateRspMsgTypeId;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
@@ -418,7 +420,7 @@ enum  FDSPMsgTypeId {
   UpdateTxMsgTypeId;
   CommitTxMsgTypeId;
   PullActiveTxsMsgTypeId;
-  PullActiveTxsRespMsgTypeId; 
+  PullActiveTxsRespMsgTypeId;
   PullCommitLogEntriesMsgTypeId;
   PullCommitLogEntriesRespMsgTypeId;
   QosFunctionTypeId;

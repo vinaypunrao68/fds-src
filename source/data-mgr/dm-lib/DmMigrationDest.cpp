@@ -19,4 +19,8 @@ DmMigrationDest::start()
     return err;
 }
 
+
+void DmMigrationDest::routeAbortMigration() {
+    abortMigration();
+}
 } // namespace fds

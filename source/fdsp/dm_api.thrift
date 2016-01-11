@@ -594,6 +594,20 @@ struct CtrlNotifyTxStateMsg {
 
 struct CtrlNotifyTxStateRspMsg {
   /* empty message to acknowledge receipt */
+
+}
+
+struct CtrlNotifyRequestTxStateMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+}
+
+struct CtrlNotifyRequestTxStateRspMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+  3: i64                     lowest_op_id;
+  4: i64                     highest_op_id;
+  5: list<string>            transactions;
 }
 
 /* ------------------------------------------------------------

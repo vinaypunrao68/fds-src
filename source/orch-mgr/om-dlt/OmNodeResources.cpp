@@ -2420,7 +2420,7 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
     fds_bool_t bret = false;
     NodeAgent::pointer agent = agent_info(pm_uuid);
     if (agent == NULL) {
-        LOGWARN << "agent for PM node does not exit";
+        LOGWARN << "Agent for PM node does not exist";
         return false;  // we must have pm node
     } else if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
         // TODO(anna) for now using NodeUp state as active, review states
@@ -2428,6 +2428,9 @@ OM_PmContainer::check_new_service(const NodeUuid &pm_uuid,
         return false;  // must be in active state
     }
 
+    // The below check will end up with a value of 1 for bret if the activeAgent is NULL
+    // for the given service. And 0 if the activeAgent is not NULL.
+    // (logging this here to kill future obscurity-decoding fun)
     bret = (OM_PmAgent::agt_cast_ptr(agent)->service_exists(svc_role) == false);
     LOGDEBUG << "Service of type " << svc_role << " on node " << std::hex
              << pm_uuid.uuid_get_val() << std::dec << " exists? " << bret;

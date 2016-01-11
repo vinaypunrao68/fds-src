@@ -25,9 +25,9 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "connector/scst/ScstCommon.h"
 #include "concurrency/LeaderFollower.h"
@@ -52,7 +52,6 @@ struct ScstTarget
 
     ~ScstTarget() override;
 
-    bool enabled() const;
     void disable() { toggle_state(false); }
     void enable() { toggle_state(true); }
 
@@ -61,10 +60,8 @@ struct ScstTarget
     void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
-    void setCHAPCreds(std::unordered_map<std::string, std::string> const& credentials);
-    void setInitiatorMasking(std::vector<std::string> const& ini_members);
-
-    void mapDevices();
+    void setCHAPCreds(std::unordered_map<std::string, std::string>& credentials);
+    void setInitiatorMasking(std::set<std::string> const& ini_members);
 
  protected:
     void lead() override;
@@ -89,7 +86,7 @@ struct ScstTarget
     std::deque<int32_t> devicesToStart;
 
     /// Initiator masking
-    std::vector<std::string> ini_members;
+    std::set<std::string> ini_members;
 
     // Async event to add/remove/modify luns
     unique<ev::async> asyncWatcher;
@@ -101,7 +98,11 @@ struct ScstTarget
 
     std::string const target_name;
 
+    bool luns_mapped {false};
+
     void clearMasking();
+
+    void mapDevices();
 
     void startNewDevices();
 

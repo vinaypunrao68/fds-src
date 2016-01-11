@@ -80,6 +80,7 @@
    fds.am. specific entries
 #}
 {% set am_svc_io_message_timeout = fds_am_svc_io_message_timeout if fds_am_svc_io_message_timeout is defined else '25000' %}
+{% set am_svc_open_message_timeout = fds_am_svc_open_message_timeout if fds_am_svc_open_message_timeout is defined else '2500' %}
 {% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set am_cache_max_volume_data = fds_am_cache_max_volume_data if fds_am_cache_max_volume_data is defined else '400' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}

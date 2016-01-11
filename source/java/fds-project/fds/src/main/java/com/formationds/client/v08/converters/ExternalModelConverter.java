@@ -21,6 +21,7 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
@@ -48,8 +49,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static com.formationds.client.v08.model.nfs.NfsClients.*;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
@@ -271,11 +270,33 @@ public class ExternalModelConverter {
 
         Size extUsage = Size.of( 0L, SizeUnit.B );
 
-        if ( optionalStatus.isPresent() ) {
-            com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
-
-            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+        /**
+         * We used to do the following in an attempt to get current usage. It seems to try to
+         * make use of collected volume stats.
+         */
+        //if ( optionalStatus.isPresent() ) {
+        //    com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
+        //
+        //    extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+        //}
+        /**
+         * But currently (01/07/2016) there seems to be some difficulty with this method.
+         * Most likely, given the delay in reporting volume stats, the difficulty is in the
+         * user not waiting long enough to see stats appear. However, should the user have to
+         * wait for stats that are delayed a number of minutes from present to get a count
+         * of bytes currently used by a volume?
+         */
+        com.formationds.apis.VolumeStatus volumeStatus;
+        try {
+            volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
+                                                                        internalVolume.getName()).get();
+        } catch (Exception e) {
+            logger.error("Unknown Exception: " + e.getMessage());
+            return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
+
+        extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
+        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
