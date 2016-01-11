@@ -557,21 +557,17 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
     return True
 
 def core_hunter_aws(self,node_ip):
-    env.user='root'
-    env.password='passwd'
-    env.host_string = node_ip
-    internal_ip = run("hostname")
-    # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
-    print("internal_ip[%s]" % internal_ip)
-
-    for dir in {'/fds/bin','/corefiles'}:
-        with cd(dir):
-            files = run('ls').split()
-            for file in files:
-                if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
-                    fabric.state.connections[node_ip].get_transport().close()
-                    self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
-                    return 0
+    connect_fabric(self, node_ip)
+    if exists('/fds/bin', use_sudo=True):
+        for dir in {'/fds/bin','/corefiles'}:
+            with cd(dir):
+                files = run('ls').split()
+                for file in files:
+                    if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
+                        fabric.state.connections[node_ip].get_transport().close()
+                        self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
+                        return 0
+    disconnect_fabric()
     return 1
 
 def connect_fabric(self,node_ip):
