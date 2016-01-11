@@ -392,32 +392,32 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
      * Transition table for OM Node Domain
      */
     struct transition_table : mpl::vector<
-        // +-----------------+-------------+-------------+--------------+-------------+
-        // | Start           | Event       | Next        | Action       | Guard       |
-        // +-----------------+-------------+-------------+--------------+-------------+
-        msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none   >,
-        msf::Row< DST_Start  , NoPersistEvt, DST_Wait    , DACT_Wait    , msf::none   >,
-        // +-----------------+-------------+-------------+--------------+--------------+
-        msf::Row< DST_Wait   , TimeoutEvt  , DST_DomainUp, DACT_WaitDone, msf::none   >,
-        // +-----------------+-------------+-------------+--------------+--------------+
-        msf::Row< DST_WaitNds, RegNodeEvt  ,DST_WaitDltDmt, DACT_NodesUp , GRD_NdsUp   >,  // NOLINT
-        msf::Row< DST_WaitNds, TimeoutEvt  ,DST_WaitDltDmt, DACT_UpdDlt , GRD_EnoughNds>,  // NOLINT
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp>,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_DomainUp, ShutdownEvt , DST_WaitShutAm, DACT_ShutAm, msf::none >,
-        msf::Row<DST_DomainUp, RegNodeEvt  ,DST_DomainUp,DACT_SendDltDmt,  msf::none   >,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitShutAm, ShutAckEvt, DST_WaitShutDmSm, DACT_ShutDmSm, GRD_AmShut >,
-        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_WaitDeact, DACT_DeactSvc, GRD_DmSmShut >,
-        msf::Row<DST_WaitDeact, DeactAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DeactSvc >,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_DomainShutdown, WaitNdsEvt, DST_WaitActNds, DACT_WaitNds, msf::none>,
-        msf::Row<DST_DomainShutdown, NoPersistEvt, DST_Wait,   DACT_Wait,   msf::none>,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row< DST_WaitActNds, RegNodeEvt, DST_DomainUp, DACT_SvcActive, GRD_NdsUp> ,  // NOLINT
-        msf::Row< DST_WaitActNds, TimeoutEvt, DST_DomainShutdown, msf::none, msf::none>   // NOLINT
-        // +-----------------+-------------+------------+---------------+--------------+
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        //      | Start              | Event        | Next               | Action          | Guard         |
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_Start          , WaitNdsEvt   , DST_WaitNds        , DACT_WaitNds    , msf::none     >,
+        msf::Row< DST_Start          , NoPersistEvt , DST_Wait           , DACT_Wait       , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_Wait           , TimeoutEvt   , DST_DomainUp       , DACT_WaitDone   , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitNds        , RegNodeEvt   , DST_WaitDltDmt     , DACT_NodesUp    , GRD_NdsUp     >,
+        msf::Row< DST_WaitNds        , TimeoutEvt   , DST_WaitDltDmt     , DACT_UpdDlt     , GRD_EnoughNds >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitDltDmt     , DltDmtUpEvt  , DST_DomainUp       , DACT_LoadVols   , GRD_DltDmtUp  >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_DomainUp       , ShutdownEvt  , DST_WaitShutAm     , DACT_ShutAm     , msf::none     >,
+        msf::Row< DST_DomainUp       , RegNodeEvt   , DST_DomainUp       , DACT_SendDltDmt , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitShutAm     , ShutAckEvt   , DST_WaitShutDmSm   , DACT_ShutDmSm   , GRD_AmShut    >,
+        msf::Row< DST_WaitShutDmSm   , ShutAckEvt   , DST_WaitDeact      , DACT_DeactSvc   , GRD_DmSmShut  >,
+        msf::Row< DST_WaitDeact      , DeactAckEvt  , DST_DomainShutdown , DACT_Shutdown   , GRD_DeactSvc  >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_DomainShutdown , WaitNdsEvt   , DST_WaitActNds     , DACT_WaitNds    , msf::none     >,
+        msf::Row< DST_DomainShutdown , NoPersistEvt , DST_Wait           , DACT_Wait       , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitActNds     , RegNodeEvt   , DST_DomainUp       , DACT_SvcActive  , GRD_NdsUp     >,
+        msf::Row< DST_WaitActNds     , TimeoutEvt   , DST_DomainShutdown , msf::none       , msf::none     >
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
         >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
