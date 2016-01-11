@@ -241,7 +241,7 @@ std::string logString(const fpi::UpdateCatalogMsg& updCat)
     std::ostringstream oss;
     oss << " UpdateCatalogMsg TxId:" <<  updCat.txId
         << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name
-        << " opId: " << updCat.opId;
+        << " opid: " << updCat.opId;
     return oss.str();
 }
 
@@ -257,7 +257,7 @@ std::string logString(const fpi::UpdateCatalogOnceMsg& updCat)
     std::ostringstream oss;
     oss << " UpdateCatalogOnceMsg TxId:" << updCat.txId
         << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name
-        << " opId: " << updCat.opId;
+        << " opid: " << updCat.opId;
     return oss.str();
 }
 
@@ -273,7 +273,7 @@ std::string logString(const fpi::StartBlobTxMsg& stBlobTx)
     std::ostringstream oss;
     oss << " StartBlobTxMs TxId:" << stBlobTx.txId
         << " volume_id" << stBlobTx.volume_id << " blob_name: "<< stBlobTx.blob_name
-        << " opId: " << stBlobTx.opId;
+        << " opid: " << stBlobTx.opId;
     return oss.str();
 }
 
@@ -282,7 +282,7 @@ std::string logString(const fpi::CommitBlobTxMsg& commitBlbTx)
     std::ostringstream oss;
     oss << " CommitBlobTxMs TxId:" << commitBlbTx.txId
         << " volume_id" << commitBlbTx.volume_id << " blob_name: "<< commitBlbTx.blob_name
-        << " opId: " << commitBlbTx.opId;
+        << " opid: " << commitBlbTx.opId;
     return oss.str();
 }
 
@@ -291,7 +291,7 @@ std::string logString(const fpi::SetBlobMetaDataMsg& setMDMsg)
     std::ostringstream oss;
     oss << " SetBlobMetaDataMsg TxId:" << setMDMsg.txId
         << " volume_id" << setMDMsg.volume_id << " blob_name: "<< setMDMsg.blob_name
-        << " opId: " << setMDMsg.opId;
+        << " opid: " << setMDMsg.opId;
     return oss.str();
 }
 
@@ -338,7 +338,7 @@ std::string logString(const fpi::AbortBlobTxMsg& abortBlbTx)
     oss << " AbortBlobTxMs";
     oss << " AbortBlobTxMs TxId:" << abortBlbTx.txId
         << " volume_id" << abortBlbTx.volume_id << " blob_name: "<< abortBlbTx.blob_name
-        << " opId: " << abortBlbTx.opId;
+        << " opid: " << abortBlbTx.opId;
     return oss.str();
 }
 
@@ -350,7 +350,7 @@ std::string logString(const fpi::GetBlobMetaDataMsg& message)
 std::string logString(const fpi::RenameBlobMsg& message)
 {
     std::ostringstream oss;
-    oss << "RenameBlobMsg " << " opId: " << message.opId;
+    oss << "RenameBlobMsg " << " opid: " << message.opId;
     return oss.str();
 }
 
@@ -391,7 +391,7 @@ std::string logString(const fpi::DeleteBlobMsg& msg) {
     oss << " DeleteBlobMsg ";
     oss << " DeleteBlobMsg TxId:" << msg.txId
         << " volume_id" << msg.volume_id << " blob_name: "<< msg.blob_name
-        << " opId: " << msg.opId;
+        << " opid: " << msg.opId;
     return oss.str();
 }
 

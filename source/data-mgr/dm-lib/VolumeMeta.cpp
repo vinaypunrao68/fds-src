@@ -34,6 +34,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
 

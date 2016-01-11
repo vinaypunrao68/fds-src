@@ -26,6 +26,8 @@ void SetVolumeMetadataHandler::handleRequest(
     boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message) {
 
+    LOGDEBUG << logString(*asyncHdr) << logString(*message);
+
     fds_volid_t volId(message->volumeId);
     LOGTRACE << "Received a set volume metadata request for volume "
              << volId;

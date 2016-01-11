@@ -151,21 +151,19 @@ void FdsTimer::runTimerThread_()
     GLOGNORMAL << log_string() << "Timer thread exited...";
 }
 
-SHPTR<FdsTimerTask> scheduleTimerTask(FdsTimer &timer,
-                                      const std::chrono::seconds &time,
-                                      const std::function<void()> &f)
+SHPTR<FdsTimerTask> FdsTimer::scheduleFunction(const std::chrono::seconds &time,
+                                               const std::function<void()> &f)
 {
     auto task = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(f));
-    timer.schedule(task, time);
+    schedule(task, time);
     return task;
 }
 
-SHPTR<FdsTimerTask> scheduleRepeatedTimerTask(FdsTimer &timer,
-                                              const std::chrono::seconds &time,
-                                              const std::function<void()> &f)
+SHPTR<FdsTimerTask> FdsTimer::scheduledFunctionRepeated(const std::chrono::seconds &time,
+                                                       const std::function<void()> &f)
 {
     auto task = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(f));
-    timer.scheduleRepeated(task, time);
+    scheduleRepeated(task, time);
     return task;
 }
 

@@ -126,8 +126,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     std::string logString() const;
 
-    static inline bool isReplayOp(const std::string &payloadHdr) {
-        return payloadHdr == "replay"; 
+    inline bool isReplayOp(const fpi::AsyncHdrPtr &hdr) {
+        return hdr->msg_src_uuid == selfSvcUuid;
     }
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
@@ -203,6 +203,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
      * volume meta forwarding state
      */
     fwdStateType fwd_state;  // write protected by vol_mtx
+
+    /* Cached self svc uuid */
+    fpi::SvcUuid        selfSvcUuid;
 
     /**
      * latest sequence ID is not part of the volume descriptor because it will

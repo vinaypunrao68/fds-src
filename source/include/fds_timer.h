@@ -137,6 +137,23 @@ public:
     }
 
     /**
+    * @brief 
+    *
+    * @param time
+    * @param f
+    */
+    SHPTR<FdsTimerTask> scheduleFunction(const std::chrono::seconds &time,
+                                         const std::function<void()> &f);
+    /**
+    * @brief 
+    *
+    * @param time
+    * @param f
+    */
+    SHPTR<FdsTimerTask> scheduledFunctionRepeated(const std::chrono::seconds &time,
+                                                 const std::function<void()> &f);
+
+    /**
      * Cancel a task. 
      * @return true if task was succsfully cancelled.  Note, false
      * returned when task wasn't scheduled to begin with.
@@ -186,16 +203,6 @@ private:
     std::thread timerThread_;
 };
 
-/**
-* @brief Convenince function for scheduling a task on timer
-*/
-SHPTR<FdsTimerTask> scheduleTimerTask(FdsTimer &timer,
-                                      const std::chrono::seconds &time,
-                                      const std::function<void()> &f);
-
-SHPTR<FdsTimerTask> scheduleRepeatedTimerTask(FdsTimer &timer,
-                                              const std::chrono::seconds &time,
-                                              const std::function<void()> &f);
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDS_TIMER_H_

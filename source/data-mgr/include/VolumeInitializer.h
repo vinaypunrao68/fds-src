@@ -5,6 +5,7 @@
 
 #include <net/SvcRequest.h>
 #include <net/SvcRequestPool.h>
+#include <util/stringutils.h>
 #include <BufferReplay.h>
 
 #define ABORT_CHECK() \
@@ -94,6 +95,7 @@ struct ReplicaInitializer : HasModuleProvider,
     fpi::SvcUuid                            syncPeer_;
     std::unique_ptr<BufferReplay>           bufferReplay_;
     Error                                   completionError_;
+    std::string                             logPrefix_;
 };
 template <class T>
 constexpr const char* const ReplicaInitializer<T>::progressStr[];
@@ -108,6 +110,8 @@ ReplicaInitializer<T>::ReplicaInitializer(CommonModuleProviderIf *provider, T *r
   progress_(UNINIT),
   replica_(replica)
 {
+    /* TODO(Rao): Don't hardcode string volid here */
+    logPrefix_ = util::strformat("volid: %ld", replica_->getId());
 }
 
 template <class T>
@@ -146,8 +150,10 @@ void ReplicaInitializer<T>::run()
                complete_(e, "Failed to get active state");
                return;
            }
-           LOGNORMAL << logString() << " active state copy.  opId: "
-               << activeState->highest_op_id << " # txs: " << activeState->transactions.size();
+           LOGNORMAL << logString() << ". Recieved active state."
+               << " sync peer: " << SvcMgr::mapToSvcUuidAndName(syncPeer_)
+               << " latest opid: " << activeState->highest_op_id
+               << " # txs: " << activeState->transactions.size();
            Error applyErr = replica_->applyActiveTxState(activeState->highest_op_id,
                                                          activeState->transactions);
            if (applyErr != ERR_OK) {
@@ -202,6 +208,12 @@ void ReplicaInitializer<T>::startBuffering_()
     bufferReplay_.reset(new BufferReplay(replica_->getBufferfilePath(),
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
+    auto err = bufferReplay_->init();
+    if (!err.ok()) {
+        complete_(err, "BufferReplay init() failed");
+        return;
+    }
+
     /* Callback to get the progress of replay */
     bufferReplay_->setProgressCb(replica_->synchronizedProgressCb([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
@@ -236,7 +248,8 @@ void ReplicaInitializer<T>::startBuffering_()
                 }
                 bufferReplay_->notifyOpsReplayed();
             });
-            req->invoke();
+            /* invokeDirect() because we want to ensure IO is enqueued to qos on this thread */
+            req->invokeDirect();
         }
     });
 }
@@ -293,7 +306,7 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     // TODO(Neil/James): Please fill this
     setProgress_(STATIC_MIGRATION);
 
-    STUBSTATEMENT(scheduleTimerTask(*(MODULEPROVIDER()->getTimer()), \
+    STUBSTATEMENT(MODULEPROVIDER()->getTimer()->scheduleFunction(\
                                     std::chrono::seconds(5), \
                                     [cb]() { cb(ERR_OK); }));
 }
@@ -330,7 +343,7 @@ template <class T>
 std::string ReplicaInitializer<T>::logString() const
 {
     std::stringstream ss;
-    ss << " Initializer id: " << replica_->getId()
+    ss << logPrefix_
         << " progress: " << progressStr[static_cast<int>(progress_)];
     return ss.str();
 }
@@ -340,7 +353,7 @@ template <class T>
 void ReplicaInitializer<T>::setProgress_(Progress progress)
 {
     progress_ = progress;
-    LOGNORMAL << logString();
+    LOGNORMAL << logString() << replica_->logString();
 }
 
 template <class T>
