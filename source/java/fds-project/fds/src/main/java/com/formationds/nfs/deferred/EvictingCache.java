@@ -197,17 +197,17 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public Set<TKey> keySet() {
-            return inner.keySet();
+            return cache.asMap().keySet();
         }
 
         @Override
         public Collection<CacheEntry<TValue>> values() {
-            return inner.values();
+            return cache.asMap().values();
         }
 
         @Override
         public Set<Entry<TKey, CacheEntry<TValue>>> entrySet() {
-            return inner.entrySet();
+            return cache.asMap().entrySet();
         }
     }
 }

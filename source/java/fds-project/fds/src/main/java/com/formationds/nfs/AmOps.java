@@ -199,12 +199,12 @@ public class AmOps implements IoOps {
             return result;
         } catch (ApiException e) {
             if (Sets.newHashSet(RECOVERABLE_ERRORS).contains(e.getErrorCode())) {
-                LOG.warn(workUnit.operationName + " failed (recoverable), " + workUnit.description, e);
+                LOG.warn(workUnit.operationName + " failed with error code " + e.getErrorCode() + " (recoverable), " + workUnit.description, e);
                 throw new RecoverableException();
             } else if (Sets.newHashSet(explicitelyHandledErrors).contains(e.getErrorCode())) {
                 return errorHandler.apply(e.getErrorCode());
             } else {
-                LOG.error(workUnit.operationName + " failed, " + workUnit.description, e);
+                LOG.error(workUnit.operationName + " failed  with error code " + e.getErrorCode() + ", " + workUnit.description, e);
                 throw new IOException(e);
             }
         } catch (Exception e) {
