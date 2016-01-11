@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import org.apache.log4j.Logger;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -12,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
+    private static final Logger LOG = Logger.getLogger(InodeMap.class);
+
     private final TransactionalIo io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;
@@ -46,6 +49,10 @@ public class InodeMap {
         String volumeName = volumeName(inode);
 
         Optional<Map<String, String>> currentValue = io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
+        if (currentValue.isPresent() && currentValue.get().size() == 0) {
+            LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+            throw new NoEntException();
+        }
         return currentValue.map(m -> new InodeMetadata(m));
     }
 

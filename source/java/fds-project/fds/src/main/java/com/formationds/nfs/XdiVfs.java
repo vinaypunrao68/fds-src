@@ -364,6 +364,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             LOG.error("getattr(): inode-" + InodeMetadata.fileId(inode) + " not found!");
             throw new NoEntException();
         }
+
         return stat.get().asStat(inode.exportIndex());
     }
 
