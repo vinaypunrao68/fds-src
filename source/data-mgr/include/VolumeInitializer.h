@@ -65,6 +65,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void run();
     void abort();
     Error tryAndBufferIo(const BufferReplay::Op &op);
+    inline Progress getProgress() const { return progress_; }
 
 #if 0
     template <class F>
@@ -385,7 +386,10 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
         replica_->setState(fpi::ResourceState::Offline, context);
     }
     notifyCoordinator_();
-    // TODO(Rao): Notify replica so that cleanup can be done
+    /* This must be the last thing we do on ReplicaInitializer object.  After this call, 
+     * ReplicaInitializer will be deleted
+     */
+    replica_->cleanupInitializer();
 }
 
 }  // namespace fds
