@@ -1031,6 +1031,8 @@ class TestVerifySCSTUp(TestCase.FDSTestCase):
         result = get_inventory_value(inventory_file, KEY_ENABLE_SCST)
         if result is None:
             return True
+        if result != 'true':
+            return True
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
