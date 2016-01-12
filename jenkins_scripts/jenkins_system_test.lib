@@ -438,9 +438,9 @@ function aws_test_scenario_wrapper
     scenario=${1}
 
     do_pushd source/test/testsuites
-
+    # For now hard code variable values e.g. log, inventory name TODO pooja
     message " *** RUNNING System Test Scenario: ${scenario} on AWS nodes"
-    ./ScenarioDriverSuite.py -q ./${SCENARIO}.ini -d dummy --verbose -l $LOGGING --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l /tmp/AwsLongSystemTest.log --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
     echo " *** Scenario completed :  ${scenario} passed"
 
     do_popd
