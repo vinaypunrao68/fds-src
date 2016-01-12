@@ -321,7 +321,7 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
         // If we already have the appropriate mode or are currently opening the
         // volume, just return OK
         if (((!wants_write || vol->writable()) && (!wants_cache || vol->cacheable())) || !vol->startOpen()) {
-            auto cb = SHARED_DYN_CAST(AttachCallback, volReq->cb);
+            auto cb = std::dynamic_pointer_cast<AttachCallback>(volReq->cb);
             cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
             return AmDataProvider::openVolumeCb(amReq, ERR_OK);
@@ -364,7 +364,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         // Assign the volume the token we got from DM
         vol->setToken(AmVolumeAccessToken(volReq->mode, volReq->token));
         if (amReq->cb) {
-            auto cb = SHARED_DYN_CAST(AttachCallback, amReq->cb);
+            auto cb = std::dynamic_pointer_cast<AttachCallback>(amReq->cb);
             cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
             cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
         }
@@ -419,8 +419,7 @@ AmVolumeTable::renewTokens() {
 void
 AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
     if (error.ok()) {
-        StatVolumeCallback::ptr cb =
-            SHARED_DYN_CAST(StatVolumeCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<StatVolumeCallback>(amReq->cb);
         auto volReq = static_cast<StatVolumeReq *>(amReq);
         cb->current_usage_bytes = volReq->size;
         cb->blob_count = volReq->blob_count;
