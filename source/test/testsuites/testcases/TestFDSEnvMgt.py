@@ -16,6 +16,9 @@ import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
 import subprocess
 from TestUtils import core_hunter_aws
+from TestUtils import get_inventory_value
+
+KEY_ENABLE_SCST='fds_ft_am_scst_enabled'
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -1022,6 +1025,12 @@ class TestVerifySCSTUp(TestCase.FDSTestCase):
         Test Case:
         Attempt to verify scst service started.
         """
+
+        # No operation unless inventory file asks for SCST
+        inventory_file = self.parameters['inventory_file']
+        result = get_inventory_value(inventory_file, KEY_ENABLE_SCST)
+        if result is None:
+            return True
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
