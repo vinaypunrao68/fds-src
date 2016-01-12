@@ -4,10 +4,13 @@
 
 package com.formationds.om.webkit.rest.v08.metrics;
 
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
@@ -62,9 +65,16 @@ public class IngestVolumeStats
     		  throw new IllegalStateException( "Volume does not have an ID associated with the name." );
     	  }
     	  
-          vdp.setVolumeId( String.valueOf( volid ) );    	  
+          vdp.setVolumeId( String.valueOf( volid ) );
       });
 
+        ( ( VolumeDatapoint ) volumeDatapoints ).setKey( Metrics.UBYTES.key() );
+        ( ( VolumeDatapoint ) volumeDatapoints ).setValue(
+            RedisSingleton.INSTANCE
+                .api()
+                .getDomainUsedCapacity()
+                .getValue( SizeUnit.B )
+                .doubleValue() );
       SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 

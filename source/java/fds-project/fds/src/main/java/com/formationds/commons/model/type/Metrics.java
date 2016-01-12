@@ -26,7 +26,7 @@ public enum Metrics {
     OBJECTS( "Objects" ),
     ABS( "Ave Blob Size" ),
     AOPB( "Ave Objects per Blob" ),
-    // System usage ( sum the most recent of each volume
+    UBYTES( "Used Bytes" ),
     LBYTES( "Logical Bytes" ),
     PBYTES( "Physical Bytes" ),
     // firebreak metrics

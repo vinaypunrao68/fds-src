@@ -7,6 +7,8 @@ package com.formationds.om.redis;
 import FDS_ProtocolInterface.FDSP_AnnounceDiskCapability;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.platform.svclayer.SvcLayerSerializationProvider;
 import com.formationds.platform.svclayer.SvcLayerSerializer;
 import com.formationds.protocol.IScsiTarget;
@@ -260,6 +262,40 @@ public class Redis
         }
 
         return Optional.empty();
+    }
+
+    public Size getDomainUsedCapacity( )
+    {
+        long used;
+        try ( Jedis jedis = pool.getResource( ) )
+        {
+            final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
+            System.out.println( byNodes );
+            used = byNodes.values().stream().mapToLong( Long::valueOf ).sum( );
+        }
+
+        return Size.of( used, SizeUnit.GB );
+    }
+
+    public Size getPMNodeUsedCapacity( final long id )
+    {
+        long used = 0;
+        try ( Jedis jedis = pool.getResource( ) )
+        {
+            final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
+            if( byNodes.containsKey( String.valueOf( id ) ) )
+            {
+                used = Long.valueOf( byNodes.get( String.valueOf( id ) ) );
+            }
+            else
+            {
+                logger.warn( "The specified node uuid [ {} hex:{} ] was not found.",
+                             id, Long.toHexString( id ) );
+                System.out.println( "The specified node uuid [ " + id + " hex: 0x" + Long.toHexString( id ) +  " ] was not found." );
+            }
+        }
+
+        return Size.of( used, SizeUnit.GB );
     }
 
     protected Optional<String> getVolumeSettings( final BigInteger uuid )

@@ -314,7 +314,7 @@ public class SystemHealthStatus implements RequestHandler {
         
         DateRange range = DateRange.between( then.getEpochSecond(), now.getEpochSecond() );
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesType(Metrics.PBYTES)
+                .withSeriesType(Metrics.UBYTES)
                 .withRange(range)
                 .build();
         
