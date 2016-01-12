@@ -239,6 +239,8 @@ class Disk (Base):
     def set_dm_flag (self):
         self.dm_flag = True
 
+    def set_formatted (self):
+        self.formatted = True
 
     def check_for_fds (self):
         if self.os_disk:
@@ -644,26 +646,14 @@ class DiskManager (Base):
 
 
     def find_formatted_disks(self):
-        ''' Find disks to be formatted and rebuild the disk_list. '''
-       
+        ''' Find disks to be formatted '''
+
         for disk in self.disk_list:
             if disk.check_for_fds():
-                self.formatted = True
+                disk.set_formatted()
             else:
                 self.dbg_print ("Found unformatted disk:  %s" % (disk.path)) 
                 
-    def verify_fresh_disks (self):
-        ''' Make sure the disks are "new" to FDS or the --reset option must be used. '''
-
-        fds_detected = False
-
-        for disk in self.disk_list:
-            if disk.check_for_fds():
-                fds_detected = True;
-
-        if fds_detected:
-            self.system_exit ('Please use --reset to repartition and reformat all drives.')
-
 
     def calculate_capacities (self):
         ''' calculate the system capacity and index sizing '''
