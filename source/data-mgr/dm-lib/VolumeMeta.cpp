@@ -316,6 +316,7 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             return;
         } else {
             source = search->second;
+            source->sendFinishFwdMsg();
             source->finish();
             migrationSrcMap.erase(search);
         }
@@ -340,4 +341,3 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
 }
 
 }  // namespace fds
-
