@@ -660,6 +660,7 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   removedHDDs,
                                                   diskio::diskTier,
                                                   &(superblockMaster.olt),
+                                                  diskMap,
                                                   err);
         if (!err.ok()) {
             LOGCRITICAL << "Redistribution of data failed with error " << err;
@@ -694,6 +695,7 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   removedSSDs,
                                                   diskio::flashTier,
                                                   &(superblockMaster.olt),
+                                                  diskMap,
                                                   err);
         if (!err.ok()) {
             LOGCRITICAL << "Redistribution of data failed with error " << err;
@@ -704,10 +706,9 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
     /* Token mapping is recomputed.  Now sync out to disk. */
     if (recomputed) {
         err = syncSuperblock();
-        /* For now, panic if cannot sync superblock to disks.
-         * Need to understand why this can fail at this point.
-         */
-        fds_verify(err == ERR_OK);
+        if (!err.ok()) {
+            LOGERROR << "Superblock sync failed for one or more disks.";
+        }
     }
 }
 
@@ -727,9 +728,13 @@ SmSuperblockMgr::syncSuperblock()
     /* Sync superblock to all devices in the disk map */
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
         superblockPath = getSuperblockPath(cit->second.c_str());
-        err = superblockMaster.writeSuperblock(superblockPath);
-        if (err != ERR_OK) {
-            return err;
+        auto writeErr = superblockMaster.writeSuperblock(superblockPath);
+        if (!writeErr.ok()) {
+            LOGERROR << "Superblock sync failed for disk: " <<cit->first
+                     << " with error: " << writeErr;
+        }
+        if (err.ok()) {
+            err = writeErr;
         }
     }
 

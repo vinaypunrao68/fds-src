@@ -73,6 +73,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     SmTokenSet getSmTokens() const;
     SmTokenSet getSmTokens(fds_uint16_t diskId) const;
 
+    inline DiskLocMap getDiskLocMap() { return disk_map; }
     /**
      * Get disk ID where ObjectID (or SM token) data and metadata
      * resides on a given tier.

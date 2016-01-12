@@ -18,9 +18,7 @@
 
 namespace fds {
 
-typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
-
 typedef uint32_t fds_checksum32_t;
 
 typedef std::function<void (const DiskId& removedDiskId,

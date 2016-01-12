@@ -6,6 +6,7 @@
 #define SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_
 
 #include <set>
+#include <unordered_map>
 #include <fds_types.h>
 
 namespace fds {
@@ -32,6 +33,8 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 
 typedef fds_uint16_t DiskId;
 typedef std::set<fds_uint16_t> DiskIdSet;
+typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
+
 const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
 
 extern fds_uint32_t objDelCountThresh;

@@ -8,9 +8,9 @@
 #include <set>
 #include <map>
 
-#include <SmTypes.h>
+#include <SmUtils.h>
 #include <persistent-layer/dm_io.h>
-
+#include <persistent-layer/persistentdata.h>
 namespace fds {
 
 /**
@@ -59,7 +59,10 @@ struct __attribute__((__packed__)) ObjectLocationTable {
      * @param[out] tokenSet is populated with SM tokens
      */
     SmTokenSet getSmTokens(fds_uint16_t diskId) const;
+    SmTokenSet getOwnedSmTokens(fds_uint16_t diskId) const;
+    void printSmTokens(fds_uint16_t diskId) const;
 
+    fds_uint16_t getNumSmTokens(fds_uint16_t diskId) const;
     /**
      * Validates Object Location Table for a given set of
      * disk IDs that belong to a given tier
@@ -104,9 +107,16 @@ class SmTokenPlacement {
                           const std::set<fds_uint16_t>& addedStorage,
                           const std::set<fds_uint16_t>& removedStorage,
                           diskio::DataTier storageTier,
-                          ObjectLocationTable* olt,
-                          Error& error);
+                          ObjectLocationTable *olt,
+                          DiskLocMap &diskMap,
+                          Error &error);
 
+  private:
+    static std::set<fds_token_id> getTokensForNewDisks(const std::set<DiskId> &allDisks,
+                                                       const std::set<DiskId> &newDisks,
+                                                       const ObjectLocationTable *olt,
+                                                       DiskLocMap &diskLocMap,
+                                                       const fds_uint32_t &tokensPerDisk);
 };
 
 }  // namespace fds

@@ -611,21 +611,13 @@ DiskScavenger::getPolicy() const {
 }
 
 Error
-DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
-    Error err(ERR_OK);
-    struct statvfs statbuf;
-    std::string diskPath = smDiskMap->getDiskPath(disk_id);
-    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
-        return fds::Error(fds::ERR_DISK_READ_FAILED);
+DiskScavenger::getDiskStats(diskio::DiskStat *retStat) {
+    if (retStat) {
+        std::string diskPath = smDiskMap->getDiskPath(disk_id);
+        return getDiskUsageInfo(diskPath, *retStat);
+    } else {
+        return ERR_INVALID_ARG;
     }
-
-    // aggregate token stats for total deleted bytes
-    SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
-
-    fds_verify(retStat);
-    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_frsize;
-    (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
-    return err;
 }
 
 fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
