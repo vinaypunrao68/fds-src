@@ -12,8 +12,7 @@ namespace fds
 static auto const max_duration = std::chrono::seconds(3);
 
 BlockTask::BlockTask(uint64_t const hdl) :
-    handle(hdl),
-    cmd_expire_time(std::chrono::system_clock::now() + max_duration)
+    handle(hdl)
 {
     bufVec.reserve(objCount);
     offVec.reserve(objCount);

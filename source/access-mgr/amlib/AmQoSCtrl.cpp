@@ -45,6 +45,11 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
+    // If we were told to stop and have drained the queue, stop
+    ReadGuard rg(stop_lock);
+    if (stopping && 0 == htb_dispatcher->num_pending_ios) {
+        FDS_QoSControl::stop();
+    }
     return ERR_OK;
 }
 
@@ -110,12 +115,12 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
 
 void AmQoSCtrl::start() {
     AmDataProvider::start();
-    dispatcherThread.reset(new std::thread(startSHDispatcher, this));
+    runScheduler();
 }
 
 bool
 AmQoSCtrl::done() {
-    if (htb_dispatcher->num_outstanding_ios != 0) {
+    if (!dispatcher->shuttingDown) {
        return false;
     }
     return AmDataProvider::done();
@@ -154,7 +159,7 @@ AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
  */
 void
 AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
-    htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
+    htb_dispatcher->quiesceIOs(volDesc.volUUID.get());
 
     AmDataProvider::removeVolume(volDesc);
 }
@@ -163,19 +168,29 @@ void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
     GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
-    auto err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+    Error err {ERR_OK};
+    {
+        ReadGuard rg(stop_lock);
+        err = (!stopping) ? htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq) : ERR_SHUTTING_DOWN;
+    }
     if (ERR_OK != err) {
         GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
                   << " error: " << err;
-        completeRequest(amReq, err);
+        PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+        AmDataProvider::unknownTypeCb(amReq, err);
     }
 }
 
 void
 AmQoSCtrl::stop() {
-    if (htb_dispatcher->num_outstanding_ios == 0) {
-        AmDataProvider::stop();
+    {
+        WriteGuard wg(stop_lock);
+        stopping = true;
+        if (0 == htb_dispatcher->num_pending_ios) {
+            FDS_QoSControl::stop();
+        }
     }
+    AmDataProvider::stop();
 }
 
 }  // namespace fds

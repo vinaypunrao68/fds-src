@@ -58,8 +58,9 @@ void ScstConnector::shutdown() {
     std::lock_guard<std::mutex> lk(target_lock_);
     stopping = true;
     stopping_condition_.notify_all();
-    // TODO(bszmyd): Sat 12 Sep 2015 03:56:58 PM GMT
-    // Implement target shutdown
+    for (auto& target_pair : targets_) {
+        target_pair.second->shutdown();
+    }
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
@@ -78,7 +79,9 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
 
 void ScstConnector::addTarget(VolumeDesc const& volDesc) {
     std::lock_guard<std::mutex> lk(target_lock_);
-    _addTarget(volDesc);
+    if (!stopping) {
+        _addTarget(volDesc);
+    }
 }
 
 void ScstConnector::_addTarget(VolumeDesc const& volDesc) {

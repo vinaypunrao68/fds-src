@@ -158,10 +158,11 @@ AmVolumeTable::stop() {
     {
         // Close all open Volumes
         WriteGuard wg(map_rwlock);
+        LOGDEBUG << "VolumeTable shutdown, stopping all renewals.";
         token_timer->cancel(renewal_task);
-
-        for (auto volIt = volume_map.begin(); volume_map.end() != volIt; ) {
-            auto vol = volIt->second;
+        LOGNOTIFY << "VolumeTable shutdown, closing all open volumes.";
+        for (auto const& vol_pair : volume_map) {
+            auto const& vol = vol_pair.second;
             // Close the volume in case it was open
             auto token = vol->getToken();
             if (invalid_vol_token != token) {
@@ -169,10 +170,9 @@ AmVolumeTable::stop() {
                 volReq->token = token;
                 AmDataProvider::closeVolume(volReq);
             }
-            AmDataProvider::removeVolume(*vol->voldesc);
-            volIt = volume_map.erase(volIt);
         }
     }
+    LOGNOTIFY << "VolumeTable shutdown, stopping lower layers.";
     AmDataProvider::stop();
 }
 
@@ -188,23 +188,25 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
     {
         WriteGuard wg(map_rwlock);
         auto const& it = volume_map.find(vol_uuid);
-        if (volume_map.cend() == it) {
-            /** Internal bookkeeping */
-            // Create the volume and add it to the known volume map
-            auto new_vol = std::make_shared<AmVolume>(volDesc);
-            volume_map[vol_uuid] = std::move(new_vol);
-
-            LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
-                      << " " << std::hex << vol_uuid << std::dec
-                      << ", policy " << volDesc.volPolicyId
-                      << " (iops_throttle=" << volDesc.iops_throttle
-                      << ", iops_assured=" << volDesc.iops_assured
-                      << ", prio=" << volDesc.relativePrio << ")"
-                      << ", primary=" << volDesc.primary
-                      << ", replica=" << volDesc.replica;
+        if (volume_map.cend() != it) {
+            return;
         }
+
+        AmDataProvider::registerVolume(volDesc);
+        /** Internal bookkeeping */
+        // Create the volume and add it to the known volume map
+        auto new_vol = std::make_shared<AmVolume>(volDesc);
+        volume_map[vol_uuid] = std::move(new_vol);
+
+        LOGNOTIFY << "AmVolumeTable - Register new volume " << volDesc.name
+                  << " " << std::hex << vol_uuid << std::dec
+                  << ", policy " << volDesc.volPolicyId
+                  << " (iops_throttle=" << volDesc.iops_throttle
+                  << ", iops_assured=" << volDesc.iops_assured
+                  << ", prio=" << volDesc.relativePrio << ")"
+                  << ", primary=" << volDesc.primary
+                  << ", replica=" << volDesc.replica;
     }
-    AmDataProvider::registerVolume(volDesc);
 }
 
 Error AmVolumeTable::modifyVolumePolicy(const VolumeDesc& vdesc) {
@@ -247,14 +249,16 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
             auto volReq = new DetachVolumeReq(volDesc.volUUID, volDesc.name, nullptr);
             volReq->token = vol->getToken();
             LOGNOTIFY << "Releasing lease on: " << volDesc.name;
+            fpi::VolumeAccessMode ro;
+            ro.can_write = false; ro.can_cache = false;
+            vol->setToken(AmVolumeAccessToken(ro, invalid_vol_token));
             AmDataProvider::closeVolume(volReq);
         }
+        // Remove the volume from the caches (if there is one)
+        AmDataProvider::removeVolume(volDesc);
         volume_map.erase(volIt);
     }
     LOGNOTIFY << "AmVolumeTable - Removed volume " << volDesc.volUUID;
-
-    // Remove the volume from the caches (if there is one)
-    AmDataProvider::removeVolume(volDesc);
 }
 
 void
@@ -392,6 +396,7 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
 
     auto volReq = static_cast<DetachVolumeReq*>(amReq);
     volReq->token = vol->getToken();
+    amReq->setVolId(vol->voldesc->GetID());
     amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
     fpi::VolumeAccessMode ro;
     ro.can_write = false; ro.can_cache = false;

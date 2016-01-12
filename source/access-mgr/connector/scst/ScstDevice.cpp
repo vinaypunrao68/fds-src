@@ -298,20 +298,6 @@ void ScstDevice::execTaskMgmtCmd() {
         default:
             break;;
         }
-    } else {
-        switch (tmf_cmd.fn) {
-        case SCST_ABORT_TASK:
-            scstOps->abortTask(tmf_cmd.cmd_h_to_abort);
-            break;;
-        case SCST_TARGET_RESET:
-        case SCST_LUN_RESET:
-        case SCST_ABORT_TASK_SET:
-        case SCST_ABORT_ALL_TASKS:
-            scstOps->abortAllTasks();
-            break;;
-        default:
-            break;;
-        }
     }
 
     fastReply(); // Setup the reply for the next ioctl

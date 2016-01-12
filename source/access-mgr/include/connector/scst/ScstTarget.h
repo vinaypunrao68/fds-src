@@ -62,6 +62,7 @@ struct ScstTarget
     void removeDevice(std::string const& volume_name);
     void setCHAPCreds(std::unordered_map<std::string, std::string>& credentials);
     void setInitiatorMasking(std::set<std::string> const& ini_members);
+    void shutdown();
 
  protected:
     void lead() override;
@@ -99,6 +100,7 @@ struct ScstTarget
     std::string const target_name;
 
     bool luns_mapped {false};
+    bool running {true};
 
     void clearMasking();
 

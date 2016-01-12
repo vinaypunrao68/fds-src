@@ -63,6 +63,9 @@ class AmQoSCtrl :
     /**
      * These are the response we are interested in
      */
+    void closeVolumeCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
     void statVolumeCb(AmRequest * amReq, Error const error) override
     { completeRequest(amReq, error); }
 
@@ -112,6 +115,9 @@ class AmQoSCtrl :
     { completeRequest(amReq, error); }
 
  private:
+    mutable fds_rwlock stop_lock;
+    bool stopping {false};
+
     void enqueueRequest(AmRequest *amReq);
     void completeRequest(AmRequest* amReq, Error const error);
 };
