@@ -195,6 +195,7 @@ class Disk (Base):
 #        self.sm_flag = False
         self.dm_flag = False
         self.marker = None
+        self.formatted  = False
 
         if Disk.DISK_TYPE_SSD == disk_type:
             self.disk_type = Disk.DISK_TYPE_SSD
@@ -238,6 +239,8 @@ class Disk (Base):
     def set_dm_flag (self):
         self.dm_flag = True
 
+    def set_formatted (self):
+        self.formatted = True
 
     def check_for_fds (self):
         if self.os_disk:
@@ -642,18 +645,15 @@ class DiskManager (Base):
         self.system_exit('')
 
 
-    def verify_fresh_disks (self):
-        ''' Make sure the disks are "new" to FDS or the --reset option must be used. '''
-
-        fds_detected = False
-
+    def find_formatted_disks(self):
+        ''' Find disks to be formatted and rebuild the disk_list. '''
+       
         for disk in self.disk_list:
             if disk.check_for_fds():
-                fds_detected = True;
-
-        if fds_detected:
-            self.system_exit ('Please use --reset to repartition and reformat all drives.')
-
+                disk.set_formatted()
+            else:
+                self.dbg_print ("Found unformatted disk:  %s" % (disk.path)) 
+                
 
     def calculate_capacities (self):
         ''' calculate the system capacity and index sizing '''
@@ -712,9 +712,13 @@ class DiskManager (Base):
 
 
     def partition_and_format_disks (self):
-        ''' Partition and format each disk '''
+        ''' Partition and format each disk that needs formatting'''
 
         for disk in self.disk_list:
+            if disk.formatted == True :
+               self.dbg_print("Skipping formatted disk %s" % disk.path)
+               continue
+            print("Partitioning and formatting  disk %s" % disk.path) 
             if disk.get_os_usage():
                 disk.verifySystemDiskPartitionSize()
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
@@ -778,7 +782,7 @@ class DiskManager (Base):
             self.disk_report()
 
         if self.options.format and not self.options.reset:
-            self.verify_fresh_disks()
+            self.find_formatted_disks()
 
         self.calculate_capacities()
         self.build_partition_lists()
