@@ -24,6 +24,7 @@ from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import volumegroup
 from contexts import QoSPolicy
 from contexts import service
 from contexts import user
@@ -485,6 +486,7 @@ class FDSConsole(cmd.Cmd):
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+        group = vol.add_sub_context(volumegroup.VolumeGroupContext(self.config,'group'))
         self.root.add_sub_context(QoSPolicy.QoSPolicyContext(self.config,'qospolicy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))

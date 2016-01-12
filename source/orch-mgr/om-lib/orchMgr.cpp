@@ -217,21 +217,27 @@ void OrchMgr::svcStartMonitor()
 
         constructMsgParams(uuid, node_uuid, domainRestart);
 
-        domain->om_activate_known_services(domainRestart, node_uuid );
+        bool issuedStart = domain->om_activate_known_services(domainRestart, node_uuid );
 
         // Remove from the toSend queue
         toSendMsgQueue.pop_back();
 
-        // Unlock here since we will acquire sentQ lock further
-        // down, best to avoid holding a lock within a lock
-        // When we loop back, the wait will reacquire toSendQLock
-        // if needed
-        toSendQLock.unlock();
-        // Update the timestamp on the message
-        msg.second = util::getTimeStampSeconds();
+        if ( issuedStart )
+        {
+            // Unlock here since we will acquire sentQ lock further
+            // down, best to avoid holding a lock within a lock
+            // When we loop back, the wait will reacquire toSendQLock
+            // if needed
+            toSendQLock.unlock();
+            // Update the timestamp on the message
+            msg.second = util::getTimeStampSeconds();
 
-        // Add to the sentQueue
-        addToSentQ(msg);
+            // Add to the sentQueue
+            addToSentQ(msg);
+        } else {
+            LOGWARN << "PM:" << std::hex << uuid << std::dec
+                    << " removed from all start queues, no eligible svcs to start";
+        }
     }
 }
 
@@ -381,6 +387,8 @@ void OrchMgr::addToSentQ(PmMsg msg) {
 }
 
 bool OrchMgr::isInSentQ(int64_t uuid) {
+
+    uuid &= ~DOMAINRESTART_MASK;
 
     bool present = false;
     std::vector<PmMsg>::iterator iter;

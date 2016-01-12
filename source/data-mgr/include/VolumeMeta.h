@@ -105,10 +105,15 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     inline fpi::ResourceState getState() const { return vol_desc->state; }
     void setState(const fpi::ResourceState &state, const std::string &logCtx);
+    /* Debug query api to get state as kv pairs */
+    void populateState(std::map<std::string, std::string> &state);
 
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
-    inline bool isInitializationProgress() {
+
+    void startInitializer();
+    void cleanupInitializer();
+    inline bool isInitializerInProgress() const {
         return initializer &&
             (vol_desc->state == fpi::Loading || vol_desc->state == fpi::Syncing);
     }
@@ -136,10 +141,14 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     * @brief Returns wrapper function around f that exectues f in volume synchronized
     * context
     */
+    std::function<void()> makeSynchronized(const std::function<void()> &f);
     std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
     makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
 
     StatusCb makeSynchronized(const StatusCb &f);
+    /* NOTE: Should be overloaded as makeSynchronized.  I was getting compiler errors I named it
+     * makeSynchronized.  I ended up renaming as a quick fix
+     */
     BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
 
 
