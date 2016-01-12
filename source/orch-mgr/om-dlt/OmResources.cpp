@@ -230,11 +230,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const&, Fsm&, State&) {}
 
-        template <class Event, class FSM> void on_entry(Event const& e, FSM &f)
+        template <class Event, class FSM> void on_entry(Event const& e, FSM& f)
         {
             LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
         }
-        template <class Event, class FSM> void on_exit(Event const& e, FSM &f)
+        template <class Event, class FSM> void on_exit(Event const& e, FSM& f)
         {
             LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
         }
@@ -1080,7 +1080,7 @@ bool NodeDomainFSM::GRD_PmShut::operator()(Evt const& evt, Fsm& fsm, SrcST& src,
         LOGWARN << "Couldn't reach PM service for Prepare for Shutdown; should be ok if service is "
                    "actually down. Treating as a success.";
     }
-    else if (evt != ERR_OK)
+    else if (evt.error != ERR_OK)
     {
         LOGERROR << "PM returned error to Prepare for shutdown: "
                  << evt.error << ". We continue with shutting down anyway";
