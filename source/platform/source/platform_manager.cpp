@@ -767,6 +767,7 @@ namespace fds
 
             m_appPidMap.erase (mapIter);
             updateNodeInfoDbPid (procIndex, EMPTY_PID);
+            updateNodeInfoDbState (procIndex, fpi::SERVICE_NOT_RUNNING);
         }
 
         // plf_start_node_services
@@ -1013,7 +1014,7 @@ namespace fds
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                         {
-                            LOGERROR << "Received an unexpected start service request for the AM when the AM services are not expected to be started.";
+                            LOGERROR << "Received an unexpected start service request for the AM when the AM services are not expected to be present.";
                         }
                         else           // SERVICE_RUNNING
                         {
@@ -1038,7 +1039,7 @@ namespace fds
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
                         {
-                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be started.";
+                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be present.";
                         }
                         else           // SERVICE_RUNNING
                         {
@@ -1063,7 +1064,7 @@ namespace fds
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
                         {
-                            LOGERROR << "Received an unexpected start service request for the SM when the SM service is not expected to be started.";
+                            LOGERROR << "Received an unexpected start service request for the SM when the SM service is not expected to be present.";
                         }
                         else           // SERVICE_RUNNING
                         {
@@ -1105,14 +1106,12 @@ namespace fds
                         {
                             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
                             stopProcess (JAVA_AM);
-                            updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
                             stopProcess (BARE_AM);
-                            updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_RUNNING);
 
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                         {
-                            LOGERROR << "Received an unexpected stop service request for the AM when the AM services are not expected to be stopped.";
+                            LOGERROR << "Received an unexpected stop service request for the AM when the AM services are not expected to be present.";
                         }
                         else            // SERVICE_NOT_RUNNING
                         {
@@ -1128,11 +1127,10 @@ namespace fds
                         {
                             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
                             stopProcess (DATA_MANAGER);
-                            updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
                         {
-                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be stopped.";
+                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be present.";
                         }
                         else            // SERVICE_NOT_RUNNING
                         {
@@ -1147,11 +1145,10 @@ namespace fds
                         {
                             std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
                             stopProcess (STORAGE_MANAGER);
-                            updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
                         {
-                            LOGERROR << "Received an unexpected stop service request for the SM when the SM service is not expected to be stopped.";
+                            LOGERROR << "Received an unexpected stop service request for the SM when the SM service is not expected to be present.";
                         }
                         else            // SERVICE_NOT_RUNNING
                         {
