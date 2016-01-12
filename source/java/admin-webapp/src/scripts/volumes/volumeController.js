@@ -232,7 +232,13 @@ angular.module( 'volumes' ).controller( 'volumeController', [ '$scope', '$locati
         
         var usage = volume.status.currentUsage;
         var usedStr = $byte_converter.convertBytesToString( usage.value );
+        var limit = '';
 
+        if ( angular.isDefined( volume.settings.capacity ) ){
+            limit = ' / ' + $byte_converter.convertBytesToString( volume.settings.capacity.value );
+        }
+
+        usedStr += limit;
         return usedStr;
     };
     

@@ -1561,24 +1561,40 @@ void OM_PmAgent::send_start_service_resp
     // to happen
     for (auto item : changeList) {
 
-        if (item.actionCode == fpi::NO_ACTION) {
-            fpi::SvcUuid svcUuid;
-            // Retrieve the specific service id
-            fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
+        // If the state is not STARTED, do nothing
+        // Could be that the svc is already ACTIVE, if it is not ACTIVE
+        // or STARTED, probably implies that newer events have occurred
+        // causing the state change, and setting to active here could
+        // mess things up
 
-            LOGDEBUG << "PM took no action on start, will set service: "
-                     << std::hex << svcUuid.svc_uuid
-                     << std::dec << " state to ACTIVE";
+        fpi::SvcUuid svcUuid;
+        // Retrieve the specific service id
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
 
-            kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-            fds_mutex::scoped_lock l(dbNodeInfoLock);
+        fpi::ServiceStatus serviceStatus = gl_orch_mgr->getConfigDB()->getStateSvcMap(svcUuid.svc_uuid );
 
-            // Update the service state to active
-            change_service_state( configDB,
-                                  svcUuid.svc_uuid,
-                                  fpi::SVC_STATUS_ACTIVE );
-        }else {
-            LOGDEBUG <<"PM started new processes, service registrations to follow";
+        if (serviceStatus == fpi::SVC_STATUS_STARTED) {
+            if (item.actionCode == fpi::NO_ACTION) {
+
+                LOGDEBUG << "PM took no action on start, will set service: "
+                         << std::hex << svcUuid.svc_uuid
+                         << std::dec << " state to ACTIVE";
+
+                kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+                fds_mutex::scoped_lock l(dbNodeInfoLock);
+
+                // Update the service state to active
+                change_service_state( configDB,
+                                      svcUuid.svc_uuid,
+                                      fpi::SVC_STATUS_ACTIVE );
+            } else {
+                LOGDEBUG <<"PM started new processes, service registrations to follow";
+            }
+        } else if (serviceStatus == fpi::SVC_STATUS_ACTIVE) {
+            LOGDEBUG << "Service:" << std::hex << svcUuid.svc_uuid << std::dec << " already ACTIVE";
+        } else {
+            LOGWARN << "Service:" << std::hex << svcUuid.svc_uuid << std::dec
+                    << " neither in started or active state. Current state:" << serviceStatus;
         }
     }
 }
