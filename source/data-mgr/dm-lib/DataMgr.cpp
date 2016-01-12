@@ -23,6 +23,15 @@
 #include <fdsp/svc_types_types.h>
 #include <net/volumegroup_extensions.h>
 
+#define VOLUME_REQUEST_CHECK() \
+    auto volMeta = parentDm->getVolumeMeta(io->volId); \
+    if (volMeta == nullptr) { \
+        LOGWARN << "Volume not found. " << io->log_string(); \
+        io->cb(ERR_VOL_NOT_FOUND, io); \
+        break; \
+    } \
+    
+
 namespace {
 Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
     auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
@@ -1064,7 +1073,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
-    handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
+    // handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
@@ -1612,6 +1621,15 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
 
             break;
             // catalog write handlers
+        case FDS_DM_VOLUMEGROUP_UPDATE:
+        {
+            VOLUME_REQUEST_CHECK();
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&VolumeMeta::handleVolumegroupUpdate,
+                                                        volMeta,
+                                                        io));
+            break;
+        }
         case FDS_DELETE_BLOB:
         case FDS_CAT_UPD:
         case FDS_START_BLOB_TX:
@@ -1621,7 +1639,6 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_ABORT_BLOB_TX:
         case FDS_SET_VOLUME_METADATA:
         case FDS_OPEN_VOLUME:
-        case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
         case FDS_DM_RESYNC_INIT_BLOB:

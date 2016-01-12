@@ -188,6 +188,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void finishForwarding();
 
 
+    /* Handlers */
+    void handleVolumegroupUpdate(DmRequest *dmRequest);
+
+
     VolumeDesc *vol_desc;
 
 

@@ -11,6 +11,7 @@
 #include <DataMgr.h>
 #include <net/volumegroup_extensions.h>
 #include <util/stringutils.h>
+#include <dmhandler.h>
 
 namespace fds {
 
@@ -378,6 +379,32 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
     }
 
     migrationDest.reset();
+}
+
+
+void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
+{
+    dm::QueueHelper helper(*dataManager, dmRequest);
+    DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
+
+    LOGDEBUG << "Attempting to set volumegroup info for vol: '"
+             << std::hex << request->volId << std::dec << "'";
+    if (getState() != fpi::Loading) {
+        LOGWARN << "Failed setting volumegroup info vol: " << request->volId
+            << ". Volume isn't in loading state";
+        helper.err = ERR_INVALID;
+        return;
+    } else if (getSequenceId() !=
+               static_cast<uint64_t>(request->reqMessage->group.lastCommitId)) {
+        LOGWARN << "vol: " << request->volId << " doesn't have active state."
+            << " current sequence id: " << getSequenceId()
+            << " expected sequence id: " << request->reqMessage->group.lastCommitId;
+        setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
+        // TODO(Rao): At this point we should trigger a sync
+        return;
+    }
+    setOpId(request->reqMessage->group.lastOpId);
+    setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
 }
 
 }  // namespace fds

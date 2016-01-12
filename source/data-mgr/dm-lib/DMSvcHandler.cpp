@@ -5,7 +5,7 @@
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
-#include "fdsp/sm_api_types.h"
+#include <fdsp/dm_api_types.h>
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
@@ -36,6 +36,8 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgQueryVolumeStateMsg, handleDbgQueryVolumeStateMsg);
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+
+    registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
 }
 
 // notifySvcChange
