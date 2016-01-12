@@ -725,9 +725,6 @@ TEST(SmSuperblockTestDriver, test7)
     test7->createDirs(true);
     test7->loadSuperblock();
 
-    // TODO(Sean):  Since we are not currently handling adding a new disk, and
-    //              re-distributing levelDB and token files, no tokens should be
-    //              assigned to disk 4.
     SmTokenSet tmpTokens = test7->getSmTokens(4);
     EXPECT_GT(tmpTokens.size(), 0);
     test7->deleteDirs();
