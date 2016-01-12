@@ -1,32 +1,44 @@
-#!/bin/bash
+#!/bin/bash -l
 
-PASSWD="dummy"
-INVENTORYFILE="long_system_test"
-LOGFILE="/tmp/AwsLongSystemTest.log"
+. jenkins_scripts/jenkins_system_test.lib
 
-#ADD NEW SYSTEM TEST HERE IN THE ARRAY
-declare -a SCENARIOLIST={AWS_tests,MultiAMVolOpsTest}
-#These are failing due to fs-3449.  Commenting out for now
-#AWS_KillServiceTest
-#AWS_StartStopServiceTest
-#AWS_AddRemoveServiceTest
-#AWS_StartShutdownNodeTest
-#AWS_AddRemoveNodeTest
+error_trap_enabled
+auto_locate
+
+# Make sure to find includes.
+. ./jenkins_scripts/message.sh
+. ./jenkins_scripts/core_hunter.sh
+
+error_trap_disabled
+
+# Check for special actions
+if [[ "${1}" == "jenkins_build_aborted" ]]
+then
+    message "EEEEE Jenkins Build Aborted"
+    run_coroner 1
+fi
+
+error_trap_enabled
+
+startup
+clean_up_environment
+configure_cache
+configure_symlinks
+configure_limits
+
+error_trap_disabled
+
+build_fds
+cache_report
 
 
-STARTTIME=$(date)
-echo "AWS LONG SYSTEM TEST START TIME:  $STARTTIME"
+if [[ "${1}" != "compile_only" ]]
+then
 
-for SCENARIO in "${SCENARIOLIST[@]}"
-do
-	echo "======================================================================================================="
-	echo "$SCENARIO START TIME:  $(date)"
-	echo "Running Scenario $SCENARIO test....."
-	sudo ./ScenarioDriverSuite.py -q ./${SCENARIO}.ini -d $PASSWD --verbose -l $LOGGING --install -z $INVENTORYFILE --reusecluster
-	[[ $? -ne 0 ]] && echo "AWS LONG SYSTEM TEST:  $SCENARIO FAILED"
-	echo "$SCENARIO END TIME:  $(date)"
-	echo "*******************************************************************************************************"
-done
+    configure_console_access      # Must be complted after the build
+    run_python_unit_tests
+    run_cpp_unit_tests
+    run_aws_test_scenarios
+fi
 
-ENDTIME=$(date)
-echo "AWS LONG SYSTEM TEST END TIME: $ENDTIME"
+run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0
