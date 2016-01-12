@@ -250,6 +250,13 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 }
 
 void
+AmCache::closeVolume(AmRequest *amReq) {
+    descriptor_cache.clear(amReq->io_vol_id);
+    offset_cache.clear(amReq->io_vol_id);
+    AmDataProvider::closeVolume(amReq);
+}
+
+void
 AmCache::statBlob(AmRequest *amReq) {
     // Can we read from the cache
     if (!amReq->forced_unit_access) {

@@ -289,18 +289,18 @@ AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*))
             amReq->page_out_cache = vol->cacheable();
             amReq->forced_unit_access = !vol->cacheable();
             amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-            return forward_request(func, amReq);
-        }
-        // Otherwise implicitly attach and delay till open response
-        if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq) && vol->startOpen()) {
+            forward_request(func, amReq);
+        } else if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq) && vol->startOpen()) {
+            // Otherwise implicitly attach and delay till open response
             GLOGTRACE << "Trying to update an unleased volume, implicit open.";
             fpi::VolumeAccessMode default_access_mode;
             auto volReq = new AttachVolumeReq(amReq->io_vol_id,
                                               amReq->volume_name,
                                               default_access_mode,
                                               nullptr);
-            return AmDataProvider::openVolume(volReq);
+            AmDataProvider::openVolume(volReq);
         }
+        return;
     }
 
     // If we didn't even know about the volume, we may need to look it up still
