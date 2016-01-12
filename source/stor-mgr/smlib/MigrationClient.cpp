@@ -264,9 +264,6 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                << " lastSet=" << (req->lastSet ? "TRUE" : "FALSE");
 
 
-    // Fire the code to execute the next delta set builder
-    nextWork();
-
     // Finish tracking IO request.
     trackIOReqs.finishTrackIOReqs();
 
@@ -274,6 +271,9 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
     if (!error.ok()) {
         handleMigrationError(error);
     }
+
+    // Fire the code to execute the next delta set builder
+    nextWork();
 }
 
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
@@ -321,10 +321,10 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
     fds_verify(err.ok());
 }
 
-void MigrationClient::buildDeltaSetWorker(leveldb::Iterator *iterDB,
-                                          leveldb::DB *dbFromFirstSnap,
-                                          std::string &firstPhaseSnapshotDir,
-                                          leveldb::CopyEnv *env) {
+void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
+                                                    leveldb::DB *dbFromFirstSnap,
+                                                    std::string &firstPhaseSnapshotDir,
+                                                    leveldb::CopyEnv *env) {
 
     // If we hit this the iterator is no longer valid, so we've finished our work
     if (!iterDB->Valid()) {
@@ -469,8 +469,8 @@ void MigrationClient::buildDeltaSetWorker(leveldb::Iterator *iterDB,
         }
     }
 
-    continueWorkFn nextStep = std::bind(&MigrationClient::buildDeltaSetWorker, this, iterDB,
-                                        dbFromFirstSnap, &firstPhaseSnapshotDir, env);
+    continueWorkFn nextStep = std::bind(&MigrationClient::buildDeltaSetWorkerFirstPhase, this, iterDB,
+                                        dbFromFirstSnap, firstPhaseSnapshotDir, env);
 
     // This is the last message if iterDB is no longer valid
     /* The last message can be empty. */
@@ -527,7 +527,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     iterDB->SeekToFirst();
 
     // This will build the delta set and call the next method w/ "resume method" bound
-    buildDeltaSetWorker(iterDB, dbFromFirstSnap, firstPhaseSnapshotDir, env);
+    buildDeltaSetWorkerFirstPhase(iterDB, dbFromFirstSnap, firstPhaseSnapshotDir, env);
 }
 
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
@@ -588,16 +588,18 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *             get diff between two snapshots, thus saving memory
      *             consumption.
      */
-    metadata::metadata_diff_type diffObjMetaData;
+    metadata::metadata_diff_type *diffObjMetaData = new metadata::metadata_diff_type {};
 
     /* Setup db options and create leveldbs from the snapshots.
      * Leveldb instances then gets passed to the diff function.
      */
+
     leveldb::DB* dbFromFirstSnap;
     leveldb::DB* dbFromSecondSnap;
     leveldb::Options options;
 
     leveldb::Status status = leveldb::DB::Open(options, firstPhaseSnapshotDir, &dbFromFirstSnap);
+
     /* TODO(Gurpreet): Propogate error to Token Migration Manager.
      */
     if (!status.ok()) {
@@ -610,10 +612,15 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        delete dbFromFirstSnap;
+        delete dbFromSecondSnap;
+
         return;
     }
 
     status = leveldb::DB::Open(options, secondPhaseSnapshotDir, &dbFromSecondSnap);
+
     /* TODO(Gurpreet): Propogate error to Token Migration Manager.
      */
     if (!status.ok()) {
@@ -626,6 +633,10 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        delete dbFromFirstSnap;
+        delete dbFromSecondSnap;
+
         return;
     }
 
@@ -634,11 +645,20 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      */
     metadata::diff(dbFromFirstSnap,
                    dbFromSecondSnap,
-                   diffObjMetaData);
+                   *diffObjMetaData);
+
+    // Safe to delete these now
+    delete dbFromFirstSnap;
+    delete dbFromSecondSnap;
+
+    if (env) {
+        env->DeleteDir(firstPhaseSnapshotDir);
+        env->DeleteDir(secondPhaseSnapshotDir);
+    }
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << "Completed diff between First and Second Phase snapshot: "
-               << "diffObjMetaData.size=" << diffObjMetaData.size();
+               << "diffObjMetaData.size=" << diffObjMetaData->size();
 
     /* Return value (diffObjMetaData) contains a set of ObjectMetaData Pair.
      * 1) <OMD.first, OMD.second>
@@ -653,7 +673,31 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *    This indicates that there is a new object since the first snapshot.  This
      *    means that we need to send both object metadata + data.
      */
-    for (auto objMD : diffObjMetaData) {
+
+    metadata::metadata_diff_type::iterator objMDIter = diffObjMetaData->begin();
+    metadata::metadata_diff_type::iterator objMDIterEnd = diffObjMetaData->end();
+
+    buildDeltaSetWorkerSecondPhase(objMDIter, objMDIterEnd);
+}
+
+void
+MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::iterator start,
+                                                metadata::metadata_diff_type::iterator end)
+{
+
+    // If start == end we're done with all of the work, time to clean up
+    if (start == end) {
+        /* Set the migration client state to indicate the second delta set is sent. */
+        setMigClientState(MC_SECOND_PHASE_DELTA_SET_COMPLETE);
+
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+    }
+
+    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
+
+    for (fds_uint64_t i = 0; i < maxDeltaSetSize, start != end; i++, start++) {
+        std::pair<metadata::elem_type, metadata::elem_type> objMD = *start;
 
         /* Ok.  New object.  Need to send both metadata + data */
         if (objMD.first == nullptr) {
@@ -666,7 +710,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
             if (!objMD.second->isObjCorrupted() && (objMD.second->getRefCnt() > 0UL)) {
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Selecting object " << objMD.second->logString();
+                            << ": Selecting object " << objMD.second->logString();
 
                 /* Add to object metadata set */
                 objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
@@ -675,7 +719,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
                 } else {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": skipping object: " << objMD.second->logString();
+                                << ": skipping object: " << objMD.second->logString();
                 }
             }
         } else {
@@ -693,12 +737,12 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                 if (objMD.second->getRefCnt() > 0UL) {
                     /* Treat this as a new object. */
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": Object resurrected: Selecting object " << objMD.second->logString();
+                                << ": Object resurrected: Selecting object " << objMD.second->logString();
 
                     objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
                 } else {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
-                               << ": skipping object: " << objMD.second->logString();
+                                << ": skipping object: " << objMD.second->logString();
                 }
             } else {
                 /* Ok. There is change in object metadata.  Calculate the difference
@@ -709,43 +753,16 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                 objMD.second->diffObjectMetaData(objMD.first);
 
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
-                           << ": Diff'ed MetaData " << objMD.second->logString();
+                            << ": Diff'ed MetaData " << objMD.second->logString();
 
                 objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_RECONCILE);
             }
         }
-
-        /* Once we fill up the delta set to max size, then send it
-         * to the destination SM.
-         */
-        if (objMetaDataSet.size() >= maxDeltaSetSize) {
-            migClientAddMetaData(objMetaDataSet, false);
-            objMetaDataSet.clear();
-            fds_verify(0 == objMetaDataSet.size());
-        }
     }
 
-    /* Now send a message to destination that this is the last set.
-     * The last set can be empty.
-     */
-    migClientAddMetaData(objMetaDataSet, true);
+    continueWorkFn nextWork = std::bind(&MigrationClient::buildDeltaSetWorkerSecondPhase, this, start, end);
 
-    /* We no longer need these snapshots.
-     * Delete the snapshot directory and files.
-     */
-    if (env) {
-        status = env->DeleteDir(firstPhaseSnapshotDir);
-        status = env->DeleteDir(secondPhaseSnapshotDir);
-    }
-
-    delete dbFromFirstSnap;
-    delete dbFromSecondSnap;
-
-    /* Set the migration client state to indicate the second delta set is sent. */
-    setMigClientState(MC_SECOND_PHASE_DELTA_SET_COMPLETE);
-
-    // Finish tracking IO request.
-    trackIOReqs.finishTrackIOReqs();
+    migClientAddMetaData(objMetaDataSet, start == end, nextWork);
 }
 
 

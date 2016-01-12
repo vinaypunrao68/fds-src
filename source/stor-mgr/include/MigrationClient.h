@@ -15,6 +15,7 @@
 #include <SmIo.h>
 #include <odb.h>
 #include <MigrationUtility.h>
+#include <MigrationTools.h>
 
 namespace fds {
 
@@ -54,8 +55,7 @@ class MigrationClient {
     typedef std::unique_ptr<MigrationClient> unique_ptr;
     typedef std::shared_ptr<MigrationClient> shared_ptr;
 
-    typedef std::function<void(leveldb::Iterator *, leveldb::DB *, std::string &, leveldb::CopyEnv *)> continueWorkFn;
-
+    typedef std::function<void()> continueWorkFn;
 
   /**
      * A simple routine to snapshot metadata associated with the token.
@@ -136,15 +136,27 @@ class MigrationClient {
 
   private:
     /*
-     * Builds delta sets until a levelDB iterator is exhausted.
+     * Builds delta sets for first phase until a levelDB iterator is exhausted.
      * Takes a levelDB iterator pointer as a parameter. If this is nullptr we'll assume we were in error and delete
      * the iterator.
      */
-    void buildDeltaSetWorker(leveldb::Iterator *iterDB,
-                             leveldb::DB *db,
-                             std::string &firstPhaseSnapDir,
-                             leveldb::CopyEnv *env);
+    void buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
+                                       leveldb::DB *db,
+                                       std::string &firstPhaseSnapDir,
+                                       leveldb::CopyEnv *env);
 
+    /*
+     * Builds delta sets for second phase until a levelDB iterator is exhausted.
+     * Takes a levelDB iterator pointer as a parameter. If this is nullptr we'll assume we were in error and delete
+     * the iterator.
+     */
+    void buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::iterator start,
+                                        metadata::metadata_diff_type::iterator end);
+
+    // Cleans up some things after the second phase is complete
+    void migrationCleanup(leveldb::CopyEnv *env,
+                          std::string firstPhaseSnapDir,
+                          std::string secondPhaseSnapDir);
 
     /* Verify that set of DLT tokens belong to the same SM token.
      */
