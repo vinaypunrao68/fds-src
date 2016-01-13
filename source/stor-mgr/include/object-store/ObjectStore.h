@@ -297,6 +297,8 @@ class ObjectStore : public Module, public boost::noncopyable {
                            const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
 
+    void handleNewDiskMap();
+
     /**
      * Handle detection of online disk failure.
      */

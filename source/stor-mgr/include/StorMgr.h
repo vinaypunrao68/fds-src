@@ -319,6 +319,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void handleDiskChanges(const DiskId& dId,
                             const diskio::DataTier& tierType,
                             const TokenDiskIdPairSet& tokenDiskPairs);
+     void handleNewDiskMap();
      Error handleDltUpdate();
 
      void storeCurrentDLT();

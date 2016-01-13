@@ -69,6 +69,7 @@ ObjectLocationTable::addDiskId(fds_token_id smToken,
     } else {
         fds_panic("Unknown tier set to object location table\n");
     }
+
 }
 
 fds_uint16_t
@@ -149,14 +150,14 @@ ObjectLocationTable::getOwnedSmTokens(fds_uint16_t diskId) const {
 
 void
 ObjectLocationTable::printSmTokens(fds_uint16_t diskId) const {
-    auto tokenSet = getSmTokens(diskId);
+    auto tokenSet = getOwnedSmTokens(diskId);
     std::string tokenList;
     for (auto &token : tokenSet) {
         tokenList.append(std::to_string(token).c_str());
         tokenList.append(" ");
     }
-    LOGNOTIFY << "Disk: "<< diskId << " owns " << tokenSet.size()
-              << " tokens. Token List: " << tokenList;
+    LOGDEBUG << "Disk: "<< diskId << " owns " << tokenSet.size()
+             << " tokens. Token List: " << tokenList;
 }
 
 fds_uint16_t
@@ -437,7 +438,7 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
         }
     }
     typedef std::set<fds_uint16_t>::const_iterator setcIter;
-    LOGNOTIFY << "Removed tokens: " << removedTokens.size(); 
+    LOGDEBUG << "Removed tokens: " << removedTokens.size();
     // Here, we want to distribute the tokens to added storage first
     if (addedStorage.size() > 0) {
         setcIter addedStoreCit = addedStorage.cbegin();
@@ -459,7 +460,7 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
         }
     }
 
-    LOGNOTIFY << "Distributed removed disk tokens";
+    LOGDEBUG << "Distributed removed disk tokens";
     for (auto cit = addedStorage.cbegin(); cit != addedStorage.cend(); ++cit) {
         olt->printSmTokens(*cit);
     }
@@ -486,10 +487,8 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
                                                                   diskLocMap,
                                                                   tokensPerDisk);
     if (addedStorage.size() > 0) {
-        setcIter addedStoreCit = addedStorage.cbegin();
-
         fds_uint32_t disksLoaded = 0;
-
+        setcIter addedStoreCit = addedStorage.cbegin();
         std::set<fds_token_id>::iterator tokenIt;
         while (!candidateTokens.empty()) {
             tokenIt = candidateTokens.begin();
@@ -547,10 +546,9 @@ SmTokenPlacement::getTokensForNewDisks(const std::set<fds_uint16_t> &curStorage,
 
         auto seed = std::chrono::system_clock::now().time_since_epoch().count();
         std::default_random_engine randEngine(seed);
-        std::uniform_int_distribution<uint32_t> randToken(0, tokenSet.size());
+        std::uniform_int_distribution<uint32_t> randToken(0, tokenSet.size() - 1);
         std::advance(tokIter, randToken(randEngine));
         tokensToMove.insert(*tokIter);
-
         --totalTokens;
 
         infoIter++;

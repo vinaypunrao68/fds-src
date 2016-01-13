@@ -135,6 +135,18 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     }
 }
 
+void ObjectStorMgr::handleNewDiskMap() {
+/*
+    auto tokens = objectStore->diskMap->getSmTokens();
+    std::vector<nullary_always> token_locks;
+    for (auto& token: tokens) {
+        token_locks.push_back(getTokenLock(token, true));
+    }
+
+    objStorMgr->objectStore->handleNewDiskMap();
+*/
+}
+
 void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {

@@ -1547,6 +1547,17 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
     }
 }
 
+
+void
+ObjectStore::handleNewDiskMap() {
+   /**
+    * 1 - check disk topology. Recompute and sync new superblock.
+    * 2 - Try triggering a resync, in storMgr.
+    */
+
+}
+
+
 /**
  * Handle disk removal from the system.
  * For Hybrid Storage System(2SSD - 10HDD default config):
