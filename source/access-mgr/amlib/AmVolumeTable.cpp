@@ -172,6 +172,7 @@ AmVolumeTable::stop() {
                 AmDataProvider::closeVolume(volReq);
             }
         }
+        volume_map.clear();
     }
     LOGNOTIFY << "VolumeTable shutdown, stopping lower layers.";
     AmDataProvider::stop();

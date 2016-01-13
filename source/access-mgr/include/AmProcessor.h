@@ -40,9 +40,12 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      */
     void stop();
 
-    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
+    /**
+     * Synchronous shutdown initiation.
+     */
+    void stopAndWait();
 
-    void prepareForShutdownMsgRespCallCb();
+    void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
 
     /**
      * Enqueue a connector request
