@@ -59,7 +59,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 
     auto volMeta = dataManager.getVolumeMeta(request->volId);
     if (dataManager.features.isVolumegroupingEnabled()) {
-        if (volMeta->isInitializationProgress()) {
+        if (volMeta->isInitializerInProgress()) {
             LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
             fds_assert(!"sync already in progress");
             helper.err = ERR_SYNC_INPROGRESS;

@@ -65,11 +65,21 @@ public class InodeMap {
     }
 
     public long usedBytes(String volume) throws IOException {
-        return usedBytes.currentValue(volume);
+        try {
+            return usedBytes.currentValue(volume);
+        } catch (IOException e) {
+            LOG.error("Error polling " + volume + ".usedBytes", e);
+            return 0;
+        }
     }
 
     public long usedFiles(String volume) throws IOException {
-        return usedFiles.currentValue(volume);
+        try {
+            return usedFiles.currentValue(volume);
+        } catch (IOException e) {
+            LOG.error("Error polling " + volume + ".usedFiles", e);
+            return 0;
+        }
     }
 
     public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {

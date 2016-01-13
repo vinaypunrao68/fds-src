@@ -440,9 +440,13 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                     break;
             }
             break;
+        case fpi::HEALTH_STATE_FLAPPING_DETECTED_EXIT:
+            // TODO raise alarm/event
+            healthReportError( service_type, msg );
+            break;
+
         default:
-            // Panic on unhandled service states.
-            fds_panic("Unknown service state: %d", msg->healthReport.serviceState);
+            LOGERROR << "Unknown service state: %d", msg->healthReport.serviceState;
             break;
     }
 }
