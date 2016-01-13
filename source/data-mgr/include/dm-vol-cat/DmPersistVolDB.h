@@ -31,22 +31,24 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     static const std::string ENABLE_TIMELINE_STR;
 
     // ctor & dtor
-    DmPersistVolDB(fds_volid_t volId,
+    DmPersistVolDB(CommonModuleProviderIf *modProvider,
+                   fds_volid_t volId,
                    fds_uint32_t objSize,
                    fds_bool_t snapshot,
                    fds_bool_t readOnly,
                    fds_bool_t clone,
                    fds_volid_t srcVolId = invalid_vol_id)
-            : DmPersistVolCat(volId,
+            : DmPersistVolCat(modProvider,
+                              volId,
                               objSize,
                               snapshot,
                               readOnly,
                               clone,
                               fpi::FDSP_VOL_S3_TYPE,
                               srcVolId),
-        configHelper_(g_fdsprocess->get_conf_helper()), snapshotCount(0)
+        configHelper_(modProvider->get_conf_helper()), snapshotCount(0)
     {
-        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir* root = modProvider->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
     }
     virtual ~DmPersistVolDB();
@@ -85,6 +87,10 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
 
     virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) override;
+
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) override;
 
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
 
@@ -126,7 +132,16 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
         return catalog_.get();
     }
 
+    /**
+    * @brief  Reads the version from file and returns it.  Making it file based 
+    * because for now when we copy leveldb no additional work is required
+    * to not copy version.
+    */
+    int32_t getVersion() override;
+    void setVersion(int32_t version) override;
+
   private:
+    std::string getVersionFile_();
     // methods
 
     // vars

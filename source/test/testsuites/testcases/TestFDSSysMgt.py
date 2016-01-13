@@ -19,6 +19,7 @@ from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import node_is_up
+from fabric.contrib.files import *
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -570,6 +571,7 @@ class TestRemoveDisk(TestCase.FDSTestCase):
         self.log.info("Updated disk-map file {} \n".format(reRead))
         diskMapFile.close()
         return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

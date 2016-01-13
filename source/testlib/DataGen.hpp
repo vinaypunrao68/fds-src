@@ -144,6 +144,9 @@ struct CachedRandDataGenerator : DataGenIf
     virtual void reset() override {
         idx_ = 0;
     }
+    StringPtr itemAt(uint32_t idx) {
+        return items_[idx % items_.size()];
+    }
  protected:
     /* Cached items */
     std::vector<StringPtr> items_;

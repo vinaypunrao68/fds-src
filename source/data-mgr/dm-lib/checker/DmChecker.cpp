@@ -17,7 +17,7 @@
 #include "catalogKeys/CatalogKeyType.h"
 #include "catalogKeys/ObjectExpungeKey.h"
 #include "catalogKeys/ObjectRankKey.h"
-#include "checker/DmChecker.h"
+#include <net/PlatNetSvcHandler.h>
 #include "checker/LeveldbDiffer.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
 #include "fdsp/ConfigurationService.h"
@@ -25,6 +25,7 @@
 #include "util/stringutils.h"
 #include "DmBlobTypes.h"
 #include "fds_dmt.h"
+#include "checker/DmChecker.h"
 
 namespace fds {
 
@@ -66,7 +67,7 @@ uint32_t DMOfflineCheckerEnv::getReplicaCount(const fds_volid_t &volId) const {
 std::string DMOfflineCheckerEnv::getCatalogPath(const fds_volid_t &volId,
                                                 const uint32_t &replicaIdx) const {
     auto dmSvcUuid = svcMgr_->getDMTNodesForVolume(volId)->get(replicaIdx).toSvcUuid();
-    std::string nodeRoot = svcMgr_->getSvcProperty<std::string>(
+    std::string nodeRoot = svcMgr_->getSvcProperty(
         SvcMgr::mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM),
         "fds_root");
     std::string path;

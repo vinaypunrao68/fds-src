@@ -76,6 +76,7 @@ AmDispatcher::start() {
     } else {
         // Set a custom time for the io messages to dm and sm
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
+        message_timeout_open = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.open_message", message_timeout_open);
         message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
         LOGNOTIFY << "AM Thrift timeout: " << message_timeout_default << " ms"
                   << " IO timeout: " << message_timeout_io  << " ms";
@@ -240,12 +241,11 @@ AmDispatcher::getVolumes(std::vector<VolumeDesc>& volumes) {
     fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
     if (err.ok()) {
-        // Transform the vector of CtrlNotifyAdd to one of VolumeDescs
-        std::transform(list.volumeList.begin(),
-                       list.volumeList.end(),
-                       std::back_inserter(volumes),
-                       [] (fpi::CtrlNotifyVolAdd const& c) -> VolumeDesc
-                           { return VolumeDesc(c.vol_desc); });
+        for (auto const& volume : list.volumeList) {
+            if (fpi::Active == volume.vol_desc.state) {
+                volumes.emplace_back(volume.vol_desc);
+            }
+        }
     }
 }
 
@@ -408,7 +408,7 @@ AmDispatcher::openVolume(AmRequest* amReq) {
 
     /** What to do with the response */
     auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::openVolumeCb, amReq));
-    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb);
+    auto asyncOpenVolReq = createMultiPrimaryRequest(amReq->io_vol_id, volReq->dmt_version, volMDMsg, respCb, message_timeout_open);
     setSerialization(amReq, asyncOpenVolReq);
     asyncOpenVolReq->invoke();
 }
@@ -1443,8 +1443,8 @@ AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
         std::lock_guard<std::mutex> g(tx_map_lock);
         auto it = tx_map_barrier.find(blob_id);
         if (tx_map_barrier.end() == it) {
-            GLOGERROR << "Woah, missing map entry!";
-            fds_assert(false);
+            // Probably already implicitly aborted
+            GLOGDEBUG << "Woah, missing map entry!";
             return;
         }
         GLOGDEBUG << "Draining any needed pending tx's";

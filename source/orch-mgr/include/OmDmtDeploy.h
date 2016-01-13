@@ -34,6 +34,21 @@ class DmtDeployEvt
     fds_bool_t dmResync;  // if true, DMT computation will be for DM Resync
 };
 
+/**
+ * Event deployed to check to see if there's ongoing migrations, to see if we need
+ * to error out
+ */
+class DmtUpEvt
+{
+    public:
+        explicit DmtUpEvt(const NodeUuid& _uuid) : uuid(_uuid) {}
+        std::string logString() const {
+            return "DmtUpEvt with node: " + std::to_string(uuid.uuid_get_val());
+        }
+
+        NodeUuid uuid;
+};
+
 class DmtRecoveryEvt
 {
   public:
@@ -151,6 +166,36 @@ class OM_DMTMod : public Module
     ~OM_DMTMod();
 
     /**
+     * The following are used for volume group mode, where we will
+     * only calculate a DMT if a minimal DM cluster count is met.
+     * Since these methods are called only by the timer in a sequential
+     * fashion, we shouldn't run into race condition.
+     * NOTE: If these are to be used outside of the timer schedule context, then
+     * locks/atomics may be needed.
+     */
+    inline bool volumeGrpMode() {
+        return volume_grp_mode;
+    }
+
+    inline void addWaitingDMs() {
+        ++waitingDMs;
+    }
+
+    inline void removeWaitingDMs() {
+        if (waitingDMs > 0) {
+            --waitingDMs;
+        }
+    }
+
+    inline uint32_t getWaitingDMs() {
+        return waitingDMs;
+    }
+
+    inline void clearWaitingDMs() {
+        waitingDMs = 0;
+    }
+
+    /**
      * Return the current state of the DMT deployment FSM.
      */
     char const *const dmt_deploy_curr_state();
@@ -167,6 +212,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
     void dmt_deploy_event(DmtErrorFoundEvt const &evt);
     void dmt_deploy_event(DmtRecoveryEvt const &evt);
+    void dmt_deploy_event(DmtUpEvt const &evt);
 
     /**
      * Module methods
@@ -179,6 +225,10 @@ class OM_DMTMod : public Module
     FSM_DplyDMT     *dmt_dply_fsm;
     // to protect access to msm process_event
     fds_mutex       fsm_lock;
+    // Toggles for service replica mode
+    bool            volume_grp_mode;
+    // Batch add for dm cluster
+    uint32_t        waitingDMs;
 };
 
 extern OM_DMTMod             gl_OMDmtMod;

@@ -27,6 +27,11 @@ from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
 from fdscli.services.local_domain_service import LocalDomainService
+from fabric.contrib.files import *
+from fabric.context_managers import cd
+import fnmatch
+import fabric
+import fabric.network
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -550,3 +555,41 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
         return False
 
     return True
+
+def core_hunter_aws(self,node_ip):
+    connect_fabric(self, node_ip)
+    if exists('/fds/bin', use_sudo=True):
+        for dir in {'/fds/bin','/corefiles'}:
+            with cd(dir):
+                files = run('ls').split()
+                for file in files:
+                    if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
+                        fabric.state.connections[node_ip].get_transport().close()
+                        self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
+                        return 0
+    disconnect_fabric()
+    return 1
+
+def connect_fabric(self,node_ip):
+    #TODO: pooja finish fs-4280 to read use/pwd form inventory
+    env.user = 'root'
+    env.password = 'passwd'
+    env.host_string = node_ip
+    timeout_start = time.time()
+    timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
+    while time.time() < timeout_start + timeout:
+        try:
+            internal_ip = run("hostname")
+        except Exception as e:
+            # Sleep for 20 sec before retrying to connect node
+            time.sleep(20)
+            continue
+        else:
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            return True
+
+    self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
+    return False
+
+def disconnect_fabric():
+    fabric.network.disconnect_all()

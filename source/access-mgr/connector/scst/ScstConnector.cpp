@@ -31,6 +31,8 @@ extern "C" {
 
 namespace fds {
 
+static constexpr size_t minimum_chap_password_len {12};
+
 // The singleton
 std::unique_ptr<ScstConnector> ScstConnector::instance_ {nullptr};
 
@@ -47,12 +49,23 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
 }
 
 void ScstConnector::stop() {
+    if (instance_) {
+        instance_->shutdown();
+    }
+}
+
+void ScstConnector::shutdown() {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    stopping = true;
+    stopping_condition_.notify_all();
     // TODO(bszmyd): Sat 12 Sep 2015 03:56:58 PM GMT
-    // Implement
+    // Implement target shutdown
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
-    if (1 == volDesc.volType && instance_) {
+    if ((fpi::FDSP_VOL_BLKDEV_TYPE == volDesc.volType || fpi::FDSP_VOL_ISCSI_TYPE == volDesc.volType)
+        && !volDesc.isSnapshot()
+        && instance_) {
         instance_->addTarget(volDesc);
     }
 }
@@ -64,16 +77,54 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
 }
 
 void ScstConnector::addTarget(VolumeDesc const& volDesc) {
-    std::lock_guard<std::mutex> lg(target_lock_);
+    std::lock_guard<std::mutex> lk(target_lock_);
+    _addTarget(volDesc);
+}
 
-    if (targets_.end() == targets_.find(volDesc.name)) {
-        auto target = new ScstTarget(target_prefix + volDesc.name,
-                                     threads,
-                                     amProcessor);
+void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
+    // Create target if it does not already exist
+    ScstTarget* target = nullptr;
+    auto it = targets_.find(volDesc.name);
+    if (targets_.end() == it) {
+        try {
+        target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
+        } catch (ScstError& e) {
+            LOGERROR << "Failed to initialize target [" << volDesc.name << "], ensure that SCST is installed and running.";
+            return;
+        }
         targets_[volDesc.name].reset(target);
-        target->addDevice(volDesc.name);
-        target->enable();
+        target->addDevice(volDesc);
+    } else {
+        target = it->second.get();
     }
+
+    // Setup initiator masking
+    std::set<std::string> initiator_list;
+    for (auto const& ini : volDesc.iscsiSettings.initiators) {
+        initiator_list.emplace(ini.wwn_mask);
+    }
+    target->setInitiatorMasking(initiator_list);
+
+    // Setup CHAP
+    std::unordered_map<std::string, std::string> credentials;
+    for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
+        if (minimum_chap_password_len > cred.passwd.size()) {
+            GLOGWARN << "User: [" << cred.name
+                     << "] has an undersized password of length: [" << cred.passwd.size()
+                     << "] where the minimum length is " << minimum_chap_password_len;
+            continue;
+        }
+        auto cred_it = credentials.end();
+        bool happened;
+        std::tie(cred_it, happened) = credentials.emplace(cred.name, cred.passwd);
+        if (!happened) {
+            GLOGWARN << "Duplicate user: [" << cred.name << "]";
+            continue;
+        }
+    }
+    target->setCHAPCreds(credentials);
+
+    target->enable();
 }
 
 void ScstConnector::removeTarget(VolumeDesc const& volDesc) {
@@ -94,34 +145,29 @@ ScstConnector::ScstConnector(std::string const& prefix,
     threads = conf.get<uint32_t>("threads", threads);
 }
 
+static auto const rediscovery_delay = std::chrono::seconds(15);
+
 void
 ScstConnector::discoverTargets() {
-    auto amProc = amProcessor.lock();
-    if (!amProc) {
-        GLOGERROR << "No processing layer, no targets.";
-        return;
-    }
-    GLOGNORMAL << "Discovering iSCSI volumes to export.";
-    std::vector<VolumeDesc> volumes;
-    amProc->getVolumes(volumes);
-
-    for (auto const& vol : volumes) {
-        // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
-        // This is a magic value from thrift that i don't want to include
-        // headers from
-        if (1 != vol.volType) continue;
-        try {
-            auto it = targets_.end();
-            bool happened {false};
-            auto target = new ScstTarget(target_prefix + vol.name,
-                                         threads,
-                                         amProcessor);
-            targets_[vol.name].reset(target);
-            target->addDevice(vol.name);
-            target->enable();
-        } catch (ScstError& e) {
-            LOGERROR << "Failed to create device for: " << vol.name;
+    // We need to poll OM for the volume list every so often, as it isn't
+    // guaranteed to be complete when initializing.
+    std::unique_lock<std::mutex> lk(target_lock_);
+    while (!stopping) {
+        auto amProc = amProcessor.lock();
+        if (!amProc) {
+            GLOGERROR << "No processing layer, no targets.";
+            break;
         }
+        GLOGTRACE << "Discovering iSCSI volumes to export.";
+        std::vector<VolumeDesc> volumes;
+        amProc->getVolumes(volumes);
+
+        for (auto const& vol : volumes) {
+            if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
+                || vol.isSnapshot()) continue;
+            _addTarget(vol);
+        }
+        stopping_condition_.wait_for(lk, rediscovery_delay);
     }
 }
 

@@ -219,6 +219,7 @@ QoSWFQDispatcher::getNextQueueForDispatch()
 QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr,
                                    fds_int64_t total_server_iops,
                                    fds_uint32_t maximum_outstanding_ios,
+                                   bool bypass_disp,
                                    fds_log *parent_log)
 {
     parent_ctrlr = ctrlr;
@@ -230,8 +231,7 @@ QoSWFQDispatcher::QoSWFQDispatcher(FDS_QoSControl *ctrlr,
     max_outstanding_ios = maximum_outstanding_ios;
     num_pending_ios = ATOMIC_VAR_INIT(0);
     num_outstanding_ios = ATOMIC_VAR_INIT(0);
-    FdsConfigAccessor config(g_fdsprocess->get_conf_helper());
-    bypass_dispatcher = config.get_abs<bool>("fds.disable_qos");
+    bypass_dispatcher = bypass_disp;
     LOGNOTIFY << "Will bypass QoS? " << bypass_dispatcher;
 
     num_ios_dispatched = 0;

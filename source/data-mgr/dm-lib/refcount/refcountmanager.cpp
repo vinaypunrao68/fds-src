@@ -17,7 +17,8 @@ namespace fds { namespace refcount {
 RefCountManager::RefCountManager(DataMgr* dm) : dm(dm), Module("RefCountManager") {
     LOGNORMAL << "instantiating";
     transferContext.refCountManager = this;
-    scanner.reset(new ObjectRefScanMgr(MODULEPROVIDER(), dm));
+    svcMgr = dm->getModuleProvider()->getSvcMgr();
+    scanner.reset(new ObjectRefScanMgr(dm->getModuleProvider(), dm));
 }
 
 void RefCountManager::mod_startup() {
@@ -61,7 +62,7 @@ void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Han
              << "] volumes has been transferred";
     // send the message
     fpi::ActiveObjectsMsgPtr msg(new fpi::ActiveObjectsMsg());
-    auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
+    auto request  =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
     msg->filename = handle->destFile;
     msg->checksum = handle->getCheckSum();
     msg->scantimestamp = dm->counters->refscanLastRun.value();
@@ -104,13 +105,25 @@ void RefCountManager::FileTransferContext::tokenDone(fds_token_id token, fpi::Sv
         ++currentToken;
         if (!processNextToken()) {
             LOGNORMAL << "refscan and file transfers complete";
+            // now send a done message to SM
+            auto svcMgr = refCountManager->svcMgr;
+            std::vector<fpi::SvcInfo> services;
+            svcMgr->getSvcMap(services);
+            fpi::GenericCommandMsgPtr msg(new fpi::GenericCommandMsg());
+            msg->command="refscan.done";
+            for (const auto& service : services) {
+                if (service.svc_type != fpi::FDSP_STOR_MGR) continue;
+                auto request  =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(service.svc_id.svc_uuid);
+                request->setPayload(FDSP_MSG_TYPEID(fpi::GenericCommandMsg), msg);
+                request->invoke();
+            }
         }
     }
 }
 
 bool RefCountManager::FileTransferContext::processNextToken() {
     std::string filename, tokenFileName;
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    auto svcMgr = refCountManager->svcMgr;
     auto dlt = svcMgr->getCurrentDLT();
     auto myuuid = svcMgr->getSelfSvcUuid().svc_uuid;
     if (currentToken >= dlt->getNumTokens()) {
@@ -153,7 +166,7 @@ bool RefCountManager::FileTransferContext::processNextToken() {
         LOGDEBUG << "msg=" << *msg;
         for (fds_uint32_t n = 0; n < tokenGroup->getLength(); n++) {
             auto svcId = svcMgr->mapToSvcUuid(tokenGroup->get(n), fpi::FDSP_STOR_MGR);
-            auto request  =  MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(svcId);
+            auto request  =  refCountManager->svcMgr->getSvcRequestMgr()->newEPSvcRequest(svcId);
             request->setPayload(FDSP_MSG_TYPEID(fpi::ActiveObjectsMsg), msg);
             request->onResponseCb(std::bind(&RefCountManager::handleActiveObjectsResponse, refCountManager,
                                             currentToken, PH_ARG1, PH_ARG2, PH_ARG3));

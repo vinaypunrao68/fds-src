@@ -98,9 +98,11 @@ namespace fds
 
         switch ( svcinfo.svc_status )
         {
-            case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_INACTIVE_STOPPED:
+            case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -127,9 +129,11 @@ namespace fds
         fpi::FDSP_NodeState retNodeState = fpi::FDS_Node_Down;
         switch ( svcStatus )
         {
-            case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_INACTIVE_STOPPED:
+            case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -282,7 +286,9 @@ namespace fds
         LOGDEBUG << "Creating new SvcInfo of type:" << type;
         fpi::SvcInfo* info = new fpi::SvcInfo();
         info->__set_svc_type(type);
-        info->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+        // should not matter here whether it is inactive_stopped or
+        // inactive_failed
+        info->__set_svc_status(fpi::SVC_STATUS_INACTIVE_STOPPED);
         return *info;
 
     }

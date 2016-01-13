@@ -4,9 +4,11 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
@@ -35,7 +37,7 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.SizeUnit;
+
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -48,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -166,8 +169,9 @@ public class QueryHelper {
                 if ( authorizer.userFor( token ).isIsFdsAdmin() ){
                 	
 	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
+                	Long capacityInMb = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
+                	
+	                final Double systemCapacity = SizeUnit.MB.toBytes( capacityInMb ).doubleValue();
 //		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
 	                
 	                TotalCapacity totalCap = new TotalCapacity();
@@ -197,10 +201,12 @@ public class QueryHelper {
             } else {
             	
                 // individual stats
+
                 query.getSeriesType()
                      .stream()
                      .forEach( ( m ) ->
                          series.addAll( otherQueries( originated,
+                        		 					  query.getRange(),
                                                       m ) ) );
             }
 
@@ -312,6 +318,7 @@ public class QueryHelper {
      */
     protected List<Series> otherQueries(
         final Map<String, List<IVolumeDatapoint>> organized,
+        final DateRange dateRange,
         final Metrics metrics ) {
         final List<Series> series = new ArrayList<>();
 
@@ -326,8 +333,7 @@ public class QueryHelper {
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
-                            .filter( ( p ) -> metrics.key()
-                                                     .equalsIgnoreCase( p.getKey() ) )
+                            .filter( ( p ) -> metrics.matches( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
                                     new DatapointBuilder().withX( (double)p.getTimestamp() )
@@ -336,6 +342,33 @@ public class QueryHelper {
                                 s.setDatapoint( dp );
                                 s.setContext( new Volume( Long.parseLong( p.getVolumeId() ), p.getVolumeName() ) );
                             } );
+            
+            // get earliest data point
+            OptionalLong oLong = volumeDatapoints.stream()
+            		.filter( ( p ) -> metrics.matches( p.getKey() ) )
+            		.mapToLong( ( vdp ) -> vdp.getTimestamp() )
+            		.min();
+            
+            if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
+            	
+            	String volumeId = volumeDatapoints.get( 0 ).getVolumeId();
+            	String volumeName = volumeDatapoints.get( 0 ).getVolumeName();
+            	String metricKey = volumeDatapoints.get( 0 ).getKey();
+            	
+	            // a point just earlier than the first real point. ... let's do one second
+            	VolumeDatapoint justBefore = new VolumeDatapoint( oLong.getAsLong() - 1, volumeId, volumeName, metricKey, 0.0 );
+            	VolumeDatapoint theStart = new VolumeDatapoint( dateRange.getStart(), volumeId, volumeName, metricKey, 0.0 );
+            	
+            	s.setDatapoint( new DatapointBuilder().withX( (double)justBefore.getTimestamp() )
+            										  .withY( justBefore.getValue() )
+            										  .build());
+	        	
+	        	// at start time
+	        	s.setDatapoint( new DatapointBuilder().withX( (double)theStart.getTimestamp() )
+	        										  .withY( theStart.getValue() )
+	        										  .build() );
+            }
+        	
             series.add( s );
         } );
 
@@ -375,7 +408,7 @@ public class QueryHelper {
  * 
  * THIS IS ALSO IN ListVolumes.java
  */                        
-                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
                             String volumeId = "";

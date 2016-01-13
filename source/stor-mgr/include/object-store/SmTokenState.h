@@ -21,15 +21,11 @@ namespace fds {
  * There are states that correspond to SM token independently to
  * tier it resides on; in that case, the state is repeated on both tiers
  */
-struct SmTokenDesc {
+struct __attribute__((__packed__)) SmTokenDesc {
     SmTokenDesc() : writeFileId(SM_INVALID_FILE_ID), tokenFlags(0) {}
     SmTokenDesc(fds_uint16_t writeFid, fds_uint16_t f) :
         writeFileId(writeFid), tokenFlags(f) {}
-    explicit SmTokenDesc(const SmTokenDesc& td) :
-        writeFileId(td.writeFileId),
-        tokenFlags(td.tokenFlags) {}
 
-    SmTokenDesc & operator =(const SmTokenDesc & rhs);
     inline void setValid() {
         tokenFlags |= SMTOKEN_FLAG_VALID;
     }
@@ -68,13 +64,12 @@ struct SmTokenDesc {
  */
 #define TOKEN_DESC_TABLE_SECTOR_SIZE    (512)
 
-struct TokenDescTable {
+struct __attribute__((__packed__)) TokenDescTable {
     /**
      * Initializes token descriptor table to "invalid"
      * state for all the SM tokens
      */
     TokenDescTable();
-    ~TokenDescTable();
 
     /**
      * Initialize given set of tokens as "valid"

@@ -108,6 +108,7 @@ class PlatSvc(object):
         tfactory = TTransport.TFramedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
         self.server = TServer.TSimpleServer(processor, self.serverSock, tfactory, pfactory)
+        #self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
         self.serverThread.setDaemon(True)
@@ -115,6 +116,7 @@ class PlatSvc(object):
         self.serverThread.start()
 
     def serve(self):
+        log.info('About to serve')
         self.server.serve()
         log.info("Exiting server")
 
@@ -137,7 +139,7 @@ class PlatSvc(object):
                 self.reqCbs[reqId] = cb
         # send the request
         try:
-            log.debug('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}'.format(self.mySvcUuid, targetUuid, reqId))
+            log.info('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}'.format(self.mySvcUuid, targetUuid, reqId))
             header = FdspUtils.newAsyncHeader(mySvcUuid=self.mySvcUuid,
                                               targetSvcUuid=targetUuid,
                                               reqId=reqId,
@@ -170,11 +172,11 @@ class PlatSvc(object):
     #
     # @return 
     def asyncResp(self, asyncHdr, payload):
-        log.debug('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}, error: {}'.format(
+        log.info('mySvcUuid: {}, targetSvcUuid: {}, reqId: {}, error: {} payload:{}'.format(
             asyncHdr.msg_src_uuid.svc_uuid,
             asyncHdr.msg_dst_uuid.svc_uuid,
             asyncHdr.msg_src_id,
-            asyncHdr.msg_code))
+            asyncHdr.msg_code, payload))
         cb = None
         # extract registered callback
         with self.reqLock:

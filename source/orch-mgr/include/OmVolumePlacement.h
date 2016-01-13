@@ -219,6 +219,8 @@ namespace fds {
          */
         fds_bool_t undoTargetDmtCommit();
 
+        void clearTargetDmt();
+
         /**
          * Returns true if there is no target DMT computed or committed
          * as an official version
@@ -257,6 +259,32 @@ namespace fds {
          */
         inline void setNumOfPrimaryDMs(fds_uint32_t num) {
         	numOfPrimaryDMs = num;
+        }
+
+        /**
+         * If a DM migration failed, track it here
+         */
+        inline void markFailure() {
+            ++numOfFailures;
+        }
+
+        /**
+         * If a migration passes, this gets called
+         */
+        inline void markSuccess() {
+            numOfFailures = 0;
+        }
+
+        /**
+         * Check to see if we can retry another migration
+         */
+        fds_bool_t canRetryMigration();
+
+        /**
+         * Getter for numFailed
+         */
+        inline fds_uint32_t failedAttempts() {
+            return numOfFailures;
         }
 
   private:
@@ -328,6 +356,12 @@ namespace fds {
          * Number of primary DMs for a volume.
          */
         fds_uint32_t numOfPrimaryDMs;
+
+        /**
+         * How many times have this VolumePlacement failed.
+         * Resets to 0 once succeeds
+         */
+        fds_uint32_t numOfFailures;
     };
 }  // namespace fds
 

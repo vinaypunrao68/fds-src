@@ -27,8 +27,6 @@
 
 namespace fds {
 #define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
-    const fds_uint8_t sm1PIdx = 0;  /* DLT slot identifying SM1. */
-    const fds_uint8_t sm2PIdx = 1;  /* DLT slot identifying SM2. */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
@@ -90,7 +88,6 @@ namespace fds {
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
         void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
-
         typedef std::map<NodeUuid, std::vector<fds_int32_t>> SourceNodeMap;
 
         /**

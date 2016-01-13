@@ -38,10 +38,12 @@ class DmVolumeCatalogTest : public ::testing::Test {
     boost::shared_ptr<DmVolumeCatalog> volcat;
 
     std::vector<boost::shared_ptr<VolumeDesc> > volumes;
+    static MockDataMgr* mockDm;
 };
+MockDataMgr* DmVolumeCatalogTest::mockDm;
 
 void DmVolumeCatalogTest::SetUp() {
-    volcat.reset(new DmVolumeCatalog("dm_volume_catallog_gtest.ldb"));
+    volcat.reset(new DmVolumeCatalog(mockDm, "dm_volume_catallog_gtest.ldb"));
     ASSERT_NE(static_cast<DmVolumeCatalog*>(0), volcat.get());
 
     volcat->registerExpungeObjectsCb(&expungeObjects);
@@ -290,7 +292,7 @@ int main(int argc, char** argv) {
     // (and Google Test) before running the tests.
     ::testing::InitGoogleMock(&argc, argv);
 
-    MockDataMgr mockDm(argc, argv);
+    DmVolumeCatalogTest::mockDm = new MockDataMgr(argc, argv);
 
     // process command line options
     po::options_description desc("\nDM test Command line options");

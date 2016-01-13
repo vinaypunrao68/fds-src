@@ -127,7 +127,7 @@ void PolicyDispatcher::run() {
                 util::strformat("snap.%s.%s.%ld",
                                 volumeDesc.name.c_str(),
                                 policy.policyName.c_str(),
-                                util::getTimeStampMillis()));
+                                util::getTimeStampSeconds()));
             snapshot.volumeId = volId.get();
             auto snapshotId = om->getConfigDB()->getNewVolumeId();
             if (invalid_vol_id == snapshotId) {
@@ -137,7 +137,7 @@ void PolicyDispatcher::run() {
             snapshot.snapshotId = snapshotId.get();
 
             snapshot.snapshotPolicyId = policyId;
-            snapshot.creationTimestamp = util::getTimeStampMillis();
+            snapshot.creationTimestamp = util::getTimeStampSeconds();
             snapshot.retentionTimeSeconds = policy.retentionTimeSeconds;
             // activate snap right away.
             snapshot.state = fpi::ResourceState::Loading;

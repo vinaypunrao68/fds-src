@@ -18,6 +18,8 @@
 #include <fds_timestamp.h>
 #include <util/path.h>
 
+DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);
+
 namespace fds {
 
 extern ObjectStorMgr    *objStorMgr;
@@ -84,6 +86,11 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* Active Object Messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
+
+    /* disk-map update message */
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyDiskMapChange, diskMapChange);
 }
 
 int
@@ -205,7 +212,7 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              CtrlNotifySMAbortMigrationPtr& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Abort Migration, will revert to previously "
+    LOGNOTIFY << "Received Abort Migration, will revert to previously "
              << " commited DLT version " << abortMsg->DLT_version;
 
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
@@ -241,6 +248,26 @@ SMSvcHandler::migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr,
                   FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration),
                   *(abortMigrationReq->abortMigrationReqMsg));
+    /**
+     * Enable scavenger and tiering, which was disabled before
+     * starting the migration.
+     * Eventually we should just remove this inter-dependency
+     * between migration and gc.
+     *
+     * (Gurpreet): Revisit this fix. Make complete fix keeping in
+     * mind combinations of
+     * (
+     *  Add node migration,
+     *  Resync Migration,
+     *  SM being a source,
+     *  SM being a destination of a migration.
+     * )
+     */
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 }
 
 /**
@@ -1139,6 +1166,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     }
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
+    DLTCloseReq->setVolId(FdsSysTaskQueueId);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
     DLTCloseReq->closeDLTVersion = (dlt->dlt_close).DLT_version;
 
@@ -1207,8 +1235,9 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
     SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
+    // (Phillip) NotifySMCheck should not have a response - should be fire and forget
+    //hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
 
 void
@@ -1287,4 +1316,21 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
 }
+
+void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    if (msg->command == "refscan.done") {
+        // start the scavenger if we have enough data.
+        if (objStorMgr->objectStore->haveAllObjectSets()) {
+            LOGNORMAL << "auto starting scavenger due to enough data to process";
+            SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
+            Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+        }
+    } else {
+        LOGCRITICAL << "unexpected command received : " << msg;
+    }
+}
+
+    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+        LOGDEBUG << "Received a disk-map change notification";
+    }
 }  // namespace fds

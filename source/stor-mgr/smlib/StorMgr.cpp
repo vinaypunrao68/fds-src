@@ -92,7 +92,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     modProvider_->proc_fdsroot()->\
             fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
-    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer(), modProvider_->getSvcMgr()));
     counters.reset(new sm::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
     /*
      * Create local volume table.
@@ -210,8 +210,10 @@ void ObjectStorMgr::mod_enable_service()
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
-            modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
+        totalRate = static_cast<uint32_t>(atoi(
+                svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
+                                       "node_iops_min").c_str()));
+        fds_assert(totalRate > 0);
     }
 
     /*
@@ -453,18 +455,30 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        // not doing resync, making all DLT tokens ready
-        migrationMgr->notifyDltUpdate(curDlt,
-                                      curDlt->getNumBitsForToken(),
-                                      getUuid());
-        // pretend we successfully started resync, return success
-        err = ERR_OK;
+        LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                  << " token diff resync";
+
+        // Start the resync process
+        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
+            err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                        getUuid(),
+                                                        curDlt->getNumBitsForToken(),
+                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                  std::placeholders::_1, std::placeholders::_2));
+        } else {
+            // not doing resync, making all DLT tokens ready
+            migrationMgr->makeTokensAvailable(curDlt,
+                                              curDlt->getNumBitsForToken(),
+                                              getUuid());
+            // pretend we successfully started resync, return success
+            err = ERR_OK;
+        }
     } else if (err.ok()) {
         if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
             // we only care about DLT which contains this SM
-            migrationMgr->notifyDltUpdate(curDlt,
-                                          curDlt->getNumBitsForToken(),
-                                          getUuid());
+            migrationMgr->makeTokensAvailable(curDlt,
+                                              curDlt->getNumBitsForToken(),
+                                              getUuid());
         }
     }
 

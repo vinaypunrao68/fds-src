@@ -8,7 +8,7 @@ import org.joda.time.Duration;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
@@ -67,7 +67,7 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         return attempt(() -> ops.scan(domain, volume, blobNamePrefix));
     }
 

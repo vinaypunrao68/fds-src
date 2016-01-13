@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <shared/fds_types.h>
 namespace fds {
 namespace util {
 
@@ -23,6 +24,9 @@ void getSubDirectories(const std::string& dirname, std::vector<std::string>& vec
 void getFiles(const std::string& dirname, std::vector<std::string>& vecDirs);
 
 std::string getFileChecksum(const std::string& filename);
+
+// get bytes from human readable string - 1KB, 2MB, 3G ...
+fds_uint64_t getBytesFromHumanSize(const std::string& strFileSize);
 }  // namespace util
 }  // namespace fds
 

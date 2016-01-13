@@ -18,10 +18,43 @@
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
+#include <DmMigrationDest.h>
+#include <DmMigrationSrc.h>
+#include <VolumeInitializer.h>
 
 namespace fds {
 
-class VolumeMeta : public HasLogger {
+struct EPSvcRequest;
+
+using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
+using migrationCb = std::function<void(const Error& e)>;
+using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
+using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
+							                    fds_volid_t volumeId,
+							                    const Error& error)>;
+
+
+/**
+* @brief Container for volume related information.
+* VolumeMeta state
+* State: Offline
+* Ops: No read/writes.  Open, volume initilization protocol are allowed to start.
+*
+* State: Loading
+* Ops:
+*
+* State: Syncing
+* Ops: Writes, static migration writes
+*
+* State: Active
+* Ops: Reads/Writes.
+*
+* TODO(Rao): We need to bring the following objects in here
+* 1. Active Tx state
+* 2. Committed state (Journals and Catalogs)
+* 3. Sync state (already part of this class)
+*/
+struct VolumeMeta : HasLogger,  HasModuleProvider {
  public:
     /**
      * volume  meta forwarding state
@@ -32,22 +65,93 @@ class VolumeMeta : public HasLogger {
         VFORWARD_STATE_FINISHING       // forwarding commits of open trans
     } fwdStateType;
 
-  private:
-    fds_mutex  *vol_mtx;
+    /*
+     * Default constructor should NOT be called
+     * directly. It is needed for STL data struct
+     * support.
+     */
+    VolumeMeta();
+    VolumeMeta(CommonModuleProviderIf *modProvider,
+               const std::string& _name,
+               fds_volid_t _uuid,
+               fds_log* _dm_log,
+               VolumeDesc *v_desc,
+               DataMgr *_dm);
+    ~VolumeMeta();
+    /**
+    * @brief Apply active transactions
+    *
+    * @param highestOpId
+    * @param txs
+    */
+    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
 
     /**
-     * volume meta forwarding state
-     */
-    fwdStateType fwd_state;  // write protected by vol_mtx
+    * @return  Returns base directory path for the volume
+    */
+    std::string getBaseDirPath() const;
 
-    /*
-     * This class is non-copyable.
-     * Disable copy constructor/assignment operator.
-     */
-    VolumeMeta(const VolumeMeta& _vm);
-    VolumeMeta& operator= (const VolumeMeta rhs);
+    /**
+    * @return Bufferfile path used in buffering operations while sync is in progress
+    */
+    std::string getBufferfilePath() const;
 
- public:
+    void setSequenceId(sequence_id_t seq_id);
+    sequence_id_t getSequenceId();
+
+    inline void setOpId(const int64_t &id) { opId = id; }
+    inline void incrementOpId() { ++opId; }
+    inline const int64_t& getOpId() const { return opId; }
+
+    inline fpi::ResourceState getState() const { return vol_desc->state; }
+    void setState(const fpi::ResourceState &state, const std::string &logCtx);
+
+    inline bool isActive() const { return vol_desc->state == fpi::Active; }
+    inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
+    inline bool isInitializationProgress() {
+        return initializer &&
+            (vol_desc->state == fpi::Loading || vol_desc->state == fpi::Syncing);
+    }
+
+    inline int64_t getId() const { return vol_desc->volUUID.get(); }
+
+    inline int32_t getVersion() const { return version; }
+    inline void setVersion(int32_t version) { this->version = version; }
+
+    inline void setCoordinatorId(const fpi::SvcUuid &svcUuid) {
+        vol_desc->setCoordinatorId(svcUuid);
+    }
+    inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
+    inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
+
+    std::string logString() const;
+
+    inline bool isReplayOp(const fpi::AsyncHdrPtr &hdr) {
+        return hdr->msg_src_uuid == selfSvcUuid;
+    }
+
+    void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
+
+    /**
+    * @brief Returns wrapper function around f that exectues f in volume synchronized
+    * context
+    */
+    std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
+    makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
+
+    StatusCb makeSynchronized(const StatusCb &f);
+    BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
+
+
+    /**
+     * DM Migration related
+     */
+    Error startMigration(NodeUuid& srcDmUuid,
+                         fpi::FDSP_VolumeDescType &vol,
+                         migrationCb doneCb);
+
+    Error serveMigration(DmRequest *dmRequest);
+
     /**
      * Returns true if DM is forwarding this volume's
      * committed updates
@@ -74,7 +178,34 @@ class VolumeMeta : public HasLogger {
      */
     void finishForwarding();
 
+
     VolumeDesc *vol_desc;
+
+
+    /*
+     * per volume queue
+     */
+    boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+    /* For runinng the sync protocol */
+    VolumeInitializerPtr                   initializer;
+
+ private:
+    /*
+     * This class is non-copyable.
+     * Disable copy constructor/assignment operator.
+     */
+    VolumeMeta(const VolumeMeta& _vm);
+    VolumeMeta& operator= (const VolumeMeta rhs);
+
+    fds_mutex  *vol_mtx;
+
+    /**
+     * volume meta forwarding state
+     */
+    fwdStateType fwd_state;  // write protected by vol_mtx
+
+    /* Cached self svc uuid */
+    fpi::SvcUuid        selfSvcUuid;
 
     /**
      * latest sequence ID is not part of the volume descriptor because it will
@@ -82,33 +213,59 @@ class VolumeMeta : public HasLogger {
      * value updated on sucessful requests, but operations with later sequence
      * ids may be still buffered somewhere in DM.
      */
- private:
     sequence_id_t sequence_id;
     fds_mutex sequence_lock;
- public:
-    void setSequenceId(sequence_id_t seq_id);
-    sequence_id_t getSequenceId();
-
-    /*
-     * Default constructor should NOT be called
-     * directly. It is needed for STL data struct
-     * support.
+    /* Operation id. Every update/commit operation against volume should have this id.
+     * This id should be sequential.
      */
-    VolumeMeta();
-    VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,
-               VolumeDesc *v_desc);
-    VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,
-               fds_log* _dm_log,
-               VolumeDesc *v_desc);
-    ~VolumeMeta();
-
-    void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
-    /*
-     * per volume queue
+    int64_t opId;
+    /* Version of the volume.  As volume goes up/down this incremented.  This id
+     * persisted to disk as well
      */
-    boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+    int32_t version;
+
+    /**
+     * This volume could be a source of migration to multiple nodes.
+     */
+    DmMigrationSrcMap migrationSrcMap;
+    fds_rwlock migrationSrcMapLock;
+
+    /**
+     * This volume can only be a destination to one node
+     */
+    DmMigrationDest::unique_ptr migrationDest;
+
+    /**
+     * DataMgr reference
+     */
+    DataMgr *dataManager;
+
+    /**
+     * Internally create a source and runs it
+     */
+    Error createMigrationSource(NodeUuid destDmUuid,
+                                const NodeUuid &mySvcUuid,
+                                fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
+                                migrationCb cleanup);
+
+    /**
+     * Internally cleans up a source
+     */
+    void cleanUpMigrationSource(fds_volid_t volId,
+                                const Error &err,
+                                const NodeUuid destDmUuid);
+
+    /**
+     * Internally cleans up the destination
+     */
+    void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
+                                     fds_volid_t volId,
+                                     const Error &err);
+
+    /**
+     * Stores the hook for Callback to the volume group manager
+     */
+    migrationCb cbToVGMgr;
 };
 
 }  // namespace fds

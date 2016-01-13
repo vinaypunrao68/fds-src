@@ -17,6 +17,8 @@
 #include "fdsp/node_svc_api_types.h"
 #include "fdsp/pm_service_types.h"
 
+#include "platform/flap_detector.h"
+
 namespace fds
 {
     namespace pm
@@ -113,6 +115,8 @@ namespace fds
                 std::condition_variable             m_startQueueCondition;
                 std::list <int>                     m_startQueue;
 
+                FlapDetector                        *m_serviceFlapDetector;         // Used to keep track of service restarts and detect a bouncing service.
+
                 bool                                m_autoRestartFailedProcesses;
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
@@ -124,10 +128,11 @@ namespace fds
                 std::vector <std::string>           m_javaOptions;                 // List of options to use with java child processes
                 std::string                         m_javaXdiMainClassName;
                 std::string                         m_javaXdiJavaCmd;              // path to java command
+
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
-                void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
+                void notifyOmServiceStateChange (int const appIndex, pid_t const procPid, FDS_ProtocolInterface::HealthState, std::string const message);
                 std::string getProcName (int const index);
                 void updateNodeInfoDbPid (int processType, pid_t pid);
                 void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
@@ -136,6 +141,7 @@ namespace fds
                 bool loadDiskUuidToDeviceMap();
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
+                void notifyDiskMapChange();
         };
     }  // namespace pm
 }  // namespace fds

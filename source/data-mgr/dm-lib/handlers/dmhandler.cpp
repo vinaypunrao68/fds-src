@@ -82,5 +82,35 @@ void Handler::addToQueue(DmRequest *dmRequest) {
 Handler::~Handler() {
 }
 
+Error Handler::preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                         const fpi::AsyncHdrPtr &hdr,
+                                         const SHPTR<std::string> &payload)
+{
+    // TODO(Rao): volMeta should be accessed under lock
+    auto volMeta = dataManager.getVolumeMeta(volId);
+    if (volMeta == nullptr || volMeta->vol_desc == nullptr) {
+        return ERR_VOL_NOT_FOUND;
+    }
+    if (volMeta->isActive()) {
+        return ERR_OK;
+    } else if (volMeta->isSyncing()) {
+        if (!volMeta->isReplayOp(hdr))  {
+            Error e = volMeta->initializer->tryAndBufferIo(
+                std::make_pair(hdr->msg_type_id, payload));
+            if (e.ok()) {
+                return ERR_WRITE_OP_BUFFERED;
+            } else if (e == ERR_UNAVAILABLE) {
+                /* Buffering is not required.  We've replayed all the buffered ops.
+                 * Go through normal handling for active io
+                 */
+                return ERR_OK;
+            }
+            return e;
+        }
+        return ERR_OK;
+    }
+    return ERR_DM_VOL_NOT_ACTIVATED;
+}
+
 }  // namespace dm
 }  // namespace fds

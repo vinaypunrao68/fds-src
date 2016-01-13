@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,7 +120,7 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         String operationName = "AM.volumeContents";
         String description = "volume=" + volume + ", prefix=" + blobNamePrefix;
 
@@ -198,12 +199,12 @@ public class AmOps implements IoOps {
             return result;
         } catch (ApiException e) {
             if (Sets.newHashSet(RECOVERABLE_ERRORS).contains(e.getErrorCode())) {
-                LOG.warn(workUnit.operationName + " failed (recoverable), " + workUnit.description, e);
+                LOG.warn(workUnit.operationName + " failed with error code " + e.getErrorCode() + " (recoverable), " + workUnit.description, e);
                 throw new RecoverableException();
             } else if (Sets.newHashSet(explicitelyHandledErrors).contains(e.getErrorCode())) {
                 return errorHandler.apply(e.getErrorCode());
             } else {
-                LOG.error(workUnit.operationName + " failed, " + workUnit.description, e);
+                LOG.error(workUnit.operationName + " failed  with error code " + e.getErrorCode() + ", " + workUnit.description, e);
                 throw new IOException(e);
             }
         } catch (Exception e) {

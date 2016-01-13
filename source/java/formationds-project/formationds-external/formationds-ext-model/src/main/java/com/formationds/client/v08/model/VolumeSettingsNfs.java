@@ -4,117 +4,102 @@
 
 package com.formationds.client.v08.model;
 
-import com.formationds.client.v08.model.nfs.NfsOptionBase;
+import com.formationds.client.v08.model.nfs.NfsClients;
+import com.formationds.client.v08.model.nfs.NfsOptions;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Objects;
 
 /**
  * @author ptinius
  */
 public class VolumeSettingsNfs
-    extends VolumeSettings
+    extends VolumeSettingsObject
 {
     public static class Builder
     {
-        private Set< NfsOptionBase > options = new HashSet<>( );
-        private Set< IPFilter > ipFilters = new HashSet<>( );
-
-        public Set< NfsOptionBase > getOptions( )
+        public Size getMaxObjectSize() { return maxObjectSize; }
+        public Builder withMaxObjectSize( final Size maxObjectSize )
         {
-            return options;
-        }
-
-        public Builder withOption( final NfsOptionBase option )
-        {
-            options.add( option );
+            this.maxObjectSize = maxObjectSize;
             return this;
         }
 
-        public Builder withOptions( final Set< NfsOptionBase > options )
+        public Builder withOptions( final NfsOptions options )
         {
-            this.options.clear();
-            this.options.addAll( options );
+            this.options = options.getOptions();
             return this;
         }
 
-        public Set< IPFilter > getIpFilters( )
+        public Builder withClient( final NfsClients clients )
         {
-            return ipFilters;
-        }
-
-        public Builder withIpFilter( final IPFilter ipFilter )
-        {
-            ipFilters.add( ipFilter );
-            return this;
-        }
-
-        public Builder withIpFilters( final Set< IPFilter > ipFilters )
-        {
-            this.ipFilters.clear();
-            this.ipFilters.addAll( ipFilters );
+            this.clients = clients.getClient();
             return this;
         }
 
         public VolumeSettingsNfs build()
         {
-            return new VolumeSettingsNfs( getOptions(), getIpFilters() );
+            return new VolumeSettingsNfs( this );
         }
+
+        private String options = "";
+        private Size maxObjectSize = Size.mb( 1 );
+        private String clients = "*";
     }
 
-    private Set< NfsOptionBase > options = new HashSet<>( );
-    private Set<IPFilter> filters = new HashSet<>( );
+    private final String options;
+    private final String clients;
 
-    public VolumeSettingsNfs( )
+    VolumeSettingsNfs( final Builder builder )
     {
-        super( VolumeType.NFS );
-    }
-    public VolumeSettingsNfs( final Set< NfsOptionBase > options )
-    {
-        super( VolumeType.NFS );
+        super( );
 
-        this.options = options;
-    }
+        setMaxObjectSize( builder.maxObjectSize );
+        this.options = builder.options;
+        this.clients = builder.clients;
 
-    public VolumeSettingsNfs( final Set< NfsOptionBase > options, final Set< IPFilter > ipFilters )
-    {
-        super( VolumeType.NFS );
-
-        setOptions( options );
-        setFilters( ipFilters );
+        this.type = VolumeType.NFS;
     }
 
     /**
-     * @param options the NFS options
+     * @param maxObjectSize the max object size
+     * @param clients the nfs clients
+     * @param options the nfs options
      */
-    public void setOptions( Set< NfsOptionBase > options )
+    public VolumeSettingsNfs( final Size maxObjectSize,
+                              final NfsClients clients,
+                              final NfsOptions options )
     {
+        super( );
+
+        setMaxObjectSize( maxObjectSize );
+        this.options = options.getOptions();
+        this.clients = clients.getClient();
+
+        this.type = VolumeType.NFS;
+    }
+
+    public VolumeSettingsNfs( final Size maxObjectSize,
+                              final String clients,
+                              final String options )
+    {
+        super( );
+
+        setMaxObjectSize( maxObjectSize );
         this.options = options;
+        this.clients = clients;
+
+        this.type = VolumeType.NFS;
     }
 
     /**
      * @return Returns set of NFS options
      */
-    public Set< NfsOptionBase > getOptions( )
-    {
-        return options;
-    }
+    public String getOptions( ) { return options; }
 
     /**
-     * @return Returns set of IP addresses to be filtered
+     * @return Returns set of NFS clients
      */
-    public Set< IPFilter > getFilters( )
-    {
-        return filters;
-    }
-
-    /**
-     * @param filters set of IP addresses to be filtered
-     */
-    public void setFilters( Set< IPFilter > filters )
-    {
-        this.filters = filters;
-    }
+    public String getClients( ) { return clients; }
 
     /**
      * Create a copy of the settings based on the current settings
@@ -122,8 +107,24 @@ public class VolumeSettingsNfs
      * @return a copy of the settings
      */
     @Override
-    public VolumeSettings newSettingsFrom( )
+    public VolumeSettingsNfs newSettingsFrom( )
     {
-        return new VolumeSettingsNfs( getOptions(), getFilters() );
+        return new VolumeSettingsNfs( getMaxObjectSize(), getClients(), getOptions() );
+    }
+
+    @Override
+    public boolean equals( final Object o )
+    {
+        if ( this == o ) return true;
+        if ( !( o instanceof VolumeSettingsNfs ) ) return false;
+        final VolumeSettingsNfs that = ( VolumeSettingsNfs ) o;
+        return Objects.equals( getOptions( ), that.getOptions( ) ) &&
+            Objects.equals( getClients( ), that.getClients( ) );
+    }
+
+    @Override
+    public int hashCode( )
+    {
+        return Objects.hash( super.hashCode( ), getOptions( ), getClients( ) );
     }
 }

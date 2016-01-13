@@ -18,6 +18,8 @@
 #include <graphite_client.h>
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
+#include <concurrency/taskstatus.h>
+#include <util/ExecutionGate.h>
 #include <unordered_map>
 
 namespace fds {
@@ -169,6 +171,12 @@ class FdsProcess : public boost::noncopyable,
      *    Call shutdown_modules()
      */
     virtual int main();
+
+    /**
+    * @brief To manually stop the process.  When stop is called, shutdown sequence will
+    * be invoked.
+    */
+    virtual void stop();
     /**
      *    For each module, call mod_startup().
      *    For each module, call mod_lockstep()
@@ -252,8 +260,11 @@ class FdsProcess : public boost::noncopyable,
        return proc_id;
     }
 
-   static void fds_catch_signal(int sig);
+    concurrency::TaskStatus& getReadyWaiter() {
+        return readyWaiter;
+    }
 
+   static void fds_catch_signal(int sig);
  protected:
     // static members/methods
     static void* sig_handler(void* param);
@@ -313,6 +324,14 @@ class FdsProcess : public boost::noncopyable,
 
     /* Name of proc */
     std::string proc_id;
+
+    /* Use it for making sure all the setup is complete mostly in tests.
+     * Set it in the derived main()
+     */
+    concurrency::TaskStatus readyWaiter;
+    
+    /* Whether process is going through shutdown process or not */
+    util::ExecutionGate     shutdownGate_; 
 };
 
 }  // namespace fds

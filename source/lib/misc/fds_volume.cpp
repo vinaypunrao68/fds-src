@@ -32,6 +32,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
     state   = volinfo.state;
+
+    iscsiSettings = volinfo.iscsi;
+    nfsSettings = volinfo.nfs;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -56,6 +59,9 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = vdesc.iscsiSettings;
+    nfsSettings = vdesc.nfsSettings;
 }
 
 // NOTE: counterpart of outputting toFdspDesc
@@ -82,6 +88,9 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = voldesc.iscsi;
+    nfsSettings = voldesc.nfs;
 }
 
 /*
@@ -112,6 +121,9 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     if (volUUID == invalid_vol_id) {
         GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -141,6 +153,8 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     contCommitlogRetention = 0;
     timelineTime = 0;
     createTime = 0;
+    iscsiSettings = {};
+    nfsSettings = {};
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -176,9 +190,10 @@ int VolumeDesc::getPriority() const {
 }
 
 std::string VolumeDesc::ToString() {
-    return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID().get()) +
-            std::string(">"));
+    std::stringstream sstream;
+
+    sstream << "Volume [ " << getName() << " ] UUID [ " << GetID().get() << " ]";
+    return sstream.str();
 }
 
 void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
@@ -202,6 +217,8 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.timelineTime = timelineTime;
     voldesc.createTime = createTime;
     voldesc.state = state;
+    voldesc.iscsi = iscsiSettings;
+    voldesc.nfs = nfsSettings;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -232,6 +249,8 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->contCommitlogRetention = volinfo.contCommitlogRetention;
         this->timelineTime = volinfo.timelineTime;
         this->state = volinfo.state;
+        this->iscsiSettings = volinfo.iscsiSettings;
+        this->nfsSettings = volinfo.nfsSettings;
     }
     return *this;
 }
@@ -255,28 +274,58 @@ bool VolumeDesc::isSystemVolume() const {
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
-    return os << "["
-              << " uuid:" << vol.volUUID
-              << " name:" << vol.name
-              << " tenant:" << vol.tennantId
-              << " localdomain:" <<vol.localDomainId
-              << " type:" << vol.volType
-              << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
-              << " capacity:" << vol.capacity
-              << " vol.policy.id:" << vol.volPolicyId
-              << " media.policy:" << vol.mediaPolicy
-              << " placement.policy:" << vol.placementPolicy
-              << " iops.assured:" << vol.iops_assured
-              << " iops.throttle:" << vol.iops_throttle
-              << " rel.prio:" << vol.relativePrio
-              << " isSnapshot:" << vol.fSnapshot
-              << " srcVolumeId:" << vol.srcVolumeId
-              << " state:" << vol.getState()
-              << " qosQueueId:" << vol.contCommitlogRetention
-              << " timelineTime:" << vol.timelineTime
-              << " createTime:" << vol.createTime
-              << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
-              << " ]";
+    os << "["
+       << " uuid:" << vol.volUUID
+       << " name:" << vol.name
+       << " tenant:" << vol.tennantId
+       << " localdomain:" <<vol.localDomainId
+       << " type:" << vol.volType
+       << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
+       << " capacity:" << vol.capacity
+       << " vol.policy.id:" << vol.volPolicyId
+       << " media.policy:" << vol.mediaPolicy
+       << " placement.policy:" << vol.placementPolicy
+       << " iops.assured:" << vol.iops_assured
+       << " iops.throttle:" << vol.iops_throttle
+       << " rel.prio:" << vol.relativePrio
+       << " isSnapshot:" << vol.fSnapshot
+       << " srcVolumeId:" << vol.srcVolumeId
+       << " state:" << vol.getState()
+       << " qosQueueId:" << vol.contCommitlogRetention
+       << " timelineTime:" << vol.timelineTime
+       << " createTime:" << vol.createTime
+       << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second;
+
+    if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
+        os << " luns: { ";
+        for (auto const& lun : vol.iscsiSettings.luns) {
+            os << lun.name << ":" << lun.access << " ";
+        }
+        os << "}";
+
+        os << " incoming users: { ";
+        for (auto const& iuser : vol.iscsiSettings.incomingUsers) {
+            os << iuser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " outgoing users: { ";
+        for (auto const& ouser : vol.iscsiSettings.outgoingUsers) {
+            os << ouser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " initiators: { ";
+        for (auto const& ini : vol.iscsiSettings.initiators) {
+            os << ini.wwn_mask << " ";
+        }
+        os << "}";
+    } else if ( fpi::FDSP_VOL_NFS_TYPE == vol.volType ) {
+        os << " clients: { " << vol.nfsSettings.client << " } ";
+        os << " options: { " << vol.nfsSettings.options << " }";
+    }
+
+    return os << " ]";
 }
 
 /************************************************************************************/

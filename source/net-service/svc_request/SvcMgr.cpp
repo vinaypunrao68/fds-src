@@ -342,6 +342,12 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local requests */
+        svcRequestHandler_->asyncReqt(header, payload);
+        return;
+    }
+
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
         if (!getSvcHandle_(svcUuid, svcHandle)) {
@@ -362,6 +368,12 @@ void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
 {
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
+
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local responses */
+        svcRequestHandler_->asyncResp(header, payload);
+        return;
+    }
 
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
@@ -466,7 +478,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     int omRetries = std::numeric_limits<int32_t>::max();
     while (true) {
         try {
-            LOGNOTIFY << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
+            LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
             omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
             break;
@@ -788,9 +800,9 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: update to new incarnation. After update " << logString();
     } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
         /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
         svcClient_.reset();
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: set current incarnation as down.  After update" << logString();
@@ -822,13 +834,13 @@ std::string SvcHandle::logString() const
 bool SvcHandle::isSvcDown_() const
 {
     /* NOTE: Assumes this function is invoked under lock */
-    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE;
+    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED;
 }
 
 void SvcHandle::markSvcDown_()
 {
     /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
+    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
     svcClient_.reset();
     GLOGDEBUG << logString();
 

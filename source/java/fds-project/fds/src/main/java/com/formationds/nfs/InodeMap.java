@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import org.apache.log4j.Logger;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -12,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
+    private static final Logger LOG = Logger.getLogger(InodeMap.class);
+
     private final TransactionalIo io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;
@@ -45,7 +48,11 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
+        Optional<Map<String, String>> currentValue = io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
+        if (currentValue.isPresent() && currentValue.get().size() == 0) {
+            LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+            throw new NoEntException();
+        }
         return currentValue.map(m -> new InodeMetadata(m));
     }
 
@@ -72,7 +79,7 @@ public class InodeMap {
         try {
             int objectSize = exportResolver.objectSize(volumeName);
             InodeMetadata[] last = new InodeMetadata[1];
-            chunker.write(BlockyVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, map -> {
+            chunker.write(XdiVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, map -> {
                 if (map.isEmpty()) {
                     throw new NoEntException();
                 }
@@ -97,9 +104,9 @@ public class InodeMap {
         }
     }
 
-    public Inode create(InodeMetadata metadata, long exportId) throws IOException {
+    public Inode create(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
-        Inode inode = doUpdate(metadata, exportId, false);
+        Inode inode = doUpdate(metadata, exportId, deferrable);
         usedFiles.increment(volumeName);
         return inode;
     }
@@ -107,7 +114,7 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName, deferrable, (x) -> {
+        io.mutateMetadata(XdiVfs.DOMAIN, volume, blobName, deferrable, (x) -> {
             x.clear();
             x.putAll(metadata.asMap());
             return null;
@@ -127,9 +134,9 @@ public class InodeMap {
         return InodeMetadata.fileId(inode);
     }
 
-    public void update(long exportId, InodeMetadata... entries) throws IOException {
+    public void update(long exportId, boolean deferrable, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry, exportId, true);
+            doUpdate(entry, exportId, deferrable);
         }
     }
 
@@ -139,7 +146,7 @@ public class InodeMap {
 
         try {
             Optional<InodeMetadata> om = stat(inode);
-            io.deleteBlob(BlockyVfs.DOMAIN, volumeName, blobName);
+            io.deleteBlob(XdiVfs.DOMAIN, volumeName, blobName);
             if (om.isPresent()) {
                 usedBytes.decrement(volumeName, om.get().getSize());
                 usedFiles.decrement(volumeName, 1);

@@ -5,7 +5,7 @@
 
 include "svc_types.thrift"
 
-/**
+/*
  * @author    Donavan Nelson <donavan @ formationds.com>
  * @version   0.7
  * @since     2015-05-30
@@ -15,14 +15,15 @@ namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.om.types
 
 enum HealthState {
-  HEALTH_STATE_RUNNING             = 404000;
-  HEALTH_STATE_INITIALIZING        = 404001;
-  HEALTH_STATE_DEGRADED            = 404002;
-  HEALTH_STATE_LIMITED             = 404003;
-  HEALTH_STATE_SHUTTING_DOWN       = 404004;
-  HEALTH_STATE_ERROR               = 404005;
-  HEALTH_STATE_UNREACHABLE         = 404006;
-  HEALTH_STATE_UNEXPECTED_EXIT     = 404007;
+  HEALTH_STATE_RUNNING                       = 404000;
+  HEALTH_STATE_INITIALIZING                  = 404001;
+  HEALTH_STATE_DEGRADED                      = 404002;
+  HEALTH_STATE_LIMITED                       = 404003;
+  HEALTH_STATE_SHUTTING_DOWN                 = 404004;
+  HEALTH_STATE_ERROR                         = 404005;
+  HEALTH_STATE_UNREACHABLE                   = 404006;
+  HEALTH_STATE_UNEXPECTED_EXIT               = 404007;
+  HEALTH_STATE_FLAPPING_DETECTED_EXIT        = 404008;
 }
 
 /**

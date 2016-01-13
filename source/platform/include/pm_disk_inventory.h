@@ -24,7 +24,6 @@ namespace fds
             DiskDevMap    dsk_dev_map;
             uint32_t      dsk_qualify_cnt;   /**< disks that can run FDS SW.   */
             ChainList     dsk_discovery;
-            ChainList     dsk_prev_inv;      /**< previous inventory list.     */
             ChainList     dsk_curr_inv;      /**< disks that were enumerated.  */
             DiskPartMgr   *dsk_partition;
 
@@ -68,7 +67,9 @@ namespace fds
             virtual void dsk_admit_all();
             virtual void dsk_mount_all();
             virtual bool disk_read_capabilities(DiskCapabilitiesMgr *mgr);
-            virtual bool disk_read_label(DiskLabelMgr *mgr, bool creat);
+            virtual void disk_reconcile_label(DiskLabelMgr *mgr);
+
+            virtual void clear_inventory();
     };
 }  // namespace fds
 

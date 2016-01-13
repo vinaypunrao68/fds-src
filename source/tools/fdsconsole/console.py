@@ -18,6 +18,8 @@ from tabulate import tabulate
 import sys
 from contexts.svchelper import ServiceMap
 # import needed contexts
+
+from contexts import root
 from contexts import domain
 from contexts import volume
 from contexts import snapshot
@@ -31,6 +33,11 @@ from contexts import ScavengerPolicy
 from contexts import SMDebug
 from contexts import DMDebug
 
+import warnings
+# this is soooo bad
+warnings.simplefilter('ignore')
+
+
 """
 Console exit exception. This is needed to exit cleanly as
 external libraries (argh) are throwing SystemExit Exception on errors.
@@ -38,12 +45,18 @@ external libraries (argh) are throwing SystemExit Exception on errors.
 class ConsoleExit(Exception):
     pass
 
+def checkFDSNode():
+    if os.path.isfile('/fds/etc/platform.conf'): return True
+
 class FDSConsole(cmd.Cmd):
 
     def __init__(self,fInit, debugTool, *args):
         cmd.Cmd.__init__(self, *args)
-        setupHistoryFile()
-        datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
+        setupHistoryFile(debugTool)
+        if debugTool:
+            datafile = os.path.join(os.path.expanduser("~"), ".debugtool_data")
+        else:
+            datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
         self.root = None
         self.recordFile = None
@@ -51,16 +64,19 @@ class FDSConsole(cmd.Cmd):
             self.data = shelve.open(datafile,writeback=True)
         except:
             pass
+        self.data['debugTool'] = debugTool
         self.debugTool = debugTool
         self.config = ConfigData(self.data)
         self.myprompt = 'fds'
-        self.setprompt('fds')
+        if self.debugTool:
+            self.myprompt = 'fds.debug'
+        self.setprompt(self.myprompt)
         self.context = None
         self.previouscontext = None
         ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            self.set_root_context(context.RootContext(self.config))
+            self.set_root_context(root.RootContext(self.config))
 
     def get_access_level(self):
         if self.debugTool:
@@ -69,7 +85,7 @@ class FDSConsole(cmd.Cmd):
             return AccessLevel.ADMIN
 
     def set_root_context(self, ctx):
-        if isinstance(ctx, context.Context):
+        if not isinstance(ctx, context.ContextInfo):
             ctx = context.ContextInfo(ctx)
         self.root = ctx
         self.set_context(ctx)
@@ -326,8 +342,12 @@ class FDSConsole(cmd.Cmd):
             print '%10s   =  %5s' % (argv[0], self.config.getSystem(argv[0]))
             return
 
-        if argv[0] in helpers.PROTECTED_KEYS:
-            print 'cannot modify a protected system key : %s' % (argv[0])
+        modifiablekeys=['username','gridoutput','password','port','host']
+        if not self.debugTool:
+            modifiablekeys.append('host')
+
+        if argv[0] not in modifiablekeys:
+            print 'can set only these : {}'.format(modifiablekeys)
             return
 
         self.config.setSystem(argv[0], argv[1])
@@ -354,7 +374,7 @@ class FDSConsole(cmd.Cmd):
         raise ConsoleExit()
 
     def help_exit(self, *args):
-        print 'exit the fds console'
+        print 'exit'
 
     def get_names(self):
         names = [key for key,value in self.context.methods.items() if value <= self.get_access_level()]
@@ -480,9 +500,16 @@ class FDSConsole(cmd.Cmd):
         l =  []
         l += ['============================================']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
+        if self.debugTool:
+            l+= ['>>> DebugTool - Works only on fds nodes !!']
         l += ['NOTE: Ctrl-D , Ctrl-C to exit']
         l += ['============================================']
         l += ['']
+
+        if self.debugTool and not checkFDSNode():
+            print 'Debug Tool should be used only on fds nodes. This node does NOT seem to be one!!'
+            sys.exit(1)
+
         try:
             if argv == None or len(argv) == 0 :
                 #l += ['---- interactive mode ----\n']

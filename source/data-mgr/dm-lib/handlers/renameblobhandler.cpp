@@ -31,7 +31,7 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -61,7 +61,8 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
                                                                      dest_blob,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleCommitNewBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
@@ -73,6 +74,9 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
+
     // This isn't the _real_ request, do not confuse QoS
     helper.ioIsMarkedAsDone = true;
 
@@ -192,7 +196,8 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
                                                                      typedRequest->blob_name,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleDeleteOldBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =

@@ -6,7 +6,8 @@
         - /fds/bin/core.*
         - /fds/bin/core
         - /fds/var/db
-        - /fds/var/logs
+        - /fds/var/log/*
+        - /fds/var/logs/*
         - /fds/var/stats
         - /corefiles/*
         - /fds/var/core/*.core

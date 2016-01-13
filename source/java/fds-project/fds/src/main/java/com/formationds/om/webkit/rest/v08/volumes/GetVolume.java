@@ -3,22 +3,21 @@
  */
 package com.formationds.om.webkit.rest.v08.volumes;
 
-import java.util.List;
-import java.util.Map;
-
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.Map;
 
 public class GetVolume  implements RequestHandler {
 	
@@ -37,18 +36,29 @@ public class GetVolume  implements RequestHandler {
        
 		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 		
-		Volume volume = getVolume( volumeId );
+    	String showSysVolumeString = request.getParameter( ListVolumes.SHOW_SYSTEM_VOLUMES );
+        Boolean showSysVolumes = Boolean.FALSE;
+        
+        if ( showSysVolumeString != null && showSysVolumeString.equalsIgnoreCase( "true" ) ){
+        	showSysVolumes = Boolean.TRUE;
+        }
+		
+		Volume volume = getVolume( volumeId, showSysVolumes );
 		
 		String jsonString = ObjectModelHelper.toJSON( volume );
 		
 		return new TextResource( jsonString );
 	}
 	
-	public Volume getVolume( long volumeId ) throws Exception{
+	public Volume getVolume( long volumeId ) throws Exception {
+		return getVolume( volumeId, Boolean.FALSE );
+	}
+	
+	public Volume getVolume( long volumeId, Boolean showSysVolumes ) throws Exception{
 		
 		logger.debug( "Retrieving volume: {}.", volumeId );
 		
-		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes();
+		List<Volume> volumes = (new ListVolumes( getAuthorizer(), getToken() )).listVolumes( showSysVolumes );
 		
 		for ( Volume volume : volumes ){
 			if ( volume.getId().equals( volumeId ) ){
@@ -56,7 +66,7 @@ public class GetVolume  implements RequestHandler {
 			}
 		}
 		
-		throw new ApiException( "Volume cound not be located", ErrorCode.MISSING_RESOURCE );
+		throw new ApiException( "Volume could not be located", ErrorCode.MISSING_RESOURCE );
 	}
 	
 	private Authorizer getAuthorizer(){

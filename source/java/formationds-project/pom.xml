@@ -3,8 +3,7 @@
   ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -15,7 +14,7 @@
 
   <name>${formationds.project.name} Project POM</name>
   <artifactId>formationds</artifactId>
-  <version>2015.08.14-SNAPSHOT</version>
+  <version>2016.01.15-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <!-- formationds scoped project properties -->
@@ -29,8 +28,8 @@
 
     <!-- Sprint -->
     <sprint.name>Sprint ${sprint.version}</sprint.name>
-    <sprint.start.date>2015-07-20 00:00:00.1 AM</sprint.start.date>
-    <sprint.version>2015.08.14</sprint.version>
+    <sprint.start.date>2016-01-16 11:59:59 PM</sprint.start.date>
+    <sprint.version>2016.01.15</sprint.version>
   </properties>
 
   <modules>
@@ -63,7 +62,7 @@
       <properties>
         <!-- thrift properties -->
         <!-- MAKE SURE THE MAC OS VERSION MATCHES OUR BUILT TREE VERSION -->
-        <thrift.binary>/usr/local/bin/thrift-0.9.0</thrift.binary>
+        <thrift.binary>/usr/local/bin/thrift-${thrift.version}</thrift.binary>
       </properties>
     </profile>
     <profile>
@@ -75,7 +74,7 @@
       </activation>
       <properties>
         <!-- thrift properties -->
-        <thrift.binary>${basedir}/../../../../Build/${osdep.target}/bin/thrift</thrift.binary>
+        <thrift.binary>${basedir}/../../../../Build/fds-thrift-${thrift.version}/bin/thrift</thrift.binary>
       </properties>
     </profile>
   </profiles>

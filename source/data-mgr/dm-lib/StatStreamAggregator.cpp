@@ -42,13 +42,13 @@ StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
           reg_(reg),
           statStreamAggr_(statStreamAggr) {
     for (auto volId : reg_->volumes) {
-        vol_last_ts_[fds_volid_t(volId)] = 0;
+        vol_last_rel_sec_[fds_volid_t(volId)] = 0;
     }
 }
 
 void StatStreamTimerTask::cleanupVolumes(const std::vector<fds_volid_t>& cur_vols) {
     std::vector<fds_volid_t> rm_vols;
-    for (auto i : vol_last_ts_) {
+    for (auto i : vol_last_rel_sec_) {
         fds_bool_t found = false;
         for (auto volId : cur_vols) {
             if (i.first == volId) {
@@ -59,7 +59,7 @@ void StatStreamTimerTask::cleanupVolumes(const std::vector<fds_volid_t>& cur_vol
         if (!found) rm_vols.push_back(i.first);
     }
     for (auto rmvol : rm_vols) {
-        vol_last_ts_.erase(rmvol);
+        vol_last_rel_sec_.erase(rmvol);
     }
 }
 
@@ -79,51 +79,58 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                start_time,
                                                conf.longstat_slots_,
                                                conf.longstat_slotsec_)),
-          long_stdev_update_ts_(0),
-          recent_stdev_update_ts_(0),
           cap_recent_stdev_(0),
           cap_long_stdev_(0),
           cap_recent_wma_(0),
           perf_recent_stdev_(0),
           perf_long_stdev_(0),
-          perf_recent_wma_(0) {
-    last_print_ts_ = 0;
+          perf_recent_wma_(0),
+          last_process_rel_secs_(0) {
 }
 
 VolumeStats::~VolumeStats() {
 }
 
 void VolumeStats::processStats() {
+    /**
+     * Get latest, unprocessed fine-grained slots to merge with our coarse grained slots.
+     */
     std::vector<StatSlot> slots;
-    // note that we are passing time interval modules push stats to the aggregator
-    // -- this is time interval back from current time that will be not included into
-    // the list of slots returned, because these slots may not be fully filled yet, eg.
-    // aggregator will receive stats from some modules but maybe not from all modules yet.
-    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_,
-                                                 0, 2*FdsStatPushPeriodSec);
+    last_process_rel_secs_ = finegrain_hist_->toSlotList(slots,
+                                                         last_process_rel_secs_,
+                                                         0,  // max_slots - copy all slots from history at a point starting with, but not
+                                                             // including, last_process_rel_secs_ except
+                                                         StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
+                                                            // the last few slots that are contained in the amount of time taken to
+                                                            // do FdsStatCollectionWaitMult pushes.
+                                                            // Why ignore those last few? Well, we are assuming that not all modules feeding
+                                                            // their stats to us are keeping up and we are willing to wait up to
+                                                            // FdsStatCollectionWaitMult push periods for them to catch up.
+
     // first add the slots to coarse grain stat history (we do it here rather than on
     // receiving remote stats because it's more efficient)
     if (slots.size() > 0) {
-        coarsegrain_hist_->mergeSlots(slots,
-                                      finegrain_hist_->getStartTime());
+        coarsegrain_hist_->mergeSlots(slots);
         LOGTRACE << "Updated coarse-grain stats: " << *coarsegrain_hist_;
-        longterm_hist_->mergeSlots(slots,
-                                   finegrain_hist_->getStartTime());
+        longterm_hist_->mergeSlots(slots);
         LOGTRACE << "Updated long-term stats: " << *longterm_hist_;
+    } else {
+        LOGTRACE << "No qualifying fine-grained slots to merge into coarse-grained. last_process_rel_secs_ is <"
+                 << last_process_rel_secs_ << ">.";
     }
 
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
          ++cit) {
         // debugging for now, remove at some point
-        LOGTRACE << "[" << finegrain_hist_->getTimestamp((*cit).getTimestamp()) << "], "
-                  << "Volume " << std::hex << volid_ << std::dec << ", "
-                  << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
-                  << "Gets " << StatHelper::getTotalGets(*cit) << ", "
-                  << "Queue full " << StatHelper::getQueueFull(*cit) << ", "
-                  << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
-                  << "Physical bytes " << StatHelper::getTotalPhysicalBytes(*cit) << ", "
-                  << "Metadata bytes " << StatHelper::getTotalMetadataBytes(*cit) << ", "
+        LOGTRACE << "[" << (*cit).getRelSeconds() << "], "
+                 << "Volume " << std::hex << volid_ << std::dec << ", "
+                 << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
+                 << "Gets " << StatHelper::getTotalGets(*cit) << ", "
+                 << "Queue full " << StatHelper::getQueueFull(*cit) << ", "
+                 << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
+                 << "Physical bytes " << StatHelper::getTotalPhysicalBytes(*cit) << ", "
+                 << "Metadata bytes " << StatHelper::getTotalMetadataBytes(*cit) << ", "
                   << "Blobs " << StatHelper::getTotalBlobs(*cit) << ", "
                   << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
@@ -165,29 +172,10 @@ void VolumeStats::getFirebreakMetrics(double* recent_cap_stdev,
 //
 void VolumeStats::updateFirebreakMetrics() {
     std::vector<StatSlot> slots;
-    fds_uint64_t now = util::getTimeStampNanos();
-    fds_uint64_t elapsed_nanos = 0;
-    if (now > long_stdev_update_ts_) {
-        elapsed_nanos = now - long_stdev_update_ts_;
-    }
-    // check if it's time to update recent history stdev
-    if (elapsed_nanos < (NANOS_IN_SECOND * coarsegrain_hist_->secondsInSlot())) {
-        return;  // no need to update long-term stdev
-    }
-    recent_stdev_update_ts_ = now;
 
-    // update recent (one day / 1h slots) history stdev
-    coarsegrain_hist_->toSlotList(slots, 0, 0, 2*coarsegrain_hist_->secondsInSlot());
-    fds_uint32_t min_slots = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
-    if (min_slots > (coarsegrain_hist_->numberOfSlots() - 1)) {
-        min_slots = (coarsegrain_hist_->numberOfSlots() - 1);
-    }
-    LOGTRACE << "min_slots" << min_slots << " sec, slots size "
-             << slots.size();
-    if (slots.size() < min_slots) {
-        // we must have some history to start recording stdev
-        return;
-    }
+    // update recent (coarse-grained slots) history stdev
+    coarsegrain_hist_->toSlotList(slots, 0);
+
     updateStdev(slots, 1, &cap_recent_stdev_, &perf_recent_stdev_,
                 &cap_recent_wma_, &perf_recent_wma_);
     LOGTRACE << "Short term history size " << slots.size()
@@ -197,22 +185,12 @@ void VolumeStats::updateFirebreakMetrics() {
              << " capacity stdev " << cap_recent_stdev_
              << " perf stdev " << perf_recent_stdev_;
 
-    // check if it's time to update long term history stdev
-    if (elapsed_nanos < (NANOS_IN_SECOND * longterm_hist_->secondsInSlot())) {
-        return;  // no need to update long-term stdev
-    }
-    long_stdev_update_ts_ = now;
-
-    // get 1-day history
-    longterm_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec + 3*60);
-    if (slots.size() < (longterm_hist_->numberOfSlots() - 1)) {
-        // to start reporting long term stdev we must have most of history
-        return;
-    }
+    // get long-term history
+    longterm_hist_->toSlotList(slots, 0);
     double units = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
     updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_, NULL, NULL);
     LOGTRACE << "Long term history size " << slots.size()
-             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
+             << " seconds in slot " << longterm_hist_->secondsInSlot()
              << " short slot units " << units
              << " capacity stdev " << cap_long_stdev_
              << " perf stdev " << perf_long_stdev_;
@@ -231,8 +209,8 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
          cit != slots.cend();
          cit++) {
         double bytes = StatHelper::getTotalPhysicalBytes(*cit);
-        LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel ts "
-                 << (*cit).getTimestamp() << " bytes " << static_cast<fds_int64_t>(bytes);
+        LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel secs "
+                 << (*cit).getRelSeconds() << " bytes " << static_cast<fds_int64_t>(bytes);
 
         if (cit == slots.cbegin()) {
             prev_bytes = bytes;
@@ -242,8 +220,8 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
         double ops = StatHelper::getTotalPuts(*cit) + StatHelper::getTotalGets(*cit);
         double ops_per_unit = ops / units_in_slot;
 
-        LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel ts "
-                 << (*cit).getTimestamp() << " bytes " << static_cast<fds_int64_t>(bytes)
+        LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel secs "
+                 << (*cit).getRelSeconds() << " bytes " << static_cast<fds_int64_t>(bytes)
                  << " prev bytes " << static_cast<fds_int64_t>(prev_bytes)
                  << " add_bytes_per_unit " << static_cast<fds_int64_t>(add_bytes_per_unit)
                  << " ops " << ops << " ops/unit " << ops_per_unit;
@@ -252,10 +230,8 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
         ops_vec.push_back(ops_per_unit);
         prev_bytes = bytes;
     }
-    fds_verify(add_bytes.size() > 0);
-    fds_verify(ops_vec.size() > 0);
 
-    // get weighted rolling average of coarse-grain (1-h) histories
+    // get weighted rolling average of coarse-grain histories
     *cap_stdev = util::fds_get_wstdev(add_bytes);
     *perf_stdev = util::fds_get_wstdev(ops_vec);
     if (cap_wma) {
@@ -269,45 +245,24 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
 }
 
 
-StatStreamAggregator::StatStreamAggregator(char const *const name,
+StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
+                                           char const *const name,
                                            boost::shared_ptr<FdsConfig> fds_config,
                                            DataMgr& dataManager)
-        : Module(name),
+        : HasModuleProvider(modProvider),
+          Module(name),
           dataManager_(dataManager),
-          process_tm_(MODULEPROVIDER()->getTimer()),
-          process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+          aggregate_stats_(MODULEPROVIDER()->getTimer()),
+          aggregate_stats_task_(new VolStatsTimerTask(*aggregate_stats_, this)) {
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     // default config
-    hist_config.finestat_slotsec_ = FdsStatPeriodSec;
-    hist_config.finestat_slots_ = 65;
-    hist_config.coarsestat_slotsec_ = 60*60;  // one hour
-    hist_config.coarsestat_slots_ = 26;   // 24 hours + few slots
-    hist_config.longstat_slotsec_ = 24*60*60;  // one day
-    hist_config.longstat_slots_ = 31;  // 30 days + 1
-
-    // align timestamp to the length of finestat slot
-    start_time_ = util::getTimeStampNanos();
-    fds_uint64_t freq_nanos = hist_config.finestat_slotsec_ * 1000000000;
-    start_time_ = start_time_ / freq_nanos;
-    start_time_ = start_time_ * freq_nanos;
-
-    root->fds_mkdir(root->dir_sys_repo_stats().c_str());
-
-    fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
-    minLogReg->id = MinLogRegId;
-    minLogReg->method = "log-local";
-    minLogReg->sample_freq_seconds = 60;
-    minLogReg->duration_seconds = 120;
-
-    fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
-    hourLogReg->id = HourLogRegId;
-    hourLogReg->method = "log-local";
-    hourLogReg->sample_freq_seconds = 3600;
-    hourLogReg->duration_seconds = 7200;
-
-    registerStream(minLogReg);
-    registerStream(hourLogReg);
+    hist_config.finestat_slotsec_ = StatConstants::singleton()->FdsStatFGPeriodSec;
+    hist_config.finestat_slots_ = StatConstants::singleton()->FdsStatFGSlotCnt;
+    hist_config.coarsestat_slotsec_ = StatConstants::singleton()->FdsStatCGPeriodSec;
+    hist_config.coarsestat_slots_ = StatConstants::singleton()->FdsStatCGSlotCnt;
+    hist_config.longstat_slotsec_ = StatConstants::singleton()->FdsStatLTPeriodSec;
+    hist_config.longstat_slots_ = StatConstants::singleton()->FdsStatLTSlotCnt;
 
     // if in firebreak test mode, set different slot sizes for long and coarse
     // grain histories
@@ -323,19 +278,56 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
                 get<int>("fds.dm.testing.long_slots", hist_config.longstat_slots_);
     }
 
-    // this is how often we process 1-min stats
-    tmperiod_sec_ = (hist_config.finestat_slots_ - 2) * hist_config.finestat_slotsec_;
-    if (hist_config.coarsestat_slotsec_ < tmperiod_sec_) {
-        tmperiod_sec_ = 2*60;  // hist_config.coarsestat_slotsec_;
+    /**
+     * Make sure our fine-grained stats are not collected less frequently than
+     * our coarse grained stats.
+     */
+    if (hist_config.coarsestat_slotsec_ < hist_config.finestat_slotsec_) {
+        LOGWARN << "Changing fine-grained stat period, currently at <" << hist_config.finestat_slotsec_
+                << ">, to be at least the same period as our coarse-grained stats which is <"
+                << hist_config.coarsestat_slotsec_ << ">.";
+        hist_config.finestat_slotsec_ = hist_config.coarsestat_slotsec_;
     }
-    LOGTRACE << "Finegrain slot length " << hist_config.finestat_slotsec_ << " sec, "
-             << "slots " << hist_config.finestat_slots_ << "; coarsegrain slot length "
-             << hist_config.coarsestat_slotsec_ << " sec, slots " << hist_config.coarsestat_slots_
-             << " Will update coarse grain stats every " << tmperiod_sec_ << " sec";
 
-    // start the timer
-    fds_bool_t ret = process_tm_->scheduleRepeated(process_tm_task_,
-                                                   std::chrono::seconds(tmperiod_sec_));
+    // align timestamp to the length of finestat slot
+    start_time_ = util::getTimeStampNanos();
+    fds_uint64_t freq_nanos = hist_config.finestat_slotsec_ * NANOS_IN_SECOND;
+    start_time_ = start_time_ / freq_nanos;
+    start_time_ = start_time_ * freq_nanos;
+
+    root->fds_mkdir(root->dir_sys_repo_stats().c_str());
+
+    /**
+     * This sets up our internal streams of stats to the XDI server from
+     * where they eventually wind up in the InfluxDB database.
+     */
+    fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
+    minLogReg->id = MinLogRegId;
+    minLogReg->method = "log-local";
+    minLogReg->sample_freq_seconds = StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1; // Smallest allowed streaming period.
+    minLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
+
+    fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
+    hourLogReg->id = HourLogRegId;
+    hourLogReg->method = "log-local";
+    fds_assert(StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*30 == 3600);  // We want this to be an hour and it has to be a multiple of StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec.
+    hourLogReg->sample_freq_seconds = StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*30;
+    hourLogReg->duration_seconds = StatConstants::singleton()->FdsStatRunForever;
+
+    registerStream(minLogReg);
+    registerStream(hourLogReg);
+
+    /**
+     * This sets up our internal aggregation of fine-grained stats into coarse-grained stats.
+     */
+    LOGTRACE << "Finegrain slot period " << hist_config.finestat_slotsec_ << " seconds, "
+             << "slots " << hist_config.finestat_slots_ << "; coarsegrain slot period "
+             << hist_config.coarsestat_slotsec_ << " seconds, slots " << hist_config.coarsestat_slots_
+             << ". Will update coarse grain stats every " << StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec << " seconds.";
+
+    fds_bool_t ret = aggregate_stats_->scheduleRepeated(aggregate_stats_task_,
+                                                        std::chrono::seconds(StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec));
+
     if (!ret) {
         LOGTRACE << "Failed to schedule timer for logging volume stats!";
     }
@@ -417,20 +409,37 @@ Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
 Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr registration) {
     if (!registration->sample_freq_seconds || !registration->duration_seconds) {
         return ERR_INVALID_ARG;
-    } else if (registration->sample_freq_seconds != 60 &&
-            registration->sample_freq_seconds != 3600) {
+    } else if (registration->sample_freq_seconds % StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec != 0) {
         return ERR_INVALID_ARG;
-    } else if (registration->duration_seconds % registration->sample_freq_seconds) {
+    } else if ((registration->duration_seconds % registration->sample_freq_seconds) &&
+                (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever)) {
         return ERR_INVALID_ARG;
     }
 
-    LOGTRACE << "Adding streaming registration with id " << registration->id;
+    LOGTRACE << "Adding streaming registration with id <" << registration->id
+             << "> and a stream period of <" << registration->sample_freq_seconds << "> seconds.";
 
+    /**
+     * Schedule the task to repeatedly stream stats at the expiration of our interval.
+     */
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
-    FdsTimerTaskPtr task(new StatStreamTimerTask(timer_, registration, *this, dataManager_));
-    statStreamTaskMap_[registration->id] = task;
-    timer_.scheduleRepeated(task, std::chrono::seconds(registration->duration_seconds));
+    FdsTimerTaskPtr statStreamTask(new StatStreamTimerTask(streamTimer_, registration, *this, dataManager_));
+    statStreamTaskMap_[registration->id] = statStreamTask;
+    streamTimer_.scheduleRepeated(statStreamTask, std::chrono::seconds(registration->sample_freq_seconds));
+
+    /**
+     * Schedule the task to cancel our stream stats task at the expiration of our duration unless
+     * we are asked to run the task indefinitely.
+     */
+    if (registration->duration_seconds != StatConstants::singleton()->FdsStatRunForever) {
+        LOGTRACE << "Streaming registration with id <" << registration->id << "> to be canceled after <"
+                        << registration->duration_seconds << "> seconds.";
+        FdsTimerTaskPtr statStreamCancelTask(
+                new StatStreamCancelTimerTask(cancelTimer_, streamTimer_, registration->id, statStreamTask));
+        cancelTimer_.schedule(statStreamCancelTask, std::chrono::seconds(registration->duration_seconds));
+    }
+
     return ERR_OK;
 }
 
@@ -439,7 +448,7 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     LOGTRACE << "Removing streaming registration with id " << reg_id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
-    timer_.cancel(statStreamTaskMap_[reg_id]);
+    streamTimer_.cancel(statStreamTaskMap_[reg_id]);
     statStreamTaskMap_.erase(reg_id);
     statStreamRegistrations_.erase(reg_id);
     return err;
@@ -448,22 +457,44 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
 Error
 StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg) {
     Error err(ERR_OK);
-    fds_uint64_t remote_start_ts = stream_msg->start_timestamp;
+
     for (fds_uint32_t i = 0; i < (stream_msg->volstats).size(); ++i) {
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
-        LOGTRACE << "Received stats for volume " << std::hex << vstats.volume_id
-                 << std::dec << " timestamp " << remote_start_ts;
+        LOGTRACE << "Received fdsp stats for volume " << std::hex << vstats.volume_id
+                 << std::dec << " timestamp " << stream_msg->start_timestamp;
+
         VolumeStats::ptr volstats = getVolumeStats(fds_volid_t(vstats.volume_id));
         if (!volstats) {
           LOGTRACE << "Volume " << fds_volid_t(vstats.volume_id)
                << " is not attached to the aggregator! Ignoring stats";
           continue;
         }
-        err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
+
+        err = (volstats->finegrain_hist_)->mergeSlots(vstats, stream_msg->start_timestamp);
         fds_verify(err.ok());  // if err, prob de-serialize issue
         LOGTRACE << *(volstats->finegrain_hist_);
     }
     return err;
+}
+
+//
+// merge local stats for a given volume
+//
+void
+StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
+                                             fds_volid_t volume_id,
+                                             const std::vector<StatSlot>& slots) {
+    LOGTRACE << "Received local stats for volume " << std::hex << volume_id
+             << std::dec << " timestamp " << start_timestamp;
+
+    VolumeStats::ptr volstats = getVolumeStats(volume_id);
+    if (!volstats) {
+        LOGTRACE << "Volume " << std::hex << volume_id << std::dec
+                 << " is not attached to the aggregator! Ignoring stats";
+        return;
+    }
+    (volstats->finegrain_hist_)->mergeSlots(slots);
+    LOGTRACE << *(volstats->finegrain_hist_);
 }
 
 Error
@@ -473,7 +504,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     Error err(ERR_OK);
     char buf[50];
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     const std::string fileName = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
 
@@ -507,8 +538,8 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
         auto selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
-            LOGTRACE << " rsync node id: " << (nodes->get(i)).uuid_get_val()
-                               << "myuuid: " << selfSvcUuid.svc_uuid;
+            //LOGTRACE << " rsync node id: " << (nodes->get(i)).uuid_get_val()
+            //                   << "myuuid: " << selfSvcUuid.svc_uuid;
            if (selfSvcUuid != nodes->get(i).toSvcUuid()) {
                /* Disable volStatSync because we shouldn't be using rsync to sync stats
                 * One reaason is the below code use system() command to run rsync
@@ -527,7 +558,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 Error
 StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     Error err(ERR_OK);
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     const std::string src_dir = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
                                               std::string("/");
     const fpi::SvcUuid & dmSvcUuid = dm_uuid.toSvcUuid();
@@ -540,7 +571,7 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         return ERR_NOT_FOUND;
     }
 
-    std::string node_root = svcmgr->getSvcProperty<std::string>(
+    std::string node_root = svcmgr->getSvcProperty(
         svcmgr->mapToSvcUuid(dmSvcUuid, fpi::FDSP_PLATFORM), "fds_root");
     std::string dst_ip = dmSvcInfo.ip;
 
@@ -574,28 +605,6 @@ StatStreamAggregator::getStatStreamRegDetails(const fds_volid_t & volId,
 }
 
 //
-// merge local stats for a given volume
-//
-void
-StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
-                                             fds_volid_t volume_id,
-                                             const std::vector<StatSlot>& slots) {
-    fds_uint64_t remote_start_ts = start_timestamp;
-
-    LOGTRACE << "Received stats for volume " << std::hex << volume_id
-             << std::dec << " timestamp " << remote_start_ts;
-
-    VolumeStats::ptr volstats = getVolumeStats(volume_id);
-    if (!volstats) {
-        LOGTRACE << "Volume " << std::hex << volume_id << std::dec
-           << " is not attached to the aggregator! Ignoring stats";
-        return;
-    }
-    (volstats->finegrain_hist_)->mergeSlots(slots, remote_start_ts);
-    LOGTRACE << *(volstats->finegrain_hist_);
-}
-
-//
 // called on timer to update coarse grain and long term history for
 // volume stats
 //
@@ -608,7 +617,15 @@ void StatStreamAggregator::processStats() {
     }
     for (auto volId : volumes) {
         VolumeStats::ptr volStat = getVolumeStats(volId);
-        volStat->processStats();
+
+        /**
+         * Perhaps the volume was removed between the time we saw it in
+         * building this copy of the VolStats map and when we try to
+         * get the VolStats here.
+         */
+        if (volStat) {
+            volStat->processStats();
+        }
     }
 }
 
@@ -680,15 +697,32 @@ fds_bool_t StatHelper::getQueueFull(const StatSlot& slot) {
     return (slot.getMin(STAT_AM_QUEUE_FULL) > 4);  // random constant
 }
 
+/**
+ * Aggregate fine-grained stats into coarse-grained stats.
+ *
+ * By default, this runs according to FdsStatFGPeriodSec.
+ */
 void VolStatsTimerTask::runTimerTask() {
     aggr_->processStats();
 }
 
+
+/**
+ * Summarize and stream stats according to registration.
+ *
+ * By default, this runs according to FdsStatPushAndAggregatePeriodSec.
+ */
 void StatStreamTimerTask::runTimerTask() {
     LOGTRACE << "Streaming stats for registration '" << reg_->id << "'";
 
     std::vector<fpi::volumeDataPoints> dataPoints;
 
+    /**
+     * If the stat stream registration object contains
+     * a list of specified volumes, we operate on just
+     * those. Otherwise, we operate on all volumes registered
+     * with our aggregator.
+     */
     std::vector<fds_volid_t> volumes;
     if (reg_->volumes.empty()) {
         for (auto i : statStreamAggr_.volstats_map_) {
@@ -712,15 +746,44 @@ void StatStreamTimerTask::runTimerTask() {
         }
         const std::string & volName = dataManager_.volumeName(volId);
 
-        VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
-                volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
-        fds_uint64_t last_ts = (vol_last_ts_.count(volId) > 0) ? vol_last_ts_[volId] : 0;
-        vol_last_ts_[volId] = hist->toSlotList(slots, last_ts, 0, 2*FdsStatPushPeriodSec);
+        /**
+         * For non-logLocal registrations, we'll always stream the fine-grained stats because they
+         * are automatically configured as such. For logLocal registrations, we'll stream either
+         * the fine-grained or coarse grained depending upon the stream period designated in the registration message.
+         */
+        VolumePerfHistory::ptr hist = nullptr;
+        if (logLocal) {
+            hist = (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds) ?
+                   volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
+        } else {
+            hist = volStat->finegrain_hist_;
+        }
+
+        /**
+         * Where did we leave off?
+         */
+        auto last_rel_sec = (vol_last_rel_sec_.count(volId) > 0) ? vol_last_rel_sec_[volId] : 0;
+
+        /**
+         * For reporting fine-grained stats, we want to ignore the last few seconds of stat generation
+         * to give remote services enough time to send them to us for aggregation. Otherwise, they get
+         * left out, or worse, appear later perhaps resulting in a change in history!
+         *
+         * How many seconds should we ignore? We'll wait some multiple of the number of seconds configured
+         * for the period, the expiration of which causes remote services to push their stats to us and triggers
+         * us to aggregate them for the volume.
+         */
+        auto last_secs_to_ignore = (hist == volStat->finegrain_hist_) ?
+                                    StatConstants::singleton()->FdsStatCollectionWaitMult *
+                                            StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec :
+                                    0;
+
+        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, last_secs_to_ignore);
 
         for (auto slot : slots) {
-            fds_uint64_t timestamp = hist->getTimestamp((slot).getTimestamp());
+            fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
 
-            timestamp /= 1000 * 1000 * 1000;
+            timestamp /= NANOS_IN_SECOND;
 
             fpi::DataPointPair putsDP;
             putsDP.key = "Puts";
@@ -819,8 +882,13 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPoint.meta_list = dp.second;
 
             if (logLocal) {
+                /**
+                 * We have local logging hard-coded to 1 minute and 1 hour. We recognize which
+                 * we are working with by checking whether the sample frequency is set to the
+                 * smallest allowed value.
+                 */
                 statStreamAggr_.writeStatsLog(volDataPoint, volId,
-                        60 == reg_->sample_freq_seconds);
+                        (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds));
             }
             dataPoints.push_back(volDataPoint);
         }
@@ -843,4 +911,21 @@ void StatStreamTimerTask::runTimerTask() {
         }
     }
 }
+
+StatStreamCancelTimerTask::StatStreamCancelTimerTask(FdsTimer& cancelTimer,
+                                                     FdsTimer& streamTimer,
+                                                     std::int32_t reg_id,
+                                                     FdsTimerTaskPtr statStreamTask) :
+                                FdsTimerTask(cancelTimer),
+                                streamTimer(streamTimer),
+                                reg_id(reg_id),
+                                statStreamTask(statStreamTask) {
+}
+
+void StatStreamCancelTimerTask::runTimerTask() {
+    LOGTRACE << "Streaming stats registration with id <" << reg_id << "> has expired.";
+
+    streamTimer.cancel(statStreamTask);
+}
+
 }  // namespace fds

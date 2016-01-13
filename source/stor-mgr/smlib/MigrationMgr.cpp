@@ -101,8 +101,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         return err;
     }
 
-    retryTokenMigrationTask.reset(new FdsTimerFunctionTask(mTimer,
-                                                           std::bind(
+    retryTokenMigrationTask.reset(new FdsTimerFunctionTask(std::bind(
                                                              &MigrationMgr::checkAndRetryMigration,
                                                              this)));
     int retryTimePeriod = 2;
@@ -595,10 +594,14 @@ MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
                              << " for the DLT token " << dltToken << " returning error";
                     return false;
                 }
+                NodeUuid executorNodeUuid(executorSmUuid);
+
+                if (cit->first == executorNodeUuid) {
+                    return false;
+                }
 
                 // see if it has higher responsibility for the DLT token
                 DltTokenGroupPtr smGroup = dlt->getNodes(dltToken);
-                NodeUuid executorNodeUuid(executorSmUuid);
                 // see which SM we find first
                 for (uint i = 0; i < smGroup->getLength(); ++i) {
                     if (smGroup->get(i) == executorNodeUuid) {
@@ -1212,9 +1215,9 @@ MigrationMgr::handleDltClose(const DLT* dlt,
 }
 
 void
-MigrationMgr::notifyDltUpdate(const DLT *dlt,
-                              fds_uint32_t bitsPerDltToken,
-                              const NodeUuid& mySvcUuid)
+MigrationMgr::makeTokensAvailable(const DLT *dlt,
+                                  fds_uint32_t bitsPerDltToken,
+                                  const NodeUuid& mySvcUuid)
 {
     if (!isMigrationInProgress()) {
         fds_verify(bitsPerDltToken > 0);
@@ -1449,7 +1452,6 @@ MigrationMgr::abortMigration(const Error& error)
      * running executors to exit and then abort the migration.
      */
      tryAbortingMigrationTask.reset(new FdsTimerFunctionTask(
-                                                    abortTimer,
                                                     std::bind(&MigrationMgr::tryAbortingMigration,
                                                               this)));
     int tryAbortInterval = 1;

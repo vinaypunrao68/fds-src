@@ -25,9 +25,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceStats = { series: [] };
     $scope.performanceItems = [];
     $scope.capacityItems = [];
-    $scope.capacityLineStipples = [ '2,2', 'none' ];
-    $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
-    $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
+    $scope.capacityLineStipples = [ '2,2'];
+    $scope.capacityLineColors = [ '#78B5FA'];
+    $scope.capacityColors = [ '#ABD3F5'];
     $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
@@ -141,10 +141,24 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return '';
         }
         
+        if ( $scope.thisVolume.settings.type == 'ISCSI' ){
+            return 'iSCSI';
+        }
+        
         var firstLetter = $scope.thisVolume.settings.type.substr( 0, 1 ).toUpperCase();
         var theRest = $scope.thisVolume.settings.type.substr( 1 ).toLowerCase();
         
         return firstLetter + theRest;
+    };
+    
+    $scope.getAllocatedSize = function(){
+        
+        if ( angular.isDefined( $scope.thisVolume.settings ) && angular.isDefined( $scope.thisVolume.settings.capacity ) ){
+            var sizeString = $byte_converter.convertBytesToString( $scope.thisVolume.settings.capacity.value, 0 );
+            return sizeString;
+        }
+        
+        return '';
     };
 
     $scope.formatDate = function( ms ){
@@ -170,15 +184,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             }
         }
         
-        $scope.physicalLabel = getCapacityLegendText( pbyteSeries, 'volumes.view.desc_dedup_suffix' );
         $scope.logicalLabel = getCapacityLegendText( lbyteSeries, 'volumes.view.desc_logical_suffix' );
+        var lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
         
-        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        var parts = $byte_converter.convertBytesToString( lbyteTotal );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
-        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
-            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        $scope.capacityItems = [{number: num, description: $filter( 'translate' )( 'status.desc_logical_capacity_used' ), suffix: parts[1]}];
     };
     
     $scope.performanceReturned = function( data ){
@@ -211,7 +224,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var now = new Date();
         
         capacityQuery = StatQueryFilter.create( [$scope.thisVolume], 
-            [StatQueryFilter.PHYSICAL_CAPACITY,StatQueryFilter.LOGICAL_CAPACITY], 
+            [StatQueryFilter.LOGICAL_CAPACITY], 
             Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
@@ -451,8 +464,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             $scope.snapshots = data;
             initTimeline();
         });
-
-//        $scope.dataConnector = $scope.thisVolume.data_connector;
 
         $volume_api.getQosPolicyPresets( function( presets ){
             
