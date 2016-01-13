@@ -1432,20 +1432,20 @@ namespace fds
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") " << message << ".";
 
-            fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
+            fpi::NotifyHealthReportPtr healthMessage (new fpi::NotifyHealthReport());
 
-            message->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
-            message->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
-            message->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
-            message->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
-            message->healthReport.serviceState = state;
-            message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
-            message->healthReport.statusInfo = textualContent.str();
+            healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+            healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
+            healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+            healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
+            healthMessage->healthReport.serviceState = state;
+            healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
+            healthMessage->healthReport.statusInfo = textualContent.str();
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
 
-            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), message);
+            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthMessage);
             request->invoke();
         }
 
