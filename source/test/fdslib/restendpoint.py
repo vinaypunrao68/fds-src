@@ -261,54 +261,34 @@ class VolumeEndpoint:
 
     def __init__(self, rest):
         self.rest = rest
-        self.rest_path = self.rest.base_path + '/api/config/volumes'
+        self.rest_path = self.rest.base_path + '/fds/config/v08/volumes'
 
-    def createVolume(self, volume_name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
+    def createVolume(self, name, priority, sla, limit, vol_type, size=10*1024, unit="MB", 
                     media_policy='hdd', commit_log_retention=86400, max_object_size=0):
 
-        if vol_type == "object":
-            data_connector = {"api":"S3,Swift","type":"OBJECT"}
-        elif vol_type == "block":
-            data_connector = { "api":"Basic,Cinder",
-                               "type":"BLOCK",
-                               "attributes":{
-                                    "size": str(size),
-                                    "unit": unit
-                                    }
-                             }
-        else:
-            raise Exception("This vol_type is not defined: " + vol_type)
+        volume={u'accessPolicy': {u'exclusiveRead': True, u'exclusiveWrite': True},
+                u'application': u'Application',
+                u'created': {u'nanos': 0, u'seconds': u'0'},
+                u'dataProtectionPolicy': {u'commitLogRetention': {u'nanos': 0,
+                                                                  u'seconds': u'86400'},
+                                          u'snapshotPolicies': []},
+                u'mediaPolicy': u'HYBRID',
+                u'name': u'prem',
+                u'qosPolicy': {u'iopsMax': 0, u'iopsMin': 0, u'priority': 10},
+                u'settings': {u'maxObjectSize': {u'unit': u'B', u'value': 2097152},
+                              u'type': u'OBJECT'},
+                u'uid': u'3' }
 
-        if media_policy == "hdd":
-            media_policy = "HDD_ONLY"
-        elif media_policy == "ssd":
-            media_policy = "SSD_ONLY"
-        elif media_policy == "hybrid":
-            media_policy = "HYBRID_ONLY"
-        else:
-            raise Exception("This media_policy is not defined: " + media_policy)
+        volume['uid'] = 0
+        volume['name'] = name
+        volume['settings']['type'] = vol_type.upper()
+        volume['settings']['maxObjectSize']['unit'] = 'B'
+        volume['settings']['maxObjectSize']['value'] = max_object_size
+        volume['dataProtectionPolicy']['commitLogRetention']['seconds'] = commit_log_retention
 
-        request= {
-             'name' : volume_name,
-             'priority' : int(priority),
-             'sla': int(sla),
-             'limit': int(limit),
-             'data_connector': data_connector,
-            'mediaPolicy': media_policy,
-            'commit_log_retention': commit_log_retention,
-            'max_object_size' : max_object_size,
-        }
-
-        res = self.rest.post(self.rest_path, data=json.dumps(request))
+        res = self.rest.post(self.rest_path, data=json.dumps(volume))
         res = self.rest.parse_result(res)
-
-        if type(res) != dict or 'status' not in res:
-            return None
-        else:
-            if res['status'].lower() != 'ok':
-                return None
-            else:
-                return res['status']
+        return res
 
     def deleteVolume(self, volume_name):
         path = '{}/{}'.format(self.rest_path, volume_name)
@@ -378,6 +358,15 @@ class VolumeEndpoint:
 
         path = '{}/{}'.format(self.rest_path, str(vol_id))
         res = self.rest.put(path, data=json.dumps(request_body))
+        res = self.rest.parse_result(res)
+        if res is not None:
+            return res
+        else:
+            return None
+
+    def modify(self, volume):
+        path = '{}/{}'.format(self.rest_path, str(volume['uid']))
+        res = self.rest.put(path, data=json.dumps(volume))
         res = self.rest.parse_result(res)
         if res is not None:
             return res

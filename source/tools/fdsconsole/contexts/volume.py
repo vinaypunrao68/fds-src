@@ -127,34 +127,46 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('vol-name', help='-volume name')
-    @arg('--minimum', help='-qos minimum guarantee', type=int)
-    @arg('--maximum', help='-qos maximum', type=int)
-    @arg('--priority', help='-qos priority', type=int)
-    def modify(self, vol_name, domain='abc', max_obj_size=2097152, tenant_id=1,
-               minimum=0, maximum=0, priority=10):
+    @arg('volume', help='-volume name/id')
+    @arg('--minimum', help='-qos minimum guarantee')
+    @arg('--maximum', help='-qos maximum')
+    @arg('--priority', help='-qos priority')
+    @arg('--commit_log_retention', help="journal log retention in seconds")
+    def modify(self, volume, minimum=None, maximum=None, priority=None, commit_log_retention=None):
         'modify an existing volume'
         try:
+            if minimum == None and maximum==None and priority==None and commit_log_retention==None:
+                print 'please specify one of [minimum, maximum, priority, commit_log_retention]'
+                return
             vols = self.restApi().listVolumes()
-            vol_id = None
-            mediaPolicy = None
-            commit_log_retention = None
+            volId = self.getVolumeId(volume)
+            volume = ServiceMap.omConfig().getVolumeName(int(volId))
+            thisVol = None
             for vol in vols:
-                if vol['name'] == vol_name:
-                    vol_id = vol['id']
-                    mediaPolicy = vol['mediaPolicy']
-                    commit_log_retention= vol['commit_log_retention']
-            assert not vol_id is None
-            assert not mediaPolicy is None
-            assert not commit_log_retention is None
-            res = self.restApi().setVolumeParams(vol_id, minimum, priority, maximum, mediaPolicy, commit_log_retention)
+                if vol['name'] == volume:
+                    thisVol=vol
+                    break
+
+            if thisVol:
+                if commit_log_retention != None:
+                    thisVol['dataProtectionPolicy']['commitLogRetention']['seconds'] = int(commit_log_retention)
+                if priority != None:
+                    thisVol['qosPolicy']['priority'] = int(priority)
+                if minimum != None:
+                    thisVol['qosPolicy']['iopsMin'] = int(minimum)
+                if maximum != None:
+                    thisVol['qosPolicy']['iopsMax'] = int(maximum)
+
+            res = self.restApi().modify(thisVol)
+            print thisVol
+            print res
             return
         except ApiException, e:
             log.exception(e)
         except Exception, e:
             log.exception(e)
 
-        return 'modify volume failed: {}'.format(vol_name)
+        print 'modify volume failed: {}'.format(volume)
 
 
     #--------------------------------------------------------------------------------------
