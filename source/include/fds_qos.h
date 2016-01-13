@@ -443,6 +443,7 @@ namespace fds {
                     fds_verify(n_oios < 2 * max_outstanding_ios);
                 }
             }
+            --n_oios;
 
             io->io_done_ts = util::getTimeStampNanos();
             fds_uint64_t wait_nano = io->dispatch_ts - io->enqueue_ts;
@@ -458,7 +459,7 @@ namespace fds {
                    << " completed in " << io->io_service_time
                    << " usecs with a wait time of " << io->io_wait_time
                    << " usecs with total io time of " << io->io_total_time
-                   << " usecs. # of outstanding ios = " << --n_oios;
+                   << " usecs. # of outstanding ios = " << n_oios;
 
             return n_oios;
         }
