@@ -25,8 +25,8 @@ public class CreateBucket implements SyncRequestHandler {
     @Override
     public Resource handle(HttpContext context) throws Exception {
         String bucketName = context.getRouteParameter("bucket");
-        long tenantId = xdi.getAuthorizer().tenantId(token);
-        xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId, 24*60*60 /** one day **/, MediaPolicy.HDD_ONLY));
+        VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, Long.MAX_VALUE, 24 * 60 * 60 /** one day **/, MediaPolicy.HDD_ONLY);
+        xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, volumeSettings);
         return new TextResource("");
     }
 }
