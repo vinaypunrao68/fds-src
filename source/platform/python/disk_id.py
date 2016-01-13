@@ -300,6 +300,7 @@ def disk_type_with_stor_cli (stor_client):
 def find_index_devices() :
     output = subprocess.Popen(["df", "/fds/sys-repo"], stdout=subprocess.PIPE).stdout
     index_devs = []
+    dev = ""
     for line in output:
         items = line.strip ('\r\n').split()
         if "/fds/sys-repo" == items[5]:
