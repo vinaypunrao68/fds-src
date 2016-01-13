@@ -270,7 +270,6 @@ public class Redis
         try ( Jedis jedis = pool.getResource( ) )
         {
             final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
-            System.out.println( byNodes );
             used = byNodes.values().stream().mapToLong( Long::valueOf ).sum( );
         }
 
