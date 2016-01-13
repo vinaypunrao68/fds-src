@@ -190,6 +190,15 @@ namespace fds {
             if (que) {que->quiesceIOs();}
         }
 
+        virtual void quiesceIOs()
+        {
+            LOGDEBUG << "Quiescing all queues.";
+            SCOPEDREAD(qda_lock);
+            for (auto& queue_pair : queue_map) {
+                queue_pair.second->quiesceIOs();
+            }
+        }
+
         virtual void suspendQueue(fds_qid_t queue_id)
         {
             FDS_VolumeQueue *que = getQueue(queue_id);

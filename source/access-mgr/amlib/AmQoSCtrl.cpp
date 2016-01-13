@@ -45,11 +45,6 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
-    // If we were told to stop and have drained the queue, stop
-    ReadGuard rg(stop_lock);
-    if (stopping && 0 == htb_dispatcher->num_pending_ios) {
-        FDS_QoSControl::stop();
-    }
     return ERR_OK;
 }
 
@@ -66,6 +61,14 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
         return AmDataProvider::unknownTypeCb(amReq, error);
     }
     auto remaining = htb_dispatcher->markIODone(amReq);
+    // If we were told to stop and have drained the queue, stop
+    {
+        ReadGuard rg(stop_lock);
+        if (stopping && 0 == remaining && 0 == htb_dispatcher->num_pending_ios) {
+            FDS_QoSControl::stop();
+            AmDataProvider::stop();
+        }
+    }
 
     switch (amReq->io_type) {
     case fds::FDS_IO_WRITE:
@@ -129,6 +132,10 @@ AmQoSCtrl::done() {
 void
 AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
+    {
+        ReadGuard rg(stop_lock);
+        if (stopping) return;
+    }
     auto queue = getQueue(volDesc.volUUID);
     if (!queue && !volDesc.isSnapshot()) {
         queue = new FDS_VolumeQueue(4096,
@@ -171,7 +178,7 @@ void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     Error err {ERR_OK};
     {
         ReadGuard rg(stop_lock);
-        err = (!stopping) ? htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq) : ERR_SHUTTING_DOWN;
+        err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
     }
     if (ERR_OK != err) {
         GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
@@ -186,11 +193,12 @@ AmQoSCtrl::stop() {
     {
         WriteGuard wg(stop_lock);
         stopping = true;
-        if (0 == htb_dispatcher->num_pending_ios) {
+        htb_dispatcher->quiesceIOs();
+        if (0 == htb_dispatcher->num_pending_ios && 0 == htb_dispatcher->num_outstanding_ios) {
             FDS_QoSControl::stop();
+            AmDataProvider::stop();
         }
     }
-    AmDataProvider::stop();
 }
 
 }  // namespace fds

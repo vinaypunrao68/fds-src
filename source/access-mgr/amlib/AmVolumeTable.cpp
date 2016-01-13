@@ -168,6 +168,7 @@ AmVolumeTable::stop() {
             if (invalid_vol_token != token) {
                 auto volReq = new DetachVolumeReq(vol->voldesc->volUUID, vol->voldesc->name, nullptr);
                 volReq->token = token;
+                volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 AmDataProvider::closeVolume(volReq);
             }
         }
@@ -248,10 +249,8 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
         if (vol->writable()) {
             auto volReq = new DetachVolumeReq(volDesc.volUUID, volDesc.name, nullptr);
             volReq->token = vol->getToken();
+            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
             LOGNOTIFY << "Releasing lease on: " << volDesc.name;
-            fpi::VolumeAccessMode ro;
-            ro.can_write = false; ro.can_cache = false;
-            vol->setToken(AmVolumeAccessToken(ro, invalid_vol_token));
             AmDataProvider::closeVolume(volReq);
         }
         // Remove the volume from the caches (if there is one)
