@@ -42,10 +42,11 @@ def newSvcMsgByTypeId(typeId):
     thObj = None
     if hasattr(thismodule, thType):
         thObj = getattr(thismodule, thType)()
-        log.error('unable to find thrift object : {}'.format(thType))
     else:
         thType = thType.replace('RspMsg','MsgRsp')
         thObj = getattr(thismodule, thType)()
+    if thObj is None:
+        log.error('unable to find thrift object : {}'.format(thType))
     return thObj
 
 def getMsgTypeId(msg):

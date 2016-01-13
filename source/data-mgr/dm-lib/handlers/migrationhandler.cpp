@@ -162,7 +162,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
@@ -215,7 +215,7 @@ void DmMigrationDeltaBlobHandler::handleRequest(
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);

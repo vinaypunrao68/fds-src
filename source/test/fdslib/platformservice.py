@@ -96,7 +96,7 @@ class PlatSvc(object):
         svcinfo.svc_auto_name = 'Formation Console Service';
         # TODO(Rao): Get IP
         svcinfo.ip = '127.0.0.1'
-        svcinfo.incarnationNo = 0;
+        svcinfo.incarnationNo = int(time.time());
         svcinfo.name = 'Formation Console';
         svcinfo.props = {};
         # send registration message to OM
@@ -107,7 +107,8 @@ class PlatSvc(object):
         self.serverSock = TSocket.TServerSocket(port=self.basePort)
         tfactory = TTransport.TFramedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-        self.server = TServer.TSimpleServer(processor, self.serverSock, tfactory, pfactory)
+        self.server = TServer.TThreadedServer(processor, self.serverSock, tfactory, pfactory, daemon=True)
+        #self.server = TServer.TSimpleServer(processor, self.serverSock, tfactory, pfactory)
         #self.server = TNonblockingServer.TNonblockingServer(processor, self.serverSock, tfactory, pfactory)
         self.serverThread = threading.Thread(target=self.serve)
         # TODO(Rao): This shouldn't be deamonized.  Without daemonizing running into
