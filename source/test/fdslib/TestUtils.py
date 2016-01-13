@@ -470,7 +470,7 @@ def convertor(volume, fdscfg):
 
 def get_inventory_value(inventory_file, key_name):
     '''
-    Parse the given Ansible inventory file given as parameter to this
+    Parse the given Ansible inventory file given as argument to this
     function, and find a value for the given key
 
     Arguments:
@@ -487,8 +487,9 @@ def get_inventory_value(inventory_file, key_name):
     '''
     inventory_path = os.path.join(ANSIBLE_INVENTORY, inventory_file)
     result = None
-    if key_name is None:
-        return result
+    if not key_name:
+        log.error("Missing required argument");
+        raise Exception
     with open(inventory_path, 'r') as f:
         records = f.readlines()
         for record in records:
