@@ -26,6 +26,7 @@ namespace fds
             REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStartServiceMsg, startService);
             REGISTER_FDSP_MSG_HANDLER (fpi::NotifyStopServiceMsg, stopService);
             REGISTER_FDSP_MSG_HANDLER (fpi::HeartbeatMessage, heartbeatCheck);
+            REGISTER_FDSP_MSG_HANDLER (fpi::PrepareForShutdownMsg, prepareForShutdown);
         }
 
 /* to be deprecated START */
@@ -69,6 +70,12 @@ namespace fds
         void SvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::HeartbeatMessage> &heartbeatMessage)
         {
             platform->heartbeatCheck(heartbeatMessage);
+            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+
+        void SvcHandler::prepareForShutdown(boost::shared_ptr<fpi::AsyncHdr>& hdr, boost::shared_ptr<fpi::PrepareForShutdownMsg>& message)
+        {
+            platform->setAutoRestartFailedProcesses(false);
             sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         }
 

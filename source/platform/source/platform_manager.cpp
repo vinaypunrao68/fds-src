@@ -1200,6 +1200,11 @@ namespace fds
             props.setInt ("disk_type", diskCapability.disk_type);
         }
 
+        void PlatformManager::setAutoRestartFailedProcesses(bool const value)
+        {
+            m_autoRestartFailedProcesses = value;
+        }
+
         // TODO: this needs to populate real data from the disk module labels etc.
         // it may want to load the value from the database and validate it against
         // DiskPlatModule data, or just load from the DiskPlatModule and be done
