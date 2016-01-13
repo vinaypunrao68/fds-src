@@ -43,8 +43,19 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
     LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    auto vol_id = io->io_vol_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
+    {
+        ReadGuard rg(queue_lock);
+        auto queue = getQueue(vol_id);
+        // If this queue was quiesced and empty, remove it
+        if (queue && FDS_VOL_Q_SUSPENDED == queue->volQState && 0 == queue->count()) {
+            htb_dispatcher->deregisterQueue(vol_id.get());
+            delete queue;
+        }
+    }
+
     return ERR_OK;
 }
 
@@ -63,7 +74,7 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     auto remaining = htb_dispatcher->markIODone(amReq);
     // If we were told to stop and have drained the queue, stop
     {
-        ReadGuard rg(stop_lock);
+        ReadGuard rg(queue_lock);
         if (stopping && 0 == remaining && 0 == htb_dispatcher->num_pending_ios) {
             FDS_QoSControl::stop();
             AmDataProvider::stop();
@@ -133,22 +144,25 @@ void
 AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
     {
-        ReadGuard rg(stop_lock);
-        if (stopping) return;
-    }
-    auto queue = getQueue(volDesc.volUUID);
-    if (!queue && !volDesc.isSnapshot()) {
-        queue = new FDS_VolumeQueue(4096,
-                                    volDesc.iops_throttle,
-                                    volDesc.iops_assured,
-                                    volDesc.relativePrio);
-        htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
-        queue->activate();
-    } else {
-        htb_dispatcher->modifyQueueQosParams(volDesc.volUUID.get(),
-                                             volDesc.iops_assured,
-                                             volDesc.iops_throttle,
-                                             volDesc.relativePrio);
+        WriteGuard wg(queue_lock);
+        if (stopping || volDesc.isSnapshot()) return;
+        auto queue = getQueue(volDesc.volUUID);
+        if (!queue) {
+            queue = new FDS_VolumeQueue(4096,
+                                        volDesc.iops_throttle,
+                                        volDesc.iops_assured,
+                                        volDesc.relativePrio);
+            if (ERR_OK != htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue)) {
+                delete queue;
+                return;
+            }
+            queue->activate();
+        } else {
+            htb_dispatcher->modifyQueueQosParams(volDesc.volUUID.get(),
+                                                 volDesc.iops_assured,
+                                                 volDesc.iops_throttle,
+                                                 volDesc.relativePrio);
+        }
     }
     AmDataProvider::registerVolume(volDesc);
 }
@@ -166,8 +180,16 @@ AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
  */
 void
 AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
-    htb_dispatcher->quiesceIOs(volDesc.volUUID.get());
-
+    {
+        WriteGuard wg(queue_lock);
+        auto queue = getQueue(volDesc.volUUID);
+        if (0 != queue->count()) {
+            queue->quiesceIOs();
+        } else {
+            htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
+            delete queue;
+        }
+    }
     AmDataProvider::removeVolume(volDesc);
 }
 
@@ -177,7 +199,7 @@ void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
     Error err {ERR_OK};
     {
-        ReadGuard rg(stop_lock);
+        ReadGuard rg(queue_lock);
         err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
     }
     if (ERR_OK != err) {
@@ -191,7 +213,7 @@ void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
 void
 AmQoSCtrl::stop() {
     {
-        WriteGuard wg(stop_lock);
+        WriteGuard wg(queue_lock);
         stopping = true;
         htb_dispatcher->quiesceIOs();
         if (0 == htb_dispatcher->num_pending_ios && 0 == htb_dispatcher->num_outstanding_ios) {

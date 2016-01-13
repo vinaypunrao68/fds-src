@@ -115,7 +115,7 @@ class AmQoSCtrl :
     { completeRequest(amReq, error); }
 
  private:
-    mutable fds_rwlock stop_lock;
+    mutable fds_rwlock queue_lock;
     bool stopping {false};
 
     void enqueueRequest(AmRequest *amReq);

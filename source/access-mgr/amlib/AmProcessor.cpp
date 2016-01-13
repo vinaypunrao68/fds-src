@@ -215,7 +215,6 @@ void AmProcessor_impl::stopAndWait() {
 }
 
 void AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
-    AmDataProvider::registerVolume(volDesc);
     // Alert connectors to the new volume
     parent_mod->volumeAdded(volDesc);
 }
