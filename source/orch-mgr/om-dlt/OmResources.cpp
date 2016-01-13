@@ -1752,6 +1752,8 @@ OM_NodeDomainMod::om_load_volumes()
 
     std::vector<VolumeDesc> vecVolumes;
     std::vector<VolumeDesc>::const_iterator volumeIter;
+    VolumeContainer::pointer volContainer = om_locDomain->om_vol_mgr();
+
     configDB->getVolumes(vecVolumes, my_domainId);
     if (vecVolumes.empty()) {
         LOGDEBUG << "no volumes found for domain "
@@ -1773,11 +1775,15 @@ OM_NodeDomainMod::om_load_volumes()
             LOGERROR << "unable to add volume "
                      << "[" << volume.volUUID << ":" << volume.name << "]";
         }
+
+        if (volume.isStateMarkedForDeletion()) {
+            volContainer->addToDeleteVols(volume);
+        }
     }
 
     // load snapshots
     std::vector<fpi::Snapshot> vecSnapshots;
-    VolumeContainer::pointer volContainer = om_locDomain->om_vol_mgr();
+
     for (const auto& volumeDesc : vecVolumes) {
         vecSnapshots.clear();
         configDB->listSnapshots(vecSnapshots, volumeDesc.volUUID);
