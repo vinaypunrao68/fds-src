@@ -21,6 +21,7 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
@@ -48,8 +49,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static com.formationds.client.v08.model.nfs.NfsClients.*;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
@@ -271,11 +270,33 @@ public class ExternalModelConverter {
 
         Size extUsage = Size.of( 0L, SizeUnit.B );
 
-        if ( optionalStatus.isPresent() ) {
-            com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
-
-            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+        /**
+         * We used to do the following in an attempt to get current usage. It seems to try to
+         * make use of collected volume stats.
+         */
+        //if ( optionalStatus.isPresent() ) {
+        //    com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
+        //
+        //    extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+        //}
+        /**
+         * But currently (01/07/2016) there seems to be some difficulty with this method.
+         * Most likely, given the delay in reporting volume stats, the difficulty is in the
+         * user not waiting long enough to see stats appear. However, should the user have to
+         * wait for stats that are delayed a number of minutes from present to get a count
+         * of bytes currently used by a volume?
+         */
+        com.formationds.apis.VolumeStatus volumeStatus;
+        try {
+            volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
+                                                                        internalVolume.getName()).get();
+        } catch (Exception e) {
+            logger.error("Unknown Exception: " + e.getMessage());
+            return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
+
+        extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
+        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
@@ -525,17 +546,13 @@ public class ExternalModelConverter {
                              volumeId );
             }
 
-        } else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
+        }
+        else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
         {
+            logger.trace( "NFS::SETTINGS::{}", internalVolume.getPolicy( ) );
             NfsOption nfsOptions = null;
             if ( !internalVolume.getPolicy( )
-                                .isSetNfsOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetOptions( ) ||
-                 !internalVolume.getPolicy( )
-                                .getNfsOptions( )
-                                .isSetClient( ) )
+                                .isSetNfsOptions( ) )
             {
                 final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
                 if( optional.isPresent( ) )
@@ -661,21 +678,44 @@ public class ExternalModelConverter {
         final List<String> listOfOptions =
             Arrays.asList( StringUtils.split( options.getOptions(), "," ) );
 
-        final NfsOptions.Builder[] builder = { new NfsOptions.Builder( ) };
-        listOfOptions.stream()
-                     .forEach( ( option ) -> {
-                        switch( option )
-                        {
-                            case "ro":builder[ 0 ] = builder[ 0 ].ro( ); break;
-                            case "rw":builder[ 0 ] = builder[ 0 ].rw( ); break;
-                            case "acl":builder[ 0 ] = builder[ 0 ].withAcl( ); break;
-                            case "async":builder[ 0 ] = builder[ 0 ].async( ); break;
-                            case "root_squash":builder[ 0 ] = builder[ 0 ].withRootSquash( ); break;
-                            case "no_root_squash":builder[ 0 ] = builder[ 0 ].allSquash( ); break;
-                        }
-                    });
-
-        return builder[ 0 ].build( );
+        NfsOptions.Builder builder = new NfsOptions.Builder( );
+        for( final String option : listOfOptions )
+        {
+            final String lowerCaseVersion = option.toLowerCase();
+            logger.trace( "NFS Option [ '{}' ]", lowerCaseVersion );
+            switch( lowerCaseVersion )
+            {
+                case "ro":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.ro( );
+                    break;
+                case "rw":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.rw( );
+                    break;
+                case "acl":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withAcl( );
+                    break;
+                case "async":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.async( );
+                    break;
+                case "root_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withRootSquash( );
+                case "all_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.allSquash( );
+                    break;
+                default:
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    break;
+            }
+        }
+        final NfsOptions nfsOptions = builder.build();
+        logger.trace( "Internal NFS Options::{} External NFS Options::{}", options, nfsOptions );
+        return nfsOptions;
     }
 
     public static NfsClients convertToExternalNfsClients( final NfsOption options )
@@ -928,7 +968,6 @@ public class ExternalModelConverter {
         else if ( externalVolume.getSettings() instanceof VolumeSettingsNfs )
         {   // NFS volume
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
-            internalSettings.setVolumeType( VolumeType.NFS );
 
             Size maxObjSize = nfsSettings.getMaxObjectSize();
 
@@ -969,6 +1008,7 @@ public class ExternalModelConverter {
             }
 
             internalSettings.setNfsOptions( options );
+            internalSettings.setVolumeType( VolumeType.NFS );
         }
         else // Object Volume
         {
@@ -1071,6 +1111,7 @@ public class ExternalModelConverter {
             target.setOutgoingUsers( convertToInternalOutgoingUsers( iscsi.getTarget().getOutgoingUsers() ) );
 
             volumeType.setIscsi( target );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
 
         } else if ( settings instanceof VolumeSettingsBlock ) {
             VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
@@ -1111,7 +1152,7 @@ public class ExternalModelConverter {
                 volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
             }
 
-            volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_NFS_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 

@@ -88,6 +88,13 @@ class OrchMgr: public SvcProcess {
 
     /* policy manager */
     VolPolicyMgr                    *policy_mgr;
+    /**
+     * @details
+     * Must always point to the same address after initial assignment!
+     * Other objects, such as service handlers, will refer to this address.
+     * TODO: Would prefer to declare the address as const, can not do so
+     * without refactoring of SvcProcess::setupConfigDb_().
+     */
     kvstore::ConfigDB               *configDB;
 
 
@@ -104,6 +111,11 @@ class OrchMgr: public SvcProcess {
 
   protected:
     virtual void setupSvcInfo_() override;
+    /**
+     * @details
+     * Call once only. External service handler objects are known to
+     * cache the configDB address.
+     */
     virtual void setupConfigDb_() override;
 
   public:

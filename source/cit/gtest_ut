@@ -1,4 +1,5 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
+Build/linux-x86_64.debug/tests/configservice_gtest
 Build/linux-x86_64.debug/tests/sqlitedb
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
 Build/linux-x86_64.debug/tests/dm_direct --fds-root=./config/

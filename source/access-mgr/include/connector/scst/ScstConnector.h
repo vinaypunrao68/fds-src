@@ -20,6 +20,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTOR_H_
 
+#include <condition_variable>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -53,8 +54,10 @@ struct ScstConnector
     static unique<ScstConnector> instance_;
 
     size_t threads {1};
+    bool stopping {false};
 
     std::mutex target_lock_;
+    std::condition_variable stopping_condition_;
     std::map<std::string, std::unique_ptr<ScstTarget>> targets_;
 
     ScstConnector(std::string const& prefix,
@@ -65,8 +68,10 @@ struct ScstConnector
     std::string target_prefix;
 
     void addTarget(VolumeDesc const& volDesc);
+    void _addTarget(VolumeDesc const& volDesc);
     void discoverTargets();
     void removeTarget(VolumeDesc const& volDesc);
+    void shutdown();
 };
 
 }  // namespace fds

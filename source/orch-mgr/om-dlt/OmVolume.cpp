@@ -429,7 +429,20 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
-            GLOGDEBUG << "VACT_VolOp:: modify volume";
+            GLOGDEBUG << "VACT_VolOp:: modify volume [ " << vol->vol_get_name() << " ] [ " << vol->vol_get_id() << " ]";
+            if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_NFS_TYPE )
+            {
+                GLOGDEBUG << "NFS:: CLIENT [ " << vol->vol_get_properties()->nfsSettings.client << " ] "
+                          << "OPTIONS [ " << vol->vol_get_properties()->nfsSettings.options << " ]";
+            }
+            else if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_ISCSI_TYPE )
+            {
+                GLOGDEBUG << "iSCSI:: LUN count [ " << vol->vol_get_properties()->iscsiSettings.luns.size() << " ]"
+                          << " Initiator count [ " << vol->vol_get_properties()->iscsiSettings.initiators.size() << " ]"
+                          << " Incoming Users count [ " << vol->vol_get_properties()->iscsiSettings.incomingUsers.size() << " ]"
+                          << " Outgoing Users count [ " << vol->vol_get_properties()->iscsiSettings.outgoingUsers.size() << " ]";
+            }
+
             dst.wait_for_type = om_notify_vol_mod;
             err = vol->vol_modify(evt.vdesc_ptr);
             break;
@@ -1317,10 +1330,36 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                   << " throttle iops " << new_desc->iops_throttle
                   << " priority " << new_desc->relativePrio;
     }
+
     if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {
         new_desc->mediaPolicy = mod_msg->vol_desc.mediaPolicy;
         LOGNOTIFY << "Modify volume " << vname
                   << " also set media policy to " << new_desc->mediaPolicy;
+    }
+
+    LOGNOTIFY << "Modify volume [ " << (mod_msg->vol_desc).vol_name << " ]"
+              << " [ " << (mod_msg->vol_desc).volUUID << " ]"
+              << " [ " << (mod_msg->vol_desc).volType << " ]";
+
+    if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_ISCSI_TYPE )
+    {
+        FDS_ProtocolInterface::IScsiTarget iscsi = ( mod_msg->vol_desc ).iscsi;
+        LOGDEBUG << "iSCSI::before LUN count [ " << iscsi.luns.size() << " ]"
+                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+        new_desc->iscsiSettings = iscsi;
+        LOGDEBUG << "iSCSI::after LUN count [ " << new_desc->iscsiSettings.luns.size() << " ]"
+                 << " Initiator count [ " << new_desc->iscsiSettings.initiators.size() << " ]"
+                 << " Incoming Users count [ " << new_desc->iscsiSettings.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << new_desc->iscsiSettings.outgoingUsers.size() << " ]";
+    }
+    else if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_NFS_TYPE )
+    {
+        FDS_ProtocolInterface::NfsOption nfs = ( mod_msg->vol_desc ).nfs;
+        LOGDEBUG << "NFS::before client [ " << nfs.client << " ] " << " option [ " << nfs.options << " ]";
+        new_desc->nfsSettings = nfs;
+        LOGDEBUG << "NFS::after client [ " << new_desc->nfsSettings.client << " ] " << " option [ " << new_desc->nfsSettings.options << " ]";
     }
 
     vol->vol_event(VolOpEvt(vol.get(),

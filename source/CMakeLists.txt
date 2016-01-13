@@ -104,8 +104,10 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/StatVolumeReq.h
     ./access-mgr/include/requests/VolumeContentsReq.h
     ./access-mgr/include/AccessMgr.h
+    ./access-mgr/include/AmAsyncDataApi.h
     ./access-mgr/include/AmAsyncResponseApi.h
     ./access-mgr/include/AmCache.h
+    ./access-mgr/include/AmDataProvider.h
     ./access-mgr/include/AmDispatcher.h
     ./access-mgr/include/AmProcessor.h
     ./access-mgr/include/AmQoSCtrl.h
@@ -118,6 +120,7 @@ set(SOURCE_FILES
     ./access-mgr/include/AmVolumeTable.h
     ./access-mgr/include/AsyncResponseHandlers.h
     ./access-mgr/include/responsehandler.h
+    ./access-mgr/include/TypeIdMap.h
     ./access-mgr/test/AmFunctionalTest.cpp
 ./access-mgr/test/BlockFunctionalTest.cpp
     ./access-mgr/am-main.cpp

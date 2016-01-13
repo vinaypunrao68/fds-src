@@ -4,6 +4,7 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 
+#include <condition_variable>
 #include <deque>
 #include <map>
 #include <string>
@@ -75,9 +76,9 @@ class BlockOperations
               std::shared_ptr<AmProcessor> processor,
               task_type* resp);
 
+    void abortTask(uint64_t const handle);
+    void abortAllTasks();
     void read(task_type* resp);
-    void read(uint32_t length, uint64_t offset, int64_t handle);
-
     void write(req_api_type::shared_buffer_type& bytes, task_type* resp);
 
     void attachVolumeResp(const error_type &error,
@@ -125,10 +126,12 @@ class BlockOperations
     boost::shared_ptr<int32_t> blobMode;
     boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
-    // for now we are supporting <=4K requests
-    // so keep current handles for which we are waiting responses
+    // keep current handles for which we are waiting responses
     std::mutex respLock;
     response_map_type responses;
+
+    std::condition_variable need_retry;
+    std::deque<handle_type> retryable;
 
     sector_type sector_map;
 
@@ -146,6 +149,8 @@ class BlockOperations
     void volumeStatusResp      (const error_type &, handle_type const&, resp_api_type::shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const error_type &, handle_type const&) override {}  // NOLINT
     void getVolumeMetadataResp (const error_type &, handle_type const&, resp_api_type::shared_meta_type&) override {}  // NOLINT
+
+    void retryLoop();
 };
 
 }  // namespace fds

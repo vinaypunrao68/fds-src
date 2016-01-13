@@ -13,16 +13,23 @@ import java.net.UnknownHostException;
  */
 public class NfsClients
 {
+    private final String client;
     private final String clientPattern;
 
-    public NfsClients( final String pattern  )
+    public NfsClients( final String client  )
         throws UnknownHostException
     {
-        clientPattern = InetAddressMatcher.forPattern( pattern ).getPattern( );
+        this.client = client;
+        clientPattern = InetAddressMatcher.forPattern( client ).getPattern( );
     }
 
     /**
      * @return Returns the client pattern
      */
     public String getClientPattern( ) { return clientPattern; }
+
+    /**
+     * @return Returns the client
+     */
+    public String getClient( ) { return client; }
 }

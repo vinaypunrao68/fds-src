@@ -154,11 +154,11 @@ struct AmDispatcher :
                                                         MultiPrimarySvcRequestRespCb mpCb,
                                                         uint32_t timeout=0) const;
     template<typename Msg>
-    MultiPrimarySvcRequestPtr createMultiPrimaryRequest(ObjectID const& objId,
-                                                        DLT const* dlt,
-                                                        boost::shared_ptr<Msg> const& payload,
-                                                        MultiPrimarySvcRequestRespCb mpCb,
-                                                        uint32_t timeout=0) const;
+    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
+                                                  DLT const* dlt,
+                                                  boost::shared_ptr<Msg> const& payload,
+                                                  QuorumSvcRequestRespCb qCb,
+                                                  uint32_t timeout=0) const;
     template<typename Msg>
     FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
                                                 fds_uint64_t const dmt_ver,
@@ -311,7 +311,7 @@ struct AmDispatcher :
      * Callback for put object responses.
      */
     void dispatchObjectCb(AmRequest* amReq,
-                          MultiPrimarySvcRequest* svcReq,
+                          QuorumSvcRequest* svcReq,
                           const Error& error,
                           boost::shared_ptr<std::string> payload);
     void putObjectCb(AmRequest* amReq, Error const error);
@@ -329,6 +329,7 @@ struct AmDispatcher :
      */
     uint32_t message_timeout_default { 0 };
     uint32_t message_timeout_io { 0 };
+    uint32_t message_timeout_open { 0 };
 
     /**
      * Number of primary replicas (right now DM/SM are identical)

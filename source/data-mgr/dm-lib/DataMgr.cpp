@@ -695,21 +695,21 @@ Error DataMgr::addVolume(const std::string& vol_name,
                 !(vdesc->isSnapshot())) {
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
-                    volmeta->setState(fpi::Loading);
+                    volmeta->setState(fpi::Loading, " - addVolume:coordinator set");
                     volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
                     fSyncRequired = true;
                 } else {
                     /* Coordinator isn't available yet.  We wait until coordinator tries to
                      * do an open
                      */
-                    volmeta->setState(fpi::Offline);
+                    volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
                 }
             } else {
-                volmeta->setState(fpi::Active);
+                volmeta->setState(fpi::Active, " - addVolume");
             }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
-            volmeta->setState(fpi::InError);
+            volmeta->setState(fpi::InError, " - addVolume");
         }
 
         // we registered queue and shadow queue if needed
@@ -784,52 +784,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     return err;
-}
-
-void DataMgr::runSyncProtocol(int32_t version,
-                              const VolumeDesc &volDesc)
-{
-    /* Check if coordinator is set */
-    if (!volDesc.isCoordinatorSet()) {
-        // TODO(Rao): Become offline
-        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
-            << " Will go through sync once coordinator tries to open the volume";
-        return;
-    }
-    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::ResourceState::Syncing;
-    msg->groupId = volDesc.volUUID.get();
-    msg->replicaVersion = version;
-    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
-#ifdef IOHEADER_SUPPORTED
-    msg->lastOpId = opInfo_.appliedOpId;
-    msg->lastCommitId = opInfo_.appliedCommitId;
-#endif
-
-    /* Send message to coordinator requesting to be added to the group */
-    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
-    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    auto prevVersion = version;
-    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
-                                          const Error &e_,
-                                          StringPtr payload) {
-        // TODO(Rao): May need to do a version check here
-        // VERSION_CHECK(prevVersion, getVersion());
-        Error err = e_;
-        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
-        if (err != ERR_OK) {
-            fds_assert(!"Not handled");
-            // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err;
-            // TODO(Rao): Go into error state
-            return;
-        }
-        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
-        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
-        // TODO(Rao): Initiate migration
-    });
-    req->invoke();
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -1084,7 +1038,7 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
-    
+
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
@@ -1110,6 +1064,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
+    handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
@@ -1117,6 +1072,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
     handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
+    handlers[FDS_DM_MIG_REQ_TX_STATE] = new dm::DmMigrationRequestTxStateHandler(*this);
     new dm::SimpleHandler(*this);
 }
 
@@ -1665,12 +1621,14 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_ABORT_BLOB_TX:
         case FDS_SET_VOLUME_METADATA:
         case FDS_OPEN_VOLUME:
+        case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
         case FDS_DM_RESYNC_INIT_BLOB:
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
+        case FDS_DM_MIG_REQ_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
                 serialExecutor->scheduleOnHashKey(io->volId.get(),
                                                   std::bind(&dm::Handler::handleQueueItem,
@@ -1696,7 +1654,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                             parentDm->handlers.at(io->io_type),
                                                             io));
             } else {
-                LOGDEBUG << io->log_string() << " not synchronized"; 
+                LOGDEBUG << io->log_string() << " not synchronized";
                 threadPool->schedule(&dm::Handler::handleQueueItem,
                                      parentDm->handlers.at(io->io_type),
                                      io);
@@ -1732,7 +1690,7 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
         FDS_QoSControl(_max_thrds, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                                      parentDm->qosOutstandingTasks, 
+                                      parentDm->qosOutstandingTasks,
                                       false,
                                       log);
 

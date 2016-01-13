@@ -161,8 +161,7 @@ void ObjectRefScanMgr::mod_startup() {
     if (timeBasedEnabled) {
         auto timer = MODULEPROVIDER()->getTimer();
         scanTask = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask(*timer,
-                                     [this] () {
+            new FdsTimerFunctionTask([this] () {
                                          auto expectedState = STOPPED;
                                          bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
                                          if (!wasStopped) {

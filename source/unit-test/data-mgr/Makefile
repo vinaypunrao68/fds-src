@@ -11,6 +11,7 @@ user_non_fds_libs := pcrecpp sqlite3  \
 user_cpp_flags    :=
 
 user_bin_exe      := \
+    volumegrouping_gtest \
     dm_direct \
     dm_volume_catalog_gtest \
     dm_timelinedb \
@@ -18,10 +19,10 @@ user_bin_exe      := \
     archive_gtest \
     ldb_differ_gtest \
     dmchecker_gtest \
-    objectrefscanner_gtest \
-    volumegrouping_gtest
+    objectrefscanner_gtest
 
 
+volumegrouping_gtest := VolumeGrouping_gtest.cpp
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
 dm_direct := dm_direct.cpp
 dm_timelinedb := timelinedb.cpp
@@ -31,6 +32,5 @@ archive_gtest := ArchiveClient_gtest.cpp
 ldb_differ_gtest := LeveldbDiffer_gtest.cpp
 dmchecker_gtest := DmChecker_gtest.cpp 
 objectrefscanner_gtest := ObjectRefScanner_gtest.cpp
-volumegrouping_gtest := VolumeGrouping_gtest.cpp
 
 include $(test_topdir)/Makefile.dm

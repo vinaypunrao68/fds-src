@@ -7,10 +7,10 @@ package com.formationds.xdi.swift;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeStatus;
-import com.formationds.apis.XdiService;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.Xdi;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -34,7 +34,7 @@ import static org.mockito.Mockito.when;
 
 public class ListContainersTest {
 
-    static final XdiService.Iface mockedAMService = mock( XdiService.Iface.class );
+    static final AsyncAm mockedAMService = mock( AsyncAm.class );
     static final Xdi mockedXdi = mock( Xdi.class );
     static final AuthenticationToken mockedToken = mock( AuthenticationToken.class );
 
