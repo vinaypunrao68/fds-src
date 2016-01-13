@@ -118,8 +118,6 @@ public class Redis
                               {
                                   logger.warn( "Encountered a de-serialization failure",
                                                e );
-
-                                  logger.trace( "'[ " + serialized + " ]'" );
                               }
                           } );
         }
@@ -290,7 +288,6 @@ public class Redis
             {
                 logger.warn( "The specified node uuid [ {} hex:{} ] was not found.",
                              id, Long.toHexString( id ) );
-                System.out.println( "The specified node uuid [ " + id + " hex: 0x" + Long.toHexString( id ) +  " ] was not found." );
             }
         }
 
@@ -358,8 +355,6 @@ public class Redis
                                           SvcLayerSerializer.deserialize(
                                               NodeInfo.class,
                                               ByteBuffer.wrap( serialized.getBytes( ) ) );
-
-                                      System.out.println( "NODE::" + nodeInfo[ 0 ].toString() );
                                   }
                                   catch ( SvcLayerSerializationProvider.SerializationException e )
                                   {

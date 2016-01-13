@@ -363,24 +363,15 @@ public class SystemHealthStatus implements RequestHandler {
         // This number will be in bytes!!!
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal( SizeUnit.B.toMega(
-            // metricsRepository.sumPhysicalBytes().longValue() ).doubleValue() );
             RedisSingleton.INSTANCE.api( )
                                    .getDomainUsedCapacity( )
                                    .getValue( SizeUnit.B ) )
                                      .doubleValue() );
 
-        logger.trace( "total capacity size check bytes: {} kilobytes: {} megabytes: {} gigabytes: {} terabytes: {}",
-                      checkCapacity.toString(),
-                      SizeUnit.B.toKilo( checkCapacity.getValue() ),
-                      SizeUnit.B.toMega( checkCapacity.getValue() ),
-                      SizeUnit.B.toGiga( checkCapacity.getValue() ),
-                      SizeUnit.B.toTera( checkCapacity.getValue() ) );
-        logger.trace( "used capacity size check bytes: {} kilobytes: {} megabytes: {} gigabytes: {} terabytes: {}",
-                      SizeUnit.MB.toBytes( consumed.getTotal().longValue() ),
-                      SizeUnit.MB.toKilo( consumed.getTotal().longValue() ),
-                      SizeUnit.MB.toMega( consumed.getTotal().longValue() ),
-                      SizeUnit.MB.toGiga( consumed.getTotal().longValue() ),
-                      SizeUnit.MB.toTera( consumed.getTotal().longValue() ) );
+        logger.trace( "total capacity size check bytes: {}",
+                      checkCapacity.toString() );
+        logger.trace( "used capacity size check bytes: {}",
+                      SizeUnit.MB.toBytes( consumed.getTotal().longValue() ) );
 
         List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
                                                                   query.getRange(),

@@ -18,6 +18,7 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 
+import org.apache.avro.generic.GenericData;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,11 +56,17 @@ public class IngestVolumeStats
     try (final Reader reader = new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
       final List<IVolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
-      
+
+      final List<String> volumeNames = new ArrayList<>( );
       volumeDatapoints.forEach( vdp -> {
     	  long volid;
     	  
     	  try {
+              if( !volumeNames.contains( vdp.getVolumeName() ) )
+              {
+                  volumeNames.add( vdp.getVolumeName() );
+              }
+
     		  volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
     	  } catch (Exception e) {
     		  throw new IllegalStateException( "Volume does not have an ID associated with the name." );
@@ -67,6 +75,23 @@ public class IngestVolumeStats
           vdp.setVolumeId( String.valueOf( volid ) );
       });
 
+      if( volumeNames.isEmpty() )
+      {
+          // prevent divide by zero
+          volumeNames.add( "DummyVolumeName" );
+      }
+
+      /**
+       * HACK ALERT!!
+       *
+       *  The stat stream is per volume; we need to have used bytes (UBYTES) included with every
+       *  volume, we divide the used capacity across all volumes so when we sum it later we should
+       *  have a total used capacity be correct, well at least close.
+       */
+      final Double usedCapacity = RedisSingleton.INSTANCE.api( )
+                                                         .getDomainUsedCapacity( )
+                                                         .getValue( SizeUnit.B )
+                                                         .doubleValue( ) / volumeNames.size();
       for( final IVolumeDatapoint vdp : volumeDatapoints )
       {
           if( vdp.getKey().equalsIgnoreCase( Metrics.LBYTES.key() ) )
@@ -75,10 +100,7 @@ public class IngestVolumeStats
                                                          vdp.getVolumeId( ),
                                                          vdp.getVolumeName( ),
                                                          Metrics.UBYTES.key( ),
-                                                         RedisSingleton.INSTANCE.api( )
-                                                                                .getDomainUsedCapacity( )
-                                                                                .getValue( SizeUnit.B )
-                                                                                .doubleValue( ) ) );
+                                                          usedCapacity ) );
               break;
           }
       }
