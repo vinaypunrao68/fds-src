@@ -54,6 +54,7 @@ extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
+extern std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg);
 // ======
 
 class DmRequest : public FDS_IOType {
@@ -952,6 +953,9 @@ using DmIoVolumegroupUpdate = DECLARE_DM_VOLUMEREQ(FDS_DM_VOLUMEGROUP_UPDATE, \
                                                    fpi::VolumeGroupInfoUpdateCtrlMsg, \
                                                    fpi::EmptyMsg);
 
+using DmIoFinishStaticMigration = DECLARE_DM_VOLUMEREQ(FDS_DM_MIG_FINISH_STATIC_MIGRATION, \
+                                                   fpi::CtrlNotifyFinishMigrationMsg, \
+                                                   fpi::EmptyMsg);
 
 }  // namespace fds
 

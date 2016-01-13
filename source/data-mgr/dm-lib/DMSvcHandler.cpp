@@ -38,6 +38,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
 
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
+    registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
 }
 
 // notifySvcChange

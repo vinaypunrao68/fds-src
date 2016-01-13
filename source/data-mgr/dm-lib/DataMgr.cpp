@@ -33,8 +33,9 @@
     
 
 namespace {
-Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
-    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+Error sendReloadVolumeRequest(fds::SvcRequestPool *requestMgr,
+                              const NodeUuid & nodeId, const fds_volid_t & volId) {
+    auto asyncReq = requestMgr->newEPSvcRequest(nodeId.toSvcUuid());
 
     boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
     msg->volume_id = volId.get();
@@ -652,7 +653,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
                 LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
             } else {
                 // send message to reload volume
-                err = sendReloadVolumeRequest((*nodes)[i], vdesc->volUUID);
+                err = sendReloadVolumeRequest(MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr(),
+                                              (*nodes)[i], vdesc->volUUID);
                 if (!err.ok()) {
                     LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
                 }
@@ -1218,7 +1220,8 @@ void DataMgr::mod_enable_service() {
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
     if (!features.isTestModeEnabled()) {
-        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+        auto reqMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+        reqMgr->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
     if (timeVolCat_->isUnavailable()) {
@@ -1626,6 +1629,15 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             VOLUME_REQUEST_CHECK();
             serialExecutor->scheduleOnHashKey(io->volId.get(),
                                               std::bind(&VolumeMeta::handleVolumegroupUpdate,
+                                                        volMeta,
+                                                        io));
+            break;
+        }
+        case FDS_DM_MIG_FINISH_STATIC_MIGRATION:
+        {
+            VOLUME_REQUEST_CHECK();
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&VolumeMeta::handleFinishStaticMigration,
                                                         volMeta,
                                                         io));
             break;

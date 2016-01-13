@@ -245,10 +245,14 @@ void VolumeMeta::cleanupInitializer()
     LOGDEBUG << "Cleanedup initializer: " << logString();
 }
 
-Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
-                                 fpi::FDSP_VolumeDescType &vol,
-                                 migrationCb doneCb) {
+Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
+                                 const int64_t &volId,
+                                 const StatusCb &doneCb)
+{
     Error err(ERR_OK);
+    fpi::FDSP_VolumeDescType vol;
+    vol.volUUID = volId;
+
     fds_assert(migrationDest == nullptr);
     cbToVGMgr = doneCb;
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
@@ -258,9 +262,10 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
     // DataMgr *nonConstDm = dataManager;
 
     auto dummyId = 0;
+    auto srcDmNodeid = NodeUuid(srcDmUuid);
     migrationDest.reset(new DmMigrationDest(dummyId,
                                             *dataManager,
-                                            srcDmUuid,
+                                            srcDmNodeid,
                                             vol,
                                             deltaBlobTimeout,
                                             std::bind(&VolumeMeta::cleanUpMigrationDestination,
@@ -276,16 +281,32 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
     return err;
 }
 
+Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
+{
+    auto typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
+    auto err = migrationDest->processDeltaBlobDescs(typedRequest->deltaBlobDescMsg,
+                                                    typedRequest->localCb);
+    return err;
+}
+
+Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
+{
+    auto typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
+    auto err = migrationDest->processDeltaBlobs(typedRequest->deltaBlobsMsg);
+    return err;
+}
+
 Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
-    migrationCb cleanupCb = typedRequest->localCb;
+    StatusCb cleanupCb = typedRequest->localCb;
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volumeId;
+        <<" received msg for volume " << migReqMsg->volumeId
+        << " on svcuuid: " << destDmUuid;
 
     err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
 
@@ -295,7 +316,7 @@ Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                         const NodeUuid &mySvcUuid,
                                         fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                        migrationCb cleanup) {
+                                        StatusCb cleanup) {
     Error err(ERR_OK);
     auto maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
                            get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
@@ -342,11 +363,11 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
                                         const NodeUuid destDmUuid) {
 
     if (!err.ok()) {
-        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
-            " with error: " << err;
+        LOGERROR << "Cleaning up DmMigrationSrc for vol: " << volId
+            << " dest node: " << destDmUuid << " with error: " << err;
     } else {
-        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
-            " with error: " << err;
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationSrc for vol: " << volId
+            << " dest node: " << destDmUuid << " with error: " << err;
 
     }
     DmMigrationSrc::shared_ptr source;
@@ -358,13 +379,36 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             return;
         } else {
             source = search->second;
-            source->sendFinishFwdMsg();
-            source->finish();
+            // source->sendFinishFwdMsg();
+            // source->finish();
             migrationSrcMap.erase(search);
         }
     }
 }
 
+void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
+{
+    dm::QueueHelper helper(*dataManager, dmRequest);
+    DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
+
+    Error err(request->reqMessage->status);
+
+    /** volId and srcNodeUuid is there for formality */
+    if (!err.ok()) {
+        LOGERROR << "Cleaning up DmMigrationDest " << logString();
+    } else {
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationDest " << logString();
+    }
+
+    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
+    migrationDest->waitForAsyncMsgs();
+    migrationDest.reset();
+
+    cbToVGMgr(err);
+    cbToVGMgr=nullptr;
+}
+
+// TODO(Rao): remoe the following
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                              fds_volid_t volId,
                                              const Error &err) {
@@ -372,14 +416,17 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
     /** volId and srcNodeUuid is there for formality */
     fds_assert(volId == vol_desc->volUUID);
     if (!err.ok()) {
-        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
-            " with error: " << err;
+        LOGERROR << "Cleaning up DmMigrationDest for vol: "
+            << volId << " dest node: " << srcNodeUuid << " with error: " << err;
     } else {
-        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
-            " with error: " << err;
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationDest for vol: " << volId
+            << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
     migrationDest.reset();
+
+    cbToVGMgr(err);
+    cbToVGMgr=nullptr;
 }
 
 

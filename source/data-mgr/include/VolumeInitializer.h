@@ -304,12 +304,9 @@ template <class T>
 void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
 {
     fds_assert(isSynchronized_());
-    // TODO(Neil/James): Please fill this
     setProgress_(STATIC_MIGRATION);
 
-    STUBSTATEMENT(MODULEPROVIDER()->getTimer()->scheduleFunction(\
-                                    std::chrono::seconds(5), \
-                                    [cb]() { cb(ERR_OK); }));
+    replica_->startMigration(syncPeer_, replica_->getId(), cb);
 }
 
 template <class T>

@@ -311,7 +311,7 @@ TEST_F(DmGroupFixture, DISABLED_singledm) {
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 }
 
-TEST_F(DmGroupFixture, DISABLED_multidm) {
+TEST_F(DmGroupFixture, multidm) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     create(2);
@@ -413,7 +413,7 @@ TEST_F(DmGroupFixture, DISABLED_multidm) {
     }
 }
 
-TEST_F(DmGroupFixture, multidm_multirestarts) {
+TEST_F(DmGroupFixture, DISABLED_multidm_multirestarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     create(2);
