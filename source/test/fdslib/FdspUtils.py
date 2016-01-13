@@ -21,6 +21,8 @@ from dm_api.ttypes import *
 from dm_api.constants import *
 import sm_api as smapi
 import sm_types as smtypes
+from sm_api.ttypes import *
+from sm_api.constants import *
 
 
 log = logging.getLogger(__name__)
@@ -37,7 +39,7 @@ def newSvcMsgByTypeId(typeId):
     else:
         typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
     thType = typeStr.replace('TypeId','')
-    log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
+    #log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
     thismodule = sys.modules[__name__]
     thObj = None
     if hasattr(thismodule, thType):
@@ -45,6 +47,7 @@ def newSvcMsgByTypeId(typeId):
     else:
         thType = thType.replace('RspMsg','MsgRsp')
         thObj = getattr(thismodule, thType)()
+
     if thObj is None:
         log.error('unable to find thrift object : {}'.format(thType))
     return thObj
