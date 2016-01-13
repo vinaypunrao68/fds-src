@@ -1006,7 +1006,7 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
 
 # This class contains the attributes and methods to test
 # verifying that scst service is started.
-class TestVerifySCSTUp(TestCase.FDSTestCase):
+class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         """
         When run by a qaautotest module test runner,

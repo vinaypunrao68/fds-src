@@ -33,8 +33,10 @@ import fnmatch
 import fabric
 import fabric.network
 
-TEMPLATES_ROOT="../testsuites/templates/"
-ANSIBLE_INVENTORY="%sansible-inventory/" % TEMPLATES_ROOT
+RELPATH_TEMPLATES="../testsuites/templates/"
+RELPATH_DEVROOT="../../../../"
+TESTSUITES_INVENTORY="%sansible-inventory/" % RELPATH_TEMPLATES
+DEFAULT_INVENTORY="%sansible/inventory/" % RELPATH_DEVROOT
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -476,20 +478,30 @@ def get_inventory_value(inventory_file, key_name):
     Arguments:
     ----------
     inventory_file : str
-        the name of the Ansible inventory file to be parsed.
+        The name of the Ansible inventory file to be parsed
     key_name : str
-        a key that may or may not exist in the inventory file
+        A key that may or may not exist in the inventory file
 
     Returns:
     --------
     str or None : the value for the given key or None if key not found
         If duplicate keys, returns the value for the first instance found
     '''
-    inventory_path = os.path.join(ANSIBLE_INVENTORY, inventory_file)
     result = None
     if not key_name:
         log.error("Missing required argument");
         raise Exception
+    if not isinstance(key_name, str):
+        log.error("Invalid argument");
+        raise Exception
+    inventory_path = os.path.join(TESTSUITES_INVENTORY, inventory_file)
+    if not os.path.isfile(inventory_path):
+        # Fall back to default inventory location
+        inventory_path = os.path.join(DEFAULT_INVENTORY, inventory_file)
+        if not os.path.isfile(inventory_path):
+            log.error("Inventory file not found")
+            raise Exception
+
     with open(inventory_path, 'r') as f:
         records = f.readlines()
         for record in records:
