@@ -274,7 +274,7 @@ public class Redis
             used = byNodes.values().stream().mapToLong( Long::valueOf ).sum( );
         }
 
-        return Size.of( used, SizeUnit.GB );
+        return Size.of( used, SizeUnit.B );
     }
 
     public Size getPMNodeUsedCapacity( final long id )

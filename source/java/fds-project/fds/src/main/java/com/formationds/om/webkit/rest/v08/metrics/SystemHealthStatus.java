@@ -24,6 +24,7 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -347,19 +348,39 @@ public class SystemHealthStatus implements RequestHandler {
         Long systemCapacityInBytes;
         if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive() )
         {
+            // normalize to bytes
             systemCapacityInBytes = SizeUnit.GB.toBytes( systemCapacity.longValue( ) )
                                                .longValue( );
         }
         else
         {
+            // normalize to bytes
             systemCapacityInBytes = SizeUnit.MB.toBytes( systemCapacity.longValue( ) )
                                                .longValue( );
         }
 
+        final Size checkCapacity = Size.of( systemCapacityInBytes, SizeUnit.B );
         // This number will be in bytes!!!
         final CapacityConsumed consumed = new CapacityConsumed();
-        consumed.setTotal( metricsRepository
-                               .sumPhysicalBytes() );
+        consumed.setTotal( SizeUnit.B.toMega(
+            // metricsRepository.sumPhysicalBytes().longValue() ).doubleValue() );
+            RedisSingleton.INSTANCE.api( )
+                                   .getDomainUsedCapacity( )
+                                   .getValue( SizeUnit.B ) )
+                                     .doubleValue() );
+
+        logger.trace( "total capacity size check bytes: {} kilobytes: {} megabytes: {} gigabytes: {} terabytes: {}",
+                      checkCapacity.toString(),
+                      SizeUnit.B.toKilo( checkCapacity.getValue() ),
+                      SizeUnit.B.toMega( checkCapacity.getValue() ),
+                      SizeUnit.B.toGiga( checkCapacity.getValue() ),
+                      SizeUnit.B.toTera( checkCapacity.getValue() ) );
+        logger.trace( "used capacity size check bytes: {} kilobytes: {} megabytes: {} gigabytes: {} terabytes: {}",
+                      SizeUnit.MB.toBytes( consumed.getTotal().longValue() ),
+                      SizeUnit.MB.toKilo( consumed.getTotal().longValue() ),
+                      SizeUnit.MB.toMega( consumed.getTotal().longValue() ),
+                      SizeUnit.MB.toGiga( consumed.getTotal().longValue() ),
+                      SizeUnit.MB.toTera( consumed.getTotal().longValue() ) );
 
         List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
                                                                   query.getRange(),
@@ -372,6 +393,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
 
+        //noinspection Duplicates
         if (daysToFull <= 7) {
             status.setState(HealthState.BAD);
             status.setMessage(CAPACITY_BAD_RATE);

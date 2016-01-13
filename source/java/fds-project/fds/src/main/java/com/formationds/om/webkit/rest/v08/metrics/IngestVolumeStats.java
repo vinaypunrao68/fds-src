@@ -28,6 +28,7 @@ import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author ptinius
@@ -38,9 +39,7 @@ public class IngestVolumeStats
   private static final Logger logger =
     LoggerFactory.getLogger( IngestVolumeStats.class );
 	
-  private static final Type TYPE =
-    new TypeToken<List<VolumeDatapoint>>() {
-    }.getType();
+  private static final Type TYPE = new TypeToken<List<VolumeDatapoint>>(){}.getType();
 
   private final ConfigurationApi config;
 
@@ -48,11 +47,11 @@ public class IngestVolumeStats
     this.config = config;
   }
 
+  @SuppressWarnings( "Duplicates" )
   @Override
   public Resource handle(Request request, Map<String, String> routeParameters)
       throws Exception {
-    try (final Reader reader =
-             new InputStreamReader(request.getInputStream(), "UTF-8")) {
+    try (final Reader reader = new InputStreamReader(request.getInputStream(), "UTF-8")) {
 
       final List<IVolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
       
@@ -68,13 +67,22 @@ public class IngestVolumeStats
           vdp.setVolumeId( String.valueOf( volid ) );
       });
 
-        ( ( VolumeDatapoint ) volumeDatapoints ).setKey( Metrics.UBYTES.key() );
-        ( ( VolumeDatapoint ) volumeDatapoints ).setValue(
-            RedisSingleton.INSTANCE
-                .api()
-                .getDomainUsedCapacity()
-                .getValue( SizeUnit.B )
-                .doubleValue() );
+      for( final IVolumeDatapoint vdp : volumeDatapoints )
+      {
+          if( vdp.getKey().equalsIgnoreCase( Metrics.LBYTES.key() ) )
+          {
+              volumeDatapoints.add( new VolumeDatapoint( vdp.getTimestamp(),
+                                                         vdp.getVolumeId( ),
+                                                         vdp.getVolumeName( ),
+                                                         Metrics.UBYTES.key( ),
+                                                         RedisSingleton.INSTANCE.api( )
+                                                                                .getDomainUsedCapacity( )
+                                                                                .getValue( SizeUnit.B )
+                                                                                .doubleValue( ) ) );
+              break;
+          }
+      }
+
       SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
     }
 
