@@ -294,7 +294,7 @@ public class Redis
             }
         }
 
-        return Size.of( used, SizeUnit.GB );
+        return Size.of( used, SizeUnit.B );
     }
 
     protected Optional<String> getVolumeSettings( final BigInteger uuid )
