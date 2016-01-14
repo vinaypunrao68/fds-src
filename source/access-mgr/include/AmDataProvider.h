@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015-2016 Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDATAPROVIDER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDATAPROVIDER_H_
@@ -222,7 +222,7 @@ struct AmDataProvider {
     std::unique_ptr<AmDataProvider> _next_in_chain {nullptr};
     AmDataProvider* const _prev_in_chain {nullptr};
 
- private:
+ protected:
     template<typename Ret, typename ... Args>
     constexpr Ret forward_request(Ret (AmDataProvider::*func)(Args...), Args... args) {
         if (_next_in_chain) {

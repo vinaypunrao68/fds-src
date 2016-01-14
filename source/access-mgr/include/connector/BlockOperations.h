@@ -4,8 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 
-#include <condition_variable>
-#include <deque>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -76,8 +74,6 @@ class BlockOperations
               std::shared_ptr<AmProcessor> processor,
               task_type* resp);
 
-    void abortTask(uint64_t const handle);
-    void abortAllTasks();
     void read(task_type* resp);
     void write(req_api_type::shared_buffer_type& bytes, task_type* resp);
 
@@ -129,9 +125,6 @@ class BlockOperations
     // keep current handles for which we are waiting responses
     std::mutex respLock;
     response_map_type responses;
-
-    std::condition_variable need_retry;
-    std::deque<handle_type> retryable;
 
     sector_type sector_map;
 

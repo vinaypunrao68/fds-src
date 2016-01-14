@@ -198,7 +198,7 @@ AmTxManager::startBlobTx(AmRequest *amReq) {
 void
 AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback, blobReq->cb);
+    auto cb = std::dynamic_pointer_cast<StartBlobTxCallback>(blobReq->cb);
     auto err = error;
     if (err.ok()) {
         // Update callback and record new open transaction
@@ -319,7 +319,7 @@ AmTxManager::getBlob(AmRequest *amReq) {
 
     // Create buffers for return objects, we don't know how many till we have
     // a valid descriptor
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    auto cb = std::dynamic_pointer_cast<GetObjectCallback>(amReq->cb);
     cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>();
 
     // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT

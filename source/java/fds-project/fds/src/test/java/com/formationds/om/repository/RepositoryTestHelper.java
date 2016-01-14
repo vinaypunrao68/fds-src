@@ -7,21 +7,12 @@ package com.formationds.om.repository;
 import com.formationds.commons.model.Volume;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.model.entity.builder.VolumeDatapointBuilder;
 import com.formationds.om.repository.influxdb.InfluxMetricRepository;
 import com.formationds.om.repository.influxdb.InfluxRepository;
 import com.formationds.om.repository.query.QueryCriteria;
-import org.json.JSONArray;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -225,6 +216,7 @@ abstract public class RepositoryTestHelper {
             // System usage ( sum the most recent of each volume
             put( Metrics.LBYTES, new MetricInfo<Long>( RepositoryTestHelper::randomLong ) );
             put( Metrics.PBYTES, new MetricInfo<Long>( RepositoryTestHelper::randomLong ) );
+            put( Metrics.UBYTES, new MetricInfo<Long>( RepositoryTestHelper::randomLong ) );
             // firebreak metrics
             put( Metrics.STC_SIGMA, new MetricInfo<Double>( RepositoryTestHelper::randomDouble ) );
             put( Metrics.LTC_SIGMA, new MetricInfo<Double>( RepositoryTestHelper::randomDouble ) );

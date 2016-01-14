@@ -578,7 +578,7 @@ AmDispatcher::getVolumeMetadataCb(AmRequest* amReq,
     if (error.ok()) {
         auto response = deserializeFdspMsg<fpi::GetVolumeMetadataMsgRsp>(
             const_cast<Error&>(error), payload);
-        auto cb = SHARED_DYN_CAST(GetVolumeMetadataCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<GetVolumeMetadataCallback>(amReq->cb);
         cb->metadata = boost::make_shared<std::map<std::string, std::string>>();
         // Copy the FDSP structure into the API structure
         for (auto const &meta : response->metadataList) {
@@ -1129,7 +1129,7 @@ AmDispatcher::getQueryCatalogCb(AmRequest* amReq,
         // Copy the metadata into the callback, if needed
         auto blobReq = static_cast<GetBlobReq *>(amReq);
         if (true == blobReq->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
             // Fill in the data here
             cb->blobDesc = boost::make_shared<BlobDescriptor>();
             cb->blobDesc->setBlobName(amReq->getBlobName());
@@ -1167,7 +1167,7 @@ void
 AmDispatcher::statBlob(AmRequest* amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
-              auto cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb); \
+              auto cb = std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb); \
               cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
               cb->blobDesc->setBlobName(amReq->getBlobName()); \
               cb->blobDesc->setBlobSize(0); \
@@ -1193,7 +1193,7 @@ AmDispatcher::statBlob(AmRequest* amReq)
 void
 AmDispatcher::renameBlob(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher",
-              auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb); \
+              auto cb = std::dynamic_pointer_cast<RenameBlobCallback>(amReq->cb); \
               cb->blobDesc = boost::make_shared<BlobDescriptor>(); \
               cb->blobDesc->setBlobName(amReq->getBlobName()); \
               cb->blobDesc->setBlobSize(0); \
@@ -1239,7 +1239,7 @@ AmDispatcher::renameBlobCb(AmRequest *amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(RenameBlobRespMsg, error, payload);
 
-        auto cb = SHARED_DYN_CAST(RenameBlobCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<RenameBlobCallback>(amReq->cb);
         // Fill in the data here
         cb->blobDesc = boost::make_shared<BlobDescriptor>();
         cb->blobDesc->setBlobName(blobReq->new_blob_name);
@@ -1304,7 +1304,7 @@ AmDispatcher::statBlobCb(AmRequest* amReq,
         // using the same structure for input and output
         auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
 
-        auto cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb);
         // Fill in the data here
         cb->blobDesc = boost::make_shared<BlobDescriptor>();
         cb->blobDesc->setBlobName(amReq->getBlobName());
@@ -1371,7 +1371,7 @@ void
 AmDispatcher::volumeContents(AmRequest* amReq)
 {
     fiu_do_on("am.uturn.dispatcher",
-              auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb); \
+              auto cb = std::dynamic_pointer_cast<GetBucketCallback>(amReq->cb); \
               cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>(); \
               cb->skippedPrefixes = boost::make_shared<std::vector<std::string>>(); \
               return AmDataProvider::volumeContentsCb(amReq, ERR_OK););
@@ -1413,7 +1413,7 @@ AmDispatcher::volumeContentsCb(AmRequest* amReq,
         LOGDEBUG << " volid: " << amReq->io_vol_id << " numBlobs: " <<
                 response->blob_descr_list.size();
 
-        auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<GetBucketCallback>(amReq->cb);
         cb->vecBlobs = boost::make_shared<std::vector<fds::BlobDescriptor>>();
         for (auto const& descriptor : response->blob_descr_list) {
             cb->vecBlobs->emplace_back(descriptor.name,

@@ -201,7 +201,7 @@ class FDS_Volume {
         else
             return false;
     }
-    ~FDS_Volume();
+    virtual ~FDS_Volume();
 };
 
 /**
