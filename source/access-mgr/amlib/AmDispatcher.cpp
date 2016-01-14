@@ -489,9 +489,15 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
 
         setSerialization(amReq, asyncCloseVolReq);
         asyncCloseVolReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        WriteGuard wg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->close();
+        }
     }
+    return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
 }
 
 void
@@ -584,14 +590,14 @@ AmDispatcher::getOffsets(AmRequest* amReq) {
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
+    auto blobReq = static_cast<GetBlobReq*>(amReq);
     /**
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
     if (!volume_grouping_support) {
         amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb,
-                                         static_cast<GetBlobReq*>(amReq)));
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, blobReq));
         auto asyncQueryReq = createFailoverRequest(amReq->io_vol_id,
                                                    amReq->dmt_version,
                                                    queryMsg,
@@ -662,9 +668,20 @@ AmDispatcher::openVolume(AmRequest* amReq) {
                                                          message_timeout_open);
         setSerialization(amReq, asyncOpenVolReq);
         asyncOpenVolReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->open(volMDMsg,
+                             [volReq, this] (Error const& e) mutable -> void {
+                                _openVolumeCb(volReq, e);
+                                });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
