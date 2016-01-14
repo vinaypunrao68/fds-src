@@ -312,26 +312,15 @@ Error BlobObjList::verify(fds_uint32_t max_obj_size) const {
         return ERR_DM_OP_NOT_ALLOWED;
     }
 
-    // Check the last object is either truncating the blob or is of
-    // max_obj_size and that it is aligned.
-    //    if (!end_of_blob && (crit->second).size != max_obj_size) {
-    //    LOGERROR << "Object list ends with short object but is not a truncation";
-    //    return ERR_DM_OP_NOT_ALLOWED;
-    // } else if (0 < (crit->first % max_obj_size)) {
-    //    LOGERROR << "Object list ends with an unaligned object at: 0x"
-    //             << std::hex << crit->first;
-    //    return ERR_DM_OP_NOT_ALLOWED;
-    // }
+    while (crend() != crit) {
+	if (0 < ((crit->first) % max_obj_size) || (crit->second.size) > max_obj_size) {
+	    LOGERROR << "Object is unaligned: " << crit->first
+		     << " or oversized: " << crit->second.size;
+	    return ERR_DM_OP_NOT_ALLOWED;
+	}
+	++crit;
+    }
 
-    // ++crit;
-    // while (crit != crend()) {
-    //    if ((crit->second).size != max_obj_size ||
-    //        (0 < (crit->first % max_obj_size))) {
-    //        LOGERROR << "Invalid short object of size: " << crit->second.size;
-    //        return ERR_DM_OP_NOT_ALLOWED;
-    //    }
-    //    ++crit;
-    //}
     return ERR_OK;
 }
 
