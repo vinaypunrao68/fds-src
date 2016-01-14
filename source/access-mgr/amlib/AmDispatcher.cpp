@@ -580,15 +580,15 @@ AmDispatcher::getOffsets(AmRequest* amReq) {
      * TODO(Andrew): We should eventually specify the offset in the blob
      * we want...all objects won't work well for large blobs.
      */
-    auto queryMsg = boost::make_shared<fpi::QueryCatalogMsg>();
-    queryMsg->volume_id    = volId.get();
-    queryMsg->blob_name    = amReq->getBlobName();
-    queryMsg->start_offset = start_offset;
-    queryMsg->end_offset   = end_offset;
+    auto message = boost::make_shared<fpi::QueryCatalogMsg>();
+    message->volume_id    = volId.get();
+    message->blob_name    = amReq->getBlobName();
+    message->start_offset = start_offset;
+    message->end_offset   = end_offset;
     // We don't currently specify a version
-    queryMsg->blob_version = blob_version_invalid;
-    queryMsg->obj_list.clear();
-    queryMsg->meta_list.clear();
+    message->blob_version = blob_version_invalid;
+    message->obj_list.clear();
+    message->meta_list.clear();
 
     auto blobReq = static_cast<GetBlobReq*>(amReq);
     /**
@@ -600,7 +600,7 @@ AmDispatcher::getOffsets(AmRequest* amReq) {
         auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getQueryCatalogCb, blobReq));
         auto asyncQueryReq = createFailoverRequest(amReq->io_vol_id,
                                                    amReq->dmt_version,
-                                                   queryMsg,
+                                                   message,
                                                    respCb,
                                                    message_timeout_io);
 
@@ -608,9 +608,21 @@ AmDispatcher::getOffsets(AmRequest* amReq) {
                                                  this, amReq, std::placeholders::_1,
                                                  std::placeholders::_2));
         asyncQueryReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [blobReq, this] (Error const& e, shared_str p) mutable -> void {
+                                        _getQueryCatalogCb(blobReq, e, p);
+                                    });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::getOffsetsCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
