@@ -629,8 +629,9 @@ void
 AmDispatcher::getVolumeMetadata(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::getVolumeMetadataCb(amReq, ERR_OK););
 
-    auto volMetaMsg = boost::make_shared<fpi::GetVolumeMetadataMsg>();
-    volMetaMsg->volumeId = amReq->io_vol_id.get();
+    auto message = boost::make_shared<fpi::GetVolumeMetadataMsg>();
+    message->volumeId = amReq->io_vol_id.get();
+    auto volReq = static_cast<GetVolumeMetadataReq*>(amReq);
 
     /**
      * FEATURE TOGGLE: VolumeGrouping
@@ -638,16 +639,27 @@ AmDispatcher::getVolumeMetadata(AmRequest* amReq) {
      */
     if (!volume_grouping_support) {
         amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb,
-                                         static_cast<GetVolumeMetadataReq*>(amReq)));
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::getVolumeMetadataCb, volReq));
         auto asyncGetVolMetadataReq = createFailoverRequest(amReq->io_vol_id,
                                                             amReq->dmt_version,
-                                                            volMetaMsg,
+                                                            message,
                                                             respCb);
         asyncGetVolMetadataReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
+                                        _getVolumeMetadataCb(volReq, e, p);
+                                    });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::getVolumeMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 /**
@@ -996,6 +1008,7 @@ AmDispatcher::statBlob(AmRequest* amReq)
     message->volume_id = amReq->io_vol_id.get();
     message->blob_name = amReq->getBlobName();
     message->metaDataList.clear();
+    auto blobReq = static_cast<StatBlobReq*>(amReq);
 
     /**
      * FEATURE TOGGLE: VolumeGrouping
@@ -1003,8 +1016,7 @@ AmDispatcher::statBlob(AmRequest* amReq)
      */
     if (!volume_grouping_support) {
         amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb,
-                                         static_cast<StatBlobReq*>(amReq)));
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statBlobCb, blobReq));
         auto asyncReq = createFailoverRequest(amReq->io_vol_id,
                                               amReq->dmt_version,
                                               message,
@@ -1013,15 +1025,28 @@ AmDispatcher::statBlob(AmRequest* amReq)
                                             this, amReq, std::placeholders::_1,
                                             std::placeholders::_2));
         asyncReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [blobReq, this] (Error const& e, shared_str p) mutable -> void {
+                                        _statBlobCb(blobReq, e, p);
+                                    });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::statBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
 AmDispatcher::statVolume(AmRequest* amReq) {
-    auto volMDMsg = boost::make_shared<fpi::StatVolumeMsg>();
-    volMDMsg->volume_id = amReq->io_vol_id.get();
+    auto message = boost::make_shared<fpi::StatVolumeMsg>();
+    message->volume_id = amReq->io_vol_id.get();
+    auto volReq = static_cast<StatVolumeReq*>(amReq);
 
     /**
      * FEATURE TOGGLE: VolumeGrouping
@@ -1029,15 +1054,27 @@ AmDispatcher::statVolume(AmRequest* amReq) {
      */
     if (!volume_grouping_support) {
         amReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb,
-                                         static_cast<StatVolumeReq*>(amReq)));
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::statVolumeCb, volReq));
         auto asyncStatVolReq = createFailoverRequest(amReq->io_vol_id,
                                                      amReq->dmt_version,
-                                                     volMDMsg,
+                                                     message,
                                                      respCb);
         asyncStatVolReq->invoke();
+        return;
     } else {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
+                                        _statVolumeCb(volReq, e, p);
+                                    });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::statVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 
@@ -1073,9 +1110,21 @@ AmDispatcher::volumeContents(AmRequest* amReq)
                                               message,
                                               respCb);
         asyncReq->invoke();
+        return;
     } else {
-        fds_panic("Not Implemented");
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
+                                        _volumeContentsCb(volReq, e, p);
+                                    });
+            return;
+        }
     }
+    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
+    AmDataProvider::volumeContentsCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 
