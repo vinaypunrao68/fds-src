@@ -502,9 +502,14 @@ public class QueryHelper {
 
     	Double sum = getsHdd + getsSsd;
 
-    	long ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
-    	long hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	long ssdPerc = 0L;
+    	long hddPerc = 0L;
 
+    	if ( sum > 0 ){
+    		ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
+    		hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	}
+    	
     	PercentageConsumed ssd = new PercentageConsumed();
     	ssd.setPercentage( (double)ssdPerc );
 
