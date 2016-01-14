@@ -177,7 +177,7 @@ struct DmGroupFixture : BaseTestFixture {
     {
         waiter.reset(1);
         v.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-               [&waiter](const Error &e) {
+               [&waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr&) {
                    waiter.doneWith(e);
                });
     }
@@ -370,6 +370,7 @@ TEST_F(DmGroupFixture, multidm) {
     dmGroup[0]->stop();
     /* Do more IO.  IO should succeed */
     for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        blobName = "blob" + std::to_string(i);
         sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         sendQueryCatalogMsg(v1, blobName, waiter);

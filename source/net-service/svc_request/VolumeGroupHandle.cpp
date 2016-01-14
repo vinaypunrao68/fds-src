@@ -171,12 +171,12 @@ void VolumeGroupHandle::resetGroup_()
 }
 
 void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
-                             const StatusCb &clientCb)
+                             const OpenResponseCb &clientCb)
 {
     runSynchronized([this, msg, clientCb]() mutable {
         if (state_ == fpi::ResourceState::Active) {
             LOGWARN << logString() << " - Trying open an already opened volume";
-            clientCb(ERR_INVALID);
+            clientCb(ERR_INVALID, nullptr);
             return;
         }
 
@@ -187,7 +187,7 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             resetGroup_();
         } catch (const Exception &e) {
             LOGWARN << logString() << " - Failed to get nodes from DMT";
-            clientCb(e.getError());
+            clientCb(e.getError(), nullptr);
             return;
         }
         
@@ -200,7 +200,7 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             LOGWARN << logString()
                     << " Failed set volume group coordinator.  Received "
                     << e << " from om";
-            clientCb(e);
+            clientCb(e, nullptr);
             return;
            }
            /* Send open volume against the group to prepare for open */
@@ -212,28 +212,28 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
              auto responseMsg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
              if (e != ERR_OK) {
                  LOGWARN << logString() << "Prepare for open failed: " << e;
-                 clientCb(e);
+                 clientCb(e, nullptr);
                  return;
              }
-             determineFunctaionalReplicas_(openReq);
+             auto openResp = determineFunctaionalReplicas_(openReq);
              if (functionalReplicas_.size() == 0) {
                  LOGWARN << logString()
                      << " Not enough members with latest state to start a group";
-                 clientCb(ERR_VOLUMEGROUP_DOWN);
+                 clientCb(ERR_VOLUMEGROUP_DOWN, nullptr);
                  return;
              }
              /* Functional group is determined.  Broadcase the group info so that functaional
               * group members can set their state to functional
               */
              auto broadcastGroupReq = createBroadcastGroupInfoReq_();
-             broadcastGroupReq->onResponseCb([this, clientCb](QuorumSvcRequest*,
+             broadcastGroupReq->onResponseCb([this, openResp, clientCb](QuorumSvcRequest*,
                                                   const Error& e_,
                                                   boost::shared_ptr<std::string> payload) {
                  /* NOTE: We don't care about the returned error here.  We want to be sure
                   * the broadcasted group information reached the group members
                   */
                  changeState_(fpi::ResourceState::Active, "Open volume");
-                 clientCb(ERR_OK);
+                 clientCb(ERR_OK, openResp);
              });
              LOGNORMAL << logString() << " - Broadcast group info";
              broadcastGroupReq->invoke();
@@ -304,7 +304,8 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
     return req;
 }
 
-void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
+fpi::OpenVolumeRspMsgPtr
+VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 {
     using Response = std::pair<fpi::SvcUuid, fpi::OpenVolumeRspMsgPtr>;
     std::vector<Response> successSvcs;
@@ -351,7 +352,7 @@ void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
     }
     if (latestStateReplicas < quorumCnt_) {
         LOGWARN << logString() << " Not enough members with latest state to start a group";
-        return;
+        return nullptr;
     }
     for (uint32_t i = 0; i < latestStateReplicas; i++) {
         auto volumeHandle = getVolumeReplicaHandle_(successSvcs[i].first);
@@ -371,6 +372,7 @@ void VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
                                   ERR_OK,
                                   "Open");
     }
+    return successSvcs[0].second;
 }
 
 QuorumSvcRequestPtr

@@ -111,6 +111,7 @@ struct VolumeReplicaHandle {
 std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h);
 
 using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
+using OpenResponseCb = std::function<void(const Error&, const fpi::OpenVolumeRspMsgPtr&)>;
 
 /**
 * @brief Base class for group requests that are related to VolumeGrouping
@@ -184,7 +185,7 @@ struct VolumeGroupHandle : HasModuleProvider {
                       const fds_volid_t& volId,
                       uint32_t quorumCnt);
 
-    void open(const SHPTR<fpi::OpenVolumeMsg>& msg, const StatusCb &cb);
+    void open(const SHPTR<fpi::OpenVolumeMsg>& msg, const OpenResponseCb &cb);
 
     void close();
 
@@ -268,7 +269,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     void resetGroup_();
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
-    void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
     void changeState_(const fpi::ResourceState &targetState, const std::string& logCtx);
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
