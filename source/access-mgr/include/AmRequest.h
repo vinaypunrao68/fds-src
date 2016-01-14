@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
@@ -10,7 +10,7 @@
 
 #include "fds_volume.h"
 #include "PerfTrace.h"
-#include "responsehandler.h"
+#include "AsyncResponseHandlers.h"
 
 namespace fds
 {
@@ -35,8 +35,8 @@ struct AmRequest : public FDS_IOType {
     fds_uint64_t   blob_offset_end;
     std::string    volume_name;
 
-    bool           forced_unit_access {false};
-    bool           page_out_cache {true};
+    bool           forced_unit_access {true};
+    bool           page_out_cache {false};
 
     // Flag to indicate when a request has been responded to
     std::atomic<bool> completed;
@@ -50,7 +50,8 @@ struct AmRequest : public FDS_IOType {
               CallbackPtr         _cb,
               fds_uint64_t        _blob_offset = 0,
               fds_uint64_t        _data_len = 0)
-        : volume_name(_vol_name),
+        : FDS_IOType(),
+        volume_name(_vol_name),
         completed(false),
         blob_name(_blob_name),
         blob_offset(_blob_offset),

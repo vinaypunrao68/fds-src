@@ -43,17 +43,14 @@ class AmProcessor_impl : public AmDataProvider
     ~AmProcessor_impl() = default;
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
-        { prepareForShutdownCb = cb; }
-
-    void prepareForShutdownMsgRespCallCb();
-
+        { std::lock_guard<std::mutex> lk(shut_down_lock); prepareForShutdownCb = cb; }
 
     void enqueueRequest(AmRequest* amReq);
 
     bool haveTables();
 
     bool isShuttingDown() const
-    { SCOPEDREAD(shut_down_lock); return shut_down; }
+    { std::lock_guard<std::mutex> lk(shut_down_lock); return shut_down; }
 
     /**
      * These are the Processor specific DataProvider routines.
@@ -123,8 +120,9 @@ class AmProcessor_impl : public AmDataProvider
 
     std::pair<bool, bool> have_tables;
 
+    mutable std::mutex shut_down_lock;
+    std::condition_variable check_done;
     bool shut_down { false };
-    mutable fds_rwlock shut_down_lock;
 
     shutdown_cb_type prepareForShutdownCb;
 
@@ -133,13 +131,6 @@ class AmProcessor_impl : public AmDataProvider
 
 void
 AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
-    {
-        SCOPEDREAD(shut_down_lock);
-        if (shut_down) {
-            respond(amReq, ERR_SHUTTING_DOWN);
-            return;
-        }
-    }
     AmDataProvider::unknownTypeResume(amReq);
 }
 
@@ -193,36 +184,26 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     }
     delete amReq;
 
-    // If we're shutting down check if the
-    // queue is empty and make the callback
-    if (isShuttingDown()) {
-        stop();
-    }
+    // In case we're shutting down tell anyone waiting on this conditional
+    check_done.notify_all();
 }
 
-void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+void AmProcessor_impl::stop() {
+    std::unique_lock<std::mutex> lk(shut_down_lock);
+    if (!shut_down) {
+        LOGNOTIFY << "AmProcessor is shutting down.";
+        shut_down = true;
+        AmDataProvider::stop();
+    }
+    // Wait for all IO to complete and volumes to be closed.
+    check_done.wait(lk, [this] () mutable -> bool { return AmDataProvider::done(); });
     if (prepareForShutdownCb) {
         prepareForShutdownCb();
         prepareForShutdownCb = nullptr;
     }
 }
 
-void AmProcessor_impl::stop() {
-    SCOPEDWRITE(shut_down_lock);
-
-    if (!shut_down) {
-        LOGNOTIFY << "AmProcessor received a stop request.";
-        shut_down = true;
-        AmDataProvider::stop();
-    }
-
-    if (AmDataProvider::done()) {
-        parent_mod->mod_shutdown();
-    }
-}
-
 void AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
-    AmDataProvider::registerVolume(volDesc);
     // Alert connectors to the new volume
     parent_mod->volumeAdded(volDesc);
 }
@@ -282,11 +263,6 @@ void AmProcessor::start()
 void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 {
     return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
-}
-
-void AmProcessor::prepareForShutdownMsgRespCallCb()
-{
-    return _impl->prepareForShutdownMsgRespCallCb();
 }
 
 void AmProcessor::stop()
