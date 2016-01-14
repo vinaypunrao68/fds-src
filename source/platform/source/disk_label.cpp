@@ -298,7 +298,7 @@ namespace fds
     // dsk_label_write
     // ---------------
     //
-    bool DiskLabel::dsk_label_write(PmDiskInventory::pointer inv)
+    bool DiskLabel::dsk_label_write(bool dsk_need_simulation)
     {
         int    sect_sz;
         ssize_t ret;
@@ -307,8 +307,8 @@ namespace fds
         fds_verify(dl_label != NULL);
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
-        ret = dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
-        if (inv->dsk_need_simulation())
+        ret = dl_owner->dsk_write(dsk_need_simulation, reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        if (dsk_need_simulation)
         { // if we are in simulation mode dsk_write is not going to write a label, so ignore its return value
             return true;
         }

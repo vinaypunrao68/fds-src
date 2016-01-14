@@ -40,7 +40,10 @@ public class EvictingCache<TKey, TValue> {
                             }
                         }
                     }
-                    traversableView.evict((TKey) notification.getKey());
+
+                    if (!cause.equals(RemovalCause.REPLACED)) {
+                        traversableView.evict((TKey) notification.getKey());
+                    }
                 }).build();
 
         locks = CacheBuilder.newBuilder()
@@ -111,27 +114,27 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public int size() {
-            return inner.size();
+            return cache.asMap().size();
         }
 
         @Override
         public boolean isEmpty() {
-            return inner.isEmpty();
+            return cache.asMap().isEmpty();
         }
 
         @Override
         public boolean containsKey(Object key) {
-            return inner.containsKey(key);
+            return cache.asMap().containsKey(key);
         }
 
         @Override
         public boolean containsValue(Object value) {
-            return inner.containsValue(value);
+            return cache.asMap().containsValue(value);
         }
 
         @Override
         public CacheEntry<TValue> get(Object key) {
-            return inner.get(key);
+            return cache.asMap().get(key);
         }
 
         @Override
@@ -194,17 +197,17 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public Set<TKey> keySet() {
-            return inner.keySet();
+            return cache.asMap().keySet();
         }
 
         @Override
         public Collection<CacheEntry<TValue>> values() {
-            return inner.values();
+            return cache.asMap().values();
         }
 
         @Override
         public Set<Entry<TKey, CacheEntry<TValue>>> entrySet() {
-            return inner.entrySet();
+            return cache.asMap().entrySet();
         }
     }
 }

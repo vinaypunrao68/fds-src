@@ -4,6 +4,8 @@
 package com.formationds.om.webkit.rest.v08.volumes;
 
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
+import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -60,6 +62,23 @@ public class MutateVolume implements RequestHandler{
 				logger.warn( "Could not edit snapshot policy: " + snapshotPolicy.getName(), e  );
 			}
 		});
+
+		switch( volume.getSettings().getVolumeType() )
+		{
+			case ISCSI:
+                final VolumeSettingsISCSI iscsi = ( VolumeSettingsISCSI ) volume.getSettings( );
+                logger.trace( "iSCSI:: LUNS [ {} ] INITIATORS [ {} ] INCOMING USERS [ {} ] OUTGOING USERS [ {} ]",
+                              iscsi.getTarget().getLuns().size(),
+                              iscsi.getTarget().getInitiators().size(),
+                              iscsi.getTarget().getIncomingUsers().size(),
+                              iscsi.getTarget().getOutgoingUsers().size() );
+
+                break;
+			case NFS:
+                final VolumeSettingsNfs nfs = ( VolumeSettingsNfs ) volume.getSettings();
+                logger.trace( "NFS:: CLIENT [ {} ] OPTIONS [ {} ]", nfs.getClients(), nfs.getOptions() );
+				break;
+		}
 		
 		Volume newVolume = (new GetVolume( getAuthorizer(), getToken() ) ).getVolume( volumeId );
 		

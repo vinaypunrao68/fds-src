@@ -573,34 +573,6 @@ class TestRemoveDisk(TestCase.FDSTestCase):
         return True
 
 
-# This class contains the attributes and methods to test
-# rebooting node (I.e. node shuts down and comes back up again)
-class TestNodeReboot(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_NodeReboot,
-                                             "Reboot a node")
-
-        self.passedNode = node
-
-    def test_NodeReboot(self):
-        """
-        Test Case:
-        Attempt to reboot a given node.
-        """
-        env.user='root'
-        env.password='passwd'
-        env.host_string = self.passedNode.nd_conf_dict['ip']
-        internal_ip = run("hostname")
-        # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
-        print("internal_ip[%s]" % internal_ip)
-        sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
-
-        # Get the FdsConfigRun object for this test.
-        sudo("reboot")
-        return True
-
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     unittest.main()

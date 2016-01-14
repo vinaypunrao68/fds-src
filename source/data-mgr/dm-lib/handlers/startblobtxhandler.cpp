@@ -52,7 +52,8 @@ void StartBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                      message->blob_name,
                                      message->blob_version,
                                      message->blob_mode,
-                                     message->dmt_version);
+                                     message->dmt_version,
+                                     message->opId);
     dmReq->cb = BIND_MSG_CALLBACK(StartBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
@@ -74,7 +75,7 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
-            (typedRequest->dmt_version != MODULEPROVIDER()->getSvcMgr()->getDMTVersion())) {
+            (typedRequest->dmt_version != dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion())) {
             helper.err = ERR_IO_DMT_MISMATCH;
         }
     } else {

@@ -393,7 +393,7 @@ DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
 
 std::string DataMgr::getSnapDirBase() const
 {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     return root->dir_user_repo_dm();
 }
 
@@ -651,7 +651,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    VolumeMeta *volmeta = new VolumeMeta(vol_name, vol_uuid, GetLog(), vdesc, *this);
+    VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
+                                         vol_name,
+                                         vol_uuid,
+                                         GetLog(),
+                                         vdesc,
+                                         this);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -686,15 +691,25 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok()) {
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
-            if (features.isVolumegroupingEnabled()) {
-                volmeta->vol_desc->setState(fpi::Syncing);
-                fSyncRequired = true;
+            if (features.isVolumegroupingEnabled() &&
+                !(vdesc->isSnapshot())) {
+                if (volmeta->isCoordinatorSet()) {
+                    /* Coordinator is set. We can go through sync protocol */
+                    volmeta->setState(fpi::Loading, " - addVolume:coordinator set");
+                    volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
+                    fSyncRequired = true;
+                } else {
+                    /* Coordinator isn't available yet.  We wait until coordinator tries to
+                     * do an open
+                     */
+                    volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
+                }
             } else {
-                volmeta->vol_desc->setState(fpi::Active);
+                volmeta->setState(fpi::Active, " - addVolume");
             }
         } else {
             LOGWARN << "vol:" << vol_uuid << " not activated";
-            volmeta->vol_desc->setState(fpi::InError);
+            volmeta->setState(fpi::InError, " - addVolume");
         }
 
         // we registered queue and shadow queue if needed
@@ -755,7 +770,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
-        const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
         const std::string stat_dir = root->dir_sys_repo_stats() + std::to_string(vol_uuid.get());
         auto sret = std::system((const char *)("mkdir -p "+stat_dir+" ").c_str());
     }
@@ -765,57 +780,10 @@ Error DataMgr::addVolume(const std::string& vol_name,
         timelineMgr->loadSnapshot(vol_uuid);
     }
     if (fSyncRequired) {
-        // TODO(Rao): Include the version
-        runSyncProtocol(0, *vdesc);
+        volmeta->initializer->run();
     }
 
     return err;
-}
-
-void DataMgr::runSyncProtocol(int32_t version,
-                              const VolumeDesc &volDesc)
-{
-    /* Check if coordinator is set */
-    if (!volDesc.isCoordinatorSet()) {
-        // TODO(Rao): Become offline
-        LOGNORMAL << "Coordinator isn't set for volume: " << volDesc.volUUID
-            << " Will go through sync once coordinator tries to open the volume";
-        return;
-    }
-    auto msg = fpi::AddToVolumeGroupCtrlMsgPtr(new fpi::AddToVolumeGroupCtrlMsg);
-    msg->targetState = fpi::ResourceState::Syncing;
-    msg->groupId = volDesc.volUUID.get();
-    msg->replicaVersion = version;
-    msg->svcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
-#ifdef IOHEADER_SUPPORTED
-    msg->lastOpId = opInfo_.appliedOpId;
-    msg->lastCommitId = opInfo_.appliedCommitId;
-#endif
-
-    /* Send message to coordinator requesting to be added to the group */
-    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(volDesc.getCoordinatorId());
-    req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
-    auto prevVersion = version;
-    req->onResponseCb([this, prevVersion](EPSvcRequest* req,
-                                          const Error &e_,
-                                          StringPtr payload) {
-        // TODO(Rao): May need to do a version check here
-        // VERSION_CHECK(prevVersion, getVersion());
-        Error err = e_;
-        auto responseMsg = fds::deserializeFdspMsg<fpi::AddToVolumeGroupRespCtrlMsg>(err, payload);
-        if (err != ERR_OK) {
-            fds_assert(!"Not handled");
-            // TODO(Rao): Multiple types of errors can be returned here..handle them
-            LOGERROR << "Failed to receive sync info from coordinator: " << err;
-            // TODO(Rao): Go into error state
-            return;
-        }
-        // TODO(Rao): Check if sync is even required.  If sync not required we can become functional
-        LOGNORMAL << " Sync check coordinator response:  " << fds::logString(*responseMsg);
-        // TODO(Rao): Initiate migration
-    });
-    req->invoke();
 }
 
 Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
@@ -987,8 +955,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-        : Module("dm"),
-          modProvider_(modProvider)
+    : HasModuleProvider(modProvider),
+    Module("dm")
 {
     // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
@@ -999,7 +967,7 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     initHandlers();
-    standalone = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
+    standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
     shuttingDown = false;
@@ -1014,9 +982,9 @@ int DataMgr::mod_init(SysParams const *const param)
                                                                           this));
 
     // qos threadpool config
-    qosThreadCount = modProvider_->get_fds_config()->\
+    qosThreadCount = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
-    qosOutstandingTasks = modProvider_->get_fds_config()->\
+    qosOutstandingTasks = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_outstanding_io", 20);
 
     // If we're in test mode, don't daemonize.
@@ -1024,36 +992,36 @@ int DataMgr::mod_init(SysParams const *const param)
     // not to override test_mode
 
     // Set testing related members
-    testUturnAll = modProvider_->get_fds_config()->\
+    testUturnAll = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_all", false);
-    testUturnStartTx = modProvider_->get_fds_config()->\
+    testUturnStartTx = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_starttx", false);
-    testUturnUpdateCat = modProvider_->get_fds_config()->\
+    testUturnUpdateCat = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_updatecat", false);
-    testUturnSetMeta   = modProvider_->get_fds_config()->\
+    testUturnSetMeta   = MODULEPROVIDER()->get_fds_config()->\
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(modProvider_->get_fds_config()->get<bool>("fds.dm.enable_timeline", true));
+    features.setTimelineEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
      */
-    features.setVolumeTokensEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setVolumeTokensEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.volume_open_support", false));
 
-    features.setExpungeEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setExpungeEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.periodic_expunge", false));
 
     // FEATURE TOGGLE: Serialization for consistency. Meant to ensure that
     // requests for a given serialization key are applied in the order they
     // are received.
-    features.setSerializeReqsEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setSerializeReqsEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.dm.req_serialization", true));
 
-    features.setVolumegroupingEnabled(modProvider_->get_fds_config()->get<bool>(
+    features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_volumegrouping", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
@@ -1070,8 +1038,8 @@ int DataMgr::mod_init(SysParams const *const param)
      * Instantiate migration manager.
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
-    
-    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+
+    fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     return 0;
 }
@@ -1096,6 +1064,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
+    handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
@@ -1103,6 +1072,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOB] = new dm::DmMigrationDeltaBlobHandler(*this);
     handlers[FDS_DM_MIG_TX_STATE] = new dm::DmMigrationTxStateHandler(*this);
+    handlers[FDS_DM_MIG_REQ_TX_STATE] = new dm::DmMigrationRequestTxStateHandler(*this);
     new dm::SimpleHandler(*this);
 }
 
@@ -1141,7 +1111,7 @@ void DataMgr::mod_startup()
 
     runMode = NORMAL_MODE;
 
-    useTestMode = modProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
+    useTestMode = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
         features.setTestModeEnabled(true);
@@ -1157,11 +1127,11 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     auto diskIOPsMin = standalone ? 60*1000 :
             atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
-                                        "node_iops_min").c_str());
+                                        "node_iops_min", "60000").c_str());
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -1188,7 +1158,8 @@ void DataMgr::mod_enable_service() {
 
 
     // create time volume catalog
-    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog("DM Time Volume Catalog",
+    timeVolCat_ = DmTimeVolCatalog::ptr(new DmTimeVolCatalog(MODULEPROVIDER(),
+                                                             "DM Time Volume Catalog",
                                                              *qosCtrl->threadPool,
                                                              *this));
 
@@ -1197,8 +1168,9 @@ void DataMgr::mod_enable_service() {
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
     statStreamAggr_ =
-            StatStreamAggregator::ptr(new StatStreamAggregator("DM Stat Stream Aggregator",
-                                                               modProvider_->get_fds_config(),
+            StatStreamAggregator::ptr(new StatStreamAggregator(MODULEPROVIDER(),
+                                                               "DM Stat Stream Aggregator",
+                                                               MODULEPROVIDER()->get_fds_config(),
                                                                *this));
 
     // enable collection of local stats in DM
@@ -1382,9 +1354,9 @@ DataMgr::_amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary) {
             return (myUuid == nodes->get(0).toSvcUuid());
         } else {
             // Anything else within number_of_primary is within primary group
-            const int numberOfPrimaryDMs = getNumOfPrimary();
+            const uint numberOfPrimaryDMs = getNumOfPrimary();
             fds_verify(numberOfPrimaryDMs > 0);
-            for (int i = 0; i < numberOfPrimaryDMs; i++) {
+            for (uint i = 0; i < numberOfPrimaryDMs && i < nodes->getLength() ; i++) {
                 if (nodes->get(i).toSvcUuid() == myUuid) {
                     return true;
                 }
@@ -1401,6 +1373,9 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+    if (features.isVolumegroupingEnabled()) {
+        return true;
+    }
     return (_amIPrimaryImpl(volUuid, false));
 }
 
@@ -1646,12 +1621,14 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_ABORT_BLOB_TX:
         case FDS_SET_VOLUME_METADATA:
         case FDS_OPEN_VOLUME:
+        case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
         case FDS_DM_RESYNC_INIT_BLOB:
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
+        case FDS_DM_MIG_REQ_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
                 serialExecutor->scheduleOnHashKey(io->volId.get(),
                                                   std::bind(&dm::Handler::handleQueueItem,
@@ -1677,7 +1654,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                             parentDm->handlers.at(io->io_type),
                                                             io));
             } else {
-                LOGDEBUG << io->log_string() << " not synchronized"; 
+                LOGDEBUG << io->log_string() << " not synchronized";
                 threadPool->schedule(&dm::Handler::handleQueueItem,
                                      parentDm->handlers.at(io->io_type),
                                      io);
@@ -1694,7 +1671,8 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-            threadPool->schedule(&DataMgr::handleDmFunctor, parentDm, io);
+                serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                                  std::bind(&DataMgr::handleDmFunctor, parentDm, io));
             break;
         default:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -1712,7 +1690,7 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
         FDS_QoSControl(_max_thrds, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                                      parentDm->qosOutstandingTasks, 
+                                      parentDm->qosOutstandingTasks,
                                       false,
                                       log);
 
@@ -1736,8 +1714,7 @@ DataMgr::dmQosCtrl::~dmQosCtrl() {
 
 namespace dmutil {
 
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(),
@@ -1749,20 +1726,17 @@ std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId) {
 }
 
 // location of all snapshots for a volume
-std::string getSnapshotDir(fds_volid_t volId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/snapshot",
                            root->dir_user_repo_dm().c_str(), volId);
 }
 
-std::string getVolumeMetaDir(fds_volid_t volId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/volumemeta",
                            root->dir_user_repo_dm().c_str(), volId);
 }
 
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId) {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(), volId.get(), snapId);
@@ -1783,14 +1757,12 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) 
     std::sort(vecVolumes.begin(), vecVolumes.end());
 }
 
-std::string getTimelineDBPath() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getTimelineDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     return util::strformat("%s/timeline.db", dmDir.c_str());
 }
 
-std::string getExpungeDBPath() {
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+std::string getExpungeDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_user_repo_dm();
     return util::strformat("%s/expunge.ldb", dmDir.c_str());
 }

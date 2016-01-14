@@ -21,8 +21,10 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
+            enable_timeline = {{ ft_enable_timeline }}
             periodic_expunge = {{ ft_periodic_expunge }}
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
+            enable_subscriptions = {{ ft_common_enable_subscriptions }}
             all_ssd = {{ all_ssd_support }}
             volume_open_support = {{ ft_common_enable_volume_open_support }}
 	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
@@ -104,6 +106,12 @@ fds: {
                 results_option = "--xml-file="
                 results_suffix = ".%p.memcheck"
 	   }
+        }
+
+        /* volume grouping options */
+        volume_group: {
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+            dm_cluster_size = 4
         }
     }
 
@@ -289,8 +297,6 @@ fds: {
             use_lftp = true
         }
 
-        /* Timeline feature toggle */
-        enable_timeline = {{ ft_enable_timeline }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -490,6 +496,7 @@ fds: {
             }
             timeout: {
                 io_message = {{ am_svc_io_message_timeout }}
+                open_message = {{ am_svc_open_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
@@ -519,7 +526,6 @@ fds: {
         s3_https_port_offset=1443
         swift_port_offset=2999
         am_base_response_port_offset=2876
-        am_service_port_offset=2988
         xdi_service_port_offset=1899
         streaming_port_offset=1911
         memory_backend=false
@@ -657,6 +663,8 @@ fds: {
            service */
         java_svc_proxy_port_offset=1900
 
+        xdi_response_port_offset=2988
+
         token_factor=8
         replica_factor=3
         placement_algo="ConsistHash"
@@ -685,8 +693,6 @@ fds: {
             /* Use lock free threadpool  */
             use_lftp = true
         }
-
-        enable_snapshot_schedule = {{ ft_enable_timeline }}
 
         snmp: {
             targetip = "{{ snmp_targetip }}"

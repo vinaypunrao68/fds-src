@@ -1609,7 +1609,7 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
  */
 bool
 ObjectStore::haveAllObjectSets(TimeStamp after) const {
-    auto volList = volumeTbl->getVolList();
+    auto volList = volumeTbl->getVolList(true);
     std::set<fds_volid_t> volumes(volList.begin(), volList.end());
 
     for (auto i = 0 ; i < 256 ; i++) {

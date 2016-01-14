@@ -50,7 +50,8 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
                                       message->blob_name,
                                       message->blob_version,
                                       message->dmt_version,
-                                      message->sequence_id);
+                                      message->sequence_id,
+                                      message->opId);
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
@@ -129,7 +130,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 
     LOGDEBUG << "DMT version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex << commitBlobReq->volId << std::dec
-             << " current DMT version " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+             << " current DMT version "
+             << dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -157,7 +159,8 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
 			(dataManager.dmMigrationMgr->shouldForwardIO(volId,
 														 commitBlobReq->dmt_version))) {
 		LOGMIGRATE << "Forwarding request that used DMT " << commitBlobReq->dmt_version
-				   << " because our DMT is " << MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+				   << " because our DMT is "
+                   << dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion();
 
 		commitBlobReq->usedForMigration = true;
 

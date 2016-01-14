@@ -162,7 +162,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
@@ -215,7 +215,7 @@ void DmMigrationDeltaBlobHandler::handleRequest(
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
@@ -294,5 +294,73 @@ void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>&
 	delete dmRequest;
 }
 
+DmMigrationRequestTxStateHandler::DmMigrationRequestTxStateHandler(DataMgr& dataManager)
+    : Handler(dataManager)
+{
+    if (!dataManager.features.isTestModeEnabled()) {
+        REGISTER_DM_MSG_HANDLER(fpi::CtrlNotifyRequestTxStateMsg, handleRequest);
+    }
+}
+
+
+void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
+                                              fpi::CtrlNotifyRequestTxStateMsgPtr& message) {
+
+    fds_volid_t volId(message->volume_id);
+    Error err = dataManager.validateVolumeIsActive(volId);
+    if (!err.OK()){
+        handleResponse(asyncHdr, message, err, nullptr);
+        return;
+    }
+
+    auto dmReq = new DmIoMigrationRequestTxState(volId, message);
+
+    dmReq->cb = BIND_MSG_CALLBACK(DmMigrationRequestTxStateHandler::handleResponse, asyncHdr, message);
+
+    dmReq->rspMsg.volume_id = message->volume_id;
+    dmReq->rspMsg.migration_id = message->migration_id;
+
+    fds_verify(dmReq->io_type == FDS_DM_MIG_REQ_TX_STATE);
+
+    LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)
+               << " " << *reinterpret_cast<DmIoMigrationRequestTxState*>(dmReq);
+
+    addToQueue(dmReq);
+}
+
+void DmMigrationRequestTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
+    QueueHelper helper(dataManager, dmRequest);
+    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
+    DmCommitLog::ptr commitLog;
+    helper.err = dataManager.timeVolCat_->getCommitlog(dmRequest->volId, commitLog);
+
+    if (!helper.err.ok()){
+        return;
+    }
+
+    auto volMeta = dataManager.getVolumeMeta(dmRequest->volId);
+    typedRequest->rspMsg.highest_op_id = volMeta->getOpId();
+    helper.err = commitLog->snapshotOutstandingTx(typedRequest->rspMsg.transactions);
+}
+
+void DmMigrationRequestTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest)
+{
+    asyncHdr->msg_code = e.GetErrno();
+
+    DBG(LOGMIGRATE << logString(*asyncHdr) << " sending request tx state resp with err: " << e);
+    if (dmRequest == nullptr) {
+        DM_SEND_ASYNC_RESP(*asyncHdr,FDSP_MSG_TYPEID(fpi::EmptyMsg),fpi::EmptyMsg());
+        return;
+    }
+
+    DmIoMigrationRequestTxState* typedRequest = static_cast<DmIoMigrationRequestTxState*>(dmRequest);
+
+    DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateRspMsg),
+                       typedRequest->rspMsg);
+
+	delete dmRequest;
+}
 }  // namespace dm
 }  // namespace fds

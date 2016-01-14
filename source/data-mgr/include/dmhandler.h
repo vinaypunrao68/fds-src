@@ -19,11 +19,11 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler(), \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler(), \
             FDSPMsgT, func)
 
 #define DM_SEND_ASYNC_RESP(...) \
-    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
+    dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
 #define HANDLE_INVALID_TX_ID_VAL(val) \
     if (BlobTxId::txIdInvalid == (val)) { \
@@ -60,9 +60,9 @@ do { \
     } \
     auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
     if (io->opId != volMeta->getOpId()+1) { \
-        fds_assert(!"opid mismatch"); \
         LOGWARN << "OpId mismatch.  Current opId: " \
             << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        fds_assert(!"opid mismatch"); \
         helper.err = ERR_IO_OPID_MISMATCH; \
         return; \
     } \
@@ -319,6 +319,18 @@ struct VolumeOpenHandler : Handler {
 };
 
 /**
+ * Message from coordinator notifying the active state of the group
+ */
+struct VolumegroupUpdateHandler : Handler {
+    explicit VolumegroupUpdateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::VolumeGroupInfoUpdateCtrlMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+/**
  * Close an existing access token for the given volume
  */
 struct VolumeCloseHandler : Handler {
@@ -413,6 +425,16 @@ struct DmMigrationTxStateHandler : Handler {
     void handleQueueItem(DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+struct DmMigrationRequestTxStateHandler : Handler {
+    explicit DmMigrationRequestTxStateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
 

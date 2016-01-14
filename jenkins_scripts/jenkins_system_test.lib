@@ -11,8 +11,9 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # This list of tests to be run
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
-
+SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover VolumeGroupMode"
+# Jenkins job runs tests on AWS nodes
+AWS_TEST_SCENARIO_LIST = "AWS_tests MultiAMVolOpsTest"
 function performance_report
 {
     unit=${1}
@@ -418,4 +419,36 @@ function run_coroner
     run_node_cleanup ${1}
 }
 
+function run_aws_test_scenarios
+{
+    start_time=$(date +%s)
+
+    for scenario in ${AWS_TEST_SCENARIO_LIST}
+    do
+        aws_test_scenario_wrapper ${scenario}
+    done
+
+    end_time=$(date +%s)
+
+    performance_report SYSTEM_TESTS $(( ${end_time} - ${start_time} ))
+}
+
+function aws_test_scenario_wrapper
+{
+    scenario=${1}
+
+    do_pushd source/test/testsuites
+    # For now hard code variable values e.g. log, inventory name TODO pooja
+    message " *** RUNNING System Test Scenario: ${scenario} on AWS nodes"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l /tmp/AwsLongSystemTest.log --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
+    echo " *** Scenario completed :  ${scenario} passed"
+
+    do_popd
+
+    capture_process_list SysTest.${scenario}
+
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
+    check_for_cores
+}
 

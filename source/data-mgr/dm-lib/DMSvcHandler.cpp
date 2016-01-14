@@ -14,8 +14,10 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
+
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
+
     /* OM to DM snapshot messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CreateSnapshotMsg, createSnapshot);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteSnapshotMsg, deleteSnapshot);
@@ -30,6 +32,10 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlDMMigrateMeta, StartDMMetaMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMAbortMigration, NotifyDMAbortMigration);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
+
+    /* DM Debug messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::DbgQueryVolumeStateMsg, handleDbgQueryVolumeStateMsg);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
 }
 
 // notifySvcChange
@@ -115,8 +121,16 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                 err = dataManager_.deleteVolumeContents(vol_uuid);
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
 
-                // remove volume from timelineDB
-                err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                // If timeline is disabled, then the remove volume check is
+                // simply going to return with err = FEATUER_DISABLED.
+                // When this err gets propagated back to the OM it causes volume
+                // delete not to clean up properly. So only removeVol against timelineMgr
+                // if the feature is enabled
+                if (dataManager_.features.isTimelineEnabled())
+                {
+                    // remove volume from timelineDB
+                    err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                }
             } else {
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
             }
@@ -458,4 +472,54 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
 }
 
+void
+DMSvcHandler::handleDbgQueryVolumeStateMsg(SHPTR<fpi::AsyncHdr>& hdr,
+                                           SHPTR<fpi::DbgQueryVolumeStateMsg> &queryMsg)
+{
+    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(queryMsg->volId));
+    if (volMeta == nullptr) {
+        LOGWARN << "Failed to debug query volume state.  volid: "
+            << queryMsg->volId << " not found";
+        hdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        return;
+    }
+    fpi::DbgQueryVolumeStateRspMsg resp;
+    volMeta->populateState(resp.state);
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::DbgQueryVolumeStateRspMsg), resp);
+}
+
+void
+DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
+                                           SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
+{
+    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(queryMsg->volId));
+    auto cb = [this, hdr](const Error &e) {
+        hdr->msg_code = e.GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    };
+
+    if (volMeta == nullptr) {
+        LOGWARN << "Failed to debug force volume sync.  volid: "
+            << queryMsg->volId << " not found";
+        cb(ERR_VOL_NOT_FOUND);
+        return;
+    }
+
+    /* Execute under synchronized context */
+    auto func = volMeta->makeSynchronized([volMeta, cb]() {
+        if (volMeta->getState() != fpi::Offline) {
+            LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
+            cb(ERR_INVALID);
+            return;
+        } else if (volMeta->isInitializerInProgress()) {
+            LOGWARN << "Force sync failed. Volume sync is in progress" << volMeta->logString();
+            cb(ERR_INVALID);
+            return;
+        }
+        volMeta->startInitializer();
+        cb(ERR_OK);
+    });
+    func();
+}
 }  // namespace fds

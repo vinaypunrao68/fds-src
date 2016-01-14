@@ -19,6 +19,11 @@ import time
 import re
 from fabric.contrib.files import *
 from fabric.context_managers import cd
+from StringIO import StringIO
+from fabric.api import get
+from fdslib.TestUtils import disconnect_fabric
+from fdslib.TestUtils import connect_fabric
+
 
 def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
@@ -34,7 +39,7 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
             log.error("File %s is not found." % (searchFile))
             return False
     else:
-        lstatout=str(sftp.lstat(searchFile)).split()[0]
+        lstatout = str(sftp.lstat(searchFile)).split()[0]
         if 'd' in lstatout:
             log.error("%s is a directory." % (searchFile))
             return False
@@ -43,9 +48,9 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
         f = open(searchFile, "r")
         searchLines = f.readlines()
         log.debug("Read {} lines from {}. Found {} as first line and {} as last line.".format(len(searchLines),
-                                                                                                  searchFile,
-                                                                                                  searchLines[0],
-                                                                                                  searchLines[-1]))
+                                                                                              searchFile,
+                                                                                              searchLines[0],
+                                                                                              searchLines[-1]))
         f.close()
     else:
         f = sftp.file(searchFile, "r", -1)
@@ -169,7 +174,7 @@ def canonMatch(canon, fileToCheck):
     for canonLine in canonLines:
         if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
             log.error("File %s, differs from canon file, %s, at line %d." %
-                      (fileToCheck, canon, idx+1))
+                      (fileToCheck, canon, idx + 1))
             log.error("File line:")
             log.error(linesToCheck[idx])
             log.error("Canon line:")
@@ -181,41 +186,35 @@ def canonMatch(canon, fileToCheck):
     return True
 
 
-def areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type):
-    env.user='root'
-    env.password='passwd'
-    env.host_string = node_ip
-    internal_ip = run("hostname")
-
-    # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
-    print("internal_ip[%s]" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
-    result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
+def areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type):
+    connect_fabric(self,node_ip)
 
     with cd(dev_dir):
         drives_string = run('ls')
         drives = drives_string.split()
         for drive in drives:
             if fnmatch.fnmatch(drive, media_type + "-*"):
-                with cd(dev_dir+ drive):
+                with cd(dev_dir + drive):
                     drive_files_str = run('ls')
                     drive_files = drive_files_str.split()
                     for drive_file in drive_files:
                         if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
-                            with cd (dev_dir+ drive):
-                                cmd = "du -b %s | cut -f1"%(drive_file)
+                            with cd(dev_dir + drive):
+                                cmd = "du -b %s | cut -f1" % (drive_file)
                                 token_file_size = sudo(cmd)
                                 token_file_size = int(token_file_size)
                                 if token_file_size > 0:
+                                    disconnect_fabric()
                                     return True
+    disconnect_fabric()
     return False
+
 
 def areTokenFilesUpdated(self, dev_dir, media_type):
     fdscfg = self.parameters["fdscfg"]
     nodes = fdscfg.rt_obj.cfg_nodes
     for node in nodes:
-        if node.nd_conf_dict['node-name']== self.passedNode:
+        if node.nd_conf_dict['node-name'] == self.passedNode:
             node_ip = node.nd_conf_dict['ip']
             break
     if node_ip is None:
@@ -231,8 +230,9 @@ def areTokenFilesUpdated(self, dev_dir, media_type):
                         if token_file_size > 0:
                             return True
     else:
-        return areTokenFilesUpdated_AWS(node_ip,dev_dir,media_type)
+        return areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type)
     return False
+
 
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration
@@ -309,24 +309,27 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+
 class TestDMChecker(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_DMChecker,
                                              "DM Static migration verification")
+
     def test_DMChecker(self):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         nodes = fdscfg.rt_obj.cfg_nodes
         n1 = nodes[0]
         status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/DmChecker) \"' %
-                                                (bin_dir), return_stdin=True)
+                                               (bin_dir), return_stdin=True)
 
         if status != 0:
-            self.log.error("DM Static Migration failed") 
+            self.log.error("DM Static Migration failed")
             return False
         return True
+
 
 # This class contains the attributes and methods to test
 # whether there occurred successful SM Static migration
@@ -416,6 +419,7 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
             self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
+
 
 # This class contains the attributes and methods to test
 # whether SM migration successfully migrated object metadata
@@ -513,7 +517,8 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, atleastcount=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None,
+                 atleastcount=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_WaitForLog,
@@ -545,12 +550,13 @@ class TestWaitForLog(TestCase.FDSTestCase):
 
         if self.atleastcount is not None:
             self.log.info("Looking in %s's %s logs for entry '%s' to occur at least %s. Waiting for up to %s seconds." %
-                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                            self.passedLogentry, self.atleastcount, self.passedMaxwait))
+                          (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                           self.passedLogentry, self.atleastcount, self.passedMaxwait))
         else:
-            self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
-                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                            self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
+            self.log.info(
+                "Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
+                (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                 self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
 
         # We'll check for the specified log entry every 10 seconds until we
         # either find what we're looking for or timeout while looking.
@@ -576,7 +582,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     if self.atleastcount is not None and occurrencesFound > self.atleastcount:
                         # Found minimum count of log entries, we're good to go
                         break
-                        
+
                 if occurrencesFound > self.passedOccurrences:
                     # Found too many.
                     break
@@ -605,7 +611,8 @@ class TestWaitForLog(TestCase.FDSTestCase):
         else:
             return True
 
-#This class checks for updates in the token files of ssd drives attached to the cluster
+
+# This class checks for updates in the token files of ssd drives attached to the cluster
 class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -628,15 +635,15 @@ class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in ssd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return areTokenFilesUpdated(self,dev_dir, "ssd")
+        return areTokenFilesUpdated(self, dev_dir, "ssd")
 
 
-#This class checks for updates in the token files of hard disk drives attached to the cluster
+# This class checks for updates in the token files of hard disk drives attached to the cluster
 class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -659,15 +666,15 @@ class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in hdd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
         return areTokenFilesUpdated(self, dev_dir, "hdd")
 
 
-#This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
+# This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
 class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -690,15 +697,15 @@ class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in ssd and hdd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return (areTokenFilesUpdated(self,dev_dir, "ssd") and areTokenFilesUpdated(self,dev_dir, "hdd"))
+        return (areTokenFilesUpdated(self, dev_dir, "ssd") and areTokenFilesUpdated(self, dev_dir, "hdd"))
 
 
-#This class enables and runs the garbage collector on all the SMs in the cluster
+# This class enables and runs the garbage collector on all the SMs in the cluster
 class TestRunScavenger(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -716,8 +723,10 @@ class TestRunScavenger(TestCase.FDSTestCase):
         om_node = fdscfg.rt_om_node
 
         self.log.info("Enabling garbage collector")
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local enable) \"', fds_tools=True)
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local start) \"', fds_tools=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local enable) \"',
+                                            fds_tools=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local start) \"',
+                                            fds_tools=True)
         if status != 0:
             self.log.error("Starting garbage collector failed")
             return False
@@ -763,6 +772,113 @@ class TestCanonMatch(TestCase.FDSTestCase):
         else:
             self.log.error("Canon match failed.")
             return False
+
+
+# This class contains the attributes and methods to test
+# rebooting node (I.e. node shuts down and comes back up again)
+class TestNodeReboot(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, om_node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeReboot,
+                                             "Reboot a node")
+
+        self.passedNode = node
+        self.passedService = service
+        self.passedLogentry = logentry
+        self.passedOMnode = om_node
+
+    def test_NodeReboot(self):
+        """
+        Test Case:
+        Attempt to reboot a given node.
+        """
+        service_list = self.passedService.split(',')
+        log_entry_list = self.passedLogentry.split(',')
+        node_ip = self.passedNode.nd_conf_dict['ip']
+        dict_log_count = {}
+        global pre_reboot_count
+        pre_reboot_count = {}
+
+        for idx, log_entry in enumerate(log_entry_list):
+            # If service is OM then search OM logs on om node
+            node = self.passedOMnode if service_list[idx] == 'om' else self.passedNode
+            val = count_remote_logs(self, node, service_list[idx], log_entry)
+            dict_log_count[log_entry] = val
+        pre_reboot_count = dict_log_count
+
+        self.log.info("%s is going down for reboot NOW!" % self.passedNode.nd_conf_dict['ip'])
+        assert connect_fabric(self, node_ip) is True
+        run('reboot')
+        disconnect_fabric()
+        # This assert will confirm that node is back up again after reboot
+        if not connect_fabric(self, node_ip):
+            return False
+        else:
+            return True
+
+
+# This class contains the attributes and methods to verify if node is in good state for IO after reboot
+# by confirming passed log entry count has increased after reboot.
+
+class TestRebootVerify(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, maxwait=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RebootVerify,
+                                             "Verify node state after reboot")
+
+        self.passedNode = node
+        self.passedService = service
+        self.passedLogentry = logentry
+        self.passedMaxwait = maxwait
+
+    def test_RebootVerify(self):
+        node_ip = self.passedNode.nd_conf_dict['ip']
+        assert connect_fabric(self, node_ip) is True
+        wait_for_log_time = self.passedMaxwait  # It's in minutes
+        post_reboot_log_entries = 0
+
+        # Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
+        # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
+        for i in range(0, wait_for_log_time * 2):
+            post_reboot_log_entries = count_remote_logs(self, self.passedNode, self.passedService, self.passedLogentry)
+            if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
+                # before rechecking logs wait for 30 sec
+                time.sleep(30)
+                continue
+            else:
+                self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
+                              " after reboot: %d ."
+                              % (self.passedLogentry, pre_reboot_count[self.passedLogentry], post_reboot_log_entries))
+                disconnect_fabric()
+                return True
+
+        if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
+            self.log.error("Waited for %s minutes on node %s after reboot, still %s count didn't increase"
+                           % (wait_for_log_time, node_ip, self.passedLogentry))
+            return False
+
+
+def count_remote_logs(self, node, service, log_entry):
+    assert connect_fabric(self, node.nd_conf_dict['ip']) is True
+    with cd('/fds/var/logs'):
+        files = run('ls').split()
+    log_files = [item for item in files if item.startswith(service + '.log')]
+
+    log_counts = 0
+    io = StringIO()
+    for log_file in log_files:
+        get('/fds/var/logs/' + log_file, io)
+        content = io.getvalue()
+        search_lines = content.split('\n')
+        for line in search_lines:
+            if log_entry in line:
+                log_counts += 1
+                io.truncate(0)
+
+    disconnect_fabric()
+    return log_counts
 
 
 if __name__ == '__main__':

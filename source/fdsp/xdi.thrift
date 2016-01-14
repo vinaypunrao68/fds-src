@@ -25,11 +25,6 @@ struct TxDescriptor {
     1: required i64 txId
 }
 
-service XdiService { 
-        VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
-        throws (1: common.ApiException e),
-}
-
 service AsyncXdiServiceRequest {
     oneway void handshakeStart(1:RequestId requestId 2:i32 portNumber),
 

@@ -49,7 +49,8 @@ void UpdateCatalogOnceHandler::handleRequest(
                                                                          message->blob_name,
                                                                          message->blob_version,
                                                                          message->dmt_version,
-                                                                         message->sequence_id);
+                                                                         message->sequence_id,
+                                                                         message->opId);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
 

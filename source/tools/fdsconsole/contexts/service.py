@@ -7,6 +7,7 @@ import re
 import types
 import time
 import socket
+import dmtdlt
 
 class ServiceContext(Context):
     def __init__(self, *args):
@@ -57,6 +58,13 @@ class ServiceContext(Context):
         except:
             return ip
         return ip
+
+    def getDLT(self):
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDLT(0)
+        dlt = dmtdlt.DLT()
+        dlt.load(msg.dlt_data.dlt_data)
+        return dlt
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -120,7 +128,12 @@ class ServiceContext(Context):
         services = self.getServiceList()
         for s in services:
             if uuid == s['uuid']:
-                return '{}:{}'.format(s['service'].lower(), s['ip'])
+                host = self.getHostFromIp(s['ip'])
+                uuids = self.getServiceIds('{}:{}'.format(s['service'],s['ip']))
+                if len(uuids) > 1:
+                    return '{}:{}:{}'.format(s['service'].lower(), host, s['port'])
+                else:
+                    return '{}:{}'.format(s['service'].lower(), host)
         raise Exception('unknown service : {}'.format(uuid))
 
     #--------------------------------------------------------------------------------------
@@ -173,6 +186,9 @@ class ServiceContext(Context):
                 ip = [name]
                 name = None
 
+            if name != None:
+                name = name.lower()
+
             if name not in ['om','am','pm','sm','dm', '*', 'all', None]:
                 # check for hostname
                 iplist = self.getIpsFromName(name)
@@ -183,7 +199,7 @@ class ServiceContext(Context):
                 if name != None:
                     print 'unknown service : {}'.format(name)
                     return []
-
+            
             services = self.getServiceList()
             finallist = [s for s in services
                          if (name == None or name == 'all' or name == '*' or name == s['service'].lower()) and

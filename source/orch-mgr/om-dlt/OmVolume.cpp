@@ -88,6 +88,18 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
     template <class Event, class FSM> void on_exit(Event const &, FSM &);
 
     /**
+     * Timer task to schedule delete event for a volume
+     */
+    class DelTimerTask : public FdsTimerTask {
+      public:
+        explicit DelTimerTask(FdsTimer &timer)  // NOLINT
+        : FdsTimerTask(timer) {}
+        ~DelTimerTask() {}
+
+        virtual void runTimerTask() override;
+    };
+
+    /**
      * OM Volume states
      */
     struct VST_Inactive: public msm::front::state<>
@@ -129,10 +141,20 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
 
     struct VST_Active: public msm::front::state<>
     {
+        VST_Active() : delTimer(new FdsTimer()),
+                       delTimerTask(new DelTimerTask(*delTimer)) {}
+
+        ~VST_Active() {
+            delTimer->destroy();
+        }
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         STATE_ENTER_EXIT();
+
+        FdsTimerPtr delTimer;
+        FdsTimerTaskPtr delTimerTask;
     };
 
     struct VST_Waiting: public msm::front::state<>
@@ -278,6 +300,27 @@ void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
             // << " cur:" << current_state_name(fsm);
 }
 
+void VolumeFSM::DelTimerTask::runTimerTask()
+{
+    VolumeInfo::pointer volInfo;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volContainer = local->om_vol_mgr();
+
+    std::vector<VolumeDesc> volsToDelete = volContainer->getVolumesToDelete();
+
+    for (auto volDesc : volsToDelete)
+    {
+        GLOGDEBUG << "Volume " << "[" << volDesc.volUUID << ":" << volDesc.name << "]"
+                 << " previously marked for delete, processing now";
+
+        volInfo = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volDesc.volUUID.get()));
+
+        gl_orch_mgr->counters->volumesBeingDeleted.incr();
+        volInfo->vol_event(VolDeleteEvt(volInfo->rs_get_uuid(), volInfo.get()));
+    }
+}
+
 /**
  * GRD_NotifCrt
  * ------------
@@ -315,11 +358,24 @@ void
 VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
-    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    VolumeInfo *vol = evt.vol_ptr;
+
+    VolumeInfo* vol = evt.vol_ptr;
     fds_verify(vol != NULL);
+
+    if ( vol->isStateMarkedForDeletion() )
+    {
+        // If this volume marked for deletion do not update volume/snapshot state
+        // or broadcast volume creation
+        GLOGDEBUG << "VACT_NotifCrt for volume " << vol->vol_get_name()
+                  << " will return without taking any action, vol is marked for deletion";
+        return;
+    }
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+ 
     GLOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
     VolumeDesc* volDesc= vol->vol_get_properties();
+    gl_orch_mgr->counters->volumesBeingCreated.incr();
     if (fpi::ResourceState::Created != volDesc->state) {
         volDesc->state = fpi::ResourceState::Loading;
     }
@@ -375,11 +431,37 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
+
     VolumeInfo* vol = evt.vol_ptr;
+
+    if (vol == NULL)
+    {
+        GLOGWARN << "VACT_CrtDone: VolumeInfo object is NULL, returning..";
+        return;
+    }
+
+    if (vol->isStateMarkedForDeletion()) {
+        GLOGDEBUG << "VACT_CrtDone: volume " << vol->vol_get_name()
+                  << " marked for deletion, scheduling delete evt";
+
+        // If the volume is marked for deletion, the only reason we are here is because
+        // OM restarted and the volume had to be instantiated first
+        // At this point, the next state is VST_ACTIVE. If this volume is marked for
+        // deletion, schedule a volumeDeleteEvt
+
+        if (!dst.delTimer->schedule(dst.delTimerTask,
+                                     std::chrono::seconds(5))) {
+            GLOGWARN << "VACT_CrtDone: Failed to start timer to process delete of volumes"
+                     << " previously marked for deletion";
+        }
+
+        return;
+    }
+
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Active;
     GLOGDEBUG << "VolumeFSM VACT_CrtDone for " << volDesc->name;
-
+    gl_orch_mgr->counters->volumesBeingCreated.decr();
     // TODO(prem): store state even for volume.
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->setSnapshotState(volDesc->getSrcVolumeId(),
@@ -428,7 +510,20 @@ void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     VolumeInfo* vol = evt.vol_ptr;
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
-            GLOGDEBUG << "VACT_VolOp:: modify volume";
+            GLOGDEBUG << "VACT_VolOp:: modify volume [ " << vol->vol_get_name() << " ] [ " << vol->vol_get_id() << " ]";
+            if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_NFS_TYPE )
+            {
+                GLOGDEBUG << "NFS:: CLIENT [ " << vol->vol_get_properties()->nfsSettings.client << " ] "
+                          << "OPTIONS [ " << vol->vol_get_properties()->nfsSettings.options << " ]";
+            }
+            else if ( vol->vol_get_properties()->volType == fpi::FDSP_VOL_ISCSI_TYPE )
+            {
+                GLOGDEBUG << "iSCSI:: LUN count [ " << vol->vol_get_properties()->iscsiSettings.luns.size() << " ]"
+                          << " Initiator count [ " << vol->vol_get_properties()->iscsiSettings.initiators.size() << " ]"
+                          << " Incoming Users count [ " << vol->vol_get_properties()->iscsiSettings.incomingUsers.size() << " ]"
+                          << " Outgoing Users count [ " << vol->vol_get_properties()->iscsiSettings.outgoingUsers.size() << " ]";
+            }
+
             dst.wait_for_type = om_notify_vol_mod;
             err = vol->vol_modify(evt.vdesc_ptr);
             break;
@@ -506,6 +601,18 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
+    VolumeInfo* vol = evt.vol_ptr;
+    if (vol == NULL)
+    {
+        GLOGWARN << "GRD_QueueDel: VolumeInfo object is NULL, return false";
+        return false;
+    }
+
+    if (vol->isStateMarkedForDeletion())
+    {
+        GLOGDEBUG << "GRD_QueueDel, returning true";
+        return true;
+    }
     // check if we have detached all the nodes
     fds_verify(src.detach_ack_wait > 0);
     src.detach_ack_wait--;
@@ -556,6 +663,12 @@ bool VolumeFSM::GRD_DelSent::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     STATELOG();
     bool ret = false;
     VolumeInfo* vol = evt.vol_ptr;
+    if (vol == NULL)
+    {
+        GLOGWARN << "GRD_DelSent: VolumeInfo object is NULL, return false";
+        return false;;
+    }
+
     GLOGDEBUG << "GRD_DelSent volume " << vol->vol_get_name()
              << "result : " << evt.chk_err.GetErrstr();
 
@@ -576,7 +689,7 @@ bool VolumeFSM::GRD_DelSent::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // when rebalancing is finished
         OM_Module *om = OM_Module::om_singleton();
         VolumePlacement* vp = om->om_volplace_mod();
-        fds_verify(vol);
+
         if (vp->isRebalancing((vol->vol_get_properties())->volUUID)) {
             GLOGNOTIFY << "Volume " << vol->vol_get_name() << ":" << std::hex
                       << (vol->vol_get_properties())->volUUID << std::dec
@@ -606,7 +719,28 @@ VolumeFSM::VACT_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 {
     STATELOG();
     VolumeInfo* vol = evt.vol_ptr;
+    if (vol == NULL)
+    {
+        GLOGWARN << "VACT_Detach: VolumeInfo object is NULL, returning..";
+        return;
+    }
+
     GLOGDEBUG << "VolumeFSM VACT_Detach";
+
+    if (vol->isStateMarkedForDeletion())
+    {
+        GLOGDEBUG << "VACT_Detach: raising evt VolOpRespEvt";
+
+        // If the volume is marked for deletion, it implies that it has already
+        // been through all these steps prior to the OM rebooting.
+        // The purpose now is to move through the state machine until the volume
+        // gets scheduled on the delete scheduler queue.
+        fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(), vol,
+                                       om_notify_vol_detach,
+                                       Error(ERR_OK)));
+        return;
+    }
+
     VolumeDesc* volDesc = vol->vol_get_properties();
 
     // start delete volume process
@@ -631,7 +765,20 @@ VolumeFSM::VACT_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     STATELOG();
     VolumeInfo* vol = evt.vol_ptr;
+    if (vol == NULL)
+    {
+        GLOGWARN << "VACT_QueueDel: VolumeInfo object is NULL, returning..";
+        return;
+    }
+
     VolumeDesc* volDesc = vol->vol_get_properties();
+
+    if (vol->isStateMarkedForDeletion())
+    {
+        GLOGDEBUG << "VACT_QueueDel: Volume [" << volDesc->volUUID << "] already marked for deletion,"
+                  << " will set state again and schedule for delete";
+    }
+
     volDesc->state = fpi::ResourceState::MarkedForDeletion;
 
     // TODO(prem): store state even for volume.
@@ -659,6 +806,8 @@ VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 {
     STATELOG();
     VolumeInfo *vol = evt.vol_ptr;
+    GLOGDEBUG << "VACT_DelNotify for volume " << vol->vol_get_name();
+
     // broadcast delete volume notification to all DMs/SMs
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     dst.del_notify_ack_wait = local->om_bcast_vol_delete(vol, false) + 1;
@@ -1131,6 +1280,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     }
 
     // start volume delete process
+    gl_orch_mgr->counters->volumesBeingDeleted.incr();
     vol->vol_event(VolDeleteEvt(vol->rs_get_uuid(), vol.get()));
 
     return err;
@@ -1150,6 +1300,7 @@ Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
     LOGNOTIFY << "will delete volume : " << volId << ":" << vol->vol_get_name();
 
     // start volume delete process
+    gl_orch_mgr->counters->volumesBeingDeleted.incr();
     vol->vol_event(VolDeleteEvt(uuid, vol.get()));
 
     return err;
@@ -1164,10 +1315,35 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
     fds_verify(vol != NULL);
     VolumeDesc* volDesc = vol->vol_get_properties();
+    gl_orch_mgr->counters->volumesBeingDeleted.decr();
     // remove the volume from configDB
     if (volDesc->isSnapshot()) {
         gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->getSrcVolumeId(),
                                                    volDesc->volUUID);
+    } else {
+        // remove the snapshots for this vol from the OM datastructures
+        // the actual snapshots would have been removed from the DM during vol delete
+        std::vector<fpi::Snapshot> vecSnapshots;
+        gl_orch_mgr->getConfigDB()->listSnapshots(vecSnapshots, volDesc->volUUID);
+        LOGNORMAL << "removing [" << vecSnapshots.size() << "] snapshots after deleting vol:" << volDesc->volUUID;
+        for (const auto& snapshot : vecSnapshots) {
+            LOGNORMAL << "removing snapshot:" << snapshot.snapshotId;
+            if (gl_orch_mgr->enableTimeline) {
+                // remove from snap delete scheduler
+                gl_orch_mgr->snapshotMgr->deleteScheduler->removeVolume(fds_volid_t(snapshot.snapshotId));
+            }
+            // remove from config db
+            gl_orch_mgr->getConfigDB()->deleteSnapshot(volDesc->volUUID, fds_volid_t(snapshot.snapshotId));
+
+            // remove from OM data structure
+            auto resource = rs_get_resource(snapshot.snapshotId);
+            if (resource == NULL) {
+                LOGWARN << "rs ptr NULL for snapshot:" << snapshot.snapshotId << " of vol:" << volDesc->volUUID;
+            } else {
+                rs_unregister(resource);
+                rs_free_resource(resource);
+            }
+        }
     }
     // Nothing to do for volume in config db ..
     // as it should have been marked as Deleted already..
@@ -1177,7 +1353,6 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
     rs_free_resource(vol);
 }
 
-
 // get_volume
 // ---------
 //
@@ -1185,6 +1360,13 @@ VolumeInfo::pointer
 VolumeContainer::get_volume(const std::string& vol_name)
 {
     return VolumeInfo::vol_cast_ptr(rs_get_resource(vol_name.c_str()));
+}
+
+VolumeInfo::pointer
+VolumeContainer::get_volume(const fds_volid_t id)
+{
+    ResourceUUID uuid(id.v);
+    return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
 }
 
 //
@@ -1283,10 +1465,36 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                   << " throttle iops " << new_desc->iops_throttle
                   << " priority " << new_desc->relativePrio;
     }
+
     if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {
         new_desc->mediaPolicy = mod_msg->vol_desc.mediaPolicy;
         LOGNOTIFY << "Modify volume " << vname
                   << " also set media policy to " << new_desc->mediaPolicy;
+    }
+
+    LOGNOTIFY << "Modify volume [ " << (mod_msg->vol_desc).vol_name << " ]"
+              << " [ " << (mod_msg->vol_desc).volUUID << " ]"
+              << " [ " << (mod_msg->vol_desc).volType << " ]";
+
+    if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_ISCSI_TYPE )
+    {
+        FDS_ProtocolInterface::IScsiTarget iscsi = ( mod_msg->vol_desc ).iscsi;
+        LOGDEBUG << "iSCSI::before LUN count [ " << iscsi.luns.size() << " ]"
+                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+        new_desc->iscsiSettings = iscsi;
+        LOGDEBUG << "iSCSI::after LUN count [ " << new_desc->iscsiSettings.luns.size() << " ]"
+                 << " Initiator count [ " << new_desc->iscsiSettings.initiators.size() << " ]"
+                 << " Incoming Users count [ " << new_desc->iscsiSettings.incomingUsers.size() << " ]"
+                 << " Outgoing Users count [ " << new_desc->iscsiSettings.outgoingUsers.size() << " ]";
+    }
+    else if ( ( mod_msg->vol_desc ).volType == fpi::FDSP_VOL_NFS_TYPE )
+    {
+        FDS_ProtocolInterface::NfsOption nfs = ( mod_msg->vol_desc ).nfs;
+        LOGDEBUG << "NFS::before client [ " << nfs.client << " ] " << " option [ " << nfs.options << " ]";
+        new_desc->nfsSettings = nfs;
+        LOGDEBUG << "NFS::after client [ " << new_desc->nfsSettings.client << " ] " << " option [ " << new_desc->nfsSettings.options << " ]";
     }
 
     vol->vol_event(VolOpEvt(vol.get(),
@@ -1514,6 +1722,15 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
       }
 }
 
+std::vector<VolumeDesc> VolumeContainer::getVolumesToDelete()
+{
+    return volumesToBeDeleted;
+}
+
+void VolumeContainer::addToDeleteVols(const VolumeDesc volumeDesc)
+{
+    volumesToBeDeleted.push_back(volumeDesc);
+}
 
 bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
@@ -1569,7 +1786,7 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         // if it was previously active then it means that 
         // this is an old volume
         vol->setState(fpi::ResourceState::Created);
-    } else {
+    } else if (!vol->isStateMarkedForDeletion()) {
         vol->setState(fpi::ResourceState::Loading);
     }
 

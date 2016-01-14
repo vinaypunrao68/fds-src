@@ -176,6 +176,23 @@ def debug_dump (devlist):
     for disk in devlist:
         disk.print_disk()
 
+def get_device_list(fs) :
+    device_list = []
+    if "/dev/md" in fs or "/dev/disk/by-uuid" in fs:
+        call_list = ['mdadm', '--detail', fs]
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            if "/dev/sd" in line:
+                items = line.strip ('\r\n').split()
+                device=items[6].rstrip('0123456789')
+                if device not in device_list:
+                    device_list.append (device)
+    else:
+        device = fs.rstrip('0123456789')
+        if device not in device_list:
+            device_list.append (device)
+    return device_list
+ 
 def discover_os_devices ():
     '''
     Auto discover the OS disks
@@ -198,19 +215,7 @@ def discover_os_devices ():
         print "Unable to find the root file system in 'df' output.  Can not continue."
         sys.exit(1)
 
-    if "/dev/md" in root_device:
-        call_list = ['mdadm', '--detail', root_device]
-        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
-        for line in output:
-            if "/dev/sd" in line:
-                items = line.strip ('\r\n').split()
-                os_device=items[6].rstrip('0123456789')
-                if os_device not in os_device_list:
-                    os_device_list.append (os_device)
-    else:
-        os_device = root_device.rstrip('0123456789')
-        if os_device not in os_device_list:
-            os_device_list.append (os_device)
+    os_device_list = get_device_list(root_device)
 
     return os_device_list
 
@@ -291,6 +296,21 @@ def disk_type_with_stor_cli (stor_client):
 
     dbg_print ("return_list=" + ', '.join(return_list))
     return return_list
+
+def find_index_devices() :
+    output = subprocess.Popen(["df", "/fds/sys-repo"], stdout=subprocess.PIPE).stdout
+    index_devs = []
+    dev = ""
+    for line in output:
+        items = line.strip ('\r\n').split()
+        if "/fds/sys-repo" == items[5]:
+            dev = items[0]
+            dbg_print("Found an existing index device in df output: %s" % dev)
+            break 
+
+    if 0 != len(dev):
+        index_devs = get_device_list(dev)
+    return index_devs
 
 if __name__ == "__main__":
 
@@ -405,6 +425,12 @@ if __name__ == "__main__":
     hdd_device_list.reverse()
 
     index_device_list = []
+
+    # keep existing index disk(s)
+    index_device_list = find_index_devices()
+    if len(index_device_list) < 1:
+        subprocess.call(['mount', '/fds/sys-repo'], stdout = None, stderr = None)
+        index_device_list = find_index_devices()
 
     # copy one SSD into the index device list
     while len (index_device_list) < 1 and len (ssd_device_list) > 0:

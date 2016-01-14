@@ -23,7 +23,7 @@ public class SimpleInodeIndex implements InodeIndex {
     public Optional<InodeMetadata> lookup(Inode parent, String name) throws IOException {
         String volumeName = exportResolver.volumeName(parent.exportIndex());
         String blobName = blobName(InodeMetadata.fileId(parent), name);
-        return io.mapMetadata(BlockyVfs.DOMAIN, volumeName, blobName,
+        return io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName,
                 (x, metadata) -> metadata.map(m -> new InodeMetadata(m)));
     }
 
@@ -32,7 +32,7 @@ public class SimpleInodeIndex implements InodeIndex {
         String volumeName = exportResolver.volumeName((int) exportId);
         String blobNamePrefix = "index-" + directory.getFileId() + "/";
         return io.scan(
-                BlockyVfs.DOMAIN,
+                XdiVfs.DOMAIN,
                 volumeName,
                 blobNamePrefix,
                 (blobName, md) -> new InodeMetadata(md.get())
@@ -47,7 +47,7 @@ public class SimpleInodeIndex implements InodeIndex {
             Collection<String> names = links.get(parentId);
             for (String name : names) {
                 String blobName = blobName(parentId, name);
-                io.mutateMetadata(BlockyVfs.DOMAIN, volumeName, blobName, entry.asMap(), deferrable);
+                io.mutateMetadata(XdiVfs.DOMAIN, volumeName, blobName, entry.asMap(), deferrable);
             }
         }
     }
@@ -72,6 +72,6 @@ public class SimpleInodeIndex implements InodeIndex {
     public void unlink(long exportId, long parentId, String linkName) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
         String blobName = blobName(parentId, linkName);
-        io.deleteBlob(BlockyVfs.DOMAIN, volumeName, blobName);
+        io.deleteBlob(XdiVfs.DOMAIN, volumeName, blobName);
     }
 }

@@ -92,7 +92,7 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     modProvider_->proc_fdsroot()->\
             fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
-    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer()));
+    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer(), modProvider_->getSvcMgr()));
     counters.reset(new sm::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
     /*
      * Create local volume table.

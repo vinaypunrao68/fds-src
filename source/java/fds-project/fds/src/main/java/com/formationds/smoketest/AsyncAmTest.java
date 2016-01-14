@@ -90,10 +90,10 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(NFS_EXPORT_ID, false, fooDir);
-        index.index(NFS_EXPORT_ID, false, barDir);
+        index.index(NFS_EXPORT_ID, true, fooDir);
+        index.index(NFS_EXPORT_ID, true, barDir);
         index.index(NFS_EXPORT_ID, false, blue);
-        index.index(NFS_EXPORT_ID, false, red);
+        index.index(NFS_EXPORT_ID, true, red);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());

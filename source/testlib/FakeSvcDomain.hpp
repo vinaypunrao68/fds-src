@@ -18,6 +18,7 @@ struct FakeSyncSvcDomain;
 struct FakeSvc;
 struct FakeOm;
 struct FakeSvcDomain;
+struct FakeSvcFactory;
 
 
 /**
@@ -65,26 +66,6 @@ struct FakeSvcDomain {
         return svcs_[idx];
     }
 
-    virtual fpi::SvcUuid getFakeSvcUuid(int idx) {
-        /* For not don't allow access to fake om */
-        fds_assert(idx != 0);
-        fpi::SvcUuid uuid;
-        uuid.svc_uuid = (PMUUID_BASE + idx) << PMBITS;
-        return uuid;
-    }
-    virtual int getFakeSvcPort(int idx) {
-        /* For not don't allow access to fake om */
-        fds_assert(idx != 0);
-        return PMPORT_BASE + (idx * 100);
-    }
-    virtual int getFakeSvcIdx(const fpi::SvcUuid &uuid) {
-        if (uuid.svc_uuid == omSvcUuid.svc_uuid) {
-            return 0;
-        }
-        int idx = (uuid.svc_uuid >> PMBITS) - PMUUID_BASE;
-        return idx;
-    }
-
     std::vector<fpi::SvcUuid> getSvcUuids() const {
         std::vector<fpi::SvcUuid> svcs;
         std::for_each(svcArray_.begin(),
@@ -92,11 +73,10 @@ struct FakeSvcDomain {
                       [&svcs](const fpi::SvcInfo &info) { svcs.push_back(info.svc_id.svc_uuid); });
         return svcs;
     }
-
-    static int                  PMBITS;
-    static uint64_t             PMUUID_BASE;
-    static int                  PMPORT_BASE;
-    static fpi::SvcUuid         INVALID_SVCUUID;
+    fpi::SvcUuid getFakeSvcUuid(int32_t idx) const {
+        fds_assert(idx < static_cast<int>(svcArray_.size()));
+        return svcArray_[idx].svc_id.svc_uuid;
+    }
 
     /* Fake OM info is set when om registers */
     fpi::SvcUuid                omSvcUuid;
@@ -107,11 +87,62 @@ struct FakeSvcDomain {
     std::vector<fpi::SvcInfo>   svcArray_;
     /* Reference to svc processes, indexed by sequential #s */
     std::vector<FakeSvc*>       svcs_;
+    /* Table to lookup SvcUuid to index */
+    std::unordered_map<fpi::SvcUuid, int, SvcUuidHash> idxTbl_;
+    FakeSvcFactory              *svcFactory_;
 };
-int FakeSvcDomain::PMBITS = 8;
-uint64_t FakeSvcDomain::PMUUID_BASE = 0x100;
-int FakeSvcDomain::PMPORT_BASE = 10000;
-fpi::SvcUuid FakeSvcDomain::INVALID_SVCUUID;
+
+/**
+* @brief Factory that generates FakeSvc objects
+*/
+struct FakeSvcFactory {
+    FakeSvcFactory(const std::string &configFile)
+        : configFile_(configFile)
+    {}
+    virtual ~FakeSvcFactory() {}
+    virtual FakeSvc* generateFakeSvc(FakeSvcDomain *domain, int idx) = 0;
+
+    /**
+    * @brief  Helper function to generate platform uuid.  For a a given idx
+    * should alwasy return same platform uuid
+    */
+    fpi::SvcUuid generateFakePlatformUuid(int idx) {
+        /* For now don't allow access to fake om */
+        fds_assert(idx != 0);
+        fpi::SvcUuid uuid;
+        uuid.svc_uuid = (PMUUID_BASE + idx) << PMBITS;
+        return uuid;
+    }
+    /**
+    * @brief  Helper function to generate platform port.  For a a given idx
+    * should alwasy return same platform port 
+    */
+    int generateFakePlatformPort(int idx) {
+        /* For now don't allow access to fake om */
+        fds_assert(idx != 0);
+        return PMPORT_BASE + (idx * 100);
+    }
+
+    std::string                 configFile_;
+
+    static int                  PMBITS;
+    static uint64_t             PMUUID_BASE;
+    static int                  PMPORT_BASE;
+    static fpi::SvcUuid         INVALID_SVCUUID;
+};
+int FakeSvcFactory::PMBITS = 8;
+uint64_t FakeSvcFactory::PMUUID_BASE = 0x100;
+int FakeSvcFactory::PMPORT_BASE = 10000;
+fpi::SvcUuid FakeSvcFactory::INVALID_SVCUUID;
+
+/**
+* @brief Factory that generates only Fake pm objects
+*/
+template<class FakeSvcT>
+struct DefaultSvcFactory : FakeSvcFactory {
+    using FakeSvcFactory::FakeSvcFactory;
+    FakeSvc* generateFakeSvc(FakeSvcDomain *domain, int idx) override;
+};
 
 /**
 * @brief Fake service domain
@@ -121,6 +152,9 @@ fpi::SvcUuid FakeSvcDomain::INVALID_SVCUUID;
 */
 struct FakeSyncSvcDomain : FakeSvcDomain {
     FakeSyncSvcDomain(int numSvcs, const std::string &configFile);
+    FakeSyncSvcDomain(int numSvcs,
+                      const std::string &configFile,
+                      FakeSvcFactory *factory);
     ~FakeSyncSvcDomain();
 
     virtual void registerService(const fpi::SvcInfo &svcInfo) override;
@@ -142,7 +176,11 @@ using FakeSyncSvcDomainPtr = boost::shared_ptr<FakeSyncSvcDomain>;
 */
 struct FakeSvc : SvcProcess {
     FakeSvc();
-    FakeSvc(FakeSvcDomain *domain, const std::string &configFile, fds_int64_t uuid, int port);
+    FakeSvc(FakeSvcDomain *domain,
+            const std::string &configFile,
+            const std::string &svcName,
+            fds_int64_t platformUuid,
+            int platformPort);
     ~FakeSvc();
     virtual void registerSvcProcess() override;
     virtual int run() {return 0;}
@@ -151,13 +189,21 @@ struct FakeSvc : SvcProcess {
 
     SHPTR<net::FileTransferService> filetransfer;
 
+    static std::string getFakeSvcName() { return "pm"; }
+
  protected:
     FakeSvcDomain                       *domain_;
     std::vector<std::string>            args_;
 };
+
+/**
+* @brief Basic Fake om
+*/
 struct FakeOm : FakeSvc {
     FakeOm(FakeSvcDomain *domain, const std::string &configFile);
 };
+
+
 
 FakeSvcDomain::FakeSvcDomain(const std::string &configFile)
 {
@@ -286,10 +332,29 @@ MultiPrimarySvcRequestPtr FakeSvcDomain::sendGetStatusMultiPrimarySvcRequest(int
     return asyncReq;
 }
 
+template <class FakeSvcT>
+FakeSvc* DefaultSvcFactory<FakeSvcT>::generateFakeSvc(FakeSvcDomain *domain, int idx)
+{
+    return new FakeSvcT(domain,
+                       configFile_,
+                       FakeSvcT::getFakeSvcName(),
+                       generateFakePlatformUuid(idx).svc_uuid,
+                       generateFakePlatformPort(idx));
+}
+
 FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs, const std::string &configFile)
+: FakeSyncSvcDomain(numSvcs, configFile, new DefaultSvcFactory<FakeSvc>(configFile))
+{
+}
+
+FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs,
+                                     const std::string &configFile,
+                                     FakeSvcFactory *factory)
 : FakeSvcDomain(configFile)
 {
-    INVALID_SVCUUID.svc_uuid = PMUUID_BASE - 1;
+    FakeSvcFactory::INVALID_SVCUUID.svc_uuid = FakeSvcFactory::PMUUID_BASE - 1;
+
+    svcFactory_ = factory;
 
     /* Create svc mgr instances */
     svcs_.resize(numSvcs);
@@ -297,11 +362,13 @@ FakeSyncSvcDomain::FakeSyncSvcDomain(int numSvcs, const std::string &configFile)
     /* Create OM instance first */
     // TODO(Rao): Don't hard code platform.conf
     svcs_[0] = new FakeOm(this, "platform.conf");
+    svcs_[0]->registerSvcProcess();
 
     for (uint32_t i = 1; i < svcs_.size(); i++) {
-        auto uuid = getFakeSvcUuid(i);
-        auto port = getFakeSvcPort(i);
-        svcs_[i] = new FakeSvc(this, configFile_, uuid.svc_uuid, port);
+        auto fakeSvc = svcFactory_->generateFakeSvc(this, i);
+        svcs_[i] = fakeSvc;
+        idxTbl_[fakeSvc->getSvcMgr()->getSelfSvcUuid()] = i;
+        svcs_[i]->registerSvcProcess();
     }
 }
 
@@ -311,10 +378,11 @@ FakeSyncSvcDomain::~FakeSyncSvcDomain() {
             delete s;
         }
     }
+    delete svcFactory_;
 }
 
 void FakeSyncSvcDomain::registerService(const fpi::SvcInfo &svcInfo) {
-    uint64_t idx = static_cast<uint64_t>(getFakeSvcIdx(svcInfo.svc_id.svc_uuid));
+    uint64_t idx = static_cast<uint64_t>(idxTbl_[svcInfo.svc_id.svc_uuid]);
     fds_assert(idx < svcs_.size());
     if (idx >= svcArray_.size()) {
         svcArray_.resize(idx+1);
@@ -341,9 +409,8 @@ void FakeSyncSvcDomain::spawn(int idx)
      * NOTE: The registration, updating service map, and propagating around the
      * domain takes place synchronously
      */
-    svcs_[idx] = new FakeSvc(this, configFile_,
-                             getFakeSvcUuid(idx).svc_uuid,
-                             getFakeSvcPort(idx));
+    svcs_[idx] = svcFactory_->generateFakeSvc(this, idx);
+    svcs_[idx]->registerSvcProcess();
 }
 
 void FakeSyncSvcDomain::broadcastSvcMap()
@@ -378,7 +445,9 @@ FakeSvc::FakeSvc()
 
 FakeSvc::FakeSvc(FakeSvcDomain *domain, 
                  const std::string &configFile,
-                 fds_int64_t uuid, int port) {
+                 const std::string &svcName,
+                 fds_int64_t platformUuid,
+                 int platformPort) {
     /* Putting this log statetement will create a logger */
     GLOGNORMAL << "Constructing fakesvc domain";
 
@@ -386,12 +455,12 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
 
     // TODO(Rao): Move towards using initAsModule_() provided by SvcProcess
     /* config */
-    std::string configBasePath = "fds.pm.";
+    std::string configBasePath = "fds." + svcName + ".";
     boost::shared_ptr<FdsConfig> config(new FdsConfig(configFile, 0, {nullptr}));
     conf_helper_.init(config, configBasePath);
-    config->set("fds.pm.platform_uuid", std::to_string(uuid));
-    config->set("fds.pm.platform_port", port);
-    svcName_ = "pm";
+    config->set("fds.pm.platform_uuid", std::to_string(platformUuid));
+    config->set("fds.pm.platform_port", platformPort);
+    svcName_ = svcName;
 
     GetLog()->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","DEBUG")));
@@ -412,9 +481,8 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     setupSvcMgr_(handler, processor);
-    filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(uuid),
+    filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(platformUuid),
                                                                                 getSvcMgr() ));
-    registerSvcProcess();
 }
 
 FakeSvc::~FakeSvc() {
@@ -458,7 +526,6 @@ FakeOm::FakeOm(FakeSvcDomain *domain, const std::string &configFile)
 
     domain->omSvcUuid = getSvcMgr()->getSelfSvcUuid();
     domain->omPort = getSvcMgr()->getSvcPort();
-    registerSvcProcess();
 }
 
 }  // namespace fds

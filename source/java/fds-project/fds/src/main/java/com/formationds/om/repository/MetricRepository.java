@@ -149,14 +149,14 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         List<IVolumeDatapoint> datapoints = mostRecentOccurrenceBasedOnTimestamp( volumeId,
                                                                                  Metrics.BLOBS,
-                                                                                 Metrics.PBYTES );
+                                                                                 Metrics.LBYTES );
 
         IVolumeDatapoint blobs = null;
         IVolumeDatapoint usage = null;
         for (IVolumeDatapoint vdp : datapoints) {
             if (Metrics.BLOBS.matches(vdp.getKey()) ) {
                 blobs = vdp;
-            } else if (Metrics.PBYTES.matches( vdp.getKey() )) {
+            } else if (Metrics.LBYTES.matches( vdp.getKey() )) {
                 usage = vdp;
             }
         }
