@@ -30,6 +30,7 @@ struct StatBlobReq;
 struct StatVolumeReq;
 struct StartBlobTxReq;
 struct VolumeContentsReq;
+struct VolumeGroupHandle;
 
 class MockSvcHandler;
 struct DLT;
@@ -109,6 +110,7 @@ struct AmDispatcher :
     void start() override;
     bool done() override;
     void stop() override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void lookupVolume(std::string const volume_name) override;
     void getVolumes(std::vector<VolumeDesc>& volumes) override;
@@ -197,9 +199,11 @@ struct AmDispatcher :
     void _startBlobTx(AmRequest *amReq);
 
     /**
-     * FEATURE TOGGLE: Volume grouping support callbacks
+     * FEATURE TOGGLE: Volume grouping support
      * Thu Jan 14 10:47:10 2016
      */
+    fds_rwlock volumegroup_lock;
+    std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
     void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
     void _deleteBlobCb(DeleteBlobReq *amReq, const Error& error, shared_str payload);
