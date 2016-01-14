@@ -6,7 +6,6 @@ import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.RunnableWithExceptions;
 import com.formationds.util.async.CompletableFutureUtility;
@@ -66,8 +65,10 @@ public class FdsS3 {
         }
 
         public CompletableFuture<Void> create() {
-            return runSync(() ->
-                    xdi.createVolume(token, DOMAIN, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, getTenantId(), 24 * 60 * 60 /** one day **/, MediaPolicy.HDD_ONLY)));
+            return runSync(() -> {
+                VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, Long.MAX_VALUE, 24 * 60 * 60 /** one day **/, MediaPolicy.HDD_ONLY);
+                xdi.createVolume(token, DOMAIN, bucketName, volumeSettings);
+            });
         }
 
         public CompletableFuture<Void> delete() {
