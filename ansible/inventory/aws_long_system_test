@@ -13,7 +13,7 @@
 localhost
 awo-bh-01 fds_deploy_local_deps=no fds_build=release
 
-[long_system_test]
+[aws_long_system_test]
 10.3.20.11
 10.3.20.12
 10.3.20.13
@@ -23,8 +23,8 @@ awo-bh-01 fds_deploy_local_deps=no fds_build=release
 #10.3.20.17
 #10.3.20.18
 
-[long_system_test:vars]
-instance_count=8
+[aws_long_system_test:vars]
+instance_count=4
 ansible_ssh_user=deploy
 cluster_location=awo
 deploy_artifact=nightly

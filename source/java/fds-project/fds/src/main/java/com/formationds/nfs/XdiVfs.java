@@ -92,6 +92,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         inodeMap.update(parent.exportIndex(), true, updatedParent);
         inodeIndex.index(parent.exportIndex(), true, metadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParent);
+        LOG.debug("Created " + InodeMap.blobName(metadata.getFileId()));
         return createdInode;
     }
 
