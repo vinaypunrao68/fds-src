@@ -384,8 +384,8 @@ class DmIoFwdCat : public DmRequest {
   public:
 	NodeUuid srcUuid;
 
-    explicit DmIoFwdCat(NodeUuid _src, boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
-        : DmRequest(FdsDmSysTaskId, "", "",
+    explicit DmIoFwdCat(NodeUuid _src, boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg, bool use_sys_queue)
+        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(fwdMsg->volume_id), "", "",
                     0, FDS_DM_FWD_CAT_UPD),
 		  srcUuid(_src),
         fwdCatMsg(fwdMsg) {}
@@ -802,8 +802,8 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
   public:
     typedef std::function<void (const Error &e, DmIoMigrationDeltaBlobs *req)> CbType;
     NodeUuid srcUuid;
-    explicit DmIoMigrationDeltaBlobs(NodeUuid _src, boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg)
-            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOB),
+    explicit DmIoMigrationDeltaBlobs(NodeUuid _src, boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg, bool use_sys_queue)
+        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_MIG_DELTA_BLOB),
 			  srcUuid(_src),
               deltaBlobsMsg(msg) {}
 
@@ -826,8 +826,8 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 struct DmIoMigrationDeltaBlobDesc : DmRequest {
     std::function<void(const Error& e)> localCb = NULL;
     NodeUuid srcUuid;
-    explicit DmIoMigrationDeltaBlobDesc(NodeUuid _src, const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg)
-            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
+    explicit DmIoMigrationDeltaBlobDesc(NodeUuid _src, const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg, bool use_sys_queue)
+        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
 			  srcUuid(_src),
               deltaBlobDescMsg(msg)
     {

@@ -157,6 +157,29 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
     LOGNORMAL << logString() << logCtx;
 }
 
+void VolumeMeta::populateState(std::map<std::string, std::string> &state)
+{
+    state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()));
+    state["version"] = std::to_string(version);
+    state["opid"] = std::to_string(getOpId());
+    state["sequenceid"] = std::to_string(sequence_id);
+}
+
+std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)
+{
+    auto qosCtrl = dataManager->getQosCtrl();
+    fds_volid_t volId(getId());
+    auto newCb = [f, qosCtrl, volId]() {
+        auto ioReq = new DmFunctor(volId, std::bind(f));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
+}
+
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 {
@@ -201,6 +224,24 @@ BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::
         }
     };
     return newCb;
+}
+void VolumeMeta::startInitializer()
+{
+    fds_assert(getState() == fpi::Offline);
+    fds_assert(!isInitializerInProgress());
+
+    LOGDEBUG << "Starting initializer: " << logString();
+
+    /* Coordinator is set. We can go through sync protocol */
+    setState(fpi::Loading, " - startInitializer");
+    initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
+}
+
+void VolumeMeta::cleanupInitializer()
+{
+    fds_assert(initializer->getProgress() == VolumeInitializer::COMPLETE);
+    initializer.reset();
+    LOGDEBUG << "Cleanedup initializer: " << logString();
 }
 
 Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
@@ -316,6 +357,7 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             return;
         } else {
             source = search->second;
+            source->sendFinishFwdMsg();
             source->finish();
             migrationSrcMap.erase(search);
         }
@@ -340,4 +382,3 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
 }
 
 }  // namespace fds
-
