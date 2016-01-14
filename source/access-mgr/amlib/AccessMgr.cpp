@@ -50,7 +50,7 @@ AccessMgr::mod_startup() {
 void
 AccessMgr::mod_shutdown() {
     LOGNOTIFY << "Stopping processing layer ";
-    amProcessor->stopAndWait();
+    amProcessor->stop();
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
     stop_signal.notify_one();

@@ -58,7 +58,6 @@ class AmProcessor_impl : public AmDataProvider
      */
     void start() override;
     void stop() override;
-    void stopAndWait();
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
@@ -186,23 +185,13 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     delete amReq;
 
     // In case we're shutting down tell anyone waiting on this conditional
-    check_done.notify_one();
+    check_done.notify_all();
 }
 
 void AmProcessor_impl::stop() {
-    std::lock_guard<std::mutex> lk(shut_down_lock);
-    if (!shut_down) {
-        LOGNOTIFY << "AmProcessor received a stop request.";
-        shut_down = true;
-        parent_mod->mod_disable_service();
-        AmDataProvider::stop();
-    }
-}
-
-void AmProcessor_impl::stopAndWait() {
     std::unique_lock<std::mutex> lk(shut_down_lock);
     if (!shut_down) {
-        LOGNOTIFY << "AmProcessor received a stop request.";
+        LOGNOTIFY << "AmProcessor is shutting down.";
         shut_down = true;
         AmDataProvider::stop();
     }
@@ -278,9 +267,6 @@ void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 
 void AmProcessor::stop()
 { return _impl->stop(); }
-
-void AmProcessor::stopAndWait()
-{ return _impl->stopAndWait(); }
 
 void AmProcessor::enqueueRequest(AmRequest* amReq)
 { return _impl->enqueueRequest(amReq); }

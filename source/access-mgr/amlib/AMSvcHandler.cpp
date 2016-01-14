@@ -7,6 +7,7 @@
 #include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
+#include "fds_process.h"
 
 namespace fds {
 
@@ -327,7 +328,7 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * Block any more requests.
       * Drain queues and allow outstanding requests to complete.
       */
-     amProcessor->stop();
+     g_fdsprocess->stop();
 
      /*
       * It's an async shutdown as we cleanup. So acknowledge the message now.
