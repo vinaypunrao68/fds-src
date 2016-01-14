@@ -50,7 +50,7 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
         ReadGuard rg(queue_lock);
         auto queue = getQueue(vol_id);
         // If this queue was quiesced and empty, remove it
-        if (queue && FDS_VOL_Q_SUSPENDED == queue->volQState && 0 == queue->count()) {
+        if (queue && (FDS_VOL_Q_SUSPENDED == queue->volQState)) {
             htb_dispatcher->deregisterQueue(vol_id.get());
             delete queue;
         }
@@ -75,7 +75,9 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     // If we were told to stop and have drained the queue, stop
     {
         ReadGuard rg(queue_lock);
-        if (stopping && 0 == remaining && 0 == htb_dispatcher->num_pending_ios) {
+        if (stopping
+            && (0 == remaining)
+            && (0 == htb_dispatcher->num_pending_ios)) {
             FDS_QoSControl::stop();
             AmDataProvider::stop();
         }
@@ -216,7 +218,7 @@ AmQoSCtrl::stop() {
         WriteGuard wg(queue_lock);
         stopping = true;
         htb_dispatcher->quiesceIOs();
-        if (0 == htb_dispatcher->num_pending_ios && 0 == htb_dispatcher->num_outstanding_ios) {
+        if ((0 == htb_dispatcher->num_pending_ios) && (0 == htb_dispatcher->num_outstanding_ios)) {
             FDS_QoSControl::stop();
             AmDataProvider::stop();
         }
