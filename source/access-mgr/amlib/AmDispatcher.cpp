@@ -201,7 +201,32 @@ AmDispatcher::getDLT() {
 }
 
 void
+AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
+    auto& vol_id = volDesc.volUUID;
+    if (volume_grouping_support) {
+        WriteGuard wg(volumegroup_lock);
+        auto it = volumegroup_map.find(vol_id);
+        if (volumegroup_map.end() != it) {
+            return;
+        }
+        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, DmDefaultPrimaryCnt));
+    }
+}
+
+void
 AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
+    auto& vol_id = volDesc.volUUID;
+    /**
+     * FEATURE TOGGLE: Enable/Disable volume grouping support
+     * Thu Jan 14 10:45:14 2016
+     */
+    if (volume_grouping_support) {
+        WriteGuard wg(volumegroup_lock);
+        auto it = volumegroup_map.find(vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->close();
+        }
+    }
     // We need to remove any barriers for this volume as we don't expect to
     // see any aborts/commits for them now
     std::lock_guard<std::mutex> g(tx_map_lock);
