@@ -1490,7 +1490,7 @@ namespace fds
 
                 if ( diskMountMap.size() == 0 )
                 {
-                    LOGCRITICAL << "Can't find any mounted devices!";
+                    LOGWARN << "Can't find any mounted devices!";
                 }
                 else
                 {
@@ -1562,7 +1562,7 @@ namespace fds
 
             if ( diskMountMap.size() == 0 )
             {
-                LOGCRITICAL << "Can't find any devices!";
+                LOGWARN << "Can't find any devices!";
             }
         }
 

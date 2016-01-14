@@ -276,7 +276,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     
     var buildCapacityFilter = function(){
         var filter = StatQueryFilter.create( [],
-            [ StatQueryFilter.PHYSICAL_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
+            [ StatQueryFilter.USED_CAPACITY, StatQueryFilter.LOGICAL_CAPACITY ],
             Math.round( ((new Date()).getTime() - (1000*60*60*24))/1000 ),
             Math.round( (new Date()).getTime() / 1000 ) );
         
