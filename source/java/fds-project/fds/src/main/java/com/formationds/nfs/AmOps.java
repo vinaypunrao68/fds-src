@@ -83,10 +83,11 @@ public class AmOps implements IoOps {
             public ByteBuffer supply() throws Exception {
                 counters.increment(Counters.Key.AM_getBlob);
                 ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, objectSize, objectOffset).get();
-                if (byteBuffer.remaining() == 0) {
-                    byteBuffer = ByteBuffer.allocate(objectSize);
-                }
-                return byteBuffer;
+                ByteBuffer bb = ByteBuffer.allocate(objectSize);
+                bb.limit(byteBuffer.remaining());
+                bb.put(byteBuffer);
+                bb.position(0);
+                return bb;
             }
         };
 
@@ -109,9 +110,14 @@ public class AmOps implements IoOps {
             @Override
             public Void supply() throws Exception {
                 counters.increment(Counters.Key.AM_updateBlobTx);
-                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
-                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                int position = buf.position();
+                try {
+                    TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                    asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
+                    asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                } finally {
+                    buf.position(position);
+                }
                 return null;
             }
         };
