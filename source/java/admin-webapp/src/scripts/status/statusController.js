@@ -1,9 +1,9 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$interval', '$byte_converter', '$time_converter', '$rootScope', '$state', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $interval, $byte_converter, $time_converter, $rootScope, $state ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$timeout', '$byte_converter', '$time_converter', '$rootScope', '$state', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $timeout, $byte_converter, $time_converter, $rootScope, $state ){
 
     $scope.healthStatus = [{number: 'Excellent'}];
     
     var firebreakInterval = -1;
-    var performanceInterval = -1;
+//    var performanceInterval = -1;
     var capacityInterval = -1;
     var activityInterval = -1;
     var perfBreakdownInterval = -1;
@@ -40,6 +40,53 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $state.transitionTo( 'homepage.debug' );
     };
     
+    /**
+    This is a series of methods that make it easy for error paths to try and re-start the polling cycle
+    that is now handled with timeout's instead of intervals.
+    **/
+    var startFirebreakSummary = function(){
+        
+        $timeout.cancel( firebreakInterval );
+        
+        $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned, 
+            function(){ firebreakInterval = $timeout( startFirebreakSummary, 60000 ); } );
+    };
+    
+    var startPerformanceBreakdownSummary = function(){
+        
+        $timeout.cancel( perfBreakdownInterval );
+        
+        $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned, 
+            function(){ perfBreakdownInterval = $timeout( startPerformanceBreakdownSummary, 60000 ); });
+    };
+    
+    var startCapacitySummary = function(){
+        
+        $timeout.cancel( capacityInterval );
+        
+        $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned, 
+            function(){ capacityInterval = $timeout( startCapacitySummary, 60000 );} );
+    };
+    
+    var startActivityFetching = function(){
+        
+        $timeout.cancel( activityInterval );
+        
+        $activity_service.getActivities( {points: 10}, $scope.activitiesReturned, 
+            function(){ activityInterval = $timeout( startActivityFetching, 60000 );} );
+    };
+    
+    var startSystemHealthFetching = function(){
+        
+        $timeout.cancel( healthInterval );
+        
+        $activity_service.getSystemHealth( $scope.healthReturned, 
+            function(){ healthInterval = $timeout( startSystemHealthFetching, 60000 ); } );
+    };
+    
+    /**
+    Here are the handlers for when the data is returned.
+    **/
     $scope.healthReturned = function( data ){
     
         for ( var i = 0; i < data.status.length; i++ ){
@@ -49,29 +96,38 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         $scope.health = data;
         
         $scope.healthStatus = [{ number: $filter( 'translate' )( 'status.l_' + data.overall.toLowerCase() )}];
+        
+        healthInterval = $timeout( startSystemHealthFetching, 60000 );
     };
     
-    $scope.activitiesReturned = function( list ){
+    $scope.activitiesReturned = function( response ){
+        var list = response;
+        
         $scope.activities = list;
+        activityInterval = $timeout( startActivityFetching, 60000 );
     };
     
-    $scope.firebreakReturned = function( data ){
+    $scope.firebreakReturned = function( response ){
+        var data = response;
         $scope.firebreakStats = data;
         
         $scope.firebreakItems = [{ number: data.calculated[0].count, description: $filter( 'translate' )( 'status.desc_firebreak' )}];
+        
+        firebreakInterval = $timeout( startFirebreakSummary, 60000 );
     };
     
-    $scope.performanceReturned = function( data ){
-        $scope.performanceStats = data;
-        $scope.performanceItems = [{number: data.calculated[0].dailyAverage, description: $filter( 'translate' )( 'status.desc_performance' )}];
-    };
-    
-    $scope.perfBreakdownReturned = function( data ){
+    $scope.perfBreakdownReturned = function( response ){
+        var data = response;
         $scope.performanceBreakdownStats = data;
         $scope.performanceBreakdownItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        
+        perfBreakdownInterval = $timeout( startPerformanceBreakdownSummary, 60000 );
     };
     
-    $scope.capacityReturned = function( data ){
+    $scope.capacityReturned = function( response ){
+        
+        var data = response;
+        
         $scope.capacityStats = data;
         
         var calculatedValues = data.calculated;
@@ -133,6 +189,8 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             $scope.capacityItems.push( fullInfo );
             $scope.capacityLimit = totalCapacity;
         }
+        
+        capacityInterval = $timeout( startCapacitySummary, 60000 );
     };
     
     // this callback creates the tooltip element
@@ -285,12 +343,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
                                                             
     // cleanup the pollers
     $scope.$on( '$destroy', function(){
-        $interval.cancel( firebreakInterval );
+        $timeout.cancel( firebreakInterval );
 //        $interval.cancel( performanceInterval );
-        $interval.cancel( perfBreakdownInterval );
-        $interval.cancel( capacityInterval );
-        $interval.cancel( activityInterval );
-        $interval.cancel( healthInterval );
+        $timeout.cancel( perfBreakdownInterval );
+        $timeout.cancel( capacityInterval );
+        $timeout.cancel( activityInterval );
+        $timeout.cancel( healthInterval );
     });
     
     var init = function(){
@@ -299,20 +357,12 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
             return;
         }
         
-        firebreakInterval = $interval( function(){ $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );}, 60000 );
-//        performanceInterval = $interval( function(){ $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );}, 60000 );
-        capacityInterval = $interval( function(){ $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );}, 60000 );
-        activityInterval = $interval( function(){ $activity_service.getActivities( {points: 10}, $scope.activitiesReturned );}, 60000 );
-        perfBreakdownInterval = $interval( function(){ $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );}, 60000 );
-        healthInterval = $interval( function(){ $activity_service.getSystemHealth( $scope.healthReturned ); }, 60000 );
-
+        startFirebreakSummary();
+        startPerformanceBreakdownSummary();
+        startCapacitySummary();
+        startActivityFetching();
+        startSystemHealthFetching();
         
-        $stats_service.getFirebreakSummary( buildFirebreakFilter(), $scope.firebreakReturned );
-//        $stats_service.getPerformanceSummary( buildPerformanceFilter(), $scope.performanceReturned );
-        $stats_service.getPerformanceBreakdownSummary( buildPerformanceBreakdownFilter(), $scope.perfBreakdownReturned );
-        $stats_service.getCapacitySummary( buildCapacityFilter(), $scope.capacityReturned );
-        $activity_service.getActivities( {points: 10}, $scope.activitiesReturned );
-        $activity_service.getSystemHealth( $scope.healthReturned );
     };
     
     $rootScope.$on( 'fds::authentication_success', function(){
