@@ -370,7 +370,7 @@ class ServiceContext(Context):
     def setfault(self, svcid, cmd):
         'set the specified fault'
         for uuid in self.getServiceIds(svcid):
-            print ('\n{}\nsvcmap for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+            helpers.printHeader('setting fault @ {}'.format(self.getServiceName(uuid)))
             try:
                 success = ServiceMap.client(uuid).setFault(cmd)
                 if success:
@@ -441,3 +441,9 @@ class ServiceContext(Context):
         except Exception, e:
             log.exception(e)
             return 'get counters failed: ' + str(e)
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svc', type=str)
+    def rotatelog(self, svc):
+        for uuid in self.config.getServiceApi().getServiceIds(svc):
+            self.setfault(uuid, "log.rotate")
