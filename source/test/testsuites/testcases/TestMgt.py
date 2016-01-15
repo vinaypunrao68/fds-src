@@ -193,8 +193,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 (action.count("graceful_restart") > 0):
             domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainBootSuite)
-        elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
-                (action.count("uninst") > 0):
+        elif(action.count("shutdown") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the domain as indicated by the action.
             domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainShutdownSuite)
