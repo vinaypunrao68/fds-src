@@ -285,7 +285,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 Error
 DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
-    fds_volid_t volId(deltaBlobDescMsg->volume_id);
+    fds_volid_t volId(deltaBlobDescMsg->volumeId);
     NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
     Error err(ERR_OK);
     auto uniqueId = std::make_pair(srcUuid, volId);
@@ -334,7 +334,7 @@ Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
-    fds_volid_t volId(deltaBlobsMsg->volume_id);
+    fds_volid_t volId(deltaBlobsMsg->volumeId);
     NodeUuid srcUuid(deltaBlobReq->srcUuid);
     auto uniqueId = std::make_pair(srcUuid, volId);
     {
@@ -711,7 +711,7 @@ DmMigrationMgr::finishActiveMigration(NodeUuid destUuid, fds_volid_t volId, int6
 Error
 DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
-    fds_volid_t volId(txStateMsg->volume_id);
+    fds_volid_t volId(txStateMsg->volumeId);
     auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
     SCOPEDREAD(migrExecutorLock);
     DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
@@ -819,7 +819,7 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg
 		blobInfo.append(blobObjInfo);
 	}
 
-	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volumeId
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
 }
@@ -843,7 +843,7 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 		blobInfo.append(blobObjInfo);
 	}
 
-	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volumeId
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
 }

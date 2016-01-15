@@ -137,6 +137,8 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      */
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
+    auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
+    filterSet->volmeta_version = volMeta ? volMeta->getVersion() : -1;
 
     LOGMIGRATE << logString() << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**
@@ -178,9 +180,9 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
         return ERR_DM_MIGRATION_ABORTED;);
 
     Error err(ERR_OK);
-	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	fds_verify(volumeUuid == fds_volid_t(msg->volumeId));
 	LOGMIGRATE << logString() << "Processing incoming CtrlNotifyDeltaBlobDescMsg for volume="
-               << std::hex << msg->volume_id << std::dec
+               << std::hex << msg->volumeId << std::dec
                << " msgseqid=" << msg->msg_seq_id
                << " lastmsgseqid=" << msg->last_msg_seq_id
                << " numofblobdesc=" << msg->blob_desc_list.size();
@@ -196,7 +198,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
          * add to the blob descriptor list while holding lock.
          */
         LOGMIGRATE << logString() << "Queueing incoming blob descriptor message vof volume="
-                   << std::hex << msg->volume_id << std::dec
+                   << std::hex << msg->volumeId << std::dec
                    << " msgseqid=" << msg->msg_seq_id
                    << " lastmsgseqid=" << msg->last_msg_seq_id;
         {
@@ -218,7 +220,7 @@ DmMigrationExecutor::processDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& m
 		err = applyBlobDesc(msg);
 		if (err != ERR_OK) {
 			LOGERROR << logString() << "Applying blob descriptor failed on volume="
-					 << std::hex << msg->volume_id << std::dec
+					 << std::hex << msg->volumeId << std::dec
 					 << " msgseqid=" << msg->msg_seq_id
 					 << " lastmsgseqid=" << msg->last_msg_seq_id
 					 << " numofblobdesc=" << msg->blob_desc_list.size();
@@ -237,7 +239,7 @@ DmMigrationExecutor::processDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& msg)
         LOGNOTIFY << "abort.dm.migration processDeltaBlobs.fault point enabled";\
         return ERR_NOT_READY;);
 
-	fds_verify(volumeUuid == fds_volid_t(msg->volume_id));
+	fds_verify(volumeUuid == fds_volid_t(msg->volumeId));
 	LOGMIGRATE << logString() << "Processing incoming CtrlNotifyDeltaBlobsMsg: "
                << std::hex << volumeUuid << std::hex
                << ", msg_seq_id=" << msg->msg_seq_id

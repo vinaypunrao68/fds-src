@@ -282,7 +282,8 @@ void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &c
     setProgress_(COPY_ACTIVE_STATE);
 
     auto msg = fpi::CtrlNotifyRequestTxStateMsgPtr(new fpi::CtrlNotifyRequestTxStateMsg);
-    msg->volume_id = replica_->getId();
+    msg->volumeId = replica_->getId();
+    msg->volmeta_version = replica_->getVersion();
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeer_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateMsg), msg);
@@ -306,6 +307,7 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     fds_assert(isSynchronized_());
     setProgress_(STATIC_MIGRATION);
 
+    // Helps trace: startMigration should call volumeMeta's startMigration
     replica_->startMigration(syncPeer_, replica_->getId(), cb);
 }
 

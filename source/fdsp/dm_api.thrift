@@ -535,22 +535,26 @@ struct CtrlNotifyDMStartMigrationMsg {
 struct CtrlNotifyDMStartMigrationRspMsg {
   /* Version of DMT associated with the migration. */
   1: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  2: i64                     volmeta_version;
 }
 
 /**
  * delta blob  set from the source DM to  destination DM.
  */
 struct CtrlNotifyDeltaBlobsMsg {
-  1: i64                     volume_id;
+  1: i64                     volumeId;
   2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     volmeta_version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume
    */
-  5: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
+  6: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 struct CtrlNotifyDeltaBlobsRspMsg {
@@ -570,17 +574,19 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
  * delta blob  set from the source DM to  destination DM.
  */
 struct CtrlNotifyDeltaBlobDescMsg {
-  1: i64                     volume_id;
+  1: i64                     volumeId;
   2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     volmeta_version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <blob, blob descriptor> in give volume
    * empty blob descriptor  for delete operation
    */
-  5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+  6: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
 }
 
 /**
@@ -589,15 +595,18 @@ struct CtrlNotifyDeltaBlobDescMsg {
 struct CtrlNotifyFinishMigrationMsg {
   1: i64                     volume_id;
   2: i32                     status;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     volmeta_version;
 }
 
 /**
  *  send the snapshot of in-progress transactions (contents of the commit log)
  */
 struct CtrlNotifyTxStateMsg {
-  1: i64                     volume_id;
+  1: i64                     volumeId;
   2: i64                     DMT_version;
-  3: list<string>            transactions;
+  3: i64                     volmeta_version;
+  4: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
@@ -606,16 +615,18 @@ struct CtrlNotifyTxStateRspMsg {
 }
 
 struct CtrlNotifyRequestTxStateMsg {
-  1: i64                     volume_id;
+  1: i64                     volumeId;
   2: i64                     migration_id;
+  3: i64                     volmeta_version;
 }
 
 struct CtrlNotifyRequestTxStateRspMsg {
   1: i64                     volume_id;
   2: i64                     migration_id;
-  3: i64                     lowest_op_id;
-  4: i64                     highest_op_id;
-  5: list<string>            transactions;
+  3: i64                     volmeta_version;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 /* ------------------------------------------------------------
@@ -708,10 +719,11 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
   1: i64                volumeId;
   2: i64                DMT_version;
+  3: i64                volmeta_version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */
-  3: map<string, i64>   blobFilterMap;
+  4: map<string, i64>   blobFilterMap;
 }
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }

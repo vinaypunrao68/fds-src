@@ -185,7 +185,7 @@ std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyDeltaBlobDescMsg volume=" << msg.volume_id
+	oss << " CtrlNotifyDeltaBlobDescMsg volume=" << msg.volumeId
         << " seq_id=" << msg.msg_seq_id
         << " last_msg_seq_id=" << msg.last_msg_seq_id
         << " list_size=" << msg.blob_desc_list.size();
@@ -195,7 +195,7 @@ std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg)
 std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyDeltaBlobsMsg volume=" << msg.volume_id
+	oss << " CtrlNotifyDeltaBlobsMsg volume=" << msg.volumeId
         << " seq_id=" << msg.msg_seq_id
         << " last_msg_seq_id=" << msg.last_msg_seq_id
         << " list_size=" << msg.blob_obj_list.size();

@@ -816,7 +816,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
     typedef std::function<void (const Error &e, DmIoMigrationDeltaBlobs *req)> CbType;
     NodeUuid srcUuid;
     explicit DmIoMigrationDeltaBlobs(NodeUuid _src, boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& msg, bool use_sys_queue)
-        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_MIG_DELTA_BLOB),
+        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volumeId), "", "", 0, FDS_DM_MIG_DELTA_BLOB),
 			  srcUuid(_src),
               deltaBlobsMsg(msg) {}
 
@@ -828,7 +828,7 @@ struct DmIoMigrationDeltaBlobs : public DmRequest {
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobs& io) {
         return out << "DmIoMigrationDeltaBlobs vol="
-                   << std::hex << io.deltaBlobsMsg->volume_id << std::dec;
+                   << std::hex << io.deltaBlobsMsg->volumeId << std::dec;
     }
 
     boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg> deltaBlobsMsg;
@@ -840,7 +840,7 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
     std::function<void(const Error& e)> localCb = NULL;
     NodeUuid srcUuid;
     explicit DmIoMigrationDeltaBlobDesc(NodeUuid _src, const fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg, bool use_sys_queue)
-        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
+        : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volumeId), "", "", 0, FDS_DM_MIG_DELTA_BLOBDESC),
 			  srcUuid(_src),
               deltaBlobDescMsg(msg)
     {
@@ -848,7 +848,7 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoMigrationDeltaBlobDesc& io) {
     	return out << "DmIoMigrationDeltaBlobDesc vol:"
-                   << std::hex << io.deltaBlobDescMsg->volume_id << std::dec;
+                   << std::hex << io.deltaBlobDescMsg->volumeId << std::dec;
     }
 
 	fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg;

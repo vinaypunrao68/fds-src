@@ -16,6 +16,23 @@
 namespace fds {
 namespace dm {
 
+#define VOLUME_REQUEST_CHECK(msgPtr) \
+    auto volMeta = dataManager.getVolumeMeta(fds_volid_t(msgPtr->volumeId)); \
+    if (volMeta == nullptr) { \
+        LOGWARN << "Volume not found. " << msgPtr->volumeId; \
+        return; \
+    } else { \
+        if (msgPtr->volmeta_version != volMeta->getVersion()) { \
+            LOGERROR << "Message volmeta version: " << msgPtr->volmeta_version \
+            << " does not match: " << volMeta->getVersion(); \
+            return; \
+        } \
+        if (volMeta->isSyncing()) { \
+            LOGERROR << "Volume " << msgPtr->volumeId << " is not in syncing state"; \
+            return; \
+        } \
+    }
+
 /**
  * DmMigrationHandler
  */
@@ -104,6 +121,10 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
                                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        VOLUME_REQUEST_CHECK(message);
+    }
+
     NodeUuid tmpUuid;
     fds_volid_t volId = fds_volid_t(message->volumeId);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
@@ -159,6 +180,10 @@ DmMigrationDeltaBlobDescHandler::DmMigrationDeltaBlobDescHandler(DataMgr& dataMa
 void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
+
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        VOLUME_REQUEST_CHECK(message);
+    }
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
@@ -219,6 +244,10 @@ DmMigrationDeltaBlobHandler::DmMigrationDeltaBlobHandler(DataMgr& dataManager)
 void DmMigrationDeltaBlobHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
+
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        VOLUME_REQUEST_CHECK(message);
+    }
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
@@ -321,7 +350,10 @@ DmMigrationRequestTxStateHandler::DmMigrationRequestTxStateHandler(DataMgr& data
 void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                               fpi::CtrlNotifyRequestTxStateMsgPtr& message) {
 
-    fds_volid_t volId(message->volume_id);
+    // This should be called only with volume grouping mode.
+    VOLUME_REQUEST_CHECK(message);
+
+    fds_volid_t volId(message->volumeId);
     Error err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK()){
         handleResponse(asyncHdr, message, err, nullptr);
@@ -332,7 +364,7 @@ void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationRequestTxStateHandler::handleResponse, asyncHdr, message);
 
-    dmReq->rspMsg.volume_id = message->volume_id;
+    dmReq->rspMsg.volume_id = message->volumeId;
     dmReq->rspMsg.migration_id = message->migration_id;
 
     fds_verify(dmReq->io_type == FDS_DM_MIG_REQ_TX_STATE);
