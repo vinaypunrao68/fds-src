@@ -53,23 +53,25 @@
 
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
-#include <timeline/timelinemanager.h>
-#include <expungemanager.h>
-#include <refcount/refcountmanager.h>
+
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
 #undef FDS_TEST_DM_NOOP
 
-
-
 namespace fds {
+// forward declarations
+class DmPersistVolDB;
 namespace dm {
 struct Handler;
 struct Counters;
+namespace refcount {RefCountManager;}
+namespace timeline {TimelineManager;}
 }
 class DMSvcHandler;
 class DmMigrationMgr;
+
 struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -117,6 +119,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
 
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
     void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
+
+    SHPTR<DmPersistVolDB> getPersistDB(fds_volid_t volId);
 
     ///
     /// Check if a given volume is active.
@@ -193,8 +197,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     dm::Counters* counters;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    boost::shared_ptr<timeline::TimelineManager> timelineMgr;
-    boost::shared_ptr<ExpungeManager> expungeMgr;
+    SHPTR<timeline::TimelineManager> timelineMgr;
+
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
@@ -211,8 +215,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
-    net::FileTransferService::ptr fileTransfer;
-    refcount::RefCountManager::ptr refCountMgr;
+    SHPTR<net::FileTransferService> fileTransfer;
+    SHPTR<refcount::RefCountManager> refCountMgr;
     struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
@@ -463,7 +467,6 @@ std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_
 void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
 std::string getTimelineDBPath(const FdsRootDir* root);
-std::string getExpungeDBPath(const FdsRootDir* root);
 }  // namespace dmutil
 
 }  // namespace fds
