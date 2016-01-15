@@ -654,7 +654,8 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-    if (!err.ok() || err != ERR_SM_READ_ONLY) {
+
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 

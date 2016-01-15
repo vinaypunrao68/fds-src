@@ -56,6 +56,8 @@ class MigrationClient {
     typedef std::shared_ptr<MigrationClient> shared_ptr;
 
     typedef std::function<void()> continueWorkFn;
+    typedef std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> ObjMetaDataSet;
+
 
   /**
      * A simple routine to snapshot metadata associated with the token.
@@ -165,8 +167,7 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
-                                                    fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
+    void migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDataSet,
                               fds_bool_t lastSet, continueWorkFn nextWork);
 
     void fwdPutObjectCb(SmIoPutObjectReq* putReq,

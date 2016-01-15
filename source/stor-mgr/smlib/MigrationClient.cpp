@@ -281,10 +281,11 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
 /* TODO(Gurpreet): Propogate error to Token Migration Manager
  */
 void
-MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
-                                                            fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
+MigrationClient::migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDataSet,
                                       fds_bool_t lastSet, continueWorkFn nextWork)
 {
+
+    LOGDEBUG << "Received filter set. Is this the last set? " << lastSet;
     Error err(ERR_OK);
 
     if (!trackIOReqs.startTrackIOReqs()) {
@@ -306,9 +307,10 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                 std::placeholders::_2,
                                 nextWork);
 
-    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>>::iterator itFirst, itLast;
-    itFirst = objMetaDataSet.begin();
-    itLast = objMetaDataSet.end();
+    ObjMetaDataSet::iterator itFirst, itLast;
+    itFirst = objMetaDataSet->begin();
+    itLast = objMetaDataSet->end();
+
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -328,8 +330,11 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
                                                     std::string &firstPhaseSnapshotDir,
                                                     leveldb::CopyEnv *env) {
 
+    LOGDEBUG << "Building delta set of size " << maxDeltaSetSize << " or smaller.";
     // If we hit this the iterator is no longer valid, so we've finished our work
     if (!iterDB->Valid()) {
+        LOGDEBUG << "LevelDB iterator no longer valid, we must be done.";
+
         delete iterDB;
         delete dbFromFirstSnap;
 
@@ -355,12 +360,12 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
      * 3) overwrite -- overwrite meta data.  The destination SM already has object data, but
      *                 metadata may be stale.
      */
-    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
+    std::shared_ptr<ObjMetaDataSet> objMetaDataSet = std::shared_ptr<ObjMetaDataSet>(new ObjMetaDataSet);
 
     /* Iterate through level db and filter against the objectFilterSet.
      */
     for (fds_uint64_t i = 0;
-         iterDB->Valid(), i < maxDeltaSetSize;
+         iterDB->Valid() && i < maxDeltaSetSize;
          i++, iterDB->Next()) {
 
         ObjectID objId(iterDB->key().ToString());
@@ -419,7 +424,7 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
             if (!objMetaDataPtr->isObjCorrupted() && (objMetaDataPtr->getRefCnt() > 0UL)) {
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                             << ": Selecting object " << objMetaDataPtr->logString();
-                objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_NO_RECONCILE);
+                objMetaDataSet->emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
                 if (objMetaDataPtr->isObjCorrupted()) {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
@@ -463,7 +468,7 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
                                 << ": Found in filter set with object state change: "
                                 << objMetaDataPtr->logString();
-                    objMetaDataSet.emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_OVERWRITE);
+                    objMetaDataSet->emplace_back(objMetaDataPtr, fpi::OBJ_METADATA_OVERWRITE);
                 } else {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMetaDataPtr->logString();
                 }
@@ -696,9 +701,9 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
         trackIOReqs.finishTrackIOReqs();
     }
 
-    std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
+    std::shared_ptr<ObjMetaDataSet> objMetaDataSet = std::shared_ptr<ObjMetaDataSet>(new ObjMetaDataSet);
 
-    for (fds_uint64_t i = 0; i < maxDeltaSetSize, start != end; i++, start++) {
+    for (fds_uint64_t i = 0; i < maxDeltaSetSize && start != end; i++, start++) {
         std::pair<metadata::elem_type, metadata::elem_type> objMD = *start;
 
         /* Ok.  New object.  Need to send both metadata + data */
@@ -715,7 +720,7 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
                             << ": Selecting object " << objMD.second->logString();
 
                 /* Add to object metadata set */
-                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
+                objMetaDataSet->emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
             } else {
                 if (objMD.second->isObjCorrupted()) {
                     LOGCRITICAL << "CORRUPTION: Skipping object: " << objMD.second->logString();
@@ -741,7 +746,7 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
                                 << ": Object resurrected: Selecting object " << objMD.second->logString();
 
-                    objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
+                    objMetaDataSet->emplace_back(objMD.second, fpi::OBJ_METADATA_NO_RECONCILE);
                 } else {
                     LOGMIGRATE << "MigClientState=" << getMigClientState()
                                 << ": skipping object: " << objMD.second->logString();
@@ -757,7 +762,7 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
                 LOGMIGRATE << "MigClientState=" << getMigClientState()
                             << ": Diff'ed MetaData " << objMD.second->logString();
 
-                objMetaDataSet.emplace_back(objMD.second, fpi::OBJ_METADATA_RECONCILE);
+                objMetaDataSet->emplace_back(objMD.second, fpi::OBJ_METADATA_RECONCILE);
             }
         }
     }
