@@ -91,9 +91,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     std::string getBaseDirPath() const;
 
     /**
-    * @return Bufferfile path used in buffering operations while sync is in progress
+    * @return Bufferfile prefix path used in buffering operations while sync is in progress
     */
-    std::string getBufferfilePath() const;
+    std::string getBufferfilePrefix() const;
 
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
