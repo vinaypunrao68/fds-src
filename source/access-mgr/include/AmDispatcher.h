@@ -12,9 +12,13 @@
 #include <net/SvcRequest.h>
 #include "concurrency/RwLock.h"
 
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+struct OpenVolumeRspMsg;
+}
+
 namespace fds {
 
-/* Forward declarations */
 struct AbortBlobTxReq;
 struct AttachVolumeReq;
 struct CommitBlobTxReq;
@@ -208,10 +212,11 @@ struct AmDispatcher :
     std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
     void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
+    void _closeVolumeCb(DetachVolumeReq* amReq);
     void _deleteBlobCb(DeleteBlobReq *amReq, const Error& error, shared_str payload);
     void _getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_str payload);
     void _getVolumeMetadataCb(GetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
-    void _openVolumeCb(AttachVolumeReq* amReq, const Error& error);
+    void _openVolumeCb(AttachVolumeReq* amReq, const Error& error, boost::shared_ptr<FDS_ProtocolInterface::OpenVolumeRspMsg> const& msg);
     void _putBlobOnceCb(PutBlobReq* amReq, const Error& error, shared_str payload);
     void _putBlobCb(PutBlobReq* amReq, const Error& error, shared_str payload);
     void _renameBlobCb(RenameBlobReq *amReq, const Error& error, shared_str payload);
