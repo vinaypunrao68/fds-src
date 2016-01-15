@@ -105,7 +105,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     NodeUuid tmpUuid;
-    fds_volid_t volId = (dataManager.features.isVolumegroupingEnabled()) ? FdsDmSysTaskId : fds_volid_t(message->volumeId);
+    fds_volid_t volId = fds_volid_t(message->volumeId);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoResyncInitialBlob(volId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
@@ -162,7 +162,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
@@ -179,7 +179,14 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
-    helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        // Volume Group handle says that this guy is the source. It must have volMeta.
+        fds_assert(volMeta != nullptr);
+        helper.err = volMeta->handleMigrationDeltaBlobDescs(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
+    }
 }
 
 void DmMigrationDeltaBlobDescHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -215,7 +222,7 @@ void DmMigrationDeltaBlobHandler::handleRequest(
 
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message);
+    auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
@@ -232,7 +239,15 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoMigrationDeltaBlobs* typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
 
     LOGMIGRATE << "Sending the delta blob migration dequest to migration Mgr " << *typedRequest;
-    helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
+
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        // Volume Group handle says that this guy is the source. It must have volMeta.
+        fds_assert(volMeta != nullptr);
+        helper.err = volMeta->handleMigrationDeltaBlobs(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
+    }
 }
 
 void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr_,

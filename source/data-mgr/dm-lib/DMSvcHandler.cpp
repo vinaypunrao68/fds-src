@@ -5,7 +5,7 @@
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
-#include "fdsp/sm_api_types.h"
+#include <fdsp/dm_api_types.h>
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
@@ -36,6 +36,9 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgQueryVolumeStateMsg, handleDbgQueryVolumeStateMsg);
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+
+    registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
+    registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
 }
 
 // notifySvcChange
@@ -121,8 +124,16 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                 err = dataManager_.deleteVolumeContents(vol_uuid);
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
 
-                // remove volume from timelineDB
-                err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                // If timeline is disabled, then the remove volume check is
+                // simply going to return with err = FEATUER_DISABLED.
+                // When this err gets propagated back to the OM it causes volume
+                // delete not to clean up properly. So only removeVol against timelineMgr
+                // if the feature is enabled
+                if (dataManager_.features.isTimelineEnabled())
+                {
+                    // remove volume from timelineDB
+                    err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                }
             } else {
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
             }

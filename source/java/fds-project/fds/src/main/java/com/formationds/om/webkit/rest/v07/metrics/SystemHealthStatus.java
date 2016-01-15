@@ -261,7 +261,7 @@ public class SystemHealthStatus implements RequestHandler {
         DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesType(Metrics.PBYTES)
+                .withSeriesType(Metrics.UBYTES)
                 .withRange(range)
                 .build();
 
@@ -293,6 +293,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
 
+        //noinspection Duplicates
         if (daysToFull <= 7) {
             status.setState(HealthState.BAD);
             status.setMessage(CAPACITY_BAD_RATE);

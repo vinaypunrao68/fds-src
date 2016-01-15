@@ -404,7 +404,6 @@ NbdConnection::dispatchOp() {
                 fds_assert(request.data);
                 auto task = new BlockTask(handle);
                 task->setWrite(offset, length);
-                task->abort(); // This is a hack to not do retries for NBD
                 nbdOps->write(request.data, task);
             }
             break;

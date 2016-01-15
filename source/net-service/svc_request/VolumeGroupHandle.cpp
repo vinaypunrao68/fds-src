@@ -439,13 +439,8 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
     ASSERT_SYNCHRONIZED();
     GROUPHANDLE_FUNCTIONAL_CHECK();
 
-    if (inStatus != ERR_OK) {
-        LOGWARN << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
-            << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
-    } else {
-        LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
-            << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
-    }
+    LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+        << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
 
     auto volumeHandle = getVolumeReplicaHandle_(srcSvcUuid);
 
@@ -486,6 +481,9 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                 successAcks++;
             }
         } else {
+            LOGWARN << "Received an error.  svcuuid: "
+                << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+                << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
             auto changeErr = changeVolumeReplicaState_(volumeHandle,
                                                        volumeHandle->version,
                                                        fpi::ResourceState::Offline,
