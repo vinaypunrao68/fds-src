@@ -1,7 +1,7 @@
 name "dkms"
 default_version "2.2.0.3-2"
 
-source git: "git://anonscm.debian.org/collab-maint/dkms.git"
+source git: "git://anonscm.debian.org/pkg-dkms/dkms.git"
 
 relative_path "dkms"
 
