@@ -1486,6 +1486,12 @@ namespace fds
             while (1)
             {
                 dpm->dsk_monitor_hotplug();
+                LOGNORMAL <<"Triggering disk rescan";
+                if (loadDiskUuidToDeviceMap())
+                {
+                    verifyAndMountFDSFileSystems();
+                }
+                dpm->scan_and_discover_disks();
                 notifyDiskMapChange();
             }
         }
