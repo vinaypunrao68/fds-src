@@ -348,8 +348,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 
         // there must be at least one DM candidate to be a source
         // otherwise we need to revisit DMT calculation algorithm
-        LOGDEBUG << "Found " << srcCandidates.size() << " candidates for a source "
-        << " for volume " << volid;
+        LOGDEBUG << "Found " << srcCandidates.size()
+                 << " candidates for a source for volume " << volid;
 
         if (srcCandidates.size() == 0)
         {

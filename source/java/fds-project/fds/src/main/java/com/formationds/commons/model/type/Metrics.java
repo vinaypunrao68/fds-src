@@ -26,7 +26,7 @@ public enum Metrics {
     OBJECTS( "Objects" ),
     ABS( "Ave Blob Size" ),
     AOPB( "Ave Objects per Blob" ),
-    // System usage ( sum the most recent of each volume
+    UBYTES( "Used Bytes" ),
     LBYTES( "Logical Bytes" ),
     PBYTES( "Physical Bytes" ),
     // firebreak metrics
@@ -61,7 +61,7 @@ public enum Metrics {
 
     public static EnumSet<Metrics> PERFORMANCE = EnumSet.of(Metrics.STP_WMA);
 
-    public static final EnumSet<Metrics> CAPACITY = EnumSet.of(Metrics.PBYTES,
+    public static final EnumSet<Metrics> CAPACITY = EnumSet.of(Metrics.UBYTES,
                                                                Metrics.LBYTES);
     
     public static final EnumSet<Metrics> PERFORMANCE_BREAKDOWN = EnumSet.of( Metrics.PUTS,

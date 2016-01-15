@@ -177,7 +177,7 @@ struct DmGroupFixture : BaseTestFixture {
     {
         waiter.reset(1);
         v.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-               [&waiter](const Error &e) {
+               [&waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr&) {
                    waiter.doneWith(e);
                });
     }
@@ -309,9 +309,14 @@ TEST_F(DmGroupFixture, DISABLED_singledm) {
     /* Do more IO.  IO should fail */
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+    
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, DISABLED_multidm) {
+TEST_F(DmGroupFixture, multidm) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     create(2);
@@ -370,6 +375,7 @@ TEST_F(DmGroupFixture, DISABLED_multidm) {
     dmGroup[0]->stop();
     /* Do more IO.  IO should succeed */
     for (uint32_t i = 0; i < 10; i++, curTxId++) {
+        blobName = "blob" + std::to_string(i);
         sendUpdateOnceMsg(v1, blobName, curTxId, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         sendQueryCatalogMsg(v1, blobName, waiter);
@@ -411,9 +417,14 @@ TEST_F(DmGroupFixture, DISABLED_multidm) {
         sendQueryCatalogMsg(v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, multidm_multirestarts) {
+TEST_F(DmGroupFixture, DISABLED_multidm_multirestarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     create(2);
@@ -484,6 +495,11 @@ TEST_F(DmGroupFixture, multidm_multirestarts) {
 
     ioAbort = true;
     iothread.join();
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 #if 0

@@ -584,6 +584,14 @@ struct CtrlNotifyDeltaBlobDescMsg {
 }
 
 /**
+ * Message to end static migration
+ */
+struct CtrlNotifyFinishMigrationMsg {
+  1: i64                     volume_id;
+  2: i32                     status;
+}
+
+/**
  *  send the snapshot of in-progress transactions (contents of the commit log)
  */
 struct CtrlNotifyTxStateMsg {

@@ -2,12 +2,14 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include "platform/platform_consts.h"
+
 extern "C"
 {
     #include <sys/mount.h>
     #include <dirent.h>
-    #include <sys/types.h>
     #include <sys/wait.h>
+    #include <sys/statvfs.h>
 }
 
 #include <uuid/uuid.h>
@@ -21,7 +23,6 @@ extern "C"
 #include <thread>
 
 #include <fds_uuid.h>
-#include <fdsp/svc_types_types.h>
 #include <fds_process.h>
 #include "fds_resource.h"
 #include <platform/process.h>
@@ -30,12 +31,10 @@ extern "C"
 
 #include <fdsp/health_monitoring_api_types.h>
 
-#include "fds_module_provider.h"
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
-#include "platform/disk_capabilities.h"
 
 #include "file_system_table.h"
 
@@ -1168,10 +1167,18 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: " << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
+            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
+                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                     << " [ " << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            heartbeatMsg->usedCapacityInBytes = usedDiskCapacity;
+
+            LOGDEBUG << "PM uuid: "
+                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                     << " [ " << usedDiskCapacity << " ]";
 
             request->setPayload (FDSP_MSG_TYPEID (fpi::HeartbeatMessage), heartbeatMsg);
             request->invoke();
@@ -1473,6 +1480,92 @@ namespace fds
             }
         }
 
+        void PlatformManager::usedDiskCapacityMonitor()
+        {
+            LOGDEBUG << "Starting thread for PlatformManager::usedDiskCapacityMonitor()";
+
+            while ( true )
+            {
+                processDiskMapFile();
+
+                if ( diskMountMap.size() == 0 )
+                {
+                    LOGWARN << "Can't find any mounted devices!";
+                }
+                else
+                {
+                    long _used = 0;
+                    for ( auto mapIter = diskMountMap.begin( ); diskMountMap.end( ) != mapIter; mapIter++ )
+                    {
+                        struct statvfs vfs;
+                        errno = 0;
+                        if ( statvfs( mapIter->second.c_str( ), &vfs ) == 0 )
+                        {
+                            unsigned long total = vfs.f_blocks * vfs.f_frsize;
+                            unsigned long available = vfs.f_bavail * vfs.f_frsize;
+                            unsigned long free = vfs.f_bfree * vfs.f_frsize;
+                            _used += ( long ) ( total - free );
+                        }
+                        else
+                        {
+                            LOGERROR << "The specified mount point [ " << mapIter->second.c_str( )
+                                     << " ] encountered an error during stats query, error [ " << errno << " ]";
+                        }
+                    }
+
+                    usedDiskCapacity = _used;
+                }
+
+                // every two minutes
+                sleep( ( 2 * 60 ) );
+            }
+        }
+
+        void PlatformManager::processDiskMapFile()
+        {
+            int           idx;
+            fds_uint64_t  uuid;
+            std::string   path;
+            std::string   dev;
+
+            // wipe the old disk map mount points
+            diskMountMap.clear();
+
+            const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+
+            // TODO we should keep this table in memory and write it out to disk for the SM consumption
+            std::ifstream map( dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in );
+
+            if ( map.fail( ) )
+            {
+                LOGERROR << "DiskMap read failed. Check " << dir->dir_dev()
+                         << " for a valid disk map";
+                return;
+            }
+
+            while ( !map.eof() )
+            {
+                map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
+                if ( map.fail() )
+                {
+                    break;
+                }
+
+                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
+                {
+                    LOGWARN << "Unknown path: " << path.c_str() ;
+                }
+
+                diskMountMap[ idx ] = path;
+            }
+
+            if ( diskMountMap.size() == 0 )
+            {
+                LOGWARN << "Can't find any devices!";
+            }
+        }
+
         void PlatformManager::run()
         {
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
@@ -1481,8 +1574,10 @@ namespace fds
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
             childMonitorThread.detach();
 
-            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
+            std::thread startUsedCapacityThread (&PlatformManager::usedDiskCapacityMonitor, this);
+            startUsedCapacityThread.detach();
 
+            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             while (1)
             {
                 dpm->dsk_monitor_hotplug();

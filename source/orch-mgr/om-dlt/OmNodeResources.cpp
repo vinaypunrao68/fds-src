@@ -1680,6 +1680,7 @@ OM_PmAgent::send_stop_service
         // of an associated svc is underway. This will get re-registered on
         // node startup. Race conditions are prevented using the shutdownList
         if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+             serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
             (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
 
             OM_Module *om            = OM_Module::om_singleton();
@@ -1701,9 +1702,16 @@ OM_PmAgent::send_stop_service
                                   smSvcId.svc_uuid,
                                   fpi::SVC_STATUS_STOPPED );
         } else {
-            LOGERROR << "Service" << std::hex
-                     << smSvcId.svc_uuid << std::dec
-                     << " is not active so cannot stop";
+            if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+            {
+                LOGNOTIFY << "Service: " << std::hex
+                          << smSvcId.svc_uuid << std::dec
+                          << " is already stopped";
+            } else {
+                LOGERROR << "Service: " << std::hex
+                         << smSvcId.svc_uuid << std::dec
+                         << " is not in the right state so cannot stop";
+            }
 
             stop_sm = false;
             // If neither of the other services are being stopped, it is safe
@@ -1720,6 +1728,7 @@ OM_PmAgent::send_stop_service
          fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
 
          if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
              (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
 
              OM_Module *om            = OM_Module::om_singleton();
@@ -1741,9 +1750,17 @@ OM_PmAgent::send_stop_service
                      dmSvcId.svc_uuid,
                                    fpi::SVC_STATUS_STOPPED );
          } else {
-             LOGERROR << "Service" << std::hex
-                      << dmSvcId.svc_uuid << std::dec
-                      << " is not active so cannot stop";
+
+             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+             {
+                 LOGNOTIFY << "Service: " << std::hex
+                           << dmSvcId.svc_uuid << std::dec
+                           << " is already stopped";
+             } else {
+                 LOGERROR << "Service: " << std::hex
+                          << dmSvcId.svc_uuid << std::dec
+                          << " is not in the right state so cannot stop";
+             }
 
              stop_dm = false;
              if ( !stop_am && !stop_sm ) {
@@ -1759,6 +1776,7 @@ OM_PmAgent::send_stop_service
          fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
 
          if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
              (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
              LOGDEBUG << "Will stop AM service "
                       << std::hex
@@ -1769,9 +1787,16 @@ OM_PmAgent::send_stop_service
                                    amSvcId.svc_uuid,
                                    fpi::SVC_STATUS_STOPPED );
          } else {
-             LOGERROR << "Service" << std::hex
-                      << amSvcId.svc_uuid << std::dec
-                      << " is not active so cannot stop";
+             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+             {
+                 LOGNOTIFY << "Service: " << std::hex
+                           << amSvcId.svc_uuid << std::dec
+                           << " is already stopped";
+             } else {
+                 LOGERROR << "Service: " << std::hex
+                          << amSvcId.svc_uuid << std::dec
+                          << " is not in the right state so cannot stop";
+             }
 
              stop_am = false;
              if ( !stop_sm && !stop_dm ) {

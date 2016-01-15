@@ -136,7 +136,8 @@ Error ExpungeManager::sendDeleteRequest(fds_volid_t volId, const ObjectID &objId
     }
 
     auto dlt_version = dlt->getVersion();
-    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dlt_version);
+    auto multiReq = dm->getModuleProvider()->getSvcMgr()->getSvcRequestMgr()->\
+                    newMultiPrimarySvcRequest(primaries, secondaries, dlt_version);
 
     multiReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
     multiReq->setTimeoutMs(5000);

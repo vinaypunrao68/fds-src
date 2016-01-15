@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Formation Data Systems, Inc.
+ * Copyright 2014-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMQOSCTRL_H_
@@ -44,6 +44,8 @@ class AmQoSCtrl :
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     Error updateQoS(int64_t const* rate, float const* throttle) override;
+    void closeVolume(AmRequest *amReq) override         { enqueueRequest(amReq); }
+    void statVolume(AmRequest *amReq) override          { enqueueRequest(amReq); }
     void setVolumeMetadata(AmRequest *amReq) override   { enqueueRequest(amReq); }
     void volumeContents(AmRequest *amReq) override      { enqueueRequest(amReq); }
     void startBlobTx(AmRequest *amReq) override         { enqueueRequest(amReq); }
@@ -61,6 +63,9 @@ class AmQoSCtrl :
     /**
      * These are the response we are interested in
      */
+    void closeVolumeCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
     void statVolumeCb(AmRequest * amReq, Error const error) override
     { completeRequest(amReq, error); }
 
@@ -110,6 +115,9 @@ class AmQoSCtrl :
     { completeRequest(amReq, error); }
 
  private:
+    mutable fds_rwlock queue_lock;
+    bool stopping {false};
+
     void enqueueRequest(AmRequest *amReq);
     void completeRequest(AmRequest* amReq, Error const error);
 };
