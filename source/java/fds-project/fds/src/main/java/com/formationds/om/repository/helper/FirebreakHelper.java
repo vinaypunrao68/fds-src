@@ -88,6 +88,8 @@ public class FirebreakHelper extends QueryHelper {
             }
         }
 
+        //TODO: cache all firebreak events for a volume over the past 24 hours
+        // To age out old entries, probably map FBInfo to a NavigableMap(Set?) ordered by time
         private final Map<FBInfo, FirebreakEvent>                        activeFirebreaks = new ConcurrentHashMap<>();
         private final Map<com.formationds.commons.model.Volume, Boolean> isVolumeloaded   = new ConcurrentHashMap<>();
 
@@ -207,7 +209,7 @@ public class FirebreakHelper extends QueryHelper {
 
     /**
      * This is a speciality handler for firebreak queries which are by design
-     * different than regular stats queries.  
+     * different than regular stats queries.
      *
      * @param query the firebreak query
      * @param authorizer the authorizer
@@ -320,7 +322,7 @@ public class FirebreakHelper extends QueryHelper {
     }
 
     /**
-     * Helper method to put the right values in X and Y just to save duplicate code 
+     * Helper method to put the right values in X and Y just to save duplicate code
      * @param query the firebreak query criteria
      * @param time the time for the datapoint
      * @param type the type use if the query is not set for isUseSizeForValue

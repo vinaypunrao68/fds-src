@@ -30,6 +30,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -92,7 +93,7 @@ public class ExternalModelConverter {
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
         Long roleId = 1L;
-        
+
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
         if ( internalUser.isIsFdsAdmin() ) {
@@ -1214,7 +1215,7 @@ public class ExternalModelConverter {
                           EnumMap<FirebreakType,
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
-        MetricQueryCriteria query = new MetricQueryCriteria();
+        MetricQueryCriteria query = new MetricQueryCriteria(QueryType.FIREBREAK_METRIC);
         DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );

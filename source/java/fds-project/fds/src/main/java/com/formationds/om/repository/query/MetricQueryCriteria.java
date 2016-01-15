@@ -26,7 +26,8 @@ public class MetricQueryCriteria
     /**
      * default constructor
      */
-    public MetricQueryCriteria() {
+    public MetricQueryCriteria(QueryType type) {
+    	super.setQueryType(type);
     }
 
     /**

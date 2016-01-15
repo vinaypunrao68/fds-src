@@ -31,6 +31,7 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.om.webkit.rest.v08.platform.ListNodes;
 import com.formationds.security.AuthenticationToken;
@@ -227,7 +228,7 @@ public class SystemHealthStatus implements RequestHandler {
         } else {
 
             // query that stats to get raw capacity data
-            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_FIREBREAK);
 
             List<Metrics> metrics = Arrays.asList( Metrics.STC_SIGMA,
                                                    Metrics.LTC_SIGMA,
@@ -296,7 +297,7 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(CATEGORY.CAPACITY.name());
 
         // query that stats to get raw capacity data
-        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_CAPACITY);
 
         // TODO: for capacity time-to-full we need enough history to calculate the regression
         // This was previously querying from 0 for all possible datapoints.  I think reducing to

@@ -22,6 +22,23 @@ public class QueryCriteria
 
     private static final long serialVersionUID = 6792621380579634266L;
 
+    // TODO: Hack to identify queries, hopefully for more intelligent caching
+    public enum QueryType {
+    	UNDEFINED,
+    	GENERIC,
+    	FIREBREAK,
+    	FIREBREAK_METRIC,
+    	SYSHEALTH_FIREBREAK,
+    	SYSHEALTH_CAPACITY,
+    	CAPACITY,
+    	PERFORMANCE,
+    	USER_EVENT,
+    	FIREBREAK_EVENT,
+    	SYSTEM_EVENT
+    }
+
+    private QueryType queryType = QueryType.UNDEFINED;
+
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
@@ -44,11 +61,14 @@ public class QueryCriteria
     // For now the only time Context is used is with a Volume type so in favor of speed we are
     // changing the query to only take volumes
     private List<Volume>  contexts = new ArrayList<>();    // the context
-    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
+    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important
 
     public QueryCriteria() {}
 
     public QueryCriteria( DateRange dateRange ) { this.range = dateRange; }
+
+    public QueryType getQueryType() { return queryType; }
+    public void setQueryType(QueryType type) { queryType = type; }
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
@@ -178,9 +198,9 @@ public class QueryCriteria
     public void setFirstPoint( final Long firstPoint ) {
         this.firstPoint = firstPoint;
     }
-    
+
     /**
-     * 
+     *
      * @return a list of {@link OrderBy} arguments for this search
      */
     public List<OrderBy> getOrderBy(){
@@ -190,18 +210,18 @@ public class QueryCriteria
 
     	return this.orderBys;
     }
-    
+
     /**
-     * 
+     *
      * @param someOrders a list of ordering criteria
      */
     public void setOrderBy( List<OrderBy> someOrders ){
     	this.orderBys = someOrders;
     }
-    
+
     /**
      * Convenience method to add a single orderby at a time
-     * 
+     *
      * @param anOrderBy the order by clause to add
      */
     public void addOrderBy( OrderBy anOrderBy ){

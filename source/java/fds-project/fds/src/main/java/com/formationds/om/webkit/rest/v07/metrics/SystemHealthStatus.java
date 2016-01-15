@@ -26,6 +26,7 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.protocol.svc.types.FDSP_NodeState;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
@@ -188,7 +189,7 @@ public class SystemHealthStatus implements RequestHandler {
         } else {
 
             // query that stats to get raw capacity data
-            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_FIREBREAK);
 
             List<Metrics> metrics = Arrays.asList( Metrics.STC_SIGMA,
                                                    Metrics.LTC_SIGMA,
@@ -256,7 +257,7 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.CAPACITY);
 
         // query that stats to get raw capacity data
-        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_CAPACITY);
 
         DateRange range = DateRange.last24Hours();
 
