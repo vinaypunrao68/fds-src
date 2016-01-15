@@ -58,7 +58,7 @@ public class DeleteVolume implements RequestHandler {
 		}
 		catch ( SecurityException e )
 		{
-			throw new ApiException( "Not Authorize to delete volume id " + volumeId,
+			throw new ApiException( "Not authorized to delete volume id " + volumeId,
 									ErrorCode.BAD_REQUEST );
 		}
 	}
