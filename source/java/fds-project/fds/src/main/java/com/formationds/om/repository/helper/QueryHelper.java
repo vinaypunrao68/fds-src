@@ -116,7 +116,7 @@ public class QueryHelper {
             final List<Calculated> calculatedList = new ArrayList<>();
 
             MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
-            
+
             query.setContexts( validateContextList( query, authorizer, token ) );
 
             final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) repo.query( query );
@@ -127,7 +127,7 @@ public class QueryHelper {
             if ( isPerformanceQuery( query.getSeriesType() ) ) {
 
                 series.addAll(
-                    new SeriesHelper().getRollupSeries( queryResults,
+                    SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.SUM ) );
@@ -136,9 +136,9 @@ public class QueryHelper {
                 calculatedList.add( ioPsConsumed );
 
             } else if( isCapacityQuery( query.getSeriesType() ) ) {
-            	
+
                 series.addAll(
-                    new SeriesHelper().getRollupSeries( queryResults,
+                    SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.MAX_X) );
@@ -147,19 +147,19 @@ public class QueryHelper {
 
                 // let's get the physical bytes consumed.
             	Series physicalBytes = series.stream()
-	            		.filter( ( s ) -> { 
+	            		.filter( ( s ) -> {
 	            			return s.getType().equals( Metrics.PBYTES.name() );
 	            		})
 		            	.findFirst().orElse( null );
-            	
+
             	Double bytesConsumed = 0.0;
-            	
+
             	if ( physicalBytes != null ) {
             		bytesConsumed = physicalBytes.getDatapoints()
             								     .get( physicalBytes.getDatapoints().size()-1 )
             								     .getY();
             	}
-                
+
                 final CapacityConsumed consumed = new CapacityConsumed();
                 consumed.setTotal( bytesConsumed );
                 calculatedList.add( consumed );
@@ -167,17 +167,17 @@ public class QueryHelper {
                 // only the FDS admin is allowed to get data about the capacity limit
                 // of the system
                 if ( authorizer.userFor( token ).isIsFdsAdmin() ){
-                	
+
 	                // TODO finish implementing -- once the platform has total system capacity
                 	Long capacityInMb = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
-                	
+
 	                final Double systemCapacity = SizeUnit.MB.toBytes( capacityInMb ).doubleValue();
 //		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-	                
+
 	                TotalCapacity totalCap = new TotalCapacity();
 	                totalCap.setTotalCapacity( systemCapacity );
 	                calculatedList.add( totalCap );
-	            	
+
 	            	if ( physicalBytes != null ){
 	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
 
@@ -188,18 +188,18 @@ public class QueryHelper {
                 }
 
             } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
-            	
+
             	series.addAll(
-            		new SeriesHelper().getRollupSeries( queryResults,
+            		SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.RATE) );
-            	
+
             	calculatedList.add( getAverageIOPs( series ) );
             	calculatedList.addAll( getTieringPercentage( series ) );
-            	
+
             } else {
-            	
+
                 // individual stats
 
                 query.getSeriesType()
@@ -211,9 +211,9 @@ public class QueryHelper {
             }
 
             if( !series.isEmpty() ) {
-            	
+
                 series.forEach( ( s ) -> {
-                	
+
                 	// if the datapoints set is null, don't try to sort it.  Leave it alone
                 	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
                 		new DatapointHelper().sortByX( s.getDatapoints() );
@@ -342,33 +342,33 @@ public class QueryHelper {
                                 s.setDatapoint( dp );
                                 s.setContext( new Volume( Long.parseLong( p.getVolumeId() ), p.getVolumeName() ) );
                             } );
-            
+
             // get earliest data point
             OptionalLong oLong = volumeDatapoints.stream()
             		.filter( ( p ) -> metrics.matches( p.getKey() ) )
             		.mapToLong( ( vdp ) -> vdp.getTimestamp() )
             		.min();
-            
+
             if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
-            	
+
             	String volumeId = volumeDatapoints.get( 0 ).getVolumeId();
             	String volumeName = volumeDatapoints.get( 0 ).getVolumeName();
             	String metricKey = volumeDatapoints.get( 0 ).getKey();
-            	
+
 	            // a point just earlier than the first real point. ... let's do one second
             	VolumeDatapoint justBefore = new VolumeDatapoint( oLong.getAsLong() - 1, volumeId, volumeName, metricKey, 0.0 );
             	VolumeDatapoint theStart = new VolumeDatapoint( dateRange.getStart(), volumeId, volumeName, metricKey, 0.0 );
-            	
+
             	s.setDatapoint( new DatapointBuilder().withX( (double)justBefore.getTimestamp() )
             										  .withY( justBefore.getValue() )
             										  .build());
-	        	
+
 	        	// at start time
 	        	s.setDatapoint( new DatapointBuilder().withX( (double)theStart.getTimestamp() )
 	        										  .withY( theStart.getValue() )
 	        										  .build() );
             }
-        	
+
             series.add( s );
         } );
 
@@ -401,13 +401,13 @@ public class QueryHelper {
 	    		contexts = api.listVolumes("")
 	    			.stream()
                         .filter(vd -> authorizer.ownsVolume(token, vd.getName()))
-                        
+
 /*
  * HACK
  * .filter( v -> isSystemVolume() != true )
- * 
+ *
  * THIS IS ALSO IN ListVolumes.java
- */                        
+ */
                         .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
@@ -560,7 +560,7 @@ public class QueryHelper {
         /*
          * TODO finish implementation
          * Add a non-linear regression for potentially better matching
-         * 
+         *
          */
     	final SimpleRegression linearRegression = new SimpleRegression();
 

@@ -120,7 +120,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         // now that the immediate status are done, the rest is determined
         // by how many areas are in certain conditions.  We'll do it
-        // by points.  okay = 1pt, bad = 2pts.  
+        // by points.  okay = 1pt, bad = 2pts.
         //
         // good is <= 1pts.  accetable <=3 marginal > 3
         int points = 0;
@@ -282,7 +282,7 @@ public class SystemHealthStatus implements RequestHandler {
                 .getMetricsRepository()
                 .sumPhysicalBytes());
 
-        List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
+        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
                                                                   query.getRange(),
                                                                   query.getSeriesType(),
                                                                   StatOperation.SUM );
@@ -325,12 +325,12 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.SERVICES);
 
         List<Service> services = new ArrayList<Service>();
-        
+
         /**
-         * We need to remove all services that are in the discovered state before we continue 
+         * We need to remove all services that are in the discovered state before we continue
          * because they do not inform the state of the system health.
-         * 
-         * We are creating a new list here because we need the size to reflect the 
+         *
+         * We are creating a new list here because we need the size to reflect the
          * reduced version of this list.
          */
         final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
@@ -343,13 +343,13 @@ public class SystemHealthStatus implements RequestHandler {
                 return true;
 	        })
 	        .collect( Collectors.toList() );
-        
+
         // converting from the thrift type to our type
         filteredList.stream()
         	.forEach( service -> {
         		services.add( ServiceType.find( service ).get() );
         	});
-        
+
         // first, if all the services are up, we're good.
         long servicesUp = services.stream()
                 .filter((s) -> {
@@ -371,7 +371,7 @@ public class SystemHealthStatus implements RequestHandler {
         // first we do 2 groupings.  One into nodes, one into services
         Map<ManagerType, List<Service>> byService = services.stream()
                 .collect(Collectors.groupingBy(Service::getType));
-        
+
         int nodes = rawServices.stream()
                 .collect(Collectors.groupingBy(FDSP_Node_Info_Type::getNode_uuid))
                 .keySet()

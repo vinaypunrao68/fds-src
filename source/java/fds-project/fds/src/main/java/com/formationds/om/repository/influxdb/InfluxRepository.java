@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -38,6 +39,18 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     protected static final String AND    = " and ";
     protected static final String OR     = " or ";
 
+    /**
+     * if the number of volumes in the context list exceeds the
+     * threshold, do not add the volume list to the query predicates and
+     * instead perform the filtering on the returned results.
+     *
+     * This is based on rough comparison between a query with a
+     * large number of volume predicates vs. selecting all and filtering
+     * that shows selecting all dropped roughly 20 seconds off the query
+     * for the tested data set (~400k total rows).
+     */
+    private int volumeContextFilterThreshold = 10;
+
     private InfluxDBConnection adminConnection;
 
     private Properties         dbConnectionProperties;
@@ -61,7 +74,16 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         return props;
     }
 
-    /**
+
+    public int getVolumeContextFilterThreshold() {
+		return volumeContextFilterThreshold;
+	}
+
+	public void setVolumeContextFilterThreshold(int volumeContextFilterThreshold) {
+		this.volumeContextFilterThreshold = volumeContextFilterThreshold;
+	}
+
+	/**
      * Open the influx database
      * @param properties the dbConnection properties
      */
@@ -93,7 +115,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      *
      * @throws IllegalArgumentException for TimeUnit.NANOSECONDS which is not supported by influxdb.
      */
-    public String toInfluxUnits(TimeUnit unit) {
+    public static String toInfluxUnits(TimeUnit unit) {
         switch ( unit ) {
             case MICROSECONDS: return "u";
             case MILLISECONDS: return "ms";
@@ -109,6 +131,17 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
                 // juc TimeUnit does not support that.
                 throw new IllegalArgumentException( "Unsupported InfluxDB TimeUnit: " + unit );
         }
+    }
+
+    /**
+     * Conversion from client model TimeUnit definition to an InfluxUnit.
+     *
+     * @param unit
+     *
+     * @return the equivalent InfluxDB unit specifier
+     */
+    public static String toInfluxUnits(com.formationds.client.v08.model.TimeUnit unit) {
+    	return toInfluxUnits( unit.jucTimeUnit() );
     }
 
     /**
@@ -138,6 +171,11 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         // do time range
         if ( queryCriteria.getRange() != null ) {
 
+        	// TODO: InfluxDB queries might be slightly more efficient if we
+        	// use the built-in "now()" function with offsets instead of
+        	// absolute times.  It is definitely easier to understand
+        	// 'time > now() - 1d' at a glance
+        	// than 'time > 1450161444s and time < 1452753444s'
             DateRange range = queryCriteria.getRange();
             if ( range.getStart() == null )
                 throw new IllegalArgumentException( "DateRange must have a start time" );
@@ -159,25 +197,46 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
             }
         }
 
-        if ( queryCriteria.getContexts() != null && queryCriteria.getContexts().size() > 0 ) {
+        List<Volume> volumeContexts = queryCriteria.getContexts();
+        if ( volumeContexts != null && volumeContexts.size() > 0 ) {
 
-            if ( queryCriteria.getRange() != null )
-                sb.append( AND );
+        	// if number of context filter predicates exceeds the threshold
+        	// just select all and filter the results.
+        	// NOTE: potential downside here is if a large number of volumes have
+        	// been deleted.  This should be uncommon outside of test environments and
+        	// less of a concern as time passes and the deleted volume drops from
+        	// stats gathering.
+        	if (volumeContexts.size() <= volumeContextFilterThreshold) {
+	            if ( queryCriteria.getRange() != null )
+	                sb.append( AND );
 
-            sb.append( "( " );
-            Iterator<Volume> contextIt = queryCriteria.getContexts().iterator();
-            while ( contextIt.hasNext() ) {
+	            sb.append( "( " );
+	            Iterator<Volume> contextIt = volumeContexts.iterator();
+	            while ( contextIt.hasNext() ) {
 
-                Volume volume = contextIt.next();
+	                Volume volume = contextIt.next();
 
-                sb.append( volIdColumnName ).append( " = " ).append( volume.getId() );
+	                sb.append( volIdColumnName ).append( " = " ).append( volume.getId() );
 
-                if ( contextIt.hasNext() ) {
-                    sb.append( OR );
-                }
-            }
+	                if ( contextIt.hasNext() ) {
+	                    sb.append( OR );
+	                }
+	            }
 
-            sb.append( " )" );
+	            sb.append( " )" );
+        	}
+        }
+
+        // NOTE: InfluxDB doesn't have a clean mechanism to support queryCriteria.getFirstPoint()
+        // which was intended for paging data.  It supports TOP/BOTTON and FIRST/LAST, but both
+        // operate only on a single column.
+        if ( queryCriteria.getFirstPoint() != null && queryCriteria.getFirstPoint() > 0 ) {
+        	logger.debug("InfluxDB does not support a mechanism to handle paging via FirstPoint/Points");
+        }
+
+        // add a query limit on the points returned
+        if ( queryCriteria.getPoints() != null && queryCriteria.getPoints() > 0 ) {
+        	sb.append( " limit " ).append( queryCriteria.getPoints() );
         }
 
         return sb.toString();

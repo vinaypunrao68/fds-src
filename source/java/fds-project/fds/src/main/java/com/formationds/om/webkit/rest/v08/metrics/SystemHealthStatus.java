@@ -78,7 +78,7 @@ public class SystemHealthStatus implements RequestHandler {
     private static final String FIREBREAK_BAD  = "l_firebreak_bad";
 
     public enum CATEGORY {CAPACITY, FIREBREAK, SERVICES}
-    
+
     public SystemHealthStatus(ConfigurationApi configApi,
                               Authorizer authorizer, AuthenticationToken token) {
 
@@ -135,7 +135,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         // now that the immediate status are done, the rest is determined
         // by how many areas are in certain conditions.  We'll do it
-        // by points.  okay = 1pt, bad = 2pts.  
+        // by points.  okay = 1pt, bad = 2pts.
         //
         // good is <= 1pts.  accetable <=3 marginal > 3
         int points = 0;
@@ -154,7 +154,7 @@ public class SystemHealthStatus implements RequestHandler {
         } else {
             overallHealth = HealthState.LIMITED;
         }
-        
+
         logger.debug( "Overall health is: {}.", overallHealth.name() );
 
         return overallHealth;
@@ -309,15 +309,12 @@ public class SystemHealthStatus implements RequestHandler {
         // TODO: for capacity time-to-full we need enough history to calculate the regression
         // This was previously querying from 0 for all possible datapoints.  I think reducing to
         // the last 30 days is sufficient, but will need to validate that.
-        Instant now = Instant.now();
-        Instant then = now.minus( 30L, ChronoUnit.DAYS );
-        
-        DateRange range = DateRange.between( then.getEpochSecond(), now.getEpochSecond() );
+        DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
                 .withSeriesType(Metrics.PBYTES)
                 .withRange(range)
                 .build();
-        
+
         query.setColumns( new ArrayList<String>() );
 
         final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
@@ -338,11 +335,11 @@ public class SystemHealthStatus implements RequestHandler {
          */
         Double systemCapacity = 0D;
         try {
-        	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
+        	systemCapacity = (double)configApi.getDiskCapacityTotal();
         } catch (TException te) {
         	throw new IllegalStateException("Failed to retrieve system capacity", te);
         }
-        
+
         // switch to bytes for now
         Long systemCapacityInBytes;
         if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive() )
@@ -361,10 +358,10 @@ public class SystemHealthStatus implements RequestHandler {
         consumed.setTotal( metricsRepository
                                .sumPhysicalBytes() );
 
-        List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
-                                                                  query.getRange(),
-                                                                  query.getSeriesType(),
-                                                                  StatOperation.SUM );
+        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
+                                                            query.getRange(),
+                                                            query.getSeriesType(),
+                                                            StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
         CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacityInBytes.doubleValue() );
@@ -390,7 +387,7 @@ public class SystemHealthStatus implements RequestHandler {
         }
 
         logger.debug( "Capacity status is: {}:{}.", status.getState().name(), status.getMessage() );
-        
+
         return status;
     }
 
@@ -398,7 +395,7 @@ public class SystemHealthStatus implements RequestHandler {
      * Generate a status object to roll up service status
      *
      * @return the system service status
-     * @throws TException 
+     * @throws TException
      */
     private SystemHealth getServiceStatus() throws TException {
 
@@ -408,22 +405,22 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(CATEGORY.SERVICES.name());
 
         List<Node> nodes = (new ListNodes()).getNodes();
-        
+
         List<Service> downServices = new ArrayList<>();
         Map<String, Boolean> criteria = new HashMap<String, Boolean>();
-        
+
         String ONE_OM = "ONE_OM";
         String ONE_AM = "ONE_AM";
         String ALL_PMS = "ALL_PMS";
         String ALL_SMS = "ALL_SMS";
         String ALL_DMS = "ALL_DMS";
-        
+
         criteria.put( ONE_AM, false );
         criteria.put( ONE_OM, false );
         criteria.put( ALL_DMS, true );
         criteria.put( ALL_SMS,  true );
         criteria.put( ALL_PMS, true );
-        
+
         nodes.stream().forEach( (node) -> {
 
             node.getServices().keySet().stream().forEach( (serviceType) -> {
@@ -453,7 +450,7 @@ public class SystemHealthStatus implements RequestHandler {
                             case OM:
         						criteria.put( ONE_OM, true );
         						break;
-        					case AM: 
+        					case AM:
         						criteria.put( ONE_AM, true );
         					default:
         						break;
@@ -482,7 +479,7 @@ public class SystemHealthStatus implements RequestHandler {
         }
 
         logger.debug( "Service status is: {}:{}.", status.getState().name(), status.getMessage() );
-        
+
         return status;
     }
 

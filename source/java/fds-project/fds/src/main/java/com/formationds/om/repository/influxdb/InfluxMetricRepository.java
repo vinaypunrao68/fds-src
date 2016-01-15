@@ -248,17 +248,19 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
-     *
+     * 
+     * @param criteria the criteria that was used to query the database.
      * @param series the series to convert
      *
      * @return the list of volume data points from the series
      */
-    protected List<IVolumeDatapoint> convertSeriesToPoints( List<Serie> series ) {
+    protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, List<Serie> series ) {
 
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
 
         // we expect rows from one and only one series.  If there are more, we'll only use
-        // the first one
+        // the first one.  Note that this may change if we query using joins over multiple series
+        // (we currently only have volume_metrics).  
         if ( series == null || series.size() == 0 ) {
             return datapoints;
         }
@@ -295,6 +297,13 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             String volumeName = volumeIdO.toString();
             String volumeId = String.valueOf(((Double)volumeIdO).longValue());
 
+        	List<Volume> volumeContexts = criteria.getContexts();
+            boolean postFilterVolumes = volumeContexts.size() > super.getVolumeContextFilterThreshold();
+            if ( postFilterVolumes &&
+            	 volumeContexts.stream().anyMatch( (v) -> v.getId().equals( ((Double)volumeIdO).longValue() ) ) ) {
+            		continue;
+            }
+
             row.forEach( ( key, value ) -> {
 
                 // If we run across a column for metadata we just skip it.
@@ -312,7 +321,16 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     return;
                 }
 
-                Double numberValue = Double.parseDouble( value.toString() );
+                // values may come back as either strings or numeric.
+                // if they are numeric, it will likely be faster to cast
+                // than to parse the string representation.  If they are
+                // strings... well, we have an extra if check.
+                Double numberValue = null;
+                if (value instanceof Number) {
+                    numberValue = ((Number)value).doubleValue();
+                } else {
+                    numberValue = Double.parseDouble( value.toString() );
+                }
 
                 VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
                 datapoints.add( point );
@@ -332,7 +350,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
 
         // convert from influxdb format to FDS model format
-        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
+        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( queryCriteria, series );
 
         return datapoints;
     }
@@ -417,7 +435,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     /**
      * Load the most recent stats for the specified volume from the influx repository.  This does not access the
      * cache (but is used to initialize the cache)
-     * 
+     *
      * @param volumeId the volume id
      *
      * @return the most recent stats for the volume
@@ -439,19 +457,21 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // this only works because we know that formulateQueryString uses the volume id in the query.
         queryCriteria.setContexts( Collections.singletonList( new Volume( volumeId, volumeId.toString() ) ) );
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
+        queryCriteria.setPoints(1);
 
         // get the query string
         String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
-        // execute the query limiting it to the most recent row for the volume
-        List<Serie> series = getConnection().getDBReader().query( queryString + " limit 1", TimeUnit.SECONDS );
+        // execute the query -  limiting it to the most recent row for the volume is now done in
+        // formulateQueryString
+        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
 
         if (series.isEmpty()) {
             return Collections.emptyList();
         }
 
         // convert from influxdb format to FDS model format
-        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( series );
+        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( queryCriteria, series );
 
         return datapoints;
 

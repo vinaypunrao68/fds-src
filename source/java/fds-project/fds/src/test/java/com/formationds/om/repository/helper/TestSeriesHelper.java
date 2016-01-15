@@ -19,11 +19,11 @@ import com.formationds.commons.model.type.StatOperation;
 public class TestSeriesHelper {
 
 	private static List<IVolumeDatapoint> results;
-	
+
 	@BeforeClass
 	public static void initialize(){
 		results = new ArrayList<IVolumeDatapoint>();
-		
+
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 1L ), "1", "TestVol", "PBYTES", 1.0 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 2L ), "1", "TestVol", "PBYTES", 1.2 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 30L ), "1", "TestVol", "PBYTES", 100004.1 ) );
@@ -38,19 +38,17 @@ public class TestSeriesHelper {
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 5L ), "1", "TestVol", "PBYTES", 4.1 ) );
 		results.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 6L ), "1", "TestVol", "PBYTES", 5.9 ) );
 	}
-	
+
 	@Test
 	public void testPbytesMax() {
 
-		SeriesHelper sh = new SeriesHelper();
-		
-		Series s = sh.generate( results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX_X );
-		
+		Series s = SeriesHelper.generate( results, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX_X );
+
 		assertEquals( 4, s.getDatapoints().size() );
-		
+
 		Double maxSize = s.getDatapoints().stream().mapToDouble( Datapoint::getY ).max().getAsDouble();
 		assertEquals( new Double(1000000.0), maxSize);
-		
+
 		assertEquals( new Double( 1000000.0 ), s.getDatapoints().get( 3 ).getY() );
 	}
 
