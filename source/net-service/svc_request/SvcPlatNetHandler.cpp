@@ -522,6 +522,12 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
  */
 bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)  // NOLINT
 {
+    // exception case for rotate logs
+    if (*cmdline == "log.rotate") {
+        LOGGERPTR->rotate();
+        return true;
+    }
+
     boost::char_separator<char>                       sep(", ");
     /* Parse the cmd line */
     boost::tokenizer<boost::char_separator<char> >    toknzr(*cmdline, sep);

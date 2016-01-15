@@ -181,7 +181,7 @@ class DomainContext(Context):
             count = 0
             while condition:
                 retVal = self.restApi().activateLocalDomainServices(domain_name, sm, dm, am)
-                num_services = len(self.config.getServiceApi().getServiceIds("*"))
+                num_services = len(self.config.getServiceApi().getServiceList(True))
                 count += 1                
                 print '{} : expected services:{} and {} showed up'.format(count, total_expected_services, num_services)
                 condition = (count < 40) and (num_services < total_expected_services)
