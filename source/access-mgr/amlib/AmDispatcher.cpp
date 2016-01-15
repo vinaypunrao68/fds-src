@@ -60,6 +60,10 @@ enum class Serialization {
 static constexpr uint32_t DmDefaultPrimaryCnt { 2 };
 static const std::string DefaultSerialization { "volume" };
 
+struct ErrorHandler : public VolumeGroupHandleListener {
+    bool isError(fpi::FDSPMsgTypeId const& msgType, Error const& e) override;
+};
+
 AmDispatcher::AmDispatcher(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
         : HasModuleProvider(modProvider),
           AmDataProvider(prev, nullptr)
@@ -142,6 +146,9 @@ AmDispatcher::start() {
      * Thu Jan 14 10:45:14 2016
      */
     volume_grouping_support = ft_conf.get<bool>("common.enable_volumegrouping", volume_grouping_support);
+    if (volume_grouping_support && !volumegroup_handler) {
+        volumegroup_handler.reset(new ErrorHandler());
+    }
 }
 
 bool
@@ -210,6 +217,7 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
             return;
         }
         volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, DmDefaultPrimaryCnt));
+        volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
     }
 }
 
@@ -1792,7 +1800,7 @@ AmDispatcher::_statBlobCb(StatBlobReq* amReq, const Error& error, shared_str pay
 }
 
 void
-AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
+AmDispatcher::releaseTx(blob_id_type const& blob_id) {
         std::lock_guard<std::mutex> g(tx_map_lock);
         auto it = tx_map_barrier.find(blob_id);
         if (tx_map_barrier.end() == it) {
@@ -1811,4 +1819,34 @@ AmDispatcher:: releaseTx(blob_id_type const& blob_id) {
             }
         }
 }
+
+bool
+ErrorHandler::isError(fpi::FDSPMsgTypeId const& msgType, Error const& e) {
+    // A big white list
+    switch (e.GetErrno()) {
+    // duh.
+    case ERR_OK:
+
+    /***
+     * Logical Blob errors are not really errors, ignore these the connector
+     * will deal with it most likely by padding or otherwise.
+     */
+    case ERR_CAT_ENTRY_NOT_FOUND:
+    case ERR_BLOB_NOT_FOUND:
+    case ERR_BLOB_OFFSET_INVALID:
+
+    /***
+     * Neither are errors that _we_ caused by sending a bad
+     * request
+     */
+    case ERR_INVALID_ARG:
+    case ERR_DM_OP_NOT_ALLOWED:
+    case ERR_VOLUME_ACCESS_DENIED:
+        return false;
+        break;;
+    default:
+        return true;;
+    }
+}
+
 }  // namespace fds

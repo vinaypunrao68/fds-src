@@ -19,6 +19,7 @@ struct AbortBlobTxReq;
 struct AttachVolumeReq;
 struct CommitBlobTxReq;
 struct DeleteBlobReq;
+struct ErrorHandler;
 struct GetVolumeMetadataReq;
 struct GetBlobReq;
 struct DetachVolumeReq;
@@ -202,6 +203,7 @@ struct AmDispatcher :
      * FEATURE TOGGLE: Volume grouping support
      * Thu Jan 14 10:47:10 2016
      */
+    std::unique_ptr<ErrorHandler> volumegroup_handler;
     fds_rwlock volumegroup_lock;
     std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
