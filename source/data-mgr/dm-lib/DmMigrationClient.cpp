@@ -519,7 +519,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
         << " " << fds::logString(*blobsMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
-    auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    auto asyncDeltaBlobsMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobsMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
@@ -543,7 +543,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
         << " " << fds::logString(*blobDescMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
-    auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    auto asyncDeltaBlobDescMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
@@ -587,8 +587,8 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
-    // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
-    auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    // auto asyncCatUpdReq = requestMgr->newEPSvcRequest(this->node_uuid.toSvcUuid());
+    auto asyncCatUpdReq = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
     asyncCatUpdReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
@@ -676,7 +676,7 @@ DmMigrationClient::sendFinishFwdMsg()
 	finMsg->blob_name = "";
 	finMsg->lastForward = true;
 
-	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	auto thriftMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
     thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);

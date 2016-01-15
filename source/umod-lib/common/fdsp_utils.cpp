@@ -168,6 +168,13 @@ std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg & vol) {
     return oss.str();
 }
 
+std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlNotifyFinishMigrationMsg volId:  "<< msg.volume_id;
+    return oss.str();
+}
+
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;

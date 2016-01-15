@@ -108,7 +108,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>();
 
     LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, blobReq->cb);
+    auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
     cb->return_buffers->assign(blobReq->object_ids.size(), nullptr);
     cb->return_buffers->shrink_to_fit();
 
@@ -250,6 +250,13 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 }
 
 void
+AmCache::closeVolume(AmRequest *amReq) {
+    descriptor_cache.clear(amReq->io_vol_id);
+    offset_cache.clear(amReq->io_vol_id);
+    AmDataProvider::closeVolume(amReq);
+}
+
+void
 AmCache::statBlob(AmRequest *amReq) {
     // Can we read from the cache
     if (!amReq->forced_unit_access) {
@@ -262,7 +269,7 @@ AmCache::statBlob(AmRequest *amReq) {
             LOGTRACE << "Found cached blob descriptor for " << std::hex
                 << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
 
-            StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, amReq->cb);
+            auto cb = std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb);
             // Fill in the data here
             cb->blobDesc = cachedBlobDesc;
             return AmDataProvider::statBlobCb(amReq, ERR_OK);
@@ -304,7 +311,7 @@ AmCache::renameBlobCb(AmRequest* amReq, Error const error) {
         descriptor_cache.remove(amReq->io_vol_id, blobReq->getBlobName());
         descriptor_cache.add(blobReq->io_vol_id,
                              blobReq->new_blob_name,
-                             SHARED_DYN_CAST(RenameBlobCallback, blobReq->cb)->blobDesc);
+                             std::dynamic_pointer_cast<RenameBlobCallback>(amReq->cb)->blobDesc);
         // Remove all offsets for the old blob and new blobs
         offset_cache.remove_if(amReq->io_vol_id,
                                [blobReq] (BlobOffsetPair const& blob_pair) -> bool {
@@ -324,7 +331,7 @@ AmCache::statBlobCb(AmRequest* amReq, Error const error) {
     if (ERR_OK == error && amReq->page_out_cache) {
         descriptor_cache.add(amReq->io_vol_id,
                              amReq->getBlobName(),
-                             SHARED_DYN_CAST(StatBlobCallback, amReq->cb)->blobDesc);
+                             std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb)->blobDesc);
     }
     AmDataProvider::statBlobCb(amReq, error);
 }
@@ -332,7 +339,7 @@ AmCache::statBlobCb(AmRequest* amReq, Error const error) {
 void
 AmCache::volumeContentsCb(AmRequest* amReq, Error const error) {
     if (ERR_OK == error && amReq->page_out_cache) {
-        auto cb = SHARED_DYN_CAST(GetBucketCallback, amReq->cb);
+        auto cb = std::dynamic_pointer_cast<GetBucketCallback>(amReq->cb);
         for (auto const& blob : *cb->vecBlobs) {
             descriptor_cache.add(amReq->io_vol_id,
                                  blob.getBlobName(),
@@ -358,7 +365,7 @@ AmCache::getBlob(AmRequest *amReq) {
                 LOGTRACE << "Found cached blob descriptor for " << std::hex
                          << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
                 blobReq->metadata_cached = true;
-                auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+                auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
                 // Fill in the data here
                 cb->blobDesc = cachedBlobDesc;
             }
@@ -408,7 +415,7 @@ AmCache::getBlobCb(AmRequest *amReq, Error const error) {
 
     // We still return all of the object even if less was requested, adjust
     // the return length, not the buffer.
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    auto cb = std::dynamic_pointer_cast<GetObjectCallback>(amReq->cb);
 
     // Calculate the sum size of our buffers
     size_t vector_size = std::accumulate(cb->return_buffers->cbegin(),
@@ -428,7 +435,7 @@ AmCache::getBlobCb(AmRequest *amReq, Error const error) {
             iOff += amReq->object_size;
         }
         if (blobReq->get_metadata) {
-            auto cbm = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            auto cbm = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
             if (cbm->blobDesc)
                 descriptor_cache.add(amReq->io_vol_id,
                                      amReq->getBlobName(),

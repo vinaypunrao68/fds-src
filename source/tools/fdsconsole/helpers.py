@@ -61,6 +61,9 @@ def addHumanInfo(datamap, nozero = False):
             value = '{}'.format(humanize.naturalsize(datamap[key]))
             datamap[key + ".human"] = value
 
+def printHeader(data):
+    print ('\n{}\n{}'.format(data, '-'*60))
+
 class AccessLevel:
     '''
     Defines different access levels for users

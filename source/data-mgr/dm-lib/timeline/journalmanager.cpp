@@ -178,6 +178,18 @@ void JournalManager::monitorLogs() {
             util::getSubDirectories(dmDir, volDirs);
 
             for (const auto & d : volDirs) {
+                // check the commit log retention for this volume
+                fds_volid_t volid(std::atoll(d.c_str()));
+                const VolumeDesc *volumeDesc = dm->getVolumeDesc(volid);
+                if (!volumeDesc) {
+                    LOGWARN << "unable to get voldesc for vol:" << volid;
+                    continue;
+                }
+                if (volumeDesc->contCommitlogRetention == 0) {
+                    LOGDEBUG << "skipping journal log archive as retention is OFF for vol:" << volid;
+                    continue;
+                }
+
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
