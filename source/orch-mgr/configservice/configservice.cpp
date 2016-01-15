@@ -2104,7 +2104,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);
         for (fpi::SvcInfo svcInfo : svcInfos) {
-            if ( svcInfo.svc_id.svc_uuid == *nodeUuid ) {
+            if ( svcInfo.svc_id.svc_uuid == *nodeUuid )
+            {
                 _return = svcInfo;
                 return;
             }
