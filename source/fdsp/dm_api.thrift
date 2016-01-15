@@ -536,7 +536,7 @@ struct CtrlNotifyDMStartMigrationRspMsg {
   /* Version of DMT associated with the migration. */
   1: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
-  2: i64                     volmeta_version;
+  2: i64                     version;
 }
 
 /**
@@ -546,7 +546,7 @@ struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volumeId;
   2: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
-  3: i64                     volmeta_version;
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
@@ -577,7 +577,7 @@ struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volumeId;
   2: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
-  3: i64                     volmeta_version;
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
@@ -596,16 +596,16 @@ struct CtrlNotifyFinishMigrationMsg {
   1: i64                     volume_id;
   2: i32                     status;
   /* Version of the volume stored in volumeMeta */
-  3: i64                     volmeta_version;
+  3: i64                     version;
 }
 
 /**
  *  send the snapshot of in-progress transactions (contents of the commit log)
  */
 struct CtrlNotifyTxStateMsg {
-  1: i64                     volumeId;
+  1: i64                     volume_id;
   2: i64                     DMT_version;
-  3: i64                     volmeta_version;
+  3: i64                     version;
   4: list<string>            transactions;
 }
 
@@ -615,15 +615,15 @@ struct CtrlNotifyTxStateRspMsg {
 }
 
 struct CtrlNotifyRequestTxStateMsg {
-  1: i64                     volumeId;
+  1: i64                     volume_id;
   2: i64                     migration_id;
-  3: i64                     volmeta_version;
+  3: i64                     version;
 }
 
 struct CtrlNotifyRequestTxStateRspMsg {
   1: i64                     volume_id;
   2: i64                     migration_id;
-  3: i64                     volmeta_version;
+  3: i64                     version;
   4: i64                     lowest_op_id;
   5: i64                     highest_op_id;
   6: list<string>            transactions;
@@ -719,7 +719,7 @@ struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
   1: i64                volumeId;
   2: i64                DMT_version;
-  3: i64                volmeta_version;
+  3: i64                version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */

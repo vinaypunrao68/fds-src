@@ -16,23 +16,6 @@
 namespace fds {
 namespace dm {
 
-#define VOLUME_REQUEST_CHECK(msgPtr) \
-    auto volMeta = dataManager.getVolumeMeta(fds_volid_t(msgPtr->volumeId)); \
-    if (volMeta == nullptr) { \
-        LOGWARN << "Volume not found. " << msgPtr->volumeId; \
-        return; \
-    } else { \
-        if (msgPtr->volmeta_version != volMeta->getVersion()) { \
-            LOGERROR << "Message volmeta version: " << msgPtr->volmeta_version \
-            << " does not match: " << volMeta->getVersion(); \
-            return; \
-        } \
-        if (volMeta->isSyncing()) { \
-            LOGERROR << "Volume " << msgPtr->volumeId << " is not in syncing state"; \
-            return; \
-        } \
-    }
-
 /**
  * DmMigrationHandler
  */
@@ -121,10 +104,6 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
                                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    if (dataManager.features.isVolumegroupingEnabled()) {
-        VOLUME_REQUEST_CHECK(message);
-    }
-
     NodeUuid tmpUuid;
     fds_volid_t volId = fds_volid_t(message->volumeId);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
@@ -134,6 +113,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
                                 this,
                                 std::placeholders::_1,
                                 dmReq);
+    dmReq->version = message->version;
 
     // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
@@ -181,14 +161,11 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                         fpi::CtrlNotifyDeltaBlobDescMsgPtr& message) {
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
-    if (dataManager.features.isVolumegroupingEnabled()) {
-        VOLUME_REQUEST_CHECK(message);
-    }
-
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
+    dmReq->version = message->version;
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
     							this,
@@ -206,8 +183,10 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
-        // Volume Group handle says that this guy is the source. It must have volMeta.
-        fds_assert(volMeta != nullptr);
+        if (volMeta == nullptr) {
+            // Let handleResponse delete the request
+            return;
+        }
         helper.err = volMeta->handleMigrationDeltaBlobDescs(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
@@ -245,15 +224,12 @@ void DmMigrationDeltaBlobHandler::handleRequest(
         boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         boost::shared_ptr<fpi::CtrlNotifyDeltaBlobsMsg>& message) {
 
-    if (dataManager.features.isVolumegroupingEnabled()) {
-        VOLUME_REQUEST_CHECK(message);
-    }
-
     NodeUuid srcUuid;
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
+    dmReq->version = message->version;
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
 
     LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
@@ -271,8 +247,10 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
 
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
-        // Volume Group handle says that this guy is the source. It must have volMeta.
-        fds_assert(volMeta != nullptr);
+        if (volMeta == nullptr) {
+            // overload this error to mean that we'll delete the dmrequest
+            helper.err = ERR_INVALID_VOLUME_VERSION;
+        }
         helper.err = volMeta->handleMigrationDeltaBlobs(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
@@ -291,7 +269,13 @@ void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
                        fpi::CtrlNotifyDeltaBlobsRspMsg());
 
-	// LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
+    if (e == ERR_INVALID_VOLUME_VERSION) {
+        /**
+         * This mean that the migration never got to the queue-ing point. Safe to delete
+         * here to prevent leaks.
+         */
+        delete(dmRequest);
+    }
 }
 
 DmMigrationTxStateHandler::DmMigrationTxStateHandler(DataMgr& dataManager)
@@ -311,7 +295,6 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
-    // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_TX_STATE);
 
     LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)
@@ -350,10 +333,7 @@ DmMigrationRequestTxStateHandler::DmMigrationRequestTxStateHandler(DataMgr& data
 void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
                                               fpi::CtrlNotifyRequestTxStateMsgPtr& message) {
 
-    // This should be called only with volume grouping mode.
-    VOLUME_REQUEST_CHECK(message);
-
-    fds_volid_t volId(message->volumeId);
+    fds_volid_t volId(message->volume_id);
     Error err = dataManager.validateVolumeIsActive(volId);
     if (!err.OK()){
         handleResponse(asyncHdr, message, err, nullptr);
@@ -364,7 +344,7 @@ void DmMigrationRequestTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationRequestTxStateHandler::handleResponse, asyncHdr, message);
 
-    dmReq->rspMsg.volume_id = message->volumeId;
+    dmReq->rspMsg.volume_id = message->volume_id;
     dmReq->rspMsg.migration_id = message->migration_id;
 
     fds_verify(dmReq->io_type == FDS_DM_MIG_REQ_TX_STATE);

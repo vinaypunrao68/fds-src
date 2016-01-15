@@ -234,7 +234,6 @@ Error
 DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& updateBlobs)
 {
     Error err(ERR_OK);
-    auto volMeta = dataMgr.getVolumeMeta(volId);
 
     // Allocate the payload message and set the volume id and sequence number
     // Allocate both blobs and blob desc list.
@@ -242,13 +241,13 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     deltaBlobsMsg->volumeId = volId.get();
     deltaBlobsMsg->DMT_version = migrationId;
     deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
-    deltaBlobsMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+    deltaBlobsMsg->version = volmetaVersion;
 
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
     deltaBlobDescMsg->volumeId = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-    deltaBlobDescMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+    deltaBlobDescMsg->version = volmetaVersion;
 
     for (const auto & blobName: updateBlobs) {
         if (abortFlag) {
@@ -302,7 +301,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             deltaBlobDescMsg->volumeId = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-            deltaBlobDescMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+            deltaBlobDescMsg->version = volmetaVersion;
         }
 
         if (deltaBlobsMsg->blob_obj_list.size() >= maxNumBlobs) {
@@ -321,7 +320,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             deltaBlobsMsg->volumeId = volId.get();
             deltaBlobsMsg->DMT_version = migrationId;
             deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
-            deltaBlobsMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+            deltaBlobsMsg->version = volmetaVersion;
         }
     }
 
@@ -359,8 +358,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
     deltaBlobDescMsg->volumeId = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-    auto volMeta = dataMgr.getVolumeMeta(volId);
-    deltaBlobDescMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+    deltaBlobDescMsg->version = volmetaVersion;
 
     /**
      * Loop and generate delta desc msg for the delete blobs.
@@ -398,7 +396,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
             deltaBlobDescMsg->volumeId = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-            deltaBlobDescMsg->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+            deltaBlobDescMsg->version = volmetaVersion;
         }
     }
 

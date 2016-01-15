@@ -711,7 +711,7 @@ DmMigrationMgr::finishActiveMigration(NodeUuid destUuid, fds_volid_t volId, int6
 Error
 DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
-    fds_volid_t volId(txStateMsg->volumeId);
+    fds_volid_t volId(txStateMsg->volume_id);
     auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
     SCOPEDREAD(migrExecutorLock);
     DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);

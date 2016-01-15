@@ -282,8 +282,8 @@ void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &c
     setProgress_(COPY_ACTIVE_STATE);
 
     auto msg = fpi::CtrlNotifyRequestTxStateMsgPtr(new fpi::CtrlNotifyRequestTxStateMsg);
-    msg->volumeId = replica_->getId();
-    msg->volmeta_version = replica_->getVersion();
+    msg->volume_id = replica_->getId();
+    msg->version = replica_->getVersion();
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeer_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateMsg), msg);
@@ -374,9 +374,7 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
     fds_assert(progress_ != COMPLETE);
     // TODO(Rao): Assert static migration, buffer replay aren't in progress
 
-    if (completionError_ != ERR_OK) {
-        completionError_ = e;
-    }
+    completionError_ = e;
     setProgress_(COMPLETE);
 
     if (completionError_ == ERR_OK) {

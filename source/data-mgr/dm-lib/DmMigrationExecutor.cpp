@@ -138,7 +138,7 @@ DmMigrationExecutor::processInitialBlobFilterSet()
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
     filterSet->volumeId = volumeUuid.get();
     auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
-    filterSet->volmeta_version = volMeta ? volMeta->getVersion() : -1;
+    filterSet->version = volMeta ? volMeta->getVersion() : VolumeGroupConstants::VERSION_INVALID;
 
     LOGMIGRATE << logString() << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**

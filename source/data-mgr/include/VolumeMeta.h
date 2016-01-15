@@ -246,9 +246,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     DmMigrationSrcMap migrationSrcMap;
     fds_rwlock migrationSrcMapLock;
 
-    /**
-     * This volume can only be a destination to one node
-     */
+    // This volume can only be a destination to one node
     DmMigrationDest::unique_ptr migrationDest;
 
     /**
@@ -262,7 +260,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     Error createMigrationSource(NodeUuid destDmUuid,
                                 const NodeUuid &mySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                StatusCb cleanup);
+                                StatusCb cleanup,
+                                int32_t volmetaVersion);
 
     /**
      * Internally cleans up a source

@@ -284,15 +284,24 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
 Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
 {
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
-    auto err = migrationDest->processDeltaBlobDescs(typedRequest->deltaBlobDescMsg,
+
+    auto err = migrationDest->CheckVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processDeltaBlobDescs(typedRequest->deltaBlobDescMsg,
                                                     typedRequest->localCb);
+    } else {
+        typedRequest->localCb(err);
+    }
     return err;
 }
 
 Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 {
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
-    auto err = migrationDest->processDeltaBlobs(typedRequest->deltaBlobsMsg);
+    auto err = migrationDest->CheckVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processDeltaBlobs(typedRequest->deltaBlobsMsg);
+    }
     return err;
 }
 
@@ -306,9 +315,13 @@ Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
         <<" received msg for volume " << migReqMsg->volumeId
-        << " on svcuuid: " << destDmUuid;
+        << " on svcuuid: " << destDmUuid << " incarnation: " << dmRequest->version;
 
-    err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    err = createMigrationSource(destDmUuid,
+                                mySvcUuid,
+                                migReqMsg,
+                                cleanupCb,
+                                dmRequest->version);
 
     return err;
 }
@@ -316,7 +329,8 @@ Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                         const NodeUuid &mySvcUuid,
                                         fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                        StatusCb cleanup) {
+                                        StatusCb cleanup,
+                                        int32_t volmetaVersion) {
     Error err(ERR_OK);
     auto maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
                            get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
@@ -334,6 +348,9 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
             << " volume " << filterSet->volumeId << " but it already exists";
         err = ERR_DUPLICATE;
     } else {
+        LOGMIGRATE << "Creating migration source for dest: " << destDmUuid <<
+                " for volume: " << vol_desc->name << "(ID: " << vol_desc->volUUID <<
+                ") with meta version " << volmetaVersion;
         DmMigrationSrc::shared_ptr source;
         {
             SCOPEDWRITE(migrationSrcMapLock);
@@ -350,7 +367,8 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                                  destDmUuid),
                                        cleanup,
                                        maxNumBlobs,
-                                       maxNumBlobDesc));
+                                       maxNumBlobDesc,
+                                       volmetaVersion));
             migrationSrcMap.insert(std::make_pair(destDmUuid, source));
         }
         source->run();
