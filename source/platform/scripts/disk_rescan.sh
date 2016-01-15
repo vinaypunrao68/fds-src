@@ -4,25 +4,24 @@ function usage
     echo "$0 [--debug|-d] [--quiet|-q]"
 }
 
-while [[ $# > 0 ]]
-do
-key="$1"
-
 debug=0
 quiet=0
+while [[ $# > 0 ]]
+do
+    key="$1"
 
-case $key in
-    -d|--debug)
-    debug=1
-    ;;
-    -q|--quiet)
-    quiet=1
-    ;;
-    *)
-    usage        # unknown option
-    ;;
-esac
-shift
+    case $key in
+        -d|--debug)
+        debug=1
+        ;;
+        -q|--quiet)
+        quiet=1
+        ;;
+        *)
+        usage        # unknown option
+        ;;
+    esac
+    shift
 done
 
 arg=""
