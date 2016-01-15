@@ -1049,7 +1049,13 @@ public class ExternalModelConverter {
 
         FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+        /*
+         * FS-4354: allow continue commit log retention to be 0;
+         *
+         * but really we should allow it to be set to any valid value
+         */
+        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy()
+                                                            .getCommitLogRetention()
                                                             .getSeconds() );
 
         if ( externalVolume.getCreated() != null ) {
@@ -1079,15 +1085,6 @@ public class ExternalModelConverter {
         volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
         volumeType.setVolUUID( externalVolume.getId() );
         volumeType.setVol_name( externalVolume.getName() );
-        /*
-         * FS-4354: allow continue commit log retention to be 0;
-         *
-         * but really we should allow it to be set to any valid value
-         */
-        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy()
-                                                            .getCommitLogRetention()
-                                                            .getSeconds() );
-
         VolumeSettings settings = externalVolume.getSettings();
 
         if( settings instanceof VolumeSettingsISCSI )
