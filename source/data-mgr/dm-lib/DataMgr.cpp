@@ -1198,9 +1198,6 @@ void DataMgr::mod_enable_service() {
 
     LOGNORMAL << "Finished creating DM directory layout";
 
-    expungeMgr.reset(new ExpungeManager(this));
-
-    LOGNORMAL << "Finished creating expunge manager";
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
@@ -1760,11 +1757,6 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) 
 std::string getTimelineDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     return util::strformat("%s/timeline.db", dmDir.c_str());
-}
-
-std::string getExpungeDBPath(const FdsRootDir* root) {
-    const std::string dmDir = root->dir_user_repo_dm();
-    return util::strformat("%s/expunge.ldb", dmDir.c_str());
 }
 
 }  // namespace dmutil
