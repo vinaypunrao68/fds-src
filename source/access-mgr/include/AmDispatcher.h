@@ -12,13 +12,18 @@
 #include <net/SvcRequest.h>
 #include "concurrency/RwLock.h"
 
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+struct OpenVolumeRspMsg;
+}
+
 namespace fds {
 
-/* Forward declarations */
 struct AbortBlobTxReq;
 struct AttachVolumeReq;
 struct CommitBlobTxReq;
 struct DeleteBlobReq;
+struct ErrorHandler;
 struct GetVolumeMetadataReq;
 struct GetBlobReq;
 struct DetachVolumeReq;
@@ -30,6 +35,7 @@ struct StatBlobReq;
 struct StatVolumeReq;
 struct StartBlobTxReq;
 struct VolumeContentsReq;
+struct VolumeGroupHandle;
 
 class MockSvcHandler;
 struct DLT;
@@ -109,6 +115,7 @@ struct AmDispatcher :
     void start() override;
     bool done() override;
     void stop() override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void lookupVolume(std::string const volume_name) override;
     void getVolumes(std::vector<VolumeDesc>& volumes) override;
@@ -197,15 +204,19 @@ struct AmDispatcher :
     void _startBlobTx(AmRequest *amReq);
 
     /**
-     * FEATURE TOGGLE: Volume grouping support callbacks
+     * FEATURE TOGGLE: Volume grouping support
      * Thu Jan 14 10:47:10 2016
      */
+    std::unique_ptr<ErrorHandler> volumegroup_handler;
+    fds_rwlock volumegroup_lock;
+    std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
     void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
+    void _closeVolumeCb(DetachVolumeReq* amReq);
     void _deleteBlobCb(DeleteBlobReq *amReq, const Error& error, shared_str payload);
     void _getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_str payload);
     void _getVolumeMetadataCb(GetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
-    void _openVolumeCb(AttachVolumeReq* amReq, const Error& error);
+    void _openVolumeCb(AttachVolumeReq* amReq, const Error& error, boost::shared_ptr<FDS_ProtocolInterface::OpenVolumeRspMsg> const& msg);
     void _putBlobOnceCb(PutBlobReq* amReq, const Error& error, shared_str payload);
     void _putBlobCb(PutBlobReq* amReq, const Error& error, shared_str payload);
     void _renameBlobCb(RenameBlobReq *amReq, const Error& error, shared_str payload);
