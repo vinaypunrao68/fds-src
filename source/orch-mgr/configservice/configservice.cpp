@@ -2104,11 +2104,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);
         for (fpi::SvcInfo svcInfo : svcInfos) {
-            if ( svcInfo.svc_id.svc_uuid == *nodeUuid &&
-               ( ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_PLATFORM ) ||
-                 ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_STOR_MGR ) ||
-                 ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_DATA_MGR ) ||
-                 ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ORCH_MGR ) ) )
+            if ( svcInfo.svc_id.svc_uuid == *nodeUuid )
             {
                 _return = svcInfo;
                 return;

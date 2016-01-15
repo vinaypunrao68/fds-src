@@ -2646,7 +2646,14 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
             std::string& value = strings[i+1];
 
             fds::deserializeFdspMsg(value, svcInfo);
-            svcMap.push_back(svcInfo);
+            if( ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_PLATFORM ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_STOR_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_DATA_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ACCESS_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ORCH_MGR ) )
+            {
+                svcMap.push_back( svcInfo );
+            }
         }
     } 
     catch ( const RedisException& e ) 
