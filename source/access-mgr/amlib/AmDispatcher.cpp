@@ -234,6 +234,7 @@ AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
         // Give ownership of the volume handle to the handle itself, we're
         // done with it
         std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
+        volumegroup_map.erase(it);
         vg->close([this, vg] () mutable -> void { });
     }
     // We need to remove any barriers for this volume as we don't expect to
@@ -521,6 +522,7 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
             // Give ownership of the volume handle to the handle itself, we're
             // done with it
             std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
+            volumegroup_map.erase(it);
             vg->close([this, volReq, vg] () mutable -> void {
                             _closeVolumeCb(volReq);
                         });
