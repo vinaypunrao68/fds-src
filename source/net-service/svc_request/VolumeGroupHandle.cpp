@@ -60,6 +60,9 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 
     groupId_ = volId.get();
     version_ = VolumeGroupConstants::VERSION_INVALID;
+
+    refCnt_ = 0;
+    closeCb_ = nullptr;
 }
 
 #if 0
@@ -171,9 +174,17 @@ void VolumeGroupHandle::resetGroup_()
 }
 
 void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
-                             const OpenResponseCb &clientCb)
+                             const OpenResponseCb &cb)
 {
+    /* Wrapper to decrement refcount before invoking client callback */
+    auto clientCb = [this, cb](const Error &e, const fpi::OpenVolumeRspMsgPtr &resp) {
+        decRef();
+        cb(e, resp);
+    };
+
     runSynchronized([this, msg, clientCb]() mutable {
+        incRef();
+
         if (state_ == fpi::ResourceState::Active) {
             LOGWARN << logString() << " - Trying open an already opened volume";
             clientCb(ERR_INVALID, nullptr);
@@ -246,10 +257,16 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
     });
 }
 
-void VolumeGroupHandle::close()
+void VolumeGroupHandle::close(const VoidCb &closeCb)
 {
-    runSynchronized([this]() {
+    runSynchronized([this, closeCb]() {
         changeState_(fpi::ResourceState::Offline, "Close");
+        if (refCnt_ == 0) {
+            closeCb_ = nullptr;
+            closeCb();
+        } else if (!closeCb_) {
+            closeCb_ = closeCb;
+        }
     });
 }
 
@@ -264,6 +281,22 @@ std::string VolumeGroupHandle::logString() const
         << " down:" << nonfunctionalReplicas_.size()
         << "] ";
     return ss.str();
+}
+
+void VolumeGroupHandle::incRef()
+{
+    ++refCnt_;
+}
+
+void VolumeGroupHandle::decRef()
+{
+    --refCnt_;
+    fds_assert(refCnt_ >= 0);
+    if (refCnt_ <= 0 && closeCb_) {
+        auto cb = std::move(closeCb_);
+        closeCb_ = nullptr;
+        cb();
+    }
 }
 
 EPSvcRequestPtr
@@ -704,6 +737,14 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
     nAcked_(0),
     nSuccessAcked_(0)
 {
+    /* NOTE: This should be under coordinator synchronized context */
+    groupHandle_->incRef();
+}
+
+VolumeGroupRequest::~VolumeGroupRequest()
+{
+    /* NOTE: This should be under coordinator synchronized context */
+    groupHandle_->decRef();
 }
 
 std::string VolumeGroupRequest::logString()

@@ -123,6 +123,8 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
                         const SvcRequestId &id,
                         const fpi::SvcUuid &myEpId,
                         VolumeGroupHandle *groupHandle);
+    virtual ~VolumeGroupRequest();
+
     virtual std::string logString() override;
 
     VolumeGroupHandle          *groupHandle_; 
@@ -185,9 +187,22 @@ struct VolumeGroupHandle : HasModuleProvider {
                       const fds_volid_t& volId,
                       uint32_t quorumCnt);
 
+    /**
+    * @brief Opens volume handle.  After opening, messages can be sent to the group handle.
+    *
+    * @param msg
+    * @param cb
+    */
     void open(const SHPTR<fpi::OpenVolumeMsg>& msg, const OpenResponseCb &cb);
 
-    void close();
+    /**
+    * @brief Closes volume group handle.  After close is called, once all the pedning messages
+    * are responded to closeCb is invoked.
+    * NOTE: After calling close don't send any more new messages.
+    *
+    * @param closeCb
+    */
+    void close(const VoidCb &closeCb);
 
     template<class MsgT>
     void sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
@@ -222,6 +237,9 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const bool writeReq,
                                       const Error &inStatus,
                                       uint8_t &successAcks);
+
+    void incRef();
+    void decRef();
 
     std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
@@ -306,6 +324,14 @@ struct VolumeGroupHandle : HasModuleProvider {
      * operations are buffered here
      */
     std::unique_ptr<WriteOpsBuffer>     writeOpsBuffer_;
+    /* # of references.  Every time an async msg is sent out, this # is incremented.  On
+     * responses this # is decremented
+     */
+    int32_t                             refCnt_;
+    /* Close callback.  Invoked when close(cb) is called && # of references on the
+     * VolumeGroupHandle is zero
+     */
+    VoidCb                              closeCb_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
@@ -316,6 +342,8 @@ template<class MsgT>
 void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                     SHPTR<MsgT> &msg, const VolumeResponseCb &cb)
 {
+    fds_assert(!closeCb_);
+
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
@@ -331,6 +359,8 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 template<class MsgT>
 void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                       SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+    fds_assert(!closeCb_);
+
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 
@@ -342,6 +372,8 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 template<class MsgT>
 void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
                                      SHPTR<MsgT> &msg, const VolumeResponseCb &cb) {
+    fds_assert(!closeCb_);
+
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
         GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
 

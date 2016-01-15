@@ -309,6 +309,11 @@ TEST_F(DmGroupFixture, DISABLED_singledm) {
     /* Do more IO.  IO should fail */
     sendQueryCatalogMsg(v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+    
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(DmGroupFixture, multidm) {
@@ -412,6 +417,11 @@ TEST_F(DmGroupFixture, multidm) {
         sendQueryCatalogMsg(v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(DmGroupFixture, DISABLED_multidm_multirestarts) {
@@ -485,6 +495,11 @@ TEST_F(DmGroupFixture, DISABLED_multidm_multirestarts) {
 
     ioAbort = true;
     iothread.join();
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 #if 0
