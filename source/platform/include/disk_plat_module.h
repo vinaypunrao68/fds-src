@@ -35,7 +35,6 @@ namespace fds
             struct pollfd               pollfds[FD_COUNT];
 
             void dsk_discover_mount_pts();
-            void scan_and_discover_disks();
 
         public:
             explicit DiskPlatModule(char const *const name);
@@ -65,6 +64,7 @@ namespace fds
             void dsk_rescan();
             void dsk_monitor_hotplug();
             void dsk_commit_label();
+            void scan_and_discover_disks();
 
             // Module methods.
             ///

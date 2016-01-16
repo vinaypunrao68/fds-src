@@ -5,6 +5,7 @@
 #include "connector/BlockOperations.h"
 
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <string>
 #include <thread>
@@ -33,9 +34,6 @@ BlockOperations::BlockOperations(BlockOperations::ResponseIFace* respIface)
           blobMode(new int32_t(0)),
           sector_map()
 {
-    // Spin off our retry loop
-    auto t = std::thread(&BlockOperations::retryLoop, this);
-    t.detach();
 }
 
 // We can't initialize this in the constructor since we want to pass
@@ -134,26 +132,6 @@ BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
         blockResp->terminate();
         blockResp = nullptr;
         amAsyncDataApi.reset();
-    }
-}
-
-void
-BlockOperations::abortTask(uint64_t const handle) {
-    std::unique_lock<std::mutex> l(respLock);
-    // if we are not waiting for this response, we probably just responded
-    auto it = responses.find(handle);
-    if (responses.end() != it) {
-        // Prevent task from retrying, either fail or succeed
-        it->second->abort();
-    }
-}
-
-void
-BlockOperations::abortAllTasks() {
-    std::unique_lock<std::mutex> l(respLock);
-    for (auto& task : responses) {
-        // Prevent task from retrying, either fail or succeed
-        task.second->abort();
     }
 }
 
@@ -347,18 +325,6 @@ BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type con
         fds_assert(resp);
 
         offset = resp->getOffset(seqId);
-
-        // Retry the request if we still have any remaining time.
-        if (fpi::BAD_REQUEST == error || fpi::SERVICE_NOT_READY == error) {
-            if (resp->shouldRetry() && !shutting_down) {
-                LOGDEBUG << "Retrying write request after failure.";
-                retryable.emplace_back(requestId);
-                need_retry.notify_one();
-                return;
-            } else {
-                LOGERROR << "Write has failed and been aborted or expired! Returning error to client.";
-            }
-        }
     }
 
     // Unblock other updates on the same object if they exist
@@ -491,7 +457,6 @@ BlockOperations::shutdown()
     std::unique_lock<std::mutex> l(respLock);
     if (shutting_down) return;
     shutting_down = true;
-    need_retry.notify_one();
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
         detachVolume();
@@ -514,48 +479,6 @@ BlockOperations::getObjectCount(uint32_t length,
         ++objCount;
     }
     return objCount;
-}
-
-/***
- * This function runs entirely within a thread while the instance is active.
- * Every -retry_delay- seconds, we pull all the requests that we want to retry
- * off the queue, send them back into QoS and go to sleep...simple.
- */
-void
-BlockOperations::retryLoop() {
-    static auto const retry_delay = std::chrono::seconds(2);
-    static auto last_ran = std::chrono::system_clock::now();
-    std::unique_lock<std::mutex> l(respLock);
-    while (!shutting_down) {
-        need_retry.wait_for(l, retry_delay, [this] { return !retryable.empty(); });
-
-        if (!shutting_down &&
-            (last_ran < (std::chrono::system_clock::now() - retry_delay))) {
-            for (auto& requestId : retryable) {
-                auto resp_it = responses.find(requestId.handle);
-                if (responses.end() == resp_it) {
-                    continue;
-                }
-                auto retried_resp = resp_it->second;
-
-                auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
-                auto off = boost::make_shared<apis::ObjectOffset>();
-                auto buffer = retried_resp->getBuffer(requestId.seq);
-                off->value = retried_resp->getOffset(requestId.seq);
-                amAsyncDataApi->updateBlobOnce(requestId,
-                                               domainName,
-                                               volumeName,
-                                               blobName,
-                                               blobMode,
-                                               buffer,
-                                               objLength,
-                                               off,
-                                               emptyMeta);
-            }
-            retryable.clear();
-            last_ran = std::chrono::system_clock::now();
-        }
-    }
 }
 
 }  // namespace fds

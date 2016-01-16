@@ -27,7 +27,9 @@ public class Chunker {
             int toBeWritten = Math.min(objectSize - startOffset[0], remaining[0]);
             io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), true, (ov) -> {
                 mutator.mutate(ov.getMetadata());
-                ByteBuffer buf = ov.getBuf().slice();
+                ByteBuffer buf = ov.getBuf();
+                int limit = Math.max(buf.limit(), startOffset[0] + toBeWritten);
+                buf.limit(limit);
                 buf.position(startOffset[0]);
                 buf.put(bytes, actualLength - remaining[0], toBeWritten);
                 buf.position(0);
@@ -54,7 +56,7 @@ public class Chunker {
                 if (!oov.isPresent()) {
                     throw new FileNotFoundException();
                 }
-                ByteBuffer buf = oov.get().getBuf();
+                ByteBuffer buf = oov.get().getBuf().duplicate();
                 int toBeRead = Math.min(buf.remaining() - startOffset[0], (objectSize - startOffset[0]));
                 toBeRead = Math.min(toBeRead, output.remaining());
                 buf.position(buf.position() + startOffset[0]);

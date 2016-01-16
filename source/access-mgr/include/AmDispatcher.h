@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2016 Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDISPATCHER_H_
@@ -12,10 +12,31 @@
 #include <net/SvcRequest.h>
 #include "concurrency/RwLock.h"
 
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+struct OpenVolumeRspMsg;
+}
+
 namespace fds {
 
-/* Forward declarations */
+struct AbortBlobTxReq;
+struct AttachVolumeReq;
+struct CommitBlobTxReq;
+struct DeleteBlobReq;
+struct ErrorHandler;
+struct GetVolumeMetadataReq;
+struct GetBlobReq;
+struct DetachVolumeReq;
+struct RenameBlobReq;
+struct PutBlobReq;
+struct SetBlobMetaDataReq;
+struct SetVolumeMetadataReq;
+struct StatBlobReq;
+struct StatVolumeReq;
 struct StartBlobTxReq;
+struct VolumeContentsReq;
+struct VolumeGroupHandle;
+
 class MockSvcHandler;
 struct DLT;
 
@@ -72,6 +93,7 @@ struct AmDispatcher :
     public AmDataProvider,
     public HasModuleProvider
 {
+    using shared_str = boost::shared_ptr<std::string>;
     /**
      * The dispatcher takes a shared ptr to the DMT manager
      * which it uses when deciding who to dispatch to. The
@@ -93,6 +115,7 @@ struct AmDispatcher :
     void start() override;
     bool done() override;
     void stop() override;
+    void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void lookupVolume(std::string const volume_name) override;
     void getVolumes(std::vector<VolumeDesc>& volumes) override;
@@ -130,6 +153,12 @@ struct AmDispatcher :
      * Wed 19 Aug 2015 10:56:46 AM MDT
      */
     bool safe_atomic_write { false };
+
+    /**
+     * FEATURE TOGGLE: VolumeGrouping Support
+     * Wed 19 Aug 2015 10:56:46 AM MDT
+     */
+    bool volume_grouping_support { false };
 
     /**
      * Shared ptrs to the DLT and DMT managers used
@@ -174,134 +203,145 @@ struct AmDispatcher :
 
     void _startBlobTx(AmRequest *amReq);
 
+    /**
+     * FEATURE TOGGLE: Volume grouping support
+     * Thu Jan 14 10:47:10 2016
+     */
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_func);
+
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func);
+
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func, std::unique_lock<std::mutex>&& vol_lock);
+
+    std::unique_ptr<ErrorHandler> volumegroup_handler;
+    fds_rwlock volumegroup_lock;
+    std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
+    void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
+    void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
+    void _closeVolumeCb(DetachVolumeReq* amReq);
+    void _deleteBlobCb(DeleteBlobReq *amReq, const Error& error, shared_str payload);
+    void _getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_str payload);
+    void _getVolumeMetadataCb(GetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
+    void _openVolumeCb(AttachVolumeReq* amReq, const Error& error, boost::shared_ptr<FDS_ProtocolInterface::OpenVolumeRspMsg> const& msg);
+    void _putBlobOnceCb(PutBlobReq* amReq, const Error& error, shared_str payload);
+    void _putBlobCb(PutBlobReq* amReq, const Error& error, shared_str payload);
+    void _renameBlobCb(RenameBlobReq *amReq, const Error& error, shared_str payload);
+    void _setBlobMetadataCb(SetBlobMetaDataReq *amReq, const Error& error, shared_str payload);
+    void _setVolumeMetadataCb(SetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
+    void _startBlobTxCb(StartBlobTxReq* amReq, const Error& error, shared_str payload);
+    void _statVolumeCb(StatVolumeReq* amReq, const Error& error, shared_str payload);
+    void _statBlobCb(StatBlobReq *amReq, const Error& error, shared_str payload);
+    void _volumeContentsCb(VolumeContentsReq *amReq, const Error& error, shared_str payload);
+
+    /**
+     * FEATURE TOGGLE: SvcLayer Direct callbacks
+     * Thu Jan 14 10:47:25 2016
+     */
     void lookupVolumeCb(std::string const& volume_name,
                         EPSvcRequest* svcReq,
                         const Error& error,
-                        boost::shared_ptr<std::string> payload);
+                        shared_str payload);
 
-    void openVolumeCb(AmRequest* amReq,
+    void abortBlobTxCb(AbortBlobTxReq *amReq,
+                       MultiPrimarySvcRequest* svcReq,
+                       const Error& error,
+                       shared_str payload);
+
+    void closeVolumeCb(DetachVolumeReq* amReq,
+                       MultiPrimarySvcRequest* svcReq,
+                       const Error& error,
+                       shared_str payload);
+
+    void commitBlobTxCb(CommitBlobTxReq* amReq,
+                        MultiPrimarySvcRequest* svcReq,
+                        const Error& error,
+                        shared_str payload);
+
+    void deleteBlobCb(DeleteBlobReq *amReq,
                       MultiPrimarySvcRequest* svcReq,
                       const Error& error,
-                      boost::shared_ptr<std::string> payload);
+                      shared_str payload)
+    { _deleteBlobCb(amReq, error, payload); }
 
-    void closeVolumeCb(AmRequest* amReq,
-                       MultiPrimarySvcRequest* svcReq,
-                       const Error& error,
-                       boost::shared_ptr<std::string> payload);
+    void dispatchObjectCb(AmRequest* amReq,
+                          QuorumSvcRequest* svcReq,
+                          const Error& error,
+                          shared_str payload);
 
-    /**
-     * Callback for set volume metadata responses.
-     */
-    void setVolumeMetadataCb(AmRequest* amReq,
-                             MultiPrimarySvcRequest* svcReq,
-                             const Error& error,
-                             boost::shared_ptr<std::string> payload);
-    /**
-     * Callback for get volume metadata responses.
-     */
-    void getVolumeMetadataCb(AmRequest* amReq,
-                             FailoverSvcRequest* svcReq,
-                             const Error& error,
-                             boost::shared_ptr<std::string> payload);
-    /**
-     * Callback for start blob transaction responses.
-     */
-    void startBlobTxCb(AmRequest* amReq,
-                       MultiPrimarySvcRequest* svcReq,
-                       const Error& error,
-                       boost::shared_ptr<std::string> payload);
-    /**
-     * Callback for commit blob transaction responses.
-     */
-    void commitBlobTxCb(AmRequest* amReq,
-                       MultiPrimarySvcRequest* svcReq,
-                       const Error& error,
-                       boost::shared_ptr<std::string> payload);
-
-    /**
-     * Dispatches a rename blob request.
-     */
-    void renameBlobCb(AmRequest *amReq,
-                      MultiPrimarySvcRequest* svcReq,
-                      const Error& error,
-                      boost::shared_ptr<std::string> payload);
-
-
-    /**
-     * Callback for delete blob responses.
-     */
-    void abortBlobTxCb(AmRequest *amReq,
-                       MultiPrimarySvcRequest* svcReq,
-                       const Error& error,
-                       boost::shared_ptr<std::string> payload);
-
-    /**
-     * Callback for delete blob responses.
-     */
-    void deleteBlobCb(AmRequest *amReq,
-                      MultiPrimarySvcRequest* svcReq,
-                      const Error& error,
-                      boost::shared_ptr<std::string> payload);
-
-    /**
-     * Callback for get blob responses.
-     */
     void getObjectCb(AmRequest* amReq,
                      FailoverSvcRequest* svcReq,
                      const Error& error,
-                     boost::shared_ptr<std::string> payload);
+                     shared_str payload);
 
-    /**
-     * Callback for catalog query responses.
-     */
-    void getQueryCatalogCb(AmRequest* amReq,
+    void getQueryCatalogCb(GetBlobReq* amReq,
                            FailoverSvcRequest* svcReq,
                            const Error& error,
-                           boost::shared_ptr<std::string> payload);
+                           shared_str payload);
 
-    /**
-     * Callback for catalog query error checks from service layer.
-     */
-    fds_bool_t missingBlobStatusCb(AmRequest* amReq,
-                                   const Error& error,
-                                   boost::shared_ptr<std::string> payload);
+    void getVolumeMetadataCb(GetVolumeMetadataReq* amReq,
+                             FailoverSvcRequest* svcReq,
+                             const Error& error,
+                             shared_str payload);
 
-    /**
-     * Callback for set metadata on blob responses.
-     */
-    void setBlobMetadataCb(AmRequest *amReq,
-                           MultiPrimarySvcRequest* svcReq,
-                           const Error& error,
-                           boost::shared_ptr<std::string> payload);
-
-    /**
-     * Callback for stat volume responses.
-     */
-    void statVolumeCb(AmRequest* amReq,
-                      FailoverSvcRequest* svcReq,
+    void openVolumeCb(AttachVolumeReq* amReq,
+                      MultiPrimarySvcRequest* svcReq,
                       const Error& error,
-                      boost::shared_ptr<std::string> payload);
+                      shared_str payload);
 
-    /**
-     * Callback for stat blob responses.
-     */
-    void statBlobCb(AmRequest *amReq,
-                    FailoverSvcRequest* svcReq,
-                    const Error& error,
-                    boost::shared_ptr<std::string> payload);
-
-    /**
-     * Callback for update blob responses.
-     */
-    void putBlobOnceCb(AmRequest* amReq,
+    void putBlobOnceCb(PutBlobReq* amReq,
                        MultiPrimarySvcRequest* svcReq,
                        const Error& error,
-                       boost::shared_ptr<std::string> payload);
-    void putBlobCb(AmRequest* amReq,
+                       shared_str payload);
+
+    void putBlobCb(PutBlobReq* amReq,
                    MultiPrimarySvcRequest* svcReq,
                    const Error& error,
-                   boost::shared_ptr<std::string> payload);
+                   shared_str payload)
+    { _putBlobCb(amReq, error, payload); }
 
+    void renameBlobCb(RenameBlobReq *amReq,
+                      MultiPrimarySvcRequest* svcReq,
+                      const Error& error,
+                      shared_str payload);
+
+    void setBlobMetadataCb(SetBlobMetaDataReq *amReq,
+                           MultiPrimarySvcRequest* svcReq,
+                           const Error& error,
+                           shared_str payload)
+    { _setBlobMetadataCb(amReq, error, payload); }
+
+
+    void setVolumeMetadataCb(SetVolumeMetadataReq* amReq,
+                             MultiPrimarySvcRequest* svcReq,
+                             const Error& error,
+                             shared_str payload);
+
+    void startBlobTxCb(StartBlobTxReq* amReq,
+                       MultiPrimarySvcRequest* svcReq,
+                       const Error& error,
+                       shared_str payload);
+
+    void statBlobCb(StatBlobReq *amReq,
+                    FailoverSvcRequest* svcReq,
+                    const Error& error,
+                    shared_str payload);
+
+    void statVolumeCb(StatVolumeReq* amReq,
+                      FailoverSvcRequest* svcReq,
+                      const Error& error,
+                      shared_str payload);
+
+    void volumeContentsCb(VolumeContentsReq *amReq,
+                          FailoverSvcRequest* svcReq,
+                          const Error& error,
+                          shared_str payload);
+
+    fds_bool_t missingBlobStatusCb(AmRequest* amReq,
+                                   const Error& error,
+                                   shared_str payload);
     /**
      * Dipatches a put object request.
      */
@@ -310,19 +350,7 @@ struct AmDispatcher :
     /**
      * Callback for put object responses.
      */
-    void dispatchObjectCb(AmRequest* amReq,
-                          QuorumSvcRequest* svcReq,
-                          const Error& error,
-                          boost::shared_ptr<std::string> payload);
     void putObjectCb(AmRequest* amReq, Error const error);
-
-    /**
-     * Callback for stat blob responses.
-     */
-    void volumeContentsCb(AmRequest *amReq,
-                          FailoverSvcRequest* svcReq,
-                          const Error& error,
-                          boost::shared_ptr<std::string> payload);
 
     /**
      * Configurable timeouts and defaults (ms)

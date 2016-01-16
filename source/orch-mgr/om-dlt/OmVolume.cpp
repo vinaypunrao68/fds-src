@@ -1459,11 +1459,13 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         new_desc->iops_assured = mod_msg->vol_desc.iops_assured;
         new_desc->iops_throttle = mod_msg->vol_desc.iops_throttle;
         new_desc->relativePrio = mod_msg->vol_desc.rel_prio;
+        new_desc->contCommitlogRetention = mod_msg->vol_desc.contCommitlogRetention;
         LOGNOTIFY << "Modify volume " << vname
                   << " - keeps policy id " << vol->vol_get_properties()->volPolicyId
                   << " with new assured iops " << new_desc->iops_assured
                   << " throttle iops " << new_desc->iops_throttle
-                  << " priority " << new_desc->relativePrio;
+                  << " priority " << new_desc->relativePrio
+                  << " continue commit log retention " << new_desc->contCommitlogRetention;
     }
 
     if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {

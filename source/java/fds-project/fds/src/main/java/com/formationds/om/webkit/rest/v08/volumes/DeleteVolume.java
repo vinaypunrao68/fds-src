@@ -4,6 +4,8 @@
 package com.formationds.om.webkit.rest.v08.volumes;
 
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -39,13 +41,26 @@ public class DeleteVolume implements RequestHandler {
 		long volumeId = requiredLong( routeParameters,  VOLUME_ARG );
 		
 		logger.debug( "Deleting volume: {}.", volumeId );
-		
+
 		String volumeName = getConfigApi().getVolumeName( volumeId );
-		
-		getAuthorizer().checkAccess( getToken(), "", volumeName );
-		getConfigApi().deleteVolume( "", volumeName );
-		
-		return new JsonResource(new JSONObject().put("status", "ok"));
+		logger.debug( "Deleting volume: {}.", volumeId );
+		if( volumeName == null || volumeName.length() <= 0 )
+		{
+			throw new ApiException( "The specified volume id ( " + volumeId + " ) wasn't found.",
+									ErrorCode.MISSING_RESOURCE );
+		}
+
+		try
+		{
+			getAuthorizer().checkAccess( getToken(), "", volumeName );
+			getConfigApi().deleteVolume( "", volumeName );
+			return new JsonResource(new JSONObject().put("status", "ok"));
+		}
+		catch ( SecurityException e )
+		{
+			throw new ApiException( "Not authorized to delete volume id " + volumeId,
+									ErrorCode.BAD_REQUEST );
+		}
 	}
 	
 	private Authorizer getAuthorizer(){

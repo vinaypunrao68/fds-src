@@ -67,6 +67,7 @@ class FDS_QoSControl {
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    virtual Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
+   void quieseceIOs();
    void stopDequeue(fds_volid_t volUUID);
    void resumeIOs(fds_volid_t volUUID);
 

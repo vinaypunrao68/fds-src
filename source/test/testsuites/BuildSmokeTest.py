@@ -61,7 +61,7 @@ def suiteConstruction(self):
 if __name__ == '__main__':
 	
     # Handle FDS specific commandline arguments.
-    log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir, failfast, install, reusecluster, config = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.
