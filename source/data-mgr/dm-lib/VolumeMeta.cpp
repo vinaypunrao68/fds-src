@@ -25,7 +25,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
             fwd_state(VFORWARD_STATE_NONE),
             dmVolQueue(0),
             dataManager(_dm),
-            cbToVGMgr(NULL) {
+            cbToVGMgr(NULL)
+{
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
@@ -34,6 +35,10 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
 
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+
+    /* Enable ability to query state via StateProvider api */
+    stateProviderId = "volume." + std::to_string(_uuid.get());
+    MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
 
     selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
@@ -46,7 +51,10 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
 }
 
-VolumeMeta::~VolumeMeta() {
+VolumeMeta::~VolumeMeta()
+{
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+
     delete vol_desc;
     delete vol_mtx;
 }
@@ -160,7 +168,12 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
     LOGNORMAL << logString() << logCtx;
 }
 
-void VolumeMeta::populateState(std::map<std::string, std::string> &state)
+std::string VolumeMeta::getStateProviderId()
+{
+    return stateProviderId;
+}
+
+void VolumeMeta::getStateInfo(std::map<std::string, std::string> &state)
 {
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()));
     state["version"] = std::to_string(version);

@@ -14,6 +14,7 @@
 #include <map>
 #include <fds_types.h>
 #include <fds_error.h>
+#include <fds_counters.h>
 #include <util/Log.h>
 
 #include <concurrency/Mutex.h>
@@ -53,7 +54,7 @@ using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 * 2. Committed state (Journals and Catalogs)
 * 3. Sync state (already part of this class)
 */
-struct VolumeMeta : HasLogger,  HasModuleProvider {
+struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
  public:
     /**
      * volume  meta forwarding state
@@ -76,7 +77,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
                fds_log* _dm_log,
                VolumeDesc *v_desc,
                DataMgr *_dm);
-    ~VolumeMeta();
+    virtual ~VolumeMeta();
     /**
     * @brief Apply active transactions
     *
@@ -104,8 +105,11 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     inline fpi::ResourceState getState() const { return vol_desc->state; }
     void setState(const fpi::ResourceState &state, const std::string &logCtx);
+
     /* Debug query api to get state as kv pairs */
-    void populateState(std::map<std::string, std::string> &state);
+    std::string getStateProviderId() override;
+    void getStateInfo(std::map<std::string, std::string> &state) override;
+
 
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
@@ -226,6 +230,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
      * volume meta forwarding state
      */
     fwdStateType fwd_state;  // write protected by vol_mtx
+
+    /* Id used when exporting state */
+    std::string         stateProviderId;
 
     /* Cached self svc uuid */
     fpi::SvcUuid        selfSvcUuid;

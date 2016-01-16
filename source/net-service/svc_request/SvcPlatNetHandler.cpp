@@ -375,6 +375,12 @@ void PlatNetSvcHandler::resetCounters(const std::string& id) // NOLINT
 {
 }
 
+void PlatNetSvcHandler::getStateInfo(std::map<std::string, std::string> & _return,  // NOLINT
+                                     const std::string& id)
+{
+}
+
+
 void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
                                  const int32_t nullarg)  // NOLINT
 {
@@ -459,6 +465,22 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
         MODULEPROVIDER()->get_cntrs_mgr()->reset();
     }
 }
+
+/**
+* @brief Returns state as kv pairs from StateProvider identified by id
+*
+* @param _return
+* @param id
+*/
+void PlatNetSvcHandler::getStateInfo(std::map<std::string, std::string> & _return,
+                                     boost::shared_ptr<std::string>& id) 
+{
+    if (!MODULEPROVIDER()) {
+        return;
+    }
+    MODULEPROVIDER()->get_cntrs_mgr()->getStateInfo(*id, _return);
+}
+
 /**
  * For setting a flag dynamically
  * @param id

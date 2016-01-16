@@ -15,19 +15,10 @@ class VolumeGroupContext(Context):
     @arg('dmuuid', help= "dm uuid", type=str)
     def replicastate(self, volid, dmuuid):
         'gets the volume replica state from DM'
-        svc = self.config.getPlatform();
-        msg = FdspUtils.newSvcMsgByTypeId('DbgQueryVolumeStateMsg');
-        msg.volId = volid
         for uuid in self.config.getServiceApi().getServiceIds(dmuuid):
-            cb = WaitedCallback();
-            svc.sendAsyncSvcReq(uuid, msg, cb)
-
-            if not cb.wait(30):
-                print 'async DbgQueryVolumeStateMsg request failed : {}'.format(self.config.getServiceApi().getServiceName(uuid))
-            elif cb.header.msg_code != 0:
-                print 'received an error: {}'.format(cb.header.msg_code)
-            else:
-                print tabulate(cb.payload.state.items())
+            state = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
+            print tabulate(state.items())
+        return
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
