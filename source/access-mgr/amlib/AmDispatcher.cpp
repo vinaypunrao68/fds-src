@@ -445,6 +445,109 @@ AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf>
  * services.
  */
 
+
+/**
+ * Read from a Volume Group (Non-Mutating message)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_func) {
+    {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(request->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendReadMsg(message_type_id(*message),
+                                    message,
+                                    [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                        (this->*(cb_func))(request, e, p);
+                                    });
+            return;
+        }
+    }
+    LOGERROR << "Unknown volume to AmDispatcher: " << request->io_vol_id;
+    AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
+}
+
+/**
+ * Modify a Volume Group (Mutating message that is not-Readable till committed)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func) {
+    {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(request->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendModifyMsg(message_type_id(*message),
+                                      message,
+                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                          (this->*(cb_func))(request, e, p);
+                                      });
+            return;
+        }
+    }
+    LOGERROR << "Unknown volume to AmDispatcher: " << request->io_vol_id;
+    AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
+}
+
+/**
+ * Commit to a Volume Group (Mutating message that will be readable)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ * @param [in] vol_lock The lock from the sequence dispatch table
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupCommit(ReqPtr request,
+                                     MsgPtr message,
+                                     CbMeth cb_func,
+                                     std::unique_lock<std::mutex>&& vol_lock) {
+    {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(request->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->sendCommitMsg(message_type_id(*message),
+                                      message,
+                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                          (this->*(cb_func))(request, e, p);
+                                      });
+            return;
+        }
+    }
+    // Don't block other IO during our callback
+    if (vol_lock) vol_lock.unlock();
+    LOGERROR << "Unknown volume to AmDispatcher: " << request->io_vol_id;
+    AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
+}
+
 void
 AmDispatcher::abortBlobTx(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::abortBlobTxCb(amReq, ERR_OK););
@@ -470,21 +573,9 @@ AmDispatcher::abortBlobTx(AmRequest* amReq) {
                                                              respCb);
         setSerialization(amReq, asyncAbortBlobTxReq);
         asyncAbortBlobTxReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendCommitMsg(message_type_id(*message),
-                                      message,
-                                      [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _abortBlobTxCb(blobReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupModify(blobReq, message, &AmDispatcher::_abortBlobTxCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::abortBlobTxCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 /**
@@ -547,34 +638,20 @@ AmDispatcher::commitBlobTx(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    {
-        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
-        if (!volume_grouping_support) {
-            // Create callback
-            message->dmt_version  = blobReq->dmt_version;
-            auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, blobReq));
-            auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id,
-                                                                  blobReq->dmt_version,
-                                                                  message,
-                                                                  respCb);
-            setSerialization(amReq, asyncCommitBlobTxReq);
-            asyncCommitBlobTxReq->invoke();
-            return;
-        } else {
-            ReadGuard rg(volumegroup_lock);
-            auto it = volumegroup_map.find(amReq->io_vol_id);
-            if (volumegroup_map.end() != it) {
-                it->second->sendCommitMsg(message_type_id(*message),
-                                          message,
-                                          [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                              _commitBlobTxCb(blobReq, e, p);
-                                          });
-                return;
-            }
-        }
+    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
+    if (!volume_grouping_support) {
+        // Create callback
+        message->dmt_version  = blobReq->dmt_version;
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::commitBlobTxCb, blobReq));
+        auto asyncCommitBlobTxReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                              blobReq->dmt_version,
+                                                              message,
+                                                              respCb);
+        setSerialization(amReq, asyncCommitBlobTxReq);
+        asyncCommitBlobTxReq->invoke();
+    } else {
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb, std::move(vLock));
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::commitBlobTxCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -600,21 +677,9 @@ AmDispatcher::deleteBlob(AmRequest* amReq)
                                             std::placeholders::_2));
         setSerialization(amReq, asyncReq);
         asyncReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _deleteBlobCb(blobReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupModify(blobReq, message, &AmDispatcher::_deleteBlobCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::deleteBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -665,21 +730,9 @@ AmDispatcher::getOffsets(AmRequest* amReq) {
                                                  this, amReq, std::placeholders::_1,
                                                  std::placeholders::_2));
         asyncQueryReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                        _getQueryCatalogCb(blobReq, e, p);
-                                    });
-            return;
-        }
+        volumeGroupRead(blobReq, message, &AmDispatcher::_getQueryCatalogCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::getOffsetsCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -702,21 +755,9 @@ AmDispatcher::getVolumeMetadata(AmRequest* amReq) {
                                                             message,
                                                             respCb);
         asyncGetVolMetadataReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
-                                        _getVolumeMetadataCb(volReq, e, p);
-                                    });
-            return;
-        }
+        volumeGroupRead(volReq, message, &AmDispatcher::_getVolumeMetadataCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::getVolumeMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 /**
@@ -751,7 +792,7 @@ AmDispatcher::openVolume(AmRequest* amReq) {
         asyncOpenVolReq->invoke();
         return;
     } else {
-        ReadGuard rg(volumegroup_lock);
+        WriteGuard wg(volumegroup_lock);
         auto it = volumegroup_map.find(amReq->io_vol_id);
         if (volumegroup_map.end() != it) {
             it->second->open(volMDMsg,
@@ -807,21 +848,9 @@ AmDispatcher::putBlob(AmRequest* amReq) {
 
         setSerialization(amReq, asyncUpdateCatReq);
         asyncUpdateCatReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _putBlobCb(blobReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupModify(blobReq, message, &AmDispatcher::_putBlobCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::putBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -867,37 +896,23 @@ AmDispatcher::putBlobOnce(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    {
-        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
-        if (!volume_grouping_support) {
-            blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-            message->dmt_version  = blobReq->dmt_version;
-            auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putBlobOnceCb, blobReq));
-            // Always use the current DMT version since we're updating in a single request
-            auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
-                                                               blobReq->dmt_version,
-                                                               message,
-                                                               respCb,
-                                                               message_timeout_io);
+    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
+    if (!volume_grouping_support) {
+        blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
+        message->dmt_version  = blobReq->dmt_version;
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::putBlobOnceCb, blobReq));
+        // Always use the current DMT version since we're updating in a single request
+        auto asyncUpdateCatReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                           blobReq->dmt_version,
+                                                           message,
+                                                           respCb,
+                                                           message_timeout_io);
 
-            setSerialization(amReq, asyncUpdateCatReq);
-            asyncUpdateCatReq->invoke();
-            return;
-        } else {
-            ReadGuard rg(volumegroup_lock);
-            auto it = volumegroup_map.find(amReq->io_vol_id);
-            if (volumegroup_map.end() != it) {
-                it->second->sendCommitMsg(message_type_id(*message),
-                                          message,
-                                          [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                              _putBlobOnceCb(blobReq, e, p);
-                                          });
-                return;
-            }
-        }
+        setSerialization(amReq, asyncUpdateCatReq);
+        asyncUpdateCatReq->invoke();
+    } else {
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_putBlobOnceCb, std::move(vLock));
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::putBlobOnceCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -922,37 +937,23 @@ AmDispatcher::renameBlob(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    {
-        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
-        if (!volume_grouping_support) {
-            blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
-            message->dmt_version  = blobReq->dmt_version;
-            auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, blobReq));
-            auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,
-                                                      blobReq->dmt_version,
-                                                      message,
-                                                      respCb);
-            asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
-                                                this, amReq, std::placeholders::_1,
-                                                std::placeholders::_2));
-            setSerialization(amReq, asyncReq);
-            asyncReq->invoke();
-            return;
-        } else {
-            ReadGuard rg(volumegroup_lock);
-            auto it = volumegroup_map.find(amReq->io_vol_id);
-            if (volumegroup_map.end() != it) {
-                it->second->sendCommitMsg(message_type_id(*message),
-                                          message,
-                                          [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _renameBlobCb(blobReq, e, p);
-                                          });
-                return;
-            }
-        }
+    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
+    if (!volume_grouping_support) {
+        blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
+        message->dmt_version  = blobReq->dmt_version;
+        auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::renameBlobCb, blobReq));
+        auto asyncReq = createMultiPrimaryRequest(amReq->io_vol_id,
+                                                  blobReq->dmt_version,
+                                                  message,
+                                                  respCb);
+        asyncReq->onEPAppStatusCb(std::bind(&AmDispatcher::missingBlobStatusCb,
+                                            this, amReq, std::placeholders::_1,
+                                            std::placeholders::_2));
+        setSerialization(amReq, asyncReq);
+        asyncReq->invoke();
+    } else {
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb, std::move(vLock));
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::renameBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -980,21 +981,9 @@ AmDispatcher::setBlobMetadata(AmRequest* amReq) {
                                                        respCb);
         setSerialization(amReq, asyncSetMDReq);
         asyncSetMDReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _setBlobMetadataCb(blobReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupModify(blobReq, message, &AmDispatcher::_setBlobMetadataCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::setBlobMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -1018,6 +1007,7 @@ AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
+    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
         volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         auto respCb(RESPONSE_MSG_HANDLER(AmDispatcher::setVolumeMetadataCb, volReq));
@@ -1027,21 +1017,9 @@ AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
                                                                 respCb);
         setSerialization(amReq, asyncSetVolMetadataReq);
         asyncSetVolMetadataReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendCommitMsg(message_type_id(*message),
-                                      message,
-                                      [volReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _setVolumeMetadataCb(volReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb, std::move(vLock));
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::setVolumeMetadataCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -1108,21 +1086,9 @@ AmDispatcher::_startBlobTx(AmRequest *amReq) {
                                                              respCb);
         setSerialization(amReq, asyncStartBlobTxReq);
         asyncStartBlobTxReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                          _startBlobTxCb(blobReq, e, p);
-                                      });
-            return;
-        }
+        volumeGroupModify(blobReq, message, &AmDispatcher::_startBlobTxCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::startBlobTxCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -1156,21 +1122,9 @@ AmDispatcher::statBlob(AmRequest* amReq)
                                             this, amReq, std::placeholders::_1,
                                             std::placeholders::_2));
         asyncReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [blobReq, this] (Error const& e, shared_str p) mutable -> void {
-                                        _statBlobCb(blobReq, e, p);
-                                    });
-            return;
-        }
+        volumeGroupRead(blobReq, message, &AmDispatcher::_statBlobCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::statBlobCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -1191,21 +1145,9 @@ AmDispatcher::statVolume(AmRequest* amReq) {
                                                      message,
                                                      respCb);
         asyncStatVolReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
-                                        _statVolumeCb(volReq, e, p);
-                                    });
-            return;
-        }
+        volumeGroupRead(volReq, message, &AmDispatcher::_statVolumeCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::statVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 
@@ -1241,21 +1183,9 @@ AmDispatcher::volumeContents(AmRequest* amReq)
                                               message,
                                               respCb);
         asyncReq->invoke();
-        return;
     } else {
-        ReadGuard rg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [volReq, this] (Error const& e, shared_str p) mutable -> void {
-                                        _volumeContentsCb(volReq, e, p);
-                                    });
-            return;
-        }
+        volumeGroupRead(volReq, message, &AmDispatcher::_volumeContentsCb);
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::volumeContentsCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 
