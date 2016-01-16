@@ -22,6 +22,8 @@ from fdscli.model.fds_error import FdsError
 # A third-party initiator that enables sending CDBs and fetching response
 from pyscsi.pyscsi.scsi_device import SCSIDevice
 
+DEFAULT_VOLUME_NAME = 'volISCSI'
+
 class TestISCSICrtVolume(ISCSIFixture):
     """FDS test case to create an iSCSI volume.
 
@@ -50,8 +52,7 @@ class TestISCSICrtVolume(ISCSIFixture):
         """Attempt to create an iSCSI volume."""
 
         if not self.passedName:
-            # If not provided, fetch volume name from fixture
-            self.passedName = self.getVolumeName()
+            self.passedName = DEFAULT_VOLUME_NAME
 
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
@@ -71,7 +72,7 @@ class TestISCSICrtVolume(ISCSIFixture):
 
         # Cache this volume name in the fixture so that other test cases
         # can use it to map to ISCSI target name and drive
-        self.setVolumeName(self.passedName)
+        self.addVolumeName(self.passedName)
         return True
 
 
@@ -113,8 +114,7 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
             True if successful, False otherwise
         """
         if not self.volume_name:
-            # If not provided, fetch volume name from fixture
-            self.volume_name = self.getVolumeName()
+            self.volume_name = DEFAULT_VOLUME_NAME
 
         self.target_name = None
         # Get the FdsConfigRun object for this test.
@@ -194,13 +194,13 @@ class TestISCSIAttachVolume(ISCSIFixture):
         bool
             True if successful, False otherwise
         """
-        if not self.volume_name:
-            # Use fixture target name
-            self.volume_name = self.getVolumeName()
-
         if not self.target_name:
-            # Use fixture target name
-            self.target_name = self.getTargetName(self.volume_name)
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI target name")
+                return False
+            else:
+                # Use fixture target name
+                self.target_name = self.getTargetName(self.volume_name)
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
@@ -266,6 +266,14 @@ class TestISCSIUnitReady(ISCSIFixture):
         bool
             True if successful, False otherwise
         """
+        if not sg_device:
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI target name")
+                return False
+            else:
+                # Use fixture target name
+                self.sg_device = self.getGenericDevice(self.volume_name)
+
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
