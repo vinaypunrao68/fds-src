@@ -151,17 +151,18 @@ class TestISCSIAttachVolume(ISCSIFixture):
     Yields generic driver device name so that other test cases can use pass
     through char device for testing.
 
-    TODO: consider yielding sd_device for block testing.
-
     Attributes
     ----------
+    sd_device : str
+        Device using sd upper level driver (example: '/dev/sd2')
     sg_device : str
-        SCSI device name for the given iSCSI node record
-        Example: '/dev/sg2'
+        Device using sg upper level driver (example: '/dev/sg2')
     target_name : str
         The iSCSI node record name to login.
         Target name is expected to follow IQN convention.
         Example: 'iqn.2012-05.com.formationds:volISCSI'
+    volume_name : str
+        FDS volume name
     """
 
     def __init__(self, parameters=None, target_name=None, volume_name=None):
@@ -181,6 +182,7 @@ class TestISCSIAttachVolume(ISCSIFixture):
 
         self.volume_name = volume_name
         self.target_name = target_name
+        self.sd_device = None
         self.sg_device = None
 
     def test_login_target(self):
@@ -204,16 +206,33 @@ class TestISCSIAttachVolume(ISCSIFixture):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        cmd = 'iscsiadm -m node --targetname %s -p %s --login' % (self.target_name, (om_node.nd_conf_dict['ip']))
-        return False
+        # Cache the device names prior to login
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
-#        status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
+        status, stdout = om_node.nd_agent.exec_wait('sg_map -sd', return_stdin=True)
+        if status != 0:
+            self.log.error("Failed to get sg map");
+            return False;
 
-#        if status != 0:
-#            self.log.info("Failed to login iSCSI target %s." % self.target_name)
-#            return False
+        g = stdout.split()
 
-#        return True
+        cmd = 'iscsiadm -m node --targetname %s -p %s --login' % (self.target_name, (om_node.nd_conf_dict['ip']))
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
+
+        if status != 0:
+            self.log.info("Failed to login iSCSI target %s." % self.target_name)
+            return False
+
+        # Compute device names
+        status, stdout = om_node.nd_agent.exec_wait('sg_map -sd', return_stdin=True)
+        if status == 0:
+            gprime = stdout.split()
+            for elem in gprime:
+                if not elem in g:
+                    self.sg_device = elem
+                    self.sd_device = elem
+
+        return True
 
 
 class TestISCSIUnitReady(ISCSIFixture):
@@ -278,16 +297,20 @@ class TestISCSIDetachVolume(ISCSIFixture):
     ----------
     target_name : str
         Each target name is expected to following IQN convention
-        Example: ''
+        Example: 'iqn.2012-05.com.formationds:volISCSI'
+    volume_name : str
+        FDS volume name
     """
 
-    def __init__(self, parameters=None, target_name=None):
+    def __init__(self, parameters=None, target_name=None, volume_name=None):
         """
         Parameters
         ----------
         parameters : List[str]
         target_name : str
-            The iSCSI node record name to logout
+            The iSCSI node record name to logout, remove
+        volume_name : str
+            FDS volume name
         """
         super(self.__class__, self).__init__(parameters,
                 self.__class__.__name__,
@@ -295,28 +318,47 @@ class TestISCSIDetachVolume(ISCSIFixture):
                 "Disconnecting iSCSI volume")
 
         self.target_name = target_name
+        self.volume_name = volume_name
 
     def test_logout_targets(self):
         """
-        Logout one or more iSCSI node records by name.
+        Logout, remove iSCSI node record.
 
         Returns
         -------
         bool
             True if successful, False otherwise
         """
+        if not self.target_name:
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI target name")
+                return False
+            else:
+                self.target_name = self.getTargetName(self.volume_name)
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % self.target_name \
-                % (om_node.nd_conf_dict['ip'])
+        # Logout session
+        cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, \
+                (om_node.nd_conf_dict['ip']))
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
 
         if status != 0:
             self.log.error("Failed to detach iSCSI volume %s." % t)
+            return False
+
+        # Remove the record
+        cmd2 = 'iscsiadm -m node -o delete -T %s -p %s' % (self.target_name, \
+                (om_node.nd_conf_dict['ip']))
+
+        # Parameter return_stdin is set to return stdout. ... Don't ask me!
+        status, stdout = om_node.nd_agent.exec_wait(cmd2, return_stdin=True)
+
+        if status != 0:
+            self.log.error("Failed to remove iSCSI record %s." % self.target_name)
             return False
 
         return True

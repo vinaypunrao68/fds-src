@@ -30,8 +30,6 @@ def suiteConstruction(self):
     # Test a list volumes to a block device
 #    suite.addTest(testcases.TestBlockIntFace.TestBlockListVolumes())
 
-    # TODO: return list of iSCSI names
-    # TODO: call with a list of volume names
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())
 
     # Attach iSCSI device
@@ -50,7 +48,7 @@ def suiteConstruction(self):
 #    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRandRW())
 
     # Detach a block device
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockDetachVolume())
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None, None, 'volISCSI'))
 
     return suite
 
