@@ -375,7 +375,7 @@ void PlatNetSvcHandler::resetCounters(const std::string& id) // NOLINT
 {
 }
 
-void PlatNetSvcHandler::getStateInfo(std::map<std::string, std::string> & _return,  // NOLINT
+void PlatNetSvcHandler::getStateInfo(std::string & _return,  // NOLINT
                                      const std::string& id)
 {
 }
@@ -467,12 +467,12 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
 }
 
 /**
-* @brief Returns state as kv pairs from StateProvider identified by id
+* @brief Returns state as json from StateProvider identified by id
 *
 * @param _return
 * @param id
 */
-void PlatNetSvcHandler::getStateInfo(std::map<std::string, std::string> & _return,
+void PlatNetSvcHandler::getStateInfo(std::string & _return,
                                      boost::shared_ptr<std::string>& id) 
 {
     if (!MODULEPROVIDER()) {

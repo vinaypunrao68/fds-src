@@ -285,7 +285,7 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     }
 
     @Override
-    public Map<String, String> getStateInfo( String id ) throws TException {
+    public String getStateInfo( String id ) throws TException {
     	return null;
     }
 

@@ -183,14 +183,14 @@ void FdsCountersMgr::remove_from_export(StateProvider *provider)
 }
 
 bool FdsCountersMgr::getStateInfo(const std::string &id,
-                                  std::map<std::string, std::string> &state)
+                                  std::string &state)
 {
     fds_mutex::scoped_lock lock(stateproviders_lock_);
     auto itr = stateproviders_tbl_.find(id);
     if (itr == stateproviders_tbl_.end()) {
         return false;
     }
-    itr->second->getStateInfo(state);
+    state = itr->second->getStateInfo();
     return true;
 }
 

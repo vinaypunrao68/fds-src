@@ -190,7 +190,7 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
     }
 
     @Override
-    public Map<String, String> getStateInfo( String id ) throws TException {
+    public String getStateInfo( String id ) throws TException {
         logger.trace( "getStateInfo: {}", id );
         return omNativePlatformClientFactory.getClient().getStateInfo( id );
     }

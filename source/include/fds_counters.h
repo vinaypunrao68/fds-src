@@ -43,7 +43,7 @@ class SamplerTask : public FdsTimerTask {
 * KEEP AS INTERFACE.  DON'T ADD STATE.
 */
 struct StateProvider {
-    virtual void getStateInfo(std::map<std::string, std::string> &state) = 0;
+    virtual std::string getStateInfo() = 0;
     virtual std::string getStateProviderId() = 0;
 };
 
@@ -71,8 +71,7 @@ public:
     /* Status provider methods */
     void add_for_export(StateProvider *provider);
     void remove_from_export(StateProvider *provider);
-    bool getStateInfo(const std::string &id,
-                      std::map<std::string, std::string> &state);
+    bool getStateInfo(const std::string &id, std::string &state);
 
 protected:
     std::string id_;

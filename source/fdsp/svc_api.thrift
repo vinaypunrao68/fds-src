@@ -166,7 +166,12 @@ service PlatNetSvc {
     svc_types.ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);
     void resetCounters(1: string id);
-    map<string, string> getStateInfo(1: string id);
+    /**
+    * @brief Returns state information as json string for resource with matching id
+    * @param id
+    * @return 
+    */
+    string getStateInfo(1: string id);
     void setConfigVal(1:string key, 2:string value);
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);

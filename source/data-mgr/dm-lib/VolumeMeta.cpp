@@ -12,6 +12,7 @@
 #include <net/volumegroup_extensions.h>
 #include <util/stringutils.h>
 #include <dmhandler.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -173,12 +174,18 @@ std::string VolumeMeta::getStateProviderId()
     return stateProviderId;
 }
 
-void VolumeMeta::getStateInfo(std::map<std::string, std::string> &state)
+std::string VolumeMeta::getStateInfo()
 {
+    /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
+    Json::Value state;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()));
-    state["version"] = std::to_string(version);
-    state["opid"] = std::to_string(getOpId());
-    state["sequenceid"] = std::to_string(sequence_id);
+    state["version"] = version;
+    state["opid"] = static_cast<Json::Value::Int64>(getOpId());
+    state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
 }
 
 std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)

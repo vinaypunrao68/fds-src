@@ -178,7 +178,7 @@ struct VolumeGroupHandleListener {
 * -Handles faults in a volume group
 * -Manages sync/repair of a failed volume replica.
 */
-struct VolumeGroupHandle : HasModuleProvider {
+struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
     using WriteOpsBuffer                = boost::circular_buffer<std::pair<fpi::FDSPMsgTypeId, StringPtr>>;
@@ -186,6 +186,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
                       uint32_t quorumCnt);
+    virtual ~VolumeGroupHandle();
 
     /**
     * @brief Opens volume handle.  After opening, messages can be sent to the group handle.
@@ -237,6 +238,9 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const bool writeReq,
                                       const Error &inStatus,
                                       uint8_t &successAcks);
+
+    std::string getStateInfo() override;
+    std::string getStateProviderId() override;
 
     void incRef();
     void decRef();
@@ -315,6 +319,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     int64_t                             groupId_;
     /* Version # for group handle.  This is different from VolumeReplicaHandle version # */
     fpi::VolumeGroupVersion             version_;
+    /* Id used when exporting state */
+    std::string                         stateProviderId_;
     /* Every write operation is given a sequence #. The first # is OPSTARTID+1 */
     int64_t                             opSeqNo_;
     /* Every commit operation is given a sequence #. The first # is COMMITSTARTID+1 */

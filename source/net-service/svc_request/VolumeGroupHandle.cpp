@@ -3,6 +3,7 @@
 #include <vector>
 #include <net/VolumeGroupHandle.h>
 #include <net/SvcRequestPool.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -61,8 +62,21 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     groupId_ = volId.get();
     version_ = VolumeGroupConstants::VERSION_INVALID;
 
+    stateProviderId_ = "volumegrouphandle." + std::to_string(groupId_);
+
     refCnt_ = 0;
     closeCb_ = nullptr;
+
+    if (MODULEPROVIDER()->get_cntrs_mgr()) {
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+}
+
+VolumeGroupHandle::~VolumeGroupHandle()
+{
+    if (MODULEPROVIDER()->get_cntrs_mgr()) {
+        MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+    }
 }
 
 #if 0
@@ -281,6 +295,39 @@ std::string VolumeGroupHandle::logString() const
         << " down:" << nonfunctionalReplicas_.size()
         << "] ";
     return ss.str();
+}
+
+std::string VolumeGroupHandle::getStateInfo()
+{
+    /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
+    Json::Value state;
+    state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
+    state["version"] = version_;
+    state["up"] = static_cast<Json::Value::UInt>(functionalReplicas_.size());
+    state["syncing"] = static_cast<Json::Value::UInt>(syncingReplicas_.size());
+    state["down"] = static_cast<Json::Value::UInt>(nonfunctionalReplicas_.size());
+    state["opid"] = static_cast<Json::Value::Int64>(opSeqNo_);
+    state["sequenceid"] = static_cast<Json::Value::Int64>(commitNo_);
+
+    auto f = [&state](const VolumeReplicaHandle &h) {
+        std::string id = std::to_string(h.svcUuid.svc_uuid);
+        state[id]["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(h.state));
+        state[id]["version"] = h.version;
+        state[id]["lasterror"] = h.lastError.GetErrName();
+        state[id]["appliedopid"] = static_cast<Json::Value::Int64>(h.appliedOpId);
+        state[id]["appliedsequenceid"] = static_cast<Json::Value::Int64>(h.appliedCommitId);
+    };
+    for_each(functionalReplicas_.begin(), functionalReplicas_.end(), f);
+    for_each(syncingReplicas_.begin(), syncingReplicas_.end(), f);
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
+std::string VolumeGroupHandle::getStateProviderId()
+{
+    return stateProviderId_;
 }
 
 void VolumeGroupHandle::incRef()

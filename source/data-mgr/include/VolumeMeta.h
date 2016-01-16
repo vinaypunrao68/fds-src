@@ -108,7 +108,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
 
     /* Debug query api to get state as kv pairs */
     std::string getStateProviderId() override;
-    void getStateInfo(std::map<std::string, std::string> &state) override;
+    std::string getStateInfo() override;
 
 
     inline bool isActive() const { return vol_desc->state == fpi::Active; }

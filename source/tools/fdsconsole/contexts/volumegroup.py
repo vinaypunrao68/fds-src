@@ -3,6 +3,7 @@ from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
+import json
 
 
 class VolumeGroupContext(Context):
@@ -12,12 +13,25 @@ class VolumeGroupContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('volid', help= "volume id", type=long)
+    @arg('amuuid', help= "am uuid", type=str)
+    def handlestate(self, volid, amuuid):
+        'gets the volume group handle state from AM'
+        for uuid in self.config.getServiceApi().getServiceIds(amuuid):
+            stateStr = ServiceMap.client(uuid).getStateInfo('volumegrouphandle.{}'.format(volid))
+            state = json.loads(stateStr)
+            print (json.dumps(state, indent=2))
+        return
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volid', help= "volume id", type=long)
     @arg('dmuuid', help= "dm uuid", type=str)
     def replicastate(self, volid, dmuuid):
         'gets the volume replica state from DM'
         for uuid in self.config.getServiceApi().getServiceIds(dmuuid):
-            state = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
-            print tabulate(state.items())
+            stateStr = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
+            state = json.loads(stateStr)
+            print (json.dumps(state, indent=2))
         return
 
     #--------------------------------------------------------------------------------------
