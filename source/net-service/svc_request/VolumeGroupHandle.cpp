@@ -57,14 +57,20 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     quorumCnt_ = quorumCnt;
-    state_ = fpi::ResourceState::Unknown;
 
+    state_ = fpi::ResourceState::Unknown;
     groupId_ = volId.get();
     version_ = VolumeGroupConstants::VERSION_INVALID;
 
     stateProviderId_ = "volumegrouphandle." + std::to_string(groupId_);
 
+    opSeqNo_ = VolumeGroupConstants::OPSTARTID;
+    commitNo_ = VolumeGroupConstants::COMMITSTARTID;
+
+    dmtVersion_ = DMT_VER_INVALID;
+
     refCnt_ = 0;
+
     closeCb_ = nullptr;
 
     if (MODULEPROVIDER()->get_cntrs_mgr()) {
