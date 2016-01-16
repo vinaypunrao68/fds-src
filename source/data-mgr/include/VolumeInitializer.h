@@ -88,7 +88,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void doStaticMigrationWithPeer_(const StatusCb &cb);
     void startReplay_();
     void setProgress_(Progress progress);
-    bool isSynchronized_();
+    bool isSynchronized_() const;
     void complete_(const Error &e, const std::string &context);
 
     Progress                                progress_;
@@ -362,10 +362,9 @@ void ReplicaInitializer<T>::setProgress_(Progress progress)
 }
 
 template <class T>
-bool ReplicaInitializer<T>::isSynchronized_()
+bool ReplicaInitializer<T>::isSynchronized_() const
 {
-    // TODO(Rao): Implement
-    return true;
+    return replica_->isSynchronized();
 }
 
 template <class T>

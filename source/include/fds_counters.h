@@ -7,6 +7,7 @@
 #include <iostream>
 #include <atomic>
 #include <vector>
+#include <unordered_map>
 #include <ostream>
 #include <boost/noncopyable.hpp>
 #include <fds_types.h>
@@ -38,6 +39,15 @@ class SamplerTask : public FdsTimerTask {
 };
 
 /**
+* @brief Implement this interface to export state information as key,value pairs
+* KEEP AS INTERFACE.  DON'T ADD STATE.
+*/
+struct StateProvider {
+    virtual void getStateProviderState(std::map<std::string, std::string> &state) = 0;
+    virtual std::string getStateProviderId() = 0;
+};
+
+/**
  * @brief Counter manager.  Mananges the job of exporting registered
  * FdsCounters class objects in various different formats.
  * Supported format are:
@@ -47,33 +57,41 @@ class FdsCountersMgr : public boost::noncopyable {
 public:
     FdsCountersMgr(const std::string &id);
     ~FdsCountersMgr() {timer_.destroy();}
+
+    /* Counters related methods */
     void add_for_export(FdsCounters *counters);
     void remove_from_export(FdsCounters *counters);
-
     FdsCounters* get_counters(const std::string &id);
     FdsCounters* get_default_counters();
-
     std::string export_as_graphite();
-
     void export_to_ostream(std::ostream &stream);
-
     void toMap(std::map<std::string, int64_t>& m);
-
     void reset();
+
+    /* Status provider methods */
+    void add_for_export(StateProvider *provider);
+    void remove_from_export(StateProvider *provider);
+    bool getStateProviderState(const std::string &id,
+                               std::map<std::string, std::string> &state);
 
 protected:
     std::string id_;
     FdsCounters* defaultCounters;
     /* Counter objects that are exported out */
     std::vector<FdsCounters*> exp_counters_;
-    /* Lock for this object */
-    fds_mutex lock_;
+    /* Lock for the counters */
+    fds_mutex counters_lock_;
     /* Timer */
     FdsTimer timer_;
     /* Sampler task */
     boost::shared_ptr<FdsTimerTask> sampler_ptr_;
     /* Snapshot */
     std::vector<FdsCounters*> snapshot_counters_;
+
+    /* Lock for state provider */
+    fds_mutex stateproviders_lock_;
+    /* All the stateproviders */
+    std::unordered_map<std::string, StateProvider*> stateproviders_tbl_;
 };
 
 /**

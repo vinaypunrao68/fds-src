@@ -42,6 +42,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
+
+    threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
 }
 
 VolumeMeta::~VolumeMeta() {

@@ -137,6 +137,13 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
     /**
+    * @brief Returns true if this function is invoked by the thread responsible executing
+    * VolumeMeta tasks
+    */
+    inline bool isSynchronized() const {
+        return std::this_thread::get_id() == threadId;
+    }
+    /**
     * @brief Returns wrapper function around f that exectues f in volume synchronized
     * context
     */
@@ -222,6 +229,11 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     /* Cached self svc uuid */
     fpi::SvcUuid        selfSvcUuid;
+
+    /* ID of the thread on which all VolumeMeta synchronized work is done on.
+     * Cached here for ensuring all synchronized tasks are done on this thread id 
+     */
+    std::thread::id     threadId;
 
     /**
      * latest sequence ID is not part of the volume descriptor because it will
