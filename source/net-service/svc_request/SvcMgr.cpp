@@ -637,7 +637,7 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType
     /* Check to ensure we only have one DMT when volumegrouping is enabled */
     auto volgroupingEnabled = MODULEPROVIDER()->get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_volumegrouping", false);
-    if (volgroupingEnabled) {
+    if (volgroupingEnabled && dmtMgr_->hasCommittedDMT()) {
         auto committed = dmtMgr_->getDMT(DMT_COMMITTED);
         if (committed) {
             auto serializer = serialize::getMemSerializer();

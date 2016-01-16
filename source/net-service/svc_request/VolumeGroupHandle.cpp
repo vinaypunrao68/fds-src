@@ -405,6 +405,9 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
                                   ERR_OK,
                                   "Open");
     }
+
+    commitNo_ = successSvcs[0].second->sequence_id;
+
     return successSvcs[0].second;
 }
 

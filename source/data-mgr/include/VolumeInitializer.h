@@ -210,7 +210,8 @@ void ReplicaInitializer<T>::startBuffering_()
     auto bufferfilePath = util::strformat("%s%d", bufferfilePrefix.c_str(),
                                           replica_->getVersion());
     /* Remove any existing buffer files */
-    auto cmdRet = std::system(util::strformat("rm %s*", bufferfilePrefix.c_str()).c_str());
+    auto cmdRet = std::system(util::strformat("rm %s* >/dev/null 2>&1",
+                                              bufferfilePrefix.c_str()).c_str());
     /* Create buffer replay instance */
     bufferReplay_.reset(new BufferReplay(bufferfilePath,
                                          512,  /* Replay batch size */
