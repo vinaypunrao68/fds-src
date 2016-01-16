@@ -1225,6 +1225,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
+        LOGDEBUG << "Object ptr = " << objMetaDataPtr << " flag = " << reconcileFlag << " Object ID = " << objID;
+
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
 
         /* copy metadata to object propagation message. */

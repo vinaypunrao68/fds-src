@@ -311,6 +311,11 @@ MigrationClient::migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDat
     itFirst = objMetaDataSet->begin();
     itLast = objMetaDataSet->end();
 
+    LOGDEBUG << "Adding ObjMetaDataSet:: ";
+    for (auto it = itFirst; it != itLast; it++) {
+        LOGDEBUG << "FIRST: " << it->first << " SECOND: " << it->second;
+    }
+
     readDeltaSetReq->deltaSet.assign(itFirst, itLast);
 
     LOGMIGRATE << "MigClientState=" << getMigClientState()
@@ -323,6 +328,8 @@ MigrationClient::migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDat
     /* enqueue to QoS queue */
     err = dataStore->enqueueMsg(FdsSysTaskQueueId, readDeltaSetReq);
     fds_verify(err.ok());
+
+    // trackFlowControl.finishTrackIOReqs();
 }
 
 void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
@@ -335,8 +342,11 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
     if (!iterDB->Valid()) {
         LOGDEBUG << "LevelDB iterator no longer valid, we must be done.";
 
-        delete iterDB;
-        delete dbFromFirstSnap;
+        // Don't clean up unless we know all filter sets have been processed
+        // trackFlowControl.waitForTrackIOReqs();
+
+         delete iterDB;
+         delete dbFromFirstSnap;
 
         /* If this is a one phase migration(For ex: SM resync)
          * We no longer need this snapshot.
@@ -460,7 +470,7 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
                  */
 
                 /* Note:  we deal with snapshot metadata, not from the disk
-                 *        state.  With active IO, we need to look at if
+                 *        state.  With active IO, we need to look at if.
                  *        active IOs have change the metadata state, and change
                  *        accordingly on the destination SM.
                  */
@@ -478,6 +488,10 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
 
     continueWorkFn nextStep = std::bind(&MigrationClient::buildDeltaSetWorkerFirstPhase, this, iterDB,
                                         dbFromFirstSnap, firstPhaseSnapshotDir, env);
+
+
+    // Track this to prevent cleanup until we're done with the levelDB/iterator
+    // trackFlowControl.startTrackIOReqs();
 
     // This is the last message if iterDB is no longer valid
     /* The last message can be empty. */

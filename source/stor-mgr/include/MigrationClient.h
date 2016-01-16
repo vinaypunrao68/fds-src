@@ -326,6 +326,11 @@ class MigrationClient {
     MigrationTrackIOReqs trackIOReqs;
 
     /**
+     * Track the flow control filter sets
+     */
+    MigrationTrackIOReqs trackFlowControl;
+
+    /**
      * Will this migration have single phase only?
      */
     bool onePhaseMigration;
