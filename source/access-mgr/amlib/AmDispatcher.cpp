@@ -444,8 +444,24 @@ AmDispatcher::setSerialization(AmRequest* amReq, boost::shared_ptr<SvcRequestIf>
  * The following are the asynchronous requests Dispatchers makes to other
  * services.
  */
-template<typename Cb, typename M, typename R>
-void AmDispatcher::volumeGroupRead(R request, M message, Cb cb_func) {
+
+
+/**
+ * Read from a Volume Group (Non-Mutating message)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_func) {
     {
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(request->io_vol_id);
@@ -462,8 +478,22 @@ void AmDispatcher::volumeGroupRead(R request, M message, Cb cb_func) {
     AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
 }
 
-template<typename Cb, typename M, typename R>
-void AmDispatcher::volumeGroupModify(R request, M message, Cb cb_func) {
+/**
+ * Modify a Volume Group (Mutating message that is not-Readable till committed)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func) {
     {
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(request->io_vol_id);
@@ -480,11 +510,26 @@ void AmDispatcher::volumeGroupModify(R request, M message, Cb cb_func) {
     AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
 }
 
-template<typename Cb, typename M, typename R>
-void AmDispatcher::volumeGroupCommit(R request,
-                                     M message,
-                                     Cb cb_func,
-                                     std::unique_lock<std::mutex>&& lock) {
+/**
+ * Commit to a Volume Group (Mutating message that will be readable)
+ *
+ * This will dispatch the message on the appropriate VolumeGroupHandle for the
+ * volume in the request. The cb_func will be called with the response along
+ * with the original AmRequest structure once the appropriate number of members
+ * have responded.
+ *
+ * @param [in] request  The AmRequest* needing dispatch
+ * @param [in] message  The SvcLayer message for the request
+ * @param [in] cb_func  A reference to an AmDispatcher method for the callback
+ * @param [in] vol_lock The lock from the sequence dispatch table
+ *
+ * @retval void  No return value
+ */
+template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+void AmDispatcher::volumeGroupCommit(ReqPtr request,
+                                     MsgPtr message,
+                                     CbMeth cb_func,
+                                     std::unique_lock<std::mutex>&& vol_lock) {
     {
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(request->io_vol_id);
@@ -498,7 +543,7 @@ void AmDispatcher::volumeGroupCommit(R request,
         }
     }
     // Don't block other IO during our callback
-    if (lock) lock.unlock();
+    if (vol_lock) vol_lock.unlock();
     LOGERROR << "Unknown volume to AmDispatcher: " << request->io_vol_id;
     AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
 }
@@ -529,8 +574,7 @@ AmDispatcher::abortBlobTx(AmRequest* amReq) {
         setSerialization(amReq, asyncAbortBlobTxReq);
         asyncAbortBlobTxReq->invoke();
     } else {
-        std::unique_lock<std::mutex> garbage_lock;
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_abortBlobTxCb, std::move(garbage_lock));
+        volumeGroupModify(blobReq, message, &AmDispatcher::_abortBlobTxCb);
     }
 }
 
@@ -748,7 +792,7 @@ AmDispatcher::openVolume(AmRequest* amReq) {
         asyncOpenVolReq->invoke();
         return;
     } else {
-        WriteGuard rg(volumegroup_lock);
+        WriteGuard wg(volumegroup_lock);
         auto it = volumegroup_map.find(amReq->io_vol_id);
         if (volumegroup_map.end() != it) {
             it->second->open(volMDMsg,

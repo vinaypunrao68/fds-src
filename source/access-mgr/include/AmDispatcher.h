@@ -207,14 +207,14 @@ struct AmDispatcher :
      * FEATURE TOGGLE: Volume grouping support
      * Thu Jan 14 10:47:10 2016
      */
-    template<typename Cb, typename M, typename R>
-    void volumeGroupRead(R request, M message, Cb cb_func);
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
-    template<typename Cb, typename M, typename R>
-    void volumeGroupModify(R request, M message, Cb cb_func);
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
-    template<typename Cb, typename M, typename R>
-    void volumeGroupCommit(R request, M message, Cb cb_func, std::unique_lock<std::mutex>&& lock_ptr);
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func, std::unique_lock<std::mutex>&& vol_lock);
 
     std::unique_ptr<ErrorHandler> volumegroup_handler;
     fds_rwlock volumegroup_lock;
