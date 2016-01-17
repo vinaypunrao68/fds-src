@@ -56,9 +56,9 @@ std::string VolumeMeta::getBaseDirPath() const
                                      invalid_vol_id);
 }
 
-std::string VolumeMeta::getBufferfilePath() const
+std::string VolumeMeta::getBufferfilePrefix() const
 {
-    return util::strformat("%s/bufferfile_%d", getBaseDirPath().c_str(), version);
+    return util::strformat("%s/bufferfile_", getBaseDirPath().c_str());
 }
 
 // Returns true if volume is in forwarding state, and qos queue is empty;
