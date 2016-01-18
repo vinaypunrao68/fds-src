@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2014 by Formation Data Systems, Inc.
+# Copyright 2016 by Formation Data Systems, Inc.
 #
 
 import sys
@@ -16,7 +16,7 @@ import NodeWaitSuite
 def suiteConstruction(self):
     """
     Construct the ordered set of test cases that comprise the
-    test cases necessary to test handling a large BLOB.
+    test cases necessary to test iSCSI full feature list.
     """
     suite = unittest.TestSuite()
 
@@ -28,26 +28,55 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestISCSIIntFace.TestISCSICrtVolume())
 
     # Test a list volumes to a block device
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockListVolumes())
+#    suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes())
 
+    # Save target name to fixture
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())
 
     # Attach iSCSI device
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None, None, 'volISCSI'))
 
+    # Need a file system...
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None, None, 'volISCSI'))
+
+    # Use the char device interface
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, None, 'volISCSI'))
+
+    # This is where we will add char device interface tests, if they make sense,
+    # for all of:
+
+    # REPORT_LUNS
+    # MODE_SENSE
+    # INQUIRY
+    # FORMAT_UNIT
+    # PERSISTENT_RESERVATION_IN
+    # PERSISTENT_RESERVATION_OUT
+    # RESERVE_6
+    # RELEASE_6
+    # READ_CAPACITY
+    # READ_6
+    # READ_10
+    # READ_12
+    # READ_16
+    # WRITE_6
+    # WRITE_10
+    # WRITE_12
+    # WRITE_16
+
     # Run an fio sequential write workload
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockFioSeqW())
+#    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioSeqW())
 
     # Run an fio random write workload
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRandW())
+#    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRandW())
 
     # Run an fio read/write workload
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRW())
+#    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRW())
 
     # Run an fio random read/write workload
-#    suite.addTest(testcases.TestBlockIntFace.TestBlockFioRandRW())
+#    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRandRW())
 
-    # Detach a block device
+    # Detach iSCSI volume by logging out of iSCSI node record.
+    # Also cleans up by deleting iSCSI node record.
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None, None, 'volISCSI'))
 
     return suite

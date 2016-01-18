@@ -17,9 +17,9 @@ class ISCSIFixture(TestCase.FDSTestCase):
         Example:
 
         {'vol1': {'target_name': 'iqn.2012-05.com.formationds:vol1',
-            'sd_device': '/dev/sd4', 'sg_device': '/dev/sg6' },
+            'sd_device': '/dev/sda', 'sg_device': '/dev/sg6' },
          'vol2': {'target_name': 'iqn.2012-05.com.formationds:vol2',
-            'sd_device': '/dev/sd5', 'sg_device': '/dev/sg7' }
+            'sd_device': '/dev/sdb', 'sg_device': '/dev/sg7' }
         }
     """
     # By convention, leading underscore means 'implementation detail'.
@@ -44,9 +44,6 @@ class ISCSIFixture(TestCase.FDSTestCase):
     def tearDown(self):
         super(ISCSIFixture, self).tearDown()
 
-#    def getVolumeName(self):
-#        return ISCSIFixture._volume_name
-
     def addVolumeName(self, volume_name):
         """
         Parameters
@@ -56,7 +53,6 @@ class ISCSIFixture(TestCase.FDSTestCase):
         """
         if not volume_name in ISCSIFixture._volumes:
             ISCSIFixture._volumes[volume_name] = {}
-#        ISCSIFixture._volume_name = volume_name
 
 
     def getDriveDevice(self, volume_name):
@@ -70,7 +66,7 @@ class ISCSIFixture(TestCase.FDSTestCase):
         Returns
         -------
         str
-            Drive device name like '/dev/sd2'
+            Drive device name like '/dev/sdb'
         """
         self.validateVolumeName(volume_name)
         if not volume_name in ISCSIFixture._volumes:
@@ -129,7 +125,6 @@ class ISCSIFixture(TestCase.FDSTestCase):
         if not 'target_name' in d:
             return None
         return d['target_name']
-#        return ISCSIFixture._target_name
 
 
     def setDriveDevice(self, sd_device, volume_name):
@@ -137,11 +132,11 @@ class ISCSIFixture(TestCase.FDSTestCase):
         Parameters
         ----------
         sd_device : str
-            Device name like '/dev/sd2', for use with block driver
+            Device name like '/dev/sdb', for use with block driver
         volume_name : str
             The FDS volume name (serves as key)
         """
-        validateVolumeName(volume_name)
+        self.validateVolumeName(volume_name)
         if not volume_name in ISCSIFixture._volumes:
             ISCSIFixture._volumes[volume_name] = {}
         d = ISCSIFixture._volumes[volume_name]
@@ -152,8 +147,8 @@ class ISCSIFixture(TestCase.FDSTestCase):
         """
         Parameters
         ----------
-        sd_device : str
-            Device name like '/dev/sd2', for use with block driver
+        sg_device : str
+            Device name like '/dev/sg2', for use with block driver
         volume_name : str
             The FDS volume name (serves as key)
         """
@@ -178,8 +173,6 @@ class ISCSIFixture(TestCase.FDSTestCase):
             ISCSIFixture._volumes[volume_name] = {}
         d = ISCSIFixture._volumes[volume_name]
         d['target_name'] = target_name
-        # TODO: use a dictionary here
-        #ISCSIFixture._target_name=target_name
 
 
     def validateVolumeName(self, volume_name):
