@@ -354,11 +354,16 @@ class ServiceContext(Context):
         'display the service map'
         try:
             for uuid in self.getServiceIds(svcid):
-                print ('\n{}\nsvcmap for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+                helpers.printHeader('service map for {}'.format(self.getServiceName(uuid)))
                 svcMap = ServiceMap.client(uuid).getSvcMap(None)
+                #print svcMap
                 data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
                 data.sort(key=itemgetter(0))
                 print tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
+                for s in svcMap:
+                    if s.name == 'pm' and s.svc_id.svc_uuid.svc_uuid/100 == uuid/100:
+                        print "\nservice properties"
+                        print tabulate(s.props.items(), headers=['key','value'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get svcmap'
