@@ -443,12 +443,14 @@ AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
 
 void
 AmVolumeTable::lookupVolume(std::string const volume_name) {
+    static auto const lookup_timeout = 2500ull;
     try {
         auto req = gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
         fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
         msg->volume_name = volume_name;
         req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
         req->onResponseCb(RESPONSE_MSG_HANDLER(AmVolumeTable::lookupVolumeCb, volume_name));
+        req->setTimeoutMs(lookup_timeout);
         req->invoke();
         LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
     } catch(...) {
