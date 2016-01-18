@@ -51,7 +51,13 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false), m_nodeRedisKeyId (""), m_diskUuidToDeviceMap()
+        PlatformManager::PlatformManager() : Module ("pm"),
+                                             m_appPidMap(),
+                                             m_autoRestartFailedProcesses (false),
+                                             m_inShutdownState { true },
+                                             m_startupAuditComplete (false),
+                                             m_nodeRedisKeyId (""),
+                                             m_diskUuidToDeviceMap()
         {
         }
 
@@ -1197,9 +1203,9 @@ namespace fds
             props.setInt ("disk_type", diskCapability.disk_type);
         }
 
-        void PlatformManager::setAutoRestartFailedProcesses(bool const value)
+        void PlatformManager::setShutdownState(bool const value)
         {
-            m_autoRestartFailedProcesses = value;
+            m_inShutdownState = value;
         }
 
         // TODO: this needs to populate real data from the disk module labels etc.
@@ -1348,7 +1354,7 @@ namespace fds
                             m_appPidMap.erase (mapIter++);
                             updateNodeInfoDbPid (appIndex, EMPTY_PID);
 
-                            if (m_autoRestartFailedProcesses)
+                            if (m_autoRestartFailedProcesses && !m_inShutdownState)
                             {
                                 {   // context for lock_guard
                                     deadProcessesFound = true;

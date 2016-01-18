@@ -57,6 +57,9 @@ namespace fds
 
         void SvcHandler::startService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStartServiceMsg> &startServiceMessage)
         {
+            // If we're explicitly told to start a service, transition out of the shutdown state.
+            platform->setShutdownState(false);
+
             platform->startService (startServiceMessage);
             sendAsyncResp (*hdr, FDSP_MSG_TYPEID (fpi::EmptyMsg), fpi::EmptyMsg());
         }
@@ -75,7 +78,7 @@ namespace fds
 
         void SvcHandler::prepareForShutdown(boost::shared_ptr<fpi::AsyncHdr>& hdr, boost::shared_ptr<fpi::PrepareForShutdownMsg>& message)
         {
-            platform->setAutoRestartFailedProcesses(false);
+            platform->setShutdownState(true);
             sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         }
 
