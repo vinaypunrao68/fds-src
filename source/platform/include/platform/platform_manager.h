@@ -142,8 +142,7 @@ namespace fds
                 void processDiskMapFile();
                 void notifyOmServiceStateChange (int const appIndex, pid_t const procPid, FDS_ProtocolInterface::HealthState, std::string const message);
                 std::string getProcName (int const index);
-                void updateNodeInfoDbPid (int processType, pid_t pid);
-                void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
+                void updateNodeInfoDbPidAndState (int processType, pid_t pid, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
                 bool loadDiskUuidToDeviceMap();
