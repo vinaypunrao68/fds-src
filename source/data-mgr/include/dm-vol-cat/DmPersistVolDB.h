@@ -57,7 +57,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error activate() override;
 
     virtual Error copyVolDir(const std::string & destName) override;
-
+    
+    Error archive(const std::string& destDir, const std::string& filename);
     // gets
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & volDesc) override;
 
