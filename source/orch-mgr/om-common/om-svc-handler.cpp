@@ -678,7 +678,7 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
         } else {
             LOGWARN << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
-                      << " , ignoring since svc is not in STARTED state, current state:" << status;
+                      << " , ignoring since svc is not in started/active state, current state:" << status;
         }
 
         return;

@@ -2843,6 +2843,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
 
+    removeFromTaskMap(uuid.uuid_get_val());
+
     int64_t pmUuid = uuid.uuid_get_val();
     pmUuid &= ~0xF; // clear out the last 4 bits
 
@@ -2855,8 +2857,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
 
     LOGNORMAL << "Scheduled task 'setupNewNode' started, uuid "
               << std::hex << uuid << std::dec;
-
-    removeFromTaskMap(uuid.uuid_get_val());
 
     Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes;
