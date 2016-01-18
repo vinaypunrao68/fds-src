@@ -420,9 +420,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
 }
 
 /**
-* Note that volId may not necessarily match volume id in ioReq
-* Example when it will not match: if we enqueue request for volumeA
-* to shadow queue, we will pass shadow queue's volId (queue id)
+ * Note that volId may not necessarily match volume id in ioReq
+ * Example when it will not match: if we enqueue request for volumeA
+ * to shadow queue, we will pass shadow queue's volId (queue id)
  * but ioReq will contain actual volume id; so maybe we should change
  * this method to pass queue id as first param not volid
  */
@@ -469,8 +469,8 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
-* other DM first
-*/
+ * other DM first
+ */
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
@@ -566,7 +566,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (err.ok() && vdesc->isClone() && fPrimary && !fOldVolume) {
         err = copyVolumeToOtherDMs(vdesc->volUUID);
-        }
+    }
 
     if (!vdesc->isSnapshot()) {
         fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
@@ -682,7 +682,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         err = timeVolCat_->queryIface()->getVersion(vol_uuid, version);
         if (!err.ok()) {
             LOGERROR << "Failed to get version for volume id: "
-                << std::hex << vol_uuid << std::dec;
+                     << std::hex << vol_uuid << std::dec;
             return err;
         }
         volmeta->setVersion(version);
@@ -884,8 +884,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-    : HasModuleProvider(modProvider),
-    Module("dm")
+        : HasModuleProvider(modProvider),
+          Module("dm")
 {
     // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
@@ -951,7 +951,7 @@ int DataMgr::mod_init(SysParams const *const param)
         "fds.dm.req_serialization", true));
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.feature_toggle.common.enable_volumegrouping", false));
+        "fds.feature_toggle.common.enable_volumegrouping", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -1700,8 +1700,8 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&DataMgr::handleDmFunctor, parentDm, io));
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&DataMgr::handleDmFunctor, parentDm, io));
             break;
         default:
             LOGWARN << "Unknown IO Type received";
