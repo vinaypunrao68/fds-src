@@ -27,12 +27,32 @@ namespace fds {
 struct EPSvcRequest;
 
 using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
-using migrationCb = std::function<void(const Error& e)>;
 using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
 using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 							                    fds_volid_t volumeId,
 							                    const Error& error)>;
 
+
+/**
+* @brief Container for volume related information.
+* VolumeMeta state
+* State: Offline
+* Ops: No read/writes.  Open, volume initilization protocol are allowed to start.
+*
+* State: Loading
+* Ops:
+*
+* State: Syncing
+* Ops: Writes, static migration writes
+*
+* State: Active
+* Ops: Reads/Writes.
+*
+* TODO(Rao): We need to bring the following objects in here
+* 1. Active Tx state
+* 2. Committed state (Journals and Catalogs)
+* 3. Sync state (already part of this class)
+*/
 struct VolumeMeta : HasLogger,  HasModuleProvider {
  public:
     /**
@@ -57,43 +77,92 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
                VolumeDesc *v_desc,
                DataMgr *_dm);
     ~VolumeMeta();
+    /**
+    * @brief Apply active transactions
+    *
+    * @param highestOpId
+    * @param txs
+    */
+    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
+
+    /**
+    * @return  Returns base directory path for the volume
+    */
+    std::string getBaseDirPath() const;
+
+    /**
+    * @return Bufferfile prefix path used in buffering operations while sync is in progress
+    */
+    std::string getBufferfilePrefix() const;
+
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
+
     inline void setOpId(const int64_t &id) { opId = id; }
     inline void incrementOpId() { ++opId; }
     inline const int64_t& getOpId() const { return opId; }
+
     inline fpi::ResourceState getState() const { return vol_desc->state; }
-    inline void setState(const fpi::ResourceState &state) { vol_desc->state = state; }
+    void setState(const fpi::ResourceState &state, const std::string &logCtx);
+    /* Debug query api to get state as kv pairs */
+    void populateState(std::map<std::string, std::string> &state);
+
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
+
+    void startInitializer();
+    void cleanupInitializer();
+    inline bool isInitializerInProgress() const {
+        return initializer &&
+            (vol_desc->state == fpi::Loading || vol_desc->state == fpi::Syncing);
+    }
+
     inline int64_t getId() const { return vol_desc->volUUID.get(); }
+
     inline int32_t getVersion() const { return version; }
     inline void setVersion(int32_t version) { this->version = version; }
+
+    inline void setCoordinatorId(const fpi::SvcUuid &svcUuid) {
+        vol_desc->setCoordinatorId(svcUuid);
+    }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
     inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
+
     std::string logString() const;
 
-    static inline bool isReplayOp(const std::string &payloadHdr) {
-        return payloadHdr == "replay"; 
+    inline bool isReplayOp(const fpi::AsyncHdrPtr &hdr) {
+        return hdr->msg_src_uuid == selfSvcUuid;
     }
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
+    /**
+    * @brief Returns wrapper function around f that exectues f in volume synchronized
+    * context
+    */
+    std::function<void()> makeSynchronized(const std::function<void()> &f);
     std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
     makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
 
     StatusCb makeSynchronized(const StatusCb &f);
+    /* NOTE: Should be overloaded as makeSynchronized.  I was getting compiler errors I named it
+     * makeSynchronized.  I ended up renaming as a quick fix
+     */
     BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
 
 
     /**
      * DM Migration related
      */
-    Error startMigration(NodeUuid& srcDmUuid,
-                         fpi::FDSP_VolumeDescType &vol,
-                         migrationCb doneCb);
+    Error startMigration(const fpi::SvcUuid &srcDmUuid,
+                         const int64_t &volId,
+                         const StatusCb &doneCb);
 
     Error serveMigration(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
+    void handleFinishStaticMigration(DmRequest *dmRequest);
+
 
     /**
      * Returns true if DM is forwarding this volume's
@@ -122,6 +191,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void finishForwarding();
 
 
+    /* Handlers */
+    void handleVolumegroupUpdate(DmRequest *dmRequest);
+
+
     VolumeDesc *vol_desc;
 
 
@@ -146,6 +219,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
      * volume meta forwarding state
      */
     fwdStateType fwd_state;  // write protected by vol_mtx
+
+    /* Cached self svc uuid */
+    fpi::SvcUuid        selfSvcUuid;
 
     /**
      * latest sequence ID is not part of the volume descriptor because it will
@@ -186,7 +262,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     Error createMigrationSource(NodeUuid destDmUuid,
                                 const NodeUuid &mySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                migrationCb cleanup);
+                                StatusCb cleanup);
 
     /**
      * Internally cleans up a source
@@ -201,11 +277,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                      fds_volid_t volId,
                                      const Error &err);
-
     /**
      * Stores the hook for Callback to the volume group manager
      */
-    migrationCb cbToVGMgr;
+    StatusCb cbToVGMgr;
 };
 
 }  // namespace fds

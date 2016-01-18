@@ -584,6 +584,14 @@ struct CtrlNotifyDeltaBlobDescMsg {
 }
 
 /**
+ * Message to end static migration
+ */
+struct CtrlNotifyFinishMigrationMsg {
+  1: i64                     volume_id;
+  2: i32                     status;
+}
+
+/**
  *  send the snapshot of in-progress transactions (contents of the commit log)
  */
 struct CtrlNotifyTxStateMsg {
@@ -594,6 +602,20 @@ struct CtrlNotifyTxStateMsg {
 
 struct CtrlNotifyTxStateRspMsg {
   /* empty message to acknowledge receipt */
+
+}
+
+struct CtrlNotifyRequestTxStateMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+}
+
+struct CtrlNotifyRequestTxStateRspMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+  3: i64                     lowest_op_id;
+  4: i64                     highest_op_id;
+  5: list<string>            transactions;
 }
 
 /* ------------------------------------------------------------
@@ -709,6 +731,31 @@ struct CtrlNotifyGetActiveTxRspMsg {
     1: map<i64, dm_types.DMCommitLogTx> activeTxMap;
 }
 
+
+/* ------------------------------------------------------------
+   Debug APIs
+   ------------------------------------------------------------*/
+
+/* Message to query volume state */
+struct DbgQueryVolumeStateMsg {
+    1: i64                      volId;
+}
+
+/* Response containing volume state related information.  At the moment it is
+ * key value pairs because the purpose is just querying state.  Feel free
+ * to make it typed when needed.
+ */
+struct DbgQueryVolumeStateRspMsg {
+    1: map<string, string>      state;
+}
+
+/**
+* Message to force volume initialization sequence
+*/
+struct DbgForceVolumeSyncMsg  {
+    1: i64                      volId;
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/
@@ -719,3 +766,4 @@ struct CtrlNotifyGetActiveTxRspMsg {
  */
 service DMSvc extends svc_api.PlatNetSvc {
 }
+

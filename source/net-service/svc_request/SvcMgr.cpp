@@ -478,7 +478,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     int omRetries = std::numeric_limits<int32_t>::max();
     while (true) {
         try {
-            LOGNOTIFY << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
+            LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
             omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
             break;
@@ -633,6 +633,18 @@ Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmUpdateRespCbType
 Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType const& cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DMT version  " << dmt_type;
+
+    /* Check to ensure we only have one DMT when volumegrouping is enabled */
+    auto volgroupingEnabled = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false);
+    if (volgroupingEnabled && dmtMgr_->hasCommittedDMT()) {
+        auto committed = dmtMgr_->getDMT(DMT_COMMITTED);
+        if (committed) {
+            auto serializer = serialize::getMemSerializer();
+            committed->write(serializer);
+            fds_verify(serializer->getBufferAsString() == dmt_data);
+        }
+    }
 
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
     if (!err.ok()) {
@@ -800,9 +812,9 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: update to new incarnation. After update " << logString();
     } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
         /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
         svcClient_.reset();
         GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
             << " Operation: set current incarnation as down.  After update" << logString();
@@ -834,13 +846,13 @@ std::string SvcHandle::logString() const
 bool SvcHandle::isSvcDown_() const
 {
     /* NOTE: Assumes this function is invoked under lock */
-    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE;
+    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED;
 }
 
 void SvcHandle::markSvcDown_()
 {
     /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
+    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
     svcClient_.reset();
     GLOGDEBUG << logString();
 

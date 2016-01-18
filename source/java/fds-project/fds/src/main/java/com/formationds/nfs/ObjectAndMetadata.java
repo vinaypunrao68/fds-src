@@ -17,6 +17,6 @@ public class ObjectAndMetadata {
     }
 
     public ByteBuffer getBuf() {
-        return buf.duplicate();
+        return buf;
     }
 }

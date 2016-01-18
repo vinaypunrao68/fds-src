@@ -93,7 +93,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Open the group */
     v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
+            [&waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr&) {
                 ASSERT_TRUE(e == ERR_OK);
                 waiter.done();
             });
@@ -118,7 +118,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Do a write request */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
         FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
         updateMsg,
         [&waiter](const Error &e, StringPtr) {
@@ -144,7 +144,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Modify should succeed */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
         FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
         updateMsg,
         [&waiter](const Error &e, StringPtr) {
@@ -175,7 +175,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Modify should fail */
     waiter.reset(1);
-    v1.sendWriteMsg<fpi::UpdateCatalogMsg>(
+    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
         FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
         updateMsg,
         [&waiter](const Error &e, StringPtr) {

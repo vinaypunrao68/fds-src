@@ -8,7 +8,6 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.FDSP_ModifyVolType;
 import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.om.webkit.rest.v07.volumes.ListVolumes;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 import com.formationds.om.helper.MediaPolicyConverter;
@@ -72,11 +71,10 @@ public class SetVolumeQosParams implements RequestHandler {
         JSONObject o =
             ListVolumes.toJsonObject( descriptor,
                                       volInfo,
-                                      // TODO figure out how to get the current usages!
                                       SingletonAmAPI.instance( )
                                                     .api( )
                                                     .volumeStatus( "",
-                                                                   volumeName ) );
+                                                                   volumeName ).get() );
         return new JsonResource(o);
     }
 

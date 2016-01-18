@@ -442,4 +442,10 @@ Error DmCommitLog::snapshotOutstandingTx(std::vector<std::string>& strings) {
     return err;
 }
 
+void DmCommitLog::clear()
+{ 
+    auto auto_lock = getTxMapLock(true);
+    txMap_.clear();
+}
+
 }  /* namespace fds */

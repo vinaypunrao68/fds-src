@@ -48,8 +48,7 @@ DmVolumeAccessTable::getToken(fpi::SvcUuid const& client_uuid,
 
         // Start a timer to auto-expire this token
         auto task = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask(*timer,
-                                     [this, token] () {
+            new FdsTimerFunctionTask([this, token] () {
                                         LOGNOTIFY << "Expiring volume token: " << token;
                                         this->removeToken(token);
                                      }));

@@ -171,6 +171,12 @@ class DiskTest (unittest.TestCase):
         d.set_dm_flag()
         self.assertTrue (d.dm_flag)
 
+    def testDiskFormattedFlag (self):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        self.assertFalse(d.formatted)
+        d.set_formatted()
+        self.assertTrue (d.formatted)
+ 
     def testDiskCheckForMarkerOS (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', 200)
         self.assertFalse (d.check_for_fds())
@@ -618,17 +624,25 @@ class testDiskManager (unittest.TestCase):
         assert 6 == len (self.manager.disk_list)
         self.assertEqual (cm.exception.code, 8)
 
-
-    def testDiskManagerVerifyFreshDiskWithFDS (self):
+    @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
+    @mock.patch ('disk_format.Disk.format')
+    @mock.patch ('disk_format.Disk.partition') 
+    def testDiskManagerFormatExisting (self, mock_verifySystemDiskPartitionSize, mock_format, mock_partition):
         self.manager.disk_config_file = 'test_data/disk_config'
         self.manager.load_disk_config_file()
 
         self.manager.disk_list[5].marker = disk_format.DISK_MARKER
+        self.manager.find_formatted_disks()
+        i = 0
+        for disk in self.manager.disk_list:
+            if disk.formatted == True:
+                assert i == 5
+            i = i + 1
+        assert self.manager.disk_list[5].formatted == True
 
-        with self.assertRaises (SystemExit) as cm:
-            self.manager.verify_fresh_disks()
-        self.assertEqual (cm.exception.code, 8)
-
+        self.manager.global_debug_on = True
+        self.manager.partition_and_format_disks()
+        assert 5 == mock_format.call_count
 
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
@@ -803,12 +817,13 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatExisting (self, mock_uuid, mock_uuid_diskutils, mock_os, mock_popen):
-    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen):
+    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen, mock_partition_and_format_disks):
 #        mock_uuid.return_value = uuid_mock.return_value
 
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
@@ -825,9 +840,7 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.process_command_line(['--format', '--map', 'test_data/disk-config.conf'])
 
-        with self.assertRaises (SystemExit) as cm:
-            self.manager.process()
-        self.assertEqual (cm.exception.code, 8)
+        self.manager.process()
 
     @mock.patch ('disk_format.os')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')

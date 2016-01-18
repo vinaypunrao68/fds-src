@@ -26,7 +26,7 @@ struct ObjectRefScanMgr;
 * -Based on cache size, recently used bloomfilters are kept in memory
 */
 struct BloomFilterStore {
-    BloomFilterStore(const std::string &path, uint32_t cacheSize);
+    BloomFilterStore(const std::string &path, uint32_t cacheSize, uint32_t bloomfilterBits = 1*MB);
     virtual ~BloomFilterStore();
     /**
     * @brief returns a refernce to stored bloomfilter.  When create is set to true

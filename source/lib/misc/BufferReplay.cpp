@@ -19,6 +19,7 @@ BufferReplay::BufferReplay(const std::string &bufferFileName,
     threadpool_ = threadpool;
     bufferFileName_ = bufferFileName;
     writefd_ = -1;
+    startingOpId_ = -1;
     nBufferedOps_ = 0;
     nReplayOpsIssued_ = 0;
     nOutstandingReplayOps_ = 0;
@@ -80,11 +81,15 @@ Error BufferReplay::buffer(const BufferReplay::Op &op)
         return ERR_UNAVAILABLE;
     }
 
-    serializer_->writeI32(op.first);
-    auto ret = serializer_->writeString(*(op.second));
-    if (ret < op.second->size()) {
+    serializer_->writeI64(op.opId);
+    serializer_->writeI32(op.type);
+    auto ret = serializer_->writeString(*(op.payload));
+    if (ret < op.payload->size()) {
         progress_  = ABORTED;
         return ERR_DISK_WRITE_FAILED;
+    }
+    if (nBufferedOps_ == 0) {
+        startingOpId_ = op.opId;
     }
     ++nBufferedOps_;
     return ERR_OK;
@@ -151,26 +156,38 @@ int32_t BufferReplay::getOutstandingReplayOpsCnt()
 void BufferReplay::replayWork_()
 {
     Error err(ERR_OK);
-    int64_t replayIdx;
+    int64_t replayIdx = -1;
     std::list<Op> replayList;
-    {
+    bool complete = false;
+    do {
         fds_mutex::scoped_lock l(lock_);
 
+        fds_assert(nOutstandingReplayOps_  == 0);
+
         replayWorkPosted_ = false;
+
         /* It's possible we received an abort while replayWork_ is schedule on threadpool */
         if (progress_ == ABORTED)  {
-            progressCb_(ABORTED);
-            return;
+            err = ERR_ABORTED;
+            break;
+        }
+
+        if (nBufferedOps_ == nReplayOpsIssued_) {
+            /* Nothing more read and replay */
+            progress_ = COMPLETE;
+            complete = true;
+            break;
         }
 
         /* Read few entries */
         while (nReplayOpsIssued_ + static_cast<int32_t>(replayList.size()) < nBufferedOps_ &&
                static_cast<int32_t>(replayList.size()) < maxReplayCnt_) {
-            OpType opType;
-            StringPtr s = MAKE_SHARED<std::string>();
+            Op op;
+            op.payload = MAKE_SHARED<std::string>();
 
-            deserializer_->readI32(opType);
-            auto ret = deserializer_->readString(*s);
+            deserializer_->readI64(op.opId);
+            deserializer_->readI32(op.type);
+            auto ret = deserializer_->readString(*(op.payload));
             if (ret < 0) {
                 GLOGWARN << "Failed to deserialize: " << bufferFileName_;
                 fds_assert(!"Failed to deserialize");
@@ -179,18 +196,20 @@ void BufferReplay::replayWork_()
                 replayList.clear();
                 break;
             }
-            replayList.emplace_back(std::make_pair(opType, std::move(s)));
+            replayList.emplace_back(op);
         }
         /* Op accounting */
-        fds_assert(nOutstandingReplayOps_  == 0);
         replayIdx = nReplayOpsIssued_;
         nOutstandingReplayOps_ = replayList.size();
         nReplayOpsIssued_ += nOutstandingReplayOps_;
-    }
+    } while (false);
 
     if (!err.ok()) {
         fds_assert(nOutstandingReplayOps_ == 0);
         progressCb_(ABORTED);
+        return;
+    } else if (complete) {
+        progressCb_(COMPLETE);
         return;
     }
 
@@ -217,6 +236,7 @@ std::string BufferReplay::logString() const
 {
     std::stringstream ss;
     ss << " BufferReplay progress:  " << progressStr[static_cast<int>(progress_)]
+        << "range: [" << startingOpId_ << "," << startingOpId_ + nBufferedOps_ - 1 << "]"
         << " nBuffered: " << nBufferedOps_
         << " nReplayOpsIssued: " << nReplayOpsIssued_
         << " nOutstandingReplayOps: " << nOutstandingReplayOps_;

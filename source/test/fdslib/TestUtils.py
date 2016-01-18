@@ -31,6 +31,12 @@ from fabric.contrib.files import *
 from fabric.context_managers import cd
 import fnmatch
 import fabric
+import fabric.network
+
+RELPATH_TEMPLATES="../testsuites/templates/"
+RELPATH_DEVROOT="../../../../"
+TESTSUITES_INVENTORY="%sansible-inventory/" % RELPATH_TEMPLATES
+DEFAULT_INVENTORY="%sansible/inventory/" % RELPATH_DEVROOT
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
     # Set up the core logging engine
@@ -464,6 +470,48 @@ def convertor(volume, fdscfg):
 
     return new_volume
 
+
+def get_inventory_value(inventory_file, key_name):
+    '''
+    Parse the given Ansible inventory file given as argument to this
+    function, and find a value for the given key
+
+    Arguments:
+    ----------
+    inventory_file : str
+        The name of the Ansible inventory file to be parsed
+    key_name : str
+        A key that may or may not exist in the inventory file
+
+    Returns:
+    --------
+    str or None : the value for the given key or None if key not found
+        If duplicate keys, returns the value for the first instance found
+    '''
+    result = None
+    if not key_name:
+        log.error("Missing required argument");
+        raise Exception
+    if not isinstance(key_name, str):
+        log.error("Invalid argument");
+        raise Exception
+    inventory_path = os.path.join(TESTSUITES_INVENTORY, inventory_file)
+    if not os.path.isfile(inventory_path):
+        # Fall back to default inventory location
+        inventory_path = os.path.join(DEFAULT_INVENTORY, inventory_file)
+        if not os.path.isfile(inventory_path):
+            log.error("Inventory file not found")
+            raise Exception
+
+    with open(inventory_path, 'r') as f:
+        records = f.readlines()
+        for record in records:
+            if record.startswith(key_name):
+                result = record.strip().split("=")[1]
+                break
+    return result
+
+
 def get_volume_service(self,om_ip):
     getAuth(self, om_ip)
     return VolumeService(self.__om_auth)
@@ -556,32 +604,73 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
     return True
 
 def core_hunter_aws(self,node_ip):
-    env.user='root'
-    env.password='passwd'
-    env.host_string = node_ip
-    internal_ip = run("hostname")
-    # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
-    print("internal_ip[%s]" % internal_ip)
-
-    for dir in {'/fds/bin','/corefiles'}:
-        with cd(dir):
-            files = run('ls').split()
-            for file in files:
-                if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
-                    fabric.state.connections[node_ip].get_transport().close()
-                    self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
-                    return 0
+    connect_fabric(self, node_ip)
+    if exists('/fds/bin', use_sudo=True):
+        for dir in {'/fds/bin','/corefiles'}:
+            with cd(dir):
+                files = run('ls').split()
+                for file in files:
+                    if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
+                        fabric.state.connections[node_ip].get_transport().close()
+                        self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
+                        return 0
+    disconnect_fabric()
     return 1
 
-def connect_fabric(node_ip):
-    #TODO: pooja finish fs-4280
+def connect_fabric(self,node_ip):
+    #TODO: pooja finish fs-4280 to read use/pwd form inventory
     env.user = 'root'
     env.password = 'passwd'
     env.host_string = node_ip
-    internal_ip = run("hostname")
-    sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+    timeout_start = time.time()
+    timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
+    while time.time() < timeout_start + timeout:
+        try:
+            internal_ip = run("hostname")
+        except Exception as e:
+            # Sleep for 20 sec before retrying to connect node
+            time.sleep(20)
+            continue
+        else:
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            return True
 
-def disconnect_fabric(host):
-    host = host or fabric.api.env.host_string
-    if host and host in fabric.state.connections:
-        fabric.state.connections[host].get_transport().close()
+    self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
+    return False
+
+
+def disconnect_fabric():
+    fabric.network.disconnect_all()
+
+
+# This method returns occurrences of 'log_entry' in `service*.log` on node `node_ip`
+def read_remote_log(self, node_ip, service, log_entry):
+    assert connect_fabric(self, node_ip) is True
+    with cd('/fds/var/logs'):
+        files = run('ls').split()
+    log_files = [item for item in files if item.startswith(service + '.log')]
+
+    log_counts = 0
+    io = StringIO()
+    for log_file in log_files:
+        get('/fds/var/logs/' + log_file, io)
+        content = io.getvalue()
+        search_lines = content.split('\n')
+        for line in search_lines:
+            if log_entry in line:
+                log_counts += 1
+                io.truncate(0)
+
+    disconnect_fabric()
+    return log_counts
+
+
+# This method returns dictionary of passed log_entry_list with respective occurence count
+# on given node_ip. Will search in respective service in service_list
+def get_log_count_dict(self, om_node_ip, node_ip, service_list, log_entry_list):
+    log_count_dict = {}
+    for index, log_entry in enumerate(log_entry_list):
+        node_ip = om_node_ip if service_list[index] == 'om' else node_ip
+        val = read_remote_log(self, node_ip, service_list[index], log_entry)
+        log_count_dict[log_entry] = val
+    return log_count_dict

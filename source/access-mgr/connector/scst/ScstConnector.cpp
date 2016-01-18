@@ -49,8 +49,18 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
 }
 
 void ScstConnector::stop() {
-    // TODO(bszmyd): Sat 12 Sep 2015 03:56:58 PM GMT
-    // Implement
+    if (instance_) {
+        instance_->shutdown();
+    }
+}
+
+void ScstConnector::shutdown() {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    stopping = true;
+    stopping_condition_.notify_all();
+    for (auto& target_pair : targets_) {
+        target_pair.second->shutdown();
+    }
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
@@ -68,24 +78,33 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
 }
 
 void ScstConnector::addTarget(VolumeDesc const& volDesc) {
-    std::lock_guard<std::mutex> lg(target_lock_);
+    std::lock_guard<std::mutex> lk(target_lock_);
+    if (!stopping) {
+        _addTarget(volDesc);
+    }
+}
 
+void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // Create target if it does not already exist
     ScstTarget* target = nullptr;
     auto it = targets_.find(volDesc.name);
     if (targets_.end() == it) {
+        try {
         target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
+        } catch (ScstError& e) {
+            LOGERROR << "Failed to initialize target [" << volDesc.name << "], ensure that SCST is installed and running.";
+            return;
+        }
         targets_[volDesc.name].reset(target);
         target->addDevice(volDesc);
     } else {
-      target = it->second.get();
+        target = it->second.get();
     }
 
     // Setup initiator masking
-    std::vector<std::string> initiator_list;
+    std::set<std::string> initiator_list;
     for (auto const& ini : volDesc.iscsiSettings.initiators) {
-        GLOGDEBUG << "Initiator mask: " << ini.wwn_mask;
-        initiator_list.emplace_back(ini.wwn_mask);
+        initiator_list.emplace(ini.wwn_mask);
     }
     target->setInitiatorMasking(initiator_list);
 
@@ -98,9 +117,9 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
                      << "] where the minimum length is " << minimum_chap_password_len;
             continue;
         }
-        auto it = credentials.end();
+        auto cred_it = credentials.end();
         bool happened;
-        std::tie(it, happened) = credentials.emplace(cred.name, cred.passwd);
+        std::tie(cred_it, happened) = credentials.emplace(cred.name, cred.passwd);
         if (!happened) {
             GLOGWARN << "Duplicate user: [" << cred.name << "]";
             continue;
@@ -129,22 +148,29 @@ ScstConnector::ScstConnector(std::string const& prefix,
     threads = conf.get<uint32_t>("threads", threads);
 }
 
+static auto const rediscovery_delay = std::chrono::seconds(15);
+
 void
 ScstConnector::discoverTargets() {
-    auto amProc = amProcessor.lock();
-    if (!amProc) {
-        GLOGERROR << "No processing layer, no targets.";
-        return;
-    }
-    GLOGNORMAL << "Discovering iSCSI volumes to export.";
-    std::vector<VolumeDesc> volumes;
-    amProc->getVolumes(volumes);
+    // We need to poll OM for the volume list every so often, as it isn't
+    // guaranteed to be complete when initializing.
+    std::unique_lock<std::mutex> lk(target_lock_);
+    while (!stopping) {
+        auto amProc = amProcessor.lock();
+        if (!amProc) {
+            GLOGERROR << "No processing layer, no targets.";
+            break;
+        }
+        GLOGTRACE << "Discovering iSCSI volumes to export.";
+        std::vector<VolumeDesc> volumes;
+        amProc->getVolumes(volumes);
 
-    for (auto const& vol : volumes) {
-        if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
-            || vol.isSnapshot()) continue;
-        GLOGNORMAL << "Adding target for volume: " << vol;
-        addTarget(vol);
+        for (auto const& vol : volumes) {
+            if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
+                || vol.isSnapshot()) continue;
+            _addTarget(vol);
+        }
+        stopping_condition_.wait_for(lk, rediscovery_delay);
     }
 }
 

@@ -363,9 +363,14 @@ class VolumeContainer : public RsContainer
 
     bool addVolume(const VolumeDesc& volumeDesc);
     bool createSystemVolume(int32_t tenantID = -1);
+    void addToDeleteVols(const VolumeDesc volumeDesc);
+    
+    std::vector<VolumeDesc> getVolumesToDelete();
+    
 
   protected:
     OmDiscoveryMod           *vol_disc_mgr;
+    std::vector<VolumeDesc>   volumesToBeDeleted;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new VolumeInfo(uuid);

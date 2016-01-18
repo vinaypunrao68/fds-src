@@ -23,6 +23,8 @@ namespace fds
 {
     namespace pm
     {
+        typedef std::unordered_map<fds_uint16_t, std::string> DiskMountMap;
+
         enum
         {
             JAVA_AM,
@@ -102,9 +104,13 @@ namespace fds
                 void startProcess (int id);
                 void stopProcess (int id);
 
+                DiskMountMap                        diskMountMap;
+
             private:
                 FdsConfigAccessor                  *fdsConfig;
                 fpi::FDSP_AnnounceDiskCapability    diskCapability;
+
+                int64_t                             usedDiskCapacity;
 
                 kvstore::PlatformDB                *m_db;
                 fpi::NodeInfo                       m_nodeInfo;
@@ -134,6 +140,8 @@ namespace fds
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
+                void usedDiskCapacityMonitor();
+                void processDiskMapFile();
                 void notifyOmServiceStateChange (int const appIndex, pid_t const procPid, FDS_ProtocolInterface::HealthState, std::string const message);
                 std::string getProcName (int const index);
                 void updateNodeInfoDbPid (int processType, pid_t pid);
@@ -143,6 +151,7 @@ namespace fds
                 bool loadDiskUuidToDeviceMap();
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
+                void notifyDiskMapChange();
         };
     }  // namespace pm
 }  // namespace fds
