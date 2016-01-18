@@ -26,9 +26,6 @@ class ISCSIFixture(TestCase.FDSTestCase):
     # Please don't use outside this module.
     _volumes = {}
 
-    _volume_name = "volISCSI"
-    _target_name = None
-
     def __init__(self, parameters=None, testCaseName=None, testCaseDriver=None,
             testCaseDescription=None, testCaseAlwaysExecute=False, fork=False):
         super(ISCSIFixture, self).__init__(parameters,
