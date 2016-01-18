@@ -34,10 +34,6 @@ def suiteConstruction(self, action="kill-uninst"):
     fdscfg = genericTestCase.parameters["fdscfg"]
 
 
-    if action.count("remove") > 0:
-        # One test case to remove the domain services.
-        suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices())
-
     if action.count("shutdown") > 0:
         # One test case to remove the domain services.
         suite.addTest(testcases.TestFDSSysMgt.TestDomainShutdown())
