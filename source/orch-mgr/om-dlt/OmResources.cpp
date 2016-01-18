@@ -1008,11 +1008,11 @@ void NodeDomainFSM::DACT_ShutPm::operator()(Evt const& evt, Fsm& fsm, SrcST& src
         auto domain = OM_NodeDomainMod::om_local_domain();
         auto domainControl = domain->om_loc_domain_ctrl();
 
-        dst.pm_acks_to_wait = domainControl->om_bcast_shutdown_msg(fpi::FDSP_PLATFORM_SVC);
+        dst.pm_acks_to_wait = domainControl->om_bcast_shutdown_msg(fpi::FDSP_PLATFORM);
         LOGDEBUG << "Will wait for acks from " << dst.pm_acks_to_wait << " PMs";
         if (dst.pm_acks_to_wait == 0)
         {
-            fsm.process_event(ShutAckEvt(fpi::FDSP_PLATFORM_SVC, ERR_OK));
+            fsm.process_event(ShutAckEvt(fpi::FDSP_PLATFORM, ERR_OK));
         }
     }
     catch (std::exception const& e)
@@ -1086,7 +1086,7 @@ bool NodeDomainFSM::GRD_PmShut::operator()(Evt const& evt, Fsm& fsm, SrcST& src,
                  << evt.error << ". We continue with shutting down anyway";
     }
 
-    if (evt.svc_type == fpi::FDSP_PLATFORM_SVC)
+    if (evt.svc_type == fpi::FDSP_PLATFORM)
     {
         if (src.pm_acks_to_wait > 0)
         {

@@ -3699,7 +3699,7 @@ OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
         count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
         break;
-    case fpi::FDSP_PLATFORM_SVC:
+    case fpi::FDSP_PLATFORM:
         count = dc_pm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " PM services successfully";
         break;
