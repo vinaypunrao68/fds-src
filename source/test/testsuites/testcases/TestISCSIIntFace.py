@@ -6,8 +6,7 @@
 # FDS test-case pattern requirements.
 import unittest
 import TestCase
-# This file wants to subclass the ISCSIFixture class, not the
-# ISCSIFixture module.
+
 from testcases.iscsifixture import ISCSIFixture
 
 # Module-specific requirements
