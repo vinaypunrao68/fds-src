@@ -356,6 +356,17 @@ struct ReloadVolumeHandler : Handler {
                         Error const& e, DmRequest* dmRequest);
 };
 
+struct LoadFromArchiveHandler : Handler {
+    explicit LoadFromArchiveHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::LoadFromArchiveMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::LoadFromArchiveMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+
 /**
  * DmMigration starting point handler from OM
  */

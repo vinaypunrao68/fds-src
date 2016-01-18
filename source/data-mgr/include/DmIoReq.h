@@ -767,6 +767,19 @@ struct DmIoReloadVolume : DmRequest {
 
 };
 
+struct DmIoLoadFromArchive : DmRequest {
+    boost::shared_ptr<fpi::LoadFromArchiveMsg> message;
+    explicit DmIoLoadFromArchive(boost::shared_ptr<fpi::LoadFromArchiveMsg> msg)
+            : message(msg),
+              DmRequest(fds_volid_t(msg->volId), "", "", 0, FDS_DM_LOAD_FROM_ARCHIVE) {
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoLoadFromArchive& io) {
+        return out << "DmIoLoadFromArchive vol:" << io.volId;
+    }
+};
+
+
 struct DmIoMigration : DmRequest {
     boost::shared_ptr<fpi::CtrlNotifyDMStartMigrationMsg> message;
     std::function<void(const Error& e)> localCb = NULL;

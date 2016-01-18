@@ -170,7 +170,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                      << *cit << std::dec << " " << err;
             continue;  // try other volumes
         }
-        LOGDEBUG << "volume " << std::hex << *cit << std::dec
+        LOGTRACE << "volume " << *cit
                  << " bytes " << total_bytes << " blobs "
                  << total_blobs << " objects " << total_objects;
         StatsCollector::singleton()->recordEvent(*cit,
@@ -497,11 +497,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
-    LOGDEBUG << "vol:" << vol_name
-             << " snap:" << vdesc->isSnapshot()
-             << " state:" << vdesc->getState()
-             << " created:" << vdesc->isStateCreated()
-             << " old:" << fOldVolume;
 
     if (vdesc->isClone()) {
         // clone happens only on primary
@@ -512,6 +507,15 @@ Error DataMgr::addVolume(const std::string& vol_name,
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
+
+    LOGNORMAL << "vol:" << vol_name
+              << " clone:" << vdesc->isClone()
+              << " snap:" << vdesc->isSnapshot()
+              << " state:" << vdesc->getState()
+              << " created:" << vdesc->isStateCreated()
+              << " old:" << fOldVolume
+              << " primary:" << fPrimary;
+
 
     if (vdesc->isSnapshot() && !fPrimary) {
         LOGWARN << "not primary - nothing to do for snapshot "
@@ -560,24 +564,20 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    if (err.ok() && vdesc->isClone() && fPrimary) {
-        // all actions were successful now rsync it to other DMs
-        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vdesc->srcVolumeId);
-        for (uint i = 1; i < nodes->getLength(); i++) {
-            LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
-                     << "to node:" << nodes->get(i);
-            auto volDir = timeVolCat_->queryIface();
-            err = volDir->syncCatalog(vdesc->volUUID, nodes->get(i));
-            if (!err.ok()) {
-                LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
-            } else {
-                // send message to reload volume
-                err = sendReloadVolumeRequest((*nodes)[i], vdesc->volUUID);
-                if (!err.ok()) {
-                    LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
-                }
-            }
+    if (err.ok() && vdesc->isClone() && fPrimary && !fOldVolume) {
+        err = copyVolumeToOtherDMs(vdesc->volUUID);
         }
+
+    if (!vdesc->isSnapshot()) {
+        fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
+        err = timeVolCat_->queryIface()->statVolume(vdesc->volUUID,
+                                                    &total_bytes,
+                                                    &total_blobs,
+                                                    &total_objects);
+        LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
+                  << " loaded with [blobs:" << total_blobs
+                  << " objects:" << total_objects
+                  << " size:" << total_bytes << "]";
     }
 
     VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
@@ -996,6 +996,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
+    handlers[FDS_DM_LOAD_FROM_ARCHIVE] = new dm::LoadFromArchiveHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
@@ -1456,6 +1457,106 @@ DataMgr::getAllVolumeDescriptors()
     return err;
 }
 
+DmPersistVolDB::ptr DataMgr::getPersistDB(fds_volid_t volId) {
+    // get the correct catalog
+    DmVolumeCatalog::ptr volDirPtr =  boost::dynamic_pointer_cast
+            <DmVolumeCatalog>(timeVolCat_->queryIface());
+
+    if (volDirPtr.get() == NULL) {
+        LOGERROR << "unable to get the vol dir ptr";
+        return NULL;
+    }
+
+    DmPersistVolCat::ptr persistVolDirPtr = volDirPtr->getVolume(volId);
+    if (persistVolDirPtr.get() == NULL) {
+        LOGERROR << "unable to get the persist vol dir ptr for vol:" << volId;
+        return NULL;
+    }
+
+    DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast <DmPersistVolDB>(persistVolDirPtr);
+    return voldDBPtr;
+}
+
+Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
+    Error err;
+    LOGNORMAL << "copying vol:" << volId << " to other dms";
+
+    auto volDB = getPersistDB(volId);
+    if (volDB.get() == NULL) {
+        LOGWARN << "unable to get vol-db for vol:" << volId;
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    std::string archiveDir = dmutil::getTempDir();
+    std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
+    std::string archiveFile =  archiveFileName;
+    err = getPersistDB(volId)->archive(archiveDir, archiveFile);
+    if (!err.ok()) {
+        LOGWARN << "archiving failed for vol:" << volId << " error:" << err;
+        return err;
+    }
+
+    archiveFile = archiveDir + std::string("/") + archiveFile;
+    if (!util::fileExists(archiveFile)) {
+        LOGWARN << "archive file missing : " << archiveFile;
+        return ERR_NOT_FOUND;
+    }
+
+    LOGDEBUG << "archive file:" << archiveFile;
+
+    auto transferCb = [&](fds::net::FileTransferService::Handle::ptr handle,const Error& err,
+                          SHPTR<concurrency::TaskStatus> taskStatus) {
+        taskStatus->error = err;
+        taskStatus->done();
+    };
+
+    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+    uint total = 0, failed = 0;
+    for (uint i = 0; i < nodes->getLength(); i++) {
+        if (nodes->get(i).toSvcUuid() == me) continue;
+        total ++;
+        SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
+        LOGNORMAL << "copying vol:" << volId << " to node:" << nodes->get(i);
+        fileTransfer->send(nodes->get(i).toSvcUuid(), archiveFile, archiveFileName, std::bind(transferCb, PH_ARG1, PH_ARG2, taskStatus));
+        // 10 minutes
+        if (!taskStatus->await(10*60*1000)) {
+            LOGWARN << "filetransfer did not complete in expected time: [" << archiveFile
+                    << "] to:" << nodes->get(i);
+            failed ++;
+        } else {
+            if (!taskStatus->error.ok()) {
+                LOGWARN << "filetransfer did not complete : [" << archiveFile
+                        << "] to:" << nodes->get(i) << " error:" << taskStatus->error;
+                failed ++;
+            } else {
+                // send LOAD_FROM_ARCHIVE command to dm
+                err = requestMgr->sendLoadFromArchiveRequest(nodes->get(i), volId, archiveFileName);
+                if (!err.ok()) {
+                    failed++;
+                    LOGERROR << "could to send load from archive cmd to:" << nodes->get(i)
+                             << " vol:" << volId
+                             << " file:" << archiveFileName
+                             << " error:" << err;
+                }
+            }
+        }
+    }
+
+    LOGNORMAL << "vol:" << volId << " copied to [" << total << "] nodes with [" << failed << "] failures";
+    // remove archive file
+    boost::filesystem::remove(archiveFile);
+
+    if (failed >= (1.0*total/2.0)) {
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
+//************************************************************************//
+//   QOS Controller Functions                                             //
+//************************************************************************//
+
 Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
 
@@ -1551,6 +1652,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_LOAD_FROM_ARCHIVE:
         case FDS_DM_RESYNC_INIT_BLOB:
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
@@ -1602,7 +1704,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                   std::bind(&DataMgr::handleDmFunctor, parentDm, io));
             break;
         default:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+            LOGWARN << "Unknown IO Type received";
             assert(0);
             break;
     }
@@ -1641,7 +1743,8 @@ DataMgr::dmQosCtrl::~dmQosCtrl() {
 
 namespace dmutil {
 
-std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
+std::string getVolumeDir(const FdsRootDir* _root, fds_volid_t volId, fds_volid_t snapId) {
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(),
@@ -1650,6 +1753,13 @@ std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t 
         return util::strformat("%s/%ld",
                                root->dir_sys_repo_dm().c_str(), volId.get());
     }
+}
+
+std::string getTempDir(const FdsRootDir* _root, fds_volid_t volId) {
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
+    std::string dir=util::strformat("%s/tmp", root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(dir.c_str());
+    return dir;
 }
 
 // location of all snapshots for a volume

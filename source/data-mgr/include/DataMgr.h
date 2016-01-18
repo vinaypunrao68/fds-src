@@ -29,7 +29,6 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
-#include <fdsp/event_types_types.h>
 #include "fdsp/health_monitoring_types_types.h"
 #include "fds_types.h"
 #include <fdsp/FDSP_types.h>
@@ -54,6 +53,8 @@
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
 
+#include <timeline/timelinemanager.h>
+#include <refcount/refcountmanager.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -64,10 +65,13 @@ namespace fds {
 // forward declarations
 class DmPersistVolDB;
 namespace dm {
+
 struct Handler;
 struct Counters;
-namespace refcount {RefCountManager;}
-namespace timeline {TimelineManager;}
+struct RequestManager;
+
+namespace refcount {struct RefCountManager;}
+namespace timeline {struct TimelineManager;}
 }
 class DMSvcHandler;
 class DmMigrationMgr;
@@ -198,7 +202,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
     SHPTR<timeline::TimelineManager> timelineMgr;
-
+    dm::RequestManager* requestMgr;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
@@ -333,7 +337,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
     void handleDmFunctor(DmRequest *io);
-
+    Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
@@ -414,23 +418,6 @@ private:
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;
 
-    /**
-     * Send event message to OM
-     */
-    void sendEventMessageToOM(fpi::EventType eventType,
-                              fpi::EventCategory eventCategory,
-                              fpi::EventSeverity eventSeverity,
-                              fpi::EventState eventState,
-                              const std::string& messageKey,
-                              std::vector<fpi::MessageArgs> messageArgs,
-                              const std::string& messageFormat);
-
-    // Send health check message
-    void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
-                                fds_errno_t statusCode,
-                                const std::string& statusInfo);
-
-
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -452,7 +439,7 @@ namespace dmutil {
 // location of volume
 std::string getVolumeDir(const FdsRootDir* root,
                          fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
+std::string getTempDir(const FdsRootDir* root = NULL, fds_volid_t volId = invalid_vol_id);
 // location of all snapshots for a volume
 std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId);
 std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId);

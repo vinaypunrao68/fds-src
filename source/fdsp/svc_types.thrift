@@ -406,8 +406,10 @@ enum  FDSPMsgTypeId {
   StartRefScanMsgTypeId;
   CtrlNotifyRequestTxStateMsgTypeId;
   CtrlNotifyRequestTxStateRspMsgTypeId;
+  LoadFromArchiveMsgTypeId;
+
   /* DM Debug Messages */
-  DbgQueryVolumeStateMsgTypeId;
+  DbgQueryVolumeStateMsgTypeId = 29000;
   DbgQueryVolumeStateRspMsgTypeId;
   DbgForceVolumeSyncMsgTypeId; 
 

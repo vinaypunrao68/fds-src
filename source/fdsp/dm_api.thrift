@@ -748,6 +748,11 @@ struct DbgForceVolumeSyncMsg  {
     1: i64                      volId;
 }
 
+struct LoadFromArchiveMsg {
+    1: i64                      volId;
+    2: string                   filename;
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/
