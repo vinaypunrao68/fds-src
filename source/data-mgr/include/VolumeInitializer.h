@@ -206,7 +206,14 @@ template <class T>
 void ReplicaInitializer<T>::startBuffering_()
 {
     setProgress_(ENABLE_BUFFERING);
-    bufferReplay_.reset(new BufferReplay(replica_->getBufferfilePath(),
+    auto bufferfilePrefix = replica_->getBufferfilePrefix();
+    auto bufferfilePath = util::strformat("%s%d", bufferfilePrefix.c_str(),
+                                          replica_->getVersion());
+    /* Remove any existing buffer files */
+    auto cmdRet = std::system(util::strformat("rm %s* >/dev/null 2>&1",
+                                              bufferfilePrefix.c_str()).c_str());
+    /* Create buffer replay instance */
+    bufferReplay_.reset(new BufferReplay(bufferfilePath,
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
     auto err = bufferReplay_->init();
@@ -239,7 +246,7 @@ void ReplicaInitializer<T>::startBuffering_()
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {
             auto req = requestMgr->newEPSvcRequest(selfUuid);
-            req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.first), op.second);
+            req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.type), op.payload);
             req->onResponseCb([this](EPSvcRequest*,
                                      const Error &e,
                                      StringPtr) {

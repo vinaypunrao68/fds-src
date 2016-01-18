@@ -290,11 +290,10 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
        << " rel.prio:" << vol.relativePrio
        << " isSnapshot:" << vol.fSnapshot
        << " srcVolumeId:" << vol.srcVolumeId
-       << " state:" << vol.getState()
-       << " qosQueueId:" << vol.contCommitlogRetention
+       << " state:" << vol.getState() << " ( " << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second << " )"
+       << " contCommitlogRetention:" << vol.contCommitlogRetention
        << " timelineTime:" << vol.timelineTime
-       << " createTime:" << vol.createTime
-       << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second;
+       << " createTime:" << vol.createTime;
 
     if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
         os << " luns: { ";

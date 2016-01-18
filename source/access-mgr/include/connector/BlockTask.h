@@ -30,7 +30,6 @@ struct BlockTask {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
     using sequence_type = uint32_t;
-    using time_point = std::chrono::system_clock::time_point;
 
     /// What type of task is this
     enum BlockOp {
@@ -41,9 +40,6 @@ struct BlockTask {
 
     explicit BlockTask(uint64_t const hdl);
     virtual ~BlockTask() = default;
-
-    bool wasAborted() { return aborted; }
-    void abort() { aborted = true; }
 
     /// Setup task params
     void setRead(uint64_t const off, uint32_t const bytes) {
@@ -125,7 +121,6 @@ struct BlockTask {
 
     void getChain(sequence_type const seqId, std::deque<BlockTask*>& chain);
     void setChain(sequence_type const seqId, std::deque<BlockTask*>&& chain);
-    bool shouldRetry() const { return (!aborted && (cmd_expire_time > std::chrono::system_clock::now())); }
 
     int64_t handle;
 
@@ -133,8 +128,6 @@ struct BlockTask {
     BlockOp operation {OTHER};
     std::atomic_uint doneCount {0};
     uint32_t objCount {1};
-    time_point const cmd_expire_time;
-    bool aborted { false };
 
     // These are the responses we are also in charge of responding to, in order
     // with ourselves being last.

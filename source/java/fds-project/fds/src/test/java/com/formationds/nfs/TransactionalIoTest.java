@@ -65,22 +65,17 @@ public class TransactionalIoTest {
 
     @Test
     public void testMapAndMutateObjects() throws Exception {
-
         Map<String, String> metadata = new HashMap<>();
         metadata.put("foo", "bar");
         transactionalIo.mutateMetadata(domain, volume, blobName, new HashMap<>(), false);
         transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                false, oov -> new ObjectAndMetadata(metadata, ByteBuffer.allocate(10)));
+                false, oam -> oam.getBuf().limit(objectSize));
 
         ByteBuffer byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> oov.get().getBuf());
+                oov -> oov.get().getBuf()).duplicate();
         assertEquals(objectSize, byteBuffer.remaining());
         assertEquals(0, byteBuffer.get());
 
-        // Mutate sure we get a sliced ByteBuffer
-        byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
-                oov -> oov.get().getBuf());
-        assertEquals(objectSize, byteBuffer.remaining());
 
         transactionalIo.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0), false,
                 ov -> {
@@ -89,7 +84,6 @@ public class TransactionalIoTest {
                     buf.position(0);
                 });
 
-        // Mutate sure we get a sliced ByteBuffer
         byteBuffer = transactionalIo.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(0),
                 oov -> oov.get().getBuf());
         assertEquals(objectSize, byteBuffer.remaining());
@@ -103,6 +97,7 @@ public class TransactionalIoTest {
         blobName = UUID.randomUUID().toString();
         objectSize = 42;
         ioOps = new MemoryIoOps();
-        transactionalIo = new TransactionalIo(new DeferredIoOps(ioOps, new Counters()));
+//        transactionalIo = new TransactionalIo(new DeferredIoOps(ioOps, new Counters()));
+        transactionalIo = new TransactionalIo(ioOps);
     }
 }

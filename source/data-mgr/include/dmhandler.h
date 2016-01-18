@@ -114,6 +114,7 @@ struct Handler: HasLogger {
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
     Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const int64_t &opId,
                                     const fpi::AsyncHdrPtr &hdr,
                                     const SHPTR<std::string> &payload);
 

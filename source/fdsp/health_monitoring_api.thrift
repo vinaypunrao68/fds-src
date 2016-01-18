@@ -23,7 +23,7 @@ namespace java com.formationds.protocol.pm
  * Should a service die unexpectedly, the PM will send a health report notification to the OM
  * on behalf of the process that died.
  *
- * @param   healthReport  A populated healthInforMessage
+ * @param   healthReport  A populated healthInfoMessage
  * @return  Nothing
  */
 struct NotifyHealthReport {
@@ -37,4 +37,5 @@ struct NotifyHealthReport {
 struct HeartbeatMessage {
     1: svc_types.FDSP_Uuid svcUuid,
     2: double timestamp;
+    3: i64 usedCapacityInBytes;
 }

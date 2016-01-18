@@ -67,7 +67,7 @@ void BufferReplayTest::replayOpsCb(int64_t replayIdx, std::list<BufferReplay::Op
 
     /* Ensure replayed ops are what they are supposed to be */
     for (const auto &op : ops) {
-        ASSERT_TRUE(*(op.second) == *(stringCache->itemAt(replayIdx)));
+        ASSERT_TRUE(*(op.payload) == *(stringCache->itemAt(replayIdx)));
         replayIdx++;
     }
 
@@ -77,9 +77,9 @@ void BufferReplayTest::replayOpsCb(int64_t replayIdx, std::list<BufferReplay::Op
 }
 
 TEST_F(BufferReplayTest, test1) {
-    uint32_t numops = this->getArg<uint32_t>("numops");
-    for (uint32_t i = 0; i < numops; i++) {
-        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
+    int32_t numops = this->getArg<int32_t>("numops");
+    for (int32_t i = 0; i < numops; i++) {
+        Error e = br->buffer(BufferReplay::Op{i, i, stringCache->itemAt(i)});
         ASSERT_TRUE(e == ERR_OK);
     }
     br->startReplay();
@@ -89,18 +89,18 @@ TEST_F(BufferReplayTest, test1) {
 }
 
 TEST_F(BufferReplayTest, reject_after_catchup) {
-    uint32_t numOps = 1024;
-    for (uint32_t i = 0; i < numOps; i++) {
-        Error e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
+    int32_t numOps = 1024;
+    for (int32_t i = 0; i < numOps; i++) {
+        Error e = br->buffer(BufferReplay::Op{i, i, stringCache->itemAt(i)});
         ASSERT_TRUE(e == ERR_OK);
     }
 
     br->startReplay();
 
     Error e = ERR_OK;
-    for (uint32_t i = 0; i < numOps * 4; i++) {
+    for (int32_t i = 0; i < numOps * 4; i++) {
         std::this_thread::sleep_for(std::chrono::microseconds(2));
-        e = br->buffer(std::make_pair(i, stringCache->itemAt(i)));
+        e = br->buffer(BufferReplay::Op{i, i, stringCache->itemAt(i)});
         if (e != ERR_OK) {
             break;
         }
@@ -113,12 +113,12 @@ TEST_F(BufferReplayTest, reject_after_catchup) {
 
 
 TEST_F(BufferReplayTest, prereplay_abort) {
-    Error e = br->buffer(std::make_pair(0, stringCache->itemAt(0)));
+    Error e = br->buffer(BufferReplay::Op{0, 0, stringCache->itemAt(0)});
     ASSERT_TRUE(e == ERR_OK);
 
     br->abort();
 
-    e = br->buffer(std::make_pair(1, stringCache->itemAt(1)));
+    e = br->buffer(BufferReplay::Op{1, 1, stringCache->itemAt(1)});
     ASSERT_TRUE(e != ERR_OK);
 
     br->startReplay();
@@ -127,14 +127,14 @@ TEST_F(BufferReplayTest, prereplay_abort) {
 }
 
 TEST_F(BufferReplayTest, postreplay_abort) {
-    Error e = br->buffer(std::make_pair(0, stringCache->itemAt(0)));
+    Error e = br->buffer(BufferReplay::Op{0, 0, stringCache->itemAt(0)});
     ASSERT_TRUE(e == ERR_OK);
 
     br->startReplay();
 
     br->abort();
 
-    e = br->buffer(std::make_pair(1, stringCache->itemAt(1)));
+    e = br->buffer(BufferReplay::Op{1, 1, stringCache->itemAt(1)});
     ASSERT_TRUE(e != ERR_OK);
 
     donewaiter.await();
@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("numops", po::value<uint32_t>()->default_value(10), "numops");
+        ("numops", po::value<int32_t>()->default_value(10), "numops");
     BufferReplayTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

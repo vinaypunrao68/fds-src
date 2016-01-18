@@ -46,7 +46,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
-        return (Optional<Map<String, String>>) metadataCache.lock(key, c -> {
+        return metadataCache.lock(key, c -> {
             CacheEntry<Map<String, String>> ce = c.get(key);
             if (ce == null) {
                 Optional<Map<String, String>> om = io.readMetadata(domain, volumeName, blobName);
@@ -57,7 +57,7 @@ public class DeferredIoOps implements IoOps {
                 return om;
             } else {
                 counters.increment(Counters.Key.metadataCacheHit);
-                return Optional.of(new HashMap<>(ce.value));
+                return Optional.of(ce.value);
             }
         });
     }
@@ -85,13 +85,13 @@ public class DeferredIoOps implements IoOps {
             if (ce == null) {
                 counters.increment(Counters.Key.objectCacheMiss);
                 ByteBuffer buf = io.readCompleteObject(domain, volumeName, blobName, objectOffset, objectSize);
-                ce = new CacheEntry<ByteBuffer>(buf.slice(), false);
+                ce = new CacheEntry<>(buf, false);
                 c.put(objectKey, ce);
             } else {
                 counters.increment(Counters.Key.objectCacheHit);
             }
 
-            return ce.value.duplicate();
+            return ce.value;
         });
     }
 
@@ -101,10 +101,10 @@ public class DeferredIoOps implements IoOps {
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
             if (deferrable) {
-                c.put(objectKey, new CacheEntry<>(byteBuffer.slice(), true));
+                c.put(objectKey, new CacheEntry<>(byteBuffer, true));
             } else {
                 io.writeObject(domain, volumeName, blobName, objectOffset, byteBuffer.slice().duplicate(), objectSize, false);
-                c.put(objectKey, new CacheEntry<>(byteBuffer.slice().duplicate(), false));
+                c.put(objectKey, new CacheEntry<>(byteBuffer.slice(), false));
             }
             return null;
         });

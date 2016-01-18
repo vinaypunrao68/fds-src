@@ -49,6 +49,8 @@ AccessMgr::mod_startup() {
 
 void
 AccessMgr::mod_shutdown() {
+    LOGNOTIFY << "Stopping processing layer ";
+    amProcessor->stop();
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
     stop_signal.notify_one();
@@ -109,17 +111,7 @@ void AccessMgr::initilizeConnectors() {
 }
 
 void AccessMgr::mod_disable_service() {
-    amProcessor->stop();
-}
-
-void
-AccessMgr::run() {
-    std::unique_lock<std::mutex> lk {stop_lock};
-    stop_signal.wait(lk, [this]() { return this->shutting_down; });
-
-    amProcessor->prepareForShutdownMsgRespCallCb();
-
-    LOGDEBUG << "Processing layer has shutdown, stop external services.";
+    LOGNOTIFY << "Stopping connectors";
     asyncServer->stop();
     if (nbd_enabled) {
         NbdConnector::stop();
@@ -131,6 +123,13 @@ AccessMgr::run() {
     if (scst_enabled) {
         ScstConnector::stop();
     }
+}
+
+void
+AccessMgr::run() {
+    std::unique_lock<std::mutex> lk {stop_lock};
+    stop_signal.wait(lk, [this]() { return this->shutting_down; });
+    LOGNORMAL << "Processing layer has shutdown, stop external services.";
 }
 
 void

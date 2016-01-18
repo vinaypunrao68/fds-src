@@ -115,7 +115,9 @@ class Disk:
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
-            assert node_logicalname != None
+
+            if node_logicalname is None:
+                continue
 
             if node_logicalname.text != path:
                 continue

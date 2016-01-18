@@ -2,35 +2,45 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 
     var service = {};
 
-    service.getFirebreakSummary = function( filter, callback ){
+    service.getFirebreakSummary = function( filter, success, failure ){
         
         return $http_fds.put( webPrefix + '/stats/volumes/firebreak', filter, 
             function( response ){
-                if ( angular.isFunction( callback ) ){
-                    callback( response );
+                if ( angular.isFunction( success ) ){
+                    success( response );
+                }
+            },
+            function( response, code ){
+                if ( angular.isFunction( failure ) ){
+                    failure( response, code );
                 }
             });
         
 //        return $http_fds.get( '/scripts/services/data/fakefirebreak.js', 
 //            function( response ){
-//                callback( eval( response )[0] );
+//                success( eval( response )[0] );
 //                
 //
 //            });
     };
     
-    service.getPerformanceBreakdownSummary = function( filter, callback ){
+    service.getPerformanceBreakdownSummary = function( filter, success, failure ){
         
         $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
             
-                if ( angular.isFunction( callback ) ){
-                    callback( response );
+                if ( angular.isFunction( success ) ){
+                    success( response );
+                }
+            },
+            function( response, code ){
+                if ( angular.isFunction( failure ) ){
+                    failure( response, code );
                 }
             });
     };
     
-    service.getPerformanceSummary = function( filter, callback ){
+    service.getPerformanceSummary = function( filter, success, failure ){
         
 //        var data = {
 //            series: [
@@ -65,18 +75,23 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //            ]
 //        };
 //        
-//        callback( data );
+//        success( data );
         
         return $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
-                if ( angular.isFunction( callback ) ){
-                    callback( response );
+                if ( angular.isFunction( success ) ){
+                    success( response );
+                }
+            },
+            function( response, code ){
+                if ( angular.isFunction( failure ) ){
+                    failure( response, code );
                 }
             });
         
     };
     
-    service.getCapacitySummary = function( filter, callback ){
+    service.getCapacitySummary = function( filter, success, failure ){
         
 //        var data = {
 //            series: [
@@ -110,14 +125,18 @@ angular.module( 'statistics' ).factory( '$stats_service', ['$http_fds', function
 //            ]
 //        };
 //        
-//        callback( data );
+//        success( data );
         return $http_fds.put( webPrefix + '/stats/volumes', filter, 
             function( response ){
-                if ( angular.isFunction( callback ) ){
-                    callback( response );
+                if ( angular.isFunction( success ) ){
+                    success( response );
                 }
-            });        
-        
+            },
+            function( response, code ){
+                if ( angular.isFunction( failure ) ){
+                    failure( response, code );
+                }
+            });
     };    
 
     return service;

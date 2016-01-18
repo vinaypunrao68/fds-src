@@ -93,7 +93,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Open the group */
     v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
+            [&waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr&) {
                 ASSERT_TRUE(e == ERR_OK);
                 waiter.done();
             });

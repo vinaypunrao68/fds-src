@@ -1,17 +1,15 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #include "AmVolume.h"
-#include "AmVolumeAccessToken.h"
 
 namespace fds
 {
 
-AmVolume::AmVolume(VolumeDesc const& vol_desc,
-                   boost::shared_ptr<AmVolumeAccessToken> _access_token)
+AmVolume::AmVolume(VolumeDesc const& vol_desc)
     :  FDS_Volume(vol_desc),
-       access_token(_access_token)
+       access_token()
 {
 }
 
@@ -19,17 +17,22 @@ AmVolume::~AmVolume() = default;
 
 fds_int64_t
 AmVolume::getToken() const {
-    if (access_token)
-        return access_token->getToken();
-    return invalid_vol_token;
+    return access_token.getToken();
 }
 
-std::pair<bool, bool>
-AmVolume::getMode() const {
-    if (access_token)
-        return std::make_pair(access_token->writeAllowed(),
-                              access_token->cacheAllowed());
-    return std::make_pair(false, false);
+void
+AmVolume::setToken(AmVolumeAccessToken const& token) {
+    access_token = token;
+}
+
+bool
+AmVolume::cacheable() const {
+    return access_token.cacheAllowed();
+}
+
+bool
+AmVolume::writable() const {
+    return access_token.writeAllowed();
 }
 
 }  // namespace fds
