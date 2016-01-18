@@ -89,9 +89,7 @@ struct VolumeDispatchTable {
  * does the work to send and receive AM network messages over
  * the service layer.
  */
-struct AmDispatcher :
-    public AmDataProvider,
-    public HasModuleProvider
+struct AmDispatcher : public AmDataProvider
 {
     using shared_str = boost::shared_ptr<std::string>;
     /**
@@ -101,7 +99,7 @@ struct AmDispatcher :
      * TODO(Andrew): Make the dispatcher own this piece or
      * iterface with platform lib.
      */
-    AmDispatcher(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
+    explicit AmDispatcher(AmDataProvider* prev);
     AmDispatcher(AmDispatcher const&)               = delete;
     AmDispatcher& operator=(AmDispatcher const&)    = delete;
     AmDispatcher(AmDispatcher &&)                   = delete;
@@ -117,14 +115,8 @@ struct AmDispatcher :
     void stop() override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
-    void lookupVolume(std::string const volume_name) override;
-    void getVolumes(std::vector<VolumeDesc>& volumes) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
-    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
-    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) override;
-    Error getDMT() override;
-    Error getDLT() override;
     void statVolume(AmRequest * amReq) override;
     void setVolumeMetadata(AmRequest * amReq) override;
     void getVolumeMetadata(AmRequest * amReq) override;
@@ -142,11 +134,6 @@ struct AmDispatcher :
     void volumeContents(AmRequest * amReq) override;
 
   private:
-
-    /**
-     * set flag for network available.
-     */
-     bool noNetwork {false};
 
     /**
      * FEATURE TOGGLE: Safe PutBlobOnce
@@ -176,32 +163,17 @@ struct AmDispatcher :
     std::mutex tx_map_lock;
     tx_map_barrier_type tx_map_barrier;
 
-    template<typename Msg>
-    MultiPrimarySvcRequestPtr createMultiPrimaryRequest(fds_volid_t const& volId,
-                                                        fds_uint64_t const dmt_ver,
-                                                        boost::shared_ptr<Msg> const& payload,
-                                                        MultiPrimarySvcRequestRespCb mpCb,
-                                                        uint32_t timeout=0) const;
-    template<typename Msg>
-    QuorumSvcRequestPtr createQuorumRequest(ObjectID const& objId,
-                                                  DLT const* dlt,
-                                                  boost::shared_ptr<Msg> const& payload,
-                                                  QuorumSvcRequestRespCb qCb,
-                                                  uint32_t timeout=0) const;
-    template<typename Msg>
-    FailoverSvcRequestPtr createFailoverRequest(fds_volid_t const& volId,
-                                                fds_uint64_t const dmt_ver,
-                                                boost::shared_ptr<Msg> const& payload,
-                                                FailoverSvcRequestRespCb cb,
-                                                uint32_t timeout=0) const;
-    template<typename Msg>
-    FailoverSvcRequestPtr createFailoverRequest(ObjectID const& objId,
-                                                DLT const* dlt,
-                                                boost::shared_ptr<Msg> const& payload,
-                                                FailoverSvcRequestRespCb cb,
-                                                uint32_t timeout=0) const;
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void readFromDM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_t const timeout=0);
 
-    void _startBlobTx(AmRequest *amReq);
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void writeToDM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_t const timeout=0);
+
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void readFromSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t const timeout=0);
+
+    template<typename CbMeth, typename MsgPtr, typename ReqPtr>
+    void writeToSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t const timeout=0);
 
     /**
      * FEATURE TOGGLE: Volume grouping support
@@ -236,15 +208,12 @@ struct AmDispatcher :
     void _statBlobCb(StatBlobReq *amReq, const Error& error, shared_str payload);
     void _volumeContentsCb(VolumeContentsReq *amReq, const Error& error, shared_str payload);
 
+    void _startBlobTx(AmRequest *amReq);
+
     /**
      * FEATURE TOGGLE: SvcLayer Direct callbacks
      * Thu Jan 14 10:47:25 2016
      */
-    void lookupVolumeCb(std::string const& volume_name,
-                        EPSvcRequest* svcReq,
-                        const Error& error,
-                        shared_str payload);
-
     void abortBlobTxCb(AbortBlobTxReq *amReq,
                        MultiPrimarySvcRequest* svcReq,
                        const Error& error,
