@@ -20,19 +20,18 @@ namespace fds {
 
 /* Forward declarations */
 struct AmVolume;
+struct EPSvcRequest;
 struct FdsTimerTask;
 struct WaitQueue;
-class CommonModuleProviderIf;
 
 struct AmVolumeTable :
     public HasLogger,
-    public AmDataProvider,
-    public HasModuleProvider
+    public AmDataProvider
 {
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
     /// Use logger that passed in to the constructor
-    AmVolumeTable(AmDataProvider* prev, size_t const max_thrds, CommonModuleProviderIf *modProvider, fds_log *parent_log);
+    AmVolumeTable(AmDataProvider* prev, size_t const max_thrds, fds_log *parent_log);
     AmVolumeTable(AmVolumeTable const& rhs) = delete;
     AmVolumeTable& operator=(AmVolumeTable const& rhs) = delete;
     ~AmVolumeTable() override;
@@ -45,7 +44,6 @@ struct AmVolumeTable :
     void start() override;
     void stop() override;
     Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
-    void lookupVolume(std::string const volume_name) override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest *amReq) override;
@@ -72,7 +70,6 @@ struct AmVolumeTable :
     /**
      * These are the response we actually care about seeing the results of
      */
-    void lookupVolumeCb(VolumeDesc const volDesc, Error const error) override;
     void openVolumeCb(AmRequest *amReq, const Error error) override;
     void statVolumeCb(AmRequest *amReq, const Error error) override;
 
@@ -92,6 +89,18 @@ struct AmVolumeTable :
     boost::shared_ptr<FdsTimer> token_timer;
 
     std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
+
+    /**
+     * FEATURE TOGGLE: "VolumeGroup" support
+     * Fri Jan 15 10:25:00 2016
+     */
+    bool volume_grouping_support {false};
+
+    void lookupVolume(std::string const volume_name);
+    void lookupVolumeCb(std::string const volume_name,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
 
     /**
      * Returns volume if found in volume map.

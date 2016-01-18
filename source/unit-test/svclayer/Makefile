@@ -27,7 +27,7 @@ user_cpp          := \
     SvcServer_gtest.cpp \
     SvcMgr_gtest.cpp \
     SvcMapChecker.cpp \
-    VolumeCoordinator_gtest.cpp
+    VolumeGroupHandle_gtest.cpp
 
 
 user_no_style     :=
@@ -39,7 +39,7 @@ user_bin_exe      := \
 	svcserver_gtest \
 	svcmgr_gtest \
 	svcmapchecker \
-	volumecoordinator_gtest 
+	volumegrouphandle_gtest
 
 omsvc := OMSvcProcess.cpp 
 testsvc := TestSvcProcess.cpp
@@ -47,6 +47,6 @@ svcrequestmgr_gtest := SvcRequestMgr_gtest.cpp
 svcserver_gtest := SvcServer_gtest.cpp
 svcmgr_gtest := SvcMgr_gtest.cpp
 svcmapchecker := SvcMapChecker.cpp
-volumecoordinator_gtest := VolumeCoordinator_gtest.cpp
+volumegrouphandle_gtest := VolumeGroupHandle_gtest.cpp
 
 include $(test_topdir)/Makefile.svc

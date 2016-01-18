@@ -17,8 +17,6 @@
 
 namespace fds {
 
-struct CommonModuleProviderIf;
-
 class AmQoSCtrl :
     public FDS_QoSControl,
     public AmDataProvider
@@ -26,7 +24,7 @@ class AmQoSCtrl :
     QoSHTBDispatcher *htb_dispatcher;
 
  public:
-    AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, CommonModuleProviderIf* provider, fds_log *log);
+    AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, fds_log *log);
     ~AmQoSCtrl() override;
 
 
