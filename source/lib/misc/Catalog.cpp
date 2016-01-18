@@ -16,8 +16,8 @@ int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
     fds_assert(fname && *fname != 0);
 
     fds::CopyDetails * details = reinterpret_cast<fds::CopyDetails *>(arg);
-    GLOGNORMAL << "Copying file '" << fname << "' to directory '" << details->destPath
-            << "' from '" << details->srcPath;
+    GLOGDEBUG << "Copying file '" << fname << "' to directory '" << details->destPath
+              << "' from '" << details->srcPath;
 
     std::string srcFile = details->srcPath + "/" + fname;
     std::string destFile = details->destPath + "/" + fname;
