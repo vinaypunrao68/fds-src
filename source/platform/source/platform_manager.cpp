@@ -2,12 +2,14 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include "platform/platform_consts.h"
+
 extern "C"
 {
     #include <sys/mount.h>
     #include <dirent.h>
-    #include <sys/types.h>
     #include <sys/wait.h>
+    #include <sys/statvfs.h>
 }
 
 #include <uuid/uuid.h>
@@ -21,7 +23,6 @@ extern "C"
 #include <thread>
 
 #include <fds_uuid.h>
-#include <fdsp/svc_types_types.h>
 #include <fds_process.h>
 #include "fds_resource.h"
 #include <platform/process.h>
@@ -30,12 +31,10 @@ extern "C"
 
 #include <fdsp/health_monitoring_api_types.h>
 
-#include "fds_module_provider.h"
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
-#include "platform/disk_capabilities.h"
 
 #include "file_system_table.h"
 
@@ -260,8 +259,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
-                    updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
 
@@ -275,8 +273,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
-                    updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                     stopProcess (JAVA_AM);
                 }
             }
@@ -291,8 +288,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (DATA_MANAGER, EMPTY_PID);
-                    updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
 
@@ -306,8 +302,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (STORAGE_MANAGER, EMPTY_PID);
-                    updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
             m_startupAuditComplete = true;
@@ -580,8 +575,7 @@ namespace fds
             {
                 LOGNORMAL << procName << " started by platformd as pid " << pid;
                 m_appPidMap[procName] = pid;
-                updateNodeInfoDbPid (procIndex, pid);
-                updateNodeInfoDbState (procIndex, fpi::SERVICE_RUNNING);
+                updateNodeInfoDbPidAndState (procIndex, pid, fpi::SERVICE_RUNNING);
             }
             else
             {
@@ -589,12 +583,13 @@ namespace fds
             }
         }
 
-        void PlatformManager::updateNodeInfoDbPid (int processType, pid_t pid)
+        void PlatformManager::updateNodeInfoDbPidAndState (int processType, pid_t pid, fpi::pmServiceStateTypeId newState)
         {
             switch (processType)
             {
                 case BARE_AM:
                 {
+                    m_nodeInfo.bareAMState = newState;
                     m_nodeInfo.bareAMPid = pid;
 
                 } break;
@@ -602,49 +597,20 @@ namespace fds
                 case JAVA_AM:
                 {
                     m_nodeInfo.javaAMPid = pid;
-
-                } break;
-
-                case DATA_MANAGER:
-                {
-                    m_nodeInfo.dmPid = pid;
-
-                } break;
-
-                case STORAGE_MANAGER:
-                {
-                    m_nodeInfo.smPid = pid;
-
-                } break;
-            }
-
-            m_db->setNodeInfo (m_nodeInfo);
-        }
-
-        void PlatformManager::updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState)
-        {
-            switch (processType)
-            {
-                case BARE_AM:
-                {
-                    m_nodeInfo.bareAMState = newState;
-
-                } break;
-
-                case JAVA_AM:
-                {
                     m_nodeInfo.javaAMState = newState;
 
                 } break;
 
                 case DATA_MANAGER:
                 {
+                    m_nodeInfo.dmPid = pid;
                     m_nodeInfo.dmState = newState;
 
                 } break;
 
                 case STORAGE_MANAGER:
                 {
+                    m_nodeInfo.smPid = pid;
                     m_nodeInfo.smState = newState;
 
                 } break;
@@ -766,8 +732,7 @@ namespace fds
             }
 
             m_appPidMap.erase (mapIter);
-            updateNodeInfoDbPid (procIndex, EMPTY_PID);
-            updateNodeInfoDbState (procIndex, fpi::SERVICE_NOT_RUNNING);
+            updateNodeInfoDbPidAndState (procIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
         }
 
         // plf_start_node_services
@@ -855,8 +820,8 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                         {
-                            updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
-                            updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
                         {
@@ -874,7 +839,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
                         {
-                            updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
                         {
@@ -891,7 +856,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
                         {
-                            updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
                         {
@@ -927,8 +892,8 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING == m_nodeInfo.javaAMState)
                         {
-                            updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_PRESENT);
-                            updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState || fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
                         {
@@ -945,7 +910,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.dmState)
                         {
-                            updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
                         {
@@ -962,7 +927,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.smState)
                         {
-                            updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
                         {
@@ -1168,10 +1133,18 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: " << std::hex << heartbeatMsg->svcUuid.uuid << std::dec;
+            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
+                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                     << " [ " << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+
+            heartbeatMsg->usedCapacityInBytes = usedDiskCapacity;
+
+            LOGDEBUG << "PM uuid: "
+                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                     << " [ " << usedDiskCapacity << " ]";
 
             request->setPayload (FDSP_MSG_TYPEID (fpi::HeartbeatMessage), heartbeatMsg);
             request->invoke();
@@ -1334,7 +1307,8 @@ namespace fds
 
                             notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             m_appPidMap.erase (mapIter++);
-                            updateNodeInfoDbPid (appIndex, EMPTY_PID);
+
+                            updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
 
                             if (m_autoRestartFailedProcesses)
                             {
@@ -1473,6 +1447,92 @@ namespace fds
             }
         }
 
+        void PlatformManager::usedDiskCapacityMonitor()
+        {
+            LOGDEBUG << "Starting thread for PlatformManager::usedDiskCapacityMonitor()";
+
+            while ( true )
+            {
+                processDiskMapFile();
+
+                if ( diskMountMap.size() == 0 )
+                {
+                    LOGWARN << "Can't find any mounted devices!";
+                }
+                else
+                {
+                    long _used = 0;
+                    for ( auto mapIter = diskMountMap.begin( ); diskMountMap.end( ) != mapIter; mapIter++ )
+                    {
+                        struct statvfs vfs;
+                        errno = 0;
+                        if ( statvfs( mapIter->second.c_str( ), &vfs ) == 0 )
+                        {
+                            unsigned long total = vfs.f_blocks * vfs.f_frsize;
+                            unsigned long available = vfs.f_bavail * vfs.f_frsize;
+                            unsigned long free = vfs.f_bfree * vfs.f_frsize;
+                            _used += ( long ) ( total - free );
+                        }
+                        else
+                        {
+                            LOGERROR << "The specified mount point [ " << mapIter->second.c_str( )
+                                     << " ] encountered an error during stats query, error [ " << errno << " ]";
+                        }
+                    }
+
+                    usedDiskCapacity = _used;
+                }
+
+                // every two minutes
+                sleep( ( 2 * 60 ) );
+            }
+        }
+
+        void PlatformManager::processDiskMapFile()
+        {
+            int           idx;
+            fds_uint64_t  uuid;
+            std::string   path;
+            std::string   dev;
+
+            // wipe the old disk map mount points
+            diskMountMap.clear();
+
+            const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+
+            // TODO we should keep this table in memory and write it out to disk for the SM consumption
+            std::ifstream map( dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in );
+
+            if ( map.fail( ) )
+            {
+                LOGERROR << "DiskMap read failed. Check " << dir->dir_dev()
+                         << " for a valid disk map";
+                return;
+            }
+
+            while ( !map.eof() )
+            {
+                map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
+                if ( map.fail() )
+                {
+                    break;
+                }
+
+                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
+                {
+                    LOGWARN << "Unknown path: " << path.c_str() ;
+                }
+
+                diskMountMap[ idx ] = path;
+            }
+
+            if ( diskMountMap.size() == 0 )
+            {
+                LOGWARN << "Can't find any devices!";
+            }
+        }
+
         void PlatformManager::run()
         {
             std::thread startQueueMonitorThread (&PlatformManager::startQueueMonitor, this);
@@ -1481,11 +1541,19 @@ namespace fds
             std::thread childMonitorThread (&PlatformManager::childProcessMonitor, this);
             childMonitorThread.detach();
 
-            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
+            std::thread startUsedCapacityThread (&PlatformManager::usedDiskCapacityMonitor, this);
+            startUsedCapacityThread.detach();
 
+            DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             while (1)
             {
                 dpm->dsk_monitor_hotplug();
+                LOGNORMAL <<"Triggering disk rescan";
+                if (loadDiskUuidToDeviceMap())
+                {
+                    verifyAndMountFDSFileSystems();
+                }
+                dpm->scan_and_discover_disks();
                 notifyDiskMapChange();
             }
         }

@@ -322,6 +322,9 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
         updSvcState = true;
     }
+
+    configDB->setCapacityUsedNode( svcUuid.svc_uuid, msg->usedCapacityInBytes );
+
     gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 

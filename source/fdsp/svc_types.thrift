@@ -407,6 +407,7 @@ enum  FDSPMsgTypeId {
   CtrlNotifyRequestTxStateMsgTypeId;
   CtrlNotifyRequestTxStateRspMsgTypeId;
   LoadFromArchiveMsgTypeId;
+  CtrlNotifyFinishMigrationMsgTypeId;
 
   /* DM Debug Messages */
   DbgQueryVolumeStateMsgTypeId = 29000;

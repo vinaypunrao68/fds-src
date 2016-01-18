@@ -80,11 +80,12 @@ public class TransactionalIo {
                 buffer = io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize);
             } catch (FileNotFoundException e) {
                 buffer = ByteBuffer.allocate(objectSize);
+                buffer.limit(0);
             }
             Map<String, String> metadata;
             synchronized (metaLock(metaKey)) {
                 metadata = io.readMetadata(domain, volume, blobName).orElse(new HashMap<>());
-                ObjectAndMetadata om = new ObjectAndMetadata(metadata, buffer.duplicate());
+                ObjectAndMetadata om = new ObjectAndMetadata(metadata, buffer);
                 mutator.mutate(om);
                 io.writeMetadata(domain, volume, blobName, metadata, deferrable);
             }

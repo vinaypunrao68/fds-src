@@ -17,6 +17,7 @@
 #include "AmDataProvider.h"
 #include "AmRequest.h"
 #include "AmVolumeTable.h"
+#include "net/SvcMgr.h"
 
 namespace fds {
 
@@ -27,12 +28,10 @@ namespace fds {
 class AmProcessor_impl : public AmDataProvider
 {
     using shutdown_cb_type = std::function<void(void)>;
-    CommonModuleProviderIf* provider;
 
   public:
     AmProcessor_impl(AccessMgr* parent, CommonModuleProviderIf *modProvider)
-        : AmDataProvider(nullptr, nullptr),
-          provider(modProvider),
+        : AmDataProvider(nullptr, nullptr, modProvider),
           parent_mod(parent),
           have_tables(std::make_pair(false, false)),
           prepareForShutdownCb(nullptr)
@@ -43,17 +42,18 @@ class AmProcessor_impl : public AmDataProvider
     ~AmProcessor_impl() = default;
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
-        { prepareForShutdownCb = cb; }
-
-    void prepareForShutdownMsgRespCallCb();
-
+        { std::lock_guard<std::mutex> lk(shut_down_lock); prepareForShutdownCb = cb; }
 
     void enqueueRequest(AmRequest* amReq);
 
+    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb);
+    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb);
     bool haveTables();
 
+    void getVolumes(std::vector<VolumeDesc>& volumes);
+
     bool isShuttingDown() const
-    { SCOPEDREAD(shut_down_lock); return shut_down; }
+    { std::lock_guard<std::mutex> lk(shut_down_lock); return shut_down; }
 
     /**
      * These are the Processor specific DataProvider routines.
@@ -63,8 +63,6 @@ class AmProcessor_impl : public AmDataProvider
     void stop() override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
-    Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) override;
-    Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) override;
 
   protected:
     /**
@@ -123,8 +121,11 @@ class AmProcessor_impl : public AmDataProvider
 
     std::pair<bool, bool> have_tables;
 
+    bool standAlone { false };
+
+    mutable std::mutex shut_down_lock;
+    std::condition_variable check_done;
     bool shut_down { false };
-    mutable fds_rwlock shut_down_lock;
 
     shutdown_cb_type prepareForShutdownCb;
 
@@ -133,13 +134,6 @@ class AmProcessor_impl : public AmDataProvider
 
 void
 AmProcessor_impl::enqueueRequest(AmRequest* amReq) {
-    {
-        SCOPEDREAD(shut_down_lock);
-        if (shut_down) {
-            respond(amReq, ERR_SHUTTING_DOWN);
-            return;
-        }
-    }
     AmDataProvider::unknownTypeResume(amReq);
 }
 
@@ -150,11 +144,12 @@ AmProcessor_impl::start()
     if (conf.get<fds_bool_t>("testing.uturn_processor_all")) {
         fiu_enable("am.uturn.processor.*", 1, NULL, 0);
     }
+    standAlone = conf.get<bool>("standalone", standAlone);
     auto qos_threads = conf.get<int>("qos_threads");
     _next_in_chain.reset(new AmVolumeTable(this,
                                            qos_threads,
-                                           provider,
                                            GetLog()));
+    _next_in_chain->setProvider(getModuleProvider());
     AmDataProvider::start();
 }
 
@@ -193,36 +188,26 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     }
     delete amReq;
 
-    // If we're shutting down check if the
-    // queue is empty and make the callback
-    if (isShuttingDown()) {
-        stop();
-    }
+    // In case we're shutting down tell anyone waiting on this conditional
+    check_done.notify_all();
 }
 
-void AmProcessor_impl::prepareForShutdownMsgRespCallCb() {
+void AmProcessor_impl::stop() {
+    std::unique_lock<std::mutex> lk(shut_down_lock);
+    if (!shut_down) {
+        LOGNOTIFY << "AmProcessor is shutting down.";
+        shut_down = true;
+        AmDataProvider::stop();
+    }
+    // Wait for all IO to complete and volumes to be closed.
+    check_done.wait(lk, [this] () mutable -> bool { return AmDataProvider::done(); });
     if (prepareForShutdownCb) {
         prepareForShutdownCb();
         prepareForShutdownCb = nullptr;
     }
 }
 
-void AmProcessor_impl::stop() {
-    SCOPEDWRITE(shut_down_lock);
-
-    if (!shut_down) {
-        LOGNOTIFY << "AmProcessor received a stop request.";
-        shut_down = true;
-        AmDataProvider::stop();
-    }
-
-    if (AmDataProvider::done()) {
-        parent_mod->mod_shutdown();
-    }
-}
-
 void AmProcessor_impl::registerVolume(const VolumeDesc& volDesc) {
-    AmDataProvider::registerVolume(volDesc);
     // Alert connectors to the new volume
     parent_mod->volumeAdded(volDesc);
 }
@@ -235,35 +220,61 @@ void AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
 
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
+    std::lock_guard<std::mutex> lg(shut_down_lock);
+    if (shut_down) return ERR_OK;
     // If we successfully update the dlt, have the parent do it's init check
-    auto e = AmDataProvider::updateDlt(dlt_type, dlt_data, cb);
-    if (e.ok() && !have_tables.first) {
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt_type, dlt_data, cb);
+    if (err.ok()) {
         have_tables.first = true;
-        parent_mod->mod_enable_service();
+    } else if (ERR_DUPLICATE == err) {
+        LOGWARN << "Received duplicate DLT version, ignoring";
+        err = ERR_OK;
     }
-    return e;
+    return err;
 }
 
 Error
 AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
+    std::lock_guard<std::mutex> lg(shut_down_lock);
+    if (shut_down) return ERR_OK;
     // If we successfully update the dmt, have the parent do it's init check
-    auto e = AmDataProvider::updateDmt(dmt_type, dmt_data, cb);
-    if (e.ok() && !have_tables.second) {
+    auto err = MODULEPROVIDER()->getSvcMgr()->updateDmt(dmt_type, dmt_data, cb);
+    if (err.ok()) {
         have_tables.second = true;
-        parent_mod->mod_enable_service();
+    } else if (ERR_DUPLICATE == err) {
+        LOGWARN << "Received duplicate DMT version, ignoring";
+        err = ERR_OK;
     }
-    return e;
+    return err;
 }
 
 bool
 AmProcessor_impl::haveTables() {
-    if (!have_tables.first) {
-        have_tables.first = AmDataProvider::getDLT().ok();
+    std::lock_guard<std::mutex> lg(shut_down_lock);
+    if (shut_down) return true;
+    auto& have_dlt = have_tables.first;
+    auto& have_dmt = have_tables.second;
+    if (standAlone) return true;
+    have_dlt = (have_dlt) ? have_dlt : MODULEPROVIDER()->getSvcMgr()->getDLT().ok();
+    have_dmt = (have_dmt) ? have_dmt : MODULEPROVIDER()->getSvcMgr()->getDMT().ok();
+    return have_dlt && have_dmt;
+}
+
+void
+AmProcessor_impl::getVolumes(std::vector<VolumeDesc>& volumes) {
+    std::lock_guard<std::mutex> lg(shut_down_lock);
+    volumes.clear();
+    if (shut_down) return;
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
+    err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
+    if (err.ok()) {
+        for (auto const& volume : list.volumeList) {
+            if (fpi::Active == volume.vol_desc.state) {
+                volumes.emplace_back(volume.vol_desc);
+            }
+        }
     }
-    if (!have_tables.second) {
-        have_tables.second = AmDataProvider::getDMT().ok();
-    }
-    return have_tables.first && have_tables.second;
 }
 
 /**
@@ -282,11 +293,6 @@ void AmProcessor::start()
 void AmProcessor::prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb)
 {
     return _impl->prepareForShutdownMsgRespBindCb(std::move(cb));
-}
-
-void AmProcessor::prepareForShutdownMsgRespCallCb()
-{
-    return _impl->prepareForShutdownMsgRespCallCb();
 }
 
 void AmProcessor::stop()

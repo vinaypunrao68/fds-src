@@ -29,6 +29,14 @@
 #include <requestmanager.h>
 #include <boost/filesystem.hpp>
 
+#define VOLUME_REQUEST_CHECK() \
+    auto volMeta = parentDm->getVolumeMeta(io->volId); \
+    if (volMeta == nullptr) { \
+        LOGWARN << "Volume not found. " << io->log_string(); \
+        io->cb(ERR_VOL_NOT_FOUND, io); \
+        break; \
+    } \
+    
 namespace fds {
 
 struct RemoveErroredVolume {
@@ -993,7 +1001,7 @@ void DataMgr::initHandlers() {
     handlers[FDS_SET_VOLUME_METADATA] = new dm::SetVolumeMetadataHandler(*this);
     handlers[FDS_GET_VOLUME_METADATA] = new dm::GetVolumeMetadataHandler(*this);
     handlers[FDS_OPEN_VOLUME] = new dm::VolumeOpenHandler(*this);
-    handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
+    // handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
     handlers[FDS_DM_LOAD_FROM_ARCHIVE] = new dm::LoadFromArchiveHandler(*this);
@@ -1137,7 +1145,8 @@ void DataMgr::mod_enable_service() {
     // Register the DLT manager with service layer so that
     // outbound requests have the correct dlt_version.
     if (!features.isTestModeEnabled()) {
-        gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+        auto reqMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+        reqMgr->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
     if (timeVolCat_->isUnavailable()) {
@@ -1186,6 +1195,9 @@ void DataMgr::mod_shutdown()
         refCountMgr->mod_shutdown();
     }
 
+    if (!standalone) {
+        StatsCollector::singleton()->stopStreaming();
+    }
     if ( statStreamAggr_ ) {
         statStreamAggr_->mod_shutdown();
     }
@@ -1640,6 +1652,24 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
 
             break;
             // catalog write handlers
+        case FDS_DM_VOLUMEGROUP_UPDATE:
+        {
+            VOLUME_REQUEST_CHECK();
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&VolumeMeta::handleVolumegroupUpdate,
+                                                        volMeta,
+                                                        io));
+            break;
+        }
+        case FDS_DM_MIG_FINISH_STATIC_MIGRATION:
+        {
+            VOLUME_REQUEST_CHECK();
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&VolumeMeta::handleFinishStaticMigration,
+                                                        volMeta,
+                                                        io));
+            break;
+        }
         case FDS_DELETE_BLOB:
         case FDS_CAT_UPD:
         case FDS_START_BLOB_TX:
@@ -1649,7 +1679,6 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_ABORT_BLOB_TX:
         case FDS_SET_VOLUME_METADATA:
         case FDS_OPEN_VOLUME:
-        case FDS_DM_VOLUMEGROUP_UPDATE:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
         case FDS_DM_LOAD_FROM_ARCHIVE:

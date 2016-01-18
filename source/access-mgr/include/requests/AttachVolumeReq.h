@@ -24,7 +24,6 @@ struct AttachVolumeReq : public AmRequest {
     fds_int64_t token {invalid_vol_token};
 
     boost::shared_ptr<VolumeDesc> volDesc;
-    bool renewal {false};
 
     /**
      * Request constructor. Some of the fields

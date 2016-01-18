@@ -27,7 +27,6 @@ namespace fds {
 struct EPSvcRequest;
 
 using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
-using migrationCb = std::function<void(const Error& e)>;
 using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
 using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 							                    fds_volid_t volumeId,
@@ -92,9 +91,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     std::string getBaseDirPath() const;
 
     /**
-    * @return Bufferfile path used in buffering operations while sync is in progress
+    * @return Bufferfile prefix path used in buffering operations while sync is in progress
     */
-    std::string getBufferfilePath() const;
+    std::string getBufferfilePrefix() const;
 
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
@@ -155,11 +154,15 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     /**
      * DM Migration related
      */
-    Error startMigration(NodeUuid& srcDmUuid,
-                         fpi::FDSP_VolumeDescType &vol,
-                         migrationCb doneCb);
+    Error startMigration(const fpi::SvcUuid &srcDmUuid,
+                         const int64_t &volId,
+                         const StatusCb &doneCb);
 
     Error serveMigration(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
+    void handleFinishStaticMigration(DmRequest *dmRequest);
+
 
     /**
      * Returns true if DM is forwarding this volume's
@@ -186,6 +189,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
      * If state is 'in progress', will move to 'finishing'
      */
     void finishForwarding();
+
+
+    /* Handlers */
+    void handleVolumegroupUpdate(DmRequest *dmRequest);
 
 
     VolumeDesc *vol_desc;
@@ -255,7 +262,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     Error createMigrationSource(NodeUuid destDmUuid,
                                 const NodeUuid &mySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                migrationCb cleanup);
+                                StatusCb cleanup);
 
     /**
      * Internally cleans up a source
@@ -270,11 +277,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                      fds_volid_t volId,
                                      const Error &err);
-
     /**
      * Stores the hook for Callback to the volume group manager
      */
-    migrationCb cbToVGMgr;
+    StatusCb cbToVGMgr;
 };
 
 }  // namespace fds

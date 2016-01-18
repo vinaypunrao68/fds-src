@@ -18,7 +18,6 @@ namespace fds {
 
 struct AmTxDescriptor;
 struct PutBlobReq;
-class CommonModuleProviderIf;
 class RandNumGenerator;
 
 /**
@@ -45,7 +44,7 @@ struct AmTxManager :
     fds_uint32_t maxStagedEntries;
 
   public:
-    AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
+    explicit AmTxManager(AmDataProvider* prev);
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager() override;
