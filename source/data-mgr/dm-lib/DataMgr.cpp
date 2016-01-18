@@ -22,23 +22,12 @@
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
 #include <net/volumegroup_extensions.h>
+#include <dm-vol-cat/DmPersistVolDB.h>
 
-namespace {
-Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
-    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
-
-    boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
-    msg->volume_id = volId.get();
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
-
-    SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
-    asyncReq->onResponseCb(waiter.cb);
-
-    asyncReq->invoke();
-    waiter.await();
-    return waiter.error;
-}
-} // namespace
+#include <timeline/timelinemanager.h>
+#include <refcount/refcountmanager.h>
+#include <requestmanager.h>
+#include <boost/filesystem.hpp>
 
 namespace fds {
 
@@ -59,43 +48,6 @@ struct RemoveErroredVolume {
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
-
-/**
- * Send an Event to OM using the events API
- */
-
-void DataMgr::sendEventMessageToOM(fpi::EventType eventType,
-                                   fpi::EventCategory eventCategory,
-                                   fpi::EventSeverity eventSeverity,
-                                   fpi::EventState eventState,
-                                   const std::string& messageKey,
-                                   std::vector<fpi::MessageArgs> messageArgs,
-                                   const std::string& messageFormat) {
-
-    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
-
-    eventMsg->event.type = eventType;
-    eventMsg->event.category = eventCategory;
-    eventMsg->event.severity = eventSeverity;
-    eventMsg->event.state = eventState;
-
-    auto now = std::chrono::system_clock::now();
-    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    eventMsg->event.initialTimestamp = seconds;
-    eventMsg->event.modifiedTimestamp = seconds;
-    eventMsg->event.messageKey = messageKey;
-    eventMsg->event.messageArgs = messageArgs;
-    eventMsg->event.messageFormat = messageFormat;
-    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
-
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-
-    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
-    request->invoke();
-
-}
-
 
 /**
  * Receiver DM processing of volume sync state.
@@ -256,7 +208,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             timeVolCat_->setUnavailable();
 
             // Send message to OM
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
+            requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
 
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -264,18 +216,18 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt = pct_used;
 
             // Send message to OM
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
-                                   ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
+            requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
+                                               ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "DM is utilizing " << pct_used << " of available storage space!";
 
-            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
-                                 fpi::EVENT_SEVERITY_WARNING,
-                                 fpi::EVENT_STATE_SOFT,
-                                 "dm.capacity.warn",
-                                 std::vector<fpi::MessageArgs>(), "");
+            requestMgr->sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                             fpi::EVENT_SEVERITY_WARNING,
+                                             fpi::EVENT_STATE_SOFT,
+                                             "dm.capacity.warn",
+                                             std::vector<fpi::MessageArgs>(), "");
 
             lastCapacityMessageSentAt = pct_used;
         } else {
@@ -285,36 +237,13 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                 lastCapacityMessageSentAt = 0;
 
                 // Send message to OM resetting us to OK state
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                       "DM utilization no longer at dangerous levels.");
+                requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                                   "DM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
     }
     sampleCounter++;
-
-}
-
-void DataMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
-                                     fds_errno_t statusCode,
-                                     const std::string& statusInfo) {
-
-    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
-
-    // Send health check thrift message to OM
-    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
-    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
-    healthRepMsg->healthReport.serviceInfo.name = info.name;
-    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
-    healthRepMsg->healthReport.serviceState = serviceState;
-    healthRepMsg->healthReport.statusCode = statusCode;
-    healthRepMsg->healthReport.statusInfo = statusInfo;
-
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-
-    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
-    request->invoke();
 
 }
 
@@ -980,7 +909,7 @@ int DataMgr::mod_init(SysParams const *const param)
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
-
+    requestMgr = new dm::RequestManager(this);
     // qos threadpool config
     qosThreadCount = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
@@ -1088,6 +1017,7 @@ DataMgr::~DataMgr()
         delete it->second;
     }
     vol_meta_map.clear();
+    delete requestMgr;
     delete sysTaskQueue;
     delete vol_map_mtx;
     delete qosCtrl;
@@ -1211,7 +1141,7 @@ void DataMgr::mod_enable_service() {
 
     if (timeVolCat_->isUnavailable()) {
         // send health check msg to OM
-        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
+        requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
     }
 }
 
