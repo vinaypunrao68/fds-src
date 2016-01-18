@@ -272,6 +272,12 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
 
 void
 AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
+    if (volume_grouping_support) {
+        // Volume grouping requires the volume to be fully open
+        write(amReq, func);
+        return;
+    }
+
     ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
@@ -293,7 +299,7 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
 void
 AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
     // Check we're writable
-    WriteGuard wg(map_rwlock);
+    ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         amReq->setVolId(vol->voldesc->GetID());
