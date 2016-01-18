@@ -261,7 +261,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
                                 const NodeUuid &mySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
                                 StatusCb cleanup,
-                                int32_t volmetaVersion);
+                                int32_t version);
 
     /**
      * Internally cleans up a source

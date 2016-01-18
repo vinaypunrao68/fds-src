@@ -32,7 +32,7 @@ DmMigrationClient::DmMigrationClient(DataMgr& _dataMgr,
 	  abortFlag(false),
 	  cleanUp(_cleanup)
 {
-	volId = fds_volid_t(_ribfsm->volumeId);
+	volId = fds_volid_t(_ribfsm->volume_id);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
     seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
     dmtVersion = dataMgr.getModuleProvider()->getSvcMgr()->getDMTVersion();
@@ -238,16 +238,16 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     // Allocate the payload message and set the volume id and sequence number
     // Allocate both blobs and blob desc list.
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg(new fpi::CtrlNotifyDeltaBlobsMsg());
-    deltaBlobsMsg->volumeId = volId.get();
+    deltaBlobsMsg->volume_id = volId.get();
     deltaBlobsMsg->DMT_version = migrationId;
     deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
-    deltaBlobsMsg->version = volmetaVersion;
+    deltaBlobsMsg->version = version;
 
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
-    deltaBlobDescMsg->volumeId = volId.get();
+    deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-    deltaBlobDescMsg->version = volmetaVersion;
+    deltaBlobDescMsg->version = version;
 
     for (const auto & blobName: updateBlobs) {
         if (abortFlag) {
@@ -298,10 +298,10 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
              * that can execute asynchronously.
              */
             deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg);
-            deltaBlobDescMsg->volumeId = volId.get();
+            deltaBlobDescMsg->volume_id = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-            deltaBlobDescMsg->version = volmetaVersion;
+            deltaBlobDescMsg->version = version;
         }
 
         if (deltaBlobsMsg->blob_obj_list.size() >= maxNumBlobs) {
@@ -317,10 +317,10 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
              * that can execute asynchronously.
              */
             deltaBlobsMsg.reset(new fpi::CtrlNotifyDeltaBlobsMsg);
-            deltaBlobsMsg->volumeId = volId.get();
+            deltaBlobsMsg->volume_id = volId.get();
             deltaBlobsMsg->DMT_version = migrationId;
             deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
-            deltaBlobsMsg->version = volmetaVersion;
+            deltaBlobsMsg->version = version;
         }
     }
 
@@ -355,10 +355,10 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
      * on the destination side.
      */
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
-    deltaBlobDescMsg->volumeId = volId.get();
+    deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-    deltaBlobDescMsg->version = volmetaVersion;
+    deltaBlobDescMsg->version = version;
 
     /**
      * Loop and generate delta desc msg for the delete blobs.
@@ -393,10 +393,10 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
              * that can execute asynchronously.
              */
             deltaBlobDescMsg.reset(new fpi::CtrlNotifyDeltaBlobDescMsg());
-            deltaBlobDescMsg->volumeId = volId.get();
+            deltaBlobDescMsg->volume_id = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
-            deltaBlobDescMsg->version = volmetaVersion;
+            deltaBlobDescMsg->version = version;
         }
     }
 
@@ -524,7 +524,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
     LOGMIGRATE << logString() << "Sending blobs to: " << std::hex << destDmUuid << std::dec
         << " " << fds::logString(*blobsMsg);
 
-    fds_verify(static_cast<fds_volid_t>(blobsMsg->volumeId) == volId);
+    fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
     auto asyncDeltaBlobsMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobsMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
@@ -548,7 +548,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
     LOGMIGRATE << logString() << "Sending blob descs to: " << std::hex << destDmUuid << std::dec
         << " " << fds::logString(*blobDescMsg);
 
-    fds_verify(static_cast<fds_volid_t>(blobDescMsg->volumeId) == volId);
+    fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
     auto asyncDeltaBlobDescMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),

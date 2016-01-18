@@ -285,7 +285,7 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
 Error
 DmMigrationMgr::applyDeltaBlobDescs(DmIoMigrationDeltaBlobDesc* deltaBlobDescReq) {
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg = deltaBlobDescReq->deltaBlobDescMsg;
-    fds_volid_t volId(deltaBlobDescMsg->volumeId);
+    fds_volid_t volId(deltaBlobDescMsg->volume_id);
     NodeUuid srcUuid(deltaBlobDescReq->srcUuid);
     Error err(ERR_OK);
     auto uniqueId = std::make_pair(srcUuid, volId);
@@ -334,7 +334,7 @@ Error
 DmMigrationMgr::applyDeltaBlobs(DmIoMigrationDeltaBlobs* deltaBlobReq) {
     Error err(ERR_OK);
     fpi::CtrlNotifyDeltaBlobsMsgPtr deltaBlobsMsg = deltaBlobReq->deltaBlobsMsg;
-    fds_volid_t volId(deltaBlobsMsg->volumeId);
+    fds_volid_t volId(deltaBlobsMsg->volume_id);
     NodeUuid srcUuid(deltaBlobReq->srcUuid);
     auto uniqueId = std::make_pair(srcUuid, volId);
     {
@@ -422,7 +422,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     waitForMigrationBatchToFinish(MIGR_CLIENT);
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volumeId;
+        <<" received msg for volume " << migReqMsg->volume_id;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -442,13 +442,13 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
      * Make sure that this isn't an ongoing operation.
      * Otherwise, DM bug
      */
-    auto fds_volid = fds_volid_t(filterSet->volumeId);
+    auto fds_volid = fds_volid_t(filterSet->volume_id);
     auto search = clientMap.find(std::make_pair(destDmUuid, fds_volid));
     DmMigrationClient::shared_ptr client = nullptr;
     if (search != clientMap.end()) {
         LOGERROR << "migrationid: " << filterSet->DMT_version
             << " Client received request for destination node: " << destDmUuid
-            << " volume " << filterSet->volumeId << " but it already exists";
+            << " volume " << filterSet->volume_id << " but it already exists";
         err = ERR_DUPLICATE;
         abortMigration();
     } else {
@@ -819,7 +819,7 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg
 		blobInfo.append(blobObjInfo);
 	}
 
-	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volumeId
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
 }
@@ -843,7 +843,7 @@ DmMigrationMgr::dumpDmIoMigrationDeltaBlobDesc(fpi::CtrlNotifyDeltaBlobDescMsgPt
 		blobInfo.append(blobObjInfo);
 	}
 
-	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volumeId
+	LOGMIGRATE << "CtrlNotifyDeltaBlobsMSg volume = " << msg->volume_id
 			<< " msg_seq_id = " << msg->msg_seq_id << " last ? " << msg->last_msg_seq_id
 			<< " " << blobInfo;
 }

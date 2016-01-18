@@ -40,10 +40,10 @@ public:
 
     /**
      * Used in the volmeta context, for destination
-     * If the volmetaVersion is set, checks the argument and see if
+     * If the version is set, checks the argument and see if
      * this is the same version as the one undergoing migration.
      */
-    Error CheckVolmetaVersion(const int32_t version);
+    Error checkVolmetaVersion(const int32_t version);
 private:
 };
 

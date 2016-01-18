@@ -56,7 +56,7 @@ protected:
      * vol meta version of the other side
      * Used for volmeta migration
      */
-    int32_t volmetaVersion;
+    int32_t version;
 };
 
 } // namespace fds

@@ -536,14 +536,14 @@ struct CtrlNotifyDMStartMigrationRspMsg {
   /* Version of DMT associated with the migration. */
   1: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
-  2: i64                     version;
+  2: i32                     version;
 }
 
 /**
  * delta blob  set from the source DM to  destination DM.
  */
 struct CtrlNotifyDeltaBlobsMsg {
-  1: i64                     volumeId;
+  1: i64                     volume_id;
   2: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
   3: i64                     version;
@@ -574,7 +574,7 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
  * delta blob  set from the source DM to  destination DM.
  */
 struct CtrlNotifyDeltaBlobDescMsg {
-  1: i64                     volumeId;
+  1: i64                     volume_id;
   2: i64                     DMT_version;
   /* Version of the volume stored in volumeMeta */
   3: i64                     version;
@@ -717,7 +717,7 @@ struct ReloadVolumeRspMsg {
  */
 struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
-  1: i64                volumeId;
+  1: i64                volume_id;
   2: i64                DMT_version;
   3: i64                version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed

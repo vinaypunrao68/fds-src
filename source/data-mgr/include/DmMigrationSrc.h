@@ -28,7 +28,7 @@ public:
                    migrationCb _cleanup,
                    uint64_t _maxDeltaBlobs,
                    uint64_t _maxDeltaBlobDesc,
-                   int32_t _volmetaVersion);
+                   int32_t _version);
     ~DmMigrationSrc();
     void abortMigration() override;
     void run() override;

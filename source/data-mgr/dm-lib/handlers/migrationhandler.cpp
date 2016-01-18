@@ -105,7 +105,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     NodeUuid tmpUuid;
-    fds_volid_t volId = fds_volid_t(message->volumeId);
+    fds_volid_t volId = fds_volid_t(message->volume_id);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoResyncInitialBlob(volId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
@@ -184,6 +184,7 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         if (volMeta == nullptr) {
+            helper.err = ERR_VOLMETA_NOT_FOUND;
             // Let handleResponse delete the request
             return;
         }

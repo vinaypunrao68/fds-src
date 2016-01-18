@@ -23,7 +23,7 @@ DmMigrationDest::DmMigrationDest(int64_t _migrId,
                       _timeout)
 {
     logStr = util::strformat("[DmMigrationDest volId: %ld]", volumeUuid.get());
-    volmetaVersion = VolumeGroupConstants::VERSION_INVALID;
+    version = VolumeGroupConstants::VERSION_INVALID;
 }
 
 Error
@@ -87,7 +87,7 @@ DmMigrationDest::abortMigration()
     }
 }
 Error
-DmMigrationDest::CheckVolmetaVersion(const int32_t version)
+DmMigrationDest::checkVolmetaVersion(const int32_t version)
 {
     Error err(ERR_OK);
     auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
