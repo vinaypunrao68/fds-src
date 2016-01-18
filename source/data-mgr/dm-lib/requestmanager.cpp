@@ -3,6 +3,7 @@
  */
 #include <DataMgr.h>
 #include <requestmanager.h>
+#include <fdsp/event_api_types.h>
 namespace fds { namespace dm {
 
 RequestManager::RequestManager(DataMgr* dataMgr): dataMgr(dataMgr) {
