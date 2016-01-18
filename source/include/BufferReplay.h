@@ -26,7 +26,16 @@ using StringPtr = boost::shared_ptr<std::string>;
  */
 struct BufferReplay {
     using OpType = int32_t;
-    using Op = std::pair<OpType, StringPtr>;
+    struct Op {
+        Op() {}
+        Op(int64_t _id, OpType _type, const StringPtr &_payload)
+        : opId(_id), type(_type), payload(_payload)
+        {}
+
+        int64_t         opId {0};
+        OpType          type {0};
+        StringPtr       payload;
+    };
     enum Progress {
         IDLE = 0,
         BUFFERING,
@@ -135,6 +144,7 @@ struct BufferReplay {
     int32_t                                     writefd_;
     std::unique_ptr<serialize::Serializer>      serializer_;
     std::unique_ptr<serialize::Deserializer>    deserializer_;
+    int64_t                                     startingOpId_;
     /* Total # of ops buffered to file */
     int64_t                                     nBufferedOps_;
     /* Total # of ops read and sent for replay */

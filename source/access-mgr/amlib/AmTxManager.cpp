@@ -19,8 +19,8 @@
 
 namespace fds {
 
-AmTxManager::AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
-    : AmDataProvider(prev, new AmCache(this, modProvider))
+AmTxManager::AmTxManager(AmDataProvider* prev)
+    : AmDataProvider(prev, new AmCache(this))
 {
 }
 

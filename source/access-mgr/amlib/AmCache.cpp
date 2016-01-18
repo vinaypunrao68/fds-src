@@ -18,8 +18,8 @@ namespace fds {
 static constexpr fds_uint32_t Ki { 1024 };
 static constexpr fds_uint32_t Mi { 1024 * Ki };
 
-AmCache::AmCache(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
-    : AmDataProvider(prev, new AmDispatcher(this, modProvider)),
+AmCache::AmCache(AmDataProvider* prev)
+    : AmDataProvider(prev, new AmDispatcher(this)),
       max_metadata_entries(0)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");

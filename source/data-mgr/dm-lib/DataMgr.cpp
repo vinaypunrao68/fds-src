@@ -1270,6 +1270,9 @@ void DataMgr::mod_shutdown()
         refCountMgr->mod_shutdown();
     }
 
+    if (!standalone) {
+        StatsCollector::singleton()->stopStreaming();
+    }
     if ( statStreamAggr_ ) {
         statStreamAggr_->mod_shutdown();
     }
