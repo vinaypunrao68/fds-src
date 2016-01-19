@@ -77,6 +77,13 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
     }
 }
 
+void ScstConnector::targetDone(const std::string target_name) {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    if (0 < targets_.erase(target_name)) {
+        LOGNOTIFY << "Connector has removed target: " << target_name;
+    }
+}
+
 void ScstConnector::addTarget(VolumeDesc const& volDesc) {
     std::lock_guard<std::mutex> lk(target_lock_);
     if (!stopping) {
@@ -86,19 +93,33 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
 
 void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // Create target if it does not already exist
-    ScstTarget* target = nullptr;
-    auto it = targets_.find(volDesc.name);
-    if (targets_.end() == it) {
+    auto target_name = target_prefix + volDesc.name;
+    bool happened {false};
+    auto it = targets_.end();
+    std::tie(it, happened) = targets_.emplace(target_name, nullptr);
+    if (happened) {
         try {
-        target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
+            it->second.reset(new ScstTarget(this,
+                                            target_name,
+                                            threads,
+                                            amProcessor));
         } catch (ScstError& e) {
-            LOGERROR << "Failed to initialize target [" << volDesc.name << "], ensure that SCST is installed and running.";
+            LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
             return;
         }
-        targets_[volDesc.name].reset(target);
-        target->addDevice(volDesc);
-    } else {
-        target = it->second.get();
+        it->second->addDevice(volDesc);
+    }
+    if (targets_.end() == it) {
+        LOGERROR << "Failed to insert target into target map...";
+        return;
+    }
+    auto& target = *it->second;
+
+    // If we already had a target, and it's shutdown...wait for it to complete
+    // before trying to apply the apparently new descriptor
+    if (!happened && !target.enabled()) {
+        LOGNOTIFY << "Waiting for existing target to complete shutdown: " << target_name;
+        return;
     }
 
     // Setup initiator masking
@@ -106,7 +127,7 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     for (auto const& ini : volDesc.iscsiSettings.initiators) {
         initiator_list.emplace(ini.wwn_mask);
     }
-    target->setInitiatorMasking(initiator_list);
+    target.setInitiatorMasking(initiator_list);
 
     // Setup CHAP
     std::unordered_map<std::string, std::string> credentials;
@@ -125,15 +146,16 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
             continue;
         }
     }
-    target->setCHAPCreds(credentials);
+    target.setCHAPCreds(credentials);
 
-    target->enable();
+    target.enable();
 }
 
 void ScstConnector::removeTarget(VolumeDesc const& volDesc) {
     std::lock_guard<std::mutex> lg(target_lock_);
+    auto target_name = target_prefix + volDesc.name;
 
-    auto it = targets_.find(volDesc.name);
+    auto it = targets_.find(target_name);
     if (targets_.end() == it) return;
 
     it->second->removeDevice(volDesc.name);

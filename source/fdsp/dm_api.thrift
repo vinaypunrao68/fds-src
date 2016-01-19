@@ -736,19 +736,6 @@ struct CtrlNotifyGetActiveTxRspMsg {
    Debug APIs
    ------------------------------------------------------------*/
 
-/* Message to query volume state */
-struct DbgQueryVolumeStateMsg {
-    1: i64                      volId;
-}
-
-/* Response containing volume state related information.  At the moment it is
- * key value pairs because the purpose is just querying state.  Feel free
- * to make it typed when needed.
- */
-struct DbgQueryVolumeStateRspMsg {
-    1: map<string, string>      state;
-}
-
 /**
 * Message to force volume initialization sequence
 */

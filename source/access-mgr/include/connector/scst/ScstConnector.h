@@ -47,6 +47,12 @@ struct ScstConnector
 
     std::string targetPrefix() const { return target_prefix; }
 
+    /***
+     * Used by the ScstTarget to tell the Connector
+     * it is safe to remove
+     */
+    void targetDone(const std::string target_name);
+
  private:
     template<typename T>
     using unique = std::unique_ptr<T>;

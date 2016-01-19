@@ -402,6 +402,13 @@ std::string logString(const fpi::DeleteBlobMsg& msg) {
     return oss.str();
 }
 
+std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " volume_id: " << msg.volumeId;
+    return oss.str();
+}
+
 std::string quoteString(std::string const& text,
                         std::string const& delimiter,
                         std::string const& escape) {

@@ -138,18 +138,22 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
 AmVolumeTable::~AmVolumeTable() = default;
 
 void AmVolumeTable::start() {
-    FdsConfigAccessor conf(MODULEPROVIDER()->get_fds_config(), "fds.am.");
-    vol_tok_renewal_freq = std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
-    token_timer = MODULEPROVIDER()->getTimer();
-    renewal_task = boost::shared_ptr<FdsTimerTask>(new RenewLeaseTask (this, *token_timer));
-    token_timer->schedule(renewal_task, vol_tok_renewal_freq);
-
     /**
      * FEATURE TOGGLE: "VolumeGroup" support in Dispatcher
      * Fri Jan 15 10:24:22 2016
      */
     FdsConfigAccessor ft_conf(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
     volume_grouping_support = ft_conf.get<bool>("common.enable_volumegrouping", volume_grouping_support);
+
+    // We don't renew tokens when using VGS
+    if (!volume_grouping_support) {
+        FdsConfigAccessor conf(MODULEPROVIDER()->get_fds_config(), "fds.am.");
+        vol_tok_renewal_freq = std::chrono::duration<fds_uint32_t>(conf.get<fds_uint32_t>("token_renewal_freq"));
+        token_timer = MODULEPROVIDER()->getTimer();
+        renewal_task = boost::shared_ptr<FdsTimerTask>(new RenewLeaseTask (this, *token_timer));
+        token_timer->schedule(renewal_task, vol_tok_renewal_freq);
+    }
+
 
     AmDataProvider::start();
 }
@@ -168,7 +172,9 @@ AmVolumeTable::stop() {
         // Close all open Volumes
         WriteGuard wg(map_rwlock);
         LOGDEBUG << "VolumeTable shutdown, stopping all renewals.";
-        token_timer->cancel(renewal_task);
+        if (!volume_grouping_support) {
+            token_timer->cancel(renewal_task);
+        }
         LOGNOTIFY << "VolumeTable shutdown, closing all open volumes.";
         for (auto const& vol_pair : volume_map) {
             auto const& vol = vol_pair.second;
@@ -272,6 +278,12 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
 
 void
 AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
+    if (volume_grouping_support) {
+        // Volume grouping requires the volume to be fully open
+        write(amReq, func);
+        return;
+    }
+
     ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
@@ -293,7 +305,7 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
 void
 AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
     // Check we're writable
-    WriteGuard wg(map_rwlock);
+    ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         amReq->setVolId(vol->voldesc->GetID());
@@ -443,12 +455,14 @@ AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
 
 void
 AmVolumeTable::lookupVolume(std::string const volume_name) {
+    static auto const lookup_timeout = 2500ull;
     try {
         auto req = gSvcRequestPool->newEPSvcRequest(MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
         fpi::GetVolumeDescriptorPtr msg(new fpi::GetVolumeDescriptor());
         msg->volume_name = volume_name;
         req->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeDescriptor), msg);
         req->onResponseCb(RESPONSE_MSG_HANDLER(AmVolumeTable::lookupVolumeCb, volume_name));
+        req->setTimeoutMs(lookup_timeout);
         req->invoke();
         LOGNOTIFY << " retrieving volume descriptor from OM for " << volume_name;
     } catch(...) {

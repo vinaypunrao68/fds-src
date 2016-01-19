@@ -157,8 +157,6 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            const Error &err);
 
-    void handleDbgQueryVolumeStateMsg(SHPTR<fpi::AsyncHdr>& hdr,
-                                     SHPTR<fpi::DbgQueryVolumeStateMsg> &queryMsg);
     void handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                      SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg);
     template <class DmVolumeReqT>
